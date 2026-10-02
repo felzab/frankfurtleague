@@ -8,7 +8,7 @@
 export const KEINE_TEAMS = "Diese Saison hat noch kein Team aufgenommen.";
 
 /**
- * What an administrator is told where the whole fan-out was withheld, which is every stack but
+ * What an administrator is told wherever a send of theirs was withheld, which is every stack but
  * production: a refusal would offer a retry no repeat of it can reach.
  */
 export const ZURUECKGEHALTEN = "Diese Umgebung sendet keine E-Mails. Die Nachricht wurde nur abgelegt.";

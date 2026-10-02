@@ -83,6 +83,7 @@ const {
 } = await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
 const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
+const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
 /** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
@@ -159,7 +160,7 @@ describe("who a decision is sent to", () => {
       sent.map((mail) => mail.to),
       ["a@schule.de"],
     );
-    assert.deepEqual(outcome, { delivered: ["a@schule.de"], unreachable: [], ungewiss: [] });
+    assert.deepEqual(outcome, { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [] });
   });
 
   /* `trainer_ist_zugleich` stores ONE person in two slots, so the same address stands twice in
@@ -520,20 +521,39 @@ describe("a fan-out that cannot reach everyone", () => {
     assert.equal(logged[0]?.meta.name, "MailSendError", "the line no longer names the error class");
     assert.equal(logged[0]?.error, undefined, "the error object reaches the stream, and its message and stack with it");
   });
+
+  /* The mailer's own line records a filed message (`docs/logging/error-codes.md`, `FE-MAIL-004`), and
+     a second, failing one per address would read every local decision as a failed send. */
+  it("lists a withheld send apart and logs no failure for it", async () => {
+    reset();
+    outcomes.set("erste@schule.de", "withheld");
+
+    const outcome = await sendBewerbungMail({
+      operation: "annehmenBewerbungAction",
+      recipients: [empfaenger("erste@schule.de")],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual([outcome.unreachable, outcome.withheld], [["erste@schule.de"], ["erste@schule.de"]]);
+    assert.deepEqual(logged, []);
+  });
 });
 
 describe("what the administrator is told", () => {
   it("names nobody where every message arrived", () => {
     assert.equal(
-      describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [] }),
+      describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [], withheld: [] }),
       "Die Zusage ging an 2 Kontaktpersonen.",
     );
     // Its own arm: German counts nothing and one with words rather than with a figure.
-    assert.equal(describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [] }), "Die Absage ging an eine Kontaktperson.");
+    assert.equal(
+      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [] }),
+      "Die Absage ging an eine Kontaktperson.",
+    );
   });
 
   it("names every address it could not reach", () => {
-    const report = describeBewerbungMail("Zusage", { delivered: ["a@schule.de"], unreachable: ["b@schule.de", "c@schule.de"] });
+    const report = describeBewerbungMail("Zusage", { delivered: ["a@schule.de"], unreachable: ["b@schule.de", "c@schule.de"], withheld: [] });
 
     assert.match(report, /b@schule\.de/);
     assert.match(report, /c@schule\.de/);
@@ -544,18 +564,24 @@ describe("what the administrator is told", () => {
      article, so lower-casing it renders „ging die absage“ where a fragment match sees nothing. */
   it("says so where the application named no address at all", () => {
     assert.equal(
-      describeBewerbungMail("Absage", { delivered: [], unreachable: [] }),
+      describeBewerbungMail("Absage", { delivered: [], unreachable: [], withheld: [] }),
       "Die Bewerbung nennt keine E-Mail-Adresse, deshalb ging die Absage an niemanden raus.",
     );
   });
 
   /* Two different failures, and the words part company: nothing arrived, against some of it did. */
   it("tells a total failure apart from a partial one", () => {
-    const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"] });
-    const partial = describeBewerbungMail("Zusage", { delivered: ["b@schule.de"], unreachable: ["a@schule.de"] });
+    const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [] });
+    const partial = describeBewerbungMail("Zusage", { delivered: ["b@schule.de"], unreachable: ["a@schule.de"], withheld: [] });
 
     assert.match(nothing, /niemandem zugestellt/);
     assert.notEqual(nothing, partial);
+  });
+
+  /* Outside production every send is withheld: a report naming those addresses to chase by hand
+     would grade every local decision as a failure. */
+  it("reports a fan-out this deployment withheld in the deployment's words, naming nobody to chase", () => {
+    assert.equal(describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: ["a@schule.de"] }), ZURUECKGEHALTEN);
   });
 });
 
@@ -582,7 +608,7 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
 
     /* The reader whose message could not be composed is unreachable, and the other one is still
        delivered: one broken compose must not cost the others their notification. */
-    assert.deepEqual(outcome, { delivered: ["zweite@schule.de"], unreachable: ["erste@schule.de"], ungewiss: [] });
+    assert.deepEqual(outcome, { delivered: ["zweite@schule.de"], unreachable: ["erste@schule.de"], withheld: [], ungewiss: [] });
   });
 
   it("reports the failure on the same line a refused send uses", async () => {
@@ -692,7 +718,7 @@ describe("what an accepted send records about itself", () => {
 
     const outcome = await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
-    assert.deepEqual(outcome, { delivered: ["erika@schule.de"], unreachable: [], ungewiss: [] });
+    assert.deepEqual(outcome, { delivered: ["erika@schule.de"], unreachable: [], withheld: [], ungewiss: [] });
     const unreportedLine = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
     assert.equal(unreportedLine?.meta.error_code, "FE-MAIL-003");
     assert.ok(!JSON.stringify(unreportedLine).includes("erika@schule.de"), "the recipient travels on the log line");

@@ -371,6 +371,8 @@ describe("one fan-out about a record", () => {
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
     assert.deepEqual(abgewiesen, []);
+    // The mailer's own line records the filed message; a failure line beside it would be a second, false one.
+    assert.deepEqual(logged, []);
   });
 
   /* A refusal a retry could land is no fact about the mailbox, and the person's one reminder is what

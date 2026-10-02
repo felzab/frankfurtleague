@@ -41,7 +41,7 @@ describe("the link the referee's minter mails", () => {
   /* A link built on the published origin sends a reader of the local stack into production, and the
      two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
   it("is mailed by its minter on the configured origin", async () => {
-    const delivered = await mailSchiedsrichterLink({
+    const versand = await mailSchiedsrichterLink({
       operation: "POST /schiedsrichter",
       schiedsrichterId: "6890a1b2c3d4e5f607190001",
       email: "anna@example.org",
@@ -52,7 +52,7 @@ describe("the link the referee's minter mails", () => {
     const texts = mail.sent.map(({ text }) => text);
 
     // Delivered first, so a minter that mailed nothing cannot pass the origin check over no message.
-    assert.equal(delivered, true);
+    assert.equal(versand, "gesendet");
     assert.equal(texts.length, 1);
     assert.ok(texts[0]?.includes(schiedsrichterBestaetigungsLink(ORIGIN, TOKEN)), `the mailed link stands elsewhere: ${texts[0] ?? ""}`);
   });

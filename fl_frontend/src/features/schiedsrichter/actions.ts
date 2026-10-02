@@ -164,7 +164,7 @@ export async function patchSchiedsrichterAction(
       // Its own field rather than folded into the message: the editor hands this to the undo offer,
       // and a save that mailed nothing has no sentence to hand it.
       versandSatz: mint === null || versand === null ? undefined : describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === false,
+      versandFehlgeschlagen: versand === "fehlgeschlagen",
     };
   });
 }
@@ -325,7 +325,7 @@ export async function reactivateSchiedsrichterAction(
       success: true,
       updated_document: reactivateOperation.updated_document,
       message: mint === null || versand === null ? "Schiedsrichter reaktiviert" : describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === false,
+      versandFehlgeschlagen: versand === "fehlgeschlagen",
     };
   });
 }

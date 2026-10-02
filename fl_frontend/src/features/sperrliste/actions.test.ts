@@ -94,6 +94,7 @@ const CREATE_OPERATION = "POST /sperrliste";
 
 const { deleteSperreAction, postSperreAction } = await import("./actions.ts");
 const { SPERRE_ERFOLG } = await import("./constants.ts");
+const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
 const BARRED = "zorbanax@beispielschule.de";
@@ -164,6 +165,17 @@ describe("the message the barred person is sent", () => {
     assert.deepEqual(events, ["post", "mail", "refresh"]);
     assert.notEqual("message" in result ? result.message : undefined, SPERRE_ERFOLG);
     assert.match(String("message" in result ? result.message : ""), /nicht zugestellt/);
+  });
+
+  /* Outside production every send is withheld, and a ban reporting that as a failed notice shows a
+     failure on every local ban of an address an account holds. */
+  it("answers a notice this deployment withheld in the deployment's words rather than as a failure", async () => {
+    sendWith("withheld");
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, true);
+    assert.equal("message" in result ? result.message : undefined, `Die Sperre steht. ${ZURUECKGEHALTEN}`);
   });
 
   /* A connection broken after the send left may be a message the provider accepted: saying the person

@@ -7,6 +7,7 @@ import { frontend_config } from "@/core/config";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
+import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
@@ -339,6 +340,9 @@ async function sendeBestaetigungErneut({
         fristText: fristText,
       }),
   });
+
+  // Filed by a deployment that mails nothing: a refusal would offer a retry no repeat can reach.
+  if (outcome.withheld.length > 0) return { verschickt: true, message: ZURUECKGEHALTEN };
 
   return outcome.unreachable.length === 0
     ? { verschickt: true, message: `Der neue Link ging an ${person.email}.` }

@@ -192,7 +192,11 @@ export async function sendZielMail({
       markOutcomeUnknown();
     } else unreachable.push(address);
     // Beside rather than instead: every caller reading `unreachable` alone keeps the answer it had.
-    if (result.reason instanceof MailWithheldError) withheld.push(address);
+    if (result.reason instanceof MailWithheldError) {
+      withheld.push(address);
+      // No failure line: the mailer's own records a filed message, and a deployment that mails nothing failed nothing.
+      return;
+    }
     // The submit is where a refused address is learnt at all: no message was minted, so no delivery
     // event will ever carry this to the record the clocks read.
     if (versandIstAbgewiesen(result.reason)) gemeldet.push(meldeAbgewiesen(auftrag, result.reason, operation));

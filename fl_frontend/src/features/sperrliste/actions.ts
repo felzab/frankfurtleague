@@ -4,9 +4,10 @@ import { endSessionsOfAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { sendMail } from "@/core/mail";
+import { MailWithheldError, sendMail } from "@/core/mail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
 import { buildSperreEmail } from "@/core/sperrlisteEmail";
+import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -67,6 +68,10 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
 
     return null;
   } catch (failed) {
+    // Filed by a deployment that mails nothing, which the mailer's own line records: no failure, and
+    // nobody to tell by hand.
+    if (failed instanceof MailWithheldError) return ZURUECKGEHALTEN;
+
     // The NAME alone: a failure on this path routinely carries the address, and
     // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and a stack in full.
     logger.error("sperrliste.notice_failed", undefined, {

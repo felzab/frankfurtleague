@@ -51,6 +51,7 @@ const client = doubleApiAnswers(async (call) => {
 const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsrichterAction, reactivateSchiedsrichterAction } =
   await import("./actions.ts");
 const { describeLinkMail } = await import("./notifications.ts");
+const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
@@ -221,7 +222,7 @@ describe("what the create tells the administrator", () => {
   it("reports the message the mint sent rather than the title the toast already carries", async () => {
     const res = await postSchiedsrichterAction(ENTWURF);
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", true));
+    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "gesendet"));
   });
 
   /* The cleared box submits `null`: refused on that box in German, before the endpoint is reached,
@@ -298,7 +299,7 @@ describe("what the save hands the editor about the message it sent", () => {
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
     assert.equal(res.success && res.message, "Schiedsrichter bearbeitet");
-    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", true));
+    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", "gesendet"));
     assert.equal(res.success && res.versandFehlgeschlagen, false);
   });
 
@@ -307,8 +308,19 @@ describe("what the save hands the editor about the message it sent", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", false));
+    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", "fehlgeschlagen"));
     assert.equal(res.success && res.versandFehlgeschlagen, true);
+  });
+
+  /* Outside production every send is withheld, and a warning there grades every local save as one
+     whose link failed to leave. */
+  it("marks no failure where this deployment withheld the send, and says so in the deployment's words", async () => {
+    mail.answerWith(() => "withheld");
+
+    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
+
+    assert.equal(res.success && res.versandSatz, ZURUECKGEHALTEN);
+    assert.equal(res.success && res.versandFehlgeschlagen, false);
   });
 
   it("hands over no sentence where the save minted nothing", async () => {
@@ -327,7 +339,7 @@ describe("the reactivation of an unanswered referee", () => {
   it("mails the link the reactivation minted, to the address the mint read, and says so", async () => {
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", true));
+    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "gesendet"));
     assert.deepEqual(
       mail.sent.map(({ to, tags }) => ({ to, zielId: tags?.ziel_id })),
       [{ to: "anna@example.de", zielId: SCHIEDSRICHTER_ID }],
@@ -340,7 +352,7 @@ describe("the reactivation of an unanswered referee", () => {
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", false));
+    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "fehlgeschlagen"));
     assert.equal(res.success && res.versandFehlgeschlagen, true);
   });
 

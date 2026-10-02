@@ -164,11 +164,11 @@ describe("what one refused link read asks the page to show", () => {
 
 describe("what the administrator is told about the message a write sent", () => {
   it("names the address on both arms, and only the failed one asks for a second route", () => {
-    assert.match(describeLinkMail("anna@example.de", true), /ging an anna@example\.de/);
-    assert.doesNotMatch(describeLinkMail("anna@example.de", true), /Melde Dich selbst/);
+    assert.match(describeLinkMail("anna@example.de", "gesendet"), /ging an anna@example\.de/);
+    assert.doesNotMatch(describeLinkMail("anna@example.de", "gesendet"), /Melde Dich selbst/);
 
-    assert.match(describeLinkMail("anna@example.de", false), /nicht an anna@example\.de zugestellt/);
-    assert.match(describeLinkMail("anna@example.de", false), /Melde Dich selbst bei der Person/);
+    assert.match(describeLinkMail("anna@example.de", "fehlgeschlagen"), /nicht an anna@example\.de zugestellt/);
+    assert.match(describeLinkMail("anna@example.de", "fehlgeschlagen"), /Melde Dich selbst bei der Person/);
   });
 });
 

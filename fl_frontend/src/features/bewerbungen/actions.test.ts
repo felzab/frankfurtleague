@@ -104,6 +104,7 @@ const {
 } = await import("./actions.ts");
 /* After the doubles, as the actions are: a static import would load the real mail module first. */
 const { rollenText } = await import("./notifications.ts");
+const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
@@ -888,6 +889,18 @@ describe("the re-sent confirmation link", () => {
     assert.equal(result.success, false, "a refused send is still reported as a link on its way");
     assert.match(errorOf(result), /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
     assert.match(errorOf(result), /Versuche es erneut/, "the failure names no way out");
+  });
+
+  /* Outside production every send is withheld, and a refusal there offers a retry no repeat of the
+     press can reach. */
+  it("answers a message this deployment withheld as the deployment's, not as a failure", async () => {
+    answerMailWith(() => "withheld");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    const result = await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.deepEqual(result, { success: true, message: ZURUECKGEHALTEN });
   });
 
   /* The spine leaves a refusal standing, and a message that did not go leaves the mint standing: the
