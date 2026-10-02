@@ -23,7 +23,7 @@ import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
 import { KONTO_HREF } from "./kontoHref";
 import { logger } from "./logging";
-import { sendMail } from "./mail";
+import { MailWithheldError, sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
@@ -699,6 +699,9 @@ async function notify(message: PasskeyEmail, email: string): Promise<void> {
   try {
     await sendMail({ to: email, subject: message.subject, html: message.html, text: message.text });
   } catch (failed) {
+    // Filed by a deployment that mails nothing, which the mailer's own line records.
+    if (failed instanceof MailWithheldError) return;
+
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
       error_code: "FE-AUTH-004",
@@ -1067,6 +1070,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
             // and an untagged event reaches no reader at all.
             await sendMail({ to: email, subject, html, text, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
           } catch (failed) {
+            // Filed by a deployment that mails nothing, which the mailer's own line records.
+            if (failed instanceof MailWithheldError) return;
+
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
             logger.error("auth.code_send_failed", undefined, {

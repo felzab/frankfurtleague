@@ -103,7 +103,7 @@ const API_ORIGIN = "http://backend.test";
 /* The code is caught on its way out rather than off the store: `storeOTP: "encrypted"` means the
    stored value is not the code, and a `sendVerificationOTP` double would replace the send gate this
    file is checking with itself. */
-const { sent } = registerAuthDoubles({
+const { sent, answerWith: answerMail } = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
     logging: LOGGING_DOUBLE,
@@ -2310,6 +2310,46 @@ describe("what the library's own log stream reaches this application as", () => 
       assert.equal(line.error, undefined, "the library's own error object reached the writer");
       assert.deepEqual(Object.keys(line.meta).sort(), ["error_code", "name"]);
     }
+  });
+});
+
+/* A filed message is the mailer's own `FE-MAIL-004` line alone: a failure line beside it reads every
+   local sign-in and enrolment as a message that never left. */
+describe("a send this deployment withheld", () => {
+  const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
+
+  it("logs no failed code send, where a refused one logs its line", async () => {
+    answerMail(() => "withheld");
+    logged.length = 0;
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    assert.equal(sent.length, 1, "the gate mailed nothing, so no send was withheld");
+    assert.deepEqual(failedLines("auth.code_send_failed"), []);
+
+    answerMail(() => "refused");
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    assert.deepEqual(failedLines("auth.code_send_failed"), [{ error_code: "FE-AUTH-002", name: "MailSendError" }]);
+  });
+
+  it("logs no failed passkey notice", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+    answerMail(() => "withheld");
+    logged.length = 0;
+    const before = sent.length;
+
+    assert.equal((await enrolPasskey(cookie)).status, 200);
+
+    assert.equal(sent.length, before + 1, "the enrolment mailed nothing, so no notice was withheld");
+    assert.deepEqual(failedLines("auth.passkey_notice_failed"), []);
+  });
+
+  it("logs a passkey notice whose send was refused", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+    answerMail(() => "refused");
+    logged.length = 0;
+
+    assert.equal((await enrolPasskey(cookie)).status, 200);
+
+    assert.deepEqual(failedLines("auth.passkey_notice_failed"), [{ error_code: "FE-AUTH-004", name: "MailSendError" }]);
   });
 });
 
