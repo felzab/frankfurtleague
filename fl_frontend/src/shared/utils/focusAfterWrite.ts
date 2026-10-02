@@ -110,10 +110,13 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
 
       const land = (): boolean => {
         if (anchor.isConnected) return false;
-        // A focus the page still holds stays where it is: a dialog not yet closed over the control, or
-        // a refusal's overlay that took it as the reason arrived.
+        // A focus held outside the control's sections stays where it is, as a dialog not yet closed over
+        // the control holds it. One inside them was put there by the page, the reader having pressed
+        // nothing since: react-aria's grid falls back to the cell.
         const active = document.activeElement;
-        if (active !== null && active !== document.body) return false;
+        if (active !== null && active !== document.body && !place.sections.some((key) => keyed(document, SECTION, key)[0]?.contains(active))) {
+          return false;
+        }
         target(place)?.focus();
         return true;
       };

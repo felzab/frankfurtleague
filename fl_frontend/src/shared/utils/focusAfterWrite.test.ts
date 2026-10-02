@@ -195,6 +195,24 @@ describe("what a landing leaves alone", () => {
     assert.equal(focused(), "a reaktivieren");
   });
 
+  /* react-aria's grid focuses the cell once the control inside it goes, before the landing has run. */
+  it("takes over a focus the page itself dropped inside the control's section", async () => {
+    document.body.append(list(["a", "b"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    const cell = document.querySelector<HTMLElement>(`[data-focus-row="a"]`);
+    cell?.setAttribute("tabindex", "-1");
+    cell?.replaceChildren(button("a reaktivieren"));
+    cell?.focus();
+    await settle();
+
+    assert.ok(
+      document.activeElement === cell?.querySelector("button"),
+      `the focus stayed on <${document.activeElement?.tagName.toLowerCase() ?? "nothing"}>`,
+    );
+  });
+
   it("lands at once where the control had already gone when the write answered", () => {
     document.body.append(list(["a", "b"]));
     const landing = focusAfterWrite(pressed("a löschen"));
