@@ -109,6 +109,27 @@ const LAYER_BOUNDARY = {
   },
 };
 
+/**
+ * Any query a specifier may carry: Next's bundler resolves `<specifier>?<anything>` to the module itself,
+ * a package's as much as a local one's, which a pattern ending at the name never reads.
+ */
+const QUERY = String.raw`(?:\?.*)?`;
+
+/** One of the local modules `names`, by any path, bare or with its extension, and with any query. */
+const moduleNamed = (...names) => String.raw`(?:^|\x2F)(?:${names.join("|")})(?:\.tsx?)?${QUERY}$`;
+
+/** A specifier inside the directory `name`, by any path: a query cannot reach past the directory. */
+const directoryNamed = (name) => String.raw`(?:^|\x2F)${name}\x2F`;
+
+const escaped = (specifiers) =>
+  specifiers.map((specifier) => specifier.replaceAll("/", String.raw`\x2F`).replaceAll(".", String.raw`\.`)).join("|");
+
+/** One of the package specifiers `specifiers` exactly, and with any query. */
+const packageNamed = (...specifiers) => String.raw`^(?:${escaped(specifiers)})${QUERY}$`;
+
+/** One of the packages `specifiers` or a subpath under it, as a `no-restricted-imports` group reads a package, and with any query. */
+const packageUnder = (...specifiers) => String.raw`^(?:${escaped(specifiers)})(?:\x2F.*)?${QUERY}$`;
+
 /** Modules belonging to the suite alone, each message saying why; nothing else in the toolchain would say so. */
 const TEST_ONLY = [
   {
@@ -198,13 +219,6 @@ const TEST_ONLY = [
 ];
 
 /**
- * A specifier naming the module `name` by any path, with or without `.ts`, and with any query: Next's
- * bundler resolves `<module>?<anything>` to the module itself, which a glob ending at the name never
- * reads.
- */
-const moduleNamed = (name) => String.raw`(?:^|\x2F)${name}(?:\.ts)?(?:\?.*)?$`;
-
-/**
  * The actor's signing key, loaded by the two session guards and the boot alone: a module reaching it
  * from anywhere else could mint an actor no guard judged, and a client module would put the key
  * reader in a bundle.
@@ -220,7 +234,7 @@ const ACTOR_SIGNING = {
  * out: a callback scheduled bare keeps what is left of the request's deadline, or none, and a stop waits on it.
  */
 const NEXT_AFTER = {
-  group: ["next/server"],
+  regex: packageUnder("next/server"),
   importNames: ["after"],
   message:
     "Schedule work behind the response through fl_frontend/src/core/afterResponse.ts :: afterTheResponse, which bounds it by the deadline a stopping container waits out (docs/ops/spec.md :: I547).",
@@ -313,11 +327,26 @@ const TEST_SUPPORT = [
     .map((glob) => `src/${glob}`),
 ];
 
+/**
+ * A `TEST_ONLY` glob as the pattern its import and load bans read: `**` then a module, or a directory
+ * between two `**`. Any other shape throws rather than leave a ban reading less than its glob.
+ */
+function specifierOf(glob) {
+  const [, name, directory] = /^\*\*\/([\w.-]+)(\/\*\*)?$/.exec(glob) ?? [];
+  if (name === undefined) throw new Error(`${glob} is a glob shape no ban reads`);
+  return directory === undefined ? moduleNamed(name.replace(/\.tsx?$/, "")) : directoryNamed(name);
+}
+
+/** Each test-only entry as its import ban reads it. */
+const TEST_ONLY_IMPORTS = TEST_ONLY.map(({ group, message }) => ({ regex: `(?:${[...new Set(group.map(specifierOf))].join("|")})`, message }));
+
+const NODE_MODULE = String.raw`^(?:node:)?module${QUERY}$`;
+
 /** What only the suite and its harness import: its own modules, and the loader's hooks. */
 const SUITE_IMPORTS = [
-  ...TEST_ONLY,
+  ...TEST_ONLY_IMPORTS,
   {
-    regex: "^(?:node:)?module$",
+    regex: NODE_MODULE,
     message:
       "node:module rewrites how modules load, and a `createRequire` function held in a name loads past every load ban: a *.test.ts(x) file may import it, production code may not.",
   },
@@ -344,11 +373,11 @@ const CLASS_LIST_SITES = [
  */
 const VENDOR_ROOTS = [
   {
-    regex: "^@heroui/react$",
+    regex: packageNamed("@heroui/react"),
     allowImportNames: ["useOverlayState"],
     message: "Import a HeroUI component from its own subpath, `@heroui/react/<component>`.",
   },
-  { regex: "^@gravity-ui/icons$", message: 'Import an icon from its own subpath, `import Name from "@gravity-ui/icons/Name"`.' },
+  { regex: packageNamed("@gravity-ui/icons"), message: 'Import an icon from its own subpath, `import Name from "@gravity-ui/icons/Name"`.' },
 ];
 
 /**
@@ -368,20 +397,25 @@ const NEXT_PRIVATE_CONTEXTS = {
 
 /** The segmented date and time controls, composed in one file so every field reads as the dates the app prints. */
 const SEGMENTED_DATE_CONTROLS = {
-  group: ["@heroui/react"],
+  regex: packageUnder("@heroui/react"),
   importNames: ["DatePicker", "DateField", "TimeField", "DateRangePicker"],
   message: "Compose a date or time field through fl_frontend/src/shared/components/ui/DateTimeFields.tsx.",
 };
 
+/** The segmented controls' own subpaths, each loaded through the composing file alone. */
+const SEGMENTED_DATE_PACKAGES = ["date-picker", "date-field", "time-field", "date-range-picker"].map((name) => `@heroui/react/${name}`);
+
 /** HeroUI's number field, rendered through the wrapper that records an emptied box as `null` rather than `NaN`. */
 const HEROUI_NUMBER_FIELD = {
-  group: ["@heroui/react/number-field"],
+  regex: packageUnder("@heroui/react/number-field"),
   message: "Render a number field through fl_frontend/src/shared/components/ui/NumberField.tsx, which records an emptied box as null.",
 };
 
+const MARKED_FIELD_PACKAGES = ["textfield", "select", "switch", "autocomplete", "combo-box"].map((name) => `@heroui/react/${name}`);
+
 /** HeroUI's fields that carry a required mark, each rendered through the wrapper reading it off the form's schema. */
 const HEROUI_MARKED_FIELDS = {
-  group: ["@heroui/react/textfield", "@heroui/react/select", "@heroui/react/switch", "@heroui/react/autocomplete", "@heroui/react/combo-box"],
+  regex: packageUnder(...MARKED_FIELD_PACKAGES),
   message:
     "Render a text field, select, switch, autocomplete or combo box through its wrapper in fl_frontend/src/shared/components/ui/, which reads the required mark off the form's schema (docs/frontend/spec.md :: I368).",
 };
@@ -400,7 +434,7 @@ const MARKED_FIELD_WRAPPERS = [
 
 /** HeroUI's form, rendered through the wrapper that fixes its validation mode. */
 const HEROUI_FORM = {
-  group: ["@heroui/react"],
+  regex: packageUnder("@heroui/react"),
   importNames: ["Form"],
   message: 'Render a form through fl_frontend/src/shared/components/ui/Form.tsx, which sets validationBehavior="aria".',
 };
@@ -410,7 +444,7 @@ const HEROUI_FORM = {
  * stack to production (`docs/frontend/spec.md :: I186`).
  */
 const SITE_ORIGIN = {
-  group: ["**/brand", "**/brand.ts"],
+  regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
   message:
     "SITE_URL is the published origin, for the metadata base, robots.txt and the sitemap alone: a link a message carries stands on frontend_config.AUTH_URL (docs/frontend/spec.md :: I186).",
@@ -421,7 +455,7 @@ const SITE_ORIGIN = {
  * formats a subtree's dates by whatever it pins (`docs/frontend/spec.md :: I75`). Tests mount their own.
  */
 const LOCALE_PROVIDER = {
-  group: ["@heroui/react/rac"],
+  regex: packageUnder("@heroui/react/rac"),
   importNames: ["I18nProvider"],
   message: "The locale is pinned once, in fl_frontend/src/core/providers/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
 };
@@ -431,7 +465,7 @@ const LOCALE_PROVIDER = {
  * `Hint.tsx`, which the block exempting it below allows, a hint's panel looks like no other hint's.
  */
 const HINT_INTERNALS = {
-  group: ["**/InfoHint", "**/InfoHint.tsx"],
+  regex: moduleNamed("InfoHint"),
   importNames: ["HintPopover", "HintPanel"],
   message: "Render a hint through Hint or InfoHint, which dress the panel every hint shares.",
 };
@@ -582,37 +616,25 @@ const MODULE_SOURCES = [
   ...LOAD_SITES.flatMap(([loader, slot]) => [`${loader} > ${slot}`, `${loader} > ${slot} > TemplateElement`]),
 ].join(", ");
 
-/**
- * A `no-restricted-imports` glob as the pattern a load's specifier is read against: `**` then a
- * file, or a directory between two `**`. Any other shape throws rather than leave a load ban reading
- * less than its import ban.
- */
-function specifierOf(glob) {
-  const [, name, directory] = /^\*\*\/([\w.-]+)(\/\*\*)?$/.exec(glob) ?? [];
-  if (name === undefined) throw new Error(`${glob} is a glob shape no load ban reads`);
-  return String.raw`(?:^|\x2F)${name.replaceAll(".", String.raw`\.`)}${directory === undefined ? "$" : String.raw`\x2F`}`;
-}
-const specifiersOf = (globs) => `(?:${globs.map(specifierOf).join("|")})`;
-
 /** An import ban's `regex` as a selector's pattern, where a slash would close the expression. */
 const selectorPattern = (regex) => regex.replaceAll("/", String.raw`\x2F`);
 
 /** The import bans no module has a reason to escape by loading at run time, restated for `import()`. */
 const DYNAMIC_LOADS = [
   {
-    selector: loadOf(String.raw`^(?:@heroui\x2Freact|@gravity-ui\x2Ficons)$`),
+    selector: loadOf(packageNamed("@heroui/react", "@gravity-ui/icons")),
     message: "An `import()` of a package root loads it whole as well: take a HeroUI component or an icon from its own subpath.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fform$`),
+    selector: loadOf(packageNamed("@heroui/react/form")),
     message: "Load HeroUI's form through fl_frontend/src/shared/components/ui/Form.tsx, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fnumber-field$`),
+    selector: loadOf(packageNamed("@heroui/react/number-field")),
     message: "Load HeroUI's number field through fl_frontend/src/shared/components/ui/NumberField.tsx, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2F(?:textfield|select|switch|autocomplete|combo-box)$`),
+    selector: loadOf(packageNamed(...MARKED_FIELD_PACKAGES)),
     message: "Load a text field, select, switch, autocomplete or combo box through its wrapper, by `import()` as much as by `import`.",
   },
   {
@@ -620,18 +642,18 @@ const DYNAMIC_LOADS = [
     message: "Load Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2F(?:date-picker|date-field|time-field|date-range-picker)$`),
+    selector: loadOf(packageNamed(...SEGMENTED_DATE_PACKAGES)),
     message:
       "Load a segmented date control through fl_frontend/src/shared/components/ui/DateTimeFields.tsx, by `import()` as much as by `import`.",
   },
   {
     // A loaded module's I18nProvider reaches a tag the locale ban never reads.
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2Frac$`),
+    selector: loadOf(packageNamed("@heroui/react/rac")),
     message: "Import react-aria's primitives statically: the locale provider's one-mount ban reads the import.",
   },
   {
     // A loaded module's Calendar reaches a tag under whatever name it is destructured to.
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fcalendar$`),
+    selector: loadOf(packageNamed("@heroui/react/calendar")),
     message: "Import the Calendar statically, under its own name: the spread ban reads the tag.",
   },
 ];
@@ -779,9 +801,9 @@ const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
  */
 const DATE_CONTROLS = [...JUDGING_DATE_CONTROLS, "DateRangePicker", "Calendar"];
 const tagsOf = (controls) => controls.flatMap((name) => [name, `${name}.Root`]);
-const DATE_MODULES = String.raw`/^@heroui\x2Freact(?:\x2F(?:date-picker|date-field|time-field|date-range-picker|calendar))?$/`;
+const DATE_MODULES = `/${packageNamed("@heroui/react", ...SEGMENTED_DATE_PACKAGES, "@heroui/react/calendar")}/`;
 
-const HINT_MODULE = specifiersOf(HINT_INTERNALS.group);
+const HINT_MODULE = HINT_INTERNALS.regex;
 const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
@@ -901,7 +923,7 @@ const SOURCE_BANS = [
     exempt: ["src/core/config.ts"],
   },
   {
-    selector: loadOf(String.raw`(?:${specifiersOf(TEST_ONLY.flatMap((entry) => entry.group))}|^(?:node:)?module$)`),
+    selector: loadOf(`(?:${[...TEST_ONLY_IMPORTS.map((entry) => entry.regex), NODE_MODULE].join("|")})`),
     message:
       "A test-only module, or node:module, loaded at run time stays the suite's: a *.test.ts(x) file may load it, production code may not.",
   },
@@ -965,7 +987,7 @@ const SOURCE_BANS = [
     exempt: ["src/features/saisons/components/ui/laufendDot.ts"],
   },
   {
-    selector: `Program:has(ImportDeclaration[source.value=/badges(\\.ts)?$/] > ImportSpecifier[imported.name="PILL_RADIUS_CLASSES"]) ${classList({ all: ["bg-muted", "text-foreground-muted"] })}`,
+    selector: `Program:has(ImportDeclaration[source.value=/${moduleNamed("badges")}/] > ImportSpecifier[imported.name="PILL_RADIUS_CLASSES"]) ${classList({ all: ["bg-muted", "text-foreground-muted"] })}`,
     message: "A pill takes its colour from a `PillTone`, never the neutral pair (docs/frontend/spec.md :: I170).",
   },
   {
@@ -1026,7 +1048,7 @@ const SOURCE_BANS = [
     message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
   },
   {
-    selector: `:matches(ImportDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier, ExportNamedDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > ExportSpecifier[local.name=/^(?:${DATE_CONTROLS.join("|")})(?:Root)?$/], ExportAllDeclaration[source.value=${DATE_MODULES}])`,
+    selector: `:matches(ImportDeclaration[source.value=/${packageUnder("@heroui/react")}/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier, ExportNamedDeclaration[source.value=/${packageUnder("@heroui/react")}/] > ExportSpecifier[local.name=/^(?:${DATE_CONTROLS.join("|")})(?:Root)?$/], ExportAllDeclaration[source.value=${DATE_MODULES}])`,
     message: "Import a date control under its own name, and re-export none: the bound and spread bans read the tag.",
     tests: true,
   },
@@ -1098,8 +1120,7 @@ const SCOPED_BANS = [
     {
       files: ["src/app/**/*.{ts,tsx}"],
       // The directive is the module's own prologue alone: one inside a function makes no client module.
-      selector:
-        'Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/facets(\\.tsx?)?$/]',
+      selector: `Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("facets")}/]`,
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
     {

@@ -1,0 +1,6 @@
+// Linted as src/features/zzplant/queryPill.tsx.
+// A pill's radius taken through a query suffix, which the bundler resolves to the module itself.
+import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges?probe";
+
+export const TONES = { unbekannt: "bg-muted text-foreground-muted" }; // expect: neutral-pill
+export const RADIUS_USED = PILL_RADIUS_CLASSES;

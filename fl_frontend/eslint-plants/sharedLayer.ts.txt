@@ -37,3 +37,7 @@ export const SIGNING_USED = mintRequestActor;
 export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret];
 export const AFTER_USED = after;
 export const HOLDERS_USED = [auth, signInStore];
+// A layer boundary through a query suffix, which the bundler resolves to the module itself.
+import { TEAM_FACETS as QUERIED_FACETS } from "@/features/teams/facets?probe"; // expect: layer-shared
+export const QUERIED_SLICE = import("@/features/teams/facets?probe"); // expect: layer-shared-load
+export const QUERIED_USED = QUERIED_FACETS;

@@ -230,3 +230,35 @@ export const COMPUTED_MARK = <Select isRequired={!false} name="gruppe" />; // ex
 export const SIGNING_USED = mintRequestActor;
 export const SIGNING_LOADED = import("@/core/actorToken"); // expect: actor-signing-load
 export const AFTER_USED = after;
+// Each ban family through a query suffix, which the bundler resolves to the module itself.
+import { Button as QueriedButton } from "@heroui/react?probe"; // expect: vendor-root
+import { captureStdout as queriedCapture } from "@/core/stdoutCapture?probe"; // expect: test-only
+import { underNext as queriedHarness } from "@/shared/testing/nextContexts?probe"; // expect: test-only
+import { createRequire as queriedRequire } from "node:module?probe"; // expect: node-module
+import { AppRouterContext as QueriedContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js?probe"; // expect: next-private
+import { DatePicker as QueriedPicker } from "@heroui/react/date-picker?probe"; // expect: segmented-import expect: date-alias
+import { Form as QueriedForm } from "@heroui/react/form?probe"; // expect: heroui-form
+import { NumberField as QueriedNumber } from "@heroui/react/number-field?probe"; // expect: number-field
+import { TextField as QueriedText } from "@heroui/react/textfield?probe"; // expect: marked-field
+import { SITE_URL as QUERIED_ORIGIN } from "@/core/brand?probe"; // expect: site-origin
+import { I18nProvider as QueriedLocale } from "@heroui/react/rac?probe"; // expect: locale-provider
+import { HintPanel as QueriedPanel } from "@/shared/components/ui/InfoHint?probe"; // expect: hint-internals
+import { after as queriedAfter } from "next/server?probe"; // expect: next-after
+import { CalendarRoot as QueriedCalendar } from "@heroui/react/calendar?probe"; // expect: date-alias
+export const QUERIED_IMPORTS = [QueriedButton, queriedCapture, queriedHarness, queriedRequire, QueriedContext, QueriedPicker, QueriedForm];
+export const MORE_QUERIED_IMPORTS = [QueriedNumber, QueriedText, QUERIED_ORIGIN, QueriedLocale, QueriedPanel, queriedAfter, QueriedCalendar];
+export const ROOT_LOADED = import("@heroui/react?probe"); // expect: vendor-root-load
+export const FORM_LOADED = import("@heroui/react/form?probe"); // expect: heroui-form-load
+export const NUMBER_LOADED = import("@heroui/react/number-field?probe"); // expect: number-field-load
+export const FIELD_LOADED = import("@heroui/react/select?probe"); // expect: marked-field-load
+export const PICKER_LOADED = import("@heroui/react/date-picker?probe"); // expect: segmented-load
+export const RAC_QUERIED = import("@heroui/react/rac?probe"); // expect: locale-load
+export const CALENDAR_LOADED = import("@heroui/react/calendar?probe"); // expect: calendar-load
+export const CONTEXT_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js?probe"); // expect: next-private-load
+export const CAPTURE_LOADED = import("@/core/stdoutCapture?probe"); // expect: test-only-load
+export const LOADER_LOADED = import("node:module?probe"); // expect: test-only-load
+const { HintPopover: queriedPopover } = await import("@/shared/components/ui/InfoHint?probe"); // expect: hint-internals-load
+import { sendSperreNotice as queriedNotice } from "@/core/mail?probe"; // expect: sperre-notice
+const { sendSperreNotice: loadedQueriedNotice } = await import("@/core/mail.ts?probe"); // expect: sperre-notice-load
+export const NOTICE_USED = [queriedNotice, loadedQueriedNotice];
+export const POPOVER_USED = queriedPopover;

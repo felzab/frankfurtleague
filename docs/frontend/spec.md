@@ -788,9 +788,8 @@ a live value no file check judges, and so is a secret's file name, bare or endin
 (`fl_frontend/eslint.config.mjs :: SECRET_FILE_NAMES`), since a module reading the file itself holds
 the secret past its reader. A loaded namespace of the config, the library's module or the
 store's module is taken apart where it is loaded, the boot's own load included, and never into a
-confined name. A specifier carrying a query is read as the module it names, the bundler resolving
-`<module>?<anything>` to that module. The readers and the settings come out of one validation, so the
-boot refuses every secret the schema refuses, whichever module reads it.
+confined name. The readers and the settings come out of one validation, so the boot refuses every
+secret the schema refuses, whichever module reads it.
 
 **`LOG_LEVEL` stops one level below the backend's `LOG_LEVEL_APP`**
 ([`../backend/spec.md`](../backend/spec.md) §1.5), which admits `CRITICAL` and has writers there.
@@ -851,6 +850,11 @@ stack mail links back into itself. The published origin is the module constant
 | `no-restricted-imports` of `HintPopover` and `HintPanel` outside `Hint.tsx`, and their taking from an `import()`                                                                                | A hint opened through either dresses its own panel, where `Hint` and `InfoHint` dress every hint's alike                                                                                                                                         |
 | `reportUnusedDisableDirectives: "error"`                                                                                                                                                        | An exemption is a disable comment carrying its reason, and one whose line has gone fails rather than excusing the next                                                                                                                           |
 | `@typescript-eslint/consistent-type-imports`                                                                                                                                                    | Type-only imports are erased; mixing them risks pulling runtime modules across the RSC boundary                                                                                                                                                  |
+
+**Every import and load ban reads a specifier carrying a query as the module it names**
+(`fl_frontend/eslint.config.mjs :: QUERY`): the bundler resolves `<specifier>?<anything>`, a
+package's as much as a local module's, to the module itself, so a ban ending at the name would be
+escaped by one appended character.
 
 ### 1.9 The test suite
 
