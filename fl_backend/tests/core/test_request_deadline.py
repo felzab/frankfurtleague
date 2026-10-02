@@ -118,6 +118,7 @@ COMPOSE_FILE = BACKEND_ROOT.parent / "docker-compose.yml"
 GRACEFUL_WAIT = "--timeout-graceful-shutdown"
 STOP_GRACE = re.compile(r"^    stop_grace_period: (\d+)s$", re.MULTILINE)
 SERVICE = re.compile(r"^  (\w+):$", re.MULTILINE)
+COMMAND_OVERRIDES = re.compile(r"""^    ["']?(command|entrypoint|<<)["']?\s*:""", re.MULTILINE)
 
 # uvicorn notices the signal on a 0.1 s tick and pauses 0.1 s after closing its connections before its
 # wait starts (its `Server.shutdown`, read in uvicorn 0.53), so the engine's kill falls a whole second later.
@@ -133,11 +134,17 @@ def _uvicorn_s_graceful_wait() -> int:
     return int(arguments[arguments.index(GRACEFUL_WAIT) + 1])
 
 
-def _backend_stop_grace() -> int:
+def _backend_service() -> str:
     text = COMPOSE_FILE.read_text(encoding="utf-8")
     starts = [(match.group(1), match.start()) for match in SERVICE.finditer(text)]
     blocks = {name: text[start:next_start] for (name, start), (_, next_start) in zip(starts, [*starts[1:], ("", len(text))], strict=True)}
-    grace = STOP_GRACE.findall(blocks.get("backend", ""))
+    assert "backend" in blocks, f"{COMPOSE_FILE} declares no `backend` service where this reader looks"
+
+    return blocks["backend"]
+
+
+def _backend_stop_grace() -> int:
+    grace = STOP_GRACE.findall(_backend_service())
     assert len(grace) == 1, f"the backend service in {COMPOSE_FILE} sets {len(grace)} whole-second stop_grace_period lines, not one"
 
     return int(grace[0])
@@ -151,6 +158,11 @@ class TestAStoppedContainerOutlastsEveryRequest:
 
     def test_the_engine_kills_only_after_uvicorn_s_wait(self):
         assert _backend_stop_grace() >= _uvicorn_s_graceful_wait() + UVICORN_STEPS_BEFORE_ITS_WAIT_S
+
+    def test_the_container_runs_the_cmd_the_wait_is_read_off(self):
+        """Compose's `command:` replaces that CMD and its `entrypoint:` drops it; a merge key can bring in either unread."""
+
+        assert COMMAND_OVERRIDES.findall(_backend_service()) == []
 
 
 def _erasure_answered() -> tuple[Response, float]:
