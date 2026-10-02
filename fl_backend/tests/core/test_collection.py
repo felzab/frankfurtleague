@@ -12,14 +12,14 @@ SUITE = {
 }
 
 
-def _run(pytester: pytest.Pytester, *flags: str) -> pytest.RunResult:
+def _run(pytester: pytest.Pytester, *flags: str, suite: dict[str, str] = SUITE, cached: bool = False) -> pytest.RunResult:
     pytester.makeini("[pytest]\n")
-    pytester.makepyfile(**SUITE, collection=PLUGIN.read_text(encoding="utf-8"))
+    pytester.makepyfile(**suite, collection=PLUGIN.read_text(encoding="utf-8"))
     # Named by a conftest beside it, as this suite's conftest names it: a worker imports a conftest's
     # plugin from the conftest's directory, where an argument's is sought on the parent's startup path.
     pytester.makeconftest('pytest_plugins = ("collection",)\n')
 
-    return pytester.runpytest_inprocess("-p", "no:cacheprovider", *flags)
+    return pytester.runpytest_inprocess(*flags) if cached else pytester.runpytest_inprocess("-p", "no:cacheprovider", *flags)
 
 
 def test_this_suite_runs_under_the_refusal(request: pytest.FixtureRequest) -> None:
@@ -48,3 +48,17 @@ def test_the_refusal_holds_under_workers(pytester: pytest.Pytester) -> None:
 
     assert result.ret != pytest.ExitCode.OK, output
     assert "test_lost_its_tests.py collects no test" in output, output
+
+
+def test_a_module_the_last_failed_run_skips_stands(pytester: pytest.Pytester) -> None:
+    """`--lf` answers every module holding no last failure collected with nothing, never collecting it."""
+
+    suite = {"test_fails": "def test_fails():\n    assert False\n", "test_runs": SUITE["test_runs"]}
+    _run(pytester, "-p", "no:xdist", suite=suite, cached=True)
+
+    result = _run(pytester, "-p", "no:xdist", "--lf", suite=suite, cached=True)
+    output = result.stdout.str()
+
+    assert result.ret == pytest.ExitCode.TESTS_FAILED, output
+    assert "1 failed" in output, output
+    assert "collects no test" not in output, output

@@ -15,11 +15,23 @@ _COLLECTS_NOTHING = (
 )
 
 
+def _skipped_by_last_failed(collector: pytest.Collector) -> bool:
+    """Whether `--lf` answered this module collected with nothing, never collecting it.
+
+    Once a run under it has found a last failure, pytest registers its `LFPluginCollSkipfiles`, which
+    answers each module outside the last-failed paths that way.
+    """
+    if collector.config.pluginmanager.get_plugin("lfplugin-collskip") is None:
+        return False
+    last_failed = collector.config.pluginmanager.get_plugin("lfplugin")
+    return last_failed is not None and collector.path not in last_failed.get_last_failed_paths()
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_make_collect_report(collector: pytest.Collector) -> Generator[None, pytest.CollectReport, pytest.CollectReport]:
     report = yield
     # A module-level skip reports skipped rather than passed, so a module skipped on purpose stands.
-    if isinstance(collector, pytest.Module) and report.passed and not report.result:
+    if isinstance(collector, pytest.Module) and report.passed and not report.result and not _skipped_by_last_failed(collector):
         report.outcome = "failed"
         report.longrepr = _COLLECTS_NOTHING.format(module=collector.nodeid)
 
