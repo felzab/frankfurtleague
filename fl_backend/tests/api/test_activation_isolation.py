@@ -17,7 +17,7 @@ from app.core.exceptions import WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
-from tests.isolation import InterleavedCollection, Rival
+from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -248,7 +248,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
         # first judged, so only a second judgement can refuse. The statuses ride along, naming the
         # `past` season a landed rollover left unplayed.
         assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {OUTGOING: "active", TARGET: "future"})
-        assert season_reads == 2, "the callback judged once, so the write conflicted without being re-judged"
+        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         assert unplayed > 0, "the interfering draw left the outgoing season nothing to play, so the rule above had nothing to refuse"
 
@@ -278,7 +278,7 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
 
         # Paired as above: a rollover that lands names the league it left going live with nothing to play.
         assert (outcome, statuses) == (ACTIVATE_TARGET_UNDRAWN, {TARGET: "future"})
-        assert season_reads == 2, "the callback judged once, so the write conflicted without being re-judged"
+        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         assert fixtures == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
 
@@ -308,7 +308,9 @@ class TestTwoFirstActivationsRacing:
         # running with its whole Spielplan still to play. Unindexed, both commit.
         assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {TARGET: "future", RIVAL: "active"})
         # A rival promoted before this rollover began refuses it at its first judgement, index or none.
-        assert season_reads == 2, "the rollover judged once, so the rival never landed inside it"
+        assert season_reads == 2, (
+            f"{season_reads} judgements: one is a rival promoted before this rollover began, a third a retry that conflicted again"
+        )
 
 
 class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
@@ -347,7 +349,10 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
 
         # The judgement, the promotion's echo, and the re-judgement: one entry into the callback, so
         # what refused is the read outside the session rather than a retry.
-        assert season_reads == 3, "the rollover was re-judged by a retry, which is not what this case proves"
+        assert season_reads == 3, (
+            f"{season_reads} season reads where the judgement, the promotion's echo and the re-read outside the session make three: "
+            "fewer is a rival that landed outside the rollover or a re-read that is gone, more a retry this case does not prove"
+        )
 
 
 class TestTheRolloverStillCommitsWithNothingInterfering:

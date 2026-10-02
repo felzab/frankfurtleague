@@ -9,6 +9,12 @@ from app.core.exceptions import WriteRefusalException
 # lands names the state it left instead of an exception that failed to arrive.
 COMMITTED = "the write committed"
 
+# Both ways a case's count of judgements can miss the one a rival landing inside makes, for its failure
+# to name whichever happened rather than the one its author had in mind.
+MISCOUNTED_JUDGEMENTS = (
+    "one short is a rival that landed outside the write or a conflict never judged again, one over a retry that conflicted again"
+)
+
 Rival = Callable[[], Awaitable[Any]]
 
 

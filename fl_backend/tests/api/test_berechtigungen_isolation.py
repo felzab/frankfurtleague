@@ -145,4 +145,7 @@ class TestTheRowAndItsRecordAreReadAtOneInstant:
         during, after = on_a_league(mongo_replica_set_url, body)
 
         assert after == FOUND
-        assert during is None, "the check joined the row before the find to the record after it"
+        assert during is None, (
+            f"the check answered {during!r}: the typed date is the row before the find joined to the record after it, "
+            "the find's date a comparison that landed before the read began"
+        )

@@ -32,7 +32,7 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, W
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.isolation import InterleavedCollection, Rival
+from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -351,7 +351,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
         # TWO reads and no more: the judgement's, then the retry's. The rival's own season write
         # conflicts with this callback's, so the callback re-enters once and the second judgement
         # refuses before any write.
-        assert season_reads == 2, "a third read means the retry itself conflicted"
+        assert season_reads == 2, f"{season_reads} reads: {MISCOUNTED_JUDGEMENTS}"
 
         assert stored["rules"]["max_kadergroesse"] == STORED_KADER, "the narrowing landed on top of the rival's insert"
         assert squad == SEEDED_SQUAD + 1, "the rival's insert was lost, so the refusal above had nothing to refuse"
@@ -398,7 +398,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
         # `REQ-RULES-011` reads the season's stored fixtures, and there were none when this request
         # first judged: the refusal can only come from a judgement made after the draw committed.
         assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
-        assert season_reads == 2, "the callback judged once, so the write conflicted without being re-judged"
+        assert season_reads == 2, f"{season_reads} reads: {MISCOUNTED_JUDGEMENTS}"
 
         assert stored["rules"]["teams_per_group"] == TEAMS_PER_GROUP, "the patch landed on top of the draw"
         assert counts == (drawn.spieltage, drawn.spiele)
@@ -447,7 +447,10 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
         assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
         # TWO, and neither is a retry: the judgement's read, then the echo read the write itself
         # makes -- the rival touched `spiele` alone, so nothing conflicted.
-        assert season_reads == 2, "a third read means the write conflicted and the retry re-entered the callback"
+        assert season_reads == 2, (
+            f"{season_reads} reads where the judgement and the write's echo make two: "
+            "one is a rival that landed before the patch judged, a third a conflict this case says cannot happen"
+        )
 
         assert stored["rules"]["tiebreak_order"] == "tordifferenz", "the reorder landed on top of the rival's record"
         assert abandoned == 1, "the rival's record was lost, so the refusal above had nothing to refuse"
@@ -513,7 +516,7 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
 
         # TWO: the judgement's read and the retry's. The write conflicted rather than echoing, and a
         # third would mean the callback was entered once more than this case accounts for.
-        assert season_reads == 2, "the callback was entered a third time"
+        assert season_reads == 2, f"{season_reads} reads: {MISCOUNTED_JUDGEMENTS}"
 
         assert stored["rules"]["tiebreak_order"] == "tordifferenz", "the reorder landed on a season the rollover had already finished"
 
