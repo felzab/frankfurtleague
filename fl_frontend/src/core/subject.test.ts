@@ -635,6 +635,57 @@ describe("the guard across one render pass", () => {
     assert.equal(sent.length - sentBefore, 2, "a second request was answered from the first one's lookup");
   });
 
+  /* The counts above pass with this guard's own memo gone, the session read's and the lookup's memos
+     holding them; what it alone saves is a second judgement and a second signed actor. */
+  it("hands every guard of one render pass the one subject it judged", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+
+    const [first, second] = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, () =>
+      Promise.all([getSubjectSession(), getSubjectSession()]),
+    );
+
+    assert.ok(first !== null, "the guard refused, so the comparison below compares two refusals");
+    assert.ok(second === first, "the second guard of the pass judged the session again");
+
+    // The control: the next request is a new pass, so an answer held anywhere but the pass fails here.
+    beginRenderPass();
+    assert.ok((await getSubjectSession()) !== first, "a second request was handed the first one's subject");
+  });
+
+  /* Outside any scope, as a layout's guard runs, where only the render's memo answers: the scope's own
+     memo holds every count inside one. */
+  it("hands every call of the administrator's guard in one render pass the one session it judged", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    arriveAs(cookie);
+
+    const [first, second] = await Promise.all([getAdminSession(), getAdminSession()]);
+
+    assert.ok(first !== null, "the guard refused, so the comparison below compares two refusals");
+    assert.ok(second === first, "the second call of the pass judged the session again");
+
+    beginRenderPass();
+    assert.ok((await getAdminSession()) !== first, "a second request was handed the first one's session");
+  });
+
+  /* Each guard called once, so each one's own memo is idle and the count is the session read's alone. */
+  it("reads the session once for the person guard, the account guard and the administrator's guard of one render pass", async () => {
+    const { getKontoSession } = await import("./auth.ts");
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    arriveAs(cookie);
+    const readsBefore = headerReads();
+
+    const answers = await Promise.all([getSubjectSession(), getKontoSession(), getAdminSession()]);
+
+    assert.ok(
+      answers.every((answer) => answer !== null),
+      "a guard refused, so the count below counts a refusal",
+    );
+    assert.equal(headerReads() - readsBefore, 1, "the guards of one render pass each read the session");
+  });
+
   /* The admin shell's guard, its switcher and the administrators page each read the grant or the
      records, and the lookup is what they share: without its memo an admin render asks three times. */
   it("asks the backend once for the admin guard, the switcher and the page of one render pass", async () => {
