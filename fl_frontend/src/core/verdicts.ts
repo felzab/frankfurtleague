@@ -4,7 +4,10 @@ const finalJudges: (() => void)[] = [];
 const messageOf = (failure: unknown): string => (failure instanceof Error ? failure.message : String(failure));
 
 export function recordVerdict(where: string, failure: unknown): void {
-  recorded.push(`- ${where}: ${messageOf(failure)}`);
+  const verdict = `- ${where}: ${messageOf(failure)}`;
+  recorded.push(verdict);
+  // Printed now as well: a handle left open keeps the event loop, and so the throw below, from ever coming.
+  process.stderr.write(`a judging hook recorded a failure, thrown once every cleanup has run:\n${verdict}\n`);
 }
 
 /**

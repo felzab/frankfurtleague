@@ -921,7 +921,9 @@ one kind in the order they were registered and runs none after one that throws, 
 documentation does not state, so a verdict thrown from a hook left the later hook's resource open
 and the run hanging. A judging hook records its failure (`fl_frontend/src/core/verdicts.ts ::
 judging`), and the file fails once every hook has run and its event loop is empty, naming each
-case or hook that recorded one (`fl_frontend/src/core/verdicts.test.ts`).
+case or hook that recorded one (`fl_frontend/src/core/verdicts.test.ts`). Each verdict is printed
+as it is recorded too, since a handle left open keeps that loop from emptying and the file then
+hangs with no reason given.
 
 **An application module imports a HeroUI component from `@heroui/react/<component>` and an icon
 from `@gravity-ui/icons/<Name>`**, because `node --test` has no bundler to narrow a package root: a

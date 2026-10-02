@@ -60,6 +60,15 @@ describe("a hook that judges", () => {
     assert.ok(run.output.includes("the file's last case: planted file verdict"), run.output);
   });
 
+  // Ahead of the later hook, so a file a leaked handle holds open past its hooks still names its verdict.
+  it("prints its verdict as it records it", () => {
+    const run = runAsFile(AFTER_SHAPE);
+    const printed = run.output.indexOf("a judging hook recorded a failure, thrown once every cleanup has run:\n- the file's last case");
+
+    assert.ok(printed !== -1, run.output);
+    assert.ok(printed < run.output.indexOf("LATER AFTER RAN"), run.output);
+  });
+
   // A double's own judgement, so a call site that throws again is caught where a helper alone would pass.
   it("leaves a later `afterEach` to run after the fetch double's verdict on an unanswered request", () => {
     const run = runAsFile(`import { afterEach, beforeEach, it } from "node:test";
