@@ -65,7 +65,7 @@ registerDoubles({ modules: { "core/auth.ts": AUTH, "core/logging.ts": LOGGING },
 const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { recordWriteSent } = await import("@/core/requestScope.ts");
-const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
+const { ADMIN_FORBIDDEN, FORBIDDEN_BY_REFUSAL } = await import("./adminMutation.ts");
 const { AENDERUNG_STEHT_WEITERHIN, ZUGANG_WEG } = await import("./actionError.ts");
 
 const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
@@ -241,6 +241,30 @@ describe("who the undo spine answers before it does any work", () => {
       assert.equal(restored, 0, "the undo restores while the grant is unread");
     } finally {
       grantUnread = false;
+    }
+  });
+
+  /* Each reason in the action's own words, so the save and its undo never word one condition two ways:
+     an arm answering another reason's sentence reads as a cause the administrator does not have. */
+  it("answers every reason its guard turns a caller away for in the action's sentence, and that the change stands", async () => {
+    // Typed by the table's own key, so a reason added there fails to compile here until it is driven.
+    const arrange: Record<keyof typeof FORBIDDEN_BY_REFUSAL, () => void> = {
+      signIn: () => (undoRouteSession = null),
+      noGrant: () => (undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "code" } }),
+      grantGone: () => (undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } }),
+      unread: () => (grantUnread = true),
+    };
+
+    for (const [reason, sentence] of Object.entries(FORBIDDEN_BY_REFUSAL)) {
+      arrange[reason as keyof typeof FORBIDDEN_BY_REFUSAL]();
+      try {
+        const { answer } = await undo(async () => ({}));
+
+        assert.deepEqual(answer, { success: false, error: `${sentence} ${AENDERUNG_STEHT_WEITERHIN}` }, `the ${reason} arm`);
+      } finally {
+        undoRouteSession = undefined;
+        grantUnread = false;
+      }
     }
   });
 });
