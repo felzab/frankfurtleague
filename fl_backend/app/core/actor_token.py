@@ -254,11 +254,12 @@ def _verified_claims(token: str, key: ActorTokenKey, lane: Lane) -> ActorClaims:
         if claims.amr != (PASSKEY_FACTOR,):
             raise ActorTokenRefusal("not a passkey session")
         # The frontend's own window, re-asked here, so a session the frontend failed to expire still
-        # meets a limit on this side (`app/shared/schemas/bounds.py :: ADMIN_WINDOW_HOURS`).
-        if time.time() - claims.auth_time > ADMIN_WINDOW_HOURS * 3600:
+        # meets a limit on this side (`app/shared/schemas/bounds.py :: ADMIN_WINDOW_HOURS`). At `iat`
+        # rather than this clock, as the step-up is (`docs/backend/spec.md :: I527`).
+        if claims.iat - claims.auth_time > ADMIN_WINDOW_HOURS * 3600:
             raise ActorTokenRefusal("session older than the administrator's window")
     # The person's window, re-asked for the same reason (`app/shared/schemas/bounds.py :: PERSON_WINDOW_DAYS`).
-    elif time.time() - claims.auth_time > PERSON_WINDOW_DAYS * 86400:
+    elif claims.iat - claims.auth_time > PERSON_WINDOW_DAYS * 86400:
         raise ActorTokenRefusal("session older than the person's window")
 
     return claims

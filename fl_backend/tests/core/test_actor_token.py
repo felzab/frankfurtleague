@@ -46,6 +46,13 @@ def claims(lane: Lane = "admin", **overrides: Any) -> dict[str, Any]:
     return {**actor_claims(ACTOR, lane=lane), **overrides}
 
 
+def _minted_before(window_s: int) -> dict[str, int]:
+    """A token minted most of its lifetime ago, from a sign-in inside `window_s` then and past it now."""
+
+    iat = int(time.time()) - ACTOR_TOKEN_LIFETIME_S + 10
+    return {"iat": iat, "exp": iat + ACTOR_TOKEN_LIFETIME_S, "auth_time": iat - window_s + 10}
+
+
 def encoded(part: dict[str, Any]) -> str:
     return urlsafe_b64encode(json.dumps(part).encode()).rstrip(b"=").decode("ascii")
 
@@ -200,6 +207,11 @@ class TestTheAdministratorsLane:
         recent = int(time.time()) - ADMIN_WINDOW_HOURS * 3600 + 60
         assert verify_actor_token(sign(claims(auth_time=recent)), KEY, lane="admin").auth_time == recent
 
+    def test_a_token_minted_inside_the_window_is_admitted_for_its_life(self):
+        """Past the window on this clock and inside it at `iat`: judged at the clock, the second call of one action is refused."""
+        issued = claims(**_minted_before(ADMIN_WINDOW_HOURS * 3600))
+        assert verify_actor_token(sign(issued), KEY, lane="admin").auth_time == issued["auth_time"]
+
 
 class TestThePersonsLane:
     def test_a_sign_in_older_than_the_person_s_window_is_refused(self):
@@ -210,6 +222,10 @@ class TestThePersonsLane:
         """The window's boundary, as the administrator's lane holds its own."""
         recent = int(time.time()) - PERSON_WINDOW_DAYS * 86400 + 60
         assert verify_actor_token(sign(claims("person", auth_time=recent)), KEY, lane="person").auth_time == recent
+
+    def test_a_token_minted_inside_the_person_s_window_is_admitted_for_its_life(self):
+        issued = claims("person", **_minted_before(PERSON_WINDOW_DAYS * 86400))
+        assert verify_actor_token(sign(issued), KEY, lane="person").auth_time == issued["auth_time"]
 
 
 class TestTheKeyId:
