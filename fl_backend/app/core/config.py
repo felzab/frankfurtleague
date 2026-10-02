@@ -244,6 +244,11 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
     # compose hands the container. A container has no file: compose hands it the names as variables.
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid")
 
+    # Declared, or a type checker reads the fields as the constructor's arguments and demands the
+    # required ones, which only the sources below supply.
+    def __init__(self) -> None:
+        super().__init__()
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -274,6 +279,11 @@ class BackendSecrets(BaseSettings, _SecretFields):
 
     model_config = SettingsConfigDict(extra="forbid")
 
+    # The directory is the one argument, for `BackendEnvironment.__init__`'s reason; pydantic-settings
+    # takes it as `_secrets_dir` (https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/).
+    def __init__(self, directory: Path) -> None:
+        super().__init__(_secrets_dir=directory)
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -303,7 +313,7 @@ class BackendConfig(_EnvironmentFields, _SecretFields):
 def read_environment() -> BackendEnvironment:
     """The environment half, refused by the names it could not accept; the deploy's preflight reads this alone."""
     try:
-        return BackendEnvironment()  # type: ignore[call-arg]
+        return BackendEnvironment()
     except ValidationError as error:
         # `from None`, or pydantic's own rendering reaches the traceback uvicorn prints. The
         # sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so
@@ -343,7 +353,7 @@ def read_secrets(directory: Path) -> BackendSecrets:
         # Raised rather than printed: the source only WARNS for a missing directory and for a
         # directory at a file's path, and a warning leaves outside the log envelope.
         with warnings.catch_warnings(action="error"):
-            return BackendSecrets(_secrets_dir=directory)  # type: ignore[call-arg]
+            return BackendSecrets(directory)
     except ValidationError as error:
         raise EnvironmentValidationError(f"Invalid secret files: {', '.join(_failing_names(error))}") from None
     except (Warning, SettingsError) as failure:
