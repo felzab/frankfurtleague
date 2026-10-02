@@ -295,7 +295,9 @@ describe("where the focus lands once a write takes its control off the page", ()
       await view.refresh(page(landing.after()), { remount: landing.remount ?? false });
 
       const expected = landing.lands();
-      assert.equal(document.activeElement, expected, `the focus is on ${described(document.activeElement)}, not ${described(expected)}`);
+      // Never `assert.equal` over the two elements: its error keeps both, and the runner's report then
+      // serialises every node and fibre behind them, many gigabytes before it prints.
+      assert.ok(document.activeElement === expected, `the focus is on ${described(document.activeElement)}, not ${described(expected)}`);
     });
   }
 });

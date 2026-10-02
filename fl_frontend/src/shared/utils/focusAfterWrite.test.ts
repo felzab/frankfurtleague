@@ -49,7 +49,7 @@ describe("where a landed write's focus goes", () => {
     document.body.append(list(["a"]));
     pressed("a löschen").remove();
 
-    assert.equal(document.activeElement, document.body);
+    assert.ok(document.activeElement === document.body, `the focus moved to „${focused()}“`);
   });
 
   it("takes the control replacing the pressed one in its own row", async () => {
@@ -214,7 +214,7 @@ describe("what a landing leaves alone", () => {
     document.querySelector(`[data-focus-row="a"]`)?.remove();
     await settle();
 
-    assert.equal(document.activeElement, document.body);
+    assert.ok(document.activeElement === document.body, `the focus moved to „${focused()}“`);
   });
 
   it("moves nothing for a control no section holds", async () => {
@@ -225,6 +225,6 @@ describe("what a landing leaves alone", () => {
     control.remove();
     await settle();
 
-    assert.equal(document.activeElement, document.body);
+    assert.ok(document.activeElement === document.body, `the focus moved to „${focused()}“`);
   });
 });
