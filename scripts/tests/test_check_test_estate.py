@@ -97,9 +97,48 @@ def test_every_consumer_pytest_hands_a_fixture_to_excuses_it():
         "class TestOuter:\n    class TestInner:\n        def test_reads(self, league):\n            assert league\n",
         "@pytest.fixture\ndef season(league):\n    return league\n\n\ndef test_reads(season):\n    assert season\n",
         '@pytest.mark.usefixtures("league")\ndef test_reads():\n    assert True\n',
+        '@pytest.mark.usefixtures("league")\nclass TestMarked:\n    def test_reads(self):\n        assert True\n',
+        'pytestmark = [pytest.mark.usefixtures("league")]\n\n\ndef test_reads():\n    assert True\n',
         'def test_reads(request):\n    assert request.getfixturevalue("league")\n',
+        'def asked(request):\n    return request.getfixturevalue("league")\n\n\ndef test_reads(request):\n    assert asked(request)\n',
     ):
         assert fixtures(ORPHAN + consumer) == [], consumer
+
+
+@pytest.mark.parametrize(
+    "unreached",
+    [
+        pytest.param('def helper(request):\n    return request.getfixturevalue("league")\n', id="uncalled-helper"),
+        pytest.param('MARK = pytest.mark.usefixtures("league")\n', id="mark-held-in-a-variable"),
+        pytest.param('@pytest.mark.usefixtures("league")\ndef helper():\n    return 1\n', id="mark-on-a-helper"),
+    ],
+)
+def test_a_by_name_request_pytest_never_acts_on_excuses_nothing(unreached: str):
+    """A string only counts where pytest reads it."""
+    found = fixtures(ORPHAN + unreached + "\n\ndef test_nothing():\n    assert True\n")
+
+    assert len(found) == 1 and "`league`" in found[0], found
+
+
+@pytest.mark.parametrize(
+    "importing",
+    [
+        pytest.param("from tests.support.helpers import asked\n\n\ndef test_reads(request):\n    assert asked(request)\n", id="name"),
+        pytest.param("from tests.support import helpers\n\n\ndef test_reads(request):\n    assert helpers.asked(request)\n", id="module"),
+        pytest.param("from ..support.helpers import asked\n\n\ndef test_reads(request):\n    assert asked(request)\n", id="relative"),
+    ],
+)
+def test_a_helper_in_another_module_is_reached_through_its_import(importing: str):
+    """pytest runs whatever a test calls, wherever it is defined, so the request there counts.
+
+    Spelled through the test package's own name, as `fl_backend/tests/` imports its helpers.
+    """
+    root = new_root("estate-imported-") / "tests"
+    write(root, "conftest.py", ORPHAN)
+    write(root, "support/helpers.py", 'def asked(request):\n    return request.getfixturevalue("league")\n')
+    write(root, "api/test_case.py", importing)
+
+    assert estate.check_dead_fixtures(estate.Estate(root)) == []
 
 
 def test_the_configuration_s_usefixtures_excuses_a_fixture_no_test_names():

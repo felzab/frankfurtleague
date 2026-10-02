@@ -34,9 +34,10 @@ PYPROJECT: Final = BACKEND / "pyproject.toml"
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 
-# What a fixture is asked for by name rather than by parameter. Both take the name as a string, so
-# a fixture reached only this way looks unconsumed to a parameter sweep.
-BY_NAME: Final = frozenset({"usefixtures", "getfixturevalue"})
+# What a fixture is asked for by name rather than by parameter: a mark pytest reads where it applies
+# one, and a call it answers only where a test or a fixture reaches it.
+USEFIXTURES_MARK: Final = "usefixtures"
+GETFIXTUREVALUE: Final = "getfixturevalue"
 
 # The values that turn an empty parametrize into a failure. `skip` is pytest's default and the one
 # this rule exists to refuse; `xfail` reports a pass, which is the same silence.
@@ -82,27 +83,29 @@ class Module:
             self.fixtures.setdefault(registered, node)
             if _is_autouse(fixture):
                 self.autouse.add(registered)
-        self.asked = self._asked()
+        is_test_file = TEST_FILE.fullmatch(path.name) is not None
+        self.tests = list(_tests(tree.body)) if is_test_file else []
+        self.functions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        self.imports: dict[str, tuple[str, str | None]] = {}
+        for node in tree.body:
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    # `import a.b` binds `a` alone; `import a.b as c` binds `c` to `a.b`.
+                    module = alias.name if alias.asname else alias.name.partition(".")[0]
+                    self.imports[alias.asname or module] = (module, None)
+            elif isinstance(node, ast.ImportFrom):
+                module = "." * node.level + (node.module or "")
+                self.imports.update((alias.asname or alias.name, (module, alias.name)) for alias in node.names)
+        # The parameters pytest fills, and the marks it reads: a collected test's and a `Test` class's
+        # decorators, and a `pytestmark` in a test file's or a `Test` class's body.
+        self.asked = {name for node in [*self.fixtures.values(), *self.tests] for name in _parameters(node)}
+        if is_test_file:
+            for mark in _honoured_marks(tree.body):
+                self.asked.update(_requested(mark, USEFIXTURES_MARK))
 
-    def _asked(self) -> set[str]:
-        """What pytest hands a fixture to: a test's or a fixture's parameter, and a `usefixtures` or `getfixturevalue` string.
-
-        A helper's parameter is none of them, so it excuses no fixture sharing its name.
-        """
-        asked = {name for node in self.fixtures.values() for name in _parameters(node)}
-        if TEST_FILE.fullmatch(self.path.name):
-            asked.update(name for node in _tests(self.tree.body) for name in _parameters(node))
-        for node in ast.walk(self.tree):
-            if not isinstance(node, ast.Call):
-                continue
-            target = node.func
-            if (target.attr if isinstance(target, ast.Attribute) else (target.id if isinstance(target, ast.Name) else "")) not in BY_NAME:
-                continue
-            for arg in node.args:
-                if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
-                    raise Unfollowed(f"line {node.lineno} asks for a fixture by a name that is no string literal")
-                asked.add(arg.value)
-        return asked
+    def roots(self) -> list[FunctionNode]:
+        """What pytest itself calls: every collected test and every fixture."""
+        return [*self.tests, *self.fixtures.values()]
 
 
 def _tests(body: list[ast.stmt]) -> Iterator[FunctionNode]:
@@ -112,6 +115,32 @@ def _tests(body: list[ast.stmt]) -> Iterator[FunctionNode]:
             yield node
         elif isinstance(node, ast.ClassDef) and node.name.startswith(TEST_CLASS_PREFIX):
             yield from _tests(node.body)
+
+
+def _honoured_marks(body: list[ast.stmt]) -> Iterator[ast.expr]:
+    """Each mark expression pytest applies from one body: a collected test's or a `Test` class's decorator, or a `pytestmark`."""
+    for node in body:
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "pytestmark" for target in node.targets):
+            yield node.value
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(TEST_FUNCTION_PREFIX):
+            yield from node.decorator_list
+        elif isinstance(node, ast.ClassDef) and node.name.startswith(TEST_CLASS_PREFIX):
+            yield from node.decorator_list
+            yield from _honoured_marks(node.body)
+
+
+def _requested(node: ast.AST, call: str) -> Iterator[str]:
+    """Every fixture name a `call` call inside `node` asks for, which has to be a string literal to be read at all."""
+    for found in ast.walk(node):
+        if not isinstance(found, ast.Call):
+            continue
+        target = found.func
+        if (target.attr if isinstance(target, ast.Attribute) else (target.id if isinstance(target, ast.Name) else "")) != call:
+            continue
+        for arg in found.args:
+            if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
+                raise Unfollowed(f"line {found.lineno} asks for a fixture by a name that is no string literal")
+            yield arg.value
 
 
 def _fixture_name(decorator: ast.expr, defined: str) -> str:
@@ -178,10 +207,71 @@ class Estate:
                 self.modules.append(Module(path, tree))
             except Unfollowed as error:
                 self.unfollowed.append((path, str(error)))
+        self.by_dotted = {self._dotted(module.path): module for module in self.modules}
+        self.asked: set[str] = set()
+        self._ask_through_calls()
+
+    def _dotted(self, path: Path) -> str:
+        """A module's import path below the root, its package's own where it is an `__init__.py`."""
+        parts = path.relative_to(self.root).with_suffix("").parts
+        return ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+
+    def _module(self, importer: Module, name: str) -> Module | None:
+        """The estate's module an import in `importer` names, rooted at the estate or below its own directory's name."""
+        if name.startswith("."):
+            level = len(name) - len(name.lstrip("."))
+            dotted = [part for part in self._dotted(importer.path).split(".") if part]
+            # One dot is the importer's own package: an `__init__.py` is that package, a plain module sits in it.
+            package = dotted if importer.path.name == "__init__.py" else dotted[:-1]
+            base = package[: len(package) - (level - 1)]
+            name = ".".join([*base, name.lstrip(".")]).strip(".")
+        head, _, rest = name.partition(".")
+        return self.by_dotted.get(name) or (self.by_dotted.get(rest) if head == self.root.name else None)
+
+    def _callees(self, module: Module, node: FunctionNode) -> Iterator[tuple[Module, FunctionNode]]:
+        """The estate's own functions `node` calls by a name its module binds: its own, or one it imports."""
+        for call in ast.walk(node):
+            if not isinstance(call, ast.Call):
+                continue
+            target = call.func
+            if isinstance(target, ast.Name):
+                if target.id in module.functions:
+                    yield module, module.functions[target.id]
+                elif (imported := module.imports.get(target.id)) is not None and imported[1] is not None:
+                    source = self._module(module, imported[0])
+                    if source is not None and imported[1] in source.functions:
+                        yield source, source.functions[imported[1]]
+            elif isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+                imported = module.imports.get(target.value.id)
+                if imported is None:
+                    continue
+                # `from pkg import module` binds a module as well as `import module` does.
+                dotted = imported[0] if imported[1] is None else f"{imported[0]}.{imported[1]}"
+                source = self._module(module, dotted)
+                if source is not None and target.attr in source.functions:
+                    yield source, source.functions[target.attr]
+
+    def _ask_through_calls(self) -> None:
+        """Every `getfixturevalue` string in a function pytest runs: a test, a fixture, or one they reach by calling it.
+
+        One nobody calls is a string pytest never reads, so it excuses no fixture.
+        """
+        pending = [(module, node) for module in self.modules for node in module.roots()]
+        reached: set[int] = set()
+        while pending:
+            module, node = pending.pop()
+            if id(node) in reached:
+                continue
+            reached.add(id(node))
+            try:
+                self.asked.update(_requested(node, GETFIXTUREVALUE))
+            except Unfollowed as error:
+                self.unfollowed.append((module.path, str(error)))
+            pending.extend(self._callees(module, node))
 
     def consumed_names(self, configured: frozenset[str] = frozenset()) -> set[str]:
         """Every fixture name a test or a fixture asks for, anywhere in the estate, and those the configuration asks for."""
-        return set(configured).union(*(module.asked for module in self.modules))
+        return set(configured).union(self.asked, *(module.asked for module in self.modules))
 
 
 def configured_fixtures(options: dict[str, Any]) -> frozenset[str]:
