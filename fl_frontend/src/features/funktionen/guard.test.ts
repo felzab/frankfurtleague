@@ -56,7 +56,16 @@ const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
 const person = (records: Partial<SubjectSession["subjekt"]> = {}, admin = false): SubjectSession => ({
   email: "pia@example.org",
   admin: admin,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null, ...records },
+  subjekt: {
+    sitze: [],
+    spieler: [],
+    schiedsrichter: [],
+    unbestaetigt: false,
+    gesperrt: false,
+    verwaltung: null,
+    berechtigt_seit: null,
+    ...records,
+  },
 });
 
 const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
@@ -183,7 +192,7 @@ describe("where the landing takes a person", () => {
   /* The grant is what makes an address an administrator's, so one whose verdict lapsed, past its
      window or short of the passkey, owes the admin subtree's step rather than a person's landing. */
   it("sends an address holding a grant whose administrator verdict lapsed to the admin subtree", async () => {
-    setSubject(person({ spieler: [{ spieler_id: TEAM_A }], verwaltung: "administration" }));
+    setSubject(person({ spieler: [{ spieler_id: TEAM_A }], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }));
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/admin"]);
 
     // The control: the same records on an address holding no grant are a person's.
@@ -195,7 +204,10 @@ describe("where the landing takes a person", () => {
      they hold rather than sending them on to the admin subtree. */
   it("offers an address holding a grant whose administrator verdict stands its own landing", async () => {
     setSession({ user: { email: "vorstand@example.org" } }, "/bereich");
-    setSubject({ ...person({ spieler: [{ spieler_id: TEAM_A }], verwaltung: "administration" }, true), email: "vorstand@example.org" });
+    setSubject({
+      ...person({ spieler: [{ spieler_id: TEAM_A }], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }, true),
+      email: "vorstand@example.org",
+    });
 
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), [], "a standing administrator is sent away from the landing");
     assert.deepEqual(await switchHrefs(), ["/bereich/spieler", "/bereich/admin"]);

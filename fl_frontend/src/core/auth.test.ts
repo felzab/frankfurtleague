@@ -112,11 +112,22 @@ const { sent } = registerAuthDoubles({
 /** What the backend's one read answers an address, or that it throws for it or refuses it as a payload. */
 type Backend = Record<string, unknown> | "throws" | "refuses";
 
-const NOTHING_HELD = { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null };
+const NOTHING_HELD = {
+  sitze: [],
+  spieler: [],
+  schiedsrichter: [],
+  unbestaetigt: false,
+  gesperrt: false,
+  verwaltung: null,
+  berechtigt_seit: null,
+};
 const A_SEAT = { saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
 
+/** Before every session a case makes, so a grant dated by it admits what it held before grants were dated. */
+const GRANTED_BEFORE_ANY_SESSION = "2026-01-01T00:00:00Z";
+
 /** What the store answers the administrator of every case below: a grant and no league record. */
-const A_GRANT = { ...NOTHING_HELD, verwaltung: "administration" };
+const A_GRANT = { ...NOTHING_HELD, verwaltung: "administration" as const, berechtigt_seit: GRANTED_BEFORE_ANY_SESSION };
 
 /**
  * Keyed by the folded address the gate posts; every address named nowhere is unbarred and holds
@@ -869,6 +880,47 @@ describe("why the admin guard refused", () => {
   });
 });
 
+/* A grant ends no session, so one the address made before it -- by a passkey enrolled while it held
+   none -- is held against the grant's own time on every lane judging the grant (`docs/frontend/spec.md :: I470`). */
+describe("a passkey session made before its grant", () => {
+  afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
+
+  async function aPasskeySessionGranted(grantedAfterMs: number | null): Promise<void> {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    ageRow(row, { created: HOUR_MS });
+    const berechtigtSeit = grantedAfterMs === null ? null : new Date(row.createdAt.getTime() + grantedAfterMs).toISOString();
+    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, berechtigt_seit: berechtigtSeit });
+    arriveAs(cookie);
+  }
+
+  it("administers on no lane, and is told to sign in", async () => {
+    await aPasskeySessionGranted(60 * 1000);
+
+    assert.equal(await getAdminSession(), null);
+    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" });
+    assert.equal(await getKontoSession(), null, "the account page served an administrator's session its grant postdates");
+    assert.equal(await getSignInDestination(), "/signin");
+  });
+
+  it("administers once the grant is dated before it, the same session and the same rows otherwise", async () => {
+    await aPasskeySessionGranted(-60 * 1000);
+
+    assert.ok(await getAdminSession(), "the control was refused, so the case above proves nothing");
+    assert.ok(await getKontoSession());
+    assert.equal(await getSignInDestination(), "/bereich");
+  });
+
+  /* The backend dates every grant; one answered with none is a contract the two services broke, which
+     admits nobody rather than every session. */
+  it("administers nowhere where the grant is answered undated", async () => {
+    await aPasskeySessionGranted(null);
+
+    assert.equal(await getAdminSession(), null);
+    assert.equal(await getKontoSession(), null);
+  });
+});
+
 /* A session a ban's ending missed, a race or a failed sign-out, manages no passkeys and no sign-ins:
    the account page's guard reads the ban on every request, as the person guard does. */
 describe("the account page's guard on a barred address", () => {
@@ -1050,35 +1102,41 @@ describe("the second factor, judged at the same guard", () => {
     madeByPasskey(store, row);
     const withFactor = await served(cookie);
     assert.ok(withFactor);
-    assert.equal(isAdminSession(withFactor, true), true);
+    assert.equal(isAdminSession(withFactor, A_GRANT), true);
 
     row.authFactor = "code";
     const withoutFactor = await served(cookie);
     assert.ok(withoutFactor);
-    assert.equal(isAdminSession(withoutFactor, true), false);
+    assert.equal(isAdminSession(withoutFactor, A_GRANT), false);
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a
      granted session on a `/bereich` that sends it on to an `/bereich/admin` the proxy bounces. */
-  it("lands a granted session on `/bereich` exactly where the guard admits it, over the same seeded rows", async () => {
+  it("lands a granted session on `/bereich` exactly where the guard admits it, over the same seeded rows", async (t) => {
+    t.after(() => BACKENDS.delete(ADMIN_EMAIL));
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
     for (const factor of ["code", "passkey"]) {
       for (const created of [HOUR_MS, 49 * HOUR_MS]) {
-        if (factor === "passkey") madeByPasskey(store, row);
-        else row.authFactor = factor;
-        ageRow(row, { created });
-        arriveAs(cookie);
+        // A grant dated before every session, and one dated after the seeded row was made.
+        for (const grantedAgo of [100 * DAY_MS, created / 2]) {
+          if (factor === "passkey") madeByPasskey(store, row);
+          else row.authFactor = factor;
+          ageRow(row, { created });
+          const grant = { ...A_GRANT, berechtigt_seit: new Date(Date.now() - grantedAgo).toISOString() };
+          BACKENDS.set(ADMIN_EMAIL, grant);
+          arriveAs(cookie);
 
-        const seen = await served(cookie);
-        assert.ok(seen);
-        const destination = await getSignInDestination();
+          const seen = await served(cookie);
+          assert.ok(seen);
+          const destination = await getSignInDestination();
 
-        assert.equal(
-          destination === "/bereich",
-          isAdminSession(seen, true),
-          `${factor} at ${String(created / HOUR_MS)}h landed on ${destination}`,
-        );
+          assert.equal(
+            destination === "/bereich",
+            isAdminSession(seen, grant),
+            `${factor} at ${String(created / HOUR_MS)}h, granted ${String(grantedAgo / HOUR_MS)}h ago, landed on ${destination}`,
+          );
+        }
       }
     }
   });
@@ -2825,7 +2883,12 @@ describe("which addresses the send gate mails", () => {
      reason, so each is answered as itself, and a failed read as a verdict rather than a throw. */
   const VERDICTS: readonly (readonly [string, string, Backend | undefined, string])[] = [
     ["an address holding a grant", ADMIN_EMAIL, A_GRANT, "admitted"],
-    ["an address holding an `owner` grant", ADMIN_EMAIL, { ...NOTHING_HELD, verwaltung: "owner" }, "admitted"],
+    [
+      "an address holding an `owner` grant",
+      ADMIN_EMAIL,
+      { ...NOTHING_HELD, verwaltung: "owner", berechtigt_seit: GRANTED_BEFORE_ANY_SESSION },
+      "admitted",
+    ],
     // The ban ahead of the grant: the order a gate judging the grant first would answer otherwise.
     ["a barred address holding a grant", BARRED_EMAIL, { ...A_GRANT, gesperrt: true }, "barred"],
     ["an administrator's address, the read throwing", ADMIN_EMAIL, "throws", "failed"],

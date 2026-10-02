@@ -406,9 +406,16 @@ administration is shut while it is down. Each of these is easy to get wrong:
   which the sign-in box converts either spelling to.
 - **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
   code, the same authority an administrator's first passkey rests on, so one enrolled before the grant
-  admits once the address is granted. The grant ends the address's sessions, so it admits only on a
-  fresh passkey sign-in (`docs/frontend/spec.md :: I470`): grant an address only where its mailbox is
-  trusted as an administrator's.
+  admits once the address is granted, though only on a passkey sign-in made after the grant: a
+  session older than the grant administers nothing (`docs/frontend/spec.md :: I470`). Grant an
+  address only where its mailbox is trusted as an administrator's.
+- **A Playground grant is dated twice, so whoever it admits signs in once more.** Until the
+  reconciliation's next pass (`fl_frontend/src/features/berechtigungen/abgleich.ts ::
+ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am` — so
+  write `new Date()` there, and any sign-in after the paste admits. Once found, it is dated by that
+  moment instead (`docs/backend/spec.md :: I525`): a session signed in between the paste and the find
+  is sent back to the sign-in, and the next passkey sign-in admits. An address changed in place on
+  an existing row is dated the same way.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.

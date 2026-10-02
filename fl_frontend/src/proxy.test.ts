@@ -420,7 +420,16 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
     refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
     t.mock.method(globalThis, "fetch", () =>
       Promise.resolve(
-        Response.json({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: true, verwaltung: null }),
+        Response.json({
+          acknowledged: 1,
+          sitze: [],
+          spieler: [],
+          schiedsrichter: [],
+          unbestaetigt: false,
+          gesperrt: true,
+          verwaltung: null,
+          berechtigt_seit: null,
+        }),
       ),
     );
 

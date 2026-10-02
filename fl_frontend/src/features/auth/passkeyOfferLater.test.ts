@@ -37,6 +37,7 @@ answerReadsWith((endpoint, schema, params) =>
         unbestaetigt: false,
         gesperrt: false,
         verwaltung: null,
+        berechtigt_seit: null,
       }
     : EMPTIEST_ANSWER(endpoint, schema, params),
 );

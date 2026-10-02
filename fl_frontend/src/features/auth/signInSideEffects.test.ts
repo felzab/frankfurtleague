@@ -32,7 +32,15 @@ const UNCONFIRMED = "unbestaetigte@example.org";
 /** What the backend's one read answers an address with, or that it threw. */
 type Backend = Record<string, unknown> | "throws";
 
-const NOTHING_HELD = { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null };
+const NOTHING_HELD = {
+  sitze: [],
+  spieler: [],
+  schiedsrichter: [],
+  unbestaetigt: false,
+  gesperrt: false,
+  verwaltung: null,
+  berechtigt_seit: null,
+};
 const A_SEAT = {
   saison_id: "2026",
   team_id: "0123456789abcdef01234567",
@@ -42,7 +50,7 @@ const A_SEAT = {
 };
 
 const BACKENDS: Readonly<Record<string, Backend>> = {
-  [GRANTED]: { ...NOTHING_HELD, verwaltung: "administration" },
+  [GRANTED]: { ...NOTHING_HELD, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" },
   [BARRED]: { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true },
   [PAST_SEATED]: { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] },
   [UNREACHED]: "throws",

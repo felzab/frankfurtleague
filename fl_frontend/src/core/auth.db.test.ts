@@ -126,8 +126,17 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 
   // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
-  const verwaltung = email === ADMIN_EMAIL ? "administration" : null;
-  const body = { acknowledged: 1, spieler: [], schiedsrichter: [], unbestaetigt: false, verwaltung, ...gateAnswer };
+  const granted = email === ADMIN_EMAIL;
+  const body = {
+    acknowledged: 1,
+    spieler: [],
+    schiedsrichter: [],
+    unbestaetigt: false,
+    verwaltung: granted ? "administration" : null,
+    // Before every session a case makes.
+    berechtigt_seit: granted ? "2026-01-01T00:00:00Z" : null,
+    ...gateAnswer,
+  };
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }) as typeof globalThis.fetch;
 

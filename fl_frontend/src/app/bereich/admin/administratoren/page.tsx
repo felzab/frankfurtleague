@@ -59,7 +59,7 @@ async function Berechtigungen() {
  */
 async function inhaberAdresseOf(): Promise<string | null> {
   const served = await getAdminSession();
-  if (served === null || (await verwaltungOf(served.user.email)) !== "owner") return null;
+  if (served === null || (await verwaltungOf(served.user.email)).verwaltung !== "owner") return null;
 
   // Folded, as every grant is stored: the session keeps the spelling it signed in with, and the own row is found by it.
   return asSignInIdentifier(served.user.email);

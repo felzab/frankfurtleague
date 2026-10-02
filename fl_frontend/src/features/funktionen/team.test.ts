@@ -60,7 +60,16 @@ const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
 const person = (records: Partial<SubjectSession["subjekt"]> = {}): SubjectSession => ({
   email: "pia@example.org",
   admin: false,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null, ...records },
+  subjekt: {
+    sitze: [],
+    spieler: [],
+    schiedsrichter: [],
+    unbestaetigt: false,
+    gesperrt: false,
+    verwaltung: null,
+    berechtigt_seit: null,
+    ...records,
+  },
 });
 
 /** The landing as the team area mounts it at one address: under its layout, whose guard runs first. */

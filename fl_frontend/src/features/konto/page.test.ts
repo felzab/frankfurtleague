@@ -32,11 +32,14 @@ const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}
 const OHNE_FUNKTION: SubjectSession = {
   email: "pia@example.org",
   admin: false,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false, verwaltung: null },
+  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false, verwaltung: null, berechtigt_seit: null },
 };
 
 /** The same person holding a grant: the administrator's lane decides what the page shows them. */
-const MIT_ZUGANG: SubjectSession = { ...OHNE_FUNKTION, subjekt: { ...OHNE_FUNKTION.subjekt, verwaltung: "administration" } };
+const MIT_ZUGANG: SubjectSession = {
+  ...OHNE_FUNKTION,
+  subjekt: { ...OHNE_FUNKTION.subjekt, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" },
+};
 
 /** The page's one heading, which is the bar's: a view under it carries none. */
 function heading(html: string): string {

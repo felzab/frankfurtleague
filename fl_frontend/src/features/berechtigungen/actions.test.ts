@@ -8,6 +8,7 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
+import { ZUGANG_ERTEILT } from "./constants.ts";
 import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refusals.ts";
 
 /** Work the real `after` would run behind the response, collected rather than run: no case here has a response. */
@@ -21,7 +22,7 @@ const NEXT_SERVER_DOUBLE = replacingPackage("next/server", {
 });
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
-const { setSession, setFresh, signedOut, failSignOut } = doubleActionRequest();
+const { setSession, setFresh, signedOut } = doubleActionRequest();
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -78,24 +79,13 @@ describe("the grant", () => {
     assert.deepEqual(deferred, [], "a refused grant scheduled an announcement");
   });
 
-  /* A change of privilege rotates the session: one the address made before the grant, by a passkey it
-     enrolled while holding none, would otherwise administer at once (`docs/frontend/spec.md :: I470`). */
-  it("ends every session of the address granted, and none for a refused grant", async () => {
-    await postBerechtigungAction({ email: "Neu@Schule.de" });
-    assert.deepEqual(signedOut(), ["Neu@Schule.de"]);
+  /* A session the address made before the grant administers nothing, every guard holding it against the
+     grant's own time (`docs/frontend/spec.md :: I470`), so the grant signs nobody out and its sign-in stands. */
+  it("ends no session, and answers the grant in its own words", async () => {
+    const result = await postBerechtigungAction({ email: "Neu@Schule.de" });
 
-    client.answerWith(() => Promise.reject(new Error("refused")));
-    await postBerechtigungAction({ email: "zwei@schule.de" }).catch(() => undefined);
-    assert.deepEqual(signedOut(), ["Neu@Schule.de"], "a grant that failed signed its address out");
-  });
-
-  it("keeps a grant whose sessions could not be ended, and says so", async () => {
-    failSignOut(new Error("store down"));
-
-    const result = await postBerechtigungAction({ email: "neu@schule.de" });
-
-    assert.equal(result.success, true);
-    assert.equal("message" in result && result.message, "Laufende Anmeldungen der Adresse konnten nicht beendet werden.");
+    assert.equal("message" in result && result.message, ZUGANG_ERTEILT);
+    assert.deepEqual(signedOut(), []);
   });
 
   /* The sign-in library's own rule, which the address box's is wider than: a grant past it admits nobody. */

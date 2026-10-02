@@ -76,7 +76,7 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
   "REQ-AUTH-007": {
     kind: "fallback",
     because:
-      "the guard signs the token only for a passkey session inside the administrator's window, so a refusal is the two services disagreeing on a key, a clock or that window",
+      "the guard signs the token only for a passkey session inside the administrator's window and made since its grant, so a refusal is the two services disagreeing on a key, a clock, that window or the grant read",
   },
   "REQ-AUTH-009": {
     kind: "worded",

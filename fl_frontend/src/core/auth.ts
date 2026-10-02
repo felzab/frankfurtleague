@@ -47,6 +47,7 @@ import type { PasskeyEmail } from "./passkeyEmail";
 import type { RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
 import type { SubjectSession } from "./subject";
+import type { Verwaltung } from "./verwaltung";
 
 /** One mailbox's records, ban and grant, as the gate reads them. */
 type SubjectRecords = SubjectSession["subjekt"];
@@ -263,10 +264,10 @@ async function subjektOrNull(email: string): Promise<SubjectRecords | null> {
   }
 }
 
-/** The grant where an unread one admits nobody: `null` where the backend could not say. */
-async function verwaltungOrNull(email: string): Promise<boolean | null> {
+/** The grant and when it took effect, where an unread one admits nobody: `null` where the backend could not say. */
+async function verwaltungOrNull(email: string): Promise<Verwaltung | null> {
   try {
-    return (await verwaltungOf(email)) !== null;
+    return await verwaltungOf(email);
   } catch (failed) {
     logUnreadVerwaltung(failed);
     return null;
@@ -1147,7 +1148,7 @@ export async function removePasskey(holder: { id: string; email: string }, id: s
   // Judged here rather than by the caller: an administrator's last passkey is their only way into
   // the administration, while a person holding none signs in by code again. An unread grant throws
   // rather than let a last passkey go.
-  const keepsLast = (await verwaltungOf(holder.email)) !== null;
+  const keepsLast = (await verwaltungOf(holder.email)).verwaltung !== null;
 
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
@@ -1222,7 +1223,7 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
   if (subjekt.gesperrt) return null;
 
   const judged = { ...served, verwaltung: subjekt.verwaltung !== null };
-  if (judged.verwaltung) return isAdminSession(served, true) ? judged : null;
+  if (judged.verwaltung) return isAdminSession(served, subjekt) ? judged : null;
 
   return isWithinPersonLifetime(served.session) ? judged : null;
 });
@@ -1344,18 +1345,36 @@ export function isWithinPersonLifetime(session: { createdAt: Date; updatedAt: Da
   return withinLifetime(session, PERSON_LIFETIME);
 }
 
-// An address granted after its session was made is an administrator on the next request, and is
-// judged against the administrator's window on that same request.
-function isAdminWithinWindow(served: ServedSession, verwaltung: boolean): boolean {
-  return verwaltung && withinLifetime(served.session, ADMIN_LIFETIME);
+function isAdminWithinWindow(served: ServedSession): boolean {
+  return withinLifetime(served.session, ADMIN_LIFETIME);
+}
+
+/** Every administrator's condition the grant itself does not decide: a passkey session inside both of the administrator's figures. */
+function passesButForItsGrant(served: ServedSession): boolean {
+  return isAdminWithinWindow(served) && served.session.authFactor === PASSKEY_FACTOR;
 }
 
 /**
- * Whether this served session may act as an administrator — its address holding a grant, inside both
- * of the administrator's figures, and made by the passkey rather than by a mailed code alone.
+ * A session made before its grant holds none of it, as a change of privilege rotates the session
+ * (`docs/frontend/spec.md :: I470`): here rather than by ending sessions at the grant, which a grant
+ * written in the database would skip.
  */
-export function isAdminSession(served: ServedSession, verwaltung: boolean): boolean {
-  return isAdminWithinWindow(served, verwaltung) && served.session.authFactor === PASSKEY_FACTOR;
+function madeSinceItsGrant(served: ServedSession, berechtigtSeit: string | null): boolean {
+  const created = new Date(served.session.createdAt).getTime();
+  const granted = berechtigtSeit === null ? Number.NaN : new Date(berechtigtSeit).getTime();
+
+  // An unreadable instant on either side admits nobody, as `withinLifetime` reads an unreadable stamp.
+  return Number.isFinite(created) && Number.isFinite(granted) && created >= granted;
+}
+
+/**
+ * Whether this served session may act as an administrator — its address holding a grant it was made
+ * since, inside both of the administrator's figures, and made by the passkey rather than by a mailed code alone.
+ */
+export function isAdminSession(served: ServedSession, { verwaltung, berechtigt_seit }: Verwaltung): boolean {
+  // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
+  // and a passkey the factor it asks, enrolled on the mailbox's own authority (`docs/ops/runbooks.md` §3).
+  return verwaltung !== null && madeSinceItsGrant(served, berechtigt_seit) && passesButForItsGrant(served);
 }
 
 /**
@@ -1375,8 +1394,9 @@ const readAdminRequest = cache(
     // An unread grant admits nobody, so the administration is shut while the backend is.
     const verwaltung = await verwaltungOrNull(served.user.email);
     if (verwaltung === null) return { refused: "unread" };
-    if (!verwaltung) return { refused: isAdminSession(served, true) ? "grantGone" : "noGrant" };
-    if (!isAdminSession(served, true)) return { refused: "signIn" };
+    if (verwaltung.verwaltung === null) return { refused: passesButForItsGrant(served) ? "grantGone" : "noGrant" };
+    // A session made before its grant among them, which a sign-in after the grant repairs.
+    if (!isAdminSession(served, verwaltung)) return { refused: "signIn" };
 
     // A session no token can state truthfully is repaired by signing in afresh.
     const actor = await mintRequestActor(served, "admin");
@@ -1452,7 +1472,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   // and one left standing serves again on the ban's lift with no sign-in (`docs/frontend/spec.md :: I406`).
   if (subjekt.gesperrt) return ended(read);
 
-  return { destination: await destinationOf(served, subjekt.verwaltung !== null, requestHeaders), served: served };
+  return { destination: await destinationOf(served, subjekt, requestHeaders), served: served };
 }
 
 /**
@@ -1465,11 +1485,11 @@ async function ended(read: ServedSession): Promise<Landing> {
   return { destination: "/signin", served: null };
 }
 
-async function destinationOf(served: ServedSession, granted: boolean, requestHeaders: Headers): Promise<SignInDestination> {
-  if (granted) {
+async function destinationOf(served: ServedSession, verwaltung: Verwaltung, requestHeaders: Headers): Promise<SignInDestination> {
+  if (verwaltung.verwaltung !== null) {
     // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
     // the guard refuses on to `/bereich/admin`, which the proxy bounces back here.
-    if (isAdminSession(served, true)) return "/bereich";
+    if (isAdminSession(served, verwaltung)) return "/bereich";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
     // afresh rather than being sent to a person's landing with no way to the step they owe.
@@ -1490,7 +1510,7 @@ export type PasskeyStep = { readonly step: "enrol" | "assert" | "offer"; readonl
  * then has nothing to show it and sends it back.
  */
 async function passkeyStepOf(served: ServedSession, admin: boolean, requestHeaders: Headers): Promise<PasskeyStep["step"] | null> {
-  if (admin ? !isAdminWithinWindow(served, true) : !isWithinPersonLifetime(served.session)) return null;
+  if (admin ? !isAdminWithinWindow(served) : !isWithinPersonLifetime(served.session)) return null;
   // A session the passkey already made needs no card, whatever it holds.
   if (served.session.authFactor === PASSKEY_FACTOR) return null;
 
@@ -1534,8 +1554,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
  * not reach; the account and its passkeys stay for the day the ban ends (`docs/frontend/spec.md :: I402`).
  */
 export async function endSessionsOfAddress(address: string): Promise<boolean> {
-  // No grant is asked about: a ban and a grant each end every session of the address they name,
-  // whatever it holds.
+  // No grant is asked about: a ban ends every session of the address it names, whatever it holds.
   const folded = asSignInIdentifier(address);
 
   const { adapter } = await auth.$context;

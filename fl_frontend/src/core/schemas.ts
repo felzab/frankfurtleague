@@ -77,5 +77,8 @@ export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   // The tier of the grant the address holds, null for none: the administrator verdict's one source,
   // read per request and never stamped on a session (`docs/backend/spec.md :: I383`).
   verwaltung: z.enum(["owner", "administration"]).nullable(),
+  // When that grant took effect, null exactly where `verwaltung` is: a session made before it is no
+  // administrator's (`docs/backend/spec.md :: I525`). An instant carrying its offset, as every served one does.
+  berechtigt_seit: z.string().nullable(),
 });
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;

@@ -26,6 +26,8 @@ type SubjectRecords = {
   // The grant the address holds, stored and never derived: whether it may act as an administrator is
   // `SubjectSession["admin"]`, which the session's factor and window narrow further.
   readonly verwaltung: FLSubjektResponse["verwaltung"];
+  // When that grant took effect, which the same verdict holds the session's own making against.
+  readonly berechtigt_seit: FLSubjektResponse["berechtigt_seit"];
 };
 
 /**
@@ -63,7 +65,7 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   if (actor === null) return null;
 
   // Off the lookup this guard already made, so the verdict costs no second read.
-  return { subject: { email: email, admin: isAdminSession(served, subjekt.verwaltung !== null), subjekt: subjekt }, actor: actor };
+  return { subject: { email: email, admin: isAdminSession(served, subjekt), subjekt: subjekt }, actor: actor };
 });
 
 /**

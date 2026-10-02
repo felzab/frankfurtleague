@@ -81,6 +81,7 @@ type Subjekt = {
   unbestaetigt: boolean;
   gesperrt: boolean;
   verwaltung: "owner" | "administration" | null;
+  berechtigt_seit: string | null;
 };
 
 const empty = (): Subjekt => ({
@@ -91,6 +92,7 @@ const empty = (): Subjekt => ({
   unbestaetigt: false,
   gesperrt: false,
   verwaltung: null,
+  berechtigt_seit: null,
 });
 
 const SEAT = { saison_id: "2025/26", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
@@ -99,7 +101,7 @@ const PUPIL = { spieler_id: "b".repeat(24) };
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subjekt>([
-  [ADMIN_EMAIL, { ...empty(), sitze: [SEAT], verwaltung: "administration" }],
+  [ADMIN_EMAIL, { ...empty(), sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }],
   [PERSON_EMAIL, { ...empty(), spieler: [PUPIL] }],
   [FOLDED_EMAIL, { ...empty(), spieler: [PUPIL] }],
 ]);
@@ -261,6 +263,34 @@ describe("who the seam answers for", () => {
     assert.equal(await getSubjectSession(), null);
   });
 
+  /* The admin guard refuses a session its grant postdates (`docs/frontend/spec.md :: I470`), so a control
+     gated on this mark offers it nothing either; the person's records stand. */
+  it("drops that mark from a passkey session made before its grant, and keeps it once the grant is dated before", async (t) => {
+    t.after(() =>
+      RECORDS.set(ADMIN_EMAIL, { ...empty(), sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }),
+    );
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    arriveAs(cookie);
+
+    const marks = [];
+    for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
+      RECORDS.set(ADMIN_EMAIL, {
+        ...empty(),
+        sitze: [SEAT],
+        verwaltung: "administration",
+        berechtigt_seit: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
+      });
+      beginRenderPass();
+      const answer = await getSubjectSession();
+      assert.ok(answer, "the person's lane refused the session its grant postdates");
+      assert.deepEqual(answer.subjekt.sitze, [SEAT]);
+      marks.push(answer.admin);
+    }
+
+    assert.deepEqual(marks, [false, true]);
+  });
+
   it("drops that mark past the administrator's window, which this lane's own lifetime outlasts", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
@@ -282,7 +312,15 @@ describe("who the seam answers for", () => {
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["gesperrt", "schiedsrichter", "sitze", "spieler", "unbestaetigt", "verwaltung"]);
+    assert.deepEqual(Object.keys(answer.subjekt).sort(), [
+      "berechtigt_seit",
+      "gesperrt",
+      "schiedsrichter",
+      "sitze",
+      "spieler",
+      "unbestaetigt",
+      "verwaltung",
+    ]);
     assert.equal(answer.subjekt.verwaltung, "administration");
   });
 
@@ -292,7 +330,16 @@ describe("who the seam answers for", () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
     nextAnswer = new Response(
-      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false, verwaltung: null }),
+      JSON.stringify({
+        acknowledged: 1,
+        sitze: [],
+        spieler: [],
+        schiedsrichter: [],
+        unbestaetigt: true,
+        gesperrt: false,
+        verwaltung: null,
+        berechtigt_seit: null,
+      }),
       {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -308,7 +355,16 @@ describe("who the seam answers for", () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
     nextAnswer = new Response(
-      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null }),
+      JSON.stringify({
+        acknowledged: 1,
+        sitze: [],
+        spieler: [],
+        schiedsrichter: [],
+        unbestaetigt: false,
+        gesperrt: false,
+        verwaltung: null,
+        berechtigt_seit: null,
+      }),
       {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -332,6 +388,7 @@ describe("who the seam answers for", () => {
         unbestaetigt: false,
         gesperrt: true,
         verwaltung: null,
+        berechtigt_seit: null,
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     );

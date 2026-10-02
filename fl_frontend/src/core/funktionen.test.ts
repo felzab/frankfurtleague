@@ -41,6 +41,7 @@ const subject = ({
   unbestaetigt = false,
   gesperrt = false,
   verwaltung = null,
+  berechtigt_seit = null,
 }: Partial<SubjectSession["subjekt"]> & { admin?: boolean } = {}): SubjectSession => ({
   email: "person@example.org",
   admin: admin,
@@ -51,6 +52,7 @@ const subject = ({
     unbestaetigt: unbestaetigt,
     gesperrt: gesperrt,
     verwaltung: verwaltung,
+    berechtigt_seit: berechtigt_seit,
   },
 });
 

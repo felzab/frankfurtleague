@@ -251,6 +251,7 @@ describe("the request double", () => {
         unbestaetigt: false,
         gesperrt: false,
         verwaltung: null,
+        berechtigt_seit: null,
       },
     };
     setSubject(subject);
