@@ -1151,6 +1151,13 @@ def test_a_model_mounting_no_sink_is_refused_naming_the_mount() -> None:
     assert "sink-emptied" not in output, output
 
 
+def test_every_start_empties_the_sink_before_the_build() -> None:
+    """At the top level, past `--down`'s exit: the call also creates the sink, which the engine would otherwise mount root-owned."""
+    text = LOCAL.read_text(encoding="utf-8")
+
+    assert text.index("\nif (( DOWN )); then\n") < text.index("\nempty_mail_sink\n") < text.index('\nsection "build"\n'), LOCAL.name
+
+
 # --- the copy of production a development machine takes -----------------------------------------------
 
 DUMP: Final = (
