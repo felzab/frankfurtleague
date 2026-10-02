@@ -776,6 +776,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
     // below stores none, and nothing here would read one, the limiter that would being off (`docs/ops/spec.md :: I4`).
 
     advanced: {
+      // The session and its user in one `$lookup` rather than a second query: every guard reads the
+      // session on every request, cookie caching being off above.
+      database: { joins: true },
       // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
       ipAddress: { disableIpTracking: true },
       // Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie

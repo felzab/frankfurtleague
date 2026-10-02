@@ -61,9 +61,11 @@ opened.client = client;
 const { auth, getAdminSession } = await import("@/core/auth.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 
-// Production's indexes under every case, so the library is driven over what it meets there.
+// Production's indexes under every case, so the library is driven over what it meets there, and an
+// empty store, each case signing the administrator in afresh.
 beforeEach(async () => {
   errors.length = 0;
+  await Promise.all(["session", "user", "passkey", "verification"].map((name) => client.db("auth").collection(name).deleteMany({})));
   await buildAuthIndexes();
   assert.deepEqual(errors, [], "an index of the sign-in store was left unbuilt");
 });
@@ -72,9 +74,19 @@ beforeEach(async () => {
 // the client's own, left out of its published type.
 Reflect.set(client, "monitorCommands", true);
 const sessionReads: CommandStartedEvent[] = [];
+/** Every command sent to the sign-in store, by its name and the collection it names. */
+const sent: string[] = [];
 client.on("commandStarted", (event) => {
   if (event.commandName === "aggregate" && event.command.aggregate === "session") sessionReads.push(event);
+  if (event.databaseName === "auth") sent.push(`${event.commandName} ${String(event.command[event.commandName])}`);
 });
+
+/** The commands `read` sends, in the order it sends them. */
+async function sentBy(read: () => Promise<unknown>): Promise<string[]> {
+  const before = sent.length;
+  await read();
+  return sent.slice(before);
+}
 
 /** The passkey the administrator signs in with. */
 const CREDENTIAL_ID = "fl-admin-session-db";
@@ -132,5 +144,16 @@ describe("the administrator's session across one render pass", () => {
     beginRenderPass();
     await getAdminSession();
     assert.equal(sessionReads.length - before, 2, "a second request was answered from the first one's read");
+  });
+
+  /* `advanced.database.joins` hands the account to the adapter's own `$lookup`; without it the library
+     reads the session, then the account, on every guard of every request. */
+  it("reads the session and its account in one round trip", async () => {
+    requestHeaders = await signInAsAdministrator();
+
+    beginRenderPass();
+    const commands = await sentBy(() => getAdminSession());
+
+    assert.deepEqual(commands, ["aggregate session", "aggregate passkey"], "the guard's read is not one session read and its passkey's");
   });
 });
