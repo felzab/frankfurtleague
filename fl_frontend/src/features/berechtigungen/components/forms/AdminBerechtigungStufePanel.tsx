@@ -10,9 +10,11 @@ import { INHABER_GESPERRT, stufeWorte } from "@/features/berechtigungen/constant
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
 
@@ -43,6 +45,8 @@ export function AdminBerechtigungStufePanel({
   const { isConfirming, press } = twoPress;
 
   const handleAendern = () => {
+    // An owner stepping down takes every tier control off the page with it, the pressed one included.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await patchBerechtigungAction({ id: berechtigungId, verwaltung: ziel }).catch(rejectedWrite(router));
@@ -52,6 +56,7 @@ export function AdminBerechtigungStufePanel({
         return;
       }
 
+      landing.landed();
       appToast.success("Stufe geändert", { description: res.message });
     });
   };
@@ -66,29 +71,31 @@ export function AdminBerechtigungStufePanel({
 
       <ConfirmActionRow confirm={twoPress}>
         {/* Named by its row and its tier, so each control in the list is one a screen reader can tell from the next. */}
-        <ConfirmPressButton
-          confirm={twoPress}
-          // A barred address is made an owner by no request; its demotion stays open.
-          reason={ziel === "owner" && adresse === null ? INHABER_GESPERRT : null}
-          resting={resting}
-          restingName={name}
-          armed={armed}
-          running={running}
-          icon={
-            ziel === "owner" ? (
-              <ChevronsUp
-                className="size-4.5"
-                aria-hidden="true"
-              />
-            ) : (
-              <ChevronsDown
-                className="size-4.5"
-                aria-hidden="true"
-              />
-            )
-          }
-          onPress={handleAendern}
-        />
+        <FocusSlot name="stufe">
+          <ConfirmPressButton
+            confirm={twoPress}
+            // A barred address is made an owner by no request; its demotion stays open.
+            reason={ziel === "owner" && adresse === null ? INHABER_GESPERRT : null}
+            resting={resting}
+            restingName={name}
+            armed={armed}
+            running={running}
+            icon={
+              ziel === "owner" ? (
+                <ChevronsUp
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              ) : (
+                <ChevronsDown
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              )
+            }
+            onPress={handleAendern}
+          />
+        </FocusSlot>
       </ConfirmActionRow>
     </div>
   );

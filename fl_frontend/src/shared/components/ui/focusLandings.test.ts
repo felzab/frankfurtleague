@@ -423,22 +423,23 @@ const SPERREN = [
 const aufheben = (erstellt_am: string) => `Sperre vom ${formatSpielDatum(erstellt_am)} aufheben`;
 
 /** The page's own heading, as the shell's top bar draws it over every admin list. */
-const TOP_BAR = h(AppTopBar, {
-  title: "Sperrliste",
-  isMobileOpen: false,
-  onToggleMobileMenu: () => undefined,
-  isDesktopCollapsed: false,
-  kontoHref: null,
-  isOnKonto: false,
-});
+const topBar = (title: string) =>
+  h(AppTopBar, {
+    title,
+    isMobileOpen: false,
+    onToggleMobileMenu: () => undefined,
+    isDesktopCollapsed: false,
+    kontoHref: null,
+    isOnKonto: false,
+  });
 const sperrliste = (rows: ReturnType<typeof sperre>[]) =>
-  h(Fragment, null, TOP_BAR, h(AdminSperrlisteView, { sperrliste: rows, anzahlGesamt: rows.length }));
+  h(Fragment, null, topBar("Sperrliste"), h(AdminSperrlisteView, { sperrliste: rows, anzahlGesamt: rows.length }));
 
-const zugang = (id: string, adresse: string) => ({
+const zugang = (id: string, adresse: string, verwaltung: "owner" | "administration" = "administration") => ({
   id,
   adresse,
   gesperrt: false,
-  verwaltung: "administration" as const,
+  verwaltung,
   erteilt_von: "inhaber@example.org",
   erteilt_von_gesperrt: false,
   erteilt_am: "2026-09-01T08:00:00.000Z",
@@ -448,6 +449,19 @@ const zugaenge = (rows: ReturnType<typeof zugang>[]) =>
 const ZUGANG_A = zugang("68c1f0a2b3c4d5e6f7a8b951", "anna@example.org");
 const ZUGANG_B = zugang("68c1f0a2b3c4d5e6f7a8b952", "ben@example.org");
 const ZUGANG_C = zugang("68c1f0a2b3c4d5e6f7a8b953", "cem@example.org");
+const INHABER = "inhaber@example.org";
+/** The list as its owner sees it, the signed-in owner's own grant first: stepping down ends the ownership every tier control needs. */
+const eigeneZugaenge = (verwaltung: "owner" | "administration") =>
+  h(
+    Fragment,
+    null,
+    topBar("Berechtigungen"),
+    h(AdminBerechtigungenView, {
+      berechtigungen: [zugang("68c1f0a2b3c4d5e6f7a8b954", INHABER, verwaltung), ZUGANG_A, ZUGANG_B],
+      uebersprungen: 0,
+      inhaberAdresse: verwaltung === "owner" ? INHABER : null,
+    }),
+  );
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -589,6 +603,13 @@ const LANDINGS: Record<string, Landing> = {
     press: (user) => pressTwice(user, { resting: "Zugang entziehen: ben@example.org", armed: "Ja, Zugang endgültig entziehen" }),
     after: () => zugaenge([ZUGANG_A, ZUGANG_C]),
     lands: () => screen.getByRole("button", { name: "Zugang entziehen: cem@example.org" }),
+  },
+  /* The pressed control goes with the ownership it gave up, and no row keeps one, so the page's heading takes the focus. */
+  "an owner's own step-down, on the page's heading": {
+    before: () => eigeneZugaenge("owner"),
+    press: (user) => pressTwice(user, { resting: "Mich zur Verwaltung herabstufen", armed: "Ja, mich zur Verwaltung herabstufen" }),
+    after: () => eigeneZugaenge("administration"),
+    lands: () => heading("Berechtigungen"),
   },
   /* The pick fills the last dimension, so the closed add control replaces the panel's trigger in its place. */
   "a filter picked in the add panel's last dimension, on the closed add control": {
