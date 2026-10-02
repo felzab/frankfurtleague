@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
@@ -7,6 +8,7 @@ from bson import ObjectId
 from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.berechtigungen import crud as berechtigungen_crud
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet import router as identitaet_router
 from app.api.identitaet.schemas import FLSubjekt, FLSubjektPayload
@@ -17,7 +19,7 @@ IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 ACTIVE_SAISON = "2526"
 
 # Stand-ins for the collections, each read naming the one it was asked of.
-SAISON_TEAMS, SAISONS, SPIELER, SCHIEDSRICHTER = "saison_teams", "saisons", "spieler", "schiedsrichter"
+SAISON_TEAMS, SAISONS, SPIELER, SCHIEDSRICHTER, BERECHTIGUNGEN = "saison_teams", "saisons", "spieler", "schiedsrichter", "berechtigungen"
 
 SEAT_ROW = {
     "saison_id": ACTIVE_SAISON,
@@ -141,3 +143,25 @@ class TestTheSubjectLookupsReads:
 
         assert reads.peak == 1
         assert reads.sessions == [transaction] * len(reads.issued)
+
+
+class TestTheActorChecksTwoReads:
+    """Every admin-tier request pays this check before its handler runs."""
+
+    def test_the_grant_and_the_ban_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
+        reads = _Reads()
+
+        async def pull_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
+            return await reads.answer(BERECHTIGUNGEN, [{"adresse": IDENTIFIER, "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC)}])
+
+        async def adressen_gesperrt(*_: Any, **__: Any) -> set[str]:
+            return await reads.answer("ban", set())
+
+        monkeypatch.setattr(berechtigungen_crud, "pull_many_from_db", pull_many_from_db)
+        monkeypatch.setattr(berechtigungen_crud, "adressen_gesperrt", adressen_gesperrt)
+
+        stand_in = cast(Any, None)
+        asyncio.run(berechtigungen_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=stand_in, sperrliste=stand_in))
+
+        assert sorted(reads.issued) == ["ban", BERECHTIGUNGEN]
+        assert reads.peak == 2, "the check awaited the grant before asking the ban list"

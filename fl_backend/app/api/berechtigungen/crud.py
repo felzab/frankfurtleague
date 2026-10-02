@@ -5,6 +5,7 @@ The anchor lives here beside the read it protects, so no caller can judge the li
 every row of it (`docs/backend/spec.md :: I53`).
 """
 
+import asyncio
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -78,18 +79,23 @@ async def live_unbarred_grant_since(
     berechtigungen_collection: AsyncCollection,
     sperrliste: BanList,
 ) -> datetime | None:
-    """The actor check's question: when the live grant this identifier holds took effect, read by one equality, then the ban list's.
+    """The actor check's question: when the live grant this identifier holds took effect, read by one equality beside the ban list's.
 
     `None` for a barred holder, who is no administrator (`docs/backend/spec.md :: I463`).
     """
 
-    found = await pull_many_from_db(
-        collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse", *_SEIT_FIELDS]
+    # Both at once rather than the ban after a grant is found: an admin-tier caller passed the
+    # frontend's own grant read moments before, so the ban read that order would spare is almost never spared.
+    found, barred = await asyncio.gather(
+        pull_many_from_db(
+            collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse", *_SEIT_FIELDS]
+        ),
+        adressen_gesperrt(sperrliste, [identifier]),
     )
-    if not found or lebendige_adresse(found[0]) is None:
+    if not found or lebendige_adresse(found[0]) is None or barred:
         return None
 
-    return None if await adressen_gesperrt(sperrliste, [identifier]) else berechtigt_seit(found[0])
+    return berechtigt_seit(found[0])
 
 
 async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
