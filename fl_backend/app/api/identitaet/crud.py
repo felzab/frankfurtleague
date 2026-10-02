@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Mapping, Sequence
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -27,6 +28,11 @@ async def _statuses_of(
 
     Made after the fold has judged, so a row the pre-filter alone reached is never read for.
     """
+
+    # No seat, no read: an empty `$in` answers nothing, and it would cost a mailbox holding no seat a
+    # second round trip after the gathered reads.
+    if not saison_ids:
+        return {}
 
     rows = await aggregate_many_from_db(
         collection=saisons_collection,
@@ -60,11 +66,21 @@ async def find_subjekt(
     a person holding fewer records rather than as a truncated answer.
     """
 
-    seat_rows = await aggregate_many_from_db(collection=saison_teams_collection, pipeline=build_seat_pipeline(identifier), session=session)
-    referee_rows = await aggregate_many_from_db(
-        collection=schiedsrichter_collection, pipeline=build_referee_pipeline(identifier), session=session
+    reads = (
+        (saison_teams_collection, build_seat_pipeline(identifier)),
+        (schiedsrichter_collection, build_referee_pipeline(identifier)),
+        (spieler_collection, build_pupil_pipeline(identifier)),
     )
-    pupil_rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_pupil_pipeline(identifier), session=session)
+    if session is None:
+        seat_rows, referee_rows, pupil_rows = await asyncio.gather(
+            *(aggregate_many_from_db(collection=collection, pipeline=pipeline) for collection, pipeline in reads)
+        )
+    else:
+        # One at a time inside a transaction: a session cannot run two operations at once, which
+        # PyMongo's `AsyncClientSession` documents and never refuses.
+        seat_rows, referee_rows, pupil_rows = [
+            await aggregate_many_from_db(collection=collection, pipeline=pipeline, session=session) for collection, pipeline in reads
+        ]
 
     # The confirmation narrows HERE, in the lookup every caller reads, and never at a caller: a
     # caller-side check leaves the sign-in gate mailing, and a panel drawn for, a person nobody confirmed.

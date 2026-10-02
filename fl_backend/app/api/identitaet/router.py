@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -86,24 +87,28 @@ async def get_subjekt(
     An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
     """
 
-    subjekt = await find_subjekt(
-        # Folded here as well as by the caller: the payload has already lower-cased the domain, so a
-        # value compared as it arrived is half-folded and misses a seat over the local part's case.
-        sign_in_identifier(str(subjekt_data.email)),
-        saison_teams_collection=saison_teams_collection,
-        saisons_collection=saisons_collection,
-        spieler_collection=spieler_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-        # No transaction: this read judges nothing and writes nothing, and the parameter exists for
-        # the caller that will judge a Funktion inside its own.
-        session=None,
+    # Folded here as well as by the caller: the payload has already lower-cased the domain, so a
+    # value compared as it arrived is half-folded and misses a seat over the local part's case.
+    identifier = sign_in_identifier(str(subjekt_data.email))
+
+    # Concurrently, every page a signed-in person or an administrator renders waiting on this answer:
+    # the records, the ban and the grant cost the longest of the three rather than their sum.
+    subjekt, gesperrt, grant = await asyncio.gather(
+        find_subjekt(
+            identifier,
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            spieler_collection=spieler_collection,
+            schiedsrichter_collection=schiedsrichter_collection,
+            # No transaction, which is also what lets the three run at once: one session runs one
+            # operation at a time. The parameter exists for the caller that judges a Funktion inside its own.
+            session=None,
+        ),
+        # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
+        # `canonical_address` runs, so an address the hash would refuse was answered 422 before here.
+        hash_gesperrt(sperrliste, sperrliste.hash_of(str(subjekt_data.email))),
+        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
     )
-
-    # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
-    # `canonical_address` runs, so an address the hash would refuse was answered 422 before here.
-    gesperrt = await hash_gesperrt(sperrliste, sperrliste.hash_of(str(subjekt_data.email)))
-
-    grant = await verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=sign_in_identifier(str(subjekt_data.email)))
     verwaltung, berechtigt_seit = (None, None) if grant is None else grant
 
     return FLSubjektResponse(**subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung, berechtigt_seit=berechtigt_seit)
