@@ -559,7 +559,7 @@ done
 # records the headers themselves.
 
 # One transfer through the edge to the relay, printing the request the listener recorded, or nothing
-# where none arrived.
+# where no whole header block arrived.
 relay_seen() { # the curl options naming the transfer's headers
   local _k status="" seen=""
   MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c \
@@ -574,16 +574,22 @@ relay_seen() { # the curl options naming the transfer's headers
   [[ "$status" == 204 ]] || return 0
   # Until the request's blank line has reached the file, which can trail curl's answer.
   for _k in $(seq 1 25); do
-    seen="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" cat /tmp/relay-seen 2>/dev/null || true)"
+    # The `.` keeps the head's closing newline, which the substitution would strip: a bodiless
+    # request ends on its blank line, so without it no whole head ever matches.
+    seen="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" cat /tmp/relay-seen 2>/dev/null || true; printf .)"
+    seen="${seen%.}"
     [[ "$seen" == *$'\r\n\r\n'* ]] && break
     sleep 0.2
   done
+  # A capture cut before its blank line can lack the very header the empty case looks for, which
+  # would read as the edge having dropped it.
+  [[ "$seen" == *$'\r\n\r\n'* ]] || return 0
   printf '%s' "${seen//$'\r'/}"
 }
 RELAY_SENT="$(relay_seen -H "Next-Action: ${CLIENT_ACTION}")"
 RELAY_EMPTY="$(relay_seen -H "Next-Action;")"
 if [[ "$RELAY_SENT" != *"GET /next-action-relay "* || "$RELAY_EMPTY" != *"GET /next-action-relay "* ]]; then
-  refuse "the stub's relay recorded no request, so whether the edge hands Next an empty Next-Action was not judged.
+  refuse "the stub's relay recorded no whole request head, so whether the edge hands Next an empty Next-Action was not judged.
 It listens with the image's own busybox nc: ask it with  docker exec ${CONTAINER} nc -h"
 fi
 # The control: a relay dropping every Next-Action would pass the empty case below unasked.
