@@ -486,6 +486,8 @@ describe("the reader sees every call site", () => {
      slice's mutations module alone: a write sent from anywhere else reaches the backend with no listing
      naming whether it steps up (`docs/frontend/spec.md :: I432`). */
   it("sends every write from a slice's mutations module", () => {
+    // `readOnly` is taken at its word: "every call to an operation storing nothing declares itself a
+    // read, and no other call does" holds each one to the backend's published `x-fl-stores-nothing`.
     const writes = calls.filter((call) => call.method !== "GET" && !call.readOnly);
     const strays = writes.filter((call) => !/^features\/\w+\/mutations\.ts:\d+$/.test(call.where)).map((call) => call.where);
 
