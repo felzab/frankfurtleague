@@ -336,9 +336,9 @@ ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-])")
 # The third belongs to the file kind rather than to the punctuation: "#000;" and "#000)" are a
 # colour where a stylesheet writes them, and "(#412)" is what GitHub appends to a squash subject.
 STYLESHEET_ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
-# The same number written out, as a comment names an upstream tracker's entry rather than linking
-# it: a tracker's word before the digits is what makes them one.
-SPELLED_ISSUE_REF_RE: Final = re.compile(r"\b(?:[Ii]ssue|[Pp]ull request|PR)s?\s+#?\d+\b")
+# A tracker's entry written out rather than linked. Three digits at least: before a count, "issue"
+# is a verb and "PR" a noun, and the trackers a comment here would cite number past a hundred.
+SPELLED_ISSUE_REF_RE: Final = re.compile(r"\b(?:[Ii]ssue|[Pp]ull request|PR)s?\s+\d{3,}\b")
 
 # A fourth and a fifth, which the run in FRONT of the hash is what separates: a scheme anywhere in
 # it makes a URL fragment, and a corpus suffix at its end makes an anchor into a page.

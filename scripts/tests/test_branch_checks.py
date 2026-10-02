@@ -84,7 +84,14 @@ QUOTED_BAN: Final = '"closes ' + HASH + '12"'
 # The same number after a tracker's word, as a comment names an upstream entry, and that spelling
 # quoted to name the ban.
 SPELLED_ISSUE: Final = "pull request 412"
-QUOTED_SPELLED_ISSUE: Final = '"issue 12"'
+QUOTED_SPELLED_ISSUE: Final = '"issue 1234"'
+# The verb and the noun before a count, which carry the tracker's words and name no entry.
+COUNTED_WORDS: Final[tuple[str, ...]] = (
+    "the client may issue 2 requests at once",
+    "the sweep issues 4 bans a pass",
+    "each PR 3 times",
+    "the PR 2 commits rebased",
+)
 # Three spellings of one number, each an issue number outside a stylesheet: the form GitHub appends
 # to a squash subject, the terminated one, and the one a comment marks up as code.
 PAREN_ISSUE: Final = "(" + ISSUE_REF + ")"
@@ -1125,6 +1132,21 @@ def test_a_spelled_issue_number_is_one_until_it_is_quoted() -> None:
     assert _findings(data) == [
         ("fail", "comment-citation", MOD, "issue number " + SPELLED_ISSUE + " in an added comment -- state the constraint (INC-6)")
     ]
+
+
+def test_a_count_after_a_tracker_s_word_names_no_entry() -> None:
+    """The verb "issue" and the noun "PR" before a count must pass, or every comment counting requests reports.
+
+    The review reference beside them is the evidence the check read the file at all.
+    """
+    _reset()
+    _append(MOD, *(HASH + " " + words for words in COUNTED_WORDS), HASH + " drawn up in the last session")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
 
 
 def test_a_missing_base_ref_is_one_refusal_and_the_bounds_stay_silent() -> None:
