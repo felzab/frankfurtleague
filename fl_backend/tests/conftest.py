@@ -360,16 +360,18 @@ def _standalone_mongod() -> Iterator[str]:
 
 @contextmanager
 def _replica_set_mongod() -> Iterator[str]:
-    """`_standalone_mongod`'s server answers any transaction with `IllegalOperation`, so the transactional endpoints need this second one."""
+    """`_standalone_mongod`'s server refuses a transaction and a snapshot read alike, so every endpoint taking either needs this second one."""
 
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
+    # `enableTestCommands` admits `configureFailPoint`, the one way to land a commit inside a single
+    # server command; every worker shares this server, so a failpoint names its case's own namespace.
     container = (
         DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
         # fragile on a Windows host. The other container keeps its credentials for the limited-user tests.
-        .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB}")
+        .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB} --setParameter enableTestCommands=1")
         .with_exposed_ports(27017)
         .with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))

@@ -85,20 +85,20 @@ def answered(uri: str, path: str, headers: Mapping[str, str], *, admitting: Iter
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """The fixture and its junction row, in the database `build_test_config` names -- the one the app resolves its collections from."""
 
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_replica_set_url)
     try:
-        database = a_clean_database_sync(client, mongo_url, database_name)
+        database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
         database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SPIELE].insert_one(spiel_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
-        with unwritten(mongo_url, database_name):
-            yield mongo_url
+        with unwritten(mongo_replica_set_url, database_name):
+            yield mongo_replica_set_url
     finally:
         client.close()
 

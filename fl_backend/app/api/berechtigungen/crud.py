@@ -64,23 +64,27 @@ async def _grant_and_its_record(
     Every admin-tier request makes it, and a second read by the row's id would cost each a round trip.
     """
 
-    found = await aggregate_many_from_db(
-        collection=berechtigungen_collection,
-        pipeline=[
-            {"$match": {"adresse": adresse}},
-            {"$limit": 1},
-            {"$project": {field: 1 for field in [*fields, "adresse", "erteilt_am", "gefunden_am"]}},
-            {
-                "$lookup": {
-                    "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-                    "localField": "_id",
-                    "foreignField": "_id",
-                    "pipeline": [{"$project": {"adresse": 1}}],
-                    "as": "angekuendigt",
-                }
-            },
-        ],
-    )
+    # A snapshot, or a commit landing between the row's read and the join pairs the row before it
+    # with the record after (`docs/backend/spec.md :: I530`).
+    async with berechtigungen_collection.database.client.start_session(snapshot=True) as session:
+        found = await aggregate_many_from_db(
+            collection=berechtigungen_collection,
+            pipeline=[
+                {"$match": {"adresse": adresse}},
+                {"$limit": 1},
+                {"$project": {field: 1 for field in [*fields, "adresse", "erteilt_am", "gefunden_am"]}},
+                {
+                    "$lookup": {
+                        "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+                        "localField": "_id",
+                        "foreignField": "_id",
+                        "pipeline": [{"$project": {"adresse": 1}}],
+                        "as": "angekuendigt",
+                    }
+                },
+            ],
+            session=session,
+        )
     if not found:
         return None
 

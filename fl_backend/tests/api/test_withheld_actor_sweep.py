@@ -201,28 +201,28 @@ def _answers(url: str) -> dict[str, tuple[int, str]]:
 
 
 @pytest.fixture(scope="module")
-def unbarred(mongo_url: str) -> Iterator[dict[str, tuple[int, str]]]:
-    _seed(mongo_url, ban_until=None)
+def unbarred(mongo_replica_set_url: str) -> Iterator[dict[str, tuple[int, str]]]:
+    _seed(mongo_replica_set_url, ban_until=None)
 
-    yield _answers(mongo_url)
+    yield _answers(mongo_replica_set_url)
 
 
 @pytest.fixture(scope="module")
-def barred(mongo_url: str, unbarred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
+def barred(mongo_replica_set_url: str, unbarred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
     """Seeded after `unbarred` has read, since both write the one database."""
 
-    _seed(mongo_url, ban_until=STANDING)
+    _seed(mongo_replica_set_url, ban_until=STANDING)
 
-    yield _answers(mongo_url)
+    yield _answers(mongo_replica_set_url)
 
 
 @pytest.fixture(scope="module")
-def lapsed(mongo_url: str, barred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
+def lapsed(mongo_replica_set_url: str, barred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
     """Seeded after `barred` has read, for the same reason."""
 
-    _seed(mongo_url, ban_until=LAPSED)
+    _seed(mongo_replica_set_url, ban_until=LAPSED)
 
-    yield _answers(mongo_url)
+    yield _answers(mongo_replica_set_url)
 
 
 def test_every_admin_tier_read_is_named_once():

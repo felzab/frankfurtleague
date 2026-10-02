@@ -166,31 +166,33 @@ def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Resp
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """The venue and both referees, in `CORPUS_DATABASE`."""
 
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_replica_set_url)
     try:
-        database = a_clean_database_sync(client, mongo_url, CORPUS_DATABASE)
+        database = a_clean_database_sync(client, mongo_replica_set_url, CORPUS_DATABASE)
         database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SPIELORTE].insert_one(spielort_document())
         database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_documents())
 
-        with unwritten(mongo_url, CORPUS_DATABASE):
-            yield mongo_url
+        with unwritten(mongo_replica_set_url, CORPUS_DATABASE):
+            yield mongo_replica_set_url
     finally:
         client.close()
 
 
 @pytest.fixture
-def empty_url(mongo_url: str) -> str:
+def empty_url(mongo_replica_set_url: str) -> str:
     """`CREATED_VENUE_DATABASE`, holding nothing: the case that POSTs composes the venue it reads back."""
 
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_replica_set_url)
     try:
-        a_clean_database_sync(client, mongo_url, CREATED_VENUE_DATABASE)[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+        a_clean_database_sync(client, mongo_replica_set_url, CREATED_VENUE_DATABASE)[Collection.BERECHTIGUNGEN].insert_many(
+            grants_for_the_suite()
+        )
 
-        return mongo_url
+        return mongo_replica_set_url
     finally:
         client.close()
 

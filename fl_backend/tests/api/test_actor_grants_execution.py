@@ -57,12 +57,12 @@ def _url(path: str) -> str:
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
-    client = MongoClient(mongo_url)
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+    client = MongoClient(mongo_replica_set_url)
     try:
-        a_clean_database_sync(client, mongo_url, DATABASE_NAME)[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+        a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
 
-        yield mongo_url
+        yield mongo_replica_set_url
     finally:
         client.close()
 

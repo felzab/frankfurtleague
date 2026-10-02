@@ -1,6 +1,8 @@
 import asyncio
 from collections.abc import Mapping
+from contextlib import nullcontext
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -163,8 +165,11 @@ class TestTheActorChecksTwoReads:
         monkeypatch.setattr(berechtigungen_crud, "aggregate_many_from_db", aggregate_many_from_db)
         monkeypatch.setattr(berechtigungen_crud, "adressen_gesperrt", adressen_gesperrt)
 
-        stand_in = cast(Any, None)
-        asyncio.run(berechtigungen_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=stand_in, sperrliste=stand_in))
+        # The grant read opens its snapshot session on the collection's own client.
+        grants = SimpleNamespace(database=SimpleNamespace(client=SimpleNamespace(start_session=lambda **_: nullcontext())))
+        asyncio.run(
+            berechtigungen_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=cast(Any, grants), sperrliste=cast(Any, None))
+        )
 
         assert sorted(reads.issued) == ["ban", BERECHTIGUNGEN]
         assert reads.peak == 2, "the check awaited the grant before asking the ban list"
