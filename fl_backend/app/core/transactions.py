@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Final
 
+import anyio
 import pymongo
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -58,9 +59,12 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
             await session.client.admin.command({"abortTransaction": 1, "txnNumber": transaction_number, "autocommit": False}, session=session)
 
     try:
-        # A context of its own: `pymongo.timeout` only narrows the deadline it is entered under, and
-        # the request's may have passed.
-        await asyncio.create_task(abort(), context=contextvars.Context())
+        # Shielded: inside an anyio cancel scope a cancelled request is cancelled again at every await,
+        # so this abort would be cancelled unsent; `pymongo.timeout` still bounds it.
+        with anyio.CancelScope(shield=True):
+            # A context of its own: `pymongo.timeout` only narrows the deadline it is entered under,
+            # and the request's may have passed.
+            await asyncio.create_task(abort(), context=contextvars.Context())
     except PyMongoError as failure:
         code = failure.code if isinstance(failure, OperationFailure) else None
         if code not in NOTHING_LEFT_OPEN:

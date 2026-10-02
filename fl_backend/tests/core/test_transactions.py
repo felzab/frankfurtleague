@@ -2,16 +2,22 @@ import ast
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Any, cast
 
+import anyio
 import pytest
+from fastapi import FastAPI
 from pymongo import AsyncMongoClient
+from starlette.types import Message, Scope
 
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.transactions import ABORT_GRACE_S, drain, transaction_session
+from app.main import create_app
+from tests.config import TEST_BASE_URL, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, app_calls, callee, parsed
 
 PAGE = 3
@@ -134,6 +140,97 @@ class TestAFailedSessionAbortsInsideItsGrace:
         """A committed transaction answers an abort harmlessly, so only this case keeps one round trip off every write."""
 
         assert _aborts_sent(fails=False, deadline=time.monotonic()) == []
+
+
+class _AnsweringSession(_TransactedSession):
+    """A session whose client answers a command one round trip after it is sent, where a cancellation delivered again takes it."""
+
+    async def _command(self, command: dict[str, Any], **_: Any) -> None:
+        await asyncio.sleep(0)
+        self.sent.append(command)
+
+
+class _AnsweringClient:
+    def __init__(self) -> None:
+        self.session = _AnsweringSession()
+
+    def start_session(self) -> _AnsweringSession:
+        return self.session
+
+
+_HELD = "/held"
+
+_SCOPE: Scope = {
+    "type": "http",
+    "asgi": {"version": "3.0"},
+    "http_version": "1.1",
+    "method": "GET",
+    "scheme": "http",
+    "path": _HELD,
+    "raw_path": _HELD.encode(),
+    "query_string": b"",
+    "headers": [(b"host", TEST_BASE_URL.removeprefix("http://").encode())],
+    "client": ("127.0.0.1", 1),
+    "server": ("testserver", 80),
+}
+
+
+async def _never_disconnects() -> Message:
+    await anyio.sleep_forever()
+    raise AssertionError("unreachable")
+
+
+async def _discarded(_message: Message) -> None:
+    return None
+
+
+async def _cancelled_by_the_server(served: FastAPI, inside: asyncio.Event) -> None:
+    """What uvicorn does to a request still running when its shutdown grace runs out: one cancel of the task serving it."""
+
+    serving = asyncio.create_task(served(_SCOPE, _never_disconnects, _discarded))
+    await inside.wait()
+    serving.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await serving
+
+
+async def _cancelled_by_a_scope(served: FastAPI, inside: asyncio.Event) -> None:
+    """An anyio cancel scope around the request, which cancels it again at every await until it leaves the scope."""
+
+    async with anyio.create_task_group() as group:
+        group.start_soon(served, _SCOPE, _never_disconnects, _discarded)
+        await inside.wait()
+        group.cancel_scope.cancel()
+
+
+class TestACancelledRequestStillAbortsItsTransaction:
+    @pytest.mark.parametrize(
+        "cancel",
+        [
+            pytest.param(_cancelled_by_the_server, id="the server cancelling the request's task"),
+            pytest.param(_cancelled_by_a_scope, id="an anyio cancel scope around the request"),
+        ],
+    )
+    def test_the_abort_is_answered(self, cancel: Callable[[FastAPI, asyncio.Event], Awaitable[None]]):
+        """Through the app's own middleware stack, which decides whether a cancellation arrives once or at every await.
+
+        The scope's case holds the abort's shield; the server's holds `transaction_session` catching a cancellation at all.
+        """
+
+        client = _AnsweringClient()
+        inside = asyncio.Event()
+
+        async def held_inside_a_session() -> None:
+            async with transaction_session(cast(AsyncMongoClient, client)):
+                inside.set()
+                await anyio.sleep_forever()
+
+        served = create_app(build_test_config())
+        served.add_api_route(_HELD, held_inside_a_session)
+
+        asyncio.run(cancel(served, inside))
+
+        assert client.session.sent == [{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]
 
 
 def _is_a_snapshot(call: ast.Call) -> bool:

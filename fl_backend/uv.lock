@@ -366,6 +366,7 @@ name = "fl-backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "anyio" },
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "pydantic" },
@@ -394,6 +395,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4.15.1" },
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fastapi", specifier = ">=0.138.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
