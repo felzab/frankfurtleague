@@ -8,8 +8,9 @@ caller reshaped would be the next caller's answer.
 Invariants:
 - Nothing inside a test process changes the file set under `app/` or rebinds `APP_ROOT`, or a
   cached sweep answers the first tree.
-- Nothing edits `application()`'s app -- an override, a route, its `state`, the document
-  `app.openapi()` hands out -- or every module reading it later in the process meets the edit.
+- Nothing edits `application()`'s app -- an override, a route, an exception handler, a middleware,
+  its `state`, the document `app.openapi()` hands out -- or every module reading it later in the
+  process meets the edit.
 """
 
 import ast
@@ -17,7 +18,7 @@ import copy
 import functools
 import inspect
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -714,11 +715,14 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
     return tuple(sorted(found, key=lambda carrier: carrier.where))
 
 
-# What `application()` mounted, so a route a caller adds or drops is told from what it built.
+# What `application()` built, each surface a caller can edit held apart so an edit is told from it.
 _BUILT_ROUTES: list[BaseRoute] = []
+_BUILT_STATE: dict[str, Any] = {}
+_BUILT_HANDLERS: dict[Any, Any] = {}
+_BUILT_MIDDLEWARE: list[Any] = []
 
-# What `application()` published. `app.openapi()` hands every reader the one document it cached on
-# the app, so an edit to it is told from a read only against this copy.
+# `app.openapi()` hands every reader the one document it cached on the app, so an edit to it is told
+# from a read only against this copy.
 _BUILT_DOCUMENT: dict[str, Any] = {}
 
 
@@ -732,12 +736,27 @@ def application() -> FastAPI:
 
     app = create_app(build_test_config())
     _BUILT_ROUTES[:] = app.routes
+    _BUILT_STATE.clear()
+    _BUILT_STATE.update({key: app.state[key] for key in app.state})
+    _BUILT_HANDLERS.clear()
+    _BUILT_HANDLERS.update(app.exception_handlers)
+    _BUILT_MIDDLEWARE[:] = app.user_middleware
     # Published now rather than at the first reader's call, which could follow an edit to the routes
     # and cache a document no build publishes.
     _BUILT_DOCUMENT.clear()
     _BUILT_DOCUMENT.update(copy.deepcopy(app.openapi()))
 
     return app
+
+
+def _changed_keys(held: Mapping[Any, Any], built: Mapping[Any, Any]) -> list[str]:
+    """Every key added, dropped or rebound, by IDENTITY: a value swapped for an equal one is still another module's object."""
+
+    missing = object()
+
+    return sorted(
+        str(getattr(key, "__name__", key)) for key in held.keys() | built.keys() if held.get(key, missing) is not built.get(key, missing)
+    )
 
 
 def undo_edits_to_application() -> list[str]:
@@ -750,9 +769,21 @@ def undo_edits_to_application() -> list[str]:
     if app.dependency_overrides:
         edits.append(f"dependency overrides for {sorted(getattr(call, '__name__', repr(call)) for call in app.dependency_overrides)}")
         app.dependency_overrides.clear()
-    if hasattr(app.state, "db_client"):
-        edits.append("a bound `db_client`")
-        del app.state.db_client
+    if changed := _changed_keys({key: app.state[key] for key in app.state}, _BUILT_STATE):
+        edits.append(f"its state at {changed}")
+        for key in list(app.state):
+            del app.state[key]
+        for key, value in _BUILT_STATE.items():
+            app.state[key] = value
+    if changed := _changed_keys(app.exception_handlers, _BUILT_HANDLERS):
+        edits.append(f"its exception handlers for {changed}")
+        app.exception_handlers.clear()
+        app.exception_handlers.update(_BUILT_HANDLERS)
+    if len(app.user_middleware) != len(_BUILT_MIDDLEWARE) or any(
+        held is not built for held, built in zip(app.user_middleware, _BUILT_MIDDLEWARE, strict=False)
+    ):
+        edits.append("its middleware")
+        app.user_middleware[:] = _BUILT_MIDDLEWARE
     if app.routes != _BUILT_ROUTES:
         edits.append("its route table")
         app.router.routes[:] = _BUILT_ROUTES
