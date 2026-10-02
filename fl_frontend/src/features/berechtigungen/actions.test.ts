@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingPackage } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
@@ -15,22 +14,14 @@ import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refu
 const deferred: (() => unknown)[] = [];
 
 /* `refresh()` throws outside a request Next itself is rendering; `after` is collected. */
-const NEXT_CACHE_DOUBLE = replacingPackage("next/cache", { refresh: () => undefined });
+const NEXT_CACHE_DOUBLE = { refresh: () => undefined };
 // Bound to the caller's context as Next's own `after` binds it, so a task runs inside the action's request.
-const NEXT_SERVER_DOUBLE = replacingPackage("next/server", {
-  after: (task: () => unknown) => void deferred.push(AsyncLocalStorage.bind(task)),
-});
+const NEXT_SERVER_DOUBLE = { after: (task: () => unknown) => void deferred.push(AsyncLocalStorage.bind(task)) };
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 const { setSession, setFresh, signedOut } = doubleActionRequest();
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/cache") return { url: `data:text/javascript,${encodeURIComponent(NEXT_CACHE_DOUBLE)}`, shortCircuit: true };
-    if (specifier === "next/server") return { url: `data:text/javascript,${encodeURIComponent(NEXT_SERVER_DOUBLE)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+registerDoubles({ specifiers: { "next/cache": NEXT_CACHE_DOUBLE, "next/server": NEXT_SERVER_DOUBLE } });
 
 const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
 

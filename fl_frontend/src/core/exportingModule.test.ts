@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { registerHooks } from "node:module";
+import { createRequire, registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -218,7 +218,9 @@ describe("the doubles a suite registers", () => {
       specifiers: { "fl-probe-source": "export const answer = 1;", "fl-probe-url": new URL("data:text/javascript,export const answer = 2;") },
     });
 
-    assert.deepEqual(Object.keys(await import("server-only")), []);
+    await assert.doesNotReject(import("server-only"));
+    // CommonJS as well: Next's own modules `require` it, and read a `data:` answer as a path.
+    assert.doesNotThrow(() => createRequire(import.meta.url)("server-only"));
     assert.equal(((await import("fl-probe-source" as string)) as { answer: number }).answer, 1);
     assert.equal(((await import("fl-probe-url" as string)) as { answer: number }).answer, 2);
   });

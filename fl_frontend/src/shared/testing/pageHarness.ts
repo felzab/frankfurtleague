@@ -9,7 +9,7 @@ import ts from "typescript";
 import z from "zod";
 
 import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
-import { exportingModule, replacingPackage } from "@/core/exportingModule.ts";
+import { exportingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -37,13 +37,13 @@ export type ReadAnswer = (endpoint: string, schema: AnswerSchema, params: Record
 /** What a page is handed of an answer its schema took, given the parse the client hands on. */
 export type HandOver = (endpoint: string, parsed: unknown) => unknown;
 
-// `connection()` is where a page opts out of prerendering, so its place among the reads is recorded.
-const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
-  // Never `server-only`: this module's `data:` answer is an ES module, which Next's own CommonJS
-  // `require` of it reads as a path. `renderTest.ts` resolves it to the package's empty build instead.
-  ...Object.fromEntries(Object.entries(REQUEST_PACKAGES).filter(([specifier]) => specifier !== "server-only")),
-  "next/server": replacingPackage("next/server", { connection: () => Promise.resolve(void steps.push({ kind: "connection" })) }),
-};
+registerDoubles({
+  specifiers: {
+    ...REQUEST_PACKAGES,
+    // `connection()` is where a page opts out of prerendering, so its place among the reads is recorded.
+    "next/server": { connection: () => Promise.resolve(void steps.push({ kind: "connection" })) },
+  },
+});
 
 const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -103,8 +103,7 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === SELF && context.parentURL !== undefined) return { url: context.parentURL, shortCircuit: true };
     if (specifier === REGISTER) return { url: REGISTER_MODULE, shortCircuit: true };
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
+    return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context);

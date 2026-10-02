@@ -161,7 +161,7 @@ export type DoubledExports = Readonly<Record<string, unknown>>;
 export type Doubles = {
   /** By the module's path under `fl_frontend/src/`, such as `core/config.ts`: its doubled exports, or the source standing in its place. */
   readonly modules?: Readonly<Record<string, DoubledExports | string>>;
-  /** By the bare specifier each replaces: the package's doubled exports, the source standing in its place, or the module at a URL. */
+  /** By the specifier an import spells, a bare one or an alias: the package's doubled exports, the source standing in its place, or the module at a URL. */
   readonly specifiers?: Readonly<Record<string, DoubledExports | string | URL>>;
 };
 
@@ -169,7 +169,7 @@ const SOURCE_ROOT = new URL("../", import.meta.url);
 
 /**
  * Registers the doubles a suite then imports its subject under, which it does with a dynamic import:
- * a static one resolves before the hooks exist. `server-only` is always doubled, its real module
+ * a static one resolves before the hooks exist. `server-only` always loads empty, its real module
  * throwing outside a React server build.
  */
 export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {}): void {
@@ -177,9 +177,8 @@ export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {})
   const missing = Object.keys(modules).filter((at) => !existsSync(new URL(at, SOURCE_ROOT)));
   if (missing.length > 0) throw new Error(`No module under fl_frontend/src at ${missing.join(", ")}`);
   // Built here, each export name read off the installed package before any hook below stands over it.
-  const packages: NonNullable<Doubles["specifiers"]> = { "server-only": "export {};", ...specifiers };
   const replaced = new Map(
-    Object.entries(packages).map(([specifier, double]) => [
+    Object.entries(specifiers).map(([specifier, double]) => [
       specifier,
       double instanceof URL ? double.href : asDataUrl(typeof double === "string" ? double : replacingPackage(specifier, double)),
     ]),
@@ -189,7 +188,11 @@ export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {})
   registerHooks({
     resolve(specifier, context, nextResolve) {
       const url = replaced.get(specifier);
-      return url === undefined ? nextResolve(specifier, context) : { url: url, shortCircuit: true };
+      if (url !== undefined) return { url: url, shortCircuit: true };
+      // The empty build its `react-server` condition names, rather than a `data:` module: Next's own
+      // CommonJS `require` of one reads the URL as a path.
+      if (specifier === "server-only") return nextResolve(specifier, { ...context, conditions: [...context.conditions, "react-server"] });
+      return nextResolve(specifier, context);
     },
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url's end, so this holds whichever order the alias hook and this one

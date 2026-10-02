@@ -6,7 +6,7 @@ import { afterEach, beforeEach } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
-import { exportedNames, exportingModule, replacingModule, replacingPackage } from "@/core/exportingModule.ts";
+import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
 
 import type { AdminRefusal } from "@/core/auth.ts";
 import type { SubjectSession } from "@/core/subject.ts";
@@ -112,8 +112,6 @@ export function doubleEveryAction(): ReturnType<typeof doubleActions> {
   return doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/] });
 }
 
-const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
-
 /** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */
 export type CacheCall = { name: string; args: unknown[] };
 
@@ -168,10 +166,9 @@ export const NEXT_HEADERS_DOUBLE = replacingPackage("next/headers", { headers: (
 
 /**
  * Each answers only inside a request Next itself is serving: `updateTag`, `refresh` and `headers`
- * throw outside one, and `server-only` throws outside a server build.
+ * throw outside one. `server-only` is `registerDoubles`' own to answer.
  */
 export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
-  "server-only": "export {};",
   "next/cache": NEXT_CACHE_DOUBLE,
   "next/headers": NEXT_HEADERS_DOUBLE,
 };
@@ -262,31 +259,29 @@ const servedOf = (session: AdminSessionDouble): unknown => {
  * The sign-in store answering the session and the sign-in destination `doubleActionRequest` holds,
  * replaced whole because the real one opens the database driver as it loads.
  */
-const signInStore = (url: string, answers: SignInAnswers): string =>
-  replacingModule(url, "the sign-in store", {
-    getAdminSession: () => administratorOf(answers),
-    judgeAdminRequest: () => verdictOf(answers),
-    // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
-    getKontoSession: () => answering(answers.served),
-    getSignInDestination: () => Promise.resolve(answers.destination),
-    isFreshlySignedIn: () => answers.fresh,
-    endSessionsOfAddress: (address: unknown) => {
-      answers.signedOut.push(String(address));
-      return answering(answers.signOutFailure ?? answers.accountHeld);
-    },
-  });
+const signInStore = (answers: SignInAnswers) => ({
+  getAdminSession: () => administratorOf(answers),
+  judgeAdminRequest: () => verdictOf(answers),
+  // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
+  getKontoSession: () => answering(answers.served),
+  getSignInDestination: () => Promise.resolve(answers.destination),
+  isFreshlySignedIn: () => answers.fresh,
+  endSessionsOfAddress: (address: unknown) => {
+    answers.signedOut.push(String(address));
+    return answering(answers.signOutFailure ?? answers.accountHeld);
+  },
+});
 
 /**
  * The subject lookup answering what `doubleActionRequest` holds, counting every read: the real one
  * calls the sign-in store this file replaces, and reads the doubled `auth` it cannot build.
  */
-const subjectLookup = (url: string, answers: SignInAnswers): string =>
-  replacingModule(url, "the subject lookup", {
-    getSubjectSession: () => {
-      answers.subjectReads += 1;
-      return answering(answers.subject);
-    },
-  });
+const subjectLookup = (answers: SignInAnswers) => ({
+  getSubjectSession: () => {
+    answers.subjectReads += 1;
+    return answering(answers.subject);
+  },
+});
 
 /**
  * The request a server action runs in, so a case calls the REAL action, its `mutations.ts` doubled
@@ -348,19 +343,9 @@ export function doubleActionRequest({
     answers.fresh = true;
     answers.refusal = null;
   });
-  registerHooks({
-    resolve(specifier, context, nextResolve) {
-      const double = REQUEST_PACKAGES[specifier];
-      return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-    },
-    load(url, context, nextLoad) {
-      // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-      if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: signInStore(url, answers), shortCircuit: true };
-      if (url.endsWith("/src/core/subject.ts")) return { format: "module", source: subjectLookup(url, answers), shortCircuit: true };
-      if (url.endsWith("/src/core/logging.ts"))
-        return { format: "module", source: replacingModule(url, "the logger", SILENT_LOGGER), shortCircuit: true };
-      return nextLoad(url, context);
-    },
+  registerDoubles({
+    modules: { "core/auth.ts": signInStore(answers), "core/subject.ts": subjectLookup(answers), "core/logging.ts": SILENT_LOGGER },
+    specifiers: REQUEST_PACKAGES,
   });
 
   return {
@@ -383,8 +368,6 @@ export interface RaisedToast {
   /** Everything else the call passed: where an undo offer keeps its own `onPress`, and `failure` its marker. */
   readonly options: { description?: string; actionProps?: { onPress?: () => void }; outcome?: ActionFailure["outcome"] } | undefined;
 }
-
-const TOAST_MODULE = "/src/shared/utils/appToast.ts";
 
 /**
  * The members of the real `appToast`, derived from its source: a double short of one answers
@@ -424,14 +407,7 @@ export function doubleToasts(): { raised: RaisedToast[] } {
   const members = toastMembers().map((name) => [name, name === "close" || name === "clear" ? inert : name === "failure" ? fail : raise(name)]);
   const doubled = { UNDO_TIMEOUT_MS: 1, appToast: Object.fromEntries(members) };
 
-  registerHooks({
-    load(url, context, nextLoad) {
-      // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-      if (!url.endsWith(TOAST_MODULE)) return nextLoad(url, context);
-
-      return { format: "module", source: replacingModule(url, "the toast module", doubled), shortCircuit: true };
-    },
-  });
+  registerDoubles({ modules: { "shared/utils/appToast.ts": doubled } });
 
   return { raised };
 }

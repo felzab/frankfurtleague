@@ -1,8 +1,7 @@
-import { registerHooks } from "node:module";
 import { beforeEach } from "node:test";
 
 import { APINetworkError, MailSendError } from "./errors.ts";
-import { replacingModule } from "./exportingModule.ts";
+import { registerDoubles } from "./exportingModule.ts";
 import { recordWriteSent } from "./requestScope.ts";
 
 /** One message handed to the mailer, as `fl_frontend/src/core/mail.ts :: OutboundMail` carries it. */
@@ -92,14 +91,7 @@ export function doubleSendMail(): { sent: SentMail[]; answerWith: (next: MailAns
   };
   const doubled = { MailWithheldError, MailRecipientError, MailUnsentError, sendMail };
 
-  registerHooks({
-    load(url, context, nextLoad) {
-      // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-      if (!url.endsWith("/src/core/mail.ts")) return nextLoad(url, context);
-
-      return { format: "module", source: replacingModule(url, "the mailer", doubled), shortCircuit: true };
-    },
-  });
+  registerDoubles({ modules: { "core/mail.ts": doubled } });
 
   // Back to accepted before every case: a case that named a refusal would hand it to the next case's message.
   beforeEach(() => {

@@ -1,23 +1,14 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
-import { replacingPackage } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package these modules reach that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/cache": replacingPackage("next/cache", { revalidateTag: () => undefined, updateTag: () => undefined }),
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
+// Every package these modules reach that this process cannot load, doubled at resolve time.
+registerDoubles({
+  specifiers: {
+    "next/headers": NEXT_HEADERS_DOUBLE,
+    "next/cache": { revalidateTag: () => undefined, updateTag: () => undefined },
   },
 });
 

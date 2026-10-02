@@ -2,14 +2,13 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { render } from "@testing-library/react";
 
-import { overridingModule } from "@/core/exportingModule.ts";
+import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
@@ -57,12 +56,10 @@ const resolverDouble = (real: string): string =>
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // The query keeps the real module's own url from matching here again.
-    if (url.endsWith("/src/features/saisons/resolvers.ts"))
-      return { format: "module", source: resolverDouble(`${url}?real`), shortCircuit: true };
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    // The query keeps the real module's own url from matching the double's path again.
+    "features/saisons/resolvers.ts": resolverDouble(`${import.meta.resolve("@/features/saisons/resolvers.ts")}?real`),
   },
 });
 
