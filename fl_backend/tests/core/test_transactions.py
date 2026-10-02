@@ -349,37 +349,153 @@ def _sessions_opened_past_the_helper() -> set[str]:
     return {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) == "start_session" and not _is_a_snapshot(call)}
 
 
-# Every one, never a list of managers known to swallow: whether an `__exit__` swallows what the block
-# raised is the manager's choice at run time (`contextlib.suppress`, an anyio cancel scope), and no
-# block needs one.
-_CONTEXT_MANAGED = (ast.With, ast.AsyncWith)
-
-
-def _transaction_sessions() -> list[tuple[str, ast.AsyncWith]]:
+def _transaction_blocks(tree: ast.AST) -> list[ast.AsyncWith]:
     return [
-        (path.relative_to(BACKEND_ROOT).as_posix(), node)
-        for path in sorted(APP_ROOT.rglob("*.py"))
-        for node in ast.walk(parsed(path))
+        node
+        for node in ast.walk(tree)
         if isinstance(node, ast.AsyncWith)
         and any(isinstance(item.context_expr, ast.Call) and callee(item.context_expr) == TRANSACTION_SESSION for item in node.items)
     ]
 
 
+def _session_running_it(node: ast.AST, session: str | None, forwarded: str | None = None) -> ast.Name | None:
+    """The session `node` runs a transaction on: `<session>.with_transaction(...)`, or `<forwarded>(<session>)`."""
+
+    if not isinstance(node, ast.Call):
+        return None
+    if isinstance(node.func, ast.Attribute) and node.func.attr == "with_transaction":
+        named = node.func.value
+    elif isinstance(node.func, ast.Name) and node.func.id == forwarded and len(node.args) == 1 and not node.keywords:
+        named = node.args[0]
+    else:
+        return None
+
+    return named if isinstance(named, ast.Name) and named.id == session else None
+
+
+# `drain` awaits the transaction each caller hands it as `page_of`, which every caller is then held to.
+_FORWARDING = ("drain", "page_of")
+
+
+def _able_to_swallow(block: ast.AsyncWith, forwarded: str | None = None) -> list[ast.expr | ast.stmt]:
+    """Every node of `block` past the one shape allowed: its session's transaction, awaited where it is called."""
+
+    # A second manager entered beside the helper wraps the body inside it.
+    if len(block.items) != 1:
+        return [block]
+    session = block.items[0].optional_vars.id if isinstance(block.items[0].optional_vars, ast.Name) else None
+    inside = [node for statement in block.body for node in ast.walk(statement) if isinstance(node, (ast.expr, ast.stmt))]
+    awaited = {id(node.value) for node in inside if isinstance(node, ast.Await)}
+    receivers = {id(named) for node in inside if (named := _session_running_it(node, session, forwarded)) is not None}
+
+    # An allow-list, and never a list of swallowing calls: what a call does with a failure is decided
+    # at run time, `asyncio.gather(return_exceptions=True)` and an unawaited task among them.
+    return [
+        node
+        for node in inside
+        if isinstance(node, (ast.Try, ast.TryStar, ast.With, ast.AsyncWith, ast.AsyncFor))
+        or (isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)) and any(loop.is_async for loop in node.generators))
+        or (isinstance(node, ast.Await) and _session_running_it(node.value, session, forwarded) is None)
+        or (_session_running_it(node, session, forwarded) is not None and id(node) not in awaited)
+        # A helper handed the session can run a transaction this sweep never reads.
+        or (isinstance(node, ast.Name) and node.id == session and id(node) not in receivers)
+    ]
+
+
+_OPENED = "async with transaction_session(db) as session:\n"
+
+# Each block that could keep a failure from the helper, and the kinds of node the sweep must name in it:
+# a refusal another one also reaches would pass with its own arm gone.
+_SWALLOWING_BLOCKS = {
+    "a try": (_OPENED + "    try:\n        await session.with_transaction(write)\n    except Exception:\n        pass", ["Try"]),
+    "a context manager": (_OPENED + "    with contextlib.suppress(Exception):\n        await session.with_transaction(write)", ["With"]),
+    "a gather returning its exceptions": (
+        _OPENED + "    await asyncio.gather(session.with_transaction(write), return_exceptions=True)",
+        ["Await", "Call"],
+    ),
+    "a task never awaited": (_OPENED + "    asyncio.create_task(session.with_transaction(write))", ["Call"]),
+    "an awaited helper": (_OPENED + "    await run_swallowing(write)", ["Await"]),
+    "the session handed to a helper": (_OPENED + "    result = await session.with_transaction(write)\n    keep(session)", ["Name"]),
+    "an async for": (_OPENED + "    async for _ in rows():\n        result = await session.with_transaction(write)", ["AsyncFor"]),
+    "an async comprehension": (_OPENED + "    [row async for row in rows()]\n    await session.with_transaction(write)", ["ListComp"]),
+    "a second manager on the line": (
+        "async with transaction_session(db) as session, contextlib.suppress(Exception):\n    await session.with_transaction(write)",
+        ["AsyncWith"],
+    ),
+}
+
+# The shapes the tree's blocks take.
+_PLAIN_BLOCKS = {
+    "assigned": _OPENED + "    drawn = await session.with_transaction(write)",
+    "returned": _OPENED + "    return await session.with_transaction(write)",
+    "built into a response": _OPENED + "    return Response(angewendet=await session.with_transaction(write))",
+}
+
+
+def _the_block(source: str) -> ast.AsyncWith:
+    [block] = _transaction_blocks(ast.parse("async def handler(db, write):\n" + "".join(f"    {line}\n" for line in source.splitlines())))
+
+    return block
+
+
 class TestEveryTransactionRunsOnTheHelpersSession:
-    """`docs/backend/spec.md :: I539`: a session opened past `transaction_session`, or a failure caught inside one, ends with no abort sent."""
+    """`docs/backend/spec.md :: I539`: a session opened past `transaction_session`, or a failure kept inside one, ends with no abort sent."""
 
     def test_no_session_able_to_transact_is_opened_past_it(self):
         assert _sessions_opened_past_the_helper() == {f"app/core/transactions.py :: {TRANSACTION_SESSION}"}
 
-    def test_no_failure_is_caught_inside_one(self):
-        blocks = _transaction_sessions()
+    def test_nothing_inside_one_can_keep_a_failure_from_it(self):
+        blocks = [
+            (path.relative_to(BACKEND_ROOT).as_posix(), block)
+            for path in sorted(APP_ROOT.rglob("*.py"))
+            for block in _transaction_blocks(parsed(path))
+        ]
         # Non-empty, so a helper renamed past this sweep's spelling fails rather than finding nothing to judge.
         assert blocks
+        function, parameter = _FORWARDING
+        forwarding = {
+            id(block)
+            for node in ast.walk(parsed(APP_ROOT / "core" / "transactions.py"))
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == function
+            for block in _transaction_blocks(node)
+        }
+        assert forwarding, f"no `{function}` opens a session where this sweep looks"
 
-        catching = [
+        assert [
             f"{module}:{node.lineno}"
             for module, block in blocks
-            for node in ast.walk(block)
-            if node is not block and isinstance(node, (ast.Try, ast.TryStar, *_CONTEXT_MANAGED))
+            for node in _able_to_swallow(block, parameter if id(block) in forwarding else None)
+        ] == []
+
+    def test_every_page_drain_is_handed_runs_its_transaction_where_it_is_called(self):
+        """`drain` awaits what `page_of` returns, so a `page_of` returning anything but the transaction escapes the sweep above."""
+
+        function, parameter = _FORWARDING
+        handed = [
+            (f"{module} :: {scope}", keyword.value)
+            for module, scope, call in app_calls()
+            if callee(call) == function
+            for keyword in call.keywords
+            if keyword.arg == parameter
         ]
-        assert catching == []
+        assert handed, f"no call hands `{function}` a `{parameter}`, so the clause below is vacuous"
+
+        assert [
+            site
+            for site, page_of in handed
+            if not (
+                isinstance(page_of, ast.Lambda)
+                and len(page_of.args.args) == 1
+                and _session_running_it(page_of.body, page_of.args.args[0].arg) is not None
+            )
+        ] == []
+
+    @pytest.mark.parametrize(("source", "named"), [pytest.param(*sample, id=name) for name, sample in _SWALLOWING_BLOCKS.items()])
+    def test_the_sweep_names_each_shape_that_can(self, source: str, named: list[str]):
+        """The tree's blocks are uniform, so only these samples show each of the sweep's refusals can fire."""
+
+        assert sorted(type(node).__name__ for node in _able_to_swallow(_the_block(source))) == named
+
+    @pytest.mark.parametrize("source", [pytest.param(source, id=name) for name, source in _PLAIN_BLOCKS.items()])
+    def test_the_sweep_passes_each_shape_the_tree_takes(self, source: str):
+        assert _able_to_swallow(_the_block(source)) == []
