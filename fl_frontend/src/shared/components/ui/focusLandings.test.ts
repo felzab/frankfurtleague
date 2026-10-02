@@ -9,6 +9,7 @@ import { createElement as h } from "react";
 import { screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
@@ -17,7 +18,11 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 import type { UserEvent } from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
-doubleEveryAction();
+/* The browser's credential calls, which this runner lacks, answer as a ceremony that succeeded. */
+const CEREMONY = () => Promise.resolve({ data: {}, error: null });
+registerDoubles({ modules: { "core/authClient.ts": { authClient: { passkey: { addPasskey: CEREMONY }, signIn: { passkey: CEREMONY } } } } });
+
+const { calls, answerWith } = doubleEveryAction();
 doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -29,9 +34,12 @@ const { AdminSpielortEditView } = await import("@/features/spielorte/components/
 const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
 const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
 const { AdminTeamEditView } = await import("@/features/teams/components/views/AdminTeamEditView.tsx");
+const { SicherheitPanel } = await import("@/features/konto/components/views/SicherheitPanel.tsx");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
+  /** What an action answers, by its name, where a plain success is not the answer the write needs. */
+  answers?: Record<string, unknown>;
   before: () => ReactNode;
   /** The presses that send the write. */
   press: (user: UserEvent) => Promise<void>;
@@ -178,6 +186,52 @@ const teamEditor = (inactiveSince: string | null) =>
 
 const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
 
+const HOUR_MS = 60 * 60 * 1000;
+
+const passkey = (id: string, name: string) => ({
+  id,
+  name,
+  anbieter: null,
+  eingerichtetAm: "2026-09-01T08:00:00.000Z",
+  zuletztVerwendetAm: null,
+  diesesGeraet: false,
+});
+const anmeldung = (id: string, diesesGeraet: boolean, hour: string) => ({
+  id,
+  diesesGeraet,
+  angemeldetAm: `2026-09-25T${hour}:00:00.000Z`,
+  zuletztAktivAm: "2026-09-26T09:00:00.000Z",
+  endetSpaetestensAm: "2026-10-25T08:00:00.000Z",
+  faktor: { art: "code" as const },
+});
+const DIESE = anmeldung("diese", true, "07");
+const FRUEH = anmeldung("frueh", false, "08");
+const SPAET = anmeldung("spaet", false, "10");
+
+/** What the security panel is handed, typed off the panel: this layer imports no slice's types. */
+type Sicherheit = Parameters<typeof SicherheitPanel>[0]["sicherheit"];
+
+/** A person's security panel, both windows open unless a case closes one. */
+const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
+  passkeys: [passkey("laptop", "Laptop"), passkey("handy", "Handy")],
+  kannHinzufuegen: true,
+  anmeldungen: [DIESE, FRUEH, SPAET],
+  verwaltung: false,
+  inhaberId: "inhaber",
+  inhaberAdresse: "spielerin@example.org",
+  freshUntil: Date.now() + HOUR_MS,
+  enrolmentUntil: Date.now() + HOUR_MS,
+  servedAt: Date.now(),
+  ...fields,
+});
+const panel = (stand: Sicherheit) => h(SicherheitPanel, { sicherheit: stand });
+
+/** One panel for both renders, where the change is the panel's own state and no refresh redraws it. */
+const STEP_UP_DUE = sicherheit({ passkeys: [passkey("laptop", "Laptop")], enrolmentUntil: null });
+
+/** A sign-in's control, named by the minute it began, which is what tells two rows apart. */
+const abmelden = (minute: string) => new RegExp(`vom 25\\. September 2026, ${minute} abmelden$`);
+
 const LANDINGS: Record<string, Landing> = {
   "a venue row's reactivation, on the retirement replacing it": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
@@ -275,6 +329,60 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => heading("Lena Meier"),
   },
+  "a passkey's deletion, on the next card's": {
+    before: () => panel(sicherheit()),
+    press: (user) => pressTwice(user, { resting: "Passkey „Laptop“ löschen", armed: "Ja, Passkey löschen" }),
+    after: () => panel(sicherheit({ passkeys: [passkey("handy", "Handy")] })),
+    lands: () => screen.getByRole("button", { name: "Passkey „Handy“ löschen" }),
+  },
+  "the last passkey's deletion, on the panel's heading once the list has gone": {
+    before: () => panel(sicherheit({ passkeys: [passkey("laptop", "Laptop")] })),
+    press: (user) => pressTwice(user, { resting: "Passkey „Laptop“ löschen", armed: "Ja, Passkey löschen" }),
+    after: () => panel(sicherheit({ passkeys: [] })),
+    lands: () => heading("Sicherheit"),
+  },
+  "a sign-in's sign-out, on the next sign-in's": {
+    before: () => panel(sicherheit()),
+    press: (user) => user.click(screen.getByRole("button", { name: abmelden("10:00") })),
+    after: () => panel(sicherheit({ anmeldungen: [DIESE, SPAET] })),
+    lands: () => screen.getByRole("button", { name: abmelden("12:00") }),
+  },
+  /* This device's row, the one before it, holds no sign-out, so the list's heading takes the focus. */
+  "the last other sign-in's sign-out, on the list's heading": {
+    before: () => panel(sicherheit({ anmeldungen: [DIESE, FRUEH] })),
+    press: (user) => user.click(screen.getByRole("button", { name: abmelden("10:00") })),
+    after: () => panel(sicherheit({ anmeldungen: [DIESE] })),
+    lands: () => heading("Anmeldungen"),
+  },
+  "signing out every other sign-in, on the list's heading": {
+    before: () => panel(sicherheit()),
+    press: (user) => pressTwice(user, { resting: "Alle anderen abmelden", armed: "Ja, alle anderen abmelden" }),
+    after: () => panel(sicherheit({ anmeldungen: [DIESE] })),
+    lands: () => heading("Anmeldungen"),
+  },
+  "the confirmation before an enrolment, on the add control replacing it": {
+    answers: { pruefeInhaberAction: { success: true, gleich: true } },
+    before: () => panel(STEP_UP_DUE),
+    press: (user) => user.click(screen.getByRole("button", { name: "Mit Passkey bestätigen" })),
+    after: () => panel(STEP_UP_DUE),
+    lands: () => screen.getByRole("button", { name: "Passkey hinzufügen" }),
+  },
+  "a first passkey's enrolment, on the add control under the list it starts": {
+    before: () => panel(sicherheit({ passkeys: [] })),
+    press: (user) => user.click(screen.getByRole("button", { name: "Passkey einrichten" })),
+    after: () => panel(sicherheit({ passkeys: [passkey("laptop", "Laptop")] })),
+    lands: () => screen.getByRole("button", { name: "Passkey hinzufügen" }),
+  },
+  "a passkey's saved name, on the rename control the form gives way to": {
+    before: () => panel(sicherheit()),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Passkey „Laptop“ umbenennen" }));
+      await user.type(screen.getByRole("textbox", { name: "Name" }), " alt");
+      await user.click(screen.getByRole("button", { name: "Speichern" }));
+    },
+    after: () => panel(sicherheit({ passkeys: [passkey("laptop", "Laptop alt"), passkey("handy", "Handy")] })),
+    lands: () => screen.getByRole("button", { name: "Passkey „Laptop alt“ umbenennen" }),
+  },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
@@ -294,6 +402,7 @@ describe("where the focus lands once a write takes its control off the page", ()
   for (const [name, landing] of Object.entries(LANDINGS)) {
     it(name, async () => {
       const user = userEvent.setup();
+      answerWith(() => Promise.resolve(landing.answers?.[calls.at(-1)?.action ?? ""] ?? { success: true, message: "Gespeichert." }));
       const page = (tree: ReactNode) => underNext(tree, { search: landing.search ?? "saison_id=2026" });
       const view = renderUnderWrite(page(landing.before()));
 

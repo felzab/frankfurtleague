@@ -12,6 +12,7 @@ import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
 import { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { LETZTER_PASSKEY, PasskeyKarteView } from "@/features/passkeys/components/ui/PasskeyKarteView";
 import { Callout } from "@/shared/components/ui/Callout";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -25,6 +26,7 @@ import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { FOCUS_HEADING, focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { endAndereAnmeldungenAction, endAnmeldungAction, pruefeInhaberAction } from "../../actions";
@@ -46,6 +48,9 @@ const ZU_VIELE = "Mehr Passkeys gehen nicht. Lösche zuerst einen.";
  * enrolment or a removal, and nothing here tells which.
  */
 const GLEICHZEITIG = "Gleichzeitig wurde ein anderer Passkey hinzugefügt oder gelöscht.";
+
+/** The place the confirmation and the add control it opens share, so a landed confirmation hands the focus on. */
+const HINZUFUEGEN = "hinzufuegen";
 
 /** Where the sign-in page is: a removal of the passkey this device signed in with ends the page's own session. */
 const SIGN_IN = "/signin";
@@ -112,8 +117,10 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
     if (change !== null) void change();
   };
 
-  const entferne = (id: string): Promise<void> =>
-    withStepUp(async () => {
+  // Each landing is read at the press: a confirmation the change waits for takes the focus into its dialog.
+  const entferne = (id: string): Promise<void> => {
+    const landing = focusAfterWrite();
+    return withStepUp(async () => {
       // A rejected action may still have removed the row, and uncaught here it takes the page down with it.
       const result = await removePasskeyAction(id).catch(unansweredAction);
       if (wantsStepUp(result)) return "stepUp";
@@ -126,8 +133,10 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       appToast.success("Passkey gelöscht", { description: "Geräte, die damit angemeldet waren, wurden abgemeldet." });
       // The removal ended the session this page ran in: the sign-in page is where it can go on.
       if (result.diesesGeraet) router.replace(SIGN_IN);
+      else landing.landed();
       return "erledigt";
     });
+  };
 
   const benenne = (id: string, name: string, gelandet: () => void): Promise<void> =>
     withStepUp(async () => {
@@ -143,30 +152,49 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       return "erledigt";
     });
 
-  const beende = (id: string): Promise<void> =>
-    withStepUp(async () => {
+  const beende = (id: string): Promise<void> => {
+    const landing = focusAfterWrite();
+    return withStepUp(async () => {
       const result = await endAnmeldungAction(id).catch(unansweredAction);
       if (wantsStepUp(result)) return "stepUp";
 
-      if (result.success) appToast.success("Abgemeldet", { description: "Die Anmeldung ist beendet." });
-      else appToast.failure("Nicht abgemeldet", result);
+      if (result.success) {
+        landing.landed();
+        appToast.success("Abgemeldet", { description: "Die Anmeldung ist beendet." });
+      } else {
+        appToast.failure("Nicht abgemeldet", result);
+      }
       return "erledigt";
     });
+  };
 
-  const beendeAndere = (): Promise<void> =>
-    withStepUp(async () => {
+  const beendeAndere = (): Promise<void> => {
+    const landing = focusAfterWrite();
+    return withStepUp(async () => {
       const result = await endAndereAnmeldungenAction().catch(unansweredAction);
       if (wantsStepUp(result)) return "stepUp";
 
-      if (result.success) appToast.success("Alle anderen abgemeldet");
-      else appToast.failure("Nicht abgemeldet", result);
+      if (result.success) {
+        landing.landed();
+        appToast.success("Alle anderen abgemeldet");
+      } else {
+        appToast.failure("Nicht abgemeldet", result);
+      }
       return "erledigt";
     });
+  };
 
   const hinzufuegenStepUp = usePasskeyStepUp(istInhaber);
 
+  // The confirmation's control gives way to the add control it opens, in the place both stand in.
+  const enrolmentConfirmed = (landing: ReturnType<typeof focusAfterWrite>): void => {
+    landing.landed();
+    confirmed();
+  };
+
   const stepUpForEnrolment = async (): Promise<void> => {
-    if (await hinzufuegenStepUp.stepUp()) confirmed();
+    const landing = focusAfterWrite();
+    if (await hinzufuegenStepUp.stepUp()) enrolmentConfirmed(landing);
   };
 
   const fuegeHinzu = async (): Promise<void> => {
@@ -174,6 +202,8 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       close("enrolment");
       return;
     }
+    // The first passkey moves the control under the list it starts.
+    const landing = focusAfterWrite();
     setIstBeschaeftigt(true);
     const held = await enrolmentHeld();
     setIstBeschaeftigt(false);
@@ -181,6 +211,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
     startTransition(() => router.refresh());
 
     if (held === null) {
+      landing.landed();
       appToast.success("Passkey hinzugefügt", { description: "Du kannst Dich jetzt auch damit anmelden." });
       return;
     }
@@ -192,7 +223,9 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   // its own passkey prompt only on a fresh press, and the confirmation's prompt spent the first one.
   const hinzufuegen =
     sicherheit.kannHinzufuegen && enrolmentUntil === null ? (
-      <div className="flex flex-col gap-2">
+      <div
+        className="flex flex-col gap-2"
+        {...focusSlot(HINZUFUEGEN)}>
         {passkeys.length > 0 && (
           <Button
             type="button"
@@ -211,33 +244,37 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
           <CodeConfirmation
             address={sicherheit.inhaberAdresse}
             istInhaber={istInhaber}
-            onConfirmed={confirmed}
+            onConfirmed={() => enrolmentConfirmed(focusAfterWrite())}
           />
         )}
       </div>
     ) : (
-      <Hint
-        mode="refusal"
-        reason={sicherheit.kannHinzufuegen ? null : ZU_VIELE}
-        label="Passkey hinzufügen">
-        <Button
-          type="button"
-          variant="primary"
-          isPending={istBeschaeftigt}
-          isDisabled={!sicherheit.kannHinzufuegen}
-          onPress={() => void fuegeHinzu()}
-          className={formButton({ intent: "submit" })}>
-          <Plus
-            aria-hidden="true"
-            className="size-4.5 shrink-0"
-          />
-          {istBeschaeftigt ? "Fügt hinzu..." : passkeys.length === 0 ? "Passkey einrichten" : "Passkey hinzufügen"}
-        </Button>
-      </Hint>
+      <FocusSlot name={HINZUFUEGEN}>
+        <Hint
+          mode="refusal"
+          reason={sicherheit.kannHinzufuegen ? null : ZU_VIELE}
+          label="Passkey hinzufügen">
+          <Button
+            type="button"
+            variant="primary"
+            isPending={istBeschaeftigt}
+            isDisabled={!sicherheit.kannHinzufuegen}
+            onPress={() => void fuegeHinzu()}
+            className={formButton({ intent: "submit" })}>
+            <Plus
+              aria-hidden="true"
+              className="size-4.5 shrink-0"
+            />
+            {istBeschaeftigt ? "Fügt hinzu..." : passkeys.length === 0 ? "Passkey einrichten" : "Passkey hinzufügen"}
+          </Button>
+        </Hint>
+      </FocusSlot>
     );
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("sicherheit")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
@@ -265,8 +302,14 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
         )}
 
         {passkeys.length > 0 && (
-          <div className="flex flex-col gap-4">
-            <h3 className={FORM_SECTION_HEADING_CLASSES}>Passkeys</h3>
+          <div
+            className="flex flex-col gap-4"
+            {...focusSection("passkeys")}>
+            <h3
+              {...FOCUS_HEADING}
+              className={FORM_SECTION_HEADING_CLASSES}>
+              Passkeys
+            </h3>
             <ul className="flex flex-col gap-4">
               {passkeys.map((karte) => (
                 <PasskeyKarteView
@@ -284,8 +327,14 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
           </div>
         )}
 
-        <div className="flex flex-col gap-4">
-          <h3 className={FORM_SECTION_HEADING_CLASSES}>Anmeldungen</h3>
+        <div
+          className="flex flex-col gap-4"
+          {...focusSection("anmeldungen")}>
+          <h3
+            {...FOCUS_HEADING}
+            className={FORM_SECTION_HEADING_CLASSES}>
+            Anmeldungen
+          </h3>
           <ul className="flex flex-col">
             {anmeldungen.map((anmeldung) => (
               <AnmeldungZeile

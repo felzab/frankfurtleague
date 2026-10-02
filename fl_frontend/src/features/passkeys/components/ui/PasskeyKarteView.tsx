@@ -15,12 +15,14 @@ import { card } from "@/shared/components/ui/card";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { focusAfterWrite, focusRow } from "@/shared/utils/focusAfterWrite";
 
 import { PASSKEY_NAME_MAX, PasskeyNamePayloadSchema } from "../../schemas";
 import { passkeyAnzeigename } from "../../utils";
@@ -47,6 +49,9 @@ function kontrollname(karte: PasskeyKarte, tat: "löschen" | "umbenennen"): stri
     ? `Passkey vom ${DATUM.format(new Date(karte.eingerichtetAm))} ${tat}`
     : `Passkey „${name}“ ${tat}`;
 }
+
+/** The place the rename control and the form it opens share. */
+const UMBENENNEN = "umbenennen";
 
 /** What deleting one costs, in the armed reveal: the sign-out is not derivable from a control labelled „Löschen“. */
 const FOLGE = "Dieser Passkey wird gelöscht. Geräte, die damit angemeldet sind, werden abgemeldet.";
@@ -84,17 +89,17 @@ export function PasskeyKarteView({
   const twoPress = useTwoPressConfirm();
   const [isRenaming, setIsRenaming] = useState(false);
 
-  // The form unmounts from under its own cancel or save, so the control that opened it takes the
-  // focus back; never on the card's first render, before any rename has opened.
-  const umbenennenRef = useRef<HTMLButtonElement>(null);
-  const warOffen = useRef(false);
-  useEffect(() => {
-    if (isRenaming) warOffen.current = true;
-    else if (warOffen.current) umbenennenRef.current?.focus();
-  }, [isRenaming]);
+  // The form and the control that opened it stand in one place, so its cancel or its saved name hands
+  // the focus back to that control. Read at the save's press: a confirmation it waits for takes the focus.
+  const schliesse = (landing: ReturnType<typeof focusAfterWrite>) => {
+    landing.landed();
+    setIsRenaming(false);
+  };
 
   return (
-    <li className={`${card()} flex flex-col gap-3 p-4 sm:p-5`}>
+    <li
+      className={`${card()} flex flex-col gap-3 p-4 sm:p-5`}
+      {...focusRow(karte.id)}>
       <div className="flex min-w-0 flex-col gap-1">
         <span className="fluid-sm font-bold break-words text-foreground">{passkeyAnzeigename(karte)}</span>
         {/* Beside a name the holder chose alone: otherwise the maker already is the name above. */}
@@ -107,11 +112,16 @@ export function PasskeyKarteView({
       </div>
 
       {isRenaming ? (
-        <PasskeyNameForm
-          karte={karte}
-          onCancel={() => setIsRenaming(false)}
-          onSave={(name) => onRename(karte.id, name, () => setIsRenaming(false))}
-        />
+        <FocusSlot name={UMBENENNEN}>
+          <PasskeyNameForm
+            karte={karte}
+            onCancel={() => schliesse(focusAfterWrite())}
+            onSave={(name) => {
+              const landing = focusAfterWrite();
+              return onRename(karte.id, name, () => schliesse(landing));
+            }}
+          />
+        </FocusSlot>
       ) : (
         <>
           {twoPress.isConfirming && (
@@ -131,35 +141,39 @@ export function PasskeyKarteView({
 
           <ConfirmActionRow confirm={twoPress}>
             {!twoPress.isConfirming && (
-              <Button
-                ref={umbenennenRef}
-                type="button"
-                variant="secondary"
-                aria-label={kontrollname(karte, "umbenennen")}
-                onPress={() => setIsRenaming(true)}
-                className={formButton({ intent: "cancel" })}>
-                <PencilToLine
-                  aria-hidden="true"
-                  className="size-4.5 shrink-0"
-                />
-                Umbenennen
-              </Button>
+              <FocusSlot name={UMBENENNEN}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  aria-label={kontrollname(karte, "umbenennen")}
+                  onPress={() => setIsRenaming(true)}
+                  className={formButton({ intent: "cancel" })}>
+                  <PencilToLine
+                    aria-hidden="true"
+                    className="size-4.5 shrink-0"
+                  />
+                  Umbenennen
+                </Button>
+              </FocusSlot>
             )}
-            <ConfirmPressButton
-              confirm={twoPress}
-              reason={reason}
-              resting="Löschen"
-              restingName={kontrollname(karte, "löschen")}
-              armed="Ja, Passkey löschen"
-              running="Löscht..."
-              icon={
-                <TrashBin
-                  aria-hidden="true"
-                  className="size-4.5 shrink-0"
-                />
-              }
-              onPress={() => twoPress.press(() => onRemove(karte.id))}
-            />
+            {/* The next card's deletion takes the focus once this card's has taken the card away. */}
+            <FocusSlot name="loeschen">
+              <ConfirmPressButton
+                confirm={twoPress}
+                reason={reason}
+                resting="Löschen"
+                restingName={kontrollname(karte, "löschen")}
+                armed="Ja, Passkey löschen"
+                running="Löscht..."
+                icon={
+                  <TrashBin
+                    aria-hidden="true"
+                    className="size-4.5 shrink-0"
+                  />
+                }
+                onPress={() => twoPress.press(() => onRemove(karte.id))}
+              />
+            </FocusSlot>
           </ConfirmActionRow>
         </>
       )}

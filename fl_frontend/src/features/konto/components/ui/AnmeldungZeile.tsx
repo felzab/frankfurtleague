@@ -8,6 +8,7 @@ import { Button } from "@heroui/react/button";
 
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
+import { focusRow, focusSlot } from "@/shared/utils/focusAfterWrite";
 
 import type { Anmeldung } from "../../types";
 
@@ -37,7 +38,9 @@ export function AnmeldungZeile({ anmeldung, onEnd }: { anmeldung: Anmeldung; onE
   const [isPending, startEnding] = useTransition();
 
   return (
-    <li className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+    <li
+      className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+      {...focusRow(anmeldung.id)}>
       <div className="flex min-w-0 flex-col gap-1">
         <span className="fluid-sm font-bold break-words text-foreground">
           {anmeldung.faktor.art === "passkey" ? `Mit Passkey · ${anmeldung.faktor.name}` : "Mit Code per E-Mail"}
@@ -55,6 +58,8 @@ export function AnmeldungZeile({ anmeldung, onEnd }: { anmeldung: Anmeldung; onE
           variant="secondary"
           isPending={isPending}
           aria-label={isPending ? undefined : abmeldenName(anmeldung)}
+          // Once this row has gone the next row's sign-out takes the focus, passing over this device's, which holds none.
+          {...focusSlot("abmelden")}
           onPress={() => startEnding(() => onEnd(anmeldung.id))}
           className={formButton({ intent: "cancel" })}>
           <ArrowRightFromSquare
