@@ -65,6 +65,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   if (url.endsWith("/einladungen/versand")) return json(VERSAND);
   if (url.endsWith("/zustellung/angenommen")) return json({ acknowledged: 1, angewendet: true });
+  // The mailer's gate, answered at once: no address of this press is barred, and its read spends no time.
+  if (url.endsWith("/identitaet/gesperrt")) return json({ acknowledged: 1, gesperrt: false });
   // Every other call is the provider's, whose address `mail.ts` alone names.
   assert.ok(!url.startsWith(API_URL), `the press reached a backend route nothing here answers: ${url}`);
 
