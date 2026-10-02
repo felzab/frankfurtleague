@@ -14,13 +14,13 @@ from app.api.identitaet.router import get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.identitaet.services import build_referee_pipeline, build_seat_pipeline
 from app.api.kontakte.services import KONTAKT_SLOTS
-from app.api.sperrliste.lookup import BanList
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.main import create_app
 from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
+from tests.bans import ban_list
 from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, ban_document, rules_document, saison_document, saison_team_document, spieler_document, team_document
@@ -317,7 +317,7 @@ async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjektResponse
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(database),
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
     )
 

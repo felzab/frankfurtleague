@@ -39,9 +39,7 @@ from app.api.berechtigungen.services import (
     compose_postausgang,
 )
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich, post_berechtigungen_angekuendigt
-from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, post_sperrliste_eintrag
-from app.api.sperrliste.lookup import BanList
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
+from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
 from app.api.sperrliste.services import SPERRLISTE_VERWALTUNG, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -51,10 +49,11 @@ from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.actor_tokens import SignedActor, actor_claims, sign
 from tests.app_client import app_client
+from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
-from tests.isolation import COMMITTED, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -156,7 +155,7 @@ async def grant(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+            sperrliste=ban_list(database),
             db=client,
             erteilt_von=als,
             now=now,
@@ -174,7 +173,7 @@ async def revoke(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+            sperrliste=ban_list(database),
             db=client,
             entzogen_von=als,
             now=NOW,
@@ -195,7 +194,7 @@ async def change(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+            sperrliste=ban_list(database),
             db=client,
             geaendert_von=als,
             now=NOW,
@@ -216,18 +215,7 @@ async def a_second_owner(database: AsyncDatabase) -> None:
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NEU_TYPED, *, als: str = ANNA, berechtigungen: Any = None) -> Any:
     async def call() -> Any:
-        return await post_sperrliste_eintrag(
-            sperrliste_data=FLPostSperrlistePayload(email=email, grund=GRUND),
-            sperrliste_collection=database[Collection.SPERRLISTE],
-            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
-            saisons_collection=database[Collection.SAISONS],
-            berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
-            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            db=client,
-            config=CONFIG,
-            erstellt_von=als,
-            today=TODAY,
-        )
+        return await ban_through_the_route(database, client, email=email, grund=GRUND, von=als, today=TODAY, berechtigungen=berechtigungen)
 
     return await acting(Actor(kind="admin_session", email=als), call)
 
@@ -279,7 +267,7 @@ async def claimed(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+            sperrliste=ban_list(database),
             db=client,
             now=now,
         )
@@ -383,7 +371,7 @@ class TestTheOutboxMovesWithItsChange:
                     berechtigungen_postausgang_collection=cast(
                         AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_POSTAUSGANG], "insert_one")
                     ),
-                    sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+                    sperrliste=ban_list(database),
                     db=client,
                     erteilt_von=ANNA,
                     now=NOW,
@@ -411,7 +399,7 @@ class TestTheOutboxMovesWithItsChange:
                         AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT], "delete_many")
                     ),
                     berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-                    sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+                    sperrliste=ban_list(database),
                     db=client,
                     entzogen_von=OWNER,
                     now=NOW,
@@ -436,7 +424,7 @@ class TestTheListServesLiveGrantsAlone:
             await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
             listed = await get_berechtigungen(
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+                sperrliste=ban_list(database),
             )
 
             return [(row.adresse, row.gesperrt, row.verwaltung) for row in listed.berechtigungen], listed.uebersprungen
@@ -454,7 +442,7 @@ class TestTheListServesLiveGrantsAlone:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None]]:
             listed = await get_berechtigungen(
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+                sperrliste=ban_list(database),
             )
 
             return [(row.adresse, row.erteilt_von) for row in listed.berechtigungen]
@@ -477,7 +465,7 @@ class TestTheListServesLiveGrantsAlone:
             await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
             listed = await get_berechtigungen(
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+                sperrliste=ban_list(database),
             )
 
             return [(row.adresse, row.erteilt_von, row.erteilt_von_gesperrt) for row in listed.berechtigungen]
@@ -792,28 +780,22 @@ class TestTheFloorOfTwo:
         assert on_a_league(mongo_replica_set_url, body, grants=grants) == BERECHTIGUNG_MINDESTZAHL
 
 
-class GrantsRunningARivalAfterTheFirstRead:
+class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
     """The grants a judging transaction reads, a rival write run once after that read and before its anchor.
 
-    So only the anchor can make the two conflict. Not a subclass: the driver builds a collection off
-    a database handle.
+    So only the anchor can make the two conflict.
     """
 
-    def __init__(self, inner: Any, rival: Callable[[], Awaitable[Any]]) -> None:
-        self._inner = inner
-        self._rival: Callable[[], Awaitable[Any]] | None = rival
+    def __init__(self, collection: Any, rival: Rival) -> None:
+        async def reported() -> None:
+            self.rival_outcome = await outcome_of(rival())
+
+        super().__init__(collection, reported)
         self.rival_outcome: str | None = None
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
     async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._inner.aggregate(*args, **kwargs)
-
-        # ONE-SHOT: the retry has to meet what the rival left rather than run it again.
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            self.rival_outcome = await outcome_of(rival())
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        await self.run_the_rival()
 
         return cursor
 
@@ -1537,7 +1519,7 @@ class TestTheMountedRouteReadsTheGrants:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[datetime | None]:
             grant_since = get_grant_lookup(
                 database[Collection.BERECHTIGUNGEN],
-                BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+                ban_list(database),
             )
 
             return [await grant_since(ANNA), await grant_since("jürgen@frankfurtleague.de")]
