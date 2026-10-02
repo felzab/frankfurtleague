@@ -345,17 +345,17 @@ describe("the code step mounted outside the sign-in card", () => {
       render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));
       // By its text: the cooldown makes the control inert, so the accessibility tree holds only its overlay.
       const resend = () => screen.getByText(/^Code erneut senden/, { selector: "button" });
-      assert.equal(resend().textContent, "Code erneut senden (30)");
+      assert.equal(resend().textContent, "Code erneut senden (0:30)");
 
       await act(async () => {
         mock.timers.tick(1_000);
       });
-      assert.equal(resend().textContent, "Code erneut senden (29)");
+      assert.equal(resend().textContent, "Code erneut senden (0:29)");
 
       await act(async () => {
         mock.timers.tick(28_999);
       });
-      assert.equal(resend().textContent, "Code erneut senden (1)");
+      assert.equal(resend().textContent, "Code erneut senden (0:01)");
 
       await act(async () => {
         mock.timers.tick(1);

@@ -45,6 +45,8 @@ const SLOT_VALUE_CLASSES =
  */
 const QUIET_ACTION_CLASSES = `${BRAND_INK_OUTSIDE_PROSE_CLASSES} w-fit cursor-pointer rounded bg-transparent py-1 fluid-xs font-bold disabled:pointer-events-none disabled:text-foreground-muted`;
 
+const asClock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+
 /**
  * `onSignedIn` runs once the route has set the session's cookie, and the step stays pending after it:
  * the caller moves on, by a navigation or by unmounting it. Without `onBack` no other address is offered.
@@ -217,7 +219,7 @@ export function CodeStep({
               Code erneut senden
               {/* Inside the control the cooldown makes inert, so a screen reader is read the reason once and
                   never a number a second. */}
-              {isCoolingDown && <span className="font-numeric tabular-nums"> ({secondsLeft})</span>}
+              {isCoolingDown && <span className="font-numeric tabular-nums"> ({asClock(secondsLeft)})</span>}
             </button>
           </Hint>
         </div>
