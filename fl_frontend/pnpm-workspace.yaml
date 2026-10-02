@@ -27,6 +27,10 @@ trustPolicyExclude:
 # Not the default `install`, under which a `pnpm run` over a drifted manifest rewrites pnpm-lock.yaml,
 # so a check writes the tree and races the gate's lockfile step. `pnpm install` is the one writer.
 verifyDepsBeforeRun: error
+# A peer outside its range fails the install rather than warning: an app dependency that is also
+# HeroUI's peer is HeroUI's one copy, and a HeroUI upgrade raising its range would otherwise
+# install past the app's range unseen.
+strictPeerDependencies: true
 patchedDependencies:
   # Aborts on the server a transaction whose commit failed, saying so where that abort fails, and
   # lets the commit's own error through where the driver's refusal of the adapter's abort replaced
