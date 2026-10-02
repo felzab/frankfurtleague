@@ -87,7 +87,7 @@ export async function closeJudgingExpiredTransactions(mongod: StartedMongoDBCont
   const failure = await teardownFailure(async () => {
     // No container is a file that failed before starting one, which has its own failure to report.
     if (mongod === undefined) return null;
-    // Refused even where the watch itself threw: read as passing, a file that never called it passed every expiry.
+    // Refused rather than read as passing: a container whose count was never read would pass every expiry.
     if (!atStart.has(mongod)) return UNWATCHED;
     return expiredTransactionsRefusal(atStart.get(mongod) ?? null, await readKills(mongod));
   }, close);
@@ -116,22 +116,15 @@ export async function closeInTurn(closes: readonly (() => Promise<unknown>)[]): 
 /** A db suite's replica set, and where the suite hands the close of each client it opens on it. */
 export type JudgedReplicaSet = { mongod: StartedMongoDBContainer; closing: (close: () => Promise<unknown>) => void };
 
-/**
- * A db suite's one way to a replica set (`docs/frontend/spec.md` §1.9). The teardown is registered
- * before the first await, so a container that started is judged and stopped whatever fails after it.
- */
+/** A db suite's one way to a replica set (`docs/frontend/spec.md` §1.9). */
 export async function startJudgedReplicaSet(): Promise<JudgedReplicaSet> {
   const closes: (() => Promise<unknown>)[] = [];
-  // Empty where the start threw, which leaves the teardown nothing to judge or stop.
-  const started: { mongod?: StartedMongoDBContainer } = {};
-  // The container first in the list, so it stops after every client opened on it.
-  after(() =>
-    closeJudgingExpiredTransactions(started.mongod, () => closeInTurn([() => started.mongod?.stop() ?? Promise.resolve(), ...closes])),
-  );
-
   const mongod = await new MongoDBContainer("mongo:8.3.11").start();
-  started.mongod = mongod;
   await watchExpiredTransactions(mongod);
+
+  // Registered last, since no earlier place helps: a file failing while it loads runs no hook at all,
+  // and the container it leaves is testcontainers' reaper's. First in the list, it stops last.
+  after(() => closeJudgingExpiredTransactions(mongod, () => closeInTurn([() => mongod.stop(), ...closes])));
 
   return { mongod, closing: (close) => void closes.push(close) };
 }

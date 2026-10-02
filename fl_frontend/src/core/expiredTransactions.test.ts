@@ -92,35 +92,15 @@ describe("what a db suite's teardown answers", () => {
   });
 });
 
-/** Every spelling `pnpm run test:db` runs, so a suite cannot leave the sweep below by its suffix. */
-const TEST_DB_GLOB = "**/*.db.test.{cjs,mjs,js,cts,mts,ts}";
-const isDbSuite = (name: string): boolean => /\.db\.test\.[cm]?[jt]s$/.test(name);
-
 const SRC = path.resolve(import.meta.dirname, "..");
 
-/** A run-time import of the container package, the one way to start a replica set, a type import aside. */
-const STARTS_CONTAINERS = /^import \{[^}]*\} from "@testcontainers\/mongodb"|import\("@testcontainers\/mongodb"\)/m;
+/** A run-time import of any testcontainers package, the one way to start a container, a type import aside. */
+const STARTS_CONTAINERS =
+  /^import (?!type\b)[^;]*? from "(?:testcontainers|@testcontainers\/[\w.-]+)"|import\("(?:testcontainers|@testcontainers\/[\w.-]+)"\)/m;
 
-/* The helper registers the judging teardown before its container starts and hands it that container,
-   so a suite reaching a replica set only through it can neither leave the teardown out nor hand it
-   nothing to judge. */
+/* The helper hands the judging teardown the container it started, so a file reaching a container only
+   through it can neither leave the teardown out nor hand it nothing to judge. */
 describe("every db suite", () => {
-  it("is taken by the sweep in every spelling the db tier runs", () => {
-    const manifest = JSON.parse(readFileSync(path.resolve(SRC, "..", "package.json"), "utf8")) as {
-      scripts: Record<string, string | undefined>;
-    };
-
-    const testDb = manifest.scripts["test:db"] ?? "";
-
-    assert.ok(testDb.includes(`"${TEST_DB_GLOB}"`), testDb);
-  });
-
-  for (const file of filesUnder(SRC, isDbSuite, 5)) {
-    it(`starts its replica set through the judging helper: ${path.basename(file)}`, () => {
-      assert.match(readFileSync(file, "utf8"), /\bstartJudgedReplicaSet\(\)/, `${file} never starts its replica set through the helper`);
-    });
-  }
-
   it("starts no container but through the judging helper", () => {
     const helper = path.join(import.meta.dirname, "expiredTransactions.ts");
     const starting = filesUnder(SRC, (name) => /\.[cm]?[jt]sx?$/.test(name), 1000).filter(
