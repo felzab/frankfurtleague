@@ -32,9 +32,19 @@ const VARIANTS: { name: string; classes: ReadonlySet<string> }[] = [
   ...(["primary", "outline"] as const).flatMap((intent) => [
     { name: `ctaButton ${intent}`, classes: classesOf(ctaButton({ intent, hover: "aria" })) },
     { name: `ctaButton ${intent} sm`, classes: classesOf(ctaButton({ intent, hover: "css", size: "sm" })) },
-    { name: `ctaButton ${intent} wraps`, classes: classesOf(ctaButton({ intent, hover: "css", wraps: true })) },
   ]),
 ];
+
+/**
+ * The fixed step each list took before its height became a floor, so a label that fits measures what it did. Named
+ * by the list rather than read off it, which would make the floor whatever the recipe now says.
+ */
+const STEP_FLOOR: Record<string, string> = {
+  "formButton nav sm": "min-h-10",
+  "formButton nav xs": "min-h-7",
+  "ctaButton primary sm": "min-h-10",
+  "ctaButton outline sm": "min-h-10",
+};
 
 /** The union, for the assertions about what may reach these buttons at all. */
 const RECIPE_CLASSES: ReadonlySet<string> = new Set(VARIANTS.flatMap((variant) => [...variant.classes]));
@@ -94,8 +104,8 @@ describe("the step that stands in a row of chips", () => {
   it("takes the chips' own height rather than the base's", () => {
     const inline = classesOf(formButton({ intent: "nav", size: "xs" }));
 
-    assert.ok(inline.has("h-7"), "the inline step declares no height of the chip row's own");
-    assert.ok(!inline.has("h-12"), "the base height survives the inline step, so the control towers over the chips beside it");
+    assert.ok(inline.has("min-h-7"), "the inline step declares no height of the chip row's own");
+    assert.ok(!inline.has("min-h-12"), "the base height survives the inline step, so the control towers over the chips beside it");
   });
 });
 
@@ -267,18 +277,35 @@ describe("the width a button takes in a row that becomes a column", () => {
   });
 });
 
-describe("the call to action whose label the page does not write", () => {
-  /* A club's name is whatever the club is called: fixed at the base's height, a second line at a phone's
-     width runs out through the button's edge. */
-  it("lets the label wrap and floors the height at the base's step", () => {
-    for (const intent of ["primary", "outline"] as const) {
-      const emitted = ctaButton({ intent, hover: "css", wraps: true });
-      const classes = classesOf(emitted);
+describe("a label too long for its button", () => {
+  /* HeroUI's `.button` holds a label on one line, so at a phone's width a long one ran out through the button's edge. */
+  for (const variant of VARIANTS) {
+    it(`wraps inside ${variant.name}, whose height is a floor at the step it had`, () => {
+      const fixed = [...variant.classes].filter((className) => /^(?:[\w-]+:)*h-(?!fit$|auto$)/.test(className));
 
-      assert.ok(classes.has("whitespace-normal"), `${emitted}: cannot wrap, so a long label leaves the button through its side`);
-      // One property, so emitting both would leave it to stylesheet order rather than to the recipe.
-      assert.ok(!classes.has("h-12"), `${emitted}: a fixed height clips the second line of a wrapped label`);
-      assert.ok(classes.has("min-h-12"), `${emitted}: a one-line label no longer measures the same as every other call to action`);
+      assert.ok(variant.classes.has("whitespace-normal"), `${variant.name} cannot wrap, so a long label leaves the button through its side`);
+      assert.deepEqual(fixed, [], `${variant.name} fixes a height, which clips the second line of a wrapped label`);
+      assert.ok(
+        variant.classes.has(STEP_FLOOR[variant.name] ?? "min-h-12"),
+        `${variant.name} no longer measures what it did for a label that fits`,
+      );
+    });
+  }
+
+  it("still finds `.button` holding its label on one line, from the layer the recipes' wrap outranks", async () => {
+    const nowrap = buttonRules(await compiled, "white-space").filter((rule) => rule.value === "nowrap");
+
+    assert.ok(nowrap.length > 0, "HeroUI no longer holds `.button` on one line, so the recipes' wrap is inert");
+    assert.ok(
+      nowrap.every((rule) => rule.layer === "components"),
+      `HeroUI's nowrap left @layer components: ${JSON.stringify(nowrap.map((rule) => rule.layer))}`,
+    );
+  });
+
+  /* A fixed height kept a button its own height in a row stretching its items; `h-auto` would let it grow to the row's. */
+  it("keeps a button out of a stretching row's height, as the fixed step did", () => {
+    for (const variant of VARIANTS.filter((entry) => !entry.name.includes("stacks") && !entry.name.startsWith("confirmButton"))) {
+      assert.ok(variant.classes.has("h-fit"), `${variant.name} stretches to a row's height`);
     }
   });
 });

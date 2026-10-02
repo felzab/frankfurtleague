@@ -442,8 +442,8 @@ describe("the shared email shell", () => {
     const classes = (intent: "primary" | "outline") => new Set(ctaButton({ intent, hover: "css" }).split(/\s+/));
 
     for (const [intent, expected] of [
-      ["primary", ["h-12", "px-6", "rounded-xl", "font-bold", "bg-brand-solid", "text-brand-solid-foreground", "shadow-md"]],
-      ["outline", ["h-12", "px-6", "rounded-xl", "font-bold", "border-border", "bg-transparent", "text-foreground"]],
+      ["primary", ["min-h-12", "px-6", "rounded-xl", "font-bold", "bg-brand-solid", "text-brand-solid-foreground", "shadow-md"]],
+      ["outline", ["min-h-12", "px-6", "rounded-xl", "font-bold", "border-border", "bg-transparent", "text-foreground"]],
     ] as const) {
       const worn = classes(intent);
       for (const className of expected) {
@@ -452,7 +452,7 @@ describe("the shared email shell", () => {
     }
   });
 
-  /* `h-12` is 48px and no `<td>` honours a utility class, so the height is padding either side of one
+  /* `min-h-12` is 48px for one line and no `<td>` honours a utility class, so the height is padding either side of one
      line box. The border counts into the same box, which is why the outline control's padding is 1px
      short of the filled one's on both axes. */
   it("gives every control the 48px box, the 12px radius and the 700 weight ctaButton gives it", () => {

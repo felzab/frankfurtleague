@@ -74,7 +74,7 @@ export const TABLE_ATTRS = `role="presentation" cellpadding="0" cellspacing="0" 
 const CARD_WIDTH = 480;
 
 /**
- * `fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton` in email-safe terms: `h-12`,
+ * `fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton` in email-safe terms: `min-h-12`,
  * `px-6`, `rounded-xl`, `font-bold` and `shadow-md` as fixed pixels, because no `<td>` honours a
  * utility class and Word computes no shorthand.
  */

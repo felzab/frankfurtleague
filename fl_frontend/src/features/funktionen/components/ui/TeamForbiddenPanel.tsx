@@ -59,8 +59,7 @@ function wegOf(link: { href: string; label: string }, intent: "primary" | "outli
       key={link.href}
       href={link.href}
       prefetch={false}
-      // `wraps`, as a club's name is whatever the club is called and a phone's width may not seat it.
-      className={ctaButton({ intent: intent, hover: "css", wraps: true })}>
+      className={ctaButton({ intent: intent, hover: "css" })}>
       <span className={NAME_WRAP_CLASSES}>{link.label}</span>
     </Link>
   );

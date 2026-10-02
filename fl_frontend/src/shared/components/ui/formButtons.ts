@@ -1,21 +1,21 @@
 import { tv } from "tailwind-variants";
 
+/**
+ * Both recipes wrap a label too long for its box rather than letting it run out through the side: `whitespace-normal`
+ * lifts HeroUI's `nowrap`, and the height is a floor at the fixed step it replaces. `h-fit`, never `h-auto`, so a row
+ * stretching its items still leaves the button its own height, as that fixed step did.
+ */
 // A transition list says `scale`, never `transform`: v4 emits `scale-*` as the standalone `scale`
 // property, so a `transform` list interpolates nothing and the press snaps.
 const ctaButtonStyle = tv({
-  base: "flex h-12 transform-none items-center justify-center rounded-xl px-6 fluid-sm font-bold transition-[scale,background-color] duration-(--motion-base) active:scale-95",
+  base: "flex h-fit min-h-12 transform-none items-center justify-center rounded-xl px-6 py-2 text-center fluid-sm font-bold whitespace-normal transition-[scale,background-color] duration-(--motion-base) active:scale-95",
   variants: {
     intent: {
       primary: "bg-brand-solid text-brand-solid-foreground shadow-md",
       outline: "border border-border bg-transparent text-foreground",
     },
     /** The hero's two secondary CTAs, deliberately smaller than the primary pair beside them. */
-    size: { sm: "h-10 px-4 fluid-xs" },
-    /**
-     * For a label the page does not write, such as a club's name, which a phone's width may not seat on
-     * one line: the height becomes a floor and the label wraps, as `formButton`'s `stacks` does.
-     */
-    wraps: { true: "h-auto min-h-12 py-3 text-center whitespace-normal" },
+    size: { sm: "min-h-10 px-4 py-1 fluid-xs" },
     hover: { aria: "", css: "" },
   },
   // The fill is per intent and the selector is per host, so the pair decides — one flat `hover`
@@ -36,7 +36,6 @@ const ctaButtonStyle = tv({
 export function ctaButton(options: {
   intent?: "primary" | "outline";
   size?: "sm";
-  wraps?: boolean;
   /**
    * `"aria"` on a HeroUI `Button`, whose `useHover` discards a touch pointer; `"css"` on a `next/link`, which writes no
    * such attribute. Wrong on a `Button`, a hybrid device latches `:hover` after a tap.
@@ -47,13 +46,13 @@ export function ctaButton(options: {
 }
 
 /**
- * `h-12` and `transform-none` beat `@heroui/styles`, which fixes a height and scales on `[data-pressed]` where
+ * The height and `transform-none` beat `@heroui/styles`, which fixes a height and scales on `[data-pressed]` where
  * no `scale-*` can cancel it. Neither is visible to the toolchain, so `formButtons.test.ts` asserts both.
  */
 export const formButton = tv({
   // `active:scale-95` must stay spelled exactly that: `globals.css` names the class, unlayered, to escape
   // the press under `prefers-reduced-motion`, so a variant in front of it orphans that escape.
-  base: "flex h-12 transform-none items-center justify-center rounded-xl px-6 fluid-sm font-semibold transition-[scale,background-color,opacity] duration-(--motion-base) active:scale-95 disabled:pointer-events-none disabled:opacity-50",
+  base: "flex h-fit min-h-12 transform-none items-center justify-center rounded-xl px-6 py-2 text-center fluid-sm font-semibold whitespace-normal transition-[scale,background-color,opacity] duration-(--motion-base) active:scale-95 disabled:pointer-events-none disabled:opacity-50",
   variants: {
     intent: {
       submit: "bg-brand-solid text-brand-solid-foreground data-hovered:bg-brand-solid-hover",
@@ -73,24 +72,18 @@ export const formButton = tv({
        * readers alone.
        */
       trigger:
-        "shrink-0 gap-x-2 bg-brand-solid font-bold text-brand-solid-foreground shadow-sm data-hovered:bg-brand-solid-hover max-sm:rounded-l-none max-sm:px-4 lg:h-15",
+        "shrink-0 gap-x-2 bg-brand-solid font-bold text-brand-solid-foreground shadow-sm data-hovered:bg-brand-solid-hover max-sm:rounded-l-none max-sm:px-4 lg:min-h-15",
     },
     /** For forms whose submit is the only control — the sign-in tabs have no "Abbrechen" beside it. */
     fullWidth: { true: "w-full" },
-    /**
-     * For a control in a row that is a column below `sm`. It fills that column, and its height becomes a
-     * floor: HeroUI's `white-space: nowrap` is lifted here, and `h-12` would clip the second line of a
-     * label a phone's width cannot seat on one.
-     */
-    // `size` beside it does not shorten the control: `tv` resolves by declaration order, so `h-10` replaces
-    // `h-auto` while `min-h-12` still floors the box, and the wrap is clipped. No call site pairs them.
-    stacks: { true: "h-auto min-h-12 w-full py-2 text-center whitespace-normal sm:w-auto" },
+    /** For a control in a row that is a column below `sm`: it fills that column, and stretches to its row's height. */
+    stacks: { true: "h-auto w-full sm:w-auto" },
     /**
      * Height alone, so page chrome stays under the action bar's — except `xs`, which takes the
      * badge's type step too: it stands in a row of `labelBadge` chips, where a taller control is
-     * what makes the row read as ragged.
+     * what makes the row read as ragged. The padding shrinks with the floor, so an icon's 24px still seats.
      */
-    size: { sm: "h-10", xs: "h-7 px-3 fluid-xxs" },
+    size: { sm: "min-h-10 py-1", xs: "min-h-7 px-3 py-0 fluid-xxs" },
   },
   defaultVariants: { intent: "submit" },
 });
