@@ -1,14 +1,16 @@
 import ast
 import asyncio
+import functools
 import logging
 import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
+from contextvars import ContextVar
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import Request
+from fastapi import FastAPI, Request
 from httpx2 import ASGITransport, AsyncClient, Response  # noqa: TID251
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -419,21 +421,44 @@ DEADLINE_ERRORS = [
 ]
 
 
+# What the one route `_served` adds runs, set by the request's own task, which the app's handlers inherit.
+_FAULT: ContextVar[Callable[[], Awaitable[None]]] = ContextVar("fault")
+
+
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case driving a fault through it, an app per case costing most of this file's run.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    served = create_app(build_test_config())
+
+    async def faulting() -> None:
+        await _FAULT.get()()
+
+    served.add_api_route("/faulting", faulting, methods=["GET", "POST", "PATCH", "DELETE"])
+
+    return served
+
+
+def _faulted_through_the_app(fault: Callable[[], Awaitable[None]], method: str) -> Response:
+    async def _answered() -> Response:
+        _FAULT.set(fault)
+        transport = ASGITransport(app=_served(), raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+            return await http.request(method, "/faulting")
+
+    return asyncio.run(_answered())
+
+
 def _raised_through_the_app(error: Exception, method: str = "GET") -> Response:
     """The error raised from a route of the real app, so the handler Starlette picks is the one resolved from the class's own MRO."""
 
-    async def _answered() -> Response:
-        served = create_app(build_test_config())
+    async def raising() -> None:
+        raise error
 
-        async def raising() -> None:
-            raise error
-
-        served.add_api_route("/raising", raising, methods=[method])
-        transport = ASGITransport(app=served, raise_app_exceptions=False)
-        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-            return await http.request(method, "/raising")
-
-    return asyncio.run(_answered())
+    return _faulted_through_the_app(raising, method)
 
 
 def _handled_directly(caplog: pytest.LogCaptureFixture, error: PyMongoError) -> None:
@@ -591,18 +616,10 @@ def _crud_functions_reaching_a_driver_write() -> set[str]:
 def _written_through_the_app(helper: str, error: Exception, method: str = "POST") -> Response:
     """A route of the real app handing one helper a collection whose write raises `error`, as a write the deadline cut does."""
 
-    async def _answered() -> Response:
-        served = create_app(build_test_config())
+    async def writing() -> None:
+        await WRITE_CALLS[helper](_EveryWriteRaises(error))
 
-        async def writing() -> None:
-            await WRITE_CALLS[helper](_EveryWriteRaises(error))
-
-        served.add_api_route("/writing", writing, methods=[method])
-        transport = ASGITransport(app=served, raise_app_exceptions=False)
-        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-            return await http.request(method, "/writing")
-
-    return asyncio.run(_answered())
+    return _faulted_through_the_app(writing, method)
 
 
 class TestAWriteTheDeadlineCutIsNotCalledFailed:
