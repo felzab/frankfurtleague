@@ -10,6 +10,9 @@ import { STEP_UP_LABEL, STEP_UP_RUNNING } from "./stepUp";
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ReactNode } from "react";
 
+/** Marks the control a cancelled arming hands the focus back to (`ConfirmActionRow`), unless a panel names another. */
+export const CONFIRM_PRESS_MARK = "data-confirm-press";
+
 /**
  * The primary control of a two-press confirm: the refusal over it, the armed fill, the dropped glyph
  * and the three labels — every clause `docs/frontend/spec.md` §1.14's, and a panel spelling them out
@@ -78,6 +81,7 @@ export function ConfirmPressButton({
       <Button
         type={type}
         variant="primary"
+        {...{ [CONFIRM_PRESS_MARK]: "" }}
         isPending={waiting}
         isDisabled={!waiting && reason !== null}
         onPress={onPress}

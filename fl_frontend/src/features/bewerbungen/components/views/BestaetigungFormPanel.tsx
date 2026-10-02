@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useId, useMemo, useState, useTransition } from "react";
+import { startTransition, useId, useMemo, useRef, useState, useTransition } from "react";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
@@ -176,10 +176,14 @@ function BestaetigungEntscheidung({
   onWiderspruch: () => void;
 }) {
   const { isConfirming } = widerspruch;
+  // The objection arms the row, not the shared control beside it, so a cancel hands the focus back here.
+  const widerspruchRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="flex w-full flex-col gap-y-3">
-      <ConfirmActionRow confirm={widerspruch}>
+      <ConfirmActionRow
+        confirm={widerspruch}
+        armedBy={widerspruchRef}>
         {/* The fill grades the press on offer: the armed objection wears `destructive`, the confirmation the submit fill. */}
         <ConfirmPressButton
           confirm={widerspruch}
@@ -201,6 +205,7 @@ function BestaetigungEntscheidung({
 
         {!isConfirming && (
           <Button
+            ref={widerspruchRef}
             type="button"
             variant="secondary"
             isPending={isPending}

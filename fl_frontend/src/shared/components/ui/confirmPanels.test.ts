@@ -547,6 +547,32 @@ describe("one reveal and one action row per panel, whatever it offers", () => {
   }
 });
 
+/* Arming can hide the control it was pressed from, and the cancel is the armed state's alone: each
+   unmounts from under the caret, and neither may hand the focus to the page. */
+describe("where arming and cancelling leave the focus, on every panel", () => {
+  for (const [module, armings] of Object.entries(PANELS)) {
+    for (const arming of armings) {
+      it(`${module}, armed on „${arming.resting}“`, async () => {
+        const user = userEvent.setup();
+        if (arming.answer !== undefined) answerWith(arming.answer);
+        const { unmount } = render(arming.render());
+        await arming.reach?.(user);
+        await user.click(screen.getByRole("button", { name: arming.resting }));
+        const abbrechen = await screen.findByRole("button", { name: "Abbrechen" });
+
+        // Booleans rather than nodes: a failing assertion's report inspects a jsdom node's whole window.
+        const behalten = document.activeElement !== document.body;
+        await user.click(abbrechen);
+        const zurueck = document.activeElement === screen.getByRole("button", { name: arming.resting });
+        unmount();
+
+        assert.ok(behalten, "arming hid the pressed control and the focus fell to the page");
+        assert.ok(zurueck, "the cancel unmounted under the caret and the focus fell to the page");
+      });
+    }
+  }
+});
+
 /** The panels whose armed press is not an administrator's write, and why each is not. */
 const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
   [M.bestaetigung]: "the public confirmation page, a person's own answer to their own link",
