@@ -19,8 +19,8 @@ const SECRET_FILES_FLAG = "--secret-files";
 const DEFAULT_SECRETS_DIR = "/run/secrets";
 
 // Where `fl_frontend/Dockerfile` puts the key sets the builder emitted from the schema. The file to
-// judge has no default: the deploy hands a join it builds for each run
-// (`scripts/ops/deploy.sh :: check_frontend_env_names`).
+// judge has no default: the deploy hands the package's own `.env`, mounted read-only
+// (`scripts/ops/deploy.sh :: check_frontend_env_names`, `:: read_env_names`).
 export const DECLARED_NAMES_FILE = "/app/environment-names.json";
 
 /** A backslash escapes either quote, the single one included: compose documents `VAR='Let\'s go!'`, and closing on that quote reads the value's next line as a declaration. */
