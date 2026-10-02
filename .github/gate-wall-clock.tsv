@@ -472,13 +472,15 @@
 # nothing else. The row is cut from main runs, where neither step runs, so they move nothing, and a
 # pull request's `docs` job pays both under the row's budget.
 #
-# `scripts` and `backend` gained a rule: ruff's `TID251` refuses an import its banned-api list
-# names. `ruff check --no-cache` took 185-842 ms with it against 187-1762 ms without over
-# `scripts`, and 254-2348 ms against 248-916 ms over the backend's `app` and `tests`, over eight
-# interleaved rounds, each run exit 0, measured locally on 2026-09-25 on a sixteen-core Windows
-# machine carrying a fleet of agent sessions. The arms overlap, so the rule costs less than this
-# machine resolves. Both rows are held by their budgets alone, and every run their stamps count
-# carries the rule.
+# `backend` gained a rule: ruff's `TID251` refuses an import its banned-api list names. `scripts`
+# inherits the selection through `scripts/ruff.toml` and ignores the rule's findings, its tooling
+# reading the environment by design (the per-file ignores in `fl_backend/pyproject.toml`); the
+# figures over `scripts` were taken before that ignore. `ruff check --no-cache` took 185-842 ms
+# with it against 187-1762 ms without over `scripts`, and 254-2348 ms against 248-916 ms over the
+# backend's `app` and `tests`, over eight interleaved rounds, each run exit 0, measured locally on
+# 2026-09-25 on a sixteen-core Windows machine carrying a fleet of agent sessions. The arms overlap,
+# so the rule costs less than this machine resolves. Both rows are held by their budgets alone, and
+# every run their stamps count carries the rule.
 #
 # `scripts` gained four cases in `scripts/tests/test_image_pins.py`: every tag an exact release,
 # 0.01 s; the frontend db tier's tag held to the backend pin's, 0.06 s; the db job's pull step run
