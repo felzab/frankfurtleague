@@ -8,10 +8,13 @@ from typing import Any, cast
 
 import anyio
 import pytest
+from bson import ObjectId
 from fastapi import FastAPI
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, monitoring
+from pymongo.asynchronous.client_session import AsyncClientSession
 from starlette.types import Message, Scope
 
+from app.core.collections import Collection
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
@@ -19,6 +22,8 @@ from app.core.transactions import ABORT_GRACE_S, drain, transaction_session
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, app_calls, callee, parsed
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
 
 PAGE = 3
 
@@ -231,6 +236,68 @@ class TestACancelledRequestStillAbortsItsTransaction:
         asyncio.run(cancel(served, inside))
 
         assert client.session.sent == [{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]
+
+
+DATABASE_NAME = worker_database("fl_transactions_test")
+
+NO_SUCH_TRANSACTION = 251
+
+
+class _Aborts(monitoring.CommandListener):
+    """The code each `abortTransaction` the client sends is answered with, `None` for one that succeeded."""
+
+    def __init__(self) -> None:
+        self.answered: list[int | None] = []
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        """Required by the listener interface; an abort is judged by its answer."""
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        if event.command_name == "abortTransaction":
+            self.answered.append(None)
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        if event.command_name == "abortTransaction":
+            self.answered.append(event.failure.get("code"))
+
+
+class _Refused(Exception):
+    """A route's own refusal, raised inside its callback once a write has gone."""
+
+
+@pytest.mark.db
+class TestARefusedTransactionalWriteRaisesNoAlarm:
+    def test_the_abort_the_driver_already_sent_is_not_logged(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """`with_transaction` aborts first, so the server answers this helper's abort NoSuchTransaction.
+
+        Every refusal a route raises inside its transaction takes this path, so an alarm here would sound on each.
+        """
+
+        aborts = _Aborts()
+
+        async def body() -> None:
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,)):
+                # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
+                watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
+                try:
+                    written = watched[DATABASE_NAME][Collection.AKTIONEN]
+
+                    async def write_then_refuse(session: AsyncClientSession) -> None:
+                        await written.insert_one({"_id": ObjectId()}, session=session)
+                        raise _Refused
+
+                    with pytest.raises(_Refused):
+                        async with transaction_session(watched) as session:
+                            await session.with_transaction(write_then_refuse)
+                finally:
+                    await watched.close()
+
+        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
+            on_the_seed_loop(body())
+
+        # The control: the driver's abort, then this helper's; a helper sending nothing would also log nothing.
+        assert aborts.answered == [None, NO_SUCH_TRANSACTION]
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
 
 
 def _is_a_snapshot(call: ast.Call) -> bool:
