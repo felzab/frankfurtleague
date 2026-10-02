@@ -6,10 +6,12 @@ stands in for the read; this proves the read itself, on every operation the admi
 """
 
 import asyncio
+import functools
 import re
 from collections.abc import Iterator
 
 import pytest
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
@@ -65,11 +67,21 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         client.close()
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case, an app per case costing most of this file's run.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(CONFIG)
+
+
 def answered(url: str, method: str, path: str, actor: str) -> tuple[int, str | None]:
     """One bodiless request: a check refusing answers before the body is judged, and a request it admits meets a 422 or a 404 at most."""
 
     async def _answered() -> tuple[int, str | None]:
-        async with app_client(url, config=CONFIG) as http:
+        async with app_client(url, app=_served()) as http:
             response = await http.request(method, _url(path), headers=SignedActor(actor, ADMIN_KEY))
 
         return response.status_code, response.json().get("error_code")
