@@ -10,7 +10,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
 import {
   mapAlreadyEnteredRefusal,
-  mapEntryReason,
+  mapCreatedClubEntryRefusal,
   mapEntryRefusal,
   mapReplacementRefusal,
   mapRetireRefusal,
@@ -93,16 +93,7 @@ export async function postTeamAction(
       }
       updateTag("teams");
       // The form pre-filters seasons and groups, so a refusal here means the picture changed under it.
-      // The reason alone: the club editor's repairs name controls on its own page, and this answer's
-      // one repair is the way there.
-      const reason = mapEntryReason(error);
-      return {
-        success: false,
-        error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${
-          reason === null ? "." : `: ${reason}`
-        } Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.`,
-        outcome: "partial",
-      } satisfies ActionFailure;
+      return { success: false, error: mapCreatedClubEntryRefusal(error), outcome: "partial" } satisfies ActionFailure;
     }
 
     invalidateSeasonScoped("teams", saison_id);

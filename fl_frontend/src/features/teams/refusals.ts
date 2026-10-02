@@ -49,11 +49,21 @@ const ENTRY_REASONS = {
 
 const isEntryCode = (code: string | undefined): code is keyof typeof ENTRY_REASONS => code !== undefined && Object.hasOwn(ENTRY_REASONS, code);
 
-/** One entry rule's reason as a closed sentence and no repair, or `null` where no entry rule refused. */
-export function mapEntryReason(error: unknown): string | null {
-  if (!isRefusal(error) || !isEntryCode(error.serverErrorCode)) return null;
+// My wording, 2026-10-02: a retired club takes no entry until it is reactivated, so the one repair
+// names that step first.
+const ANGELEGT_ABER_STILLGELEGT =
+  "Das Team wurde angelegt, ist aber inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es auf seiner Seite und nimm es danach dort in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.";
 
-  return `${ENTRY_REASONS[error.serverErrorCode]}.`;
+/**
+ * The team create's answer where its club stands and the entry was refused. A rule's reason alone: the
+ * club editor's repairs name controls on its own page, and this answer's one repair is the way there.
+ */
+export function mapCreatedClubEntryRefusal(error: unknown): string {
+  const code = isRefusal(error) ? error.serverErrorCode : undefined;
+  if (code === "REQ-ENTER-005") return ANGELEGT_ABER_STILLGELEGT;
+
+  const reason = isEntryCode(code) ? `: ${ENTRY_REASONS[code]}.` : ".";
+  return `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${reason} Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.`;
 }
 
 /** The club editor's answer to an entry rule: the reason, and the repair its own page offers. */

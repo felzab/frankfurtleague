@@ -12,7 +12,7 @@ import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
-import { mapAlreadyEnteredRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
+import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
@@ -537,6 +537,7 @@ const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly
 const RETIRED_RENDERINGS = renderingsOf([
   ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-ENTER-005"), "bestehendes_team")),
   ...renderedBy("the club editor's entry", mapEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
+  ...renderedBy("the team create's entry", mapCreatedClubEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
   ...renderedBy(
     "the club editor's replacement",
     mapReplacementRefusal(refusedOn("POST /teams/{team_id}/saisons/{saison_id}/replace", "REQ-ENTER-005")),
@@ -602,8 +603,8 @@ describe("the German one refusal code is given", () => {
   it("finds every rendering of the retired-club refusal before judging one", () => {
     assert.equal(
       RETIRED_RENDERINGS.length,
-      6,
-      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the six this case reads`,
+      7,
+      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the seven this case reads`,
     );
     for (const { where, sentences } of RETIRED_RENDERINGS) {
       assert.notEqual(sentences.length, 0, `${where} holds no rendered sentence`);
