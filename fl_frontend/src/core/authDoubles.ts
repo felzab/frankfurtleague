@@ -9,7 +9,7 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 
 import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
-import { NO_RECORDS } from "./subjectFixtures.ts";
+import { deepFrozen, NO_RECORDS } from "./subjectFixtures.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 import type { auth as AuthInstance } from "./auth.ts";
@@ -228,10 +228,10 @@ export const GATE_BACKEND_CONFIG = {
 } as const;
 
 /** What the lookup answers an address holding nothing, which every answer below builds on. */
-export const HOLDS_NOTHING = { acknowledged: 1 as const, ...NO_RECORDS };
+export const HOLDS_NOTHING = deepFrozen({ acknowledged: 1 as const, ...NO_RECORDS });
 
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
-const GRANTED = { ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" };
+const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" });
 
 /** Whether a suite's lookup answer is installed, which `registerAuthDoubles`' default must not replace. */
 let lookupAnswered = false;
