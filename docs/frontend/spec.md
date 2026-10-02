@@ -330,8 +330,10 @@ ordering is load-bearing. The guard records on every call, its memo answering or
 opened after the render's first read still names the actor. **The verdict is judged once per
 request**: React's `cache` shares it across a render pass and
 `fl_frontend/src/core/requestScope.ts :: oncePerRequest` across an action's or a route handler's
-scope, so an admin read in an action's body costs no second session read or lookup. The render after
-a write opens a scope of its own and judges afresh, and the backend reads the grant on every call
+scope, so an admin read in an action's body costs no second session read or lookup. That verdict is
+the request's first: a write inside the action that revokes, bars or signs out its own actor is not
+judged again by a later guard call in the same action. The render after a write opens a scope of its
+own and judges afresh, and the backend reads the grant on every call
 whatever the frontend held ([`docs/backend/spec.md`](../backend/spec.md) I383). **A read records it
 too**: every admin-tier query asks the guard inside
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`'s
