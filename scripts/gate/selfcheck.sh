@@ -13,7 +13,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 # Arguments are read first, and this script joins RUNNABLE only below: the flag checks run every
 # runnable script, so a suite answering neither would run itself recursively.
-
 # shellcheck disable=SC2034  # VERBOSE is consumed by _lib.sh, which shellcheck cannot follow into
 for arg in "$@"; do
   case "$arg" in
@@ -316,7 +315,6 @@ step "4. Every helper called is defined"
 # Command position only: a name in a string, a comment, a case pattern or a `for` variable is not a
 # call. Underscored names only — the helper convention here, and the one class no external program
 # collides with. A single-word helper is outside it.
-
 # shellcheck disable=SC2016  # awk's own $0 and $1, which must not expand before awk reads them
 CMD_WORDS='
 # Q is built here rather than passed with -v: MSYS re-parses a Windows command line and eats the
