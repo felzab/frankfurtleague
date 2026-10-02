@@ -25,6 +25,7 @@ from app.api.berechtigungen.services import (
     compare,
     compose_announced,
     compose_postausgang,
+    ernannt,
     gefunden,
     lebendige,
     withheld,
@@ -141,6 +142,15 @@ async def post_berechtigungen_abgleich(
                     collection=berechtigungen_collection,
                     db_filter={"_id": {"$in": found}},
                     update={"$set": {"gefunden_am": now}},
+                    session=session,
+                )
+            # Nothing dates the promotion's edit, so its owner's power dates from this pass, as the tier
+            # change dates one made there (`docs/backend/spec.md :: I534`).
+            if raised := ernannt(changes):
+                await patch_many_in_db(
+                    collection=berechtigungen_collection,
+                    db_filter={"_id": {"$in": raised}},
+                    update={"$set": {"ernannt_am": now}},
                     session=session,
                 )
 

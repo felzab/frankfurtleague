@@ -86,12 +86,52 @@ def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | No
     return seit if angekuendigt.get("adresse") == row.get("adresse") else None
 
 
+def inhaber_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
+    """When a stored grant's `owner` tier took effect, or `None` where no session holds an owner's power through it.
+
+    A session older than it keeps administering and holds none of an owner's (`docs/backend/spec.md :: I534`).
+    """
+
+    seit = berechtigt_seit(row, angekuendigt)
+    if seit is None or row.get("verwaltung") != OWNER:
+        return None
+
+    # Promoted in the database and not yet found: nothing dates the edit, so no session holds the tier
+    # until the comparison stamps `ernannt_am`. A demotion needs no find, taking the power at once.
+    if angekuendigt is not None and angekuendigt.get("verwaltung") != OWNER:
+        return None
+
+    ernannt_am = row.get("ernannt_am")
+
+    return seit if ernannt_am is None else max(seit, as_utc(ernannt_am))
+
+
+def signed_in_since(auth_time: int, seit: datetime) -> bool:
+    """Whether a sign-in at `auth_time` is no older than `seit`, for a grant's date and an owner's alike.
+
+    Judged to the second `auth_time` is floored to, so nothing the frontend's guard admits is refused
+    here (`docs/backend/spec.md :: I526`).
+    """
+
+    return auth_time >= int(seit.timestamp())
+
+
 def gefunden(
     changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]],
 ) -> list[Any]:
     """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `gefunden_am`."""
 
     return [berechtigung_id for berechtigung_id, art, _, _ in changes if art == "erteilt"]
+
+
+def ernannt(
+    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]],
+) -> list[Any]:
+    """The grant ids a comparison found promoted to `owner` in place, each of which is stamped `ernannt_am`."""
+
+    return [
+        berechtigung_id for berechtigung_id, art, jetzt, _ in changes if art == "geaendert" and jetzt is not None and jetzt.verwaltung == OWNER
+    ]
 
 
 def lebendige(grants: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -137,20 +177,25 @@ def find_ohne_zugang_refusal(*, akteur: str, grants: Sequence[Mapping[str, Any]]
     )
 
 
-def find_nur_inhaber_refusal(*, akteur: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-005`: only an `owner` revokes or changes a tier, judged on the actor's own live grant inside the transaction.
+def find_nur_inhaber_refusal(
+    *, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+) -> WriteRefusal | None:
+    """`REQ-BERECHTIGUNG-005`: only an `owner`, signed in since becoming one, revokes or changes a tier.
 
-    So one administrator cannot strip the others down to the floor and then shelter behind it, nor
-    make themselves an owner.
+    Judged inside the transaction, so one administrator cannot strip the others down to the floor and
+    then shelter behind it, nor make themselves an owner.
     """
 
-    if verwaltung_des(akteur, grants) == OWNER:
+    row = next((grant for grant in lebendige(grants) if grant["adresse"] == akteur), None)
+    record = None if row is None else next((entry for entry in announced if entry["_id"] == row["_id"]), None)
+    seit = None if row is None else inhaber_seit(row, record)
+    if seit is not None and signed_in_since(auth_time, seit):
         return None
 
     return WriteRefusal(
         error_code=BERECHTIGUNG_NUR_INHABER,
         status=HTTPStatus.FORBIDDEN,
-        message="only an owner revokes access to the administration or changes its tier",
+        message="only an owner, signed in since becoming one, revokes access to the administration or changes its tier",
     )
 
 

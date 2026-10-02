@@ -14,7 +14,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.schemas import FLVerwaltung
-from app.api.berechtigungen.services import berechtigt_seit, lebendige_adresse
+from app.api.berechtigungen.services import berechtigt_seit, inhaber_seit, lebendige_adresse
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
@@ -78,7 +78,7 @@ async def _grant_and_its_record(
                         "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
                         "localField": "_id",
                         "foreignField": "_id",
-                        "pipeline": [{"$project": {"adresse": 1}}],
+                        "pipeline": [{"$project": {"adresse": 1, "verwaltung": 1}}],
                         "as": "angekuendigt",
                     }
                 },
@@ -91,21 +91,29 @@ async def _grant_and_its_record(
     return found[0], next(iter(found[0]["angekuendigt"]), None)
 
 
-async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> tuple[FLVerwaltung, datetime] | None:
-    """The tier this folded address holds and when it took effect, or `None`.
+async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> tuple[FLVerwaltung, datetime, datetime | None] | None:
+    """The tier this address holds, and when the grant and the tier took effect, or `None`.
 
     No dead-row check: its one caller folds an address the address rule admitted, and a row equal to
     that is live (`docs/backend/spec.md :: I453`).
     """
 
-    grant = await _grant_and_its_record(berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=["verwaltung"])
+    grant = await _grant_and_its_record(
+        berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=["verwaltung", "ernannt_am"]
+    )
     if grant is None:
         return None
 
     row, angekuendigt = grant
     seit = berechtigt_seit(row, angekuendigt)
+    if seit is None:
+        return None
 
-    return None if seit is None else (row["verwaltung"], seit)
+    # The tier in effect rather than the row's: a promotion made in the database and not yet found is
+    # no session's, so it is answered as the administrator it still is (`docs/backend/spec.md :: I534`).
+    inhaber = inhaber_seit(row, angekuendigt)
+
+    return ("administration" if inhaber is None else "owner"), seit, inhaber
 
 
 async def live_unbarred_grant_since(

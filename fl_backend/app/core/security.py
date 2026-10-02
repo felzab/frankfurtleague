@@ -11,6 +11,7 @@ from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import live_unbarred_grant_since
+from app.api.berechtigungen.services import signed_in_since
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.actor_token import (
     ACTOR_TOKEN_MAX_LENGTH,
@@ -184,10 +185,14 @@ async def verify_actor_is_admin(
             error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator", jti=actor.jti
         )
 
-    # Against the grant's second, the unit `auth_time` is floored to: a session the frontend's guard
-    # admits to the millisecond is never refused here.
-    if actor.auth_time < int(seit.timestamp()):
+    if not signed_in_since(actor.auth_time, seit):
         raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason="session older than its grant", jti=actor.jti)
+
+
+def get_actor_auth_time(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> int:
+    """When the acting administrator signed in, which an owner's power is judged against inside the write (`docs/backend/spec.md :: I534`)."""
+
+    return actor.auth_time
 
 
 ENROLMENT_WINDOW_S: Final = ENROLMENT_WINDOW_MINUTES * 60

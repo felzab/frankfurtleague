@@ -282,6 +282,7 @@ describe("who the seam answers for", () => {
     assert.deepEqual(Object.keys(answer.subjekt).sort(), [
       "berechtigt_seit",
       "gesperrt",
+      "inhaber_seit",
       "schiedsrichter",
       "sitze",
       "spieler",

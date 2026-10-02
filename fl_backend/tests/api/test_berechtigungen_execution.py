@@ -176,6 +176,8 @@ async def revoke(
             sperrliste=ban_list(database),
             db=client,
             entzogen_von=als,
+            # A session made this second, so only a case dating the actor's promotion is judged by it.
+            auth_time=int(time.time()),
             now=NOW,
         )
 
@@ -204,6 +206,7 @@ async def change(
             sperrliste=ban_list(database),
             db=client,
             geaendert_von=als,
+            auth_time=int(time.time()),
             now=now,
         )
 
@@ -410,6 +413,7 @@ class TestTheOutboxMovesWithItsChange:
                     sperrliste=ban_list(database),
                     db=client,
                     entzogen_von=OWNER,
+                    auth_time=int(time.time()),
                     now=NOW,
                 )
 
@@ -1314,6 +1318,23 @@ class TestWhatTheComparisonStampsOnAGrant:
         assert stamp == NOW.astimezone(UTC).replace(tzinfo=None)
         assert later == [("erteilt", NEU, None), ("geaendert", NEU, OWNER)]
 
+    def test_a_promotion_is_stamped_by_the_tier_change_that_made_it_or_the_pass_that_found_it_and_an_owner_row_found_new_is_not(
+        self, mongo_replica_set_url: str
+    ):
+        """`ernannt_am`: an owner found new is dated by its `gefunden_am` alone (`docs/backend/spec.md :: I534`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[ObjectId, Any]:
+            await told(database, client)
+            await change(database, client, ANNA_ID, "owner", now=LATER)
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"verwaltung": "owner"}})
+            await claimed(database, client, now=LATER)
+
+            return {row["_id"]: row.get("ernannt_am") async for row in database[Collection.BERECHTIGUNGEN].find()}
+
+        later = LATER.astimezone(UTC).replace(tzinfo=None)
+
+        assert on_a_league(mongo_replica_set_url, body) == {OWNER_ID: None, ANNA_ID: later, BERND_ID: later}
+
 
 class TestWhatMarksARowSeen:
     """`gesehen_am`: once a row's record is gone, what tells an edit since from a paste (`docs/backend/spec.md :: I529`)."""
@@ -1370,6 +1391,13 @@ async def asked(http: Any, email: str, auth_time: int) -> tuple[int, str | None]
 
 async def revoking(http: Any, email: str, auth_time: int, grant_id: ObjectId) -> tuple[int, str | None]:
     response = await http.delete(f"/api/v{API_VERSION}/berechtigungen/{grant_id}", headers=signed_in_at(email, auth_time))
+    return response.status_code, response.json().get("error_code")
+
+
+async def changing(http: Any, email: str, auth_time: int, grant_id: ObjectId, verwaltung: str) -> tuple[int, str | None]:
+    response = await http.patch(
+        f"/api/v{API_VERSION}/berechtigungen/{grant_id}", headers=signed_in_at(email, auth_time), json={"verwaltung": verwaltung}
+    )
     return response.status_code, response.json().get("error_code")
 
 
@@ -1665,3 +1693,85 @@ class TestTheMountedRouteReadsTheGrants:
 
         # The live row dated as `berechtigt_seit` dates it, the offset marked, for the comparison with `auth_time`.
         assert on_a_league(mongo_replica_set_url, body, grants=grants) == [datetime(2026, 1, 1, tzinfo=UTC), None]
+
+
+async def demoted_through_the_tier_change(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await change(database, client, ANNA_ID, "administration")
+
+
+async def demoted_in_the_database(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await database[Collection.BERECHTIGUNGEN].update_one({"_id": ANNA_ID}, {"$set": {"verwaltung": "administration"}})
+
+
+class TestAnOwnersPowerDatesFromThePromotion:
+    """A session made before a promotion to `owner` keeps administering and holds no owner's power, on either route an owner alone takes."""
+
+    def test_a_promotion_made_here_leaves_an_older_session_an_administrator_and_serves_a_newer_one_as_an_owner(
+        self, mongo_replica_set_url: str
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
+            await told(database, client)
+            before_the_promotion = int(time.time()) - 60
+            await change(database, client, ANNA_ID, "owner", now=since(30))
+
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                return [
+                    await asked(http, ANNA, before_the_promotion),
+                    await changing(http, ANNA, before_the_promotion, BERND_ID, "owner"),
+                    await revoking(http, ANNA, before_the_promotion, BERND_ID),
+                    await revoking(http, ANNA, int(time.time()), BERND_ID),
+                ]
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            (200, None),
+            (403, BERECHTIGUNG_NUR_INHABER),
+            (403, BERECHTIGUNG_NUR_INHABER),
+            (200, None),
+        ]
+
+    def test_a_promotion_made_in_the_database_is_no_owners_power_until_the_pass_finds_it_and_then_only_for_a_newer_session(
+        self, mongo_replica_set_url: str
+    ):
+        """Nothing dates the edit, so no session holds the tier until the pass's clock dates it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
+            await told(database, client)
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": ANNA_ID}, {"$set": {"verwaltung": "owner"}})
+            before_the_pass = int(time.time()) - 60
+
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                unfound = [await asked(http, ANNA, before_the_pass), await revoking(http, ANNA, before_the_pass, BERND_ID)]
+                await claimed(database, client, now=datetime.now(UTC))
+                found = [await revoking(http, ANNA, before_the_pass, BERND_ID), await revoking(http, ANNA, int(time.time()), BERND_ID)]
+
+            return [*unfound, *found]
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            (200, None),
+            (403, BERECHTIGUNG_NUR_INHABER),
+            (403, BERECHTIGUNG_NUR_INHABER),
+            (200, None),
+        ]
+
+    @pytest.mark.parametrize(
+        "demoted",
+        [
+            pytest.param(demoted_through_the_tier_change, id="through the tier change"),
+            pytest.param(demoted_in_the_database, id="in the database, before any pass"),
+        ],
+    )
+    def test_a_demotion_takes_the_owners_power_from_every_session_at_once(
+        self, mongo_replica_set_url: str, demoted: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]]
+    ):
+        """The session was made after Anna's promotion was found, so it held the tier until the demotion."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
+            await a_second_owner(database)
+            await told(database, client)
+            signed_in = int(time.time()) - 60
+            await demoted(database, client)
+
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                return [await asked(http, ANNA, signed_in), await revoking(http, ANNA, signed_in, BERND_ID)]
+
+        assert on_a_league(mongo_replica_set_url, body) == [(200, None), (403, BERECHTIGUNG_NUR_INHABER)]

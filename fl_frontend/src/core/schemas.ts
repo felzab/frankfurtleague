@@ -80,5 +80,8 @@ export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   // When that grant took effect, null exactly where `verwaltung` is: a session made before it is no
   // administrator's (`docs/backend/spec.md :: I525`). An instant carrying its offset, as every served one does.
   berechtigt_seit: z.string().nullable(),
+  // When the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: a session made
+  // before it administers and holds no owner's power (`docs/backend/spec.md :: I534`).
+  inhaber_seit: z.string().nullable(),
 });
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;

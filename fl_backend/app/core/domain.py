@@ -2199,7 +2199,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.FORBIDDEN,
         operation="DELETE /berechtigungen/{berechtigung_id} · PATCH /berechtigungen/{berechtigung_id}",
         aggregate="Berechtigung",
-        summary="a revoke or a tier change is made only by an actor whose own live grant is `owner`, read inside the transaction",
+        summary=(
+            "a revoke or a tier change is made only by an actor whose own live grant is `owner`, read inside the transaction,"
+            " from a sign-in made since that tier took effect"
+        ),
         implemented_by="app.api.berechtigungen.services.find_nur_inhaber_refusal",
         tested_by="tests/api/test_berechtigungen_execution.py::TestOnlyAnOwnerRevokes",
     ),

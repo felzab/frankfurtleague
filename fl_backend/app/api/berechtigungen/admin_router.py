@@ -6,7 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
-from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
+from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen, read_the_announced
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
     FLBerechtigungenListResponse,
@@ -36,7 +36,7 @@ from app.api.berechtigungen.services import (
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
 from app.core.config import API_VERSION
-from app.core.crud import delete_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, pull_many_from_db, refuse
+from app.core.crud import delete_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -47,7 +47,14 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_recent_confirmation
+from app.core.security import (
+    bind_actor,
+    get_actor_auth_time,
+    get_actor_email,
+    verify_access_admin,
+    verify_actor_is_admin,
+    verify_recent_confirmation,
+)
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -199,13 +206,15 @@ async def delete_berechtigung(
     sperrliste: SperrlisteLookup,
     db: DBClient,
     entzogen_von: str = Depends(get_actor_email),
+    auth_time: int = Depends(get_actor_auth_time),
     now: datetime = Depends(get_germany_now),
 ) -> FLBerechtigungWriteResponse:
     """
     Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.
 
     Only an `owner` revokes (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before anything
-    about the target is answered. 404 where no grant has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is made an
+    about the target is answered; an owner's sign-in older than the moment they became one is refused the same. 404 where no grant
+    has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is made an
     administrator first, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's
     announcement is queued in the same transaction, after any change to the row made in the database and not yet announced. A sign-in
     or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.
@@ -217,7 +226,8 @@ async def delete_berechtigung(
         """Anchor and read the list, judge the actor and the row against it, then remove the row, its announced row, and queue both notices."""
 
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
-        refuse(find_nur_inhaber_refusal(akteur=akteur, grants=grants))
+        records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+        refuse(find_nur_inhaber_refusal(akteur=akteur, auth_time=auth_time, grants=grants, announced=records))
 
         grant = next((row for row in grants if row["_id"] == berechtigung_id), None)
         if grant is None:
@@ -232,9 +242,7 @@ async def delete_berechtigung(
         remaining = [row for row in live if row["_id"] != berechtigung_id and row["adresse"] not in barred]
         refuse(find_mindestzahl_refusal(remaining=len(remaining)))
 
-        announced = await pull_many_from_db(
-            collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, limit=1, session=session
-        )
+        announced = [record for record in records if record["_id"] == berechtigung_id]
         # A database edit to this row nobody was told of goes out first, as it happened, or the
         # revoke's own notice would be the only trace of it (`docs/backend/spec.md :: I451`).
         pending = compare(grants=[grant], announced=announced)
@@ -291,15 +299,19 @@ async def patch_berechtigung(
     sperrliste: SperrlisteLookup,
     db: DBClient,
     geaendert_von: str = Depends(get_actor_email),
+    auth_time: int = Depends(get_actor_auth_time),
     now: datetime = Depends(get_germany_now),
 ) -> FLBerechtigungWriteResponse:
     """
     Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.
 
     Only an `owner` changes a tier (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before
-    anything about the target is answered. 404 where no live grant has the id. A promotion of an address on the ban list is refused
-    (`REQ-BERECHTIGUNG-003`), and so is a demotion leaving no live, unbarred owner (`REQ-BERECHTIGUNG-007`). Naming the tier the grant
-    holds changes nothing and answers 200. The change takes effect on the next request; its announcement is queued in the same
+    anything about the target is answered; an owner's sign-in older than the moment they became one is refused the same. A promotion
+    holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's step until
+    they sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A promotion of an
+    address on the ban list is refused (`REQ-BERECHTIGUNG-003`), and so is a demotion leaving no live, unbarred owner
+    (`REQ-BERECHTIGUNG-007`). Naming the tier the grant holds changes nothing and answers 200. The change reaches the next request; its
+    announcement is queued in the same
     transaction, after any change to the row made in the database and not yet announced, and a grant found that way is stamped
     `gefunden_am` as `POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than
     `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.
@@ -312,7 +324,8 @@ async def patch_berechtigung(
         """Read the list, judge the actor and the row against it, then anchor and move the tier, its announced row and queue its notice."""
 
         grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        refuse(find_nur_inhaber_refusal(akteur=akteur, grants=grants))
+        records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+        refuse(find_nur_inhaber_refusal(akteur=akteur, auth_time=auth_time, grants=grants, announced=records))
 
         live = lebendige(grants)
         # A live row alone: the list serves no other, and an owner nobody can sign in as could demote nobody back.
@@ -335,9 +348,7 @@ async def patch_berechtigung(
             owners = [row for row in live if row["verwaltung"] == OWNER and row["_id"] != berechtigung_id and row["adresse"] not in barred]
             refuse(find_letzter_inhaber_refusal(remaining_owners=len(owners)))
 
-        announced = await pull_many_from_db(
-            collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, limit=1, session=session
-        )
+        announced = [record for record in records if record["_id"] == berechtigung_id]
         # A database edit to this row nobody was told of goes out first, as the revoke's does (`docs/backend/spec.md :: I451`).
         pending = compare(grants=[grant], announced=announced)
         for changed_id, art, jetzt, vorher in pending:
@@ -359,6 +370,9 @@ async def patch_berechtigung(
                     "verwaltung": verwaltung,
                     **({"gefunden_am": now} if gefunden(pending) else {}),
                     **({"gesehen_am": now} if grant.get("gesehen_am") is None else {}),
+                    # Its owner's power dates from now, so the promoted holder's older sessions keep
+                    # administering and hold none of it (`docs/backend/spec.md :: I534`).
+                    **({"ernannt_am": now} if verwaltung == OWNER else {}),
                 }
             },
             session=session,

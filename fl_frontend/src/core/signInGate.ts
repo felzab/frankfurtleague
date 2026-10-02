@@ -42,6 +42,7 @@ export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession
     gesperrt: answer.gesperrt,
     verwaltung: answer.verwaltung,
     berechtigt_seit: answer.berechtigt_seit,
+    inhaber_seit: answer.inhaber_seit,
   };
 });
 

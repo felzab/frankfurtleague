@@ -26,6 +26,7 @@ export const NO_RECORDS: SubjectSession["subjekt"] = deepFrozen({
   gesperrt: false,
   verwaltung: null,
   berechtigt_seit: null,
+  inhaber_seit: null,
 });
 
 /** One contact seat on a running season, which grants a panel. */

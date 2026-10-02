@@ -27,6 +27,8 @@ type SubjectRecords = {
   readonly verwaltung: FLSubjektResponse["verwaltung"];
   // When that grant took effect, which the same verdict holds the session's own making against.
   readonly berechtigt_seit: FLSubjektResponse["berechtigt_seit"];
+  // When its `owner` tier took effect, which no panel reads: an owner's controls ask it of the session.
+  readonly inhaber_seit: FLSubjektResponse["inhaber_seit"];
 };
 
 /**

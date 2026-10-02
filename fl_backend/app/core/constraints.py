@@ -970,6 +970,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "gefunden_am": {"bsonType": ["date", "null"]},
                 # Out of `required` for `gefunden_am`'s reason: a paste writes no such key.
                 "gesehen_am": {"bsonType": ["date", "null"]},
+                # Out of `required` too: a pasted `owner` row holds the tier from its grant's own date.
+                "ernannt_am": {"bsonType": ["date", "null"]},
             },
         )
     },

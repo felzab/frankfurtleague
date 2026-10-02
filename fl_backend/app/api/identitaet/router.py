@@ -76,7 +76,8 @@ async def get_subjekt(
 
     `verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the
     folded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an
-    administrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it.
+    administrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it. A
+    promotion to `owner` made in the database is answered `administration` until `POST /berechtigungen/abgleich` finds it.
 
     `berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`
     first found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one
@@ -84,6 +85,11 @@ async def get_subjekt(
     later. A row changed in the database after that endpoint read it -- an address changed in place, a spelling no request matched
     made one that does, a row put back after its removal was found -- is no grant, `verwaltung` null, until that endpoint finds the
     change. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.
+
+    `inhaber_seit` is when the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: the moment the tier change
+    made the grant an owner's, or that endpoint found a promotion made in the database, and never earlier than `berechtigt_seit`. A
+    sign-in older than it administers and holds no owner's power, so the revoke and the tier change it asks for are refused. A
+    demotion takes the tier at once.
 
     Each list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil
     record per address.
@@ -114,6 +120,8 @@ async def get_subjekt(
         hash_gesperrt(sperrliste, ban_key),
         verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
     )
-    verwaltung, berechtigt_seit = (None, None) if grant is None else grant
+    verwaltung, berechtigt_seit, inhaber_seit = (None, None, None) if grant is None else grant
 
-    return FLSubjektResponse(**subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung, berechtigt_seit=berechtigt_seit)
+    return FLSubjektResponse(
+        **subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung, berechtigt_seit=berechtigt_seit, inhaber_seit=inhaber_seit
+    )

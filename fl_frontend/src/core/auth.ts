@@ -39,7 +39,7 @@ import {
 } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
-import { verwaltungOf } from "./verwaltung";
+import { madeSince, verwaltungOf } from "./verwaltung";
 
 import type { Passkey } from "@better-auth/passkey";
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
@@ -1420,26 +1420,13 @@ function passesButForItsGrant(served: ServedSession): boolean {
 }
 
 /**
- * A session made before its grant holds none of it, as a change of privilege rotates the session
- * (`docs/frontend/spec.md :: I470`): here rather than by ending sessions at the grant, which a grant
- * written in the database would skip.
- */
-function madeSinceItsGrant(served: ServedSession, berechtigtSeit: string | null): boolean {
-  const created = new Date(served.session.createdAt).getTime();
-  const granted = berechtigtSeit === null ? Number.NaN : new Date(berechtigtSeit).getTime();
-
-  // An unreadable instant on either side admits nobody, as `withinLifetime` reads an unreadable stamp.
-  return Number.isFinite(created) && Number.isFinite(granted) && created >= granted;
-}
-
-/**
  * Whether this served session may act as an administrator — its address holding a grant it was made
  * since, inside both of the administrator's figures, and made by the passkey rather than by a mailed code alone.
  */
 export function isAdminSession(served: ServedSession, { verwaltung, berechtigt_seit }: Verwaltung): boolean {
   // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
   // and a passkey the factor it asks, enrolled on the mailbox's own authority (`docs/ops/runbooks.md` §3).
-  return verwaltung !== null && madeSinceItsGrant(served, berechtigt_seit) && passesButForItsGrant(served);
+  return verwaltung !== null && madeSince(served.session.createdAt, berechtigt_seit) && passesButForItsGrant(served);
 }
 
 /**

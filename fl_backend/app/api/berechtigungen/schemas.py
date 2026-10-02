@@ -52,6 +52,9 @@ class FLBerechtigung(BaseModel):
     # Written once, by the first pass to read the row, dead or live, or by the write here that first
     # records it: a row carrying it and no record was edited after it was seen (`docs/backend/spec.md :: I529`).
     gesehen_am: datetime | None = None
+    # When the row last became `owner` by a promotion, written by the tier change and by a comparison
+    # finding one made in the database: an older session holds no owner's power (`docs/backend/spec.md :: I534`).
+    ernannt_am: datetime | None = None
 
 
 class FLBerechtigungZeile(BaseModel):

@@ -137,6 +137,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
     verwaltung: granted ? "administration" : null,
     // Before every session a case makes.
     berechtigt_seit: granted ? "2026-01-01T00:00:00Z" : null,
+    inhaber_seit: null,
     ...gateAnswer,
   };
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));

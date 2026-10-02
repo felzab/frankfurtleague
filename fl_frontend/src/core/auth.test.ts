@@ -230,6 +230,7 @@ const {
   slideSession,
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
+const { holdsOwnersTier } = await import("./verwaltung.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -1117,6 +1118,27 @@ describe("the second factor, judged at the same guard", () => {
     const withoutFactor = await served(cookie);
     assert.ok(withoutFactor);
     assert.equal(isAdminSession(withoutFactor, A_GRANT), false);
+  });
+
+  // The backend refuses an owner's write from a sign-in older than the promotion, so the page offers it none
+  // (`docs/frontend/spec.md :: I535`); the millisecond either side of the session's making decides.
+  it("holds an owner's power on a session made since the promotion alone, and administers on an older one", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    const seen = await served(cookie);
+    assert.ok(seen);
+    const made = new Date(seen.session.createdAt).getTime();
+    const promotedAt = (instant: number) => ({ ...A_GRANT, verwaltung: "owner" as const, inhaber_seit: new Date(instant).toISOString() });
+
+    assert.deepEqual(
+      [
+        holdsOwnersTier(seen.session.createdAt, promotedAt(made)),
+        holdsOwnersTier(seen.session.createdAt, promotedAt(made + 1)),
+        isAdminSession(seen, promotedAt(made + 1)),
+        holdsOwnersTier(seen.session.createdAt, A_GRANT),
+      ],
+      [true, false, true, false],
+    );
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a

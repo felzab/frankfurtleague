@@ -284,6 +284,7 @@ async def _seed(database: AsyncDatabase) -> None:
 # A paste's typed date, and the later moment the reconciliation found it: the `owner` grant's row carries both.
 GRANT_TYPED = datetime(2026, 1, 1, tzinfo=UTC)
 GRANT_FOUND = datetime(2026, 1, 2, 8, 30, tzinfo=UTC)
+GRANT_PROMOTED = datetime(2026, 2, 1, 9, 0, tzinfo=UTC)
 
 
 def _grant(grant_id: ObjectId, adresse: str, verwaltung: str) -> dict[str, Any]:
@@ -545,6 +546,7 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_replica
         "gesperrt": False,
         "verwaltung": None,
         "berechtigt_seit": None,
+        "inhaber_seit": None,
     }
 
 
@@ -564,6 +566,7 @@ def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirm
         "gesperrt": False,
         "verwaltung": None,
         "berechtigt_seit": None,
+        "inhaber_seit": None,
     }
 
 
@@ -583,6 +586,7 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_r
         "gesperrt": False,
         "verwaltung": None,
         "berechtigt_seit": None,
+        "inhaber_seit": None,
     }
 
 
@@ -647,6 +651,38 @@ class TestTheGrant:
         answer = on_a_league(mongo_replica_set_url, repointed)
 
         assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
+
+    def test_only_the_owners_grant_is_answered_with_when_its_tier_took_effect(self, mongo_replica_set_url: str):
+        assert [answered(mongo_replica_set_url, email).inhaber_seit for email in (VERWALTUNG_INHABER, VERWALTUNG_ASKED)] == [
+            GRANT_FOUND,
+            None,
+        ]
+
+    def test_a_promotion_after_the_grant_dates_the_owners_tier_and_leaves_the_grant_dated(self, mongo_replica_set_url: str):
+        """An administrator signed in between the two administers and holds no owner's power (`docs/backend/spec.md :: I534`)."""
+
+        async def promoted(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_INHABER_OID}, {"$set": {"ernannt_am": GRANT_PROMOTED}})
+
+            return await call_subjekt(database, VERWALTUNG_INHABER)
+
+        answer = on_a_league(mongo_replica_set_url, promoted)
+
+        assert (answer.verwaltung, answer.berechtigt_seit, answer.inhaber_seit) == ("owner", GRANT_FOUND, GRANT_PROMOTED)
+
+    def test_a_promotion_made_in_the_database_is_answered_as_the_administrator_until_the_reconciliation_finds_it(
+        self, mongo_replica_set_url: str
+    ):
+        """Nothing dates the edit, so the row's tier would date an owner's power by the administrator's grant."""
+
+        async def raised(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"verwaltung": "owner"}})
+
+            return await call_subjekt(database, VERWALTUNG_STORED)
+
+        answer = on_a_league(mongo_replica_set_url, raised)
+
+        assert (answer.verwaltung, answer.berechtigt_seit, answer.inhaber_seit) == ("administration", GRANT_TYPED, None)
 
     def test_a_row_the_reconciliation_saw_that_stands_without_its_record_is_answered_no_grant(self, mongo_replica_set_url: str):
         """As a row put back after the reconciliation erased its record stands: every date it carries predates its return."""

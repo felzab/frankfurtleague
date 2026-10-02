@@ -89,3 +89,6 @@ class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
     # Null exactly where `verwaltung` is. Named for the grant and not the tier: a tier change leaves it
     # where it stands (`docs/backend/spec.md :: I525`).
     berechtigt_seit: FLUtcInstant | None
+    # Null exactly where `verwaltung` is not `owner`: a session older than it administers and holds no
+    # owner's power (`docs/backend/spec.md :: I534`).
+    inhaber_seit: FLUtcInstant | None

@@ -366,7 +366,9 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
   (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
   administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
-  (`docs/backend/spec.md :: I479`). An `owner` is revoked only once made an administrator, and in
+  (`docs/backend/spec.md :: I479`). The person made an owner signs in once more before acting as
+  one: an older sign-in keeps administering and is offered no owner's control
+  (`docs/backend/spec.md :: I534`). A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
   the application only an `owner` revokes (`docs/backend/spec.md :: I449`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
@@ -427,6 +429,9 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
   an address changed in place, a spelling the boot named folded to the stored form, and a removed
   row put back with its `_id`; the pass marks every row it reads `gesehen_am`, so leave that field
   as it stands. To hand a grant to another mailbox at once, paste a new row and remove the old one.
+- **A promotion to `owner` written in the Playground holds once the pass finds it, and then on a
+  sign-in after the find** (`docs/backend/spec.md :: I534`): until then its holder is answered as the
+  administrator they were. A demotion written there takes the tier at once.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.

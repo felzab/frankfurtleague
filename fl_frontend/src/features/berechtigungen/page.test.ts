@@ -50,17 +50,28 @@ const ZWEITER_INHABER = { ...VORSTAND, id: "6890a1b2c3d4e5f6071b0004", adresse: 
 /** The tier the lookup answers the signed-in administrator, until a case names another. */
 let eigeneVerwaltung: "owner" | "administration" = "administration";
 
+/** When an `owner` tier took effect: before the session each case signs in, until a case names a later one. */
+const VOR_JEDER_SITZUNG = "2026-01-01T00:00:00Z";
+let inhaberSeit = VOR_JEDER_SITZUNG;
+
 /** The grants the list answers, until a case names others. */
 let zeilen: object[] = [INHABER, VORSTAND, GESPERRT];
 
 answerReadsWith((endpoint, schema, params) => {
   if (endpoint === "/berechtigungen") return answer(schema, endpoint, { berechtigungen: zeilen, uebersprungen: 0 });
-  if (endpoint === "/identitaet/subjekt") return answer(schema, endpoint, { verwaltung: eigeneVerwaltung });
+  if (endpoint === "/identitaet/subjekt") {
+    return answer(schema, endpoint, {
+      verwaltung: eigeneVerwaltung,
+      berechtigt_seit: VOR_JEDER_SITZUNG,
+      inhaber_seit: eigeneVerwaltung === "owner" ? inhaberSeit : null,
+    });
+  }
   return EMPTIEST_ANSWER(endpoint, schema, params);
 });
 
 beforeEach(() => {
   eigeneVerwaltung = "administration";
+  inhaberSeit = VOR_JEDER_SITZUNG;
   zeilen = [INHABER, VORSTAND, GESPERRT];
   setSession({ user: { email: "vorstand@schule.de" } });
 });
@@ -226,6 +237,19 @@ describe("who is offered the tier change", () => {
       "Zum Inhaber ernennen",
       "Zur Verwaltung herabstufen",
     ]);
+  });
+
+  /* The backend refuses an owner's write from a sign-in older than the promotion (`docs/frontend/spec.md :: I535`),
+     so that session stands where an administrator does until it signs in again. */
+  it("offers an owner signed in before the promotion no tier change, and every revoke closed with the reason", async () => {
+    eigeneVerwaltung = "owner";
+    inhaberSeit = new Date(Date.now() + 60_000).toISOString();
+    setSession({ user: { email: INHABER.adresse } });
+
+    const markup = await renderPage(PAGE);
+
+    assert.deepEqual(stufenNamen(markup), []);
+    assert.ok(textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the closed revoke says not why");
   });
 
   it("offers an owner the demotion of another owner, and no revoke of either `owner` grant", async () => {

@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { getAdminSession } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { verwaltungOf } from "@/core/verwaltung";
+import { holdsOwnersTier, verwaltungOf } from "@/core/verwaltung";
 import { AdminCreateBerechtigungModal } from "@/features/berechtigungen/components/modals/AdminCreateBerechtigungModal";
 import { AdminBerechtigungenView } from "@/features/berechtigungen/components/views/AdminBerechtigungenView";
 import { BERECHTIGUNGEN_CRUD_COPY } from "@/features/berechtigungen/constants";
@@ -54,12 +54,14 @@ async function Berechtigungen() {
 }
 
 /**
- * The signed-in administrator's address where their grant is `owner`, which alone revokes and changes a tier: off
- * the lookup the guard's own verdict was read from, memoised per render, so it costs no second read.
+ * The signed-in administrator's address where their session holds an owner's power, which alone revokes and changes
+ * a tier: off the lookup the guard's own verdict was read from, memoised per render, so it costs no second read.
  */
 async function inhaberAdresseOf(): Promise<string | null> {
   const served = await getAdminSession();
-  if (served === null || (await verwaltungOf(served.user.email)).verwaltung !== "owner") return null;
+  // The session and not the grant alone: one made before its holder's promotion is refused an owner's write, so it is
+  // offered none (`docs/frontend/spec.md :: I535`).
+  if (served === null || !holdsOwnersTier(served.session.createdAt, await verwaltungOf(served.user.email))) return null;
 
   // Folded, as every grant is stored: the session keeps the spelling it signed in with, and the own row is found by it.
   return asSignInIdentifier(served.user.email);
