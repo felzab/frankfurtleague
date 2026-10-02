@@ -313,8 +313,7 @@ step "4. Every helper called is defined"
 # pattern is the same thing one edit later.
 
 # Command position only: a name in a string, a comment, a case pattern or a `for` variable is not a
-# call. Underscored names only — the helper convention here, and the one class no external program
-# collides with. A single-word helper is outside it.
+# call.
 # shellcheck disable=SC2016  # awk's own $0 and $1, which must not expand before awk reads them
 CMD_WORDS='
 # Q is built here rather than passed with -v: MSYS re-parses a Windows command line and eats the
@@ -408,6 +407,8 @@ function emit(w, nextc, atcmd) {
   if (skipnext) { skipnext = 0; return }
   if (w ~ /=/) { if (atcmd) { cmd = 1; assign = 1 }; return }
   assign = 0
+  # Underscored names only — the helper convention here, and the one class no external program
+  # collides with. A single-word helper is outside it.
   if (w !~ /^[a-z_][a-z0-9_]*$/ || w !~ /_/) return
   # `word`: a bare occurrence that is neither a call nor a definition — the shape a helper takes
   # when it is handed to a wrapper rather than run, which step 7 asks about.
