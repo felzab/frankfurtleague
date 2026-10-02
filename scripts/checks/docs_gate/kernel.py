@@ -934,6 +934,26 @@ def unmarked_line(text: str) -> str:
     return stripped.lstrip("#").strip() if stripped.startswith("#") else _header_line(stripped, ".py")
 
 
+# A tool reads its directive, reason included, beside the line below it: joined to the prose above,
+# the reason is charged to that prose, and a blank line parting them detaches the prose. One entry
+# per tool the gate runs.
+TOOL_DIRECTIVES: Final[dict[str, str]] = {
+    "shellcheck": r"shellcheck\s+[a-z-]+=",
+    "eslint": r"eslint-(?:disable|enable)\b",
+    "typescript": r"@ts-(?:expect-error|ignore|nocheck|check)\b",
+    "prettier": r"prettier-ignore\b",
+    "ruff": r"ruff:\s*noqa\b",
+    "pyright": r"type:\s*ignore\b|pyright:\s*\w",
+    "zizmor": r"zizmor:\s*ignore\b",
+}
+TOOL_DIRECTIVE_RE: Final = re.compile("|".join(f"(?:{pattern})" for pattern in TOOL_DIRECTIVES.values()))
+
+
+def is_tool_directive(text: str) -> bool:
+    """Whether one comment line, its marker off, is an instruction to a tool rather than prose."""
+    return TOOL_DIRECTIVE_RE.match(text) is not None
+
+
 def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
     """Each run of consecutive comment lines in a Python module, read through its own tokenizer.
 
@@ -974,9 +994,14 @@ def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
         if span != opened_on:
             flush()
             opened_on = span
+        unmarked = unmarked_line(text)
+        if not span and is_tool_directive(unmarked):
+            flush()
+            runs.append((number, [unmarked]))
+            continue
         if not current:
             first_line = number
-        current.append(unmarked_line(text))
+        current.append(unmarked)
     flush()
     return runs
 
@@ -1047,9 +1072,15 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
         # `//` beside `#`, as `_shell_comments` reads a hook.
         markers = ("#", "//") if hash_only else ("//",)
         if text.startswith(markers):
+            unmarked = text.lstrip("#").strip() if text.startswith("#") else text[2:].strip()
+            # A block of its own rather than none, so the bound still reaches what its reason says.
+            if is_tool_directive(unmarked):
+                flush()
+                runs.append((number, [unmarked]))
+                continue
             if not current:
                 first_line = number
-            current.append(text.lstrip("#").strip() if text.startswith("#") else text[2:].strip())
+            current.append(unmarked)
             continue
         flush()
 

@@ -24,6 +24,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Final
 
+import pytest
 from conftest import configure, copy_scripts, git, new_root, withdraw, write
 
 # Built rather than written, so no line of this file carries the markdown or the comment marker the
@@ -2739,6 +2740,86 @@ def test_a_module_that_will_not_tokenize_still_yields_its_comments() -> None:
     """Reading none would look like a file holding none, which every comment check then passes."""
     measured = _runs(UNTOKENIZABLE)
     assert [text for _, text in measured if "docs/gone.md" in text], measured
+
+
+# Ten words, so a block's count is read off how many lines it holds.
+PROSE_LINE: Final = "a reason a reader needs before changing the line below"
+SLASHES: Final = "//"
+WORKFLOW_SAMPLE: Final = ".github/workflows/sample.yml"
+
+
+@dataclass(frozen=True)
+class Directive:
+    """One directive form a tool the gate runs reads, in a file of the kind it lives in."""
+
+    path: str
+    marker: str
+    text: str
+    code: str
+
+
+# Each form `TOOL_DIRECTIVES` matches, as the corpus writes it where it writes one, each reason long
+# enough that the prose above it breaks the bound when the two are counted as one block.
+DIRECTIVES: Final[dict[str, Directive]] = {
+    "shellcheck": Directive(SHELL_FILE, HASH, "shellcheck disable=SC2034  " + HASH + " read by the scripts that source this file", "FLAG=1"),
+    "eslint": Directive(
+        TSX_SAMPLE, SLASHES, "eslint-disable-next-line local/admin-link -- the proxy turns it away first", "const link = base;"
+    ),
+    "typescript": Directive(TSX_SAMPLE, SLASHES, "@ts-expect-error -- the refusal under test", "const form = refused();"),
+    "prettier": Directive(TSX_SAMPLE, SLASHES, "prettier-ignore", "const grid = [1, 0, 0, 1];"),
+    "ruff": Directive(SAMPLE, HASH, "ruff: noqa: E501  " + HASH + " the fixtures quote whole lines", "VALUE = 2"),
+    "pyright": Directive(SAMPLE, HASH, "pyright: reportPrivateUsage=false  " + HASH + " the suite reads the gate's internals", "VALUE = 2"),
+    "type-ignore": Directive(SAMPLE, HASH, "type: ignore  " + HASH + " a generated module pyright cannot type", "VALUE = 2"),
+    "zizmor": Directive(
+        WORKFLOW_SAMPLE, HASH, "zizmor: ignore[unpinned-uses]  " + HASH + " a local action, pinned by the checkout", "on: push"
+    ),
+}
+
+
+def _bounded_blocks(form: Directive, *lines: str) -> list[tuple[int | None, str]]:
+    """What `comment-length` reports over a file holding these lines below a statement, every line the branch's own."""
+    raw = _page(form.code, "", *lines, form.code)
+    bounds = _module("docs_gate.branch").check_comment_length
+    found = bounds(_gate().root / form.path, raw, set(range(1, raw.count(NEWLINE) + 1)), lambda: [])
+    return [(finding.line, finding.detail) for finding in found]
+
+
+@pytest.mark.parametrize("family", list(DIRECTIVES))
+def test_a_tool_directive_never_joins_the_prose_above_it(family: str) -> None:
+    """The prose sits at the bound and the directive under it carries a reason: one block, they break it.
+
+    Parted by a blank line instead, the prose leaves the line it describes, which is what this
+    reading spares an author.
+    """
+    form = DIRECTIVES[family]
+    prose = [form.marker + " " + PROSE_LINE] * 4
+    cap = _module("docs_gate.branch").COMMENT_WORD_CAP
+    assert len(PROSE_LINE.split()) * len(prose) == cap, "the prose must sit at the bound, or nothing here is spared"
+    found = _bounded_blocks(form, *prose, form.marker + " " + form.text)
+    assert found == [], found
+
+
+@pytest.mark.parametrize("family", list(DIRECTIVES))
+def test_prose_over_the_bound_fails_on_either_side_of_a_directive(family: str) -> None:
+    """A directive parts two blocks as a blank line does, and neither is measured short.
+
+    A reader that dropped the run a directive closes, or resumed none below it, passes one of the two.
+    """
+    form = DIRECTIVES[family]
+    prose = [form.marker + " " + PROSE_LINE] * 5
+    cap = _module("docs_gate.branch").COMMENT_WORD_CAP
+    over = f"the comment block runs 50 words -- INC-9 caps a block at {cap}, every shape alike"
+    found = _bounded_blocks(form, *prose, form.marker + " " + form.text, *prose)
+    assert found == [(3, over), (9, over)], found
+
+
+@pytest.mark.parametrize("family", list(DIRECTIVES))
+def test_a_directive_s_reason_is_held_to_the_bound_on_its_own(family: str) -> None:
+    """A block of its own rather than none, so no paragraph rides past the bound as a directive's reason."""
+    form = DIRECTIVES[family]
+    reason = " ".join([PROSE_LINE] * 4)
+    found = _bounded_blocks(form, form.marker + " " + form.text + " " + reason)
+    assert [line for line, _ in found] == [3], found
 
 
 def test_a_rule_pattern_reaches_past_the_three_methods_typed_on_it() -> None:

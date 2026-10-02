@@ -357,7 +357,10 @@ every file this Scope names.
   docstring is a block like any other. **A blank line separates two runs of line comments, or the
   checker reads them as one block**: a bare `#` between them joins the run rather than ending it,
   and a formatter can delete the blank line inside an argument list, so a two-paragraph comment
-  moves above the statement, where the break survives. **A docstring is one block whatever blank
+  moves above the statement, where the break survives. **A tool's directive on a line of its own is
+  a block alone**, in the forms `scripts/checks/docs_gate/kernel.py :: TOOL_DIRECTIVES` names: its
+  reason is held to the bound by itself and never charged to the prose above it, so no blank line
+  parts that prose from the line it describes. **A docstring is one block whatever blank
   lines it holds**, its paragraphs joined before the count, and so is a TypeScript `/** … */` doc
   comment, which a blank line cannot part either: the blank would detach it from the declaration
   beneath it, which is the whole of what a doc comment is. Two independent constraints inside either
