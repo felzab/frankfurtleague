@@ -13,6 +13,10 @@ async def gather_cancelling[A, B, C](
 ) -> tuple[A, B, C]: ...
 
 
+@overload
+async def gather_cancelling[T](*coroutines: Coroutine[Any, Any, T]) -> tuple[T, ...]: ...
+
+
 async def gather_cancelling(*coroutines: Coroutine[Any, Any, Any]) -> tuple[Any, ...]:
     """`asyncio.gather`'s answer, but a first failure cancels the rest and is raised as itself.
 

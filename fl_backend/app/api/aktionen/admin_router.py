@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, Final
 
@@ -15,6 +14,7 @@ from app.api.aktionen.schemas import (
 )
 from app.api.aktionen.services import akteur_adressen, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import AktionenCollection
@@ -151,7 +151,7 @@ async def get_aktionen(
     beyond_the_facets = build_query(filters, terms={"trace_id"}, compiled=document_id_term(filters.document_id))
 
     # Gathered, so the tally costs no round trip of its own.
-    grouped, read = await asyncio.gather(
+    grouped, read = await gather_cancelling(
         # Counted per option instead, this is a read per option, and `aktionen_target` indexes the
         # area alone: every operation's own count would scan the log.
         aggregate_many_from_db(

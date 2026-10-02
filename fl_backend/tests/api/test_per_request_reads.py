@@ -9,7 +9,11 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen import admin_router as aktionen_admin_router
+from app.api.aktionen.schemas import FLAktionenFilterParams
 from app.api.berechtigungen import crud as berechtigungen_crud
+from app.api.bewerbungen import router as bewerbungen_router
+from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet import router as identitaet_router
 from app.api.identitaet.schemas import FLSubjekt, FLSubjektPayload
@@ -211,6 +215,31 @@ class TestTheSubjectLookupsReads:
         assert reads.peak == 1
         assert reads.sessions == [transaction] * len(reads.issued)
 
+    def test_a_failed_record_read_cancels_the_two_still_running_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
+        stalled = _Stalled()
+
+        async def aggregate_many_from_db(*, collection: str, pipeline: Any, session: object = None) -> list[Mapping[str, Any]]:
+            if collection != SAISON_TEAMS:
+                return await stalled.read(collection)
+            await asyncio.sleep(0)
+            raise ConnectionError("the seat read failed")
+
+        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", aggregate_many_from_db)
+
+        failed, cancelled = stalled.failure_and_cancelled_by_then(
+            identitaet_crud.find_subjekt(
+                IDENTIFIER,
+                saison_teams_collection=cast(Any, SAISON_TEAMS),
+                saisons_collection=cast(Any, SAISONS),
+                spieler_collection=cast(Any, SPIELER),
+                schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),
+                session=None,
+            )
+        )
+
+        assert (type(failed), str(failed)) == (ConnectionError, "the seat read failed")
+        assert sorted(cancelled) == [SCHIEDSRICHTER, SPIELER], "a record read was left running past the lookup's answer"
+
 
 class TestTheActorChecksTwoReads:
     """Every admin-tier request pays this check before its handler runs."""
@@ -259,3 +288,52 @@ class TestTheActorChecksTwoReads:
 
         assert (type(failed), str(failed)) == (ConnectionError, "the grant read failed")
         assert cancelled == ["ban"], "the ban read was left running past the check's answer"
+
+
+class TestTheListsGatheredReads:
+    """The action log's and the application queue's reads, gathered beside their tallies."""
+
+    def test_a_failed_tally_cancels_the_action_log_s_page_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
+        stalled = _Stalled()
+
+        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
+            await asyncio.sleep(0)
+            raise ConnectionError("the tally failed")
+
+        async def pull_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
+            return await stalled.read("page")
+
+        monkeypatch.setattr(aktionen_admin_router, "aggregate_many_from_db", aggregate_many_from_db)
+        monkeypatch.setattr(aktionen_admin_router, "pull_many_from_db", pull_many_from_db)
+
+        failed, cancelled = stalled.failure_and_cancelled_by_then(
+            aktionen_admin_router.get_aktionen(
+                aktionen_collection=cast(Any, None), sperrliste=cast(Any, None), filters=FLAktionenFilterParams()
+            )
+        )
+
+        assert (type(failed), str(failed)) == (ConnectionError, "the tally failed")
+        assert cancelled == ["page"], "the page read was left running past the list's answer"
+
+    def test_a_failed_collision_pass_cancels_every_count_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
+        stalled = _Stalled()
+
+        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
+            await asyncio.sleep(0)
+            raise ConnectionError("the collision pass failed")
+
+        class _Counted:
+            async def count_documents(self, _filter: Mapping[str, Any]) -> int:
+                return await stalled.read("count")
+
+        monkeypatch.setattr(bewerbungen_router, "aggregate_many_from_db", aggregate_many_from_db)
+
+        failed, cancelled = stalled.failure_and_cancelled_by_then(
+            bewerbungen_router.get_bewerbungen(
+                bewerbungen_collection=cast(Any, _Counted()), sperrliste=cast(Any, None), filters=FLBewerbungenFilterParams()
+            )
+        )
+
+        assert (type(failed), str(failed)) == (ConnectionError, "the collision pass failed")
+        # Every count, each nested gather's included: a status count and a relation count at least.
+        assert len(cancelled) >= 2 and set(cancelled) == {"count"}, "a count was left running past the queue's answer"

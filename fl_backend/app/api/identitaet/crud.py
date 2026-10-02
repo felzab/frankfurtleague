@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Mapping, Sequence
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -16,6 +15,7 @@ from app.api.identitaet.services import (
     seats_naming,
 )
 from app.api.saisons.schemas import FLSaisonStatus
+from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
@@ -72,7 +72,7 @@ async def find_subjekt(
         (spieler_collection, build_pupil_pipeline(identifier)),
     )
     if session is None:
-        seat_rows, referee_rows, pupil_rows = await asyncio.gather(
+        seat_rows, referee_rows, pupil_rows = await gather_cancelling(
             *(aggregate_many_from_db(collection=collection, pipeline=pipeline) for collection, pipeline in reads)
         )
     else:
