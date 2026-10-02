@@ -303,9 +303,9 @@ def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_
 
 
 def test_every_raise_under_app_names_the_class_it_raises():
-    """The sweep above reads a raise by its class, so one with no class to read is refused rather than passed over.
+    """A raise with no class to read would pass the sweep above unseen.
 
-    A pre-built refusal raised by its variable, or one raised through a local alias, would otherwise answer a code nothing publishes.
+    A pre-built refusal raised by its variable, or one raised through a local alias, answers a code nothing publishes.
     """
 
     unread = {
