@@ -63,7 +63,7 @@ const HASHED_CONTENTS = [
   "pnpm-lock.yaml",
   // For `LOCAL_RULES`, whose selectors live in the functions `stringify` drops, as the third input's do.
   "eslint.config.mjs",
-  // For `SECRET_NAMES`, read off its `SECRET_FILES`.
+  // For `SECRET_NAMES` and `SECRET_FILE_NAMES`, read off its `SECRET_FILES`.
   "src/core/config.ts",
   ...filesUnder("src").filter((file) => file.endsWith(".css")),
 ];
@@ -276,16 +276,19 @@ const SIGN_IN_STORE = {
     "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
 };
 
-/**
- * Each secret's own name, read off `fl_frontend/src/core/config.ts :: SECRET_FILES`: a host may still
- * carry the retired variable of one, a live value no file check judges.
- */
-const SECRET_NAMES = (() => {
+/** Each secret's name and file, as `fl_frontend/src/core/config.ts :: SECRET_FILES` pairs them. */
+const SECRET_FILE_ENTRIES = (() => {
   const files = /^const SECRET_FILES = \{\n([^}]*)\} as const;$/m.exec(readFileSync(path.join(HERE, "src", "core", "config.ts"), "utf8"));
-  const names = [...(files?.[1] ?? "").matchAll(/^ {2}([A-Z][A-Z0-9_]*): "/gm)].map((match) => match[1]);
-  if (names.length === 0) throw new Error("src/core/config.ts declares no SECRET_FILES to ban the names of");
-  return names;
+  const entries = [...(files?.[1] ?? "").matchAll(/^ {2}([A-Z][A-Z0-9_]*): "([^"]+)",$/gm)].map((match) => [match[1], match[2]]);
+  if (entries.length === 0) throw new Error("src/core/config.ts declares no SECRET_FILES to ban the names of");
+  return entries;
 })();
+
+/** Each secret's own name: a host may still carry the retired variable of one, a live value no file check judges. */
+const SECRET_NAMES = SECRET_FILE_ENTRIES.map(([name]) => name);
+
+/** Each secret's file: read off disk by its name, a secret skips the one reader its holder may import. */
+const SECRET_FILE_NAMES = SECRET_FILE_ENTRIES.map(([, file]) => file);
 
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
@@ -873,6 +876,12 @@ const SOURCE_BANS = [
       .join(", "),
     message:
       "A secret is read through its reader in fl_frontend/src/core/config.ts alone: a host may still carry its retired variable, a live value no file check judges (docs/frontend/spec.md :: I545).",
+    exempt: ["src/core/config.ts"],
+  },
+  {
+    // Bare or ending a path: a module reading the file itself holds the secret past its reader.
+    selector: inLiteral(String.raw`(?:^|\x2F|\x5C)(?:${SECRET_FILE_NAMES.join("|")})$`),
+    message: "A secret's file is named in fl_frontend/src/core/config.ts alone, whose readers hand each secret to its one holder.",
     exempt: ["src/core/config.ts"],
   },
   {
