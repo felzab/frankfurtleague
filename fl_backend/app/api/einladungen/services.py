@@ -227,9 +227,9 @@ def plan_einladung_versand(
     if not empfaenger:
         return EinladungVersandPlan([], "keine_bestaetigte_kontaktperson", False)
 
-    # Ahead of the delivery record: the frontend's mailer sends a barred address nothing and records
-    # nothing, so a team reached by nobody else would be re-minted, its link revoked, at every press
-    # for as long as the ban stands (`docs/backend/spec.md :: I544`).
+    # Ahead of the delivery record, which the mailer never writes for a barred address: a team reached
+    # by nobody else would lose its link to a fresh mint at every press while the ban stands
+    # (`docs/backend/spec.md :: I544`).
     if all(person.email in gesperrt for person in empfaenger):
         return EinladungVersandPlan([], "kontakte_gesperrt", False)
 

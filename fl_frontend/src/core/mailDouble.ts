@@ -64,8 +64,8 @@ class MailUnsentError extends Error {
 
 /**
  * Stands in for `fl_frontend/src/core/mail.ts` alone: the real fan-outs send through it, so the write
- * record a suite reads is the one the mailer and the fan-out leave together. `notices` holds the
- * messages handed to the ban notice's own sender, which `sent` holds too.
+ * record a suite reads is the one the mailer and the fan-out leave together. `notices` is the share
+ * of `sent` the ban notice's own sender took.
  */
 export function doubleSendMail(): { sent: SentMail[]; notices: SentMail[]; answerWith: (next: MailAnswer) => void } {
   const sent: SentMail[] = [];

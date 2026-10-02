@@ -101,9 +101,9 @@ export class MailRecipientError extends Error {
 }
 
 /**
- * Raised where nothing reached the provider: the request's deadline was spent before the send left, or
- * the ban list could not be read, which the line each writes tells apart. Not an `APINetworkError`,
- * which a fan-out reads as a message that may have gone.
+ * Nothing reached the provider: the request's deadline ran out first, or the ban list went unread,
+ * each writing a line of its own. Not an `APINetworkError`, which a fan-out reads as a message that
+ * may have gone.
  */
 export class MailUnsentError extends Error {
   constructor() {

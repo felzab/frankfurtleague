@@ -169,9 +169,9 @@ class TestTheAnswer:
 
 @pytest.mark.db
 class TestWhatThePayloadRefuses:
-    """Bounded where the address rule is not: the field is a lookup, but a value naming no mailbox is no question at all.
+    """Bounded where the address rule is not: the field is a lookup, but a value naming no mailbox asks nothing.
 
-    Posted through the mounted route, the only place the answer's shape exists: the database dependency answers first where none runs.
+    Posted through the mounted route, where alone the answer's shape exists; without a database its dependency answers first.
     """
 
     @pytest.mark.parametrize(

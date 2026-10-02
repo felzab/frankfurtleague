@@ -66,8 +66,7 @@ const MAILBOX_ATOM = String.raw`[^\p{Z}\p{C}\s"(),:;<>@[\]\\.]+`;
 const ONE_BARE_MAILBOX_REGEX = new RegExp(`^${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM})*@${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM})+$`, "u");
 
 /**
- * Whether the value is one mailbox and nothing around it. Read before the ban list is asked: a
- * provider reads a display name, a list or a trailing dot as the mailbox inside it, where the list's
+ * Read before the ban list is asked: a provider reads a display name, a list or a trailing dot as the mailbox inside it, where the list's
  * keying refuses the spelling and answers it unbarred (`docs/frontend/spec.md :: I541`).
  */
 export function isOneBareMailbox(value: string): boolean {

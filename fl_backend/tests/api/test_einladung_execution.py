@@ -790,7 +790,7 @@ class TestTheSeasonWidePress:
         assert addressed[str(WITHDRAWN)] == ()
 
     def test_a_team_whose_every_confirmed_address_is_barred_keeps_the_link_it_holds_at_every_press(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I544`. A link nobody sent stands, as the mailer leaves a barred team's: two presses, and it still opens.
+        """`docs/backend/spec.md :: I544`. A link nobody sent stands, as the mailer leaves a barred team's.
 
         One seat is banned in another spelling than the row stores, as the ban list is read off stored addresses.
         """
