@@ -14,7 +14,7 @@ import sys
 import tomllib
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, NamedTuple
 
 # Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
 # sibling of it rather than in it.
@@ -38,6 +38,14 @@ FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 # one, and a call it answers only where a test or a fixture reaches it.
 USEFIXTURES_MARK: Final = "usefixtures"
 GETFIXTUREVALUE: Final = "getfixturevalue"
+
+# The mark that hands a test an argument itself, so pytest asks no fixture of that name for it.
+PARAMETRIZE_MARK: Final = "parametrize"
+
+# The file whose module-level fixtures reach its whole directory, and the name of the list that makes
+# a module's fixtures every test's.
+CONFTEST: Final = "conftest.py"
+PLUGINS: Final = "pytest_plugins"
 
 # The values that turn an empty parametrize into a failure. `skip` is pytest's default and the one
 # this rule exists to refuse; `xfail` reports a pass, which is the same silence.
@@ -63,28 +71,77 @@ class Unfollowed(ValueError):
     """A spelling this cannot follow to the fixture it names, so the module is not judged."""
 
 
+class Scope(NamedTuple):
+    """Where pytest supplies a fixture, or where a request for one is made.
+
+    A `conftest.py`'s module-level fixture reaches its directory's whole subtree; any other is its
+    module's alone, and inside a class that class's alone (https://docs.pytest.org/en/stable/reference/fixtures.html#fixture-availability).
+    """
+
+    path: Path
+    subtree: bool
+    classes: tuple[str, ...] = ()
+
+    def holds(self, module: Path, classes: tuple[str, ...]) -> bool:
+        """Whether a test at `classes` in `module` is supplied from here."""
+        if self.subtree:
+            return module.is_relative_to(self.path)
+        return module == self.path and classes[: len(self.classes)] == self.classes
+
+    def meets(self, other: Scope) -> bool:
+        """Whether some test is supplied from both, which is where a fixture defined in one may ask for one defined in the other."""
+        if self.subtree and other.subtree:
+            return self.path.is_relative_to(other.path) or other.path.is_relative_to(self.path)
+        if self.subtree or other.subtree:
+            inner, outer = (other, self) if self.subtree else (self, other)
+            return inner.path.is_relative_to(outer.path)
+        shorter = min(len(self.classes), len(other.classes))
+        return self.path == other.path and self.classes[:shorter] == other.classes[:shorter]
+
+
+class Definition(NamedTuple):
+    """One fixture as pytest registers it, and the scope its own module gives it."""
+
+    name: str
+    node: FunctionNode
+    scope: Scope
+    autouse: bool
+    in_class: bool
+
+
+class Request(NamedTuple):
+    """One name pytest is asked to supply: from one test's own place, or from anywhere a fixture is supplied.
+
+    `origin` is the asking fixture, which its own name never reaches.
+    """
+
+    name: str
+    scope: Scope
+    point: bool
+    origin: int | None
+
+
+class Test(NamedTuple):
+    """One collected test, the classes it is nested in, and every mark pytest applies to it."""
+
+    node: FunctionNode
+    classes: tuple[str, ...]
+    marks: tuple[ast.expr, ...]
+
+
 class Module:
-    """One parsed test module, the fixtures it defines at any class depth, and every name its tests and fixtures ask for."""
+    """One parsed test module: the fixtures it defines, the tests pytest collects from it, and the names it binds."""
 
     def __init__(self, path: Path, tree: ast.Module) -> None:
         self.path = path
         self.tree = tree
-        self.fixtures: dict[str, FunctionNode] = {}
-        self.autouse: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and any(alias.name == "fixture" for alias in node.names):
                 raise Unfollowed(f"line {node.lineno} imports `fixture` by name, which this reads only as `pytest.fixture`")
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            fixture = _fixture_decorator(node)
-            if fixture is None:
-                continue
-            registered = _fixture_name(fixture, node.name)
-            self.fixtures.setdefault(registered, node)
-            if _is_autouse(fixture):
-                self.autouse.add(registered)
+        self.definitions = list(self._defined(tree.body, ()))
         is_test_file = TEST_FILE.fullmatch(path.name) is not None
-        self.tests = list(_tests(tree.body)) if is_test_file else []
+        module_marks = tuple(_pytestmarks(tree.body))
+        self.tests = list(_tests(tree.body, (), module_marks)) if is_test_file else []
         self.functions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
         self.imports: dict[str, tuple[str, str | None]] = {}
         for node in tree.body:
@@ -96,37 +153,71 @@ class Module:
             elif isinstance(node, ast.ImportFrom):
                 module = "." * node.level + (node.module or "")
                 self.imports.update((alias.asname or alias.name, (module, alias.name)) for alias in node.names)
-        # The parameters pytest fills, and the marks it reads: a collected test's and a `Test` class's
-        # decorators, and a `pytestmark` in a test file's or a `Test` class's body.
-        self.asked = {name for node in [*self.fixtures.values(), *self.tests] for name in _parameters(node)}
-        if is_test_file:
-            for mark in _honoured_marks(tree.body):
-                self.asked.update(_requested(mark, USEFIXTURES_MARK))
 
-    def roots(self) -> list[FunctionNode]:
-        """What pytest itself calls: every collected test and every fixture."""
-        return [*self.tests, *self.fixtures.values()]
-
-
-def _tests(body: list[ast.stmt]) -> Iterator[FunctionNode]:
-    """The functions pytest collects as tests from one body: `test`-prefixed, at module level or in a `Test`-prefixed class at any depth."""
-    for node in body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(TEST_FUNCTION_PREFIX):
-            yield node
-        elif isinstance(node, ast.ClassDef) and node.name.startswith(TEST_CLASS_PREFIX):
-            yield from _tests(node.body)
+    def _defined(self, body: list[ast.stmt], classes: tuple[str, ...]) -> Iterator[Definition]:
+        """Every fixture one body defines, and the ones its classes do, each with the scope pytest gives it here."""
+        for node in body:
+            if isinstance(node, ast.ClassDef):
+                yield from self._defined(node.body, (*classes, node.name))
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                decorator = _fixture_decorator(node)
+                if decorator is not None:
+                    subtree = self.path.name == CONFTEST and not classes
+                    scope = Scope(self.path.parent, True) if subtree else Scope(self.path, False, classes)
+                    yield Definition(_fixture_name(decorator, node.name), node, scope, _is_autouse(decorator), bool(classes))
+                # pytest never registers a fixture defined inside a function, so one there is read past.
+                for inner in ast.walk(node):
+                    if inner is not node and isinstance(inner, (ast.FunctionDef, ast.AsyncFunctionDef)) and _fixture_decorator(inner):
+                        raise Unfollowed(f"line {inner.lineno} defines fixture `{inner.name}` inside a function, which pytest never registers")
 
 
-def _honoured_marks(body: list[ast.stmt]) -> Iterator[ast.expr]:
-    """Each mark expression pytest applies from one body: a collected test's or a `Test` class's decorator, or a `pytestmark`."""
+def _pytestmarks(body: list[ast.stmt]) -> Iterator[ast.expr]:
+    """The marks a `pytestmark` in one body applies to every test below it."""
     for node in body:
         if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "pytestmark" for target in node.targets):
             yield node.value
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(TEST_FUNCTION_PREFIX):
-            yield from node.decorator_list
+
+
+def _tests(body: list[ast.stmt], classes: tuple[str, ...], marks: tuple[ast.expr, ...]) -> Iterator[Test]:
+    """The tests pytest collects from one body: `test`-prefixed, at module level or in a `Test`-prefixed class at any depth.
+
+    Each carries every mark it is given: its own decorators, its classes' decorators and `pytestmark`s, and its module's.
+    """
+    for node in body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(TEST_FUNCTION_PREFIX):
+            yield Test(node, classes, (*marks, *node.decorator_list))
         elif isinstance(node, ast.ClassDef) and node.name.startswith(TEST_CLASS_PREFIX):
-            yield from node.decorator_list
-            yield from _honoured_marks(node.body)
+            yield from _tests(node.body, (*classes, node.name), (*marks, *node.decorator_list, *_pytestmarks(node.body)))
+
+
+def _supplied(marks: tuple[ast.expr, ...]) -> set[str]:
+    """The arguments a `parametrize` mark hands a test directly, which pytest then never asks a fixture for.
+
+    An `indirect` one is handed to the fixture of its name, so that fixture is still asked for.
+    """
+    supplied: set[str] = set()
+    for mark in marks:
+        for call in ast.walk(mark):
+            if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == PARAMETRIZE_MARK):
+                continue
+            keywords = {keyword.arg: keyword.value for keyword in call.keywords}
+            spelled = call.args[0] if call.args else keywords.get("argnames")
+            names = _literal_names(spelled, call.lineno)
+            indirect = keywords.get("indirect")
+            if indirect is None or (isinstance(indirect, ast.Constant) and indirect.value is False):
+                supplied.update(names)
+            elif not (isinstance(indirect, ast.Constant) and indirect.value is True):
+                supplied.update(set(names) - set(_literal_names(indirect, call.lineno)))
+    return supplied
+
+
+def _literal_names(node: ast.expr | None, line: int) -> list[str]:
+    """A `parametrize` argument's names, as one comma-separated string or a list or tuple of strings."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return [name.strip() for name in node.value.split(",") if name.strip()]
+    if isinstance(node, (ast.List, ast.Tuple)) and all(isinstance(item, ast.Constant) and isinstance(item.value, str) for item in node.elts):
+        return [str(item.value) for item in node.elts if isinstance(item, ast.Constant)]
+    raise Unfollowed(f"line {line} parametrizes by names that are no string literal")
 
 
 def _requested(node: ast.AST, call: str) -> Iterator[str]:
@@ -177,10 +268,20 @@ def _is_autouse(decorator: ast.expr) -> bool:
     return False
 
 
-def _parameters(node: FunctionNode) -> list[str]:
+def _parameters(node: FunctionNode, in_class: bool) -> list[str]:
+    """The arguments pytest fills from a fixture, as its `getfuncargnames` reads a signature.
+
+    Neither a positional-only argument, nor one carrying a default, nor a method's first is asked for.
+    """
     args = node.args
-    named = [*args.posonlyargs, *args.args, *args.kwonlyargs]
-    return [arg.arg for arg in named if arg.arg != "self"]
+    positional = [*args.posonlyargs, *args.args]
+    defaulted = set(map(id, positional[len(positional) - len(args.defaults) :]))
+    named = [arg for arg in args.args if id(arg) not in defaulted]
+    named += [arg for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True) if default is None]
+    static = any(isinstance(decorator, ast.Name) and decorator.id == "staticmethod" for decorator in node.decorator_list)
+    if in_class and not static and not args.posonlyargs:
+        named = named[1:]
+    return [arg.arg for arg in named]
 
 
 class Estate:
@@ -208,7 +309,17 @@ class Estate:
             except Unfollowed as error:
                 self.unfollowed.append((path, str(error)))
         self.by_dotted = {self._dotted(module.path): module for module in self.modules}
-        self.asked: set[str] = set()
+        self.scopes: dict[int, list[Scope]] = {
+            id(definition): [definition.scope] for module in self.modules for definition in module.definitions
+        }
+        self.requests: list[Request] = []
+        # Every scope is widened before any request is read, a fixture's own requests being made from all of them.
+        for step in (self._supply_imports, self._request):
+            for module in self.modules:
+                try:
+                    step(module)
+                except Unfollowed as error:
+                    self.unfollowed.append((module.path, str(error)))
         self._ask_through_calls()
 
     def _dotted(self, path: Path) -> str:
@@ -251,27 +362,80 @@ class Estate:
                 if source is not None and target.attr in source.functions:
                     yield source, source.functions[target.attr]
 
-    def _ask_through_calls(self) -> None:
-        """Every `getfixturevalue` string in a function pytest runs: a test, a fixture, or one they reach by calling it.
+    def _definition_of(self, module: Module, name: str) -> Definition | None:
+        """The fixture a module-level function of `module` defines, where it defines one."""
+        node = module.functions.get(name)
+        return next((definition for definition in module.definitions if definition.node is node), None)
 
-        One nobody calls is a string pytest never reads, so it excuses no fixture.
+    def _supply_imports(self, module: Module) -> None:
+        """Widen a fixture's scope to every module importing it by name, and the whole estate where a plugin entry names its module."""
+        here = Scope(module.path.parent, True) if module.path.name == CONFTEST else Scope(module.path, False)
+        for source_name, name in module.imports.values():
+            source = self._module(module, source_name) if name is not None else None
+            definition = None if source is None or name is None else self._definition_of(source, name)
+            if definition is not None:
+                self.scopes[id(definition)].append(here)
+        for node in module.tree.body:
+            if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == PLUGINS for target in node.targets):
+                for entry in _literal_names(node.value, node.lineno):
+                    plugin = self._module(module, entry)
+                    for definition in [] if plugin is None else plugin.definitions:
+                        self.scopes[id(definition)].append(Scope(self.root, True))
+
+    def _request(self, module: Module) -> None:
+        """Every request a test or a fixture of `module` makes: its arguments pytest fills, and its `usefixtures` marks."""
+        for test in module.tests:
+            where = Scope(module.path, False, test.classes)
+            supplied = _supplied(test.marks)
+            names = [name for name in _parameters(test.node, bool(test.classes)) if name not in supplied]
+            names += [name for mark in test.marks for name in _requested(mark, USEFIXTURES_MARK)]
+            self.requests.extend(Request(name, where, True, None) for name in names)
+        for definition in module.definitions:
+            for name in _parameters(definition.node, definition.in_class):
+                self.requests.extend(Request(name, scope, False, id(definition)) for scope in self.scopes[id(definition)])
+
+    def _ask_through_calls(self) -> None:
+        """Every `getfixturevalue` string in a function a test or a fixture runs or reaches by calling it.
+
+        An uncalled one excuses no fixture; a reached one asks from where its test or fixture stands.
         """
-        pending = [(module, node) for module in self.modules for node in module.roots()]
-        reached: set[int] = set()
+        pending: list[tuple[Module, FunctionNode, Scope, bool, int | None]] = [
+            (module, test.node, Scope(module.path, False, test.classes), True, None) for module in self.modules for test in module.tests
+        ]
+        pending += [
+            (module, definition.node, scope, False, id(definition))
+            for module in self.modules
+            for definition in module.definitions
+            for scope in self.scopes[id(definition)]
+        ]
+        reached: set[tuple[int, Scope, bool]] = set()
         while pending:
-            module, node = pending.pop()
-            if id(node) in reached:
+            module, node, where, point, origin = pending.pop()
+            if (id(node), where, point) in reached:
                 continue
-            reached.add(id(node))
+            reached.add((id(node), where, point))
             try:
-                self.asked.update(_requested(node, GETFIXTUREVALUE))
+                self.requests.extend(Request(name, where, point, origin) for name in _requested(node, GETFIXTUREVALUE))
             except Unfollowed as error:
                 self.unfollowed.append((module.path, str(error)))
-            pending.extend(self._callees(module, node))
+            pending.extend((callee_module, callee, where, point, origin) for callee_module, callee in self._callees(module, node))
 
-    def consumed_names(self, configured: frozenset[str] = frozenset()) -> set[str]:
-        """Every fixture name a test or a fixture asks for, anywhere in the estate, and those the configuration asks for."""
-        return set(configured).union(self.asked, *(module.asked for module in self.modules))
+    def consumed(self, definition: Definition, configured: frozenset[str] = frozenset()) -> bool:
+        """Whether any request pytest would answer with this fixture names it, a fixture's own name inside it excepted.
+
+        A fixture asking for its own name is handed the one it overrides, never itself.
+        """
+        if definition.name in configured:
+            return True
+        scopes = self.scopes[id(definition)]
+        for request in self.requests:
+            if request.name != definition.name or request.origin == id(definition):
+                continue
+            if request.point and any(scope.holds(request.scope.path, request.scope.classes) for scope in scopes):
+                return True
+            if not request.point and any(scope.meets(request.scope) for scope in scopes):
+                return True
+        return False
 
 
 def configured_fixtures(options: dict[str, Any]) -> frozenset[str]:
@@ -286,14 +450,13 @@ def configured_fixtures(options: dict[str, Any]) -> frozenset[str]:
 
 def check_dead_fixtures(estate: Estate, configured: frozenset[str] = frozenset()) -> list[Finding]:
     """A fixture nothing consumes is a guarantee that was deleted from one end only."""
-    asked = estate.consumed_names(configured)
     findings: list[Finding] = []
     for module in estate.modules:
-        for name, node in module.fixtures.items():
-            if name in asked or name in module.autouse:
+        for definition in module.definitions:
+            if definition.autouse or estate.consumed(definition, configured):
                 continue
-            detail = f"{_shown(module.path)}:{node.lineno} fixture `{name}` is consumed by no test and no other fixture"
-            findings.append(Finding("fail", detail))
+            where = f"{_shown(module.path)}:{definition.node.lineno}"
+            findings.append(Finding("fail", f"{where} fixture `{definition.name}` is consumed by no test and no other fixture it reaches"))
     return findings
 
 
@@ -350,7 +513,7 @@ def main() -> int:
     findings = [*check_empty_parametrize(options, unread), *check_dead_fixtures(estate, configured)]
     code = report_findings(findings)
 
-    fixtures = sum(len(module.fixtures) for module in estate.modules)
+    fixtures = sum(len(module.definitions) for module in estate.modules)
     print(f"      {len(estate.modules)} module(s) under {_shown(TESTS)}: {fixtures} fixture(s)")
     return code
 

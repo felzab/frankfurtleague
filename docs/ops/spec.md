@@ -851,14 +851,19 @@ invisible characters are the file's subject; an entry naming a file that carries
 the list cannot outlive its reason.
 
 **The estate check refuses two silences the backend suite would otherwise pass**
-(`scripts/checks/check_test_estate.py`): a fixture whose name nothing pytest hands a fixture to
-asks for anywhere under `fl_backend/tests/` — a collected test's or a fixture's parameter, a
+(`scripts/checks/check_test_estate.py`): a fixture no request pytest would answer with it asks
+for, and a pytest configuration leaving `empty_parameter_set_mark` at its default, where a
+parametrised sweep whose discovery found nothing passes as one skip. **A request counts only where
+pytest supplies that fixture**: in its own module, or in its own class where it is defined in one;
+anywhere under the directory of the `conftest.py` defining it at module level; in a module importing
+it by name; and everywhere for a module `pytest_plugins` names. A request is a collected test's or a
+fixture's argument that has no default and that no `parametrize` mark hands over directly, a
 `usefixtures` mark on a test, a `Test` class or a `pytestmark`, a `getfixturevalue` string in a
-function a test or a fixture calls, the configuration's own `usefixtures` — so a helper's parameter
-or an uncalled helper's string sharing the name excuses nothing; and a pytest configuration leaving
-`empty_parameter_set_mark` at its default, where a parametrised sweep whose discovery found nothing
-passes as one skip. A fixture spelled in a way it cannot follow, or a collection of the
-configuration's own, is a refusal at 2 rather than a verdict. A test
+function a test or a fixture calls, or the configuration's own `usefixtures`; a fixture asking for
+its own name is handed the one it overrides, never itself. A same-named argument elsewhere, a
+helper's parameter, or an uncalled helper's string therefore excuses nothing. A fixture spelled in
+a way the check cannot follow, or a collection of the configuration's own, is a refusal at 2 rather
+than a verdict. A test
 reaching a database without `@pytest.mark.db` is the suite's own to refuse, as it runs
 ([`docs/backend/spec.md`](../backend/spec.md#16-the-test-suite)).
 

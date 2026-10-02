@@ -95,6 +95,7 @@ def test_every_consumer_pytest_hands_a_fixture_to_excuses_it():
     for consumer in (
         "def test_reads(league):\n    assert league\n",
         "class TestOuter:\n    class TestInner:\n        def test_reads(self, league):\n            assert league\n",
+        "class TestStatic:\n    @staticmethod\n    def test_reads(league):\n        assert league\n",
         "@pytest.fixture\ndef season(league):\n    return league\n\n\ndef test_reads(season):\n    assert season\n",
         '@pytest.mark.usefixtures("league")\ndef test_reads():\n    assert True\n',
         '@pytest.mark.usefixtures("league")\nclass TestMarked:\n    def test_reads(self):\n        assert True\n',
@@ -148,6 +149,114 @@ def test_the_configuration_s_usefixtures_excuses_a_fixture_no_test_names():
     assert estate.check_dead_fixtures(tree, estate.configured_fixtures({"usefixtures": ["league"]})) == []
 
 
+def dead_in(files: dict[str, str]) -> list[str]:
+    """The fixtures an estate of these files leaves dead, by name."""
+    root = new_root("estate-scoped-")
+    for rel, text in files.items():
+        write(root, rel, text)
+    built = estate.Estate(root)
+    assert built.unfollowed == [], built.unfollowed
+    return sorted(finding.detail.split("`")[1] for finding in estate.check_dead_fixtures(built))
+
+
+ASKS_LEAGUE = "def test_reads(league):\n    assert league\n"
+
+# A fixture only `TestOwner`'s own tests, and those of the classes nested in it, are supplied with.
+CLASS_FIXTURE = "import pytest\n\n\nclass TestOwner:\n    @pytest.fixture\n    def league(self):\n        return 1\n"
+
+
+@pytest.mark.parametrize(
+    ("files", "dead"),
+    [
+        pytest.param(
+            {"api/test_owner.py": ORPHAN + "def test_nothing():\n    assert True\n", "core/test_other.py": ASKS_LEAGUE},
+            ["league"],
+            id="module-fixture-asked-elsewhere",
+        ),
+        pytest.param({"api/conftest.py": ORPHAN, "core/test_other.py": ASKS_LEAGUE}, ["league"], id="conftest-asked-outside-its-directory"),
+        pytest.param({"api/conftest.py": ORPHAN, "api/deep/test_below.py": ASKS_LEAGUE}, [], id="conftest-asked-below-it"),
+        pytest.param({"conftest.py": ORPHAN, "api/test_any.py": ASKS_LEAGUE}, [], id="root-conftest-asked-anywhere"),
+        pytest.param(
+            {"api/test_case.py": CLASS_FIXTURE + "\n\nclass TestOther:\n    def test_reads(self, league):\n        assert league\n"},
+            ["league"],
+            id="class-fixture-asked-from-another-class",
+        ),
+        pytest.param(
+            {"api/test_case.py": CLASS_FIXTURE + "\n    class TestInner:\n        def test_reads(self, league):\n            assert league\n"},
+            [],
+            id="class-fixture-asked-from-a-nested-class",
+        ),
+        pytest.param(
+            {
+                "conftest.py": ORPHAN,
+                "api/conftest.py": "import pytest\n\n\n@pytest.fixture\ndef league(league):\n    return league\n",
+                "api/test_case.py": ASKS_LEAGUE,
+            },
+            [],
+            id="override-asks-for-the-fixture-it-replaces",
+        ),
+        pytest.param(
+            {"conftest.py": "import pytest\n\n\n@pytest.fixture\ndef league(league):\n    return league\n"},
+            ["league"],
+            id="a-fixture-asking-its-own-name-asks-no-one",
+        ),
+        pytest.param(
+            {
+                "api/test_owner.py": ORPHAN + "def test_nothing():\n    assert True\n",
+                "api/test_user.py": "from .test_owner import league\n\n\n" + ASKS_LEAGUE,
+            },
+            [],
+            id="imported-into-the-asking-module",
+        ),
+    ],
+)
+def test_a_fixture_is_consumed_only_where_pytest_would_supply_it(files: dict[str, str], dead: list[str]):
+    """A same-named parameter elsewhere is answered by another fixture, or by none."""
+    assert dead_in(files) == dead
+
+
+def test_a_module_pytest_plugins_names_supplies_every_test():
+    """Spelled as `fl_backend/tests/conftest.py` spells its own entry; without the entry the module supplies only itself."""
+    root = new_root("estate-plugins-") / "tests"
+    write(root, "support/plugin.py", ORPHAN)
+    write(root, "api/test_case.py", ASKS_LEAGUE)
+    write(root, "conftest.py", "import pytest\n")
+    unnamed = estate.check_dead_fixtures(estate.Estate(root))
+    write(root, "conftest.py", 'pytest_plugins = ("pytester", "tests.support.plugin")\n')
+
+    assert len(unnamed) == 1 and "`league`" in unnamed[0].detail, unnamed
+    assert estate.check_dead_fixtures(estate.Estate(root)) == []
+
+
+@pytest.mark.parametrize(
+    ("consumer", "dead"),
+    [
+        pytest.param('@pytest.mark.parametrize("league", [1])\n' + ASKS_LEAGUE, ["league"], id="parametrized-directly"),
+        pytest.param(
+            '@pytest.mark.parametrize("season, league", [(1, 2)])\n' + "def test_reads(season, league):\n    assert league\n",
+            ["league"],
+            id="among-several-names",
+        ),
+        pytest.param('@pytest.mark.parametrize(("league",), [(1,)])\n' + ASKS_LEAGUE, ["league"], id="names-as-a-tuple"),
+        pytest.param('@pytest.mark.parametrize("league", [1], indirect=True)\n' + ASKS_LEAGUE, [], id="indirect-hands-it-to-the-fixture"),
+        pytest.param('@pytest.mark.parametrize("league", [1], indirect=["league"])\n' + ASKS_LEAGUE, [], id="indirect-by-name"),
+        pytest.param(
+            '@pytest.mark.parametrize("league", [1])\nclass TestMarked:\n    def test_reads(self, league):\n        assert league\n',
+            ["league"],
+            id="parametrized-on-the-class",
+        ),
+        pytest.param('pytestmark = pytest.mark.parametrize("league", [1])\n\n\n' + ASKS_LEAGUE, ["league"], id="parametrized-by-pytestmark"),
+        pytest.param("def test_reads(league=None):\n    assert league is None\n", ["league"], id="a-default-is-no-request"),
+        pytest.param(
+            "class TestBound:\n    def test_reads(league):\n        assert league\n", ["league"], id="a-method-s-first-is-its-instance"
+        ),
+    ],
+)
+def test_an_argument_pytest_fills_itself_asks_no_fixture(consumer: str, dead: list[str]):
+    """The parametrize value or the default is what the test receives, so the fixture of that name is never called."""
+    assert dead_in({"conftest.py": PLAIN_CONFTEST, "api/test_case.py": ORPHAN + consumer}) == dead
+
+
 @pytest.mark.parametrize(
     ("body", "said"),
     [
@@ -164,6 +273,16 @@ def test_the_configuration_s_usefixtures_excuses_a_fixture_no_test_names():
             "import pytest\nNAME = 'league'\n\n\n@pytest.mark.usefixtures(NAME)\ndef test_reads():\n    assert True\n",
             "no string literal",
             id="computed-request",
+        ),
+        pytest.param(
+            "import pytest\nNAMES = 'league'\n\n\n@pytest.mark.parametrize(NAMES, [1])\ndef test_reads(league):\n    assert league\n",
+            "parametrizes by names",
+            id="computed-parametrize",
+        ),
+        pytest.param(
+            "import pytest\n\n\ndef build():\n    @pytest.fixture\n    def league():\n        return 1\n",
+            "inside a function",
+            id="nested-fixture",
         ),
     ],
 )
