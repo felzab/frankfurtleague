@@ -9,6 +9,7 @@ import anyio
 import pymongo
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.client_session_shared import _EmptyServerSession
 from pymongo.errors import OperationFailure, PyMongoError
 
 from app.core.exception_handlers import DATABASE_FAILED
@@ -41,6 +42,12 @@ def _log_left_open(cause: str) -> None:
 
 async def _abort_on_the_server(session: AsyncClientSession) -> None:
     """Send the abort the driver may not have: it swallows its own abort's failure, the deadline's refusal included."""
+
+    # pymongo's placeholder until a command carries the session: no server holds its transaction.
+    # Ahead of the number, whose read mints a server session that an abort and the client's
+    # `endSessions` then wait on where no server answers.
+    if isinstance(session._server_session, _EmptyServerSession):
+        return
 
     # Private, pymongo publishing no transaction number; a renamed attribute fails
     # `tests/core/test_request_deadline.py :: TestATransactionPastTheRequestDeadlineCommitsNothing`.

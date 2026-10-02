@@ -20,7 +20,7 @@ from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.transactions import ABORT_GRACE_S, drain, transaction_session
 from app.main import create_app
-from tests.config import TEST_BASE_URL, build_test_config
+from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, app_calls, callee, parsed
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -84,6 +84,8 @@ class TestAFullPageIsRunAgain:
 class _TransactedSession(_Session):
     """A session whose transaction number says a transaction ran on it, recording every command its client is sent."""
 
+    # Anything but pymongo's placeholder, as on a session a command has carried to a server.
+    _server_session = object()
     _transaction_id = 3
 
     def __init__(self) -> None:
@@ -145,6 +147,36 @@ class TestAFailedSessionAbortsInsideItsGrace:
         """A committed transaction answers an abort harmlessly, so only this case keeps one round trip off every write."""
 
         assert _aborts_sent(fails=False, deadline=time.monotonic()) == []
+
+
+class _RefusedFirst(Exception):
+    """A route's own refusal, raised inside its callback before it sends anything."""
+
+
+class TestASessionNoCommandCarriedIsSentNoAbort:
+    def test_a_failure_before_any_command_waits_on_no_server(self, caplog: pytest.LogCaptureFixture):
+        """Against a server that never answers, where an abort sent waits out the grace and logs its failure.
+
+        Every route cut before its first command takes this path, a deadline spent on server selection among them.
+        """
+
+        async def run() -> None:
+            client = AsyncMongoClient(UNANSWERED_URI)
+            try:
+
+                async def refuse(_session: AsyncClientSession) -> None:
+                    raise _RefusedFirst
+
+                with pytest.raises(_RefusedFirst):
+                    async with transaction_session(client) as session:
+                        await session.with_transaction(refuse)
+            finally:
+                await client.close()
+
+        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
+            asyncio.run(run())
+
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
 
 
 class _AnsweringSession(_TransactedSession):
