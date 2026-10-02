@@ -136,6 +136,18 @@ def test_a_helper_reached_again_through_a_call_cycle_still_excuses_its_fixture(r
     assert fixtures(ORPHAN + recursive) == []
 
 
+def test_a_helper_two_fixtures_reach_asks_from_each_of_them():
+    """From `league`, the helper's request is `league` asking its own name, which excuses nothing; from `season` it consumes it."""
+    body = (
+        'import pytest\n\n\ndef asked(request):\n    return request.getfixturevalue("league")\n\n\n'
+        "@pytest.fixture\ndef league(request):\n    return asked(request)\n\n\n"
+        "@pytest.fixture\ndef season(request):\n    return asked(request)\n\n\n"
+        "def test_reads(season):\n    assert season\n"
+    )
+
+    assert fixtures(body) == []
+
+
 @pytest.mark.parametrize(
     "unreached",
     [

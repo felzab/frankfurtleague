@@ -497,14 +497,16 @@ class Estate:
             for definition in module.definitions
             for scope, _ in self.scopes[id(definition)]
         ]
-        reached: set[tuple[int, Scope, bool]] = set()
+        # Keyed by everything a request records, the asking fixture included: keyed without it, a helper
+        # two fixtures reach asks only for the first, and a fixture the second consumes reads as dead.
+        reached: set[tuple[int, Scope, bool, int | None]] = set()
 
         # Recursive rather than a loop over a pending list: with the `reached` check gone, a helper
         # calling itself overflows the stack and fails the run, where a loop would hang it.
         def ask(module: Module, node: CalledNode, where: Scope, point: bool, origin: int | None) -> None:
-            if (id(node), where, point) in reached:
+            if (id(node), where, point, origin) in reached:
                 return
-            reached.add((id(node), where, point))
+            reached.add((id(node), where, point, origin))
             try:
                 self.requests.extend(Request(name, where, point, origin) for name in _requested(node, GETFIXTUREVALUE))
             except Unfollowed as error:
