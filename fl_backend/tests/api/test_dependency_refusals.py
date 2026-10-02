@@ -10,11 +10,18 @@ answers before the handler runs.
 """
 
 import ast
+import builtins
 import functools
+import importlib
+import inspect
 import re
+import symtable
 from collections.abc import Iterator, Mapping
+from dataclasses import dataclass
 from http import HTTPStatus
-from typing import Any
+from pathlib import Path
+from types import ModuleType
+from typing import Any, get_type_hints
 
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
@@ -75,15 +82,104 @@ PUBLISHED_ELSEWHERE: Mapping[type[BaseAPIException], str] = {
 }
 
 
-def _subclasses(cls: type) -> Iterator[type]:
-    for subclass in cls.__subclasses__():
-        yield subclass
-        yield from _subclasses(subclass)
+# The raises under `app/` with no class to read off them, each answering no request a refusal code
+# would reach. Keyed on the raised expression's text, so a respelled one is read again, not excused.
+UNREAD_RAISES: Mapping[tuple[str, str, str], str] = {
+    (
+        "app/core/constraints.py",
+        "_apply_concurrently",
+        "min(failures, key=lambda failure: failure[0])[1]",
+    ): "the first-declared lane's own failure, re-raised while the application boots",
+    (
+        "app/core/crud.py",
+        "post_many_to_db",
+        "refusal",
+    ): "the driver's `DuplicateKeyError`, published by collection (`tests/core/test_duplicate_key_publication.py`)",
+}
 
 
-# Derived, so a refusal class added anywhere the application imports is swept until it is named above:
-# a raise of one outside the table's dependencies answers a code the table never publishes.
-PROTOCOL_EXCEPTIONS = frozenset(cls.__name__ for cls in _subclasses(BaseAPIException) if cls not in PUBLISHED_ELSEWHERE)
+def _is_protocol_refusal(raised: type[BaseException]) -> bool:
+    """A subclass test rather than a list: a refusal class is swept wherever it is declared, until `PUBLISHED_ELSEWHERE` names it."""
+
+    return issubclass(raised, BaseAPIException) and raised not in PUBLISHED_ELSEWHERE
+
+
+@dataclass(frozen=True)
+class _Raise:
+    node: ast.Raise
+    #: The innermost function or class around the raise, `<module>` outside every one.
+    scope: str
+    #: The class the raise instantiates, resolved through the module's own namespace; `None` for a
+    #: bare re-raise and for anything no class can be read off.
+    raised: type[BaseException] | None
+
+
+def _module_at(path: Path) -> ModuleType:
+    parts = path.relative_to(BACKEND_ROOT).with_suffix("").parts
+
+    return importlib.import_module(".".join(parts[:-1] if parts[-1] == "__init__" else parts))
+
+
+def _scope_table(table: symtable.SymbolTable, declaration: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> symtable.SymbolTable:
+    """The declaration's own table, through the type-parameter scope a generic one is nested in."""
+
+    for child in table.get_children():
+        if child.get_name() == declaration.name and child.get_lineno() == declaration.lineno:
+            if child.get_type() is symtable.SymbolTableType.TYPE_PARAMETERS:
+                return _scope_table(child, declaration)
+            return child
+
+    raise AssertionError(f"no symbol table for `{declaration.name}`, so the names its raises spell cannot be resolved")
+
+
+def _raised_class(exc: ast.expr | None, table: symtable.SymbolTable, module: ModuleType) -> type[BaseException] | None:
+    """Read only where the callee's root name is global in its scope: a local or a closure's name is a value nothing here can follow."""
+
+    if not isinstance(exc, ast.Call):
+        return None
+
+    attributes: list[str] = []
+    callee = exc.func
+    while isinstance(callee, ast.Attribute):
+        attributes.append(callee.attr)
+        callee = callee.value
+
+    if not isinstance(callee, ast.Name) or not table.lookup(callee.id).is_global():
+        return None
+
+    target = vars(module)[callee.id] if callee.id in vars(module) else getattr(builtins, callee.id, None)
+    for attribute in reversed(attributes):
+        target = getattr(target, attribute, None)
+
+    # A factory answers for the class its return annotation names, which pyright holds its body to.
+    if inspect.isfunction(target):
+        target = get_type_hints(target).get("return")
+
+    return target if isinstance(target, type) and issubclass(target, BaseException) else None
+
+
+@functools.cache
+def _raises(path: Path) -> tuple[_Raise, ...]:
+    # Imported only where there is a raise to resolve: `app/asgi.py` builds the application from the
+    # environment as it is imported, and holds none.
+    if not any(isinstance(node, ast.Raise) for node in ast.walk(parsed(path))):
+        return ()
+
+    module = _module_at(path)
+    found: list[_Raise] = []
+
+    def visit(node: ast.AST, scope: str, table: symtable.SymbolTable) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                visit(child, child.name, _scope_table(table, child))
+                continue
+            if isinstance(child, ast.Raise):
+                found.append(_Raise(node=child, scope=scope, raised=_raised_class(child.exc, table, module)))
+            visit(child, scope, table)
+
+    visit(parsed(path), "<module>", symtable.symtable(path.read_text(encoding="utf-8"), str(path), "exec"))
+
+    return tuple(found)
 
 
 def _url(route: APIRoute) -> str:
@@ -152,12 +248,10 @@ def _own_nodes(node: ast.AST) -> Iterator[ast.AST]:
             yield from _own_nodes(child)
 
 
-def _raised_in(function: Any) -> set[str]:
-    return {
-        node.exc.func.id
-        for node in ast.walk(declared(function))
-        if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name)
-    }
+def _raised_in(function: Any) -> set[type[BaseException]]:
+    inside = {id(node) for node in ast.walk(declared(function))}
+
+    return {found.raised for found in _raises(module_of(function)) if id(found.node) in inside and found.raised is not None}
 
 
 def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_raise():
@@ -166,7 +260,7 @@ def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_ra
     raised = set().union(*(_raised_in(dependency) for dependency in DEPENDENCY_REFUSALS))
 
     assert raised, "no raise is read off the table's dependencies, so the clause below is vacuous"
-    assert raised <= PROTOCOL_EXCEPTIONS
+    assert all(_is_protocol_refusal(cls) for cls in raised), raised
 
 
 def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_or_in_a_handler_declaring_it():
@@ -187,6 +281,13 @@ def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_
         if nested is not function and isinstance(nested, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
 
+    refusals = {
+        id(found.node)
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for found in _raises(path)
+        if found.raised and _is_protocol_refusal(found.raised)
+    }
+
     stray = [
         f"{path.relative_to(BACKEND_ROOT).as_posix()}:{node.lineno}"
         for path in sorted(APP_ROOT.rglob("*.py"))
@@ -195,10 +296,24 @@ def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_
         and (path, function.name) not in answering
         and id(function) not in callbacks
         for node in _own_nodes(function)
-        if isinstance(node, ast.Raise)
-        and isinstance(node.exc, ast.Call)
-        and isinstance(node.exc.func, ast.Name)
-        and node.exc.func.id in PROTOCOL_EXCEPTIONS
+        if isinstance(node, ast.Raise) and id(node) in refusals
     ]
 
     assert stray == []
+
+
+def test_every_raise_under_app_names_the_class_it_raises():
+    """The sweep above reads a raise by its class, so one with no class to read is refused rather than passed over.
+
+    A pre-built refusal raised by its variable, or one raised through a local alias, would otherwise answer a code nothing publishes.
+    """
+
+    unread = {
+        (path.relative_to(BACKEND_ROOT).as_posix(), found.scope, ast.unparse(found.node.exc)): found.node.lineno
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for found in _raises(path)
+        if found.node.exc is not None and found.raised is None
+    }
+
+    assert {site: line for site, line in unread.items() if site not in UNREAD_RAISES} == {}
+    assert UNREAD_RAISES.keys() <= unread.keys(), "an exemption names a raise the tree no longer holds"
