@@ -197,6 +197,9 @@ Each fails silently. The rest load from `.claude/rules/` with the surface that c
 - **Never hand a native program an argument opening with `/` from Git Bash without
   `MSYS_NO_PATHCONV=1`**: MSYS rewrites it as a Windows path, so `git grep -F '/src/core/api.ts'`
   answers a confident zero with no error. A regex or a URL path is the same argument.
+- **Never take the Grep tool's zero over a directory inside `fl_backend/.venv`**: it honours
+  `fl_backend/.gitignore`, so it answers "No matches found" where the installed package holds the
+  match. Search the virtualenv with `grep -r` in Git Bash, or point Grep at one named file.
 
 ## 7. Ratified decisions — never "fix" one
 
