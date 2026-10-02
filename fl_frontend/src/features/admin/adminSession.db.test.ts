@@ -265,3 +265,81 @@ describe("the account and passkey pages, each across one render pass", () => {
     assert.deepEqual(await stamps(), due, "a read of the passkey page slid the session");
   });
 });
+
+/** A second account, holding one passkey and no session: what a read scoped to the holder must never count. */
+async function aSecondAccountsPasskey(): Promise<void> {
+  const { adapter } = await auth.$context;
+  const other = await adapter.create<{ name: string; email: string; emailVerified: boolean }, { id: string }>({
+    model: "user",
+    data: { name: "", email: "zweite.person@example.org", emailVerified: true },
+  });
+  await adapter.create({
+    model: "passkey",
+    data: {
+      userId: other.id,
+      credentialID: "fl-admin-session-db-second-account",
+      publicKey: "fabricated-public-key",
+      counter: 0,
+      deviceType: "singleDevice",
+      backedUp: false,
+      transports: "internal",
+      createdAt: new Date(),
+    },
+  });
+}
+
+/* The passkeys are read by the holder's id alone, never through the library's session-scoped list:
+   that id is the one thing keeping another account's names, last use and count off these reads. */
+describe("the holder's passkeys, with another account's beside them in the store", () => {
+  it("lists the holder's passkey alone on the account page", async () => {
+    // After the holder's sign-in, which takes the passkey it makes to the first account row it finds.
+    requestHeaders = await signInAsAdministrator();
+    await aSecondAccountsPasskey();
+
+    beginRenderPass();
+    const served = await getKontoSession();
+    assert.ok(served, "the account page's guard refused the administrator");
+    const { passkeys } = await readSicherheit(served);
+
+    assert.equal(passkeys.length, 1, "the account page listed another account's passkey");
+  });
+
+  it("offers a holder of no passkey the enrolment, not the sign-in by another account's", async () => {
+    await aSecondAccountsPasskey();
+    requestHeaders = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
+
+    beginRenderPass();
+
+    assert.deepEqual(await getPasskeyStep(), { step: "enrol", email: ADMIN_EMAIL });
+  });
+
+  it("counts the holder's passkeys alone against the cap", async () => {
+    const { PASSKEY_LIMIT } = await import("@/core/auth.ts");
+    const { readPasskeyStandAction } = await import("@/features/passkeys/actions.ts");
+    requestHeaders = await signInAsAdministrator();
+    await aSecondAccountsPasskey();
+    const { adapter } = await auth.$context;
+    const [holder] = await client.db("auth").collection("user").find({ email: ADMIN_EMAIL }).toArray();
+    assert.ok(holder, "the sign-in wrote no account row");
+    // One under the cap, so the other account's passkey alone would close it.
+    for (let seeded = 2; seeded < PASSKEY_LIMIT; seeded += 1) {
+      await adapter.create({
+        model: "passkey",
+        data: {
+          userId: String(holder._id),
+          credentialID: `${CREDENTIAL_ID}-${String(seeded)}`,
+          publicKey: "fabricated-public-key",
+          counter: 0,
+          deviceType: "singleDevice",
+          backedUp: false,
+          transports: "internal",
+          createdAt: new Date(),
+        },
+      });
+    }
+
+    leaveRenderPass();
+
+    assert.deepEqual(await runWithIncomingTrace(() => readPasskeyStandAction()), { success: true, kannHinzufuegen: true });
+  });
+});
