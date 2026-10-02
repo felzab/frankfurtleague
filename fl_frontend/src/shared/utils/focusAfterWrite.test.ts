@@ -75,15 +75,15 @@ describe("where a landed write's focus goes", () => {
     assert.equal(focused(), "c löschen");
   });
 
-  it("takes the previous row's where the pressed row was the last", async () => {
-    document.body.append(list(["a", "b"]));
-    const landing = focusAfterWrite(pressed("b löschen"));
+  it("takes the previous row's where the pressed row was the last, the nearest first", async () => {
+    document.body.append(list(["a", "b", "c"]));
+    const landing = focusAfterWrite(pressed("c löschen"));
 
     landing.landed();
-    document.querySelector(`[data-focus-row="b"]`)?.remove();
+    document.querySelector(`[data-focus-row="c"]`)?.remove();
     await settle();
 
-    assert.equal(focused(), "a löschen");
+    assert.equal(focused(), "b löschen");
   });
 
   /* A row holding no such control, as this device's own sign-in holds no sign-out, is passed over. */
