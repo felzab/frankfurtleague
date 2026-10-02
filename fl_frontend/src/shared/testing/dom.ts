@@ -2,8 +2,13 @@ import { afterEach, beforeEach } from "node:test";
 
 import { JSDOM } from "jsdom";
 
-// Without `pretendToBeVisual` jsdom defines no `requestAnimationFrame`, which react-aria's focus scope calls as a dialog unmounts.
-const { window } = new JSDOM("<!doctype html><html><head></head><body></body></html>", { pretendToBeVisual: true });
+const { window } = new JSDOM("<!doctype html><html><head></head><body></body></html>", {
+  // Without `pretendToBeVisual` jsdom defines no `requestAnimationFrame`, which react-aria's focus scope calls as a dialog unmounts.
+  pretendToBeVisual: true,
+  // An address a page can read and rewrite: jsdom's default `about:blank` carries no query and refuses every `history` write, so
+  // a link page stripping its token from the address bar could not be driven at all.
+  url: "http://localhost/",
+});
 
 // Installed as this module evaluates, so it is the first import of every file using it: `react-dom/client`, Testing
 // Library's `screen` and react-aria each read whether a document exists once, as they load.
