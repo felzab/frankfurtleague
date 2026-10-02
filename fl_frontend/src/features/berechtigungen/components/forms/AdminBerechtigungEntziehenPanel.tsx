@@ -39,7 +39,7 @@ export function AdminBerechtigungEntziehenPanel({
   const { isConfirming, press } = twoPress;
 
   const handleEntziehen = () => {
-    // The next row's control takes the focus once the row has gone (`docs/frontend/spec.md :: I532`).
+    // The next row's control takes the focus once the row has gone (`docs/frontend/spec.md :: I540`).
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.

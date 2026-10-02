@@ -13,7 +13,7 @@ export function PanelHeading({ className, title, children }: { className: string
     // Inline `<h2>` in a plain block, never a flex row: the glyph aligns on the title's own line box.
     // Why that is not a detail (`docs/frontend/spec.md` I81).
     <div>
-      {/* The panel's landing where a write empties it or takes its control away (`docs/frontend/spec.md :: I532`). */}
+      {/* The panel's landing where a write empties it or takes its control away (`docs/frontend/spec.md :: I540`). */}
       <h2
         className={`${className} inline`}
         {...FOCUS_HEADING}>
