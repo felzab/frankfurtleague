@@ -500,43 +500,40 @@ def _names(node: ast.AST) -> Iterator[ast.Name]:
         yield from _names(child)
 
 
-def _resolved(settings: _Settings, expression: ast.expr, where: str) -> list[ast.expr]:
+def _resolved(settings: _Settings, expression: ast.expr, where: str, followed: frozenset[str] = frozenset()) -> list[ast.expr]:
     """`expression` and, transitively, the value of every module constant it names, so a `Field` behind an alias is read.
 
     A name not followed to one plain module-level assignment, a definition, a library's import or a
     builtin refuses.
     """
     parts = [expression]
-    pending = [expression]
-    seen: set[str] = set()
-    while pending:
-        for node in _names(pending.pop()):
-            if node.id in seen:
-                continue
-            seen.add(node.id)
-            origin = settings.imported.get(node.id)
-            if settings.bindings[node.id] > 1:
-                raise ValueError(f"{where} names {node.id}, which {settings.label} binds more than once, and this reads one of them")
-            if node.id in settings.assigned:
-                parts.append(settings.assigned[node.id])
-                pending.append(settings.assigned[node.id])
-            elif origin is not None:
-                if origin.startswith(".") or origin.partition(".")[0] == BACKEND_PACKAGE:
-                    raise ValueError(f"{where} names {node.id} from {origin}, a module this does not read")
-            elif node.id not in settings.defined and node.id not in BUILTIN_NAMES:
-                raise ValueError(f"{where} names {node.id}, which {settings.label} binds nowhere this reads")
+    for node in _names(expression):
+        # A ring adds no part; `_constant_behind` refuses one a value is read through. Recursive, as
+        # `_constant_behind` is, so this check gone overflows the stack rather than looping for good.
+        if node.id in followed:
+            continue
+        origin = settings.imported.get(node.id)
+        if settings.bindings[node.id] > 1:
+            raise ValueError(f"{where} names {node.id}, which {settings.label} binds more than once, and this reads one of them")
+        if node.id in settings.assigned:
+            parts += _resolved(settings, settings.assigned[node.id], where, followed | {node.id})
+        elif origin is not None:
+            if origin.startswith(".") or origin.partition(".")[0] == BACKEND_PACKAGE:
+                raise ValueError(f"{where} names {node.id} from {origin}, a module this does not read")
+        elif node.id not in settings.defined and node.id not in BUILTIN_NAMES:
+            raise ValueError(f"{where} names {node.id}, which {settings.label} binds nowhere this reads")
     return parts
 
 
-def _constant_behind(settings: _Settings, expression: ast.expr) -> ast.expr:
+def _constant_behind(settings: _Settings, expression: ast.expr, followed: frozenset[str] = frozenset()) -> ast.expr:
     """What a module constant holds, followed through every constant naming another."""
-    followed: set[str] = set()
-    while isinstance(expression, ast.Name) and expression.id in settings.assigned:
-        if expression.id in followed:
-            raise ValueError(f"{settings.label} binds {expression.id} through a ring of constants that holds no value")
-        followed.add(expression.id)
-        expression = settings.assigned[expression.id]
-    return expression
+    if not (isinstance(expression, ast.Name) and expression.id in settings.assigned):
+        return expression
+    # Recursive rather than a loop over a visited set, as `_declared_fields` is: with this check gone a
+    # ring overflows the stack and fails the run, where a loop would hang it.
+    if expression.id in followed:
+        raise ValueError(f"{settings.label} binds {expression.id} through a ring of constants that holds no value")
+    return _constant_behind(settings, settings.assigned[expression.id], followed | {expression.id})
 
 
 def _callee(node: ast.expr) -> str | None:
