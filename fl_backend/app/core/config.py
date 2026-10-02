@@ -192,6 +192,9 @@ class _EnvironmentFields(BaseModel):
         return self
 
 
+# Parsed rather than imported by `scripts/checks/check_compose_model.py :: backend_schema_files`, which
+# holds the compose files to these fields: a file named by any shape but a string or a module constant
+# refuses there.
 class _SecretFields(BaseModel):
     """The credentials, read by `BackendSecrets` from one file each and by `BackendConfig` from it."""
 

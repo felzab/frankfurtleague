@@ -363,6 +363,14 @@
 # bounds. `ops` is not the gate's longest job, so its total does not move; it sits inside its row,
 # and no row moves.
 #
+# `ops` gained `scripts/checks/check_compose_model.py :: backend_files`, with `config.py` parsed for
+# it: 1.95-2.32 ms a call over both stacks, against 0.37-0.40 ms for `:: secret_holders` and
+# 0.28-0.32 ms for `:: frontend_files` in the same rounds, seven interleaved rounds of five hundred
+# calls, once a gate run. `scripts` gained seventeen cases over the rule, 1.30-1.35 s together over
+# three runs, 1.07-1.11 s of it the one case importing the backend's settings in a subprocess. Both
+# measured locally on 2026-10-02 on a sixteen-core Windows machine carrying other agent sessions,
+# so upper bounds; each sits inside its row, and no row moves.
+#
 # `scripts` lost the comment classifier, its cases and its self-check step, and the cases that
 # listed a fixture branch or ran `verify.sh` over it. `scripts/tests/test_gate_pool.py`, whose
 # order case holds one unit open for a second, took 5.9-7.4 s against 4.9-10.4 s, three interleaved

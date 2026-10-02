@@ -9,6 +9,7 @@ than parsing YAML again. Each rule states its invariant at its own function, bes
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
@@ -401,6 +402,117 @@ def frontend_files(model: dict[str, Any], name: str, stack: str, schema: tuple[f
     return findings
 
 
+# The backend's settings, whose secret half is the one declaration of the files it reads from `RUN_SECRETS`.
+BACKEND_CONFIG: Final = REPO_ROOT / "fl_backend" / "app" / "core" / "config.py"
+BACKEND_SERVICE: Final = "backend"
+BACKEND_SECRETS: Final = "BackendSecrets"
+
+
+def _callee(node: ast.expr) -> str | None:
+    """A call's function as its last name spells it, so `Field(...)` and `pydantic.Field(...)` read alike."""
+    if not isinstance(node, ast.Call):
+        return None
+    return node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else None
+
+
+def _is_class_var(annotation: ast.expr) -> bool:
+    """`ClassVar` or `ClassVar[...]`, which pydantic reads as no field."""
+    named = annotation.value if isinstance(annotation, ast.Subscript) else annotation
+    return (isinstance(named, ast.Name) and named.id == "ClassVar") or (isinstance(named, ast.Attribute) and named.attr == "ClassVar")
+
+
+def _declared_fields(classes: dict[str, ast.ClassDef], name: str) -> dict[str, ast.AnnAssign]:
+    """The model fields `name` declares and inherits from this module's classes, its own winning, as pydantic merges them."""
+    fields: dict[str, ast.AnnAssign] = {}
+    for base in classes[name].bases:
+        if isinstance(base, ast.Name) and base.id in classes:
+            fields |= _declared_fields(classes, base.id)
+    for node in classes[name].body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            # A leading underscore is a private attribute, never a field.
+            if not node.target.id.startswith("_") and node.target.id != "model_config" and not _is_class_var(node.annotation):
+                fields[node.target.id] = node
+    return fields
+
+
+def _field_file(field: ast.AnnAssign, assigned: dict[str, ast.expr], where: str) -> tuple[str, bool]:
+    """The file a field is read from, its `validation_alias` or its own name, and whether a default spares the boot it."""
+    name = field.target.id if isinstance(field.target, ast.Name) else ""
+    value = field.value
+    # pydantic merges a `Field` in the annotation, or in a type alias the module declares, with the assigned one.
+    aliased = [assigned[node.id] for node in ast.walk(field.annotation) if isinstance(node, ast.Name) and node.id in assigned]
+    calls = [
+        node for part in (field.annotation, *aliased) for node in ast.walk(part) if isinstance(node, ast.Call) and _callee(node) == "Field"
+    ]
+    defaulted = value is not None
+    if isinstance(value, ast.Call) and _callee(value) == "Field":
+        calls.append(value)
+        # `Field(...)` is the one positional default that still demands a value.
+        defaulted = bool(value.args) and not (isinstance(value.args[0], ast.Constant) and value.args[0].value is Ellipsis)
+    files: set[str] = set()
+    for call in calls:
+        for keyword in call.keywords:
+            if keyword.arg in {"default", "default_factory"}:
+                defaulted = True
+            elif keyword.arg is None or keyword.arg == "alias":
+                raise ValueError(f"{where} may name its file by a keyword this does not read")
+            elif keyword.arg == "validation_alias":
+                alias = assigned.get(keyword.value.id) if isinstance(keyword.value, ast.Name) else keyword.value
+                if not (isinstance(alias, ast.Constant) and isinstance(alias.value, str)):
+                    raise ValueError(f"{where} has a validation_alias that is neither a string nor a module constant holding one")
+                files.add(alias.value)
+    if len(files) > 1:
+        raise ValueError(f"{where} declares two validation_alias values, {sorted(files)}, and pydantic reads one")
+    return (files.pop() if files else name), defaulted
+
+
+def backend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
+    """Every file the backend's secret half reads, and those it cannot boot without.
+
+    Parsed rather than imported from `fl_backend/app/core/config.py :: BackendSecrets`, since the ops
+    scope's interpreter may lack pydantic; a field shape this does not read refuses.
+    """
+    module = ast.parse(config.read_bytes().decode(), filename=config.name)
+    classes = {node.name: node for node in module.body if isinstance(node, ast.ClassDef)}
+    assigned = {
+        target.id: node.value
+        for node in module.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None
+        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+        if isinstance(target, ast.Name)
+    }
+    if BACKEND_SECRETS not in classes:
+        raise ValueError(f"{config.name} declares no {BACKEND_SECRETS} class, so the backend's files were not read")
+    reads: set[str] = set()
+    required: set[str] = set()
+    for field, node in sorted(_declared_fields(classes, BACKEND_SECRETS).items()):
+        file, defaulted = _field_file(node, assigned, f"{config.name} :: {BACKEND_SECRETS}.{field}")
+        reads.add(file)
+        if not defaulted:
+            required.add(file)
+    if not reads:
+        raise ValueError(f"{config.name} :: {BACKEND_SECRETS} declares no field, so the backend's files were not read")
+    return frozenset(reads), frozenset(required)
+
+
+def backend_files(model: dict[str, Any], name: str, schema: tuple[frozenset[str], frozenset[str]]) -> list[Finding]:
+    """The backend is handed every file its secret half requires and none it never reads, on either stack (I430)."""
+    reads, required = schema
+    mounted = _mounted_files(services(model, name).get(BACKEND_SERVICE) or {})
+    findings: list[Finding] = []
+    if missing := sorted(required - mounted):
+        findings.append(
+            Finding(
+                "fail",
+                f"{name}: the backend's schema requires {missing} and compose mounts none of it at {RUN_SECRETS}\n"
+                f"{CONTINUATION}its boot refuses, and nothing short of the deploy's preflight on the host says so (I430)",
+            )
+        )
+    if extra := sorted(mounted - reads):
+        findings.append(Finding("fail", f"{name}: compose hands the backend {extra}, which its schema never reads (I430)"))
+    return findings
+
+
 def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
     """No service is handed a name in `MOVED_ENV_NAMES` through `environment:`, in any letter case (I509).
 
@@ -719,6 +831,8 @@ def main() -> int:
         findings += config_holders(prod_model, "production", "production") + config_holders(local_model, "local", "local")
         schema = frontend_schema_files(FRONTEND_CONFIG)
         findings += frontend_files(prod_model, "production", "production", schema) + frontend_files(local_model, "local", "local", schema)
+        settings = backend_schema_files(BACKEND_CONFIG)
+        findings += backend_files(prod_model, "production", settings) + backend_files(local_model, "local", settings)
         findings += moved_names(prod_model, "production") + moved_names(local_model, "local")
         findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
         findings += secrets_directory(local_model, "local", Path(args.local).resolve().parent)
@@ -745,7 +859,7 @@ def main() -> int:
         print("      each secret is held by the services SECRET_HOLDERS names alone, read from its own file, in both stacks")
         print(f"      the local stack's logins are inline configs naming its own {LOCAL_DATABASE_SERVICE} service alone")
         print("      no service is handed a moved credential's name in its environment")
-        print("      the frontend is handed every file its schema requires on each stack, and none it never reads")
+        print("      each application service is handed every file its schema requires on each stack, and none it never reads")
         print(f"      no service mounts {SECRETS_PATH}/ but through a secret naming its file")
     return code
 

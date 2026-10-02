@@ -11,6 +11,8 @@ import contextlib
 import io
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Final
 
@@ -944,6 +946,153 @@ def test_main_judges_the_frontend_files_of_both_models():
 
         assert code == 1, said
         assert f"{broken}: the frontend's schema requires ['auth_secret']" in said, said
+
+
+# --- the files the backend's secret half reads, against what compose hands it ----------------------------
+
+SETTINGS: Final = checker.backend_schema_files(checker.BACKEND_CONFIG)
+
+
+def settings_file(body: str) -> Path:
+    """A `config.py` of the case's own: one constant, a base class and the class the reader starts from."""
+    path = new_root("fl-compose-settings-") / "config.py"
+    path.write_bytes(f'NAMED: Final = "named_file"\n\n\nclass _Base(BaseModel):\n    inherited: SecretStr\n\n\n{body}'.encode())
+    return path
+
+
+def test_the_backend_s_files_are_read_off_config_py_as_the_backend_itself_names_them():
+    """Held to `SECRET_FILES` as pydantic computes it, a route the parse shares nothing with, so a field shape it misreads fails here."""
+    imported = subprocess.run(
+        [sys.executable, "-c", "import json\nfrom app.core.config import SECRET_FILES\nprint(json.dumps(sorted(SECRET_FILES)))"],
+        cwd=checker.REPO_ROOT / "fl_backend",
+        capture_output=True,
+        check=True,
+        env=base_env(),
+    )
+    reads, required = SETTINGS
+
+    assert sorted(reads) == json.loads(imported.stdout), imported.stderr
+    assert required == reads, "every secret the backend reads is one its boot demands"
+
+
+def test_each_field_shape_is_read_as_pydantic_reads_it():
+    """An alias as a string or a module constant, an inherited field, a default; a class variable and a private name are no field."""
+    path = settings_file(
+        "class BackendSecrets(BaseSettings, _Base):\n"
+        "    model_config = SettingsConfigDict()\n"
+        '    plain: SecretStr = Field(description="x")\n'
+        "    constant: SecretStr = Field(validation_alias=NAMED)\n"
+        '    spelled: SecretStr = Field(validation_alias="spelled_file")\n'
+        "    annotated: Annotated[SecretStr, Field(min_length=1)] = Field(...)\n"
+        "    optional: SecretStr | None = None\n"
+        "    factory: SecretStr = Field(default_factory=lambda: None)\n"
+        "    counted: ClassVar[int] = 0\n"
+        "    _private: str = ''\n"
+    )
+
+    reads, required = checker.backend_schema_files(path)
+
+    assert reads == {"inherited", "plain", "named_file", "spelled_file", "annotated", "optional", "factory"}
+    assert required == {"inherited", "plain", "named_file", "spelled_file", "annotated"}
+
+
+@pytest.mark.parametrize(
+    ("field", "said"),
+    [
+        pytest.param('Field(alias="x")', "a keyword this does not read", id="alias"),
+        pytest.param("Field(**EXTRA)", "a keyword this does not read", id="unpacked"),
+        pytest.param('Field(validation_alias=AliasChoices("a", "b"))', "neither a string nor a module constant", id="choices"),
+        pytest.param("Field(validation_alias=UNDECLARED)", "neither a string nor a module constant", id="unresolved"),
+    ],
+)
+def test_a_field_naming_its_file_another_way_refuses(field: str, said: str):
+    """Read past, it would count as its own name, and a file compose mounts under the real one would read as never read."""
+    with pytest.raises(ValueError, match=said):
+        checker.backend_schema_files(settings_file(f"class BackendSecrets(BaseSettings, _Base):\n    secret: SecretStr = {field}\n"))
+
+
+def test_two_aliases_for_one_field_refuse():
+    body = 'class BackendSecrets(BaseSettings):\n    secret: Annotated[SecretStr, Field(validation_alias="a")] = Field(validation_alias="b")\n'
+
+    with pytest.raises(ValueError, match="two validation_alias values"):
+        checker.backend_schema_files(settings_file(body))
+
+
+@pytest.mark.parametrize(
+    ("body", "said"),
+    [
+        pytest.param("class Other(BaseSettings):\n    secret: SecretStr\n", "declares no BackendSecrets class", id="no-class"),
+        pytest.param("class BackendSecrets(BaseSettings):\n    model_config = SettingsConfigDict()\n", "declares no field", id="no-field"),
+    ],
+)
+def test_a_declaration_the_backend_reader_cannot_find_refuses(body: str, said: str):
+    with pytest.raises(ValueError, match=said):
+        checker.backend_schema_files(settings_file(body))
+
+
+def backend_handed(stack: str) -> dict[str, Any]:
+    """The backend as Compose renders it on `stack`, holding what the two tables give it."""
+    return holding(stack, "backend") | configured(stack, "backend")
+
+
+@pytest.mark.parametrize("stack", ["production", "local"])
+def test_each_stack_handing_the_backend_what_its_settings_require_is_clean(stack: str):
+    """Locally the login arrives as a config, at the path a secret would."""
+    assert checker.backend_files(model(backend=backend_handed(stack)), "p", SETTINGS) == []
+
+
+@pytest.mark.parametrize(("stack", "dropped"), [("production", "backend_mongodb_uri"), ("local", "sperrliste_schluessel")])
+def test_a_file_the_backend_requires_left_unmounted_fails(stack: str, dropped: str):
+    """The boot refuses it, and without this only the deploy's preflight on the host, or `local.sh`, says so."""
+    backend = backend_handed(stack)
+    backend["secrets"] = [entry for entry in backend.get("secrets", []) if entry["source"] != dropped]
+    backend["configs"] = [entry for entry in backend.get("configs", []) if not entry["target"].endswith(f"/{dropped}")]
+
+    found = checker.backend_files(model(backend=backend), "p", SETTINGS)
+
+    assert [finding.detail.split("\n")[0] for finding in found] == [
+        f"p: the backend's schema requires ['{dropped}'] and compose mounts none of it at /run/secrets"
+    ]
+
+
+def test_a_file_the_backend_never_reads_handed_to_it_fails():
+    """One more holder of a credential nothing on that side reads."""
+    backend = backend_handed("production")
+    backend["secrets"] = [*backend["secrets"], {"source": "auth_secret"}]
+
+    found = checker.backend_files(model(backend=backend), "p", SETTINGS)
+
+    assert [finding.detail for finding in found] == ["p: compose hands the backend ['auth_secret'], which its schema never reads (I430)"]
+
+
+def test_a_file_the_backend_starts_reading_fails_until_compose_mounts_it():
+    """The drift this rule exists for: a settings change alone, which every other gate step passes."""
+    reads, required = SETTINGS
+
+    found = checker.backend_files(model(backend=backend_handed("production")), "p", (reads | {"a_new_file"}, required | {"a_new_file"}))
+
+    assert len(found) == 1 and "['a_new_file']" in found[0].detail, found
+
+
+def test_a_file_with_a_default_may_be_left_unmounted():
+    """The boot reads it where it is and goes on where it is not."""
+    reads, required = SETTINGS
+
+    assert checker.backend_files(model(backend=backend_handed("production")), "p", (reads | {"optional_file"}, required)) == []
+
+
+def test_main_judges_the_backend_files_of_both_models():
+    project = new_root("fl-compose-main-settings-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        backend = ({"production": production, "local": local}[broken])["services"]["backend"]
+        backend["secrets"] = [entry for entry in backend["secrets"] if entry["source"] != "sperrliste_schluessel"]
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: the backend's schema requires ['sperrliste_schluessel']" in said, said
 
 
 # --- the names the secret files replace ----------------------------------------------------------------
