@@ -341,8 +341,52 @@ def _template_pattern(template: ast.expr) -> re.Pattern[str] | None:
     return re.compile(pattern)
 
 
+def _sent_past_the_step_up_window(node: ast.AST) -> ast.Call | None:
+    """The request `node` sends to its class's `URL` from a sign-in past the step-up window, awaited or not."""
+
+    call = node.value if isinstance(node, ast.Await) else node
+    if (
+        isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Attribute)
+        and ast.unparse(call.func.value) == "http"
+        and call.func.attr in _HTTP_METHODS
+        and [ast.unparse(argument) for argument in call.args[:1]] == ["self.URL"]
+        and any(keyword.arg == "headers" and ast.unparse(keyword.value) == "OLDER" for keyword in call.keywords)
+    ):
+        return call
+
+    return None
+
+
+def _refused_past_the_step_up_window(suite: ast.ClassDef) -> Iterator[ast.Call]:
+    """Each such request whose answer `suite` hands to `refused`.
+
+    A request merely sent counts nothing: the class's cases taking the older sign-in send one too, so
+    an operation whose refusal case is gone would still read as driven.
+    """
+
+    for function in ast.walk(suite):
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        own = list(_own_nodes(function))
+        bound = {
+            statement.targets[0].id: request
+            for statement in own
+            if isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+            and (request := _sent_past_the_step_up_window(statement.value)) is not None
+        }
+        for call in own:
+            if isinstance(call, ast.Call) and ast.unparse(call.func) == "refused" and call.args:
+                answer = call.args[0]
+                request = bound.get(answer.id) if isinstance(answer, ast.Name) else _sent_past_the_step_up_window(answer)
+                if request is not None:
+                    yield request
+
+
 def _driven_past_the_step_up_window() -> set[tuple[str, str]]:
-    """Each operation the execution suite sends a request from a sign-in past the step-up window, read off its source.
+    """Each operation the execution suite asserts refused from a sign-in past the step-up window, read off its source.
 
     Read rather than listed, so a class leaving the suite takes its operation out of the set.
     """
@@ -357,16 +401,8 @@ def _driven_past_the_step_up_window() -> set[tuple[str, str]]:
             for statement in suite.body
             if isinstance(statement, ast.Assign) and [ast.unparse(target) for target in statement.targets] == ["URL"]
         ]
-        for call in ast.walk(suite):
-            if not (
-                isinstance(call, ast.Call)
-                and isinstance(call.func, ast.Attribute)
-                and ast.unparse(call.func.value) == "http"
-                and call.func.attr in _HTTP_METHODS
-                and [ast.unparse(argument) for argument in call.args[:1]] == ["self.URL"]
-                and any(keyword.arg == "headers" and ast.unparse(keyword.value) == "OLDER" for keyword in call.keywords)
-            ):
-                continue
+        for call in _refused_past_the_step_up_window(suite):
+            assert isinstance(call.func, ast.Attribute)
             assert len(urls) == 1 and urls[0] is not None, f"{suite.name} names no URL this reader can match"
             matched = [(path, method) for path, method in served if method == call.func.attr and urls[0].fullmatch(path)]
             assert len(matched) == 1, f"{suite.name}'s {call.func.attr} matches {matched}, not one served operation"
