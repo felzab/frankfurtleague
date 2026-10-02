@@ -358,15 +358,60 @@ def _sent_past_the_step_up_window(node: ast.AST) -> ast.Call | None:
     return None
 
 
-def _refused_past_the_step_up_window(suite: ast.ClassDef) -> Iterator[ast.Call]:
-    """Each such request whose answer `suite` hands to `refused`.
+_FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+# What else decides whether pytest collects a `Test` class, besides a decorator or a base: its
+# `Class.collect`, read at release 9.1.1.
+_COLLECTION_SWITCHES = frozenset({"__init__", "__new__", "__test__"})
+
+
+def _bound_in(body: list[ast.stmt]) -> set[str]:
+    targets = [target for statement in body if isinstance(statement, ast.Assign) for target in statement.targets]
+    targets += [statement.target for statement in body if isinstance(statement, ast.AnnAssign)]
+
+    return {statement.name for statement in body if isinstance(statement, _FUNCTIONS)} | {
+        target.id for target in targets if isinstance(target, ast.Name)
+    }
+
+
+def _collected(body: list[ast.stmt]) -> Iterator[tuple[ast.ClassDef, list[ast.FunctionDef | ast.AsyncFunctionDef]]]:
+    """Each class pytest collects from `body`, nested ones included, with the test methods it collects from that class.
+
+    A class whose collection anything but its name decides fails here rather than being counted.
+    """
+
+    for suite in body:
+        if not (isinstance(suite, ast.ClassDef) and suite.name.startswith("Test")):
+            continue
+        assert not (suite.bases or suite.keywords or _bound_in(suite.body) & _COLLECTION_SWITCHES), (
+            f"{suite.name}'s collection is decided by more than its name, which this reader does not follow"
+        )
+        assert all(ast.unparse(decorator).startswith("pytest.mark.") for decorator in suite.decorator_list), (
+            f"{suite.name} carries a decorator other than a mark, which may give it the constructor pytest skips a class for"
+        )
+        yield (
+            suite,
+            [
+                method
+                for method in suite.body
+                if isinstance(method, _FUNCTIONS)
+                and method.name.startswith("test")
+                # pytest collects no fixture as a test, whatever its name.
+                and not any("fixture" in ast.unparse(decorator) for decorator in method.decorator_list)
+            ],
+        )
+        yield from _collected(suite.body)
+
+
+def _refused_past_the_step_up_window(tests: list[ast.FunctionDef | ast.AsyncFunctionDef]) -> Iterator[ast.Call]:
+    """Each such request whose answer `tests` hand to `refused`.
 
     A request merely sent counts nothing: the class's cases taking the older sign-in send one too, so
     an operation whose refusal case is gone would still read as driven.
     """
 
-    for function in ast.walk(suite):
-        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+    for function in (node for test in tests for node in ast.walk(test)):
+        if not isinstance(function, _FUNCTIONS):
             continue
         own = list(_own_nodes(function))
         bound = {
@@ -393,15 +438,13 @@ def _driven_past_the_step_up_window() -> set[tuple[str, str]]:
 
     served = [(route.path_format, method.lower()) for route in api_routes(APP) for method in route.methods or ()]
     driven: set[tuple[str, str]] = set()
-    for suite in ast.walk(ast.parse(STEP_UP_EXECUTION.read_bytes())):
-        if not isinstance(suite, ast.ClassDef):
-            continue
+    for suite, tests in _collected(ast.parse(STEP_UP_EXECUTION.read_bytes()).body):
         urls = [
             _template_pattern(statement.value)
             for statement in suite.body
             if isinstance(statement, ast.Assign) and [ast.unparse(target) for target in statement.targets] == ["URL"]
         ]
-        for call in _refused_past_the_step_up_window(suite):
+        for call in _refused_past_the_step_up_window(tests):
             assert isinstance(call.func, ast.Attribute)
             assert len(urls) == 1 and urls[0] is not None, f"{suite.name} names no URL this reader can match"
             matched = [(path, method) for path, method in served if method == call.func.attr and urls[0].fullmatch(path)]
