@@ -1345,7 +1345,7 @@ class TestTheMountedRouteReadsTheGrants:
         assert on_a_league(mongo_replica_set_url, body) == (status, error_code)
 
     def test_the_first_owner_signs_in_before_the_pass_finds_the_paste_and_once_more_after_it(self, mongo_replica_set_url: str):
-        """A paste nothing has found is dated by its own `erteilt_am`, so no owner waits on a pass.
+        """A paste nothing has found is dated as it was pasted, so no owner waits on a pass.
 
         The pass's clock then dates it, which the same session predates, and a sign-in after the pass is served.
         """
@@ -1369,6 +1369,50 @@ class TestTheMountedRouteReadsTheGrants:
             return [before_the_pass, the_same_session, signed_in_again]
 
         assert on_a_league(mongo_replica_set_url, body) == [(200, None), (401, ACTOR_TOKEN_REFUSED), (200, None)]
+
+    def test_a_paste_typed_with_a_past_date_admits_no_session_older_than_the_paste(self, mongo_replica_set_url: str):
+        """Dated by the id the paste generated, so the typed hour before it opens nothing while no pass has run."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
+            signed_in_before_the_paste = int(time.time()) - 600
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(ObjectId(), NEU, "owner") | {"erteilt_am": since(3600)})
+
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+
+                async def asked(auth_time: int) -> tuple[int, str | None]:
+                    response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(NEU, auth_time))
+                    return response.status_code, response.json().get("error_code")
+
+                return [await asked(signed_in_before_the_paste), await asked(int(time.time()))]
+
+        assert on_a_league(mongo_replica_set_url, body) == [(401, ACTOR_TOKEN_REFUSED), (200, None)]
+
+    def test_an_address_changed_in_place_admits_nobody_until_the_pass_finds_it(self, mongo_replica_set_url: str):
+        """The row's dates are the address before's until the pass, so no session of the new holder is judged against them."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
+            await told(database, client)
+            before_the_repoint = int(time.time()) - 60
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+
+                async def asked(auth_time: int) -> tuple[int, str | None]:
+                    response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(NEU, auth_time))
+                    return response.status_code, response.json().get("error_code")
+
+                before_the_pass = [await asked(before_the_repoint), await asked(int(time.time()))]
+                await claimed(database, client, now=datetime.now(UTC))
+                after_the_pass = [await asked(before_the_repoint), await asked(int(time.time()))]
+
+            return [*before_the_pass, *after_the_pass]
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            (403, ACTOR_NOT_ADMIN),
+            (403, ACTOR_NOT_ADMIN),
+            (401, ACTOR_TOKEN_REFUSED),
+            (200, None),
+        ]
 
     @pytest.mark.parametrize(
         ("actor", "status"),

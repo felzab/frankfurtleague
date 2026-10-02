@@ -151,13 +151,16 @@ class TestTheActorChecksTwoReads:
     def test_the_grant_and_the_ban_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
 
-        async def pull_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
-            return await reads.answer(BERECHTIGUNGEN, [{"adresse": IDENTIFIER, "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC)}])
+        # The grant beside its record, as the one read joining the two answers it.
+        grant = {"adresse": IDENTIFIER, "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC), "angekuendigt": [{"adresse": IDENTIFIER}]}
+
+        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
+            return await reads.answer(BERECHTIGUNGEN, [grant])
 
         async def adressen_gesperrt(*_: Any, **__: Any) -> set[str]:
             return await reads.answer("ban", set())
 
-        monkeypatch.setattr(berechtigungen_crud, "pull_many_from_db", pull_many_from_db)
+        monkeypatch.setattr(berechtigungen_crud, "aggregate_many_from_db", aggregate_many_from_db)
         monkeypatch.setattr(berechtigungen_crud, "adressen_gesperrt", adressen_gesperrt)
 
         stand_in = cast(Any, None)

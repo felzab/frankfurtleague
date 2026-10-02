@@ -62,13 +62,22 @@ def lebendige_adresse(row: Mapping[str, Any]) -> str | None:
     return adresse if is_stored_identifier(adresse) else None
 
 
-def berechtigt_seit(row: Mapping[str, Any]) -> datetime:
-    """When a stored grant took effect, the one reading the subject lookup and the actor check share (`docs/backend/spec.md :: I525`).
+def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
+    """When a stored grant took effect, the one reading the subject lookup and the actor check share.
 
-    Two readings would let the frontend's guard and this side judge one session against two instants.
+    Two readings would let the frontend's guard and this side judge one session against two instants
+    (`docs/backend/spec.md :: I525`).
     """
 
-    return as_utc(row.get("gefunden_am") or row["erteilt_am"])
+    seit = as_utc(row.get("gefunden_am") or row["erteilt_am"])
+    if angekuendigt is None:
+        # A paste no comparison has found, whose typed date can lie before it: never earlier than the
+        # id the Playground generated as it inserted the row, so its holder's first sign-in still admits.
+        return max(seit, row["_id"].generation_time)
+
+    # An address changed in place before the comparison found it: nothing dates the change, and the
+    # dates the row carries are the address before's.
+    return seit if angekuendigt.get("adresse") == row.get("adresse") else None
 
 
 def gefunden(

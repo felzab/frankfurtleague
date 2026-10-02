@@ -17,6 +17,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.berechtigungen.schemas import FLVerwaltung
 from app.api.berechtigungen.services import berechtigt_seit, lebendige_adresse
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
+from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -55,22 +56,52 @@ async def pull_the_list_to_judge(
     return grants
 
 
-# What `berechtigt_seit` reads, beside what each caller reads for itself.
-_SEIT_FIELDS = ["erteilt_am", "gefunden_am"]
+async def _grant_and_its_record(
+    *, berechtigungen_collection: AsyncCollection, adresse: str, fields: list[str]
+) -> tuple[Mapping[str, Any], Mapping[str, Any] | None] | None:
+    """The row this folded address holds and its record in `berechtigungen_angekuendigt`, joined in one read.
+
+    Every admin-tier request makes it, and a second read by the row's id would cost each a round trip.
+    """
+
+    found = await aggregate_many_from_db(
+        collection=berechtigungen_collection,
+        pipeline=[
+            {"$match": {"adresse": adresse}},
+            {"$limit": 1},
+            {"$project": {field: 1 for field in [*fields, "adresse", "erteilt_am", "gefunden_am"]}},
+            {
+                "$lookup": {
+                    "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+                    "localField": "_id",
+                    "foreignField": "_id",
+                    "pipeline": [{"$project": {"adresse": 1}}],
+                    "as": "angekuendigt",
+                }
+            },
+        ],
+    )
+    if not found:
+        return None
+
+    return found[0], next(iter(found[0]["angekuendigt"]), None)
 
 
 async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> tuple[FLVerwaltung, datetime] | None:
-    """The tier this folded address holds and when it took effect, or `None`, by one equality.
+    """The tier this folded address holds and when it took effect, or `None`.
 
     No dead-row check: its one caller folds an address the address rule admitted, and a row equal to
     that is live (`docs/backend/spec.md :: I453`).
     """
 
-    found = await pull_many_from_db(
-        collection=berechtigungen_collection, db_filter={"adresse": adresse}, limit=1, projection=["verwaltung", *_SEIT_FIELDS]
-    )
+    grant = await _grant_and_its_record(berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=["verwaltung"])
+    if grant is None:
+        return None
 
-    return (found[0]["verwaltung"], berechtigt_seit(found[0])) if found else None
+    row, angekuendigt = grant
+    seit = berechtigt_seit(row, angekuendigt)
+
+    return None if seit is None else (row["verwaltung"], seit)
 
 
 async def live_unbarred_grant_since(
@@ -86,16 +117,14 @@ async def live_unbarred_grant_since(
 
     # Both at once rather than the ban after a grant is found: an admin-tier caller passed the
     # frontend's own grant read moments before, so the ban read that order would spare is almost never spared.
-    found, barred = await asyncio.gather(
-        pull_many_from_db(
-            collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse", *_SEIT_FIELDS]
-        ),
+    grant, barred = await asyncio.gather(
+        _grant_and_its_record(berechtigungen_collection=berechtigungen_collection, adresse=identifier, fields=[]),
         adressen_gesperrt(sperrliste, [identifier]),
     )
-    if not found or lebendige_adresse(found[0]) is None or barred:
+    if grant is None or lebendige_adresse(grant[0]) is None or barred:
         return None
 
-    return berechtigt_seit(found[0])
+    return berechtigt_seit(*grant)
 
 
 async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:

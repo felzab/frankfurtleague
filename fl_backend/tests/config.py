@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from bson import ObjectId
 from pydantic import SecretStr
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
@@ -77,12 +78,18 @@ def grants_for_the_suite() -> list[dict[str, Any]]:
     Written straight to the collection, as the Playground writes a grant: no route writes a first owner.
     """
 
+    pasted = datetime(2026, 1, 1, tzinfo=UTC)
+
     return [
         {
+            # Generated as the paste ran, as the Playground generates one: a grant no reconciliation has
+            # found dates no earlier than its id (`docs/backend/spec.md :: I525`), so an id minted at the
+            # seed would postdate every session a case signs.
+            "_id": ObjectId(ObjectId.from_datetime(pasted).binary[:4] + index.to_bytes(8, "big")),
             "adresse": adresse,
             "verwaltung": "owner" if index == 0 else "administration",
             "erteilt_von": "PLAYGROUND",
-            "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC),
+            "erteilt_am": pasted,
         }
         for index, adresse in enumerate(ADMINISTRATORS)
     ]

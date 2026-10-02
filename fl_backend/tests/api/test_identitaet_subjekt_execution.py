@@ -78,6 +78,8 @@ BAN_LAPSED_OID = ObjectId("6890a1b2c3d4e5f607820042")
 VERWALTUNG_INHABER = "inhaberin@frankfurtleague.de"
 VERWALTUNG_STORED = "verena.verwaltung@schule.de"
 VERWALTUNG_ASKED = "Verena.Verwaltung@SCHULE.de"
+GRANT_INHABER_OID = ObjectId("6890a1b2c3d4e5f607820051")
+GRANT_STORED_OID = ObjectId("6890a1b2c3d4e5f607820052")
 
 # One mailbox at an internationalised domain, stored as every payload stores it
 # (`docs/backend/spec.md :: I332`): the domain in punycode, and folded too on a pupil's row.
@@ -265,8 +267,17 @@ async def _seed(database: AsyncDatabase) -> None:
             ban_document(ABGELAUFEN, bis=PAST_SAISON, _id=BAN_LAPSED_OID),
         ]
     )
-    await database[Collection.BERECHTIGUNGEN].insert_many(
-        [_grant(VERWALTUNG_INHABER, "owner") | {"gefunden_am": GRANT_FOUND}, _grant(VERWALTUNG_STORED, "administration")]
+    grants = [
+        _grant(GRANT_INHABER_OID, VERWALTUNG_INHABER, "owner") | {"gefunden_am": GRANT_FOUND},
+        _grant(GRANT_STORED_OID, VERWALTUNG_STORED, "administration"),
+    ]
+    await database[Collection.BERECHTIGUNGEN].insert_many(grants)
+    # Both announced: the `owner` grant found by the reconciliation, the other made by the grant route.
+    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_many(
+        [
+            {"_id": grant["_id"], "adresse": grant["adresse"], "verwaltung": grant["verwaltung"], "angekuendigt_am": GRANT_FOUND}
+            for grant in grants
+        ]
     )
 
 
@@ -275,10 +286,10 @@ GRANT_TYPED = datetime(2026, 1, 1, tzinfo=UTC)
 GRANT_FOUND = datetime(2026, 1, 2, 8, 30, tzinfo=UTC)
 
 
-def _grant(adresse: str, verwaltung: str) -> dict[str, Any]:
+def _grant(grant_id: ObjectId, adresse: str, verwaltung: str) -> dict[str, Any]:
     """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
 
-    return {"adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": GRANT_TYPED}
+    return {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": GRANT_TYPED}
 
 
 def on_a_league(url: str, body: Body) -> Any:
@@ -621,6 +632,32 @@ class TestTheGrant:
         """
 
         assert [answered(mongo_url, email).berechtigt_seit for email in (VERWALTUNG_INHABER, VERWALTUNG_ASKED)] == [GRANT_FOUND, GRANT_TYPED]
+
+    def test_an_address_changed_in_place_before_the_reconciliation_found_it_is_answered_no_grant(self, mongo_url: str):
+        """Its row still carries the address before's dates, so a tier dated by them would admit the new holder's older sessions."""
+
+        async def repointed(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"adresse": BYSTANDER}})
+
+            return await call_subjekt(database, BYSTANDER)
+
+        answer = on_a_league(mongo_url, repointed)
+
+        assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
+
+    def test_a_paste_no_reconciliation_has_found_is_dated_no_earlier_than_its_id(self, mongo_url: str):
+        """Typed long before it was pasted, so the frontend's guard would admit sessions older than the paste."""
+
+        pasted = datetime(2026, 3, 1, 9, 0, tzinfo=UTC)
+
+        async def pasted_late(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].insert_one(_grant(ObjectId.from_datetime(pasted), BYSTANDER, "administration"))
+
+            return await call_subjekt(database, BYSTANDER)
+
+        answer = on_a_league(mongo_url, pasted_late)
+
+        assert (answer.verwaltung, answer.berechtigt_seit) == ("administration", pasted)
 
     def test_the_instant_is_served_with_its_offset(self, mongo_url: str):
         """The driver reads a stored instant back with no offset, which the frontend would compare as its own local time."""

@@ -74,21 +74,52 @@ def test_a_grant_found_new_is_one_the_comparison_stamps_and_a_tier_change_is_not
     assert gefunden(changes) == [FIRST]
 
 
+# A record matching the row, as the reconciliation or a grant made here leaves one.
+ANNOUNCED = {"adresse": "anna@schule.de"}
+
+# Generated at a paste a month after `TYPED`, and before `FOUND`.
+PASTED = datetime(2026, 2, 1, 9, 0, tzinfo=UTC)
+PASTED_ID = ObjectId.from_datetime(PASTED)
+
+
+def stored(**fields: Any) -> dict[str, Any]:
+    return {"_id": PASTED_ID, "adresse": "anna@schule.de", "erteilt_am": TYPED, **fields}
+
+
 class TestWhenAGrantTookEffect:
     """The one reading the subject lookup and the actor check share, so neither judges a session against another instant."""
 
     def test_the_comparison_s_stamp_outranks_the_row_s_own_date(self):
         """A paste's `erteilt_am` is whatever was typed, and a repoint keeps the address before's."""
 
-        assert berechtigt_seit({"erteilt_am": TYPED, "gefunden_am": FOUND}) == FOUND.replace(tzinfo=UTC)
+        assert berechtigt_seit(stored(gefunden_am=FOUND), ANNOUNCED) == FOUND.replace(tzinfo=UTC)
 
-    @pytest.mark.parametrize("stored", [pytest.param({}, id="no stamp"), pytest.param({"gefunden_am": None}, id="a null stamp")])
-    def test_a_row_nothing_found_is_dated_by_its_own_erteilt_am(self, stored: dict[str, Any]):
-        """A grant made here, and a paste no pass has reached yet: dated otherwise, the first owner could sign in to nothing until one ran."""
+    @pytest.mark.parametrize("stamp", [pytest.param({}, id="no stamp"), pytest.param({"gefunden_am": None}, id="a null stamp")])
+    def test_an_announced_row_nothing_found_is_dated_by_its_own_erteilt_am(self, stamp: dict[str, Any]):
+        """A grant made here, which wrote its record as it wrote the row: its id's moment never moves it."""
 
-        assert berechtigt_seit({"erteilt_am": TYPED, **stored}) == TYPED.replace(tzinfo=UTC)
+        assert berechtigt_seit(stored(**stamp), ANNOUNCED) == TYPED.replace(tzinfo=UTC)
+
+    @pytest.mark.parametrize(
+        ("typed", "dated"),
+        [
+            pytest.param(TYPED, PASTED, id="typed before the paste, dated by its id"),
+            pytest.param(FOUND, FOUND.replace(tzinfo=UTC), id="typed after it, dated as typed"),
+        ],
+    )
+    def test_a_paste_nothing_found_is_dated_no_earlier_than_its_id(self, typed: datetime, dated: datetime):
+        """Dated by its typed `erteilt_am` alone, a session signed in before the paste would administer until a pass ran."""
+
+        assert berechtigt_seit(stored(erteilt_am=typed), None) == dated
+
+    def test_an_address_changed_in_place_before_any_pass_found_it_admits_nobody(self):
+        """Its dates are the address before's, and nothing records when the change was made."""
+
+        assert berechtigt_seit(stored(adresse="berta@schule.de", gefunden_am=FOUND), ANNOUNCED) is None
 
     def test_the_instant_is_the_utc_one_the_driver_read_back_without_an_offset(self):
         """Compared against an epoch second, a naive instant taken for local time would move every grant by the host's offset."""
 
-        assert berechtigt_seit({"erteilt_am": TYPED}).utcoffset() == timedelta(0)
+        seit = berechtigt_seit(stored(), ANNOUNCED)
+
+        assert seit is not None and seit.utcoffset() == timedelta(0)
