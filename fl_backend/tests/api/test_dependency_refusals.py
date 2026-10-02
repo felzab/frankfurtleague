@@ -21,11 +21,12 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from pathlib import Path
 from types import ModuleType
-from typing import Any, get_type_hints
+from typing import Any
 
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
+from app.core.exception_handlers import refused_codes
 from app.core.exceptions import BaseAPIException, DocumentNotFoundException, WriteRefusalException
 from app.core.security import ACTOR_HEADER, STEP_UP_WINDOW_S, verify_access_admin, verify_access_base, verify_access_system
 from app.main import DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, create_app, dependency_refusals
@@ -112,6 +113,9 @@ class _Raise:
     #: The class the raise instantiates, resolved through the module's own namespace; `None` for a
     #: bare re-raise and for anything no class can be read off.
     raised: type[BaseException] | None
+    #: The status and code a refusal built from values the module itself holds answers; `None` where
+    #: an argument is a value only the running call has.
+    answers: tuple[HTTPStatus, str] | None
 
 
 def _module_at(path: Path) -> ModuleType:
@@ -132,30 +136,97 @@ def _scope_table(table: symtable.SymbolTable, declaration: ast.FunctionDef | ast
     raise AssertionError(f"no symbol table for `{declaration.name}`, so the names its raises spell cannot be resolved")
 
 
+_UNRESOLVED = object()
+
+
+def _module_value(expression: ast.expr, table: symtable.SymbolTable, module: ModuleType) -> Any:
+    """A literal, or a dotted name rooted in one global of the module; `_UNRESOLVED` for a value only the running scope holds."""
+
+    if isinstance(expression, ast.Constant):
+        return expression.value
+
+    attributes: list[str] = []
+    while isinstance(expression, ast.Attribute):
+        attributes.append(expression.attr)
+        expression = expression.value
+
+    if not isinstance(expression, ast.Name) or not table.lookup(expression.id).is_global():
+        return _UNRESOLVED
+
+    target = vars(module)[expression.id] if expression.id in vars(module) else getattr(builtins, expression.id, _UNRESOLVED)
+    for attribute in reversed(attributes):
+        target = getattr(target, attribute, _UNRESOLVED)
+
+    return target
+
+
+def _table_of(table: symtable.SymbolTable, declaration: ast.FunctionDef | ast.AsyncFunctionDef) -> symtable.SymbolTable | None:
+    """The declaration's own table wherever in the module it is nested."""
+
+    for child in table.get_children():
+        if child.get_name() == declaration.name and child.get_lineno() == declaration.lineno:
+            return _scope_table(table, declaration)
+        if (found := _table_of(child, declaration)) is not None:
+            return found
+
+    return None
+
+
+def _returned_class(factory: Any) -> type[BaseException] | None:
+    """The one class a factory's own `return` statements build, each read as a raise is, or `None`.
+
+    Never its annotation, which pyright lets name a supertype: a refusal factory annotated
+    `-> Exception` would raise a code nothing here holds.
+    """
+
+    path = module_of(factory)
+    declaration = declared(factory)
+    table = _table_of(symtable.symtable(path.read_text(encoding="utf-8"), str(path), "exec"), declaration)
+    assert table is not None, f"no symbol table for `{declaration.name}`, so what it returns cannot be resolved"
+
+    module = importlib.import_module(factory.__module__)
+    built = {_raised_class(node.value, table, module) for node in _own_nodes(declaration) if isinstance(node, ast.Return)}
+
+    return next(iter(built)) if len(built) == 1 else None
+
+
 def _raised_class(exc: ast.expr | None, table: symtable.SymbolTable, module: ModuleType) -> type[BaseException] | None:
     """Read only where the callee's root name is global in its scope: a local or a closure's name is a value nothing here can follow."""
 
     if not isinstance(exc, ast.Call):
         return None
 
-    attributes: list[str] = []
-    callee = exc.func
-    while isinstance(callee, ast.Attribute):
-        attributes.append(callee.attr)
-        callee = callee.value
-
-    if not isinstance(callee, ast.Name) or not table.lookup(callee.id).is_global():
-        return None
-
-    target = vars(module)[callee.id] if callee.id in vars(module) else getattr(builtins, callee.id, None)
-    for attribute in reversed(attributes):
-        target = getattr(target, attribute, None)
-
-    # A factory answers for the class its return annotation names, which pyright holds its body to.
+    target = _module_value(exc.func, table, module)
     if inspect.isfunction(target):
-        target = get_type_hints(target).get("return")
+        return _returned_class(target)
 
     return target if isinstance(target, type) and issubclass(target, BaseException) else None
+
+
+def _answers(
+    exc: ast.expr | None, raised: type[BaseException] | None, table: symtable.SymbolTable, module: ModuleType
+) -> tuple[HTTPStatus, str] | None:
+    """The refusal built again from the raise's own arguments, where the module holds every one of them, and what it answers."""
+
+    if (
+        not isinstance(exc, ast.Call)
+        or raised is None
+        or not issubclass(raised, BaseAPIException)
+        or not isinstance(_module_value(exc.func, table, module), type)
+    ):
+        return None
+
+    arguments = [_module_value(argument, table, module) for argument in exc.args]
+    keywords = {keyword.arg: _module_value(keyword.value, table, module) for keyword in exc.keywords if keyword.arg is not None}
+    if _UNRESOLVED in arguments or _UNRESOLVED in keywords.values() or len(keywords) < len(exc.keywords):
+        return None
+
+    try:
+        refusal = raised(*arguments, **keywords)
+    except TypeError:
+        return None
+
+    return HTTPStatus(refusal.status_code), refusal.error_code
 
 
 @functools.cache
@@ -174,7 +245,8 @@ def _raises(path: Path) -> tuple[_Raise, ...]:
                 visit(child, child.name, _scope_table(table, child))
                 continue
             if isinstance(child, ast.Raise):
-                found.append(_Raise(node=child, scope=scope, raised=_raised_class(child.exc, table, module)))
+                raised = _raised_class(child.exc, table, module)
+                found.append(_Raise(node=child, scope=scope, raised=raised, answers=_answers(child.exc, raised, table, module)))
             visit(child, scope, table)
 
     visit(parsed(path), "<module>", symtable.symtable(path.read_text(encoding="utf-8"), str(path), "exec"))
@@ -304,6 +376,30 @@ def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_
     ]
 
     assert stray == []
+
+
+def test_every_refusal_a_handler_raises_is_one_its_responses_publish():
+    """The case above admits a handler declaring any response, so each refusal its body raises is held to its own status and code.
+
+    A code no value of the module holds cannot be compared, and fails as one published nowhere.
+    """
+
+    held = 0
+    unpublished: list[str] = []
+    for route in api_routes(APP):
+        if not route.responses:
+            continue
+        path = module_of(route.endpoint)
+        inside = {id(node) for node in ast.walk(declared(route.endpoint))}
+        published = {(HTTPStatus(int(status)), code) for status, response in route.responses.items() for code in refused_codes(response)}
+        for found in _raises(path):
+            if id(found.node) in inside and found.raised is not None and _is_protocol_refusal(found.raised):
+                held += 1
+                if found.answers not in published:
+                    unpublished.append(f"{path.relative_to(BACKEND_ROOT).as_posix()}:{found.node.lineno} answers {found.answers}")
+
+    assert held, "no handler raises a refusal of its own, so the clause below is vacuous"
+    assert unpublished == []
 
 
 def test_every_raise_under_app_names_the_class_it_raises():
