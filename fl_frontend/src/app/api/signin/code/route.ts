@@ -8,6 +8,7 @@ import { ADDRESS_ATTEMPTS_EXHAUSTED, auth, forgiveCodeAttempt, readAdmittedSessi
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { frontend_config } from "@/core/config";
 import { asSignInIdentifier } from "@/core/emailAddress";
+import { logger } from "@/core/logging";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
 import { CODE_FAILURE_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 import { GESPERRT, OHNE_FUNKTION } from "@/features/auth/passkeyAnswers";
@@ -63,9 +64,16 @@ const alreadyIn = (): NextResponse => NextResponse.json({ success: true, bereits
  * Whether the caller already holds a session for this address, made inside one code's window: the
  * second tab of a sign-in another tab finished meets a spent code, and is sent on rather than refused.
  */
-async function alreadySignedIn(requestHeaders: Headers, email: string): Promise<boolean> {
-  // The guards' own read, never the library's: a session they refuse forgives no guess (`docs/frontend/spec.md :: I313`).
-  const served = await readAdmittedSession(requestHeaders);
+async function alreadySignedIn(requestHeaders: Headers, email: string): Promise<boolean | null> {
+  let served;
+  try {
+    // The guards' own read, never the library's: a session they refuse forgives no guess (`docs/frontend/spec.md :: I313`).
+    served = await readAdmittedSession(requestHeaders);
+  } catch (failed) {
+    // The NAME alone: a failure on this path may carry the address the code was typed for.
+    logger.error("auth.signed_in_unread", undefined, { error_code: "FE-AUTH-002", name: failed instanceof Error ? failed.name : "unknown" });
+    return null;
+  }
   if (served === null || asSignInIdentifier(served.user.email) !== email) return false;
 
   // The code's own window rather than any step-up's, so a confirmation asked of an older session is
@@ -129,9 +137,15 @@ export async function POST(request: NextRequest) {
     const worded = typeof code === "string" ? REFUSAL_BY_CODE[code] : undefined;
     const sentence = worded ?? (error.status === "SERVICE_UNAVAILABLE" ? CODE_VERBRAUCHT : VERSUCHE_ES_ERNEUT_SATZ);
 
-    if (code === "INVALID_OTP" && (await alreadySignedIn(requestHeaders, email))) {
-      await forgiveCodeAttempt(body);
-      return alreadyIn();
+    if (code === "INVALID_OTP") {
+      const signedIn = await alreadySignedIn(requestHeaders, email);
+      // Neither a wrong code nor a sign-in can be said, so the retry, and at 200: thrown, the page
+      // would word the 500 as an answer that was not this application's.
+      if (signedIn === null) return refused(VERSUCHE_ES_ERNEUT_SATZ);
+      if (signedIn) {
+        await forgiveCodeAttempt(body);
+        return alreadyIn();
+      }
     }
 
     return refused(sentence);

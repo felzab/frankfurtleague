@@ -26,6 +26,19 @@ let served: unknown = null;
 /** That session as the guards read it: `null` where they refuse it, which `holding` sets alike. */
 let admitted: unknown = null;
 
+/** Set by a case for the sign-in store failing the guards' read. */
+let storeDown = false;
+
+/** Every line the route handed the application's writer, by event and code. */
+const logged: { event: string; meta: Record<string, unknown> }[] = [];
+const LOGGING_DOUBLE = {
+  logger: {
+    info: () => undefined,
+    warn: () => undefined,
+    error: (event: string, _error: unknown, meta: Record<string, unknown>) => void logged.push({ event, meta }),
+  },
+};
+
 /* The sign-in replaced at the module boundary: which answer it reaches for which address is
    `fl_frontend/src/core/auth.test.ts`'s subject, and this file asks what the route makes of each. A
    refusal is shaped as the library raises one. */
@@ -35,7 +48,7 @@ const AUTH_DOUBLE = {
     forgiven.push(body);
     return Promise.resolve();
   },
-  readAdmittedSession: () => Promise.resolve(admitted),
+  readAdmittedSession: () => (storeDown ? Promise.reject(new Error("the store answered nothing")) : Promise.resolve(admitted)),
   auth: {
     api: {
       signInEmailOTP: ({ body }: { body: { email: string; otp: string } }) => {
@@ -75,6 +88,8 @@ registerHooks({
     }
     if (url.endsWith("/src/core/config.ts"))
       return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -108,6 +123,8 @@ beforeEach(() => {
   outcome = "signed-in";
   served = null;
   admitted = null;
+  storeDown = false;
+  logged.length = 0;
 });
 
 describe("the route a typed code is checked at", () => {
@@ -201,6 +218,23 @@ describe("the route a typed code is checked at", () => {
       error: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
     });
     assert.equal(forgiven.length, forgivenBefore, "a guess from a session no guard serves was taken back");
+  });
+
+  it("answers that wrong code with the retry, at 200, where the store cannot say whether the caller is signed in", async () => {
+    outcome = "INVALID_OTP";
+    holding(ADDRESS, 60 * 1000);
+    storeDown = true;
+    const forgivenBefore = forgiven.length;
+
+    const answer = await handler.POST(post({ email: ADDRESS, code: CODE }));
+
+    assert.equal(answer.status, 200);
+    assert.deepEqual(await answer.json(), { success: false, error: "Versuche es erneut." });
+    assert.equal(forgiven.length, forgivenBefore, "a guess was taken back on a read that never answered");
+    assert.deepEqual(
+      logged.map(({ event, meta }) => [event, meta.error_code]),
+      [["auth.signed_in_unread", "FE-AUTH-002"]],
+    );
   });
 
   /* Only a wrong code: an expired or exhausted one is refused whatever the caller holds. */
