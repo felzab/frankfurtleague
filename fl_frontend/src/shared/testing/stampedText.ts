@@ -1,12 +1,12 @@
-import { stueckeVon } from "@/shared/utils/stampedSlots";
+/** A slot as a stamped sentence spells it. */
+const SLOT = /\{(\w+)\}/g;
 
 /**
- * A stamped sentence as a reader meets it, filled by the pieces
- * `fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt` renders:
- * a slot `slots` names no value for stands as written, so a comparison fails where the page left one.
+ * Written apart from the page's reader (`fl_frontend/src/shared/utils/stampedSlots.ts :: stueckeVon`),
+ * so a value that reader changes on its way to the page fails every comparison made against this.
  */
 export function filledSlots(text: string, slots: Readonly<Record<string, string>>): string {
-  return stueckeVon(text, slots)
-    .map((stueck) => stueck.worte)
-    .join("");
+  return text.replace(SLOT, (slot, name: string) =>
+    name === "datenschutz" ? "Datenschutzerklärung" : Object.hasOwn(slots, name) ? (slots[name] ?? slot) : slot,
+  );
 }

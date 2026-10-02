@@ -13,9 +13,9 @@ const SLOT_TEILER = /(\{\w+\})/;
 export type Stueck = { readonly worte: string; readonly slot?: string };
 
 /**
- * A stamped sentence cut into the pieces a page renders, every slot filled by the one rule both
- * `fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt` and the
- * suites' `fl_frontend/src/shared/testing/stampedText.ts :: filledSlots` read, so the two cannot part.
+ * A stamped sentence cut into the pieces a page renders. The suites' oracle
+ * (`fl_frontend/src/shared/testing/stampedText.ts :: filledSlots`) is written apart from this rather
+ * than reading it, or a value mangled here would read the same on both sides of every comparison.
  */
 export function stueckeVon(text: string, werte: Slots): Stueck[] {
   return text.split(SLOT_TEILER).map((stueck) => {
