@@ -167,13 +167,14 @@ class TestABanWhoseReferenceSeasonIsReadJustBeforeTheRolloverCommits:
                     db=client,
                 )
 
-            outcome = await ban(database, client, saisons=SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], roll_over))
+            seasons = SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], roll_over)
+            outcome = await ban(database, client, saisons=seasons)
+            seasons.assert_landed_inside(serially=1)
 
             return outcome, *await active_and_bounds(database)
 
         outcome, active, bounds = on_a_league(mongo_replica_set_url, body, target=target, lapsing=lapsing)
 
-        # The rollover landed at all, so the interleaving was forced rather than skipped.
         assert active == [target]
         assert (outcome, bounds) in (ban_first, rollover_first)
 

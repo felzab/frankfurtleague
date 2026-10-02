@@ -292,11 +292,11 @@ class TestTwoFirstActivationsRacing:
                 # Permitted: nothing is running, so the rival's rollover has no incumbent to refuse on.
                 await call_activate(database, client, RIVAL)
 
-            outcome, _ = await rollover_under(database, client, promote_the_rival)
+            outcome, season_reads = await rollover_under(database, client, promote_the_rival)
 
-            return outcome, await statuses_now(database)
+            return outcome, season_reads, await statuses_now(database)
 
-        outcome, statuses = on_a_league(
+        outcome, season_reads, statuses = on_a_league(
             mongo_replica_set_url,
             body,
             saisons=[seeded_saison(TARGET, "future"), seeded_saison(RIVAL, "future")],
@@ -307,6 +307,8 @@ class TestTwoFirstActivationsRacing:
         # The index answers the promotion with a write conflict, and the retry finds the rival
         # running with its whole Spielplan still to play. Unindexed, both commit.
         assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {TARGET: "future", RIVAL: "active"})
+        # A rival promoted before this rollover began refuses it at its first judgement, index or none.
+        assert season_reads == 2, "the rollover judged once, so the rival never landed inside it"
 
 
 class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
