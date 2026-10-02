@@ -43,6 +43,10 @@ class Relay {
   private dropping: Buffer | null = null;
   /** Whether `dropOne`'s command was ever sent, without which its case proves nothing. */
   dropped = false;
+  /** The command whose first request `dropReplyOf` passes on and whose answer it loses. */
+  private silencing: Buffer | null = null;
+  /** Whether `dropReplyOf`'s command reached the server, without which its case proves nothing. */
+  silenced = false;
   /** Connections `refuse` has closed: none, and the client it was to refuse dialed somewhere else. */
   refused = 0;
   private readonly sockets = new Set<Socket>();
@@ -63,7 +67,14 @@ class Relay {
       socket.on("close", () => this.sockets.delete(socket));
       socket.on("error", () => undefined);
     }
+    // Set once this connection carried the request whose answer is to be lost: nothing comes back on it.
+    let mute = false;
     inbound.on("data", (chunk: Buffer) => {
+      if (this.silencing !== null && chunk.includes(this.silencing)) {
+        this.silencing = null;
+        this.silenced = true;
+        mute = true;
+      }
       if (this.dropping !== null && chunk.includes(this.dropping)) {
         this.dropping = null;
         this.dropped = true;
@@ -77,7 +88,9 @@ class Relay {
       // its client has already given up on.
       if (!this.hung && answered) outbound.write(chunk);
     });
-    outbound.on("data", (chunk) => inbound.write(chunk));
+    outbound.on("data", (chunk) => {
+      if (!mute) inbound.write(chunk);
+    });
     inbound.on("close", () => outbound.destroy());
     outbound.on("close", () => inbound.destroy());
   });
@@ -118,6 +131,17 @@ class Relay {
       return await body();
     } finally {
       this.dropping = null;
+    }
+  }
+
+  /** Runs `body` passing the first request carrying `command` on and losing its answer alone: a reply lost on its way back. */
+  async dropReplyOf<T>(command: string, body: () => Promise<T>): Promise<T> {
+    this.silenced = false;
+    this.silencing = Buffer.from(`${command}\0`);
+    try {
+      return await body();
+    } finally {
+      this.silencing = null;
     }
   }
 
@@ -332,18 +356,50 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     logged.length = 0;
 
-    await relay.dropOne("commitTransaction", () =>
+    const outcome = await relay.dropOne("commitTransaction", () =>
       settledWithin(OPERATION_BOUND * 2, "the lost commit", () =>
         auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
       ),
     );
 
     assert.ok(relay.dropped, "the sign-in sent no commit, so nothing here was lost");
+    assert.ok(outcome instanceof MongoOperationTimeoutError, `the lost commit settled with ${String(outcome)}`);
     assert.deepEqual(await transactionsHeld(), []);
     // The control for the case above's line: an abort that lands says nothing.
     assert.deepEqual(logged, []);
+    // Aborted rather than committed: the code the transaction would have spent still signs in.
+    assert.equal(await codeStillSignsIn(otp), true);
+  });
+
+  /* The commit lands and its answer does not: the abort after it finds the transaction committed,
+     which leaves nothing open and so says nothing, while the caller still hears the commit's own
+     timeout, the outcome being unknown to it. */
+  it("says nothing of a commit that landed when only its answer is lost", async () => {
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    logged.length = 0;
+
+    const outcome = await relay.dropReplyOf("commitTransaction", () =>
+      settledWithin(OPERATION_BOUND * 2, "the unanswered commit", () =>
+        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
+      ),
+    );
+
+    assert.ok(relay.silenced, "the sign-in sent no commit, so no answer was lost");
+    assert.ok(outcome instanceof MongoOperationTimeoutError, `the unanswered commit settled with ${String(outcome)}`);
+    assert.deepEqual(await transactionsHeld(), []);
+    assert.deepEqual(logged, []);
+    // Committed: the code is spent, which is what makes the abort's answer TransactionCommitted.
+    assert.equal(await codeStillSignsIn(otp), false);
   });
 });
+
+/** Whether a code signs in once the relay passes everything again: a spent one is refused. */
+async function codeStillSignsIn(otp: string): Promise<boolean> {
+  return auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }).then(
+    () => true,
+    () => false,
+  );
+}
 
 /**
  * Every operation the server lists that holds a transaction, idle sessions included. Through a client of
