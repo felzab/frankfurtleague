@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { isRefusalCode } from "@/core/errors.ts";
@@ -9,10 +8,6 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 /* The request the public mappers' reads and the undo spine load in, doubled before the `await import`s below. */
 doubleActionRequest();
-registerHooks({
-  // `next` publishes no `exports` map, so Node finds the subpath only with the extension a bundler would supply.
-  resolve: (specifier, context, nextResolve) => nextResolve(specifier === "next/server" ? "next/server.js" : specifier, context),
-});
 
 const { answerSettled } = await import("@/shared/testing/publishedRefusals.ts");
 const { replayRefusal } = await import("@/shared/utils/undoRoute.ts");

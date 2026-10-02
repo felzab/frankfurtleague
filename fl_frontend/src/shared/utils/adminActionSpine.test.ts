@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -8,12 +7,6 @@ import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 const { setRefusal } = doubleActionRequest({ session: null });
-
-// The sign-in actions take `after` from it: Node resolves the package's subpath only with its extension,
-// where Next's own bundler needs none.
-registerHooks({
-  resolve: (specifier, context, nextResolve) => nextResolve(specifier === "next/server" ? "next/server.js" : specifier, context),
-});
 
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
 const { KONTO_FORBIDDEN } = await import("./kontoMutation.ts");

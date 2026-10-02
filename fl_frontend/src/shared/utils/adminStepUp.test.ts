@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -30,12 +29,6 @@ import { undo } from "@/shared/testing/undoRoutes.ts";
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 const { setFresh } = doubleActionRequest();
-
-// The sign-in actions take `after` from it: Node resolves the package's subpath only with its extension,
-// where Next's own bundler needs none.
-registerHooks({
-  resolve: (specifier, context, nextResolve) => nextResolve(specifier === "next/server" ? "next/server.js" : specifier, context),
-});
 
 const TEAM_ID = "6890a1b2c3d4e5f607182932";
 const SAISON_ID = "2026";
