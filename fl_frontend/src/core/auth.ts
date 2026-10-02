@@ -1337,7 +1337,7 @@ export async function slideSession(requestHeaders: Headers): Promise<ServedSessi
  * Whether the account's sessions were ended at or after this one was made, whatever deleted or kept its
  * row (`docs/frontend/spec.md :: I528`).
  */
-function endedByItsAccount({ user, session }: { user: object; session: object }): boolean {
+export function endedByItsAccount({ user, session }: { user: object; session: object }): boolean {
   // Through `Reflect`, as `asStepUpCaller` reads a stamp: the library types a ceremony's read to its own base shape.
   const stamp: unknown = Reflect.get(user, SESSIONS_ENDED_FIELD);
   if (stamp === null || stamp === undefined) return false;

@@ -147,6 +147,33 @@ describe("what the sign-in list hands the page", () => {
     );
   });
 
+  /* A row a ban's ending stamped and its deletion missed is served by no lane, and listed it reads as
+     somebody else's device signed in to the account. One at the stamp's own instant, which it ended too. */
+  it("leaves out a sign-in made at or before the account's last ending, and lists one made after it", async () => {
+    const ended = new Date(Date.now() - 60_000);
+    const before = await signIn(PERSON_EMAIL);
+    before.row.createdAt = new Date(ended.getTime() - 60_000);
+    const atTheEnding = await signIn(PERSON_EMAIL);
+    atTheEnding.row.createdAt = ended;
+    const after = await signIn(PERSON_EMAIL);
+    after.row.createdAt = new Date(ended.getTime() + 1);
+    const account = store.user.find((user) => user.email === PERSON_EMAIL);
+    assert.ok(account !== undefined, "the sign-in wrote no account row");
+    Reflect.set(account, "sessionsEndedAt", ended);
+
+    try {
+      const { cookie, row } = await signIn(PERSON_EMAIL);
+      const { anmeldungen } = await sicherheitAs(cookie);
+
+      assert.deepEqual(
+        anmeldungen.map((anmeldung) => anmeldung.id),
+        [row.id, after.row.id],
+      );
+    } finally {
+      Reflect.deleteProperty(account, "sessionsEndedAt");
+    }
+  });
+
   /* The person area and this page admit an administrator's session for the person lifetime; listed by
      the administration's 48 hours, a device still reaching every person page would be missing here. */
   it("lists an administrator's sign-in the person area still admits, ending it at the person cap", async () => {

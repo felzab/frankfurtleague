@@ -1,6 +1,6 @@
 import "server-only";
 
-import { auth, CODE_FACTOR, isWithinPersonLifetime, PASSKEY_FACTOR, passkeysOf } from "@/core/auth";
+import { auth, CODE_FACTOR, endedByItsAccount, isWithinPersonLifetime, PASSKEY_FACTOR, passkeysOf } from "@/core/auth";
 import { PERSON_LIFETIME } from "@/core/sessionLifetimes";
 import { passkeyBestandOf, passkeyNamenOf } from "@/features/passkeys/bestand";
 import { passkeyAnzeigename } from "@/features/passkeys/utils";
@@ -65,6 +65,9 @@ function anmeldungenOf(rows: readonly SessionRow[], held: readonly PasskeyRow[],
       // The person lifetime for an administrator's address too: the person area admits their session
       // that long and only the administration for less, so the widest guard decides (`docs/frontend/spec.md :: I425`).
       .filter((row) => isWithinPersonLifetime(row))
+      // A row the account's last ending stamped, whose deletion failed: no lane serves it again, so
+      // listed it reads as somebody else's device (`docs/frontend/spec.md :: I528`).
+      .filter((row) => !endedByItsAccount({ user: served.user, session: row }))
       .flatMap((row): Anmeldung[] => {
         const faktor = faktorOf(row, held);
         // A row made by a factor this league does not mint, which no browser can present again.

@@ -376,4 +376,34 @@ describe("the account row the session read joins, against a real store", () => {
     assert.equal(await readServedSession(requestHeaders), null);
     assert.equal(await slideSession(requestHeaders), null);
   });
+
+  /* A ban's deletion that missed a row leaves it standing beside the stamp: listed, it reads as
+     somebody else's device signed in to the account the person has just signed in to again. */
+  it("lists none of the sign-ins the ending stamped on the account page, beside the one made after it", async () => {
+    const { endSessionsOfAddress, readServedSession } = await import("@/core/auth.ts");
+    const endedHeaders = await signInAsAdministrator();
+    const sessions = client.db("auth").collection("session");
+    const [ended] = await sessions.find({}).toArray();
+    assert.ok(ended, "the sign-in wrote no session row");
+
+    assert.equal(await endSessionsOfAddress(ADMIN_EMAIL), true, "the ending found no account");
+    // The row the deletion missed, put back as it stood.
+    await sessions.insertOne(ended);
+    assert.equal(await readServedSession(endedHeaders), null, "the stamped row is served, so the list below is not the subject");
+
+    requestHeaders = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
+    const after = await sessions.findOne({ _id: { $ne: ended._id } });
+    assert.ok(after, "the sign-in after the ending wrote no session row");
+    await sessions.updateOne({ _id: after._id }, { $set: { authFactor: "passkey", passkeyCredentialId: CREDENTIAL_ID } });
+
+    beginRenderPass();
+    const served = await getKontoSession();
+    assert.ok(served, "the account page's guard refused the sign-in made after the ending");
+    const { anmeldungen } = await readSicherheit(served);
+
+    assert.deepEqual(
+      anmeldungen.map(({ id }) => id),
+      [String(after._id)],
+    );
+  });
 });
