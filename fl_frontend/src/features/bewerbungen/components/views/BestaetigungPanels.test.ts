@@ -97,6 +97,24 @@ describe("the panel that answers a press", () => {
     assert.ok(!vorher, "the panel took the focus before anything was pressed");
     assert.ok(nachher, "the answer replaced the form and the focus fell to the page");
   });
+
+  /* A dead link renders the panel carrying the ref at load, so the ref is attached before the first effects run:
+     attached afterwards, as above, a focus on mount would find no panel and pass unseen. */
+  it("takes no focus on the first render, with the panel already attached", () => {
+    const panel = document.body.appendChild(document.createElement("section"));
+    panel.tabIndex = -1;
+    renderHook(() => {
+      const seite = useLinkSeite("abgelaufen");
+      seite.ergebnisRef.current = panel;
+      return seite;
+    });
+
+    // A boolean rather than the node, as above.
+    const genommen = document.activeElement === panel;
+    panel.remove();
+
+    assert.ok(!genommen, "the panel took the focus as the page loaded");
+  });
 });
 
 describe("what a link to a barred address opens on", () => {

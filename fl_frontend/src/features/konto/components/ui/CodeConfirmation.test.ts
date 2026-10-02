@@ -30,6 +30,17 @@ const fetchMock = doubleFetch();
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { CodeConfirmation } = await import("./CodeConfirmation.tsx");
 
+describe("the confirmation as the page opens", () => {
+  /* The send's control is mounted with its ref at load, so only the refusal's flag keeps it from the focus. */
+  it("leaves the focus where the page put it", () => {
+    render(h(CodeConfirmation, { address: ADDRESS, istInhaber: () => Promise.resolve(true), onConfirmed: () => undefined }));
+
+    // A boolean rather than the node: a failing comparison would inspect a jsdom node, which holds the whole window.
+    const genommen = document.activeElement === screen.getByRole("button", { name: "Code per E-Mail senden" });
+    assert.ok(!genommen, "the send's control took the focus as the page loaded");
+  });
+});
+
 describe("a code that confirmed somebody other than the page's holder", () => {
   it("hands the focus to the control that sends the next code", async () => {
     const user = userEvent.setup();
