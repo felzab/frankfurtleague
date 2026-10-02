@@ -623,8 +623,8 @@ values** — an empty `stadtteil`, a null `ergebnis` for an unplayed match, an i
 
 **A test module that collects no test fails its collection**, by name
 (`fl_backend/tests/collection.py`, and `scripts/tests/collection.py` for the gate's own suite):
-pytest would otherwise run it as green with nothing in it. A module skipped at its top with a reason
-stands.
+pytest would otherwise run it as green with nothing in it. A module skipped at its top stands only
+where its skip names a reason; one skipped with none, or a blank one, fails the same way.
 
 #### The two tiers, and the marker that separates them
 

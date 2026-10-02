@@ -62,3 +62,19 @@ def test_a_module_the_last_failed_run_skips_stands(pytester: pytest.Pytester) ->
     assert result.ret == pytest.ExitCode.TESTS_FAILED, output
     assert "1 failed" in output, output
     assert "collects no test" not in output, output
+
+
+def test_a_module_skipped_at_its_top_without_a_reason_fails_by_name(pytester: pytest.Pytester) -> None:
+    """A reason left out, or left blank, is no reason; the frontend's reporter holds its suites to the same."""
+    suite = {
+        "test_skipped_on_purpose": SUITE["test_skipped_on_purpose"],
+        "test_skipped_bare": "import pytest\n\npytest.skip(allow_module_level=True)\n",
+        "test_skipped_blank": 'import pytest\n\npytest.skip("   ", allow_module_level=True)\n',
+    }
+    result = _run(pytester, "-p", "no:xdist", suite=suite)
+    output = result.stdout.str()
+
+    assert result.ret == pytest.ExitCode.INTERRUPTED, output
+    assert "test_skipped_bare.py is skipped at its top with no reason given" in output, output
+    assert "test_skipped_blank.py is skipped at its top with no reason given" in output, output
+    assert "test_skipped_on_purpose.py is skipped" not in output, output
