@@ -1,18 +1,23 @@
 """SCRIPTS · a test module that collects no test fails its collection.
 
 pytest reports such a module nowhere and the run stays green, so a module whose every test was
-renamed out of pytest's prefixes takes its guarantees with it unseen. `scripts/tests/conftest.py`
+renamed out of pytest's prefixes, or whose class gained a constructor, takes its guarantees with it
+unseen. `scripts/tests/conftest.py`
 registers this as a plugin; `fl_backend/tests/collection.py` holds the backend suite to the same.
 """
 
 from collections.abc import Generator
+from typing import Final
 
 import pytest
 
 _COLLECTS_NOTHING = (
-    "{module} collects no test. pytest would run it as green with nothing in it: name its tests with the `test` prefix, or"
-    " skip the module at its top with a reason."
+    "{module} collects no test. pytest would run it as green with nothing in it: name its tests and their classes with"
+    " pytest's prefixes and give no test class a constructor, or skip the module at its top with a reason."
 )
+
+# Each module an item was collected under, which a class collecting nothing never adds.
+_YIELDING: Final = pytest.StashKey[set[str]]()
 
 _SKIPPED_WITHOUT_REASON = (
     "{module} is skipped at its top with no reason given: name why in its skip, as a module collecting nothing gives none."
@@ -55,3 +60,24 @@ def pytest_make_collect_report(collector: pytest.Collector) -> Generator[None, p
         report.longrepr = _SKIPPED_WITHOUT_REASON.format(module=collector.nodeid)
 
     return report
+
+
+def pytest_itemcollected(item: pytest.Item) -> None:
+    module = item.getparent(pytest.Module)
+    if module is not None:
+        item.config.stash.setdefault(_YIELDING, set()).add(module.nodeid)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_collectreport(report: pytest.CollectReport) -> Generator[None]:
+    """A module whose classes yield no test fails as an empty one does.
+
+    pytest reports a module only after every node under it is collected, and reports a class it skips,
+    or one holding no test, as passing.
+    """
+    module = report.result[0].parent if report.passed and report.result else None
+    if isinstance(module, pytest.Module) and module.nodeid not in module.config.stash.get(_YIELDING, set()):
+        report.outcome = "failed"
+        report.longrepr = _COLLECTS_NOTHING.format(module=module.nodeid)
+
+    return (yield)
