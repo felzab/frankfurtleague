@@ -3313,6 +3313,9 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
       await read.arrived;
       // The gate read answers the address unbarred, as one sent before the ban committed did.
       assert.equal(await endSessionsOfAddress(OVERTAKEN_EMAIL), true, "the ending found no account");
+      // Long enough that a row dated past the read is told from the ending's stamp, whose millisecond
+      // it would otherwise share and so be ended with.
+      await new Promise((resolve) => setTimeout(resolve, 50));
       read.release();
       const cookie = cookieHeader(await minting);
 
