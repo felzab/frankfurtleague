@@ -8,7 +8,6 @@ import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 registerDoubles({
   specifiers: {
     "next/headers": NEXT_HEADERS_DOUBLE,
-    "next/cache": { revalidateTag: () => undefined, updateTag: () => undefined },
   },
 });
 

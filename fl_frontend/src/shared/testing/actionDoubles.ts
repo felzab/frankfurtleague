@@ -347,10 +347,14 @@ export function doubleActionRequest({
     answers.fresh = true;
     answers.refusal = null;
   });
-  registerDoubles({
-    modules: { "core/auth.ts": signInStore(answers), "core/subject.ts": subjectLookup(answers), "core/logging.ts": SILENT_LOGGER },
-    specifiers: REQUEST_PACKAGES,
-  });
+  // The request every action runs in, each action reaching what its own guard and writes read.
+  registerDoubles(
+    {
+      modules: { "core/auth.ts": signInStore(answers), "core/subject.ts": subjectLookup(answers), "core/logging.ts": SILENT_LOGGER },
+      specifiers: REQUEST_PACKAGES,
+    },
+    { mayGoUnserved: true },
+  );
 
   return {
     setSession,

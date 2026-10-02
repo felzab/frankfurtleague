@@ -16,7 +16,6 @@ export function doublePublicRouteRequest({ modules = {}, specifiers = {} }: Doub
       // A response handed back as its body and status, which a case reads without parsing one.
       "next/server": { NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) } },
       "next/headers": NEXT_HEADERS_DOUBLE,
-      "next/navigation": { unstable_rethrow: () => undefined },
       ...specifiers,
     },
   });

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { asDataUrl, configDouble, registerAuthDoubles } from "./authDoubles.ts";
-import { overridingModule } from "./exportingModule.ts";
+import { configDouble } from "./authDoubles.ts";
+import { overridingModule, registerDoubles } from "./exportingModule.ts";
 
 import type { MongoClient } from "mongodb";
 
@@ -23,7 +23,7 @@ const DRIVER_DOUBLE = overridingModule(import.meta.resolve("mongodb"), {
 // The config `next build` and the unit tier load the module under: no URI to build a client from.
 const CONFIG = configDouble({ MONGODB_URI: undefined });
 
-registerAuthDoubles({ core: { config: CONFIG }, specifiers: { mongodb: asDataUrl(DRIVER_DOUBLE) } });
+registerDoubles({ modules: { "core/config.ts": CONFIG }, specifiers: { mongodb: DRIVER_DOUBLE } });
 
 describe("when `fl_frontend/src/core/db.ts :: signInStore` builds the client", () => {
   it("builds nothing at import where the URI is absent, and one client on first use", async () => {

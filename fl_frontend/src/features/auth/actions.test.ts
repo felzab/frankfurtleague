@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { APIError } from "better-auth/api";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
@@ -19,7 +19,7 @@ let signIns = 0;
 let signingIn: () => Promise<void> = () => Promise.resolve();
 
 const PACKAGE_DOUBLES = {
-  ...REQUEST_PACKAGES,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   // Collected rather than run, so a case runs the work behind the response only once it holds the answer.
   "next/server": { after: (task: () => Promise<void>) => void deferred.push(task) },
 };

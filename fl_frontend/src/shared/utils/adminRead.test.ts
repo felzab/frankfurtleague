@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { RequestActor } from "@/core/requestScope.ts";
 
@@ -22,7 +22,7 @@ const AUTH = {
   },
 };
 
-registerDoubles({ modules: { "core/auth.ts": AUTH }, specifiers: REQUEST_PACKAGES });
+registerDoubles({ modules: { "core/auth.ts": AUTH }, specifiers: { "next/headers": NEXT_HEADERS_DOUBLE } });
 
 const { runAdminRead } = await import("./adminRead.ts");
 const { getRequestActor, runWithRequestScope } = await import("@/core/requestScope.ts");

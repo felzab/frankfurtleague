@@ -882,7 +882,11 @@ already takes is handed a `mock.fn()` from `node:test`.
 `fl_frontend/src/core/exportingModule.ts :: registerDoubles`**, keyed by the module's path under
 `fl_frontend/src/` or by the package's specifier, rather than through a hook the suite writes: it
 refuses a path naming no module, where a mistyped match in a hand-written hook doubles nothing and
-leaves the suite passing against the real module.
+leaves the suite passing against the real module. For the same reason a file fails, naming the
+double, where one it registered was never served by the time its process ends. A helper standing one
+set under every suite of a kind, as `fl_frontend/src/shared/testing/actionDoubles.ts ::
+doubleActionRequest` and the page harness do, registers it with `mayGoUnserved`, each subject
+reaching a part of it; a suite's own doubles never do.
 
 **A source-text assertion is for what neither a rendering, a call nor a lint selector can show, and
 only where breaking it is a defect someone meets** — a mirror of a file no tool reads, such as a

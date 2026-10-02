@@ -1,9 +1,12 @@
+import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
+
+import { judgeAtProcessEnd } from "./verdicts.ts";
 
 /**
  * The words a module cannot bind: ECMAScript's reserved words, the ones strict mode adds, and `await`,
@@ -165,6 +168,15 @@ export type Doubles = {
   readonly specifiers?: Readonly<Record<string, DoubledExports | string | URL>>;
 };
 
+/** How `registerDoubles` judges the doubles it registers. */
+export type Registration = {
+  /**
+   * For a helper standing one set under every suite of a kind, whose subjects each reach part of it:
+   * a double no subject reaches then fails nothing. A suite's own doubles never take it.
+   */
+  readonly mayGoUnserved?: boolean;
+};
+
 const SOURCE_ROOT = new URL("../", import.meta.url);
 
 /**
@@ -172,10 +184,16 @@ const SOURCE_ROOT = new URL("../", import.meta.url);
  * a static one resolves before the hooks exist. `server-only` always loads empty, its real module
  * throwing outside a React server build.
  */
-export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {}): void {
+export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {}, { mayGoUnserved = false }: Registration = {}): void {
   // A path naming no module would double nothing, and the suite would run against the real one.
   const missing = Object.keys(modules).filter((at) => !existsSync(new URL(at, SOURCE_ROOT)));
   if (missing.length > 0) throw new Error(`No module under fl_frontend/src at ${missing.join(", ")}`);
+  // Nor may one name a module the subject never loads, or loads past the match below: the suite would
+  // believe it doubled what it never reached. Judged at the process's end, after every case's imports.
+  const unserved = new Set(mayGoUnserved ? [] : [...Object.keys(modules), ...Object.keys(specifiers)]);
+  if (unserved.size > 0) {
+    judgeAtProcessEnd(() => assert.deepEqual([...unserved], [], "these doubles were registered and never served: drop each, or reach it"));
+  }
   // Built here, each export name read off the installed package before any hook below stands over it.
   const replaced = new Map(
     Object.entries(specifiers).map(([specifier, double]) => [
@@ -188,7 +206,10 @@ export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {})
   registerHooks({
     resolve(specifier, context, nextResolve) {
       const url = replaced.get(specifier);
-      if (url !== undefined) return { url: url, shortCircuit: true };
+      if (url !== undefined) {
+        unserved.delete(specifier);
+        return { url: url, shortCircuit: true };
+      }
       // The empty build its `react-server` condition names, rather than a `data:` module: Next's own
       // CommonJS `require` of one reads the URL as a path.
       if (specifier === "server-only") return nextResolve(specifier, { ...context, conditions: [...context.conditions, "react-server"] });
@@ -200,6 +221,7 @@ export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {})
       const found = doubled.find(([at]) => url.endsWith(`/src/${at}`));
       if (found === undefined) return nextLoad(url, context);
       const [at, double] = found;
+      unserved.delete(at);
       const source = typeof double === "string" ? double : replacingModule(url, at, double);
       return { format: "module", source: source, shortCircuit: true };
     },
