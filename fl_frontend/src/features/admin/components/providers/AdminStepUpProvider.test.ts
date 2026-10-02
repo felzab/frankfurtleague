@@ -354,4 +354,36 @@ describe("the narrow window a grant is held to", () => {
     assert.equal(prompts, 1, "the grant went out on a window the server had already closed");
     unmount();
   });
+
+  it("asks once the five minutes a later render left have passed, on a browser clock the server's has since stepped ahead of", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 13_000_000 });
+    const freshUntil = 13_000_000 + STEP_UP_WINDOW_MS;
+    const enrolmentUntil = 13_000_000 + ENROLMENT_WINDOW_MS;
+    const { rerender, unmount } = render(grantUnder(freshUntil, enrolmentUntil));
+
+    // Four minutes ahead, the server leaves one of the five; two minutes on, it has closed.
+    rerender(grantUnder(freshUntil, enrolmentUntil, Date.now() + 4 * 60 * 1000));
+    t.mock.timers.tick(2 * 60 * 1000);
+    await grant(user);
+
+    assert.equal(prompts, 1, "the grant went out on a window the server had already closed");
+    unmount();
+  });
+
+  it("asks nothing inside the five minutes a later render left, on a browser clock the server's has since stepped behind", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 14_000_000 });
+    const freshUntil = 14_000_000 + STEP_UP_WINDOW_MS;
+    const enrolmentUntil = 14_000_000 + ENROLMENT_WINDOW_MS;
+    const { rerender, unmount } = render(grantUnder(freshUntil, enrolmentUntil));
+
+    // Four minutes back, the server leaves nine; six minutes on, three still hold.
+    rerender(grantUnder(freshUntil, enrolmentUntil, Date.now() - 4 * 60 * 1000));
+    t.mock.timers.tick(6 * 60 * 1000);
+    await grant(user);
+
+    assert.equal(prompts, 0, "a window the server still held open was read as spent");
+    unmount();
+  });
 });

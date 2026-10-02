@@ -39,19 +39,31 @@ function onThisClock(served: ConfirmedUntil, skew: number): OpenUntil {
   return { freshUntil: here(served.freshUntil), enrolmentUntil: here(served.enrolmentUntil) };
 }
 
+/** When this page first held each served object, on the browser's clock. */
+const ARRIVED = new WeakMap<ConfirmedUntil, number>();
+
+/**
+ * The skew between the two clocks as `served` arrived. Its own for each object, never one kept from an
+ * earlier object, which a step of either clock leaves wrong for as long as the page stays open.
+ */
+function skewOf(served: ConfirmedUntil): number {
+  // Read once per object, so every render of one reads the same figure however often React runs it.
+  const arrived = ARRIVED.get(served) ?? Date.now();
+  ARRIVED.set(served, arrived);
+  // The transit counts as time left, which the server refuses a press inside as any other.
+  return arrived - served.servedAt;
+}
+
 /**
  * `served` is a server render's own object: a new one replaces whatever the page confirmed itself, even
  * carrying the same figures, since a refused write's refresh is such a render (`docs/frontend/spec.md :: I433`).
  */
 export function useConfirmationWindows(served: ConfirmedUntil): ConfirmationWindows {
-  // Once, as the page mounts: the skew is the two clocks', not a render's, and a render reads no clock.
-  // The first render's transit counts as time left, which the server refuses a press inside as any other.
-  const [skew] = useState(() => Date.now() - served.servedAt);
   const [seen, setSeen] = useState(served);
-  const [until, setUntil] = useState<OpenUntil>(() => onThisClock(served, skew));
+  const [until, setUntil] = useState<OpenUntil>(() => onThisClock(served, skewOf(served)));
   if (served !== seen) {
     setSeen(served);
-    setUntil(onThisClock(served, skew));
+    setUntil(onThisClock(served, skewOf(served)));
   }
 
   // Memoised by hand, the React Compiler being off: the administrator's provider hands this to every
