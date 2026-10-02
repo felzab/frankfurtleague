@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -23,13 +22,7 @@ const calls = doubleApiClient(() => {
 /** The module under test, whose `react` import the server build must answer. */
 const FEATURE_URL = `${pathToFileURL(import.meta.dirname).href}/`;
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    // Only for the module under test: Next's client runtime is in this process and needs the client build.
-    if (specifier === "react" && context.parentURL?.startsWith(FEATURE_URL) === true) return { url: SERVER_REACT_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+serveServerReactTo((parentURL) => parentURL.startsWith(FEATURE_URL));
 
 // Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
 beforeEach(beginRenderPass);

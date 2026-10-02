@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
+// Only the scope's own module: a render pass is what the server build's scope stands in for.
+serveServerReactTo((parentURL) => parentURL.endsWith("/src/core/requestScope.ts"));
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    // Only for the scope's own module: this process's `react` is the client build, whose `cache`
-    // memoizes nothing, and a render pass is what the server build's scope stands in for.
-    if (specifier === "react" && context.parentURL?.endsWith("/src/core/requestScope.ts")) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },

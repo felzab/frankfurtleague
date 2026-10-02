@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
 import { it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -47,6 +47,20 @@ export function beginRenderPass(): void {
 /** What a server action's body or a route handler meets: React's `cache` memoizing nothing. */
 export function leaveRenderPass(): void {
   memoTable = null;
+}
+
+/**
+ * Answers `react` with the server build to each module whose importer's URL `isServed` accepts, and
+ * the client build to every other: Next's client runtime loads in the same process and needs it.
+ */
+export function serveServerReactTo(isServed: (parentURL: string) => boolean): void {
+  registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === "react" && context.parentURL !== undefined && isServed(context.parentURL))
+        return { url: SERVER_REACT_URL, shortCircuit: true };
+      return nextResolve(specifier, context);
+    },
+  });
 }
 
 export function itOpensAScopeThatMemoizes(): void {

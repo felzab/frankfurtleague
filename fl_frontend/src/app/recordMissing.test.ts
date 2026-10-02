@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { serveServerReactTo } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -21,12 +20,7 @@ doubleApiClient(() => {
   throw failure;
 });
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "react" && context.parentURL?.startsWith(FEATURES_URL)) return { url: SERVER_REACT_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+serveServerReactTo((parentURL) => parentURL.startsWith(FEATURES_URL));
 
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
 const saisons = await import("@/features/saisons/queries.ts");

@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -19,13 +18,7 @@ doubleActionRequest();
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(() => ({ saisons: [{ id: "2526" }] }));
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    // Only for the modules under test: Next's client runtime is in this process and needs the client build.
-    if (specifier === "react" && context.parentURL?.startsWith(FEATURE_URL)) return { url: SERVER_REACT_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+serveServerReactTo((parentURL) => parentURL.startsWith(FEATURE_URL));
 
 const { getAdminSaisons } = await import("./queries.ts");
 const { resolveSaisonId } = await import("./resolvers.ts");
