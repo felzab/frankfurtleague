@@ -106,6 +106,7 @@ class TestARetriedMint:
                     saison_id=SAISON_ID,
                     team=TEAM,
                     erneut=False,
+                    gesperrt=set(),
                     erstellt_von="admin@frankfurtleague.de",
                     today=TODAY,
                 )
