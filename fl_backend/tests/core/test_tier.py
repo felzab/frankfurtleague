@@ -216,3 +216,32 @@ def test_a_count_not_read_at_either_end_or_reset_between_is_named_unjudged(at_st
 
     assert refusal is not None
     assert "was not judged" in refusal, refusal
+
+
+# The controller's own path, its refusal handed a stand-in count: what a reader quotes is the closing line.
+CLOSING_CONFTEST: Final = b"""import pytest
+
+from tests.conftest import pytest_configure, pytest_sessionfinish, refuse_the_run
+from tests.tier import expired_transactions_refusal
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtestloop(session):
+    finished = yield
+    refuse_the_run(session, expired_transactions_refusal(0, 1))
+    return finished
+"""
+
+
+def test_a_run_the_expiry_check_fails_ends_on_the_line_saying_so(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pytest's own closing line counts tests alone, so it would say "passed" over a run that failed."""
+    suite = pytester.path / "suite"
+    suite.mkdir()
+    (suite / "conftest.py").write_bytes(CLOSING_CONFTEST)
+    (suite / "test_passes.py").write_bytes(b"def test_passes() -> None:\n    pass\n")
+    monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[2]))
+    result = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-p", "no:xdist", str(suite))
+    lines = [line for line in result.stdout.lines if line.strip()]
+
+    assert result.ret == pytest.ExitCode.TESTS_FAILED, result.stdout.str()
+    assert "FAILED" in lines[-1] and "aborted 1 transaction(s)" in lines[-1], result.stdout.str()

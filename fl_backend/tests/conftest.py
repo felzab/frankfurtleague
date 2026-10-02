@@ -510,15 +510,28 @@ def pytest_runtestloop(session: pytest.Session) -> Generator[None, object, objec
     url = _SHARED_SERVERS.get(REPLICA_SET_KEY)
     expired = None if url is None else _expired_since_start(url)
     if expired is not None:
-        _EXPIRED_REFUSAL.append(expired)
-        session.testsfailed += 1
+        refuse_the_run(session, expired)
 
     return finished
 
 
-def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
+def refuse_the_run(session: pytest.Session, refusal: str) -> None:
+    """The run's failure with no test to be reported against, counted where pytest's exit code reads it."""
+    _EXPIRED_REFUSAL.append(refusal)
+    session.testsfailed += 1
+
+
+# Outermost, so it prints after pytest's own closing line: that line counts tests alone, and would
+# read "passed" over a run this refusal failed.
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_sessionfinish(session: pytest.Session) -> Generator[None, object, object]:
+    finished = yield
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     for refusal in _EXPIRED_REFUSAL:
-        terminalreporter.write_line(f"FAILED {refusal}", red=True)
+        if reporter is not None:
+            reporter.write_line(f"FAILED {refusal}", red=True)
+
+    return finished
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
