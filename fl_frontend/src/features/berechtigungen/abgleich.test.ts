@@ -1,16 +1,12 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** One line the pass wrote, as the logger was handed it. */
 type Line = { level: string; event: string; fields: unknown };
@@ -24,20 +20,7 @@ const record =
 const LOGGING_DOUBLE = { logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") } };
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_FORMAT: "console" } };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/logging.ts": LOGGING_DOUBLE, "core/config.ts": CONFIG_DOUBLE } });
 
 const OUTBOX_A = "6890a1b2c3d4e5f6071a0001";
 const OUTBOX_B = "6890a1b2c3d4e5f6071a0002";

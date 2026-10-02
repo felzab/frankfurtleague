@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
 import { act, createElement as h } from "react";
@@ -10,7 +9,7 @@ import { act, createElement as h } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
@@ -28,16 +27,7 @@ const NAVIGATION_DOUBLE = { leaveDocumentFor: (path: string) => void left.push(p
    has none. No case presses the button. */
 const CLIENT_DOUBLE = { authClient: { signIn: { passkey: async () => ({ error: null }) } } };
 
-registerHooks({
-  load(url, context, nextLoad) {
-    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) {
-      return { format: "module", source: replacingModule(url, "the navigation", NAVIGATION_DOUBLE), shortCircuit: true };
-    }
-    if (url.endsWith("/src/core/authClient.ts"))
-      return { format: "module", source: replacingModule(url, "the sign-in client", CLIENT_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "shared/utils/documentNavigation.ts": NAVIGATION_DOUBLE, "core/authClient.ts": CLIENT_DOUBLE } });
 
 /** The send, replaced at the module boundary: the real one needs a session store and a mail provider. */
 const { calls, answerWith } = doubleActions({ modules: ["/src/features/auth/actions.ts"] });

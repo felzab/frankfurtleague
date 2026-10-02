@@ -1,31 +1,14 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) {
-      const source = replacingModule(url, "the config", { frontend_config: { AUTH_URL: ORIGIN, LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } });
-      return { format: "module", source: source, shortCircuit: true };
-    }
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: ORIGIN, LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } } } });
 
 /* The real minter and the fan-out it hands the link to, called: the backend client the delivery
    report goes through and the mailer are the doubles. */

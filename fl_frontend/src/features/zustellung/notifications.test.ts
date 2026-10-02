@@ -1,16 +1,12 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { ZielAuftrag } from "./notifications.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
 type LoggedCall = { message: string; error: unknown; meta: Record<string, unknown> };
@@ -62,21 +58,7 @@ const LOGGING_DOUBLE = {
   },
 };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/features/zustellung/mutations.ts")) {
-      return { format: "module", source: replacingModule(url, "the delivery writes", MUTATIONS_DOUBLE), shortCircuit: true };
-    }
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/logging.ts": LOGGING_DOUBLE, "features/zustellung/mutations.ts": MUTATIONS_DOUBLE } });
 
 const { sendZielMail, zielIdempotenzSchluessel, zielZustellungTags } = await import("./notifications.ts");
 const { FLZustellungZielSchema } = await import("./schemas.ts");

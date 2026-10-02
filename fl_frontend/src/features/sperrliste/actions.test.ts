@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -10,7 +9,7 @@ import { createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -31,7 +30,7 @@ const events: string[] = [];
 
 /* `refresh()` throws outside a request Next itself is rendering, and what a case here asks of it is
    that the action reached it at all. */
-const CACHE_DOUBLE = replacingPackage("next/cache", { refresh: () => void events.push("refresh") });
+const CACHE_DOUBLE = { refresh: () => void events.push("refresh") };
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } };
 
 /* The real actions, their mutations and the mailer's callers, called: the request they run in, the
@@ -39,18 +38,7 @@ const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LO
 const request = doubleActionRequest();
 
 // Registered after the request's doubles, so its `next/cache` answers before theirs.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/cache") return { url: `data:text/javascript,${encodeURIComponent(CACHE_DOUBLE)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/config.ts": CONFIG_DOUBLE }, specifiers: { "next/cache": CACHE_DOUBLE } });
 
 /** The bound the WRITE answers. Deliberately not the five-season arithmetic's, so a mail stating it could have come from nowhere else. */
 const ANSWERED_BOUND = "2044";

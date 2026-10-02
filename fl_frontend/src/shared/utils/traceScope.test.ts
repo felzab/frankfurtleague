@@ -1,21 +1,14 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
-
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 // Only the scope's own module: a render pass is what the server build's scope stands in for.
 serveServerReactTo((parentURL) => parentURL.endsWith("/src/core/requestScope.ts"));
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+registerDoubles({ specifiers: { "next/headers": NEXT_HEADERS_DOUBLE } });
 
 const { runWithIncomingTrace } = await import("./traceScope.ts");
 const { boundCall, getRequestSpanId, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
