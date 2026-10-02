@@ -91,7 +91,10 @@ def test_a_test_function_outside_a_test_file_excuses_nothing():
 
 
 def test_every_consumer_pytest_hands_a_fixture_to_excuses_it():
-    """A test, a test method at any `Test` class depth, another fixture, a `usefixtures` and a `getfixturevalue` string."""
+    """A test, a test method at any `Test` class depth, another fixture, a `usefixtures`, and a `getfixturevalue` string.
+
+    The string counts where a test or a fixture runs it, or a function or a lambda it calls by name.
+    """
     for consumer in (
         "def test_reads(league):\n    assert league\n",
         "class TestOuter:\n    class TestInner:\n        def test_reads(self, league):\n            assert league\n",
@@ -102,6 +105,12 @@ def test_every_consumer_pytest_hands_a_fixture_to_excuses_it():
         'pytestmark = [pytest.mark.usefixtures("league")]\n\n\ndef test_reads():\n    assert True\n',
         'def test_reads(request):\n    assert request.getfixturevalue("league")\n',
         'def asked(request):\n    return request.getfixturevalue("league")\n\n\ndef test_reads(request):\n    assert asked(request)\n',
+        'def test_reads(request):\n    def asked():\n        return request.getfixturevalue("league")\n\n    assert asked()\n',
+        'def test_reads(request):\n    asked = lambda: request.getfixturevalue("league")\n    assert asked()\n',
+        # A closure calling its sibling, which only the enclosing function binds.
+        'def test_reads(request):\n    def asked():\n        return request.getfixturevalue("league")\n\n'
+        "    def outer():\n        return asked()\n\n    assert outer()\n",
+        "def test_reads(request):\n    def bound(name=request.getfixturevalue('league')):\n        return name\n\n    assert True\n",
     ):
         assert fixtures(ORPHAN + consumer) == [], consumer
 
@@ -112,6 +121,18 @@ def test_every_consumer_pytest_hands_a_fixture_to_excuses_it():
         pytest.param('def helper(request):\n    return request.getfixturevalue("league")\n', id="uncalled-helper"),
         pytest.param('MARK = pytest.mark.usefixtures("league")\n', id="mark-held-in-a-variable"),
         pytest.param('@pytest.mark.usefixtures("league")\ndef helper():\n    return 1\n', id="mark-on-a-helper"),
+        pytest.param(
+            'def test_closure(request):\n    def never():\n        return request.getfixturevalue("league")\n\n    assert True\n',
+            id="uncalled-nested-function",
+        ),
+        pytest.param(
+            'def test_lambda(request):\n    never = lambda: request.getfixturevalue("league")\n    assert True\n', id="uncalled-lambda"
+        ),
+        pytest.param(
+            'def asked(request):\n    return request.getfixturevalue("league")\n\n\n'
+            "def test_closure(request):\n    def never():\n        return asked(request)\n\n    assert True\n",
+            id="helper-called-only-from-an-uncalled-nested-function",
+        ),
     ],
 )
 def test_a_by_name_request_pytest_never_acts_on_excuses_nothing(unreached: str):

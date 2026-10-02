@@ -33,6 +33,8 @@ TESTS: Final = BACKEND / "tests"
 PYPROJECT: Final = BACKEND / "pyproject.toml"
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
+# What a call by a name can run: a function, or a lambda bound to the name.
+CalledNode = ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda
 
 # What a fixture is asked for by name rather than by parameter: a mark pytest reads where it applies
 # one, and a call it answers only where a test or a fixture reaches it.
@@ -250,9 +252,37 @@ def _literal_names(node: ast.expr | None, line: int) -> list[str]:
     raise Unfollowed(f"line {line} parametrizes by names that are no string literal")
 
 
+def _run_by(node: ast.AST) -> Iterator[ast.AST]:
+    """Every node below `node` that runs when `node` does, a nested function or lambda included but not its body.
+
+    Its decorators and defaults run where it is defined; its body only where it is called.
+    """
+    for child in ast.iter_child_nodes(node):
+        yield child
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            arguments = child.args
+            for runs in (*getattr(child, "decorator_list", []), *arguments.defaults, *arguments.kw_defaults):
+                if runs is not None:
+                    yield runs
+                    yield from _run_by(runs)
+        else:
+            yield from _run_by(child)
+
+
+def _nested(node: ast.AST) -> dict[str, CalledNode]:
+    """The functions and lambdas `node`'s own code binds to a name, which a call by that name runs."""
+    bound: dict[str, CalledNode] = {}
+    for child in _run_by(node):
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            bound[child.name] = child
+        elif isinstance(child, ast.Assign) and isinstance(child.value, ast.Lambda):
+            bound.update((target.id, child.value) for target in child.targets if isinstance(target, ast.Name))
+    return bound
+
+
 def _requested(node: ast.AST, call: str) -> Iterator[str]:
     """Every fixture name a `call` call inside `node` asks for, which has to be a string literal to be read at all."""
-    for found in ast.walk(node):
+    for found in (node, *_run_by(node)):
         if not isinstance(found, ast.Call):
             continue
         target = found.func
@@ -339,6 +369,15 @@ class Estate:
             except Unfollowed as error:
                 self.unfollowed.append((path, str(error)))
         self.by_dotted = {self._dotted(module.path): module for module in self.modules}
+        # Each nested function and lambda, keyed to the one that defines it, for `_enclosed` to climb.
+        self.enclosing: dict[int, CalledNode] = {
+            id(nested): outer
+            for module in self.modules
+            for outer in ast.walk(module.tree)
+            if isinstance(outer, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+            for nested in _run_by(outer)
+            if isinstance(nested, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+        }
         # Each place a fixture is supplied, and the name pytest registers it under there.
         self.scopes: dict[int, list[tuple[Scope, str]]] = {
             id(definition): [(definition.scope, definition.name)] for module in self.modules for definition in module.definitions
@@ -370,14 +409,28 @@ class Estate:
         head, _, rest = name.partition(".")
         return self.by_dotted.get(name) or (self.by_dotted.get(rest) if head == self.root.name else None)
 
-    def _callees(self, module: Module, node: FunctionNode) -> Iterator[tuple[Module, FunctionNode]]:
-        """The estate's own functions `node` calls by a name its module binds: its own, or one it imports."""
-        for call in ast.walk(node):
+    def _enclosed(self, node: CalledNode, name: str) -> CalledNode | None:
+        """The function or lambda `name` is bound to where `node` is defined: by `node` itself, or by a function enclosing it."""
+        scope: CalledNode | None = node
+        while scope is not None:
+            if (bound := _nested(scope).get(name)) is not None:
+                return bound
+            scope = self.enclosing.get(id(scope))
+        return None
+
+    def _callees(self, module: Module, node: CalledNode) -> Iterator[tuple[Module, CalledNode]]:
+        """The estate's own functions `node` calls by a name its module binds: its own, or one it imports.
+
+        And each nested function or lambda it calls by the name it or an enclosing function binds one to.
+        """
+        for call in _run_by(node):
             if not isinstance(call, ast.Call):
                 continue
             target = call.func
             if isinstance(target, ast.Name):
-                if target.id in module.functions:
+                if (nested := self._enclosed(node, target.id)) is not None:
+                    yield module, nested
+                elif target.id in module.functions:
                     yield module, module.functions[target.id]
                 elif (imported := module.imports.get(target.id)) is not None and imported[1] is not None:
                     source = self._module(module, imported[0])
@@ -435,7 +488,7 @@ class Estate:
 
         An uncalled one excuses no fixture; a reached one asks from where its test or fixture stands.
         """
-        pending: list[tuple[Module, FunctionNode, Scope, bool, int | None]] = [
+        pending: list[tuple[Module, CalledNode, Scope, bool, int | None]] = [
             (module, test.node, Scope(module.path, False, test.classes), True, None) for module in self.modules for test in module.tests
         ]
         pending += [

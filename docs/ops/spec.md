@@ -859,10 +859,11 @@ anywhere under the directory of the `conftest.py` defining it at module level; i
 it by name, under the alias it is imported as unless it carries `name=`; and everywhere for a module
 `pytest_plugins` names. A request is a collected test's or a
 fixture's argument that has no default and that no `parametrize` mark hands over directly, a
-`usefixtures` mark on a test, a `Test` class or a `pytestmark`, a `getfixturevalue` string in a
-function a test or a fixture calls, or the configuration's own `usefixtures`; a fixture asking for
-its own name is handed the one it overrides, never itself. A same-named argument elsewhere, a
-helper's parameter, or an uncalled helper's string therefore excuses nothing. A fixture spelled in
+`usefixtures` mark on a test, a `Test` class or a `pytestmark`, a `getfixturevalue` string a test
+or a fixture runs, itself or in a function or a lambda it calls by name, or the configuration's own
+`usefixtures`; a fixture asking for its own name is handed the one it overrides, never itself. A
+same-named argument elsewhere, a helper's parameter, or the string of a helper, a nested function or
+a lambda nothing calls therefore excuses nothing. A fixture spelled in
 a way the check cannot follow, a test a `mock.patch` decorator hands arguments pytest then strips,
 or a collection of the configuration's own, is a refusal at 2 rather than a verdict. A test
 reaching a database without `@pytest.mark.db` is the suite's own to refuse, as it runs
