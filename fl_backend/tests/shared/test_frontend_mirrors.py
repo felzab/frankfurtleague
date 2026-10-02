@@ -29,6 +29,7 @@ from app.core.actor_token import (
     ACTOR_TOKEN_LIFETIME_S,
     ACTOR_TOKEN_TYPE,
     PASSKEY_FACTOR,
+    PROTECTED_HEADER,
     REQUIRED_CLAIMS,
     Lane,
 )
@@ -1583,6 +1584,7 @@ def test_the_actor_token_verifier_reads_the_contract_the_frontend_mints_to():
         contract["aud"],
         contract["lifetime_s"],
     )
+    assert sorted(PROTECTED_HEADER) == sorted(contract["header"])
     assert sorted(REQUIRED_CLAIMS) == sorted(contract["claims"])
     assert sorted(get_args(Lane)) == sorted(contract["lanes"])
     assert PASSKEY_FACTOR == contract["admin_factor"]

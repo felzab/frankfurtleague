@@ -47,6 +47,7 @@ const CONTRACT = z
   .object({
     alg: z.string(),
     typ: z.string(),
+    header: z.array(z.string()),
     iss: z.string(),
     aud: z.string(),
     lifetime_s: z.number().int(),
@@ -93,7 +94,10 @@ describe("the token a guard mints", () => {
     const signing = await loadSigningKey(KEY_FILE);
     const token = await mintActorToken(signing, claimsFor("admin"), ISSUED_AT);
 
-    assert.deepEqual(decodeProtectedHeader(token), { alg: CONTRACT.alg, typ: CONTRACT.typ, kid: thumbprintOf(PAIR.publicKey) });
+    const header = decodeProtectedHeader(token);
+
+    assert.deepEqual(Object.keys(header).sort(), [...CONTRACT.header].sort());
+    assert.deepEqual(header, { alg: CONTRACT.alg, typ: CONTRACT.typ, kid: thumbprintOf(PAIR.publicKey) });
   });
 
   /* Every claim the backend requires, each spelled as it reads it: one missing or renamed refuses every

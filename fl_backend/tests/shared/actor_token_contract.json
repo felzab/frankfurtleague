@@ -1,6 +1,7 @@
 {
   "alg": "EdDSA",
   "typ": "fl-actor+jwt",
+  "header": ["alg", "typ", "kid"],
   "iss": "fl-frontend",
   "aud": "fl-backend",
   "lifetime_s": 60,
