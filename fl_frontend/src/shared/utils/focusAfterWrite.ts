@@ -108,25 +108,24 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
       if (anchor === null || place === null) return;
       armed?.();
 
-      const land = (): boolean => {
-        if (anchor.isConnected) return false;
+      let landedOn: HTMLElement | null = null;
+      const land = (): void => {
+        const active = document.activeElement;
+        if (anchor.isConnected || (active !== null && active === landedOn)) return;
         // A focus held outside the control's sections stays where it is, as a dialog not yet closed over
         // the control holds it. One inside them was put there by the page, the reader having pressed
         // nothing since: react-aria's grid falls back to the cell.
-        const active = document.activeElement;
         if (active !== null && active !== document.body && !place.sections.some((key) => keyed(document, SECTION, key)[0]?.contains(active))) {
-          return false;
+          return;
         }
-        target(place)?.focus();
-        return true;
+        landedOn = target(place);
+        landedOn?.focus();
       };
-      if (land()) return;
+      land();
 
-      // The refresh carrying the write's result commits after the action answers, so the control is
-      // still standing here.
-      const observer = new MutationObserver(() => {
-        if (land()) stop();
-      });
+      // Watched until the reader acts rather than to the first landing: the refresh carrying the write's
+      // result commits after the action answers, and a keyed editor's draws the landed control anew.
+      const observer = new MutationObserver(land);
       // A key or a press is the reader acting again, after which a landing would move them off it.
       const stop = (): void => {
         observer.disconnect();

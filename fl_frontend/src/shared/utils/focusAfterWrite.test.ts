@@ -213,6 +213,24 @@ describe("what a landing leaves alone", () => {
     );
   });
 
+  /* An editor's box closes on the answer, and the refresh keyed on the stored value then draws the page anew. */
+  it("lands again where a later redraw takes the landed control away", async () => {
+    document.body.append(list(["a", "b"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    document.querySelector("li button")?.replaceWith(button("a reaktivieren"));
+    await settle();
+    document.querySelector("section")?.replaceWith(list(["a", "b"]));
+    document.querySelector(`[data-focus-row="a"] button`)?.replaceWith(button("a reaktivieren"));
+    await settle();
+
+    assert.ok(
+      document.activeElement === document.querySelector(`[data-focus-row="a"] button`),
+      `the focus is on „${focused()}“ rather than the redrawn control`,
+    );
+  });
+
   it("lands at once where the control had already gone when the write answered", () => {
     document.body.append(list(["a", "b"]));
     const landing = focusAfterWrite(pressed("a löschen"));
