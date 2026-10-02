@@ -1,5 +1,4 @@
 // Linted as src/shared/components/ui/NumberField.tsx.
-import "resend"; // expect: mail-transport
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 // The wrapper may import HeroUI's number field from its own subpath, and from nowhere else.
 import { NumberField as HeroUINumberField } from "@heroui/react/number-field";

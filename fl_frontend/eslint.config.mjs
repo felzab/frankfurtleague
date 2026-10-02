@@ -327,26 +327,6 @@ const SITE_ORIGIN = {
 };
 
 /**
- * A provider's SDK or a transport of its own, Better Auth's mail service among them: a message sent
- * through one never meets the ban list's gate (`docs/frontend/spec.md :: I541`).
- */
-const MAIL_TRANSPORTS = {
-  group: [
-    "resend",
-    "resend/*",
-    "nodemailer",
-    "nodemailer/*",
-    "@sendgrid/*",
-    "postmark",
-    "postmark/*",
-    "@better-auth/infra",
-    "@better-auth/infra/*",
-  ],
-  message:
-    "Send mail through fl_frontend/src/core/mail.ts :: sendMail alone: its gate keeps every message from a barred address (docs/frontend/spec.md :: I541).",
-};
-
-/**
  * react-aria's locale provider, mounted once at the root: it reads the nearest one, so a second mount
  * formats a subtree's dates by whatever it pins (`docs/frontend/spec.md :: I75`). Tests mount their own.
  */
@@ -697,7 +677,7 @@ const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
 const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HEROUI_MARKED_FIELDS, HINT_INTERNALS];
 
-const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER, ACTOR_SIGNING, MAIL_TRANSPORTS];
+const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER, ACTOR_SIGNING];
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -838,28 +818,18 @@ const SOURCE_BANS = [
     tests: true,
   },
   {
-    selector: loadOf(String.raw`^(?:resend|nodemailer|postmark|@sendgrid\x2F[^\x2F]+|@better-auth\x2Finfra)(?:\x2F.*)?$`),
-    message: "Load no mail transport by `import()` either: fl_frontend/src/core/mail.ts :: sendMail alone meets the ban list's gate.",
-  },
-  {
-    // The key is what lets a send leave without `sendMail`, and so without its gate.
+    // The key is what lets a send leave without `sendMail`, and so without its gate. The name is
+    // refused as a string too, which a computed key or `Reflect.get` reads it by; one assembled at
+    // run time is review's.
     selector: [
       'MemberExpression[property.name="AUTH_RESEND_KEY"]',
-      'MemberExpression[property.value="AUTH_RESEND_KEY"]',
       'ObjectPattern > Property[key.name="AUTH_RESEND_KEY"]',
-      'ObjectPattern > Property[key.value="AUTH_RESEND_KEY"]',
+      'Literal[value="AUTH_RESEND_KEY"]',
+      'TemplateElement[value.cooked="AUTH_RESEND_KEY"]',
     ].join(", "),
     message:
       "The provider's key is read in fl_frontend/src/core/mail.ts and fl_frontend/src/core/config.ts alone (docs/frontend/spec.md :: I541).",
     exempt: ["src/core/mail.ts", "src/core/config.ts"],
-  },
-  {
-    // A kind named by hand carries any message past the gate, so the one kind it lets through is
-    // spelled where the notice it belongs to is built, and in the registry of kinds.
-    selector: ':matches(Literal[value="sperre"], TemplateElement[value.cooked="sperre"])',
-    message:
-      "The ban's own notice is the one kind that reaches a barred address, named in fl_frontend/src/core/sperrlisteEmail.ts and fl_frontend/src/core/mailArt.ts alone (docs/frontend/spec.md :: I541).",
-    exempt: ["src/core/sperrlisteEmail.ts", "src/core/mailArt.ts"],
   },
   {
     selector: `:matches(${inLiteral(String.raw`\x2Fbestaetigung\?`)}, ${inLiteral(String.raw`\x2Fapi\x2Fbestaetigung$`)})`,

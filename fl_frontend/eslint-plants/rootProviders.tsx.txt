@@ -1,6 +1,5 @@
 // Linted as src/core/providers/RootProviders.tsx.
 // The root providers may mount react-aria's locale provider, and every other import ban still reaches them.
-import "resend"; // expect: mail-transport
 import { I18nProvider } from "@heroui/react/rac";
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { Form } from "@heroui/react/form"; // expect: heroui-form

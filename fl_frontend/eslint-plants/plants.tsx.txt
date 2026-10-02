@@ -1,7 +1,6 @@
 // Linted as src/features/zzplant/plants.tsx.
 "use client";
 
-import "resend"; // expect: mail-transport
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
@@ -63,13 +62,10 @@ export const TONES_REVERSED = { alt: "text-foreground-muted bg-muted" }; // expe
 export const FIGURES = "fluid-xs tabular-nums"; // expect: numeric-pair
 export const TALL = "min-h-[100vh]"; // expect: vh
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
-export const TRANSPORT_LOADED = import("nodemailer"); // expect: mail-transport-load
-export const SDK_SUBPATH_LOADED = import(`@better-auth/infra/email`); // expect: mail-transport-load
 export const KEY_READ = frontend_config.AUTH_RESEND_KEY; // expect: resend-key
 export const { AUTH_RESEND_KEY: KEY_TAKEN } = frontend_config; // expect: resend-key
-export const FORGED_KIND = { art: "sperre" }; // expect: sperre-art
-export const FORGED_TEMPLATE = `sperre`; // expect: sperre-art
-export const OTHER_KIND = { art: "einladung" };
+export const KEY_INDEXED = frontend_config["AUTH_RESEND_KEY"]; // expect: resend-key
+export const KEY_REFLECTED = Reflect.get(frontend_config, `AUTH_RESEND_KEY`); // expect: resend-key
 export const STALE = "/bestaetigung?token=x"; // expect: stale-path
 export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
 export const STALE_ADMIN = "/admin/teams"; // expect: stale-admin

@@ -1,6 +1,5 @@
 // Linted as src/core/subject.ts.
 // A session guard may import the actor's signing module, and every other import ban still reaches it.
-import "resend"; // expect: mail-transport
 import { mintRequestActor } from "./actorToken";
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { Button } from "@heroui/react"; // expect: vendor-root

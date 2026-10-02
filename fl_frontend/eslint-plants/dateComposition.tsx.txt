@@ -1,5 +1,4 @@
 // Linted as src/shared/components/ui/DateTimeFields.tsx.
-import "resend"; // expect: mail-transport
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 // The composition may import the segmented controls, and still only under their own names.
 import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: date-alias

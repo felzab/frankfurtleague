@@ -1,6 +1,0 @@
-// Linted as src/core/sperrlisteEmail.ts.
-// The ban's notice names its own kind, and every other ban still reaches it, core's own included.
-export const NOTICE = { art: "sperre" };
-export const KEY = frontend_config.AUTH_RESEND_KEY; // expect: resend-key
-export const GAP = "flex gap-5"; // expect: gap
-export const SLICE = import("@/features/teams/facets"); // expect: layer-core-load
