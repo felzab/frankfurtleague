@@ -8,11 +8,17 @@ import { runAsTestFile } from "./childTestRun.ts";
 /** Kept outside `src`, where no sweep over db suites can take its text for this file's own. */
 const LEFT_TO_EXPIRE = path.resolve(import.meta.dirname, "..", "..", "scripts", "fixtures", "expiredTransactionLeft.mjs.txt");
 
+/**
+ * The child starts a container, which a loaded machine stretched past the runner's one-minute default;
+ * still a bound under the db job's fifteen minutes, so a teardown the child skipped fails rather than stalls.
+ */
+const DB_CHILD_TIMEOUT_MS = 300_000;
+
 /* The helper's own wiring, which no suite running through it can show: a file whose replica set
    aborted a transaction passes unless the teardown was handed the container it started. */
 describe("a db file's replica set, started through the helper", () => {
   it("fails the file that left a transaction to expire, naming the refusal", () => {
-    const run = runAsTestFile(readFileSync(LEFT_TO_EXPIRE, "utf8"));
+    const run = runAsTestFile(readFileSync(LEFT_TO_EXPIRE, "utf8"), { timeoutMs: DB_CHILD_TIMEOUT_MS });
 
     assert.equal(run.timedOut, false, `the child was held open past its timeout:\n${run.output}`);
     // Its own case passing, so the file fails by its teardown alone and not by a transaction never left.

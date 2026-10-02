@@ -7,22 +7,29 @@ import { startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
 
 const { mongod } = await startJudgedReplicaSet();
 
-// In the container's own shell, so no client of this file holds the transaction: one left open past a
-// one-second lifetime, waited on until the server's periodic pass has aborted it.
+// In the container's own shell, so no client of this file holds the transaction: one begun under a
+// one-second lifetime, which the server fixes as the transaction begins, so it is set first.
+// Judged by the server's own counts alone, never by wall time: under load the write itself can
+// outlast the second and be interrupted, and the transaction has expired all the same. The wait
+// ends on the kill, or once the server's periodic pass has run several times past the lifetime.
 const LEAVE_ONE_TO_EXPIRE = `
 db.adminCommand({ setParameter: 1, transactionLifetimeLimitSeconds: 1 });
+const expiry = () => db.serverStatus().metrics.abortExpiredTransactions;
+const passesBefore = Number(expiry().passes);
 const session = db.getMongo().startSession();
 session.startTransaction();
-session.getDatabase("probe").rows.insertOne({ left: true });
-const killed = () => Number(db.serverStatus().metrics.abortExpiredTransactions.successfulKills);
-const deadline = Date.now() + 30000;
-while (killed() < 1 && Date.now() < deadline) sleep(200);
-print(killed());
+try {
+  session.getDatabase("probe").rows.insertOne({ left: true });
+} catch (error) {
+  print("WRITE " + error.message);
+}
+while (Number(expiry().successfulKills) < 1 && Number(expiry().passes) < passesBefore + 5) sleep(200);
+print("KILLED " + Number(expiry().successfulKills));
 `;
 
 it("leaves a transaction to expire", async () => {
   const { output, exitCode } = await mongod.exec(["mongosh", "--quiet", "--eval", LEAVE_ONE_TO_EXPIRE]);
 
   assert.equal(exitCode, 0, output);
-  assert.equal(output.trim(), "1", "the server never aborted the transaction left open");
+  assert.match(output, /^KILLED 1$/m, `the server never aborted the transaction left open:\n${output}`);
 });

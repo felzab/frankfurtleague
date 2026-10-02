@@ -17,7 +17,7 @@ export type ChildTestRun = { status: number | null; output: string; timedOut: bo
  * modules through `@/`, which the child's alias hook resolves, so no path of this machine is written
  * into it.
  */
-export function runAsTestFile(source: string): ChildTestRun {
+export function runAsTestFile(source: string, { timeoutMs = CHILD_TIMEOUT_MS }: { timeoutMs?: number } = {}): ChildTestRun {
   const scratch = mkdtempSync(path.join(tmpdir(), "fl-child-run-"));
   const fixture = path.join(scratch, "fixture.test.mjs");
   writeFileSync(fixture, source);
@@ -28,7 +28,7 @@ export function runAsTestFile(source: string): ChildTestRun {
   try {
     const run = spawnSync(process.execPath, ["--import", ALIAS_HOOK, "--test", "--test-reporter=spec", fixture], {
       encoding: "utf8",
-      timeout: CHILD_TIMEOUT_MS,
+      timeout: timeoutMs,
       env,
     });
     return { status: run.status, output: `${run.stdout}${run.stderr}`, timedOut: run.error !== undefined };
