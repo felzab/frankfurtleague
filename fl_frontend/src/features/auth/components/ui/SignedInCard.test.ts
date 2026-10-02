@@ -38,6 +38,15 @@ describe("the sign-in page for somebody already signed in", () => {
     assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u);
   });
 
+  /* A border colour alone draws nothing: the rule under the title is a filled hairline, HeroUI's separator in the app's grey. */
+  it("draws a rule under its title", () => {
+    render(underNext(h(SignedInCard, { address: ADDRESS }), { router: recordingRouter().router }));
+
+    const rule = document.querySelector('[data-slot="separator"]') ?? assert.fail("the card draws no rule under its title");
+    assert.ok(rule.classList.contains("separator--horizontal"), "the rule is not HeroUI's one-pixel horizontal separator");
+    assert.ok(rule.classList.contains("bg-border"), "the rule is drawn in HeroUI's grey rather than the app's border colour");
+  });
+
   /* A link is given no `data-hovered`, so a hover keyed on it never shows; a HeroUI button latches CSS
      `:hover` after a tap (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`). */
   it("hovers the link by CSS and the sign-out by the attribute its button sets", () => {

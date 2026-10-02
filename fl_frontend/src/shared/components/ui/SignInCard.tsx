@@ -1,3 +1,5 @@
+import { Separator } from "@heroui/react/separator";
+
 import { DISPLAY_HEADING_CLASSES } from "./displayType";
 
 import type { ReactNode } from "react";
@@ -18,7 +20,11 @@ export function SignInCard({ title, children }: { title: string; children: React
           <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-2xl text-foreground`}>{title}</h1>
         </div>
 
-        <div className="mb-8 h-[1px] w-full border-border" />
+        {/* Decoration under the title, as a panel's header rule is; HeroUI's own grey is off the app's scheme. */}
+        <Separator
+          aria-hidden="true"
+          className="mb-8 bg-border"
+        />
 
         {children}
       </div>
