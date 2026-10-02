@@ -250,6 +250,26 @@ CLASS_FIXTURE = "import pytest\n\n\nclass TestOwner:\n    @pytest.fixture\n    d
             id="override-asks-for-the-fixture-it-replaces",
         ),
         pytest.param(
+            {"conftest.py": ORPHAN, "api/test_case.py": ORPHAN + ASKS_LEAGUE},
+            ["league"],
+            id="shadowed-by-a-module-override-asking-nothing",
+        ),
+        pytest.param(
+            {"conftest.py": ORPHAN, "api/conftest.py": ORPHAN, "api/test_case.py": ASKS_LEAGUE},
+            ["league"],
+            id="shadowed-by-a-nearer-conftest-asking-nothing",
+        ),
+        pytest.param(
+            {
+                "conftest.py": ORPHAN,
+                "api/conftest.py": ORPHAN,
+                "api/test_case.py": "import pytest\n\n\n@pytest.fixture\ndef season(league):\n    return league\n\n\n"
+                "def test_reads(season):\n    assert season\n",
+            },
+            ["league"],
+            id="shadowed-where-a-fixture-asks-for-it",
+        ),
+        pytest.param(
             {"conftest.py": "import pytest\n\n\n@pytest.fixture\ndef league(league):\n    return league\n"},
             ["league"],
             id="a-fixture-asking-its-own-name-asks-no-one",

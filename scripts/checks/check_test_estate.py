@@ -103,6 +103,24 @@ class Scope(NamedTuple):
         shorter = min(len(self.classes), len(other.classes))
         return self.path == other.path and self.classes[:shorter] == other.classes[:shorter]
 
+    def _rank(self) -> tuple[int, int]:
+        """How near a test this supplies: a module or class beats any directory, a deeper class or directory a shallower one."""
+        return (0, len(self.path.parts)) if self.subtree else (1, len(self.classes))
+
+    def narrower(self, other: Scope) -> Scope:
+        """The one of two scopes that `meets` pairs lying inside the other, which is where both reach."""
+        return self if self._rank() >= other._rank() else other
+
+    def covers(self, other: Scope) -> bool:
+        """Whether this supplies every test `other` holds."""
+        if other.subtree:
+            return self.subtree and other.path.is_relative_to(self.path)
+        return self.holds(other.path, other.classes)
+
+    def nearer_than(self, other: Scope) -> bool:
+        """Of two scopes both supplying a test, whether pytest takes this one's fixture over the other's."""
+        return self._rank() > other._rank()
+
 
 class Definition(NamedTuple):
     """One fixture as pytest registers it, and the scope its own module gives it."""
@@ -528,12 +546,26 @@ class Estate:
         for request in self.requests:
             if request.origin == id(definition):
                 continue
-            named = [scope for scope, name in supplied if name == request.name]
-            if request.point and any(scope.holds(request.scope.path, request.scope.classes) for scope in named):
-                return True
-            if not request.point and any(scope.meets(request.scope) for scope in named):
-                return True
+            for scope, name in supplied:
+                if name != request.name:
+                    continue
+                reaches = scope.holds(request.scope.path, request.scope.classes) if request.point else scope.meets(request.scope)
+                if reaches and not self._shadowed(definition, scope, request):
+                    return True
         return False
+
+    def _shadowed(self, definition: Definition, scope: Scope, request: Request) -> bool:
+        """Whether another fixture of the request's name, nearer than `scope`, supplies everywhere both `scope` and the request reach.
+
+        pytest hands a test the nearest one alone; only the asker's own name reaches past it, to the one it overrides.
+        """
+        where = scope.narrower(request.scope)
+        return any(
+            name == request.name and other.covers(where) and other.nearer_than(scope)
+            for owner, supplied in self.scopes.items()
+            if owner not in (id(definition), request.origin)
+            for other, name in supplied
+        )
 
 
 def configured_fixtures(options: dict[str, Any]) -> frozenset[str]:

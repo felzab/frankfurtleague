@@ -857,7 +857,9 @@ parametrised sweep whose discovery found nothing passes as one skip. **A request
 pytest supplies that fixture**: in its own module, or in its own class where it is defined in one;
 anywhere under the directory of the `conftest.py` defining it at module level; in a module importing
 it by name, under the alias it is imported as unless it carries `name=`; and everywhere for a module
-`pytest_plugins` names. A request is a collected test's or a
+`pytest_plugins` names. **It counts for the nearest of those alone**, a class's over its module's and
+a module's over the nearest `conftest.py`'s, as pytest hands it, unless the nearer one asks for its
+own name. A request is a collected test's or a
 fixture's argument that has no default and that no `parametrize` mark hands over directly, a
 `usefixtures` mark on a test, a `Test` class or a `pytestmark`, a `getfixturevalue` string a test
 or a fixture runs, itself or in a function or a lambda it calls by name, or the configuration's own
