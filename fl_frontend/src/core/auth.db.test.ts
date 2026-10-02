@@ -111,7 +111,7 @@ const LOGGING_DOUBLE = {
 };
 
 const { sent } = registerAuthDoubles({
-  core: { config: configDouble({ MONGODB_URI: MONGO_URL, ...GATE_BACKEND_CONFIG }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
 });
 
 /** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */

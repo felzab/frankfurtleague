@@ -131,7 +131,7 @@ const LOGGING_DOUBLE = {
 };
 
 const { sent } = registerAuthDoubles({
-  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { config: configDouble({}, { mongodbUri: () => MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
   specifiers: { "next/headers": HEADERS_DOUBLE, "next/cache": asDataUrl(NEXT_CACHE_DOUBLE) },
 });
 

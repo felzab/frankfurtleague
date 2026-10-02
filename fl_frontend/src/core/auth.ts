@@ -16,7 +16,7 @@ import { mintRequestActor } from "./actorToken";
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
 import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
 import { MONGO_DB_NAME } from "./authIndexes";
-import { frontend_config } from "./config";
+import { authSecret, frontend_config } from "./config";
 import { signInStore } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
 import { BRAND_NAME } from "./emailShell";
@@ -778,7 +778,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
     // Passed rather than left to the environment: the library reads no bare `AUTH_URL`, and this
     // value's origin also decides the `__Host-` cookie prefix below and the passkey relying-party id.
     baseURL: frontend_config.AUTH_URL,
-    secret: frontend_config.AUTH_SECRET,
+    secret: authSecret(),
 
     session: sessionOptions,
     user: userOptions,

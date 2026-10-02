@@ -4,7 +4,7 @@ import z from "zod";
 
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
-import { frontend_config } from "./config";
+import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
 import {
   APIBadStatusError,
   APIMalformedDataError,
@@ -50,14 +50,14 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
     case "none":
       break;
     case "system":
-      headers["Authorization"] = `Bearer ${frontend_config.INTERNAL_API_KEY_SYSTEM}`;
+      headers["Authorization"] = `Bearer ${internalApiKeySystem()}`;
       break;
     case "admin":
-      headers["Authorization"] = `Bearer ${frontend_config.INTERNAL_API_KEY_ADMIN}`;
+      headers["Authorization"] = `Bearer ${internalApiKeyAdmin()}`;
       break;
     case "base":
     default:
-      headers["Authorization"] = `Bearer ${frontend_config.INTERNAL_API_KEY_BASE}`;
+      headers["Authorization"] = `Bearer ${internalApiKeyBase()}`;
       break;
   }
 

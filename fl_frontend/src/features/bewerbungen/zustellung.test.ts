@@ -11,10 +11,9 @@ import { registerDoubles } from "@/core/exportingModule.ts";
  */
 const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 
-// Handed to the route by reference, so a case can take the key away and put it back.
-const CONFIG_DOUBLE: { frontend_config: { RESEND_WEBHOOK_SECRET: string | undefined } } = {
-  frontend_config: { RESEND_WEBHOOK_SECRET: webhookSecret },
-};
+// Read by the route on every report, so a case can take the key away and put it back.
+let heldSecret: string | undefined = webhookSecret;
+const CONFIG_DOUBLE = { resendWebhookSecret: () => heldSecret };
 
 type LoggedLine = { level: string; message: string; error?: unknown; meta?: Record<string, unknown> };
 
@@ -589,13 +588,13 @@ describe("POST /api/mail/zustellung", () => {
      reaching one is refused unverified rather than applied. */
   it("answers 400 and applies nothing where the deployment holds no webhook key", async () => {
     const request = signed(JSON.stringify(eventFor("email.delivered")));
-    CONFIG_DOUBLE.frontend_config.RESEND_WEBHOOK_SECRET = undefined;
+    heldSecret = undefined;
     try {
       const { status } = await answerTo(request);
 
       assert.equal(status, 400);
     } finally {
-      CONFIG_DOUBLE.frontend_config.RESEND_WEBHOOK_SECRET = webhookSecret;
+      heldSecret = webhookSecret;
     }
     assert.deepEqual(calls, []);
     assert.deepEqual(

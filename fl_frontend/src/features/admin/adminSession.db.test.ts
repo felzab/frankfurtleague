@@ -22,7 +22,7 @@ const errors: string[] = [];
 
 registerAuthDoubles({
   core: {
-    config: configDouble({ MONGODB_URI: `${mongod.getConnectionString()}/?directConnection=true` }),
+    config: configDouble({}, { mongodbUri: () => `${mongod.getConnectionString()}/?directConnection=true` }),
     db: overridingModule(PRODUCTION_DB, {}),
     logging: {
       logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: (message: string) => void errors.push(message) },

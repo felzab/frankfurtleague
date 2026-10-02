@@ -14,17 +14,15 @@ let resendKey: string | undefined;
 // Replaced at the module boundary rather than the transport reshaped to admit a seam: the real key
 // is a credential no test run holds.
 
-// Getters, not fixed values: the guard reads both names on every send, and a case moving
+// A getter and a reader, not fixed values: the guard reads both on every send, and a case moving
 // `process.env` would decide every case after it in this one process.
 const CONFIG_DOUBLE = {
   frontend_config: {
     get APP_ENV() {
       return appEnv;
     },
-    get AUTH_RESEND_KEY() {
-      return resendKey;
-    },
   },
+  authResendKey: () => resendKey,
 };
 
 const LOGGER_DOUBLE = {

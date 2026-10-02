@@ -206,9 +206,33 @@ const ACTOR_SIGNING = {
     "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation-node.ts load it, and a *.test.ts(x) file may; nothing else may.",
 };
 
-/** The two guards, which import `ACTOR_SIGNING` statically; the boot loads it by `import()`. */
-const ACTOR_SIGNING_GUARDS = ["src/core/auth.ts", "src/core/subject.ts"];
 const ACTOR_SIGNING_BOOT = "src/instrumentation-node.ts";
+
+/** The settings module, which every server module imports and whose secret readers lint deals out one owner each. */
+const CONFIG_MODULE = ["**/config", "**/config.ts"];
+
+/**
+ * Each secret's reader in `fl_frontend/src/core/config.ts`, keyed by the one module that may import it:
+ * a reader anywhere else hands its secret to a module nothing reviewed as its holder.
+ */
+const SECRET_READERS = Object.fromEntries(
+  [
+    ["src/core/db.ts", ["mongodbUri"], "the sign-in store's credential"],
+    ["src/core/auth.ts", ["authSecret"], "the key every session is signed with"],
+    // The key lets a send leave without `sendMail`, and so without the ban list's gate.
+    ["src/core/mail.ts", ["authResendKey"], "the provider's key (docs/frontend/spec.md :: I541)"],
+    ["src/app/api/mail/zustellung/route.ts", ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
+    // The system's key calls the backend as the system, past every guard on an admin's session.
+    ["src/core/api.ts", ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
+  ].map(([owner, importNames, secret]) => [
+    owner,
+    {
+      group: CONFIG_MODULE,
+      importNames,
+      message: `${importNames.join(", ")} ${importNames.length === 1 ? "hands" : "hand"} out ${secret}: fl_frontend/${owner} imports ${importNames.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`,
+    },
+  ]),
+);
 
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
@@ -697,7 +721,7 @@ const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
 const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HEROUI_MARKED_FIELDS, HINT_INTERNALS];
 
-const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER, ACTOR_SIGNING];
+const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER, ACTOR_SIGNING, ...Object.values(SECRET_READERS)];
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -725,6 +749,12 @@ const SOURCE_BANS = [
   {
     selector: loadOf(specifiersOf(ACTOR_SIGNING.group)),
     message: `${ACTOR_SIGNING.message} The boot alone loads it by \`import()\`.`,
+    exempt: [ACTOR_SIGNING_BOOT],
+  },
+  {
+    // A loaded module's namespace carries every reader, which no import ban reads.
+    selector: loadOf(specifiersOf(CONFIG_MODULE)),
+    message: "fl_frontend/src/core/config.ts loaded at run time hands over every secret's reader: the boot alone loads it by `import()`.",
     exempt: [ACTOR_SIGNING_BOOT],
   },
   {
@@ -836,20 +866,6 @@ const SOURCE_BANS = [
     message: "The provider's endpoint is named in fl_frontend/src/core/mail.ts alone.",
     exempt: ["src/core/mail.ts", "src/core/mail.test.ts"],
     tests: true,
-  },
-  {
-    // The key is what lets a send leave without `sendMail`, and so without its gate. The name is
-    // refused as a string too, which a computed key or `Reflect.get` reads it by; one assembled at
-    // run time is review's.
-    selector: [
-      'MemberExpression[property.name="AUTH_RESEND_KEY"]',
-      'ObjectPattern > Property[key.name="AUTH_RESEND_KEY"]',
-      'Literal[value="AUTH_RESEND_KEY"]',
-      'TemplateElement[value.cooked="AUTH_RESEND_KEY"]',
-    ].join(", "),
-    message:
-      "The provider's key is read in fl_frontend/src/core/mail.ts and fl_frontend/src/core/config.ts alone (docs/frontend/spec.md :: I541).",
-    exempt: ["src/core/mail.ts", "src/core/config.ts"],
   },
   {
     selector: `:matches(${inLiteral(String.raw`\x2Fbestaetigung\?`)}, ${inLiteral(String.raw`\x2Fapi\x2Fbestaetigung$`)})`,
@@ -1139,22 +1155,32 @@ const eslintConfig = defineConfig([
   // Each ban's importers, last among the blocks reaching them for `restrictImports`'s reason, and left
   // out of that ban alone: a disable comment would excuse every import ban on its line.
   ...[
-    [["src/shared/components/ui/Hint.tsx"], HINT_INTERNALS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [["src/shared/components/ui/NumberField.tsx"], HEROUI_NUMBER_FIELD, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [MARKED_FIELD_HOMES, HEROUI_MARKED_FIELDS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/Hint.tsx"], [HINT_INTERNALS], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/Form.tsx"], [HEROUI_FORM], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/NumberField.tsx"], [HEROUI_NUMBER_FIELD], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [MARKED_FIELD_HOMES, [HEROUI_MARKED_FIELDS], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/DateTimeFields.tsx"], [SEGMENTED_DATE_CONTROLS], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     // What a crawler reads, which stands on the published origin.
-    [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], SITE_ORIGIN, PRODUCTION_IMPORTS],
-    [["src/core/providers/RootProviders.tsx"], LOCALE_PROVIDER, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
-    [ACTOR_SIGNING_GUARDS, ACTOR_SIGNING, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], [SITE_ORIGIN], PRODUCTION_IMPORTS],
+    [["src/core/providers/RootProviders.tsx"], [LOCALE_PROVIDER], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    // The two session guards, which import the actor's signing module statically; the boot loads it by `import()`.
+    [["src/core/subject.ts"], [ACTOR_SIGNING], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    // The guard building the sign-in library also holds the key every session is signed with.
+    [["src/core/auth.ts"], [ACTOR_SIGNING, SECRET_READERS["src/core/auth.ts"]], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    ...Object.entries(SECRET_READERS)
+      .filter(([owner]) => owner !== "src/core/auth.ts")
+      .map(([owner, reader]) => [
+        [owner],
+        [reader],
+        owner.startsWith("src/core/") ? [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core] : PRODUCTION_IMPORTS,
+      ]),
     // The harness and its own test, which the production bans leave out.
     [
       ["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"],
-      NEXT_PRIVATE_CONTEXTS,
+      [NEXT_PRIVATE_CONTEXTS],
       [...HOMED_IMPORTS, LAYER_BOUNDARY.shared],
     ],
-  ].map(([files, allowed, bans]) => ({ files, rules: restrictImports(...bans.filter((ban) => ban !== allowed)) })),
+  ].map(([files, allowed, bans]) => ({ files, rules: restrictImports(...bans.filter((ban) => !allowed.includes(ban))) })),
 
   {
     files: ["src/**/*.{ts,tsx}"],

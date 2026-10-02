@@ -28,12 +28,12 @@ registerDoubles({
       frontend_config: {
         API_URL: "http://backend:8000",
         API_VERSION: 0,
-        INTERNAL_API_KEY_BASE: "base-key-double",
-        INTERNAL_API_KEY_SYSTEM: "system-key-double",
-        INTERNAL_API_KEY_ADMIN: "admin-key-double",
         APP_ENV: "production",
-        AUTH_RESEND_KEY: "resend-key-double",
       },
+      internalApiKeyBase: () => "base-key-double",
+      internalApiKeySystem: () => "system-key-double",
+      internalApiKeyAdmin: () => "admin-key-double",
+      authResendKey: () => "resend-key-double",
     },
     "core/logging.ts": { logger: { debug: inert, info: inert, warn: inert, error: inert } },
     // Admitting, so the one call the mail client makes is the provider's: the gate's own read is a

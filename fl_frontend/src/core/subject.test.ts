@@ -33,13 +33,10 @@ const FOLDED_EMAIL = "anna.mueller@schule.de";
 const API_ORIGIN = "http://backend.test";
 const API_VERSION = 0;
 
-const CONFIG_DOUBLE = configDouble({
-  API_URL: API_ORIGIN,
-  API_VERSION: API_VERSION,
-  INTERNAL_API_KEY_BASE: "fabricated-base-not-a-credential",
-  INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential",
-  INTERNAL_API_KEY_ADMIN: "fabricated-admin-not-a-credential",
-});
+const CONFIG_DOUBLE = configDouble(
+  { API_URL: API_ORIGIN, API_VERSION: API_VERSION },
+  { internalApiKeyBase: () => "fabricated-base-not-a-credential", internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" },
+);
 
 /** Each arrival at the session read, which every uncached pass through the guard makes. */
 let headerReadCount = 0;

@@ -24,8 +24,14 @@ const PROVIDED_WHILE_BUILDING = new Set([
   "SKIP_ENV_VALIDATION",
 ]);
 
-/** The validated source (`fl_frontend/src/core/config.ts :: frontend_config`): every read off it is a value, and the call building it is no subject. */
+/** The validated settings (`fl_frontend/src/core/config.ts :: frontend_config`): every read off them is a value. */
 const VALIDATED_CONFIG = "frontend_config";
+
+/** The one validation (`fl_frontend/src/core/config.ts :: validated`), whose own arguments are no subject. */
+const VALIDATION = "validated";
+
+/** Where a secret's reader is imported from: its call is a value the builder leaves undefined, as a setting is. */
+const CONFIG_MODULE = /(?:^|\/)config(?:\.ts)?$/;
 
 const collectModules = (dir: string): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 350);
 
@@ -56,6 +62,22 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
 
   const derived = new Set<string>();
   const holders = new Map<string, ts.ObjectLiteralExpression | ts.ArrayLiteralExpression>();
+  // A name taken from the config beside the settings is a secret's reader, whose call returns what the
+  // builder leaves undefined.
+  const readers = new Set(
+    sourceFile.statements.flatMap((statement) =>
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      CONFIG_MODULE.test(statement.moduleSpecifier.text) &&
+      statement.importClause?.isTypeOnly !== true &&
+      statement.importClause?.namedBindings !== undefined &&
+      ts.isNamedImports(statement.importClause.namedBindings)
+        ? statement.importClause.namedBindings.elements
+            .filter((element) => !element.isTypeOnly && element.name.text !== VALIDATED_CONFIG)
+            .map((element) => element.name.text)
+        : [],
+    ),
+  );
   const findings: Finding[] = [];
   let validator: ts.Node | undefined;
 
@@ -68,8 +90,9 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
     ts.isBinaryExpression(node) &&
     (node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken || node.operatorToken.kind === ts.SyntaxKind.BarBarToken);
 
-  /** A name the builder does not set, read off the validated config or off `process.env` directly. */
+  /** A name the builder does not set, read off the validated config, through a secret's reader, or off `process.env` directly. */
   function isEnvRead(node: ts.Node): boolean {
+    if (ts.isCallExpression(node)) return ts.isIdentifier(node.expression) && readers.has(node.expression.text);
     if (!ts.isPropertyAccessExpression(node)) return false;
     if (ts.isIdentifier(node.expression) && node.expression.text === VALIDATED_CONFIG) return !PROVIDED_WHILE_BUILDING.has(node.name.text);
 
@@ -157,6 +180,8 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
     const names = new Set<string>();
     const walk = (candidate: ts.Node): void => {
       if (ts.isPropertyAccessExpression(candidate) && isEnvRead(candidate)) names.add(candidate.name.text);
+      else if (ts.isCallExpression(candidate) && ts.isIdentifier(candidate.expression) && isEnvRead(candidate))
+        names.add(candidate.expression.text);
       else if (ts.isIdentifier(candidate) && derived.has(candidate.text)) names.add(candidate.text);
       ts.forEachChild(candidate, walk);
     };
@@ -230,7 +255,7 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
 
         // Only the call's own arguments are spared, never a read consumed inside them
         // (`docs/frontend/spec.md` §1.9).
-        if (declaration.name.text === VALIDATED_CONFIG) validator = unwrap(declaration.initializer);
+        if (declaration.name.text === VALIDATION) validator = unwrap(declaration.initializer);
       }
     }
     visit(statement);
@@ -240,15 +265,17 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
 
 const modules = collectModules(SRC_DIR);
 
-/** Every module reading a build-time name at all, at module scope or from inside a function. */
-const envReaders = modules.filter((file) => /frontend_config\.|process\.env\./.test(readFileSync(file, "utf8")));
+/** Every module reading a build-time name at all, at module scope or from inside a function, a secret's reader among them. */
+const envReaders = modules.filter((file) =>
+  /frontend_config\.|process\.env\.|from "(?:@\/core|\.{1,2})(?:\/[\w.]+)*\/config(?:\.ts)?"/.test(readFileSync(file, "utf8")),
+);
 
 describe("what a module does with the environment while the image builds", () => {
   it("tells a consumed value from a composed one, and a module's body from a function's", () => {
     /* The reader on input, because the tree is CLEAN and a sweep that saw nothing would report the
        same answer (`docs/frontend/spec.md` §1.9). */
     const sample = [
-      'import { frontend_config } from "./config";',
+      'import { authSecret, frontend_config, mongodbUri } from "./config";',
       "",
       "const BASE = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;",
       "",
@@ -256,7 +283,7 @@ describe("what a module does with the environment while the image builds", () =>
       "",
       "export const parseLater = () => new URL(BASE);",
       "",
-      "const upperAtLoad = frontend_config.AUTH_SECRET.toUpperCase();",
+      "const upperAtLoad = authSecret().toUpperCase();",
       "",
       'const secure = (frontend_config.AUTH_URL ?? "").startsWith("https://");',
       "",
@@ -265,9 +292,9 @@ describe("what a module does with the environment while the image builds", () =>
       'const fromALiteral = new URL("https://example.test/api/v1");',
       "",
       // The store's client, built at load.
-      "const client = new MongoClient(frontend_config.MONGODB_URI);",
+      "const client = new MongoClient(mongodbUri());",
       "",
-      "const auth = betterAuth({ database: client, secret: frontend_config.AUTH_SECRET });",
+      "const auth = betterAuth({ database: client, secret: authSecret() });",
       "",
       "const options = { mail: { from: frontend_config.AUTH_URL } } satisfies MailerOptions;",
       "",
@@ -285,7 +312,7 @@ describe("what a module does with the environment while the image builds", () =>
       "const handedOn = createMailer(fallbackHeld);",
       "",
       // A parse inside the validator's own input.
-      "export const frontend_config = createEnv({ runtimeEnv: { AUTH_URL: process.env.AUTH_URL, API_URL: new URL(process.env.API_URL).href } });",
+      "const validated = createEnv({ runtimeEnv: { AUTH_URL: process.env.AUTH_URL, API_URL: new URL(process.env.API_URL).href } });",
       "",
       // Two branches testing another value than the one they parse.
       'if (process.env.NODE_ENV === "development") new URL(frontend_config.API_URL);',

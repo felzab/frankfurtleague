@@ -3,7 +3,7 @@ import "server-only";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { frontend_config } from "./config";
+import { authResendKey, frontend_config } from "./config";
 import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
@@ -249,7 +249,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey }: Outbou
   // Both halves fail closed: the deployment says it is not the one that mails, and outside
   // `production` no key is demanded to authorise one. A local stack's database is a production
   // dump, so its addresses are real people.
-  const apiKey = frontend_config.AUTH_RESEND_KEY;
+  const apiKey = authResendKey();
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
     // requirement down: a file there would leave a live sign-in code on the host's disk.

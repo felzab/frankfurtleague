@@ -4,7 +4,7 @@ import { setTimeout as pause } from "node:timers/promises";
 
 import { MongoClient, ServerApiVersion } from "mongodb";
 
-import { frontend_config } from "./config";
+import { mongodbUri } from "./config";
 
 const options = {
   serverApi: {
@@ -82,10 +82,10 @@ export function signInStore(): MongoClient {
   // The development branch caches the client on `global`, or hot reloads exhaust the pool.
   if (process.env.NODE_ENV === "development") {
     const globalWithMongo = global as typeof globalThis & { _mongoClient?: MongoClient };
-    globalWithMongo._mongoClient ??= new SignInStoreClient(frontend_config.MONGODB_URI);
+    globalWithMongo._mongoClient ??= new SignInStoreClient(mongodbUri());
     client = globalWithMongo._mongoClient;
   } else {
-    client = new SignInStoreClient(frontend_config.MONGODB_URI);
+    client = new SignInStoreClient(mongodbUri());
   }
   return client;
 }

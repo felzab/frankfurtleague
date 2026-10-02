@@ -260,17 +260,17 @@ describe("the key set the image carries", () => {
     // any of these names and refuses before the case can compare anything.
     assert.equal(process.env.SKIP_ENV_VALIDATION, "true", "run this suite through `pnpm test`, which sets SKIP_ENV_VALIDATION");
 
-    /* Skipping validation makes `createEnv` hand back the `runtimeEnv` object itself, so these keys
-       are the wiring the emitter's own route never reads: two lists that can disagree
-       (`docs/_standard/standard.md :: PRE-4`). */
+    /* Skipping validation makes `createEnv` hand back the `runtimeEnv` object itself, whose keys less
+       the secrets' are the settings, so these keys are the wiring the emitter's own route never reads:
+       two lists that can disagree (`docs/_standard/standard.md :: PRE-4`). */
     const { frontend_config } = await import("../src/core/config.ts");
     const wired = Object.keys(frontend_config).sort();
 
     const emitted = JSON.parse(readFileSync(destination, "utf8"));
 
-    assert.ok(wired.length >= 10, `expected the schema to declare at least 10 names, read ${String(wired.length)}`);
-    // Every key wired is a variable or the retired name of a key now read from its file, and the
-    // file declares those two and nothing else.
+    assert.ok(wired.length >= 5, `expected the schema to wire at least 5 settings, read ${String(wired.length)}`);
+    // Every key wired is a variable, and the file declares those and the retired names, each a key now
+    // read from its file, and nothing else.
     assert.deepEqual(emitted.declared, [...new Set([...wired, ...emitted.retired])].sort());
     // Which names and files are required is derived by booting, in `fl_frontend/src/core/config.test.ts`;
     // what this asks is that the file carry each set at all, an empty one reading as a schema demanding

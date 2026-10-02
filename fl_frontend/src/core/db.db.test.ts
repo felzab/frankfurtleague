@@ -205,7 +205,7 @@ const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
 
 registerAuthDoubles({
   core: {
-    config: configDouble({ MONGODB_URI: RELAYED_URL }),
+    config: configDouble({}, { mongodbUri: () => RELAYED_URL }),
     db: overridingModule(PRODUCTION_DB, {}),
     logging: {
       logger: {

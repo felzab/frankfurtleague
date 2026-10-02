@@ -108,7 +108,7 @@ const { sent, answerWith: answerMail } = registerAuthDoubles({
     db: DB_DOUBLE,
     logging: LOGGING_DOUBLE,
     // Where the send gate's backend read goes, answered by the `fetch` below rather than a server.
-    config: configDouble({ API_URL: API_ORIGIN, API_VERSION: 0, INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential" }),
+    config: configDouble({ API_URL: API_ORIGIN, API_VERSION: 0 }),
   },
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": ADAPTER_DOUBLE },
 });

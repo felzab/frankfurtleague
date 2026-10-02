@@ -242,7 +242,9 @@ const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
 const secrets = readSecretFiles(process.env.SECRETS_DIR ?? DEFAULT_SECRETS_DIR);
 if (!skipValidation && secrets.unreadable.length > 0) refuseUnreadableSecretFiles(secrets.unreadable);
 
-export const frontend_config = createEnv({
+// One validation over the settings and the secrets together: the production demand reads `APP_ENV`
+// beside the files, and a boot refusing both kinds prints both lines before it throws.
+const validated = createEnv({
   server: { ...environment, ...fromFiles },
   client,
 
@@ -287,6 +289,25 @@ export const frontend_config = createEnv({
     INTERNAL_API_KEY_ADMIN: secrets.values.INTERNAL_API_KEY_ADMIN,
   },
 });
+
+type Settings = Readonly<Pick<typeof validated, keyof typeof environment>>;
+
+// Off the validated object less the secrets rather than off `environment`'s keys: under a skipped
+// validation that object is `runtimeEnv` itself, which `fl_frontend/scripts/check-environment-names.test.mjs`
+// holds the emitted names to.
+/**
+ * The settings, and no secret: any server module may import this, so each secret is handed out by its
+ * own reader below, which `fl_frontend/eslint.config.mjs :: SECRET_READERS` lets its owner alone import.
+ */
+export const frontend_config = Object.fromEntries(Object.entries(validated).filter(([name]) => !isSecretKey(name))) as Settings;
+
+export const mongodbUri = (): string => validated.MONGODB_URI;
+export const authSecret = (): string => validated.AUTH_SECRET;
+export const authResendKey = (): string | undefined => validated.AUTH_RESEND_KEY;
+export const resendWebhookSecret = (): string | undefined => validated.RESEND_WEBHOOK_SECRET;
+export const internalApiKeyBase = (): string => validated.INTERNAL_API_KEY_BASE;
+export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYSTEM;
+export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 
 /**
  * Retired, read by nothing: each secret's name before it became a file, and the administrator list the

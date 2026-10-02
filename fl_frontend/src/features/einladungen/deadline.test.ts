@@ -13,13 +13,13 @@ const CONFIG = {
   frontend_config: {
     API_URL: API_URL,
     API_VERSION: 0,
-    INTERNAL_API_KEY_BASE: "base-key-double",
-    INTERNAL_API_KEY_SYSTEM: "system-key-double",
-    INTERNAL_API_KEY_ADMIN: "admin-key-double",
     APP_ENV: "production",
-    AUTH_RESEND_KEY: "resend-key-double",
     AUTH_URL: "https://liga.example.de",
   },
+  internalApiKeyBase: () => "base-key-double",
+  internalApiKeySystem: () => "system-key-double",
+  internalApiKeyAdmin: () => "admin-key-double",
+  authResendKey: () => "resend-key-double",
 };
 
 doubleActionRequest();

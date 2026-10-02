@@ -70,7 +70,7 @@ let requestHeaders: Headers | undefined;
 
 const { sent } = registerAuthDoubles({
   core: {
-    config: configDouble({ MONGODB_URI: `${mongod.getConnectionString()}/?directConnection=true`, ...GATE_BACKEND_CONFIG }),
+    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => `${mongod.getConnectionString()}/?directConnection=true` }),
     db: DB_DOUBLE,
     logging: LOGGING_DOUBLE,
   },

@@ -45,6 +45,16 @@ declare const bounds: object;
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "@/core/brand"; // expect: site-origin
 import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
+// Each secret's reader, imported where its owner is not; the settings beside one stay free.
+import { frontend_config, mongodbUri } from "@/core/config"; // expect: secret-store
+import { authSecret } from "@/core/config.ts"; // expect: secret-session
+import { authResendKey as heldKey } from "@/core/config"; // expect: secret-mail
+import { resendWebhookSecret } from "../../core/config"; // expect: secret-webhook
+import { internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "@/core/config"; // expect: secret-backend expect: secret-backend expect: secret-backend
+// The whole namespace, and a re-export, hand every reader on.
+import * as wholeConfig from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+export * from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+export { authResendKey } from "@/core/config"; // expect: secret-mail
 
 export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
 export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
@@ -62,10 +72,10 @@ export const TONES_REVERSED = { alt: "text-foreground-muted bg-muted" }; // expe
 export const FIGURES = "fluid-xs tabular-nums"; // expect: numeric-pair
 export const TALL = "min-h-[100vh]"; // expect: vh
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
-export const KEY_READ = frontend_config.AUTH_RESEND_KEY; // expect: resend-key
-export const { AUTH_RESEND_KEY: KEY_TAKEN } = frontend_config; // expect: resend-key
-export const KEY_INDEXED = frontend_config["AUTH_RESEND_KEY"]; // expect: resend-key
-export const KEY_REFLECTED = Reflect.get(frontend_config, `AUTH_RESEND_KEY`); // expect: resend-key
+export const SETTINGS_READ = frontend_config.APP_ENV;
+export const SECRETS_USED = [mongodbUri, authSecret, heldKey, resendWebhookSecret, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, wholeConfig];
+export const CONFIG_LOADED = import("@/core/config"); // expect: config-load
+export const CONFIG_LOADED_TEMPLATE = import(`../../core/config.ts`); // expect: config-load
 export const STALE = "/bestaetigung?token=x"; // expect: stale-path
 export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
 export const STALE_ADMIN = "/admin/teams"; // expect: stale-admin

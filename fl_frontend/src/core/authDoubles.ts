@@ -35,23 +35,30 @@ after(() => rmSync(ACTOR_KEY_DIRECTORY, { recursive: true, force: true }));
 /** What a request arriving at the served origin carries, matched to the config double's `AUTH_URL`. */
 export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as const;
 
-/**
- * The config every sign-in suite runs `fl_frontend/src/core/auth.ts` under. The secret is fabricated
- * and reaches the library as its `secret` option, which it reads ahead of `BETTER_AUTH_SECRET` and
- * `AUTH_SECRET`, so neither environment name needs setting for a run.
- */
-export function configDouble(overrides: Readonly<Record<string, unknown>> = {}): DoubledExports {
+/** A secret's reader in `fl_frontend/src/core/config.ts`, by its exported name, as a double answers it. */
+type SecretReaders = Readonly<Record<string, () => string | undefined>>;
+
+const SECRET_DOUBLES: SecretReaders = {
+  // Reaches the library as its `secret` option, which it reads ahead of `BETTER_AUTH_SECRET` and
+  // `AUTH_SECRET`, so neither environment name needs setting for a run.
+  authSecret: () => "fabricated-test-secret-not-a-credential",
+  // The key the sign-in gate's one backend read is made with.
+  internalApiKeySystem: () => "fabricated-system-not-a-credential",
+};
+
+/** The config every sign-in suite runs `fl_frontend/src/core/auth.ts` under, `secrets` over the readers' defaults. */
+export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, secrets: SecretReaders = {}): DoubledExports {
   const config = {
     ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
-    AUTH_SECRET: "fabricated-test-secret-not-a-credential",
     ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     LOG_LEVEL: "ERROR",
     LOG_FORMAT: "json",
     ...overrides,
   };
   // An override of `undefined` takes the name out, as an unset variable is absent from the real config.
-  return { frontend_config: Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) };
+  const frontend_config = Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined));
+  return { frontend_config, ...SECRET_DOUBLES, ...secrets };
 }
 
 /* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
@@ -241,7 +248,6 @@ export async function sessionByCode(
 export const GATE_BACKEND_CONFIG = {
   API_URL: "http://backend.test",
   API_VERSION: 0,
-  INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential",
 } as const;
 
 /** What the lookup answers an address holding nothing, which every answer below builds on. */

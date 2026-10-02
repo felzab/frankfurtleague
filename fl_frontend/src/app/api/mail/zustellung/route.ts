@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { Webhook } from "svix";
 
-import { frontend_config } from "@/core/config";
+import { resendWebhookSecret } from "@/core/config";
 import { APIBadStatusError, isRecordMissing } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { meldeZustellEreignis } from "@/features/bewerbungen/mutations";
@@ -32,7 +32,7 @@ const KEINE_SIGNATUR = () => NextResponse.json({ error: "signature" }, { status:
 const KEIN_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
 
 function signedByProvider(roh: string, headers: Record<string, string>): boolean {
-  const secret = frontend_config.RESEND_WEBHOOK_SECRET;
+  const secret = resendWebhookSecret();
   // Held by production alone, the one deployment the provider sends to, so a call anywhere else
   // carries nothing this deployment can verify.
   if (secret === undefined) return false;

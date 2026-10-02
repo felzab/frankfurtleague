@@ -26,7 +26,7 @@ globals[STORE] = { user: [], session: [], account: [], verification: [], passkey
 
 // The config `next build` loads the module under, in every page-data worker
 // (`docs/frontend/spec.md :: I45`).
-const CONFIG = configDouble({ AUTH_SECRET: undefined, AUTH_URL: undefined });
+const CONFIG = configDouble({ AUTH_URL: undefined }, { authSecret: () => undefined });
 
 registerAuthDoubles({
   core: { config: CONFIG },

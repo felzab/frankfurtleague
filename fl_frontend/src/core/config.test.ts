@@ -11,6 +11,8 @@ import { asSignInIdentifier, isSignInLibraryAddress } from "./emailAddress.ts";
 import { registerDoubles } from "./exportingModule.ts";
 import { documentsWrittenBy, documentsWrittenByAsync } from "./stdoutCapture.ts";
 
+import type * as ConfigModule from "./config.ts";
+
 registerDoubles();
 
 const {
@@ -178,7 +180,7 @@ function aSecretsDirectory(files: SecretFiles = {}): string {
 let probe = 0;
 
 /** The real module's own boot, with the gate the `test:base` script stands down put back up. */
-async function bootWith(overrides: Record<string, string | undefined>, files: SecretFiles = {}): Promise<Record<string, unknown>> {
+async function bootWith(overrides: Record<string, string | undefined>, files: SecretFiles = {}): Promise<typeof ConfigModule> {
   const before = { ...process.env };
   Object.assign(process.env, COMPLETE_ENV, { SECRETS_DIR: aSecretsDirectory(files) });
   delete process.env.SKIP_ENV_VALIDATION;
@@ -191,8 +193,7 @@ async function bootWith(overrides: Record<string, string | undefined>, files: Se
   try {
     // A fresh module per case: one registry entry would answer every case with the first one's
     // environment.
-    const booted = (await import(`./config.ts?probe=${String(probe)}`)) as { frontend_config: Record<string, unknown> };
-    return booted.frontend_config;
+    return (await import(`./config.ts?probe=${String(probe)}`)) as typeof ConfigModule;
   } finally {
     // One process holds one environment, so a case that left this where it put it would decide
     // every case after it.
@@ -243,7 +244,7 @@ describe("the deployment the environment declares", () => {
 
   it("boots each deployment the repository defines", async () => {
     for (const value of ["production", "local"]) {
-      assert.equal((await bootWith({ APP_ENV: value }))["APP_ENV"], value);
+      assert.equal((await bootWith({ APP_ENV: value })).frontend_config.APP_ENV, value);
     }
   });
 });
@@ -252,7 +253,7 @@ describe("the credential a deployment that mails must hold", () => {
   /* The whole of the fix: outside production the container holds no Resend key at all, so the send
      path has nothing to authorise with even where its own guard is gone. */
   it("boots with no key outside production", async () => {
-    assert.equal((await bootWith({ APP_ENV: "local" }, { auth_resend_key: undefined }))["AUTH_RESEND_KEY"], undefined);
+    assert.equal((await bootWith({ APP_ENV: "local" }, { auth_resend_key: undefined })).authResendKey(), undefined);
   });
 
   /* Named rather than reported as an object-level refusal: `failingVariableNames` reduces an issue
@@ -280,7 +281,7 @@ describe("the key a deployment the provider sends its events to must hold", () =
   /* The provider posts delivery events to production alone, so a machine off it is handed no key
      and holds no stand-in of the key's shape either. */
   it("boots with no webhook key outside production", async () => {
-    assert.equal((await bootWith({ APP_ENV: "local" }, { resend_webhook_secret: undefined }))["RESEND_WEBHOOK_SECRET"], undefined);
+    assert.equal((await bootWith({ APP_ENV: "local" }, { resend_webhook_secret: undefined })).resendWebhookSecret(), undefined);
   });
 
   it("refuses production with no webhook key, and names its file", async () => {
@@ -355,15 +356,21 @@ describe("the names the preflight demands a host's file carry", () => {
   });
 });
 
-/** Each secret's retired variable, its file, and a value the schema takes, so a boot reading the variable is not mistaken for one refusing it. */
-const LEFT_BEHIND: readonly (readonly [variable: string, file: string, value: string])[] = [
-  ["MONGODB_URI", "frontend_mongodb_uri", "mongodb://left-behind:27017/?directConnection=true"],
-  ["AUTH_SECRET", "auth_secret", artificialSecret(SIGNING_FLOOR + 1)],
-  ["AUTH_RESEND_KEY", "auth_resend_key", "resend-left-behind"],
-  ["RESEND_WEBHOOK_SECRET", "resend_webhook_secret", "whsec_left_behind"],
-  ["INTERNAL_API_KEY_BASE", "internal_api_key_base", "l".repeat(LENGTH)],
-  ["INTERNAL_API_KEY_SYSTEM", "internal_api_key_system", "m".repeat(LENGTH)],
-  ["INTERNAL_API_KEY_ADMIN", "internal_api_key_admin", "n".repeat(LENGTH)],
+type SecretReader =
+  "mongodbUri" | "authSecret" | "authResendKey" | "resendWebhookSecret" | "internalApiKeyBase" | "internalApiKeySystem" | "internalApiKeyAdmin";
+
+/**
+ * Each secret's retired variable, its file, a value the schema takes, so a boot reading the variable is
+ * not mistaken for one refusing it, and the reader handing the secret out.
+ */
+const LEFT_BEHIND: readonly (readonly [variable: string, file: string, value: string, reader: SecretReader])[] = [
+  ["MONGODB_URI", "frontend_mongodb_uri", "mongodb://left-behind:27017/?directConnection=true", "mongodbUri"],
+  ["AUTH_SECRET", "auth_secret", artificialSecret(SIGNING_FLOOR + 1), "authSecret"],
+  ["AUTH_RESEND_KEY", "auth_resend_key", "resend-left-behind", "authResendKey"],
+  ["RESEND_WEBHOOK_SECRET", "resend_webhook_secret", "whsec_left_behind", "resendWebhookSecret"],
+  ["INTERNAL_API_KEY_BASE", "internal_api_key_base", "l".repeat(LENGTH), "internalApiKeyBase"],
+  ["INTERNAL_API_KEY_SYSTEM", "internal_api_key_system", "m".repeat(LENGTH), "internalApiKeySystem"],
+  ["INTERNAL_API_KEY_ADMIN", "internal_api_key_admin", "n".repeat(LENGTH), "internalApiKeyAdmin"],
 ];
 
 describe("the secret files the frontend reads", () => {
@@ -377,16 +384,28 @@ describe("the secret files the frontend reads", () => {
 
   /* The variable a release before this one read, left behind in a host's file: standing in for a
      missing file it would hand a credential `docker inspect` prints to a boot that should refuse. */
-  for (const [variable, file, leftBehind] of LEFT_BEHIND) {
+  for (const [variable, file, leftBehind, reader] of LEFT_BEHIND) {
     it(`takes no value from ${variable}, beside ${file} or in place of it`, async () => {
-      assert.equal((await bootWith({ [variable]: leftBehind }))[variable], COMPLETE_FILES[file]);
+      assert.equal((await bootWith({ [variable]: leftBehind }))[reader](), COMPLETE_FILES[file]);
       // Refused rather than left unset: `COMPLETE_ENV` boots production, which requires every file.
       assert.equal(await refusedFiles({ [file]: undefined }, { [variable]: leftBehind }), file);
     });
   }
 
+  /* Any server module may import the settings, so a secret among them would reach every module
+     rather than the one `fl_frontend/eslint.config.mjs :: SECRET_READERS` lets import its reader. */
+  it("hands each secret out through its reader alone, never among the settings", async () => {
+    const booted = await bootWith({});
+
+    assert.deepEqual(
+      Object.keys(booted.frontend_config).sort(),
+      DECLARED_ENVIRONMENT_NAMES.filter((name) => !RETIRED_ENVIRONMENT_NAMES.includes(name)),
+    );
+    for (const [, file, , reader] of LEFT_BEHIND) assert.equal(booted[reader](), COMPLETE_FILES[file], reader);
+  });
+
   it("reads a value without the line break an editor leaves after it", async () => {
-    assert.equal((await bootWith({}, { resend_webhook_secret: "whsec_probe\r\n" }))["RESEND_WEBHOOK_SECRET"], "whsec_probe");
+    assert.equal((await bootWith({}, { resend_webhook_secret: "whsec_probe\r\n" })).resendWebhookSecret(), "whsec_probe");
   });
 
   /* `trim()` parts from the backend's Python `strip()` at U+FEFF, U+001C-U+001F and U+0085. A shared
@@ -493,7 +512,7 @@ describe("the retired variables", () => {
   it("boots whatever one holds, a value the retired rule refused included", async () => {
     for (const value of ["vorstand@schule.de", "a@b.de;c@d.de", ""]) {
       for (const name of ["ALLOWED_ADMIN_EMAILS", "MONGODB_URI"]) {
-        assert.equal((await bootWith({ [name]: value }))["APP_ENV"], "production", `refused ${name}=${JSON.stringify(value)}`);
+        assert.equal((await bootWith({ [name]: value })).frontend_config.APP_ENV, "production", `refused ${name}=${JSON.stringify(value)}`);
       }
     }
   });
@@ -574,7 +593,7 @@ describe("the value an admin session is signed with", () => {
   it("boots at the floor", async () => {
     const value = artificialSecret(SIGNING_FLOOR);
 
-    assert.equal((await bootWith({}, { auth_secret: value }))["AUTH_SECRET"], value);
+    assert.equal((await bootWith({}, { auth_secret: value })).authSecret(), value);
   });
 
   /* The library only warns below the floor, so the refusal here is the only thing standing between a

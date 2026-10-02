@@ -15,10 +15,10 @@ const CONFIG_DOUBLE = {
   frontend_config: {
     API_URL: API_ORIGIN,
     API_VERSION: API_VERSION,
-    INTERNAL_API_KEY_BASE: "fabricated-base-not-a-credential",
-    INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential",
-    INTERNAL_API_KEY_ADMIN: "fabricated-admin-not-a-credential",
   },
+  internalApiKeyBase: () => "fabricated-base-not-a-credential",
+  internalApiKeySystem: () => "fabricated-system-not-a-credential",
+  internalApiKeyAdmin: () => "fabricated-admin-not-a-credential",
 };
 
 /** What the doubled logger was handed. `error` is the second argument, which must stay absent. */

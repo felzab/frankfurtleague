@@ -21,7 +21,8 @@ const DRIVER_DOUBLE = overridingModule(import.meta.resolve("mongodb"), {
 });
 
 // The config `next build` and the unit tier load the module under: no URI to build a client from.
-const CONFIG = configDouble({ MONGODB_URI: undefined });
+let uri: string | undefined;
+const CONFIG = configDouble({}, { mongodbUri: () => uri });
 
 registerDoubles({ modules: { "core/config.ts": CONFIG }, specifiers: { mongodb: DRIVER_DOUBLE } });
 
@@ -33,7 +34,7 @@ describe("when `fl_frontend/src/core/db.ts :: signInStore` builds the client", (
 
     // What the boot gate guarantees before a request reaches the store; a port nothing answers on,
     // construction opening no connection.
-    Reflect.set(CONFIG.frontend_config as object, "MONGODB_URI", "mongodb://127.0.0.1:9/?directConnection=true");
+    uri = "mongodb://127.0.0.1:9/?directConnection=true";
     const first = signInStore();
     try {
       assert.equal(signInStore(), first);
