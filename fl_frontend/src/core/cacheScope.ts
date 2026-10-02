@@ -21,7 +21,7 @@ const requireFromFrontend = createRequire(path.join(FRONTEND_DIR, "package.json"
 // real memoizer: the client build's `cache` is a passthrough, so every count would read unmemoized
 // and blame the source.
 const REACT_DIR = path.dirname(requireFromFrontend.resolve("react/package.json"));
-export const SERVER_REACT_URL = pathToFileURL(path.join(REACT_DIR, "react.react-server.js")).href;
+const SERVER_REACT_URL = pathToFileURL(path.join(REACT_DIR, "react.react-server.js")).href;
 
 const serverReact = (await import(SERVER_REACT_URL)) as unknown as ServerReact;
 const internals = serverReact.__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;

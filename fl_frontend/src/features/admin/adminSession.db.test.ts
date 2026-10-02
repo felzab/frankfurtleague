@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { after, beforeEach, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, leaveRenderPass, SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, leaveRenderPass, serveServerReactTo } from "@/core/cacheScope.ts";
 import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "@/core/expiredTransactions.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 
@@ -57,13 +56,7 @@ const MEMOIZING = ["/src/core/auth.ts", "/src/core/subject.ts", "/src/core/signI
 
 // The server build for these alone, whose `cache` memoizes where the client build's passes through;
 // the library's own `react` stays the build it ships against.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "react" && MEMOIZING.some((tail) => context.parentURL?.endsWith(tail) === true))
-      return { url: SERVER_REACT_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+serveServerReactTo((parentURL) => MEMOIZING.some((tail) => parentURL.endsWith(tail)));
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
