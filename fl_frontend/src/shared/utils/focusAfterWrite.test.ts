@@ -107,7 +107,7 @@ describe("where a landed write's focus goes", () => {
     document.querySelector("ul")?.replaceChildren();
     await settle();
 
-    assert.equal(focused(), "Passkeys");
+    assert.ok(document.activeElement === document.querySelector("h2"), `the focus is on „${focused()}“ rather than the heading`);
   });
 
   it("finds the rows again by their keys after the whole section is drawn anew", async () => {
@@ -129,7 +129,7 @@ describe("where a landed write's focus goes", () => {
     document.querySelector(`[data-focus-section="liste"]`)?.remove();
     await settle();
 
-    assert.equal(focused(), "Sicherheit");
+    assert.ok(document.activeElement === document.querySelector("h2"), `the focus is on „${focused()}“ rather than the heading`);
   });
 
   it("takes the page's heading where no section around the control stands", async () => {
@@ -141,7 +141,7 @@ describe("where a landed write's focus goes", () => {
     document.querySelector("ul")?.replaceChildren();
     await settle();
 
-    assert.equal(focused(), "Sperrliste");
+    assert.ok(document.activeElement === document.querySelector("h1"), `the focus is on „${focused()}“ rather than the heading`);
   });
 
   /* `Hint`'s refusal leaves the control inert under an overlay standing beside it, which is the stop. */
@@ -163,6 +163,35 @@ describe("where a landed write's focus goes", () => {
     await settle();
 
     assert.equal(focused(), "Grund");
+  });
+
+  it("passes over an enabled control an inert box holds", async () => {
+    document.body.append(list(["a"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    const overlay = el("div", { tabIndex: 0 }, "Grund");
+    document
+      .querySelector("li")
+      ?.replaceChildren(el("div", focusSlot("loeschen"), el("div", { inert: "" }, el("button", { type: "button" }, "a löschen")), overlay));
+    await settle();
+
+    assert.ok(document.activeElement === overlay, `the focus is on „${focused()}“ rather than the overlay`);
+  });
+
+  /* A list inside the pressed one may carry the same row keys and slots. */
+  it("looks for rows in the pressed control's own section, never in one nested inside it", async () => {
+    document.body.append(list(["a", "b"]));
+    document
+      .querySelector(`[data-focus-section="liste"]`)
+      ?.prepend(el("section", focusSection("innen"), el("div", focusRow("b"), button("innen b löschen"))));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    document.querySelector(`ul [data-focus-row="a"]`)?.remove();
+    await settle();
+
+    assert.ok(document.activeElement === document.querySelector(`ul [data-focus-row="b"] button`), `the focus is on „${focused()}“`);
   });
 });
 
@@ -253,8 +282,48 @@ describe("what a landing leaves alone", () => {
     assert.ok(document.activeElement === document.body, `the focus moved to „${focused()}“`);
   });
 
+  it("stands down once the reader presses a pointer", async () => {
+    document.body.append(list(["a", "b"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    document.dispatchEvent(new window.PointerEvent("pointerdown"));
+    document.querySelector(`[data-focus-row="a"]`)?.remove();
+    await settle();
+
+    assert.ok(document.activeElement === document.body, `the focus moved to „${focused()}“`);
+  });
+
+  it("stands down once a newer landing arms", async () => {
+    document.body.append(list(["a", "b", "c"]));
+    focusAfterWrite(pressed("a löschen")).landed();
+    const later = pressed("c löschen");
+
+    focusAfterWrite(later).landed();
+    document.querySelector(`[data-focus-row="a"]`)?.remove();
+    await settle();
+
+    assert.ok(document.activeElement === later, `the older landing moved the focus to „${focused()}“`);
+  });
+
+  /* The focus it placed is the reader's place: a later redraw offering a nearer control takes nothing from it. */
+  it("keeps the focus on the control it landed on while that control stands", async () => {
+    document.body.append(list(["a", "b"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    document.querySelector(`[data-focus-row="a"]`)?.remove();
+    await settle();
+    const landed = document.activeElement;
+    document.querySelector("ul")?.prepend(el("li", focusRow("a"), button("a reaktivieren")));
+    await settle();
+
+    assert.ok(document.activeElement === landed, `the focus moved on to „${focused()}“`);
+  });
+
+  /* Without the section the rows and the slot are keyed in, the page's heading would be a guess. */
   it("moves nothing for a control no section holds", async () => {
-    document.body.append(button("Allein"), list(["a"]));
+    document.body.append(el("h1", FOCUS_HEADING, "Sperrliste"), button("Allein"), list(["a"]));
     const control = pressed("Allein");
 
     focusAfterWrite().landed();
