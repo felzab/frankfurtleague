@@ -35,11 +35,16 @@ class InterleavedCollection:
     def __init__(self, collection: Any, rival: Rival) -> None:
         self._collection = collection
         self._rival: Rival | None = rival
+        # Every arrival at the rival's point. A second is the write's retry, which a rival committing
+        # before the write's first read never causes: a case asserting it tells an interleaving from a
+        # serial order with the same outcome.
+        self.passes = 0
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._collection, name)
 
     async def run_the_rival(self) -> None:
+        self.passes += 1
         # ONE-SHOT: a retry of the write's transaction has to meet what the rival left rather than run
         # it again, and a second rival would answer on its own account and mask what the case proves.
         if self._rival is not None:
