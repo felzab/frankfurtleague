@@ -246,11 +246,17 @@ describe("the state the registration page renders", () => {
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
 
-    const html = await screen.findByText(/Frag in Deinem Team nach dem aktuellen Link/).then(() => container.innerHTML);
+    const satz = await screen.findByText(/Frag in Deinem Team nach dem aktuellen Link/);
+    const html = container.innerHTML;
 
     assert.ok(!html.includes(TEAM.name), "the dead-link page still names the team");
     assert.ok(!html.includes(TEAM.full_name), "the dead-link page still names the school");
     assert.match(/<h1[^>]*>([^<]*)<\/h1>/.exec(html)?.[1] ?? "", /Link ung/, "the heading is not the dead link's");
+    // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
+    assert.ok(
+      document.activeElement === satz.closest('[role="status"]'),
+      "the panel replaced the pressed button and the focus fell to the page",
+    );
   });
 
   it("says a pupil is nachnominiert only where the invite says the period has opened", () => {

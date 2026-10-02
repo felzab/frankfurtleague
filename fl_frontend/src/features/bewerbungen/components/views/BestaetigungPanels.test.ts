@@ -11,7 +11,7 @@ import { act, renderHook } from "@testing-library/react";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { AdresseGesperrt, Gefuellt, SEITE_CLASSES, useAdresseOhneToken, useLinkSeite } = await import("./BestaetigungPanels.tsx");
+const { AdresseGesperrt, Gefuellt, SEITE_CLASSES, useLinkSeite } = await import("./BestaetigungPanels.tsx");
 
 const PFAD = "/bestaetigung/kontakt";
 const MIT_TOKEN = `${PFAD}?token=kein-echtes-token`;
@@ -30,23 +30,16 @@ describe("a stamped sentence with its slots filled", () => {
 describe("the address a link page opened under", () => {
   it("loses the token and keeps the path", () => {
     window.history.replaceState(null, "", MIT_TOKEN);
-    renderHook(() => useAdresseOhneToken("gueltig"));
+    renderHook(() => useLinkSeite("gueltig"));
 
     assert.equal(adresse(), PFAD, "the token stays in the address bar, a bookmark and a screenshot");
   });
 
   it("keeps the token while the read failed", () => {
     window.history.replaceState(null, "", MIT_TOKEN);
-    renderHook(() => useAdresseOhneToken("unlesbar"));
+    renderHook(() => useLinkSeite("unlesbar"));
 
     assert.equal(adresse(), MIT_TOKEN, "a reload can no longer retry the read the page could not make");
-  });
-
-  it("loses it on a confirmation page too", () => {
-    window.history.replaceState(null, "", MIT_TOKEN);
-    renderHook(() => useLinkSeite("gueltig"));
-
-    assert.equal(adresse(), PFAD, "the confirmation page's shell leaves the token in the address bar");
   });
 });
 

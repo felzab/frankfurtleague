@@ -24,22 +24,17 @@ export const ABSATZ_CLASSES = "max-w-2xl fluid-sm leading-relaxed font-medium te
 /** The application page's own column, so both ends of every public workflow are one page wide. */
 export const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
-/** Called alone by the invitation page, which moves no focus; a confirmation page takes it through `useLinkSeite`. */
-export function useAdresseOhneToken(zustand: string): void {
+/** Shared by every page a token link opens, so none of them alone keeps its token in the address or drops the answer's focus. */
+export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
+  const [hatGeantwortet, setHatGeantwortet] = useState(false);
+  const ergebnisRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     // The bare path after hydration, so the address bar, a screenshot and a bookmark carry no token.
     // Not while the read failed: a reload is the way back, and it needs the token in the URL.
     if (zustand === "unlesbar" || window.location.search === "") return;
     window.history.replaceState(null, "", window.location.pathname);
   }, [zustand]);
-}
-
-/** Shared by the three confirmation pages, so none of them alone keeps its token in the address or drops the answer's focus. */
-export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
-  const [hatGeantwortet, setHatGeantwortet] = useState(false);
-  const ergebnisRef = useRef<HTMLElement>(null);
-
-  useAdresseOhneToken(zustand);
 
   // The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
   // announced; the panel takes it, and `role="status"` reads it out.

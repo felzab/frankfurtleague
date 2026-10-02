@@ -10,7 +10,7 @@ import {
   FaktenBanner,
   FrageStellen,
   SEITE_CLASSES,
-  useAdresseOhneToken,
+  useLinkSeite,
   Wert,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
@@ -62,7 +62,7 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
   const [istTot, setIstTot] = useState(false);
   const { stand, ansicht } = standVon(start, istTot);
 
-  useAdresseOhneToken(stand);
+  const { ergebnisRef, beantwortet } = useLinkSeite(stand);
 
   return (
     <section className={SEITE_CLASSES}>
@@ -123,7 +123,10 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
         <RegistrierungFormPanel
           token={start.token}
           ansicht={start.ansicht}
-          onLinkTot={() => setIstTot(true)}
+          onLinkTot={() => {
+            setIstTot(true);
+            beantwortet();
+          }}
         />
       )}
 
@@ -164,7 +167,9 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
       {/* No team and no school from here on: a dead link may have been forwarded, and it identifies
           nobody. */}
       {stand === "ungueltig" && (
-        <BestaetigungErgebnis tone="hinweis">
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="hinweis">
           <p className={ABSATZ_CLASSES}>Dieser Link gilt nicht mehr. Dein Team hat ihn entweder ersetzt, oder er war nie vollständig.</p>
           <p className={ABSATZ_CLASSES}>Frag in Deinem Team nach dem aktuellen Link.</p>
           <FrageStellen />
