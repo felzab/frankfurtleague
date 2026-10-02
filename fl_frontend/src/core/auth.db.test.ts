@@ -16,12 +16,14 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
+import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 import { registrationFor } from "./testAuthenticator.ts";
 
 // A replica set, which the module starts by default: why this file needs one is
 // `docs/frontend/spec.md` §1.9's.
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
+await watchExpiredTransactions(mongod);
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
@@ -710,3 +712,6 @@ describe("a session only read, against a real database (`docs/frontend/spec.md :
     assert.ok(slidAt >= before && lapsesAt >= before + expiresIn, "the proxy's read left the stored row where it was");
   });
 });
+
+// Last, so every case above has run against the count it reads.
+itLeftNoTransactionToExpire(mongod);

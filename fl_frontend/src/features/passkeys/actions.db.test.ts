@@ -16,11 +16,13 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/core/authDoubles.ts";
+import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "@/core/expiredTransactions.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 // A replica set, which the module starts by default: the property under test is a transaction's.
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
+await watchExpiredTransactions(mongod);
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
@@ -486,3 +488,6 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     );
   });
 });
+
+// Last, so every case above has run against the count it reads.
+itLeftNoTransactionToExpire(mongod);

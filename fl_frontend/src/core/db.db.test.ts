@@ -19,6 +19,7 @@ import {
 } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
+import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
@@ -37,6 +38,7 @@ after(async () => {
 
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 opened.mongod = mongod;
+await watchExpiredTransactions(mongod);
 
 /**
  * A TCP relay to the mongod that can stop passing the client's requests on: a hung connection as the
@@ -441,3 +443,6 @@ describe("the sign-in store's indexes recover with the store (`docs/frontend/spe
     }
   });
 });
+
+// Last, so every case above has run against the count it reads.
+itLeftNoTransactionToExpire(mongod);

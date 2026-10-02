@@ -6,6 +6,7 @@ import { MongoDBContainer } from "@testcontainers/mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, leaveRenderPass, SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "@/core/expiredTransactions.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
@@ -22,6 +23,7 @@ after(async () => {
 
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 opened.mongod = mongod;
+await watchExpiredTransactions(mongod);
 
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
@@ -407,3 +409,6 @@ describe("the account row the session read joins, against a real store", () => {
     );
   });
 });
+
+// Last, so every case above has run against the count it reads.
+itLeftNoTransactionToExpire(mongod);

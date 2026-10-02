@@ -14,6 +14,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
+import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
@@ -32,6 +33,7 @@ after(async () => {
 // A replica set, which the module starts by default: the passkey writes run in transactions.
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 opened.mongod = mongod;
+await watchExpiredTransactions(mongod);
 
 // The query suffix takes the real module past the load hook's match on a path's end: the client
 // under test is the one `fl_frontend/src/core/db.ts` builds.
@@ -377,3 +379,6 @@ describe("the index build against a real store (`docs/frontend/spec.md :: I498`)
     }
   });
 });
+
+// Last, so every case above has run against the count it reads.
+itLeftNoTransactionToExpire(mongod);
