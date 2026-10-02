@@ -342,9 +342,14 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
     nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"], **joined(EDGE, APP)}
     frontend = env_file("fl_frontend/.env", ".env") | joined(APP)
     backend = env_file("fl_backend/.env", ".env") | joined(APP)
-    stack = {"nginx": nginx, "frontend": frontend, "backend": backend, **extra}
-    rendered = {service: definition | hardened(service) | holding(stack_name, service) for service, definition in stack.items()}
-    return model(**rendered) | declared_secrets(project, stack_name)
+    # The local stack's database, which its logins name.
+    database = {"mongo": joined(APP)} if stack_name == "local" else {}
+    stack = {"nginx": nginx, "frontend": frontend, "backend": backend, **database, **extra}
+    rendered = {
+        service: definition | hardened(service) | holding(stack_name, service) | configured(stack_name, service)
+        for service, definition in stack.items()
+    }
+    return model(**rendered) | declared_secrets(project, stack_name) | declared_configs(stack_name)
 
 
 def hardened(service: str) -> dict[str, Any]:
@@ -661,12 +666,122 @@ def test_a_secret_read_from_another_file_fails():
 
 
 def test_the_local_stack_reading_a_database_login_from_secrets_fails():
-    """The stack's URI is the tracked one, so no development machine holds production's login to point it at."""
+    """The stack's login is its inline config, so no development machine holds production's login to point it at."""
     rendered = stack_of("local") | declared_secrets(RENDER, "local", backend_mongodb_uri="secrets/backend_mongodb_uri")
 
     found = checker.secret_holders(rendered, "p", RENDER, "local")
 
-    assert len(found) == 1 and checker.LOCAL_DATABASE_URI in found[0].detail, found
+    assert [finding.detail for finding in found] == [
+        "p: the secret backend_mongodb_uri is declared and SECRET_HOLDERS lists no such secret (I508)"
+    ]
+
+
+# --- which service reads which login from an inline config -------------------------------------------
+
+LOCAL_URI: Final = "mongodb://mongo:27017/?directConnection=true"
+
+
+def configured(stack: str, service: str) -> dict[str, Any]:
+    """A service's configs as Compose renders the long syntax: one per file `CONFIG_HOLDERS` gives it, at `RUN_SECRETS`."""
+    held = [
+        {"source": "local_mongodb_uri", "target": f"{checker.RUN_SECRETS}/{file}"}
+        for file, holders in sorted(checker.CONFIG_HOLDERS[stack].items())
+        if service in holders
+    ]
+    return {"configs": held} if held else {}
+
+
+def declared_configs(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
+    """The top-level `configs` as Compose renders an inline one; none where the stack's table names none."""
+    return {"configs": {"local_mongodb_uri": {"content": content}}} if checker.CONFIG_HOLDERS[stack] else {}
+
+
+def configured_stack(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
+    """Every service of `stack` reading what `CONFIG_HOLDERS` gives it, beside the stack's own database."""
+    names = {service for holders in checker.CONFIG_HOLDERS[stack].values() for service in holders}
+    return model(mongo={}, **{service: configured(stack, service) for service in names}) | declared_configs(stack, content)
+
+
+@pytest.mark.parametrize("stack", ["production", "local"])
+def test_each_stack_reading_exactly_its_configs_is_clean(stack: str):
+    assert checker.config_holders(configured_stack(stack), "p", stack) == []
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("mongodb://cluster0.example.net:27017/", id="another-host"),
+        pytest.param("mongodb://user:pass@mongo:27017/", id="a-login"),
+        pytest.param("mongodb://mongo:27017,cluster0.example.net:27017/", id="a-second-host"),
+        pytest.param("mongodb+srv://mongo/", id="a-lookup"),
+        pytest.param("   ", id="blank"),
+        pytest.param(None, id="no-inline-content"),
+    ],
+)
+def test_a_login_config_naming_anything_but_the_stacks_own_database_fails(content: object):
+    """Both readers take it for their login, so any other value aims the stack at a database it does not start."""
+    found = checker.config_holders(configured_stack("local", content), "p", "local")
+
+    assert len(found) == 2 and all("the config local_mongodb_uri" in finding.detail for finding in found), found
+
+
+def test_a_login_naming_a_service_the_stack_lacks_fails():
+    rendered = configured_stack("local")
+    del rendered["services"]["mongo"]
+
+    assert len(checker.config_holders(rendered, "p", "local")) == 2
+
+
+def test_a_login_config_one_reader_lacks_fails():
+    rendered = configured_stack("local")
+    rendered["services"]["backend"] = {}
+
+    found = checker.config_holders(rendered, "p", "local")
+
+    assert [finding.detail for finding in found] == ["p: nothing reads a config as backend_mongodb_uri, not ['backend'] (I508)"]
+
+
+def test_a_second_reader_of_a_login_config_fails():
+    rendered = configured_stack("local")
+    rendered["services"]["nginx"] = configured("local", "frontend")
+
+    found = checker.config_holders(rendered, "p", "local")
+
+    assert len(found) == 1 and "['frontend', 'nginx'] reads a config" in found[0].detail, found
+
+
+def test_a_config_where_a_service_reads_its_credentials_fails_in_production():
+    """Production's every login is a secret under `secrets/`, which the preflight asks the host for."""
+    rendered = configured_stack("production") | declared_configs("local")
+    rendered["services"]["backend"] = configured("local", "backend")
+
+    found = checker.config_holders(rendered, "p", "production")
+
+    assert len(found) == 1 and "a file CONFIG_HOLDERS lacks" in found[0].detail, found
+
+
+def test_a_config_mounted_outside_the_secrets_path_is_no_login():
+    rendered = configured_stack("production") | declared_configs("local")
+    rendered["services"]["nginx"] = {"configs": [{"source": "local_mongodb_uri", "target": "/etc/app.conf"}, {"source": "local_mongodb_uri"}]}
+
+    assert checker.config_holders(rendered, "p", "production") == []
+
+
+def test_main_judges_the_config_holders_of_both_models():
+    project = new_root("fl-compose-main-config-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        ({"production": production, "local": local}[broken])["services"]["nginx"] |= configured("local", "backend")
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        expected = {
+            "production": "production: nginx mounts the config local_mongodb_uri at /run/secrets/backend_mongodb_uri, a file",
+            "local": "local: ['backend', 'nginx'] reads a config as backend_mongodb_uri",
+        }[broken]
+        assert expected in said, said
 
 
 def test_a_secret_the_table_lists_left_undeclared_fails():
@@ -714,8 +829,9 @@ def test_the_preflights_lists_are_the_tables():
         return {secret for secret, (holders, _) in checker.SECRET_HOLDERS[stack].items() if service in holders} - {KEY}
 
     assert listed("FRONTEND_SECRETS") == read_by("production", "frontend")
-    assert listed("BACKEND_SECRETS") == read_by("production", "backend") == read_by("local", "backend")
+    assert listed("BACKEND_SECRETS") == read_by("production", "backend")
     assert listed("LOCAL_FRONTEND_SECRETS") == read_by("local", "frontend")
+    assert listed("LOCAL_BACKEND_SECRETS") == read_by("local", "backend")
     assert listed("MOVED_ENV_NAMES") == checker.MOVED_ENV_NAMES
 
 

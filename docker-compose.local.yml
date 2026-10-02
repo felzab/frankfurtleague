@@ -41,15 +41,18 @@ services:
       # it raises.
       - BEWERBUNG_SWEEP=off
     # Production's list without `auth_resend_key`: `APP_ENV=local` sends no mail, so a machine holds
-    # no key to the provider.
+    # no key to the provider. The login is the config below.
     secrets: !override
       - fl_actor_signing_key
-      - frontend_mongodb_uri
       - auth_secret
       - resend_webhook_secret
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
+    # At the path the frontend reads its login from, which production fills with a secret.
+    configs:
+      - source: local_mongodb_uri
+        target: /run/secrets/frontend_mongodb_uri
     volumes:
       # The mail sink a withheld send writes into, in the checkout so the developer opens the file
       # rather than copying it out. Without it the sink has nowhere to write: `/app` is root-owned
@@ -68,6 +71,15 @@ services:
       # Same reason as the frontend's override above: the stack shows the production stream even
       # when the developer's .env selects the console format for `fastapi dev`.
       - LOG_FORMAT=json
+    # Production's list without the login, which the config below replaces as the frontend's does.
+    secrets: !override
+      - sperrliste_schluessel
+      - internal_api_key_base
+      - internal_api_key_system
+      - internal_api_key_admin
+    configs:
+      - source: local_mongodb_uri
+        target: /run/secrets/backend_mongodb_uri
     depends_on:
       # Healthy, not started: the lifespan applies every validator before it yields and refuses the
       # boot if it cannot, so a backend reaching an unelected node fails the whole start.
@@ -148,15 +160,10 @@ services:
     secrets: !reset []
 
 # This machine's own files (`docs/ops/runbooks.md` §16), and none for the connector, which never
-# starts. Both database logins read the tracked URI of the database below, so the stack needs no copy
-# of production's login.
+# starts.
 secrets: !override
   fl_actor_signing_key:
     file: ./secrets/fl_actor_signing_key
-  frontend_mongodb_uri:
-    file: ./local-stack/mongodb_uri
-  backend_mongodb_uri:
-    file: ./local-stack/mongodb_uri
   auth_secret:
     file: ./secrets/auth_secret
   resend_webhook_secret:
@@ -169,6 +176,12 @@ secrets: !override
     file: ./secrets/internal_api_key_system
   internal_api_key_admin:
     file: ./secrets/internal_api_key_admin
+
+# Both logins, inline: the `mongo` service above holds no credential, so this is no secret, and no
+# machine keeps a copy of production's login to aim the stack at (`docs/ops/spec.md :: I508`).
+configs:
+  local_mongodb_uri:
+    content: mongodb://mongo:27017/?directConnection=true
 
 # A named volume rather than a bind mount: mongod's storage engine wants POSIX file locking, which
 # a Windows host directory does not give it.

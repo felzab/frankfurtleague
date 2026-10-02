@@ -14,6 +14,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any, Final
+from urllib.parse import urlsplit
 
 # Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
 # sibling of it rather than in it.
@@ -60,8 +61,10 @@ SERVICE_NETWORKS: Final = {
 
 # The checkout directory every credential file sits in, reached by nothing but a secret naming its file.
 SECRETS_DIRECTORY: Final = "secrets"
-# The one database URI both of the local stack's logins read, tracked: it names that stack's own database.
-LOCAL_DATABASE_URI: Final = "local-stack/mongodb_uri"
+# Where a service reads each file a secret or a config hands it (`fl_frontend/src/core/config.ts :: DEFAULT_SECRETS_DIR`).
+RUN_SECRETS: Final = "/run/secrets"
+# The local stack's database service, the one host its logins may name.
+LOCAL_DATABASE_SERVICE: Final = "mongo"
 
 _FRONTEND: Final = frozenset({"frontend"})
 _BACKEND: Final = frozenset({"backend"})
@@ -88,12 +91,15 @@ SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
         "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_DIRECTORY}/frontend_mongodb_uri"),
         "backend_mongodb_uri": (_BACKEND, f"{SECRETS_DIRECTORY}/backend_mongodb_uri"),
     },
-    # No connector and no mail; both logins the stack's own database, so no machine copies production's.
-    "local": {
-        **{secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
-        "frontend_mongodb_uri": (_FRONTEND, LOCAL_DATABASE_URI),
-        "backend_mongodb_uri": (_BACKEND, LOCAL_DATABASE_URI),
-    },
+    # No connector and no mail; both logins are `CONFIG_HOLDERS`'.
+    "local": {secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
+}
+
+# Every file each stack hands a service as an inline config at `RUN_SECRETS`, by its holders: the local
+# stack's logins, which name its own database and no credential, so no machine keeps production's (I508).
+CONFIG_HOLDERS: Final[dict[str, dict[str, frozenset[str]]]] = {
+    "production": {},
+    "local": {"frontend_mongodb_uri": _FRONTEND, "backend_mongodb_uri": _BACKEND},
 }
 
 # The environment names those files replace (`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`): one in a
@@ -262,9 +268,9 @@ def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) 
             held[source].append(service)
             target = str((entry.get("target") if isinstance(entry, dict) else None) or source)
             # A relative target is a name under `/run/secrets` (https://docs.docker.com/reference/compose-file/services/#secrets).
-            mounted = target if target.startswith("/") else f"/run/secrets/{target}"
-            if mounted != f"/run/secrets/{source}":
-                findings.append(Finding("fail", f"{name}: {service} mounts {source} at {mounted}, not /run/secrets/{source} (I508)"))
+            mounted = target if target.startswith("/") else f"{RUN_SECRETS}/{target}"
+            if mounted != f"{RUN_SECRETS}/{source}":
+                findings.append(Finding("fail", f"{name}: {service} mounts {source} at {mounted}, not {RUN_SECRETS}/{source} (I508)"))
     for secret, (holders, source_file) in sorted(expected.items()):
         if secret not in declared:
             findings.append(Finding("fail", f"{name}: the secret {secret} is not declared, and {sorted(holders)} read it (I508)"))
@@ -274,6 +280,61 @@ def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) 
             findings.append(Finding("fail", f"{name}: {secret} is read from {read!r}, not {source_file} (I508)"))
         if sorted(held[secret]) != sorted(holders):
             findings.append(Finding("fail", f"{name}: {held[secret] or 'nothing'} holds {secret}, not {sorted(holders)} (I508)"))
+    return findings
+
+
+def _not_the_local_database(content: object, services_declared: dict[str, Any]) -> str | None:
+    """Why `content` is not a login-free `mongodb://` URI naming `LOCAL_DATABASE_SERVICE` alone, or None where it is."""
+    parts = urlsplit(content.strip()) if isinstance(content, str) else None
+    if parts is None or parts.scheme != "mongodb":
+        return "holds no inline mongodb:// URI"
+    login, _, hosts = parts.netloc.rpartition("@")
+    # A login would sit in a tracked file, and the stack's database asks for none.
+    if login:
+        return "carries a login"
+    named = [host.rsplit(":", 1)[0] for host in hosts.split(",")]
+    if named != [LOCAL_DATABASE_SERVICE] or LOCAL_DATABASE_SERVICE not in services_declared:
+        return f"names {named}, not the stack's own {LOCAL_DATABASE_SERVICE} service"
+    return None
+
+
+def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding]:
+    """Exactly `CONFIG_HOLDERS[stack]` mounted at `RUN_SECRETS`, each by its services alone and naming this stack's database.
+
+    A service reads any file there as a credential, so a config nothing lists there is one no secret table checks (I508).
+    """
+    expected = CONFIG_HOLDERS[stack]
+    declared = model.get("configs") or {}
+    services_declared = services(model, name)
+    held: dict[str, list[str]] = {file: [] for file in expected}
+    findings: list[Finding] = []
+    for service, definition in sorted(services_declared.items()):
+        for entry in definition.get("configs") or []:
+            if not isinstance(entry, dict):
+                raise ValueError(f"{name}: {service} has a config Compose did not expand, so this is not its rendered model")
+            source = str(entry.get("source"))
+            # A config's default target is `/<source>` (https://docs.docker.com/reference/compose-file/services/#configs).
+            target = str(entry.get("target") or f"/{source}")
+            directory, _, file = target.rpartition("/")
+            if directory != RUN_SECRETS:
+                continue
+            if file not in held:
+                findings.append(
+                    Finding("fail", f"{name}: {service} mounts the config {source} at {target}, a file CONFIG_HOLDERS lacks (I508)")
+                )
+                continue
+            held[file].append(service)
+            if (wrong := _not_the_local_database((declared.get(source) or {}).get("content"), services_declared)) is not None:
+                findings.append(
+                    Finding(
+                        "fail",
+                        f"{name}: the config {source}, which {service} reads at {target}, {wrong}\n"
+                        f"{CONTINUATION}a login there aims the stack at a database other than its own (I508)",
+                    )
+                )
+    for file, holders in sorted(expected.items()):
+        if sorted(held[file]) != sorted(holders):
+            findings.append(Finding("fail", f"{name}: {held[file] or 'nothing'} reads a config as {file}, not {sorted(holders)} (I508)"))
     return findings
 
 
@@ -596,6 +657,7 @@ def main() -> int:
         findings += privileges(prod_model, "production") + privileges(local_model, "local")
         findings += secret_holders(prod_model, "production", Path(args.production).resolve().parent, "production")
         findings += secret_holders(local_model, "local", Path(args.local).resolve().parent, "local")
+        findings += config_holders(prod_model, "production", "production") + config_holders(local_model, "local", "local")
         findings += moved_names(prod_model, "production") + moved_names(local_model, "local")
         findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
         findings += secrets_directory(local_model, "local", Path(args.local).resolve().parent)
@@ -620,6 +682,7 @@ def main() -> int:
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
         print(f"      every service drops every capability and gains no privilege, {EDGE_SERVICE} adding back its master's four")
         print("      each secret is held by the services SECRET_HOLDERS names alone, read from its own file, in both stacks")
+        print(f"      the local stack's logins are inline configs naming its own {LOCAL_DATABASE_SERVICE} service alone")
         print("      no service is handed a moved credential's name in its environment")
         print(f"      no service mounts {SECRETS_DIRECTORY}/ but through a secret naming its file")
     return code

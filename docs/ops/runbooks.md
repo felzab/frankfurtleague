@@ -1272,8 +1272,8 @@ trailing newline and surrounding blanks, and everything else in the file is part
 actor token's key pair authenticate one machine's processes to each other, so a development machine
 generates fresh ones and never copies production's. **A development machine holds no production
 login at all**: its two database URI files name the local stack's database through the port that
-stack publishes on loopback, the local stack itself reads the tracked `local-stack/mongodb_uri`, and
-the one production file a development machine holds is `secrets/dump_mongodb_uri` below.
+stack publishes on loopback, the local stack itself hands its services an inline config naming its
+own database, and the one production file a development machine holds is `secrets/dump_mongodb_uri` below.
 
 On a development machine, in Git Bash at the checkout root, this writes every file `pnpm dev`,
 `fastapi dev` and the local stack read but the actor token's key pair, which its own command below

@@ -72,8 +72,8 @@ DUMP_LOG="${REPO_ROOT}/.local-db/copy.log"
 DUMP_MARK="${REPO_ROOT}/.local-db/complete"
 
 # The copy's login: a read-only one, on the application database alone. No development machine
-# holds production's write login, so the stack's own URI is `local-stack/mongodb_uri`
-# (`docs/ops/runbooks.md` §16).
+# holds production's write login, so the stack's own is an inline config of
+# `docker-compose.local.yml` (`docs/ops/runbooks.md` §16).
 DUMP_URI_FILE="secrets/dump_mongodb_uri"
 
 # Two containers, never one: only the credential-bearing invocation is handed a mongodump command,
@@ -226,8 +226,7 @@ check_env_spellings "fl_backend/.env"
 # Nothing here restores an older image, so a line kept for a rollback is a line to delete.
 check_moved_names refuse fl_frontend/.env fl_backend/.env .env
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
-# The stack's database URI is tracked, and it sends no mail: the rest are this machine's own.
-for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | grep -v '_mongodb_uri$' | sort -u); do
+for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
 done
 ok "the three .env files, the actor token's signing key and this machine's secret files are in place"
