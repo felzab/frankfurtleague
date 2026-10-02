@@ -5,6 +5,7 @@ from contextvars import ContextVar
 from typing import Final
 
 import pymongo
+from fastapi import FastAPI
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -86,8 +87,8 @@ class TraceContextMiddleware:
             with pymongo.timeout(REQUEST_DEADLINE_S):
                 await self.app(scope, receive, send_noting_status)
         except Exception:
-            # Reached when no exception handler produced a response, or a response failed after it
-            # started; the access line is still written, with the status the client was sent if any.
+            # Reached by every crash, which Starlette answers and raises again for the server to log;
+            # the access line carries the status the client was sent, 500 where none had started.
             self._log_access(request, 500 if status is None else status, started, trace_id, span_id)
             raise
         else:
@@ -118,3 +119,14 @@ class TraceContextMiddleware:
                 "duration_ms": round((time.perf_counter() - started) * 1000, 1),
             },
         )
+
+
+class TracedApp(FastAPI):
+    """`add_middleware` places a layer inside `ServerErrorMiddleware`, which runs the catch-all handler once that layer returned.
+
+    The handler's line and body would then read ids already reset (`docs/logging/spec.md :: L4`).
+    """
+
+    def build_middleware_stack(self) -> ASGIApp:
+        # The method FastAPI itself overrides to place a layer Starlette's builder has no slot for.
+        return TraceContextMiddleware(super().build_middleware_stack())

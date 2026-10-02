@@ -64,7 +64,7 @@ from app.core.exception_handlers import (
 )
 from app.core.exceptions import NO_DATABASE_CLIENT
 from app.core.logging import setup_custom_logger
-from app.core.middlewares import TraceContextMiddleware
+from app.core.middlewares import TracedApp
 from app.core.routing import ObjectIdConvertor
 from app.core.security import (
     ACTOR_NOT_ADMIN,
@@ -481,7 +481,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     # Before the app exists, so a failure while constructing it is logged in the right format.
     setup_custom_logger(config)
 
-    app = FastAPI(lifespan=lifespan)
+    app = TracedApp(lifespan=lifespan)
     app.state.config = config
     # Once, here: the `kid` a token must name is this key's thumbprint, and no request recomputes it.
     app.state.actor_token_key = ActorTokenKey.from_public_key(config.actor_token_public_key)
@@ -497,7 +497,6 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)
-    app.add_middleware(TraceContextMiddleware)
 
     app.include_router(system_router)
     for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_ROUTERS):
