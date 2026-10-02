@@ -4,9 +4,13 @@ allowBuilds:
   # script only prints a version notice.
   cpu-features: false
   protobufjs: false
-  sharp: true
+  # Its native code comes from the prebuilt @img packages the lockfile pins; pnpm lists it only for
+  # the source build its binding.gyp offers, which nothing here needs.
+  sharp: false
   ssh2: false
-  unrs-resolver: true
+  # Its script only finds the binding the lockfile already pins; refused, a missing binding fails
+  # loudly instead of being fetched with no integrity check.
+  unrs-resolver: false
 overrides:
   # Each pins past an advisory in the version next would otherwise pull. Only sharp is
   # runtime-reachable, via libvips on /_next/image.
