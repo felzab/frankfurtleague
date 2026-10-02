@@ -323,6 +323,21 @@ describe("the code step mounted outside the sign-in card", () => {
     closedControl("Code erneut senden", COOLDOWN_REASON);
   });
 
+  /* HeroUI's theme gives a field's border no width, so a slot carrying the colour alone was drawn without an edge. */
+  it("draws every code slot with a border of its own, on the surface variant", () => {
+    const { container } = render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));
+
+    const slots = [...container.querySelectorAll('[data-slot="input-otp-slot"]')];
+    assert.equal(slots.length, 6);
+    for (const slot of slots) {
+      const classes = slot.className.split(/\s+/);
+      for (const needed of ["border", "border-control", "bg-surface", "rounded-xl", "h-12"]) {
+        assert.ok(classes.includes(needed), `a code slot lacks \`${needed}\``);
+      }
+    }
+    assert.ok(container.querySelector(".input-otp")?.classList.contains("input-otp--secondary"), "the code is off the surface variant");
+  });
+
   /* A signed-in reader confirming a change is owed neither the sign-in's help nor its verb. */
   it("carries its caller's own hint and button words", () => {
     render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));

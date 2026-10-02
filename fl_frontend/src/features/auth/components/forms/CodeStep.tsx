@@ -28,6 +28,17 @@ const ERST_WARTEN = "Einen neuen Code kannst Du eine halbe Minute nach dem letzt
 export const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground uppercase";
 
 /**
+ * The address field's own chrome. `border` is the width, never optional: HeroUI's theme sets a field border
+ * to 0px, so the colour alone draws nothing, and a slot filled with the card's surface vanishes into the card.
+ */
+const SLOT_CLASSES = "h-12 rounded-xl border border-control bg-surface";
+
+// The digit's entrance scales up from 0.8, out of reach of the document's scale pin; the fade holds it to the
+// arrival the rest of the site uses. Its size is HeroUI's fixed one otherwise, off the app's type scale.
+const SLOT_VALUE_CLASSES =
+  "[&_[data-slot=input-otp-slot-value]]:animate-in [&_[data-slot=input-otp-slot-value]]:fluid-lg [&_[data-slot=input-otp-slot-value]]:fade-in";
+
+/**
  * `onSignedIn` runs once the route has set the session's cookie, and the step stays pending after it:
  * the caller moves on, by a navigation or by unmounting it. Without `onBack` no other address is offered.
  */
@@ -142,15 +153,15 @@ export function CodeStep({
           aria-describedby={refusal === null ? hintId : `${refusalId} ${hintId}`}
           ref={codeRef}
           // A script-free visitor has no step to reach: the address form posts through the page's own code.
-          noScriptCSSFallback={null}>
+          noScriptCSSFallback={null}
+          // HeroUI's variant for a field standing on a surface: no shadow, which the address field does not wear.
+          variant="secondary">
           <InputOTP.Group className="w-full">
             {Array.from({ length: SIGN_IN_CODE_LENGTH }, (_, index) => (
               <InputOTP.Slot
                 key={index}
                 index={index}
-                // The slot's own entrance scales its digit up from 0.8, out of reach of the document's
-                // scale pin; this holds it to the fade the rest of the site arrives with.
-                className="h-12 rounded-xl border-control bg-surface fluid-lg [&_[data-slot=input-otp-slot-value]]:animate-in [&_[data-slot=input-otp-slot-value]]:fade-in"
+                className={`${SLOT_CLASSES} ${SLOT_VALUE_CLASSES}`}
               />
             ))}
           </InputOTP.Group>
