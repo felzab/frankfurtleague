@@ -54,8 +54,8 @@ import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
-import type { Slots } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
+import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 import type { FLEinwilligungUmfang } from "../../schemas";

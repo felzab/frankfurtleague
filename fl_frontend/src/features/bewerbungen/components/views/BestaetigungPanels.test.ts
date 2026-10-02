@@ -8,8 +8,10 @@ import { createRef } from "react";
 
 import { act, renderHook } from "@testing-library/react";
 
+import { LIGA_KENNTNISNAHMEN } from "@/core/einwilligung.ts";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { filledSlots } from "@/shared/testing/stampedText.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AdresseGesperrt, Gefuellt, useLinkSeite } = await import("./BestaetigungPanels.tsx");
@@ -25,6 +27,40 @@ describe("a stamped sentence with its slots filled", () => {
     const html = renderMarkup(Gefuellt, { text: "{rolle} für {schule}", werte: { schule: "Lessing-Kolleg" }, eigene: new Set<string>() });
 
     assert.equal(textOf(html), "{rolle} für Lessing-Kolleg");
+  });
+
+  /* The suites compare a rendered page with `filledSlots`: where the two part, a negative comparison
+     passes on a sentence no page could show. */
+  it("reads as the suites' oracle fills it, for every stamped paragraph and every map", () => {
+    const vorlagen = [
+      ...Object.values(LIGA_KENNTNISNAHMEN).flatMap((fassung) => fassung.absaetze),
+      "in der {datenschutz}",
+      "{constructor}, {toString} und {__proto__}",
+      "{rolle} für {unbekannt}",
+    ];
+    const namen = [...new Set(vorlagen.flatMap((vorlage) => [...vorlage.matchAll(/\{(\w+)\}/g)].map((treffer) => treffer[1] ?? "")))];
+    const karten: Readonly<Record<string, string>>[] = [
+      {},
+      Object.fromEntries(
+        namen.filter((name) => !["datenschutz", "constructor", "toString", "__proto__"].includes(name)).map((name) => [name, `Wert ${name}`]),
+      ),
+      Object.fromEntries(namen.map((name) => [name, `Wert ${name}`])),
+    ];
+    const gelesen = (html: string): string => {
+      const knoten = document.createElement("div");
+      knoten.innerHTML = html;
+      return knoten.textContent;
+    };
+
+    const abweichend = karten.flatMap((werte) =>
+      vorlagen.flatMap((text) => {
+        const seite = gelesen(renderMarkup(Gefuellt, { text: text, werte: werte, eigene: new Set(Object.keys(werte)) }));
+        return seite === filledSlots(text, werte) ? [] : [`${text.slice(0, 40)} under ${String(Object.keys(werte).length)} slots`];
+      }),
+    );
+
+    assert.ok(vorlagen.length > 4, "no stamped paragraph was read, so nothing was compared");
+    assert.deepEqual(abweichend, [], "the oracle fills these as no page shows them");
   });
 });
 

@@ -13,7 +13,9 @@ import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
+import { DATENSCHUTZ_SLOT, stueckeVon } from "@/shared/utils/stampedSlots";
 
+import type { Slots, Stueck } from "@/shared/utils/stampedSlots";
 import type { ReactNode, RefObject } from "react";
 
 /**
@@ -52,41 +54,22 @@ export function Wert({ children }: { children: ReactNode }) {
   return <strong className="font-bold text-foreground">{children}</strong>;
 }
 
-/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
-const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
-const DATENSCHUTZ_SLOT = "datenschutz";
-
-/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
-const SLOT_TEILER = /(\{\w+\})/;
-
-export type Slots = Readonly<Record<string, string>>;
-
-/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
-function stueckInhalt(stueck: string, werte: Slots, eigene: ReadonlySet<string>): ReactNode {
-  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
-
-  if (name === undefined) return stueck;
-  // Ahead of the record, which holds no value for it: this slot's words are the link's own.
-  if (name === DATENSCHUTZ_SLOT) {
+/** One filled piece in whatever its kind earns: the privacy link, a reader's own value, or the words as they stand. */
+function stueckInhalt({ worte, slot }: Stueck, eigene: ReadonlySet<string>): ReactNode {
+  if (slot === DATENSCHUTZ_SLOT) {
     return (
       <Link
         href="/datenschutz"
         prefetch={false}
         className={textLink()}>
-        {DATENSCHUTZ_TEXT}
+        {worte}
       </Link>
     );
   }
 
-  const wert = werte[name];
-
-  // Standing as written rather than blanked: a sentence quietly missing its subject reads as
-  // finished, and one still spelling `{rolle}` says which fact never arrived.
-  if (wert === undefined) return stueck;
-
   // Emphasis is presentation, so each page decides it here rather than in the stored sentence,
   // whose words and digest do not move for it.
-  return eigene.has(name) ? <Wert>{wert}</Wert> : wert;
+  return slot !== undefined && eigene.has(slot) ? <Wert>{worte}</Wert> : worte;
 }
 
 /**
@@ -96,8 +79,8 @@ function stueckInhalt(stueck: string, werte: Slots, eigene: ReadonlySet<string>)
 export function Gefuellt({ text, werte, eigene }: { text: string; werte: Slots; eigene: ReadonlySet<string> }) {
   return (
     <>
-      {text.split(SLOT_TEILER).map((stueck, index) => (
-        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte, eigene)}</Fragment>
+      {stueckeVon(text, werte).map((stueck, index) => (
+        <Fragment key={`${String(index)}-${stueck.worte}`}>{stueckInhalt(stueck, eigene)}</Fragment>
       ))}
     </>
   );
