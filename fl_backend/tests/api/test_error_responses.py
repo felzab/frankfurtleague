@@ -44,12 +44,12 @@ from app.main import RESPONSE_REF, create_app, dependency_refusals, document_rou
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, app_calls, callee, parsed
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, app_calls, application, callee, parsed
 from tests.openapi_document import build_document
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
 # handler caplog attaches at setup.
-APP = create_app(build_test_config())
+APP = application()
 
 
 def client() -> TestClient:

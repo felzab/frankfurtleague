@@ -20,8 +20,8 @@ from app.core.security import ACTOR_NOT_ADMIN, verify_access_admin
 from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY, build_test_config, grants_for_the_suite
-from tests.core.app_source import api_routes
+from tests.config import ADMIN_KEY, grants_for_the_suite
+from tests.core.app_source import api_routes, application
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -42,7 +42,7 @@ AN_ADMINISTRATOR = grants_for_the_suite()[1]["adresse"]
 # The operations the check guards, rather than a list: a router added later is swept without an edit here.
 ADMIN_TIER = sorted(
     (route.path, method)
-    for route in api_routes(create_app(build_test_config()))
+    for route in api_routes(application())
     if isinstance(route, APIRoute) and route.include_in_schema
     for method in sorted(route.methods or ())
     if verify_access_admin in {dependency.call for dependency in route.dependant.dependencies}

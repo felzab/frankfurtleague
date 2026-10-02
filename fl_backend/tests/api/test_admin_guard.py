@@ -17,14 +17,12 @@ from app.core.security import (
     verify_access_system,
     verify_actor_is_admin,
 )
-from app.main import create_app
-from tests.config import build_test_config
-from tests.core.app_source import api_routes
+from tests.core.app_source import api_routes, application
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
-APP = create_app(build_test_config())
+APP = application()
 
 MISSING_BEARER_TOKEN = MISSING_TOKEN
 

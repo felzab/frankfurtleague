@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import functools
 import logging
 import re
 import time
@@ -9,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any, cast, get_args
 
 import pytest
-from fastapi import Depends
+from fastapi import Depends, FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
@@ -60,19 +61,14 @@ from app.main import _dependency_calls, create_app, document_routes
 from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, actor_token, protected_header, sign
 from tests.config import ADMIN_KEY, build_test_config
-from tests.core.app_source import api_routes
+from tests.core.app_source import api_routes, application
 from tests.grants import admit
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
-# Module level, as `tests/api/test_admin_guard.py` builds it: pytest resolves parametrisation during
-# collection, before a fixture could run.
 CONFIG = build_test_config()
-# Its actor check answered from `tests/config.py :: ADMINISTRATORS`, so a case clearing it meets the
-# missing database at the handler rather than at the check.
-APP = admit(create_app(CONFIG))
 # The key the application verifies with, for a case driving a binder without a served request.
-KEY = APP.state.actor_token_key
+KEY = application().state.actor_token_key
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
@@ -91,10 +87,27 @@ PUBLIC_WRITE_PATH = "/api/v0/bewerbungen"
 UNREACHED_DATABASE = NO_DATABASE_CLIENT
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """A case clearing the actor check meets the missing database at the handler: the check answers from `tests/config.py :: ADMINISTRATORS`.
+
+    Built on first use, never at import, which every xdist worker pays; never `application()`'s app, which this edits.
+    """
+
+    return admit(create_app(CONFIG))
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _built_before_any_case() -> None:
+    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
+
+    _served()
+
+
 def client() -> TestClient:
     """No lifespan, so nothing opens the database: a request clearing the actor guard then fails on `DB-CONN-001`, which is observable."""
 
-    return TestClient(APP, raise_server_exceptions=False)
+    return TestClient(_served(), raise_server_exceptions=False)
 
 
 class _Route:
@@ -319,7 +332,7 @@ class TestWhatTheBindingLeavesBehind:
         assert after == (SYSTEM_ACTOR, None)
 
 
-MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes(APP) for method in (route.methods or ())]
+MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes(application()) for method in (route.methods or ())]
 
 ROUTES_BY_OPERATION = dict(MOUNTED_OPERATIONS)
 
@@ -536,7 +549,7 @@ def test_the_public_binder_refuses_no_request_whatever_the_header_says():
 # whose binder guards no write.
 READ_ROUTER_PATH = "/api/v0/spielorte"
 
-# Well-formed, and holding none of the grants `APP` answers from.
+# Well-formed, and holding none of the grants `_served` answers from.
 NOT_AN_ADMINISTRATOR = "schueler@example.com"
 
 
@@ -731,7 +744,7 @@ class TestTheStepUpOverAServedRequest:
 
         declared = {
             operation
-            for route in document_routes(APP)
+            for route in document_routes(application())
             if verify_step_up in set(_dependency_calls(route.dependant))
             for operation in route.operations
         }

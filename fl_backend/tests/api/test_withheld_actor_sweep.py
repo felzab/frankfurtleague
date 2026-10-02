@@ -25,11 +25,10 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exception_handlers import STORES_NOTHING_WHEN, stores_nothing
 from app.core.security import verify_access_admin
-from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY, build_test_config, grants_for_the_suite
-from tests.core.app_source import api_routes
+from tests.config import ADMIN_KEY, grants_for_the_suite
+from tests.core.app_source import api_routes, application
 from tests.database import a_clean_database_sync
 from tests.documents import ban_document, saison_document
 from tests.worker import worker_database
@@ -66,7 +65,7 @@ def _serves_a_read(route: APIRoute) -> bool:
 # The mounted spelling, convertors included, and never a list: a read added later is swept without an edit here.
 ADMIN_READS = sorted(
     route.path
-    for route in api_routes(create_app(build_test_config()))
+    for route in api_routes(application())
     if isinstance(route, APIRoute)
     and route.include_in_schema
     and _serves_a_read(route)

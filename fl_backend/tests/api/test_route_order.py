@@ -1,13 +1,11 @@
 import pytest
 
 from app.core.config import API_VERSION
-from app.main import create_app
-from tests.config import build_test_config
-from tests.core.app_source import api_routes
+from tests.core.app_source import api_routes, application
 
 # In the order a request is matched against them: `api_routes` opens each included router's wrapper
 # where it stands in `app.routes`, which is where matching descends into it.
-ROUTES = list(api_routes(create_app(build_test_config())))
+ROUTES = list(api_routes(application()))
 
 CURRENT_SAISON_PATH = f"/api/v{API_VERSION}/saisons/current"
 

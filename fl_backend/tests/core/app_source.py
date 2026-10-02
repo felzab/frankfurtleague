@@ -8,6 +8,8 @@ caller reshaped would be the next caller's answer.
 Invariants:
 - Nothing inside a test process changes the file set under `app/` or rebinds `APP_ROOT`, or a
   cached sweep answers the first tree.
+- Nothing edits `application()`'s app -- an override, a route, its `state` -- or every module
+  reading it later in the process meets the edit.
 """
 
 import ast
@@ -23,6 +25,8 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute, iter_route_contexts
 
 from app.core.collections import Collection
+from app.main import create_app
+from tests.config import build_test_config
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
@@ -706,6 +710,17 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
         )
 
     return tuple(sorted(found, key=lambda carrier: carrier.where))
+
+
+@functools.cache
+def application() -> FastAPI:
+    """One build a process for every module reading what the application mounts.
+
+    Every xdist worker imports every module at collection, the tier's `-m` filtering only after, so a
+    build per module is paid by each worker for each module.
+    """
+
+    return create_app(build_test_config())
 
 
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:
