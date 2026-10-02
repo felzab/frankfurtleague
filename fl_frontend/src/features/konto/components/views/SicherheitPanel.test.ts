@@ -461,7 +461,7 @@ describe("adding a passkey", () => {
     await waitFor(() => assert.equal(raised.length, 1));
     assert.deepEqual(
       [raised[0]?.title, raised[0]?.description, raised[0]?.options?.outcome],
-      ["Passkey nicht hinzugefügt", unansweredAction().error, "unknown"],
+      ["Unklar, ob es gespeichert wurde", unansweredAction().error, "unknown"],
     );
   });
 });

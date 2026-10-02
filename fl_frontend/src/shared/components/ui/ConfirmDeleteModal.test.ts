@@ -52,7 +52,7 @@ describe("the retirement dialog", () => {
     const { error, outcome } = unansweredAction();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
-      [["danger", "Spielort nicht stillgelegt", error, outcome]],
+      [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
     );
   });
 

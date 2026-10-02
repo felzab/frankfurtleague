@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { blankComments } from "@/core/blankComments.ts";
 import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
 import { judging } from "@/core/verdicts.ts";
+import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
 import type { AdminRefusal } from "@/core/auth.ts";
 import type { SubjectSession } from "@/core/subject.ts";
@@ -400,10 +401,13 @@ export function doubleToasts(): { raised: RaisedToast[] } {
       raised.push({ variant, title, description: options?.description, options });
       return String(raised.length);
     };
-  // `failure` keeps the site's title: the real module swaps in a marked outcome's own, and
-  // `fl_frontend/src/shared/utils/appToast.test.ts` pins that.
+  // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
+  // in every suite rather than under the raising site's title.
   const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">): string =>
-    raise("danger")(title, { description: failure?.unplacedError ?? failure?.error, outcome: failure?.outcome });
+    raise("danger")(failureToastTitle(title, failure?.outcome), {
+      description: failure?.unplacedError ?? failure?.error,
+      outcome: failure?.outcome,
+    });
   const inert = (): undefined => undefined;
 
   // `close` and `clear` raise nothing, and recording them would shift every index `raised` is read by.

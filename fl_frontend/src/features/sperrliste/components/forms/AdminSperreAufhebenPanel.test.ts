@@ -99,7 +99,7 @@ describe("lifting one ban from the row it stands on", () => {
     const { error, outcome } = unansweredAction();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
-      [["danger", "Sperre nicht aufgehoben", error, outcome]],
+      [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
     );
   });
 });

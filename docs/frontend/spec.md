@@ -874,7 +874,8 @@ stub along the path it reaches the action. **One reader registers that hook**,
 `fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActions`, which derives the exported names
 from the real module and records every call: a hand-written double per file drifts from the module it
 stands in for. The toast module is doubled the same way by its sibling `:: doubleToasts`, which derives
-its members from `appToast.ts`'s own source and records what was raised. A callback the component
+its members from `appToast.ts`'s own source and records what was raised, a failure under the title the
+real module gives it (`fl_frontend/src/shared/utils/failureToastTitle.ts :: failureToastTitle`). A callback the component
 already takes is handed a `mock.fn()` from `node:test`.
 
 **Any other module or package a suite cannot load is doubled through

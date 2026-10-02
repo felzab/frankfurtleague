@@ -118,7 +118,7 @@ describe("the club's group swap after its answer", () => {
 
     assert.deepEqual(
       raised.map((toast) => [toast.title, toast.options?.outcome]),
-      [["Gruppen nicht getauscht", "unknown"]],
+      [["Unklar, ob es gespeichert wurde", "unknown"]],
     );
     assert.equal(seen.refresh, 1, "the page was not read again");
     // Pressed as the admin would press it again: the control and, once closed, the hint laid over it.

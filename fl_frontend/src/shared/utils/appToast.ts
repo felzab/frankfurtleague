@@ -1,18 +1,10 @@
 import { toast } from "@heroui/react/toast";
 
+import { failureToastTitle } from "./failureToastTitle";
+
 import type { ActionFailure } from "@/shared/types/types";
 import type { ButtonProps } from "@heroui/react/button";
 import type { ReactNode } from "react";
-
-/** Every failure title says the change did not happen, which is false where nobody can tell. */
-const OUTCOME_UNKNOWN_TITLE = "Unklar, ob es gespeichert wurde";
-
-const OUTCOME_PARTIAL_TITLE = "Nur teilweise gespeichert";
-
-const OUTCOME_TITLES: Readonly<Record<NonNullable<ActionFailure["outcome"]>, string>> = {
-  unknown: OUTCOME_UNKNOWN_TITLE,
-  partial: OUTCOME_PARTIAL_TITLE,
-};
 
 /**
  * A duration is derived from the text's length, never chosen at the call site; the rate sits above an unhurried
@@ -73,7 +65,7 @@ export const appToast = {
   failure: (title: string, failure: Pick<ActionFailure, "error" | "unplacedError" | "outcome">) =>
     // A toast marks nothing, so a refused payload speaks its sentence for a map no control shows
     // (`docs/frontend/spec.md :: I344`).
-    raise("danger", failure.outcome === undefined ? title : OUTCOME_TITLES[failure.outcome], {
+    raise("danger", failureToastTitle(title, failure.outcome), {
       description: failure.unplacedError ?? failure.error,
     }),
   /** Neither an outcome nor a failure — a standing fact worth one line. */

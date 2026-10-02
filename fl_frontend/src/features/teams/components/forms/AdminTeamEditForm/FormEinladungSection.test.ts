@@ -145,7 +145,7 @@ describe("the team's invite panel", () => {
 
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
-      [["danger", "Registrierungslink nicht angelegt", MINT_UNKLAR, "unknown"]],
+      [["danger", "Unklar, ob es gespeichert wurde", MINT_UNKLAR, "unknown"]],
     );
   });
 
@@ -164,7 +164,7 @@ describe("the team's invite panel", () => {
 
     assert.deepEqual(
       raised.map((toast) => [toast.title, toast.description, toast.options?.outcome]),
-      [["Registrierungslink nicht angelegt", MINT_UNKLAR, "unknown"]],
+      [["Unklar, ob es gespeichert wurde", MINT_UNKLAR, "unknown"]],
     );
   });
 

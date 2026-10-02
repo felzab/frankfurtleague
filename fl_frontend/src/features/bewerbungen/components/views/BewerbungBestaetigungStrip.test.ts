@@ -407,7 +407,7 @@ describe("a write whose answer never arrives", () => {
       assert.equal(seen.refresh, readAgain[arm], "a rejection left the row as it was, or an answer read it twice");
       assert.deepEqual(unknowns(), [
         [
-          "Link nicht erneut gesendet",
+          "Unklar, ob es gespeichert wurde",
           repairOn(arm, "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging."),
         ],
       ]);
@@ -445,7 +445,7 @@ describe("a write whose answer never arrives", () => {
       assert.equal(seen.refresh, 0, "the page was read again over the box's typed entry");
       assert.deepEqual(unknowns(), [
         [
-          "Adresse nicht korrigiert",
+          "Unklar, ob es gespeichert wurde",
           repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal."),
         ],
       ]);
@@ -468,7 +468,7 @@ describe("a write whose answer never arrives", () => {
       assert.equal(seen.refresh, 0, "the page was read again over the box's typed entry");
       assert.deepEqual(unknowns(), [
         [
-          "Rolle nicht neu besetzt",
+          "Unklar, ob es gespeichert wurde",
           repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal."),
         ],
       ]);

@@ -88,7 +88,7 @@ describe("the season's group swap after its answer", () => {
 
     assert.deepEqual(
       raised.map((toast) => [toast.title, toast.options?.outcome]),
-      [["Gruppen nicht getauscht", "unknown"]],
+      [["Unklar, ob es gespeichert wurde", "unknown"]],
     );
     assert.equal(seen.refresh, 1, "the page was not read again");
     // Closed on a missing pick, so no second press can swap the same pair back.

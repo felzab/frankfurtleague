@@ -634,7 +634,18 @@ describe("a two-part press whose second half was refused", () => {
 
       assert.deepEqual(
         danger.map((toast) => [toast.title, toast.options?.outcome]),
-        [["Änderung nicht gespeichert", "partial"]],
+        [["Nur teilweise gespeichert", "partial"]],
+      );
+    });
+
+    /* Neither half saved, so nothing stands to be partly saved: the marker there would tell the admin
+       a half landed that did not. */
+    it(`${file} marks no failure partly saved where every half was refused`, async () => {
+      const danger = await pressBothHalves(file, change, [REFUSED, REFUSED]);
+
+      assert.deepEqual(
+        danger.map((toast) => [toast.title, toast.options?.outcome]),
+        [["Änderung nicht gespeichert", undefined]],
       );
     });
   }
@@ -649,7 +660,7 @@ describe("a two-part press whose second half nobody can tell landed", () => {
 
       assert.deepEqual(
         danger.map((toast) => [toast.title, toast.options?.outcome]),
-        [["Änderung nicht gespeichert", "unknown"]],
+        [["Unklar, ob es gespeichert wurde", "unknown"]],
       );
     });
 
@@ -664,7 +675,7 @@ describe("a two-part press whose second half nobody can tell landed", () => {
 
       assert.deepEqual(
         danger.map((toast) => [toast.title, toast.options?.outcome]),
-        [["Änderung nicht gespeichert", "unknown"]],
+        [["Unklar, ob es gespeichert wurde", "unknown"]],
       );
       assert.ok(screen.queryByRole("button", { name: "Speichern" }) !== null, "the rejection took the editor off the page");
       assert.equal(seen.refresh, 0, "a rejected half read the page again over the draft of the half not written");
@@ -681,7 +692,7 @@ describe("a two-part press whose second half nobody can tell landed", () => {
 
       assert.deepEqual(
         danger.map((toast) => [toast.title, toast.options?.outcome]),
-        [["Änderung nicht gespeichert", "unknown"]],
+        [["Unklar, ob es gespeichert wurde", "unknown"]],
       );
     });
   }

@@ -171,7 +171,7 @@ describe("the season's bulk invite send", () => {
     const { error, outcome } = unansweredAction();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
-      [["danger", "Registrierungslinks nicht gesendet", error, outcome]],
+      [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
     );
     assert.ok(screen.queryByText(LISTE) === null, "the list read before the write still stands");
     assert.equal(seen.refresh, 1, "the page was not read again");
