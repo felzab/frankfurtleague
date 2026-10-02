@@ -109,6 +109,7 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
       armed?.();
 
       let landedOn: HTMLElement | null = null;
+      let placing = false;
       const land = (): void => {
         const active = document.activeElement;
         if (anchor.isConnected || (active !== null && active === landedOn)) return;
@@ -118,7 +119,9 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
           return;
         }
         landedOn = target(place);
+        placing = true;
         landedOn?.focus();
+        placing = false;
       };
       land();
 
@@ -130,11 +133,18 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
         observer.disconnect();
         document.removeEventListener("keydown", stop, true);
         document.removeEventListener("pointerdown", stop, true);
+        document.removeEventListener("focusin", moved, true);
         if (armed === stop) armed = null;
+      };
+      // So is a focus moved after the landing placed one, which a screen reader does with neither. Before
+      // that, a move is the page's own: a closing dialog handing back the focus, a grid falling back to its cell.
+      const moved = (): void => {
+        if (!placing && landedOn !== null) stop();
       };
       observer.observe(document.body, { childList: true, subtree: true });
       document.addEventListener("keydown", stop, true);
       document.addEventListener("pointerdown", stop, true);
+      document.addEventListener("focusin", moved, true);
       armed = stop;
     },
   };

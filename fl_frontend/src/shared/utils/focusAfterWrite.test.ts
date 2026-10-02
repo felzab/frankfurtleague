@@ -294,6 +294,21 @@ describe("what a landing leaves alone", () => {
     assert.ok(document.activeElement === document.body, `the focus moved to „${focused()}“`);
   });
 
+  /* A screen reader moves the focus with neither a key nor a pointer the page hears. */
+  it("stands down once the focus moves after it landed", async () => {
+    document.body.append(list(["a", "b", "c"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    document.querySelector(`[data-focus-row="a"]`)?.remove();
+    await settle();
+    const moved = pressed("c löschen");
+    document.body.append(el("p", {}, "Toast"));
+    await settle();
+
+    assert.ok(document.activeElement === moved, `the focus was taken back to „${focused()}“`);
+  });
+
   it("stands down once a newer landing arms", async () => {
     document.body.append(list(["a", "b", "c"]));
     focusAfterWrite(pressed("a löschen")).landed();
