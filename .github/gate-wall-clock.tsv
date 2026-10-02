@@ -29,7 +29,12 @@
 #
 # A check joining the gate records its measured cost here, the **gate** clause in
 # `.claude/rules/ops.md` being what asks for it. A cost that sits inside its job's floor moves
-# neither the reference nor the budget and takes no stamp of its own.
+# neither the reference nor the budget and takes no stamp of its own. A row carrying `-` for its
+# reference and floor has no floor to sit inside: the report lists its job as measured rather than
+# comparing it (`scripts/checks/check_gate_budget.py :: report_window`), so a cost joining it is
+# recorded with its measured figure, moves no figure, and answers to the budget alone, which holds
+# every run of the job (`:: check_run`). A row with no budget either, as `images` is, has nothing
+# here that judges a cost.
 #
 # `images` is measured and not budgeted: its span is the layer cache's before it is the tree's, and
 # inside the population its stamp counts its widest run costs five times its narrowest, so the
@@ -104,9 +109,10 @@
 # idle, `selfcheck.sh` took 45.2-45.9 s over five runs; inside one full-form run it took 97 s beside
 # the section's pytest, ruff and pyright; under a process spinning every core it took 236 s. The
 # gap between alone and in-run is contention, the unit waiting on the machine rather than working,
-# so the row's reference is the run's figure and not the unit's, and what would pay is reducing
-# what the run competes for rather than splitting the unit or removing work from it. The section
-# itself binds the run at 122 s, its pytest unit the last to close; no figure here moves a row.
+# so what the row's budget holds is the run's figure and not the unit's, and what would pay is
+# reducing what the run competes for rather than splitting the unit or removing work from it. The
+# section itself binds the run at 122 s, its pytest unit the last to close; no figure here moves a
+# row.
 #
 # `scripts`' pytest unit was one module long: `--dist loadfile` hands a module whole to one worker,
 # and `scripts/tests/test_check_docs.py` carried 118.6 s of a 121.8 s run at eight workers against
@@ -375,7 +381,8 @@
 # `scripts`, and 563-835 ms against 520-881 ms over the backend's `app` and `tests`, over eight
 # interleaved rounds, each run exit 0, measured locally on 2026-09-24 on a sixteen-core Windows
 # machine carrying a fleet of agent sessions. The arms overlap, so the rule costs less than this
-# machine resolves. Neither the reference nor the budget moves and neither takes a new stamp.
+# machine resolves. Both rows are held by their budgets alone, and every run their stamps count
+# carries the rule.
 #
 # `frontend` gained a check: knip costs 1.97-5.50 s over six runs interleaved with tsc, which took
 # 5.39-28.79 s in the same rounds, the widest its first and cold, measured locally on 2026-09-24 on
@@ -404,7 +411,9 @@
 # `verify` gained a step: on a push to main it fails where a scope job was skipped. It is an `if:`
 # over the needs context and nothing else, so no development machine can run it to time; on every
 # run that skipped no scope the runner skips the step without starting a shell, and only a run
-# already red pays for its one `echo`. The row's reference and budget do not move.
+# already red pays for its one `echo`. `verify` has no row:
+# `scripts/checks/check_gate_budget.py :: UNMEASURED_JOBS` leaves it out of the budget and the
+# report alike.
 #
 # `scripts` gained a module: `scripts/tests/test_image_pins.py` reads the files its
 # `:: DOCKERFILES`, `:: COMPOSE_FILES` and `:: SCRIPT_IMAGES` name, and its cases run in 0.03-0.04 s
@@ -468,7 +477,8 @@
 # `scripts`, and 254-2348 ms against 248-916 ms over the backend's `app` and `tests`, over eight
 # interleaved rounds, each run exit 0, measured locally on 2026-09-25 on a sixteen-core Windows
 # machine carrying a fleet of agent sessions. The arms overlap, so the rule costs less than this
-# machine resolves. Neither the reference nor the budget moves and neither takes a new stamp.
+# machine resolves. Both rows are held by their budgets alone, and every run their stamps count
+# carries the rule.
 #
 # `scripts` gained four cases in `scripts/tests/test_image_pins.py`: every tag an exact release,
 # 0.01 s; the frontend db tier's tag held to the backend pin's, 0.06 s; the db job's pull step run
