@@ -362,6 +362,18 @@ describe("what a pass leaves for the next", () => {
     );
   });
 
+  /* A barred address is as told as the league may make it: held for it, the change would be claimed
+     for as long as the ban stands. The gate's own line records it, so the pass adds none. */
+  it("counts a send the ban list kept as told, and adds no line", async () => {
+    claim = claimOf([aenderung()]);
+    mail.answerWith((sent) => (sent.to === "inhaber@schule.de" ? "barred" : "accepted"));
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    assert.deepEqual(lines, []);
+  });
+
   /* A refusal of the key, the domain, the sender or the request refuses every send alike, and the
      provider names none that concerns one address: stamped, the change would be told to nobody. */
   it("leaves a change the provider refused for good, and logs each refusal", async () => {

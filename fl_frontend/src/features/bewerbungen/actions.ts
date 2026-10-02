@@ -341,8 +341,10 @@ async function sendeBestaetigungErneut({
       }),
   });
 
-  // Filed by a deployment that mails nothing: a refusal would offer a retry no repeat can reach.
+  // Filed by a deployment that mails nothing, or kept from a barred address: a refusal would offer a
+  // retry no repeat can reach (`docs/frontend/spec.md :: I542`).
   if (outcome.withheld.length > 0) return { verschickt: true, message: ZURUECKGEHALTEN };
+  if (outcome.gesperrt > 0) return { verschickt: true, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." };
 
   return outcome.unreachable.length === 0
     ? { verschickt: true, message: `Der neue Link ging an ${person.email}.` }

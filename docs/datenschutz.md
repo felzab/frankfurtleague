@@ -571,8 +571,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
-  address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27. The
-  row records the last season it
+  address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.
+  While the ban stands the application sends the address nothing else, that notice being the one
+  kind its mailer lets through (`docs/frontend/spec.md :: I541`); the league's confirmations to a
+  barred address, below, are written by hand. The row records the last season it
   covers and the activation of the season after that removes it
   (`docs/backend/spec.md :: I273`); nothing is counted in days, the bound being the thing the
   ban exists for — somebody too young for the league stays barred until they are too old for it. The

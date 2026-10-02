@@ -700,7 +700,7 @@ rule.** The one date anybody enters for themselves is a contact person's, at the
 and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
 Decline the application and bar the address at `/bereich/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
-([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). An
+([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up-and-from-the-leagues-mail)). An
 address holding a grant is refused (`REQ-SPERRLISTE-003`) until the grant is revoked
 ([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself where the address holds a sign-in account**, naming the reason you typed and

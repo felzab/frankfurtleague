@@ -478,6 +478,27 @@ describe("one pass of the sweep", () => {
     });
   }
 
+  /* On production too: a barred mailbox is as told as the league may make it, and waiting on a send
+     the ban never lets out would keep the application for as long as the ban stands
+     (`docs/frontend/spec.md :: I538`). */
+  it("stamps and erases a candidate whose one mailbox the ban list holds, on production", async () => {
+    mail.answerWith((sent) => {
+      events.push({ kind: "mail", ...sent });
+      return "barred";
+    });
+    sweepAnswers({ saisonIds: ["2627"], loeschungen: { "2627": [deletion(ID_REACHED, "erika@schule.de")] } });
+
+    await runBewerbungSweep();
+
+    assert.equal(events.filter((event) => event.kind === "mail").length, 1, "the notice was never handed to the mailer");
+    const stamp = callTo("/bewerbungen/sweep/2627/angekuendigt");
+    const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
+    assert.deepEqual(
+      [stamp, erasure].map((call) => (call === undefined ? null : JSON.parse(call.body ?? "{}"))),
+      [{ bewerbung_ids: [ID_REACHED] }, { bewerbung_ids: [ID_REACHED] }],
+    );
+  });
+
   /* The pass after an erasure that failed: the candidate is listed again, already announced. Mailing
      it a second time is what the stamp exists to stop, and the erasure is retried on its own. */
   it("mails nothing for a candidate already announced, and erases it without a second stamp", async () => {

@@ -35,10 +35,23 @@ const LOGGER_DOUBLE = {
   },
 };
 
+/** What the ban list's gate answers the next send, and every question it was asked. */
+let gate: "admitted" | "barred" | "failed" = "admitted";
+const gateAsked: { art: string; to: string }[] = [];
+
+// The gate's own read is `fl_frontend/src/core/mailGate.test.ts`'s; here it is the verdict the mailer acts on.
+const GATE_DOUBLE = {
+  mayReceiveMail: async (art: string, to: string) => {
+    gateAsked.push({ art: art, to: to });
+    return gate;
+  },
+};
+
 registerDoubles({
   modules: {
     "core/config.ts": CONFIG_DOUBLE,
     "core/logging.ts": LOGGER_DOUBLE,
+    "core/mailGate.ts": GATE_DOUBLE,
   },
 });
 
@@ -47,7 +60,8 @@ type RecordedLine = { message: string; error?: unknown; meta?: Record<string, un
 
 const logs: RecordedLine[] = [];
 
-const { sendMail, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
+const { sendMail, MailBarredError, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
+const { ERREICHT_GESPERRTE } = await import("./mailArt.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
 const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 
@@ -70,6 +84,12 @@ const sinkDir = (): string => path.join(process.cwd(), SINK_NAME);
 
 const sinkNames = (): string[] => (existsSync(sinkDir()) ? readdirSync(sinkDir()).sort() : []);
 
+/**
+ * Resolves once the gate's answer has carried the send on to its request: the gate is awaited first,
+ * so a case reading the request's signal reads it after this. Never a timer the cases mock.
+ */
+const gateAnswered = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
 /** What the doubled transport was asked to send, and on what terms. */
 type RecordedSend = { url: string; init: RequestInit };
 
@@ -91,7 +111,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   ]);
 }) as typeof fetch;
 
-const MESSAGE = { to: "trainer@example.org", subject: "Anmeldecode", html: "<p>Hallo</p>", text: "Hallo" };
+const MESSAGE = { to: "trainer@example.org", art: "anmeldecode", subject: "Anmeldecode", html: "<p>Hallo</p>", text: "Hallo" } as const;
 
 const jsonResponse = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), { status: status, headers: { "content-type": "application/json" } });
@@ -136,6 +156,8 @@ function resetTransport(): void {
   sends.length = 0;
   logs.length = 0;
   respond = async () => jsonResponse({ id: "01HZ" }, 200);
+  gate = "admitted";
+  gateAsked.length = 0;
 }
 
 /* Read off the line rather than off a listing, so a case that wrote nothing fails here instead of
@@ -326,6 +348,88 @@ describe("the recipient the provider is handed", () => {
     for (const fragment of [UNCONVERTIBLE, "anna", UNCONVERTIBLE.slice(UNCONVERTIBLE.indexOf("@") + 1)]) {
       assert.equal(carried.includes(fragment), false, `the refusal carried ${fragment}`);
     }
+  });
+});
+
+describe("the ban list's gate at the one send", () => {
+  beforeEach(resetTransport);
+
+  /* Asked with the kind and the address exactly as the caller handed them: a gate asked anything
+     else answers for some other message. */
+  it("asks the gate once, with the message's own kind and recipient", async () => {
+    await sendMail(MESSAGE);
+
+    assert.deepEqual(gateAsked, [{ art: MESSAGE.art, to: MESSAGE.to }]);
+  });
+
+  it("sends nothing to a barred address and records no write", async () => {
+    gate = "barred";
+
+    const wrote = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+      await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailBarredError);
+      return requestWriteSent();
+    });
+
+    assert.equal(sends.length, 0, "a message left for a barred address");
+    assert.equal(wrote, false, "a barred send recorded a write");
+  });
+
+  /* Ahead of the sink: a stack that is not production files what production would send, and a
+     barred message is not one of those, so the local stack shows the ban working. */
+  it("writes no sink file for a barred address where the environment is not production", async () => {
+    appEnv = "local";
+    gate = "barred";
+
+    await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailBarredError);
+
+    assert.deepEqual(sinkNames(), [], "a barred message was filed");
+    assert.deepEqual(
+      logs.filter((line) => line.meta?.["error_code"] === "FE-MAIL-004"),
+      [],
+      "a barred message was logged as withheld",
+    );
+  });
+
+  /* Closed: a send past a failed read would defeat the ban, and the gate's own line says why. */
+  it("sends nothing where the gate could not read the list, and says the list was not read", async () => {
+    gate = "failed";
+
+    const error = await sendMail(MESSAGE).then(
+      () => assert.fail("a send past an unread ban list resolved"),
+      (thrown: Error) => thrown,
+    );
+
+    assert.ok(error instanceof MailUnsentError, `expected an unsent refusal, saw ${inspect(error)}`);
+    assert.equal(error.reason, "ban-unread");
+    assert.equal(sends.length, 0, "a message left past an unread ban list");
+  });
+
+  it("files nothing where the gate could not read the list on a stack that is not production", async () => {
+    appEnv = "local";
+    gate = "failed";
+
+    await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailUnsentError);
+
+    assert.deepEqual(sinkNames(), [], "a message past an unread ban list was filed");
+  });
+
+  /* The refusal reaches a fan-out, which logs its name, and a caller that could read an address
+     off it could name a barred person to an administrator. */
+  it("carries no part of the address into the barred refusal", async () => {
+    gate = "barred";
+
+    const error = await sendMail(MESSAGE).then(
+      () => assert.fail("the barred send resolved"),
+      (thrown: Error) => thrown,
+    );
+
+    assertHidesRecipient(error, "the barred refusal");
+  });
+
+  /* Every other kind is closed to a barred address, so widening this set reopens the ban for a whole
+     kind of message: that is a ruling, made here and in `docs/frontend/spec.md :: I541` together. */
+  it("lets the ban's own notice alone through to a barred address", () => {
+    assert.deepEqual([...ERREICHT_GESPERRTE], ["sperre"]);
   });
 });
 
@@ -708,6 +812,7 @@ describe("what the mail transport reports when a send fails", () => {
     try {
       respond = () => new Promise<Response>(() => {});
       const pending = sendMail(MESSAGE);
+      await gateAnswered();
       const signal = sends[0]!.init.signal as AbortSignal;
 
       mock.timers.tick(MAIL_TIMEOUT_MS - 1);
@@ -888,6 +993,7 @@ describe("a send inside a request whose deadline runs out", () => {
         () => assert.fail("the aborted send resolved"),
         (error: unknown) => error,
       );
+      await gateAnswered();
       const signal = sends[0]?.init.signal ?? assert.fail("the send drew no request");
 
       advance(4999);
@@ -920,6 +1026,7 @@ describe("a send inside a request whose deadline runs out", () => {
     assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
     assert.equal(wrote, false, "a message the deadline refused unsent was recorded as a write");
     assert.ok(thrown instanceof MailUnsentError, "the send refused before it left was thrown as one that may have gone");
+    assert.equal(thrown.reason, "deadline");
     assert.deepEqual(
       logs.map((line) => [line.message, line.meta?.["is_timeout"]]),
       [["mail.send_failed", true]],

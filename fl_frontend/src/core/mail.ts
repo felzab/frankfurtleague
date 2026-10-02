@@ -7,8 +7,11 @@ import { frontend_config } from "./config";
 import { withAsciiDomain } from "./emailAddress";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
+import { mayReceiveMail } from "./mailGate";
 import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { mintTraceId } from "./trace";
+
+import type { MailArt } from "./mailArt";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
@@ -39,6 +42,12 @@ const SINK_SLUG_MAX = 40;
 
 export interface OutboundMail {
   to: string;
+  /**
+   * The builder's own, never a caller's choice: the ban list reaches every kind but the few
+   * `fl_frontend/src/core/mailArt.ts :: ERREICHT_GESPERRTE` names, so a kind named by hand can carry
+   * any message past it.
+   */
+  art: MailArt;
   subject: string;
   html: string;
   text: string;
@@ -75,6 +84,18 @@ export class MailWithheldError extends Error {
 }
 
 /**
+ * Never merged with `MailWithheldError`: a withheld message is this deployment's to explain, a barred
+ * one the address's, which no caller names (`docs/frontend/spec.md :: I542`).
+ */
+export class MailBarredError extends Error {
+  constructor() {
+    super("The recipient is on the ban list.");
+
+    this.name = "MailBarredError";
+  }
+}
+
+/**
  * Raised where the recipient's domain has no ASCII form. Beside `MailWithheldError` rather than in
  * `errors.ts` for its reason, and carrying no address for the same one.
  */
@@ -87,14 +108,22 @@ export class MailRecipientError extends Error {
 }
 
 /**
- * Raised where the request's deadline was spent before the send left. Not an `APINetworkError`, which
- * a fan-out reads as a message that may have gone: nothing reached the provider.
+ * Raised where nothing reached the provider: the request's deadline was spent before the send left, or
+ * the ban list could not be read. Not an `APINetworkError`, which a fan-out reads as a message that may
+ * have gone.
  */
 export class MailUnsentError extends Error {
-  constructor() {
-    super("The request's deadline had passed before the message was sent.");
+  readonly reason: "deadline" | "ban-unread";
+
+  constructor(reason: "deadline" | "ban-unread") {
+    super(
+      reason === "deadline"
+        ? "The request's deadline had passed before the message was sent."
+        : "The ban list could not be read, so the message was not sent.",
+    );
 
     this.name = "MailUnsentError";
+    this.reason = reason;
   }
 }
 
@@ -203,8 +232,14 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
  * which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError` takes the
  * stable `name` field instead.
  */
-export async function sendMail({ to, subject, html, text, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
+export async function sendMail({ to, art, subject, html, text, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
   const traceId = getRequestTraceId() ?? mintTraceId();
+
+  // Ahead of the sink below, so a stack that does not mail files only what production would send and
+  // the ban can be checked there (`docs/frontend/spec.md :: I541`).
+  const verdict = await mayReceiveMail(art, to);
+  if (verdict === "barred") throw new MailBarredError();
+  if (verdict === "failed") throw new MailUnsentError("ban-unread");
 
   // Both halves fail closed: the deployment says it is not the one that mails, and outside
   // `production` no key is demanded to authorise one. A local stack's database is a production
@@ -213,7 +248,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
     // requirement down: a file there would leave a live sign-in code on the host's disk.
-    const sinkFile = frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, tags }, traceId);
+    const sinkFile = frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, art, subject, html, text, tags }, traceId);
 
     // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message
     // stayed behind and where to read it, and `docs/logging/spec.md :: L9` keeps the person off the line.
@@ -336,7 +371,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
     if (bound.signal.aborted) {
       // `FE-NET-001`, the code a send that never reached the provider logs under.
       logger.error("mail.send_failed", undefined, { error_code: "FE-NET-001", is_timeout: true, trace_id: traceId });
-      throw new MailUnsentError();
+      throw new MailUnsentError("deadline");
     }
 
     /** The line a failure nobody will retry leaves, the provider's refusal or the broken request. */

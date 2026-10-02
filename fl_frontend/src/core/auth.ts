@@ -23,7 +23,7 @@ import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
 import { KONTO_HREF } from "./kontoHref";
 import { logger } from "./logging";
-import { MailWithheldError, sendMail } from "./mail";
+import { MailBarredError, MailWithheldError, sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
@@ -697,10 +697,11 @@ const DISABLED_PATHS: readonly string[] = [
  */
 async function notify(message: PasskeyEmail, email: string): Promise<void> {
   try {
-    await sendMail({ to: email, subject: message.subject, html: message.html, text: message.text });
+    await sendMail({ to: email, ...message });
   } catch (failed) {
-    // Filed by a deployment that mails nothing, which the mailer's own line records.
-    if (failed instanceof MailWithheldError) return;
+    // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
+    // mailer's own line (`docs/frontend/spec.md :: I542`).
+    if (failed instanceof MailWithheldError || failed instanceof MailBarredError) return;
 
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
@@ -1064,16 +1065,17 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
           // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
           // not production must not mail production links (`docs/frontend/spec.md :: I186`).
-          const { subject, html, text } = buildCodeEmail(otp, frontend_config.AUTH_URL);
+          const message = buildCodeEmail(otp, frontend_config.AUTH_URL);
 
           try {
             // Tagged so the delivery webhook can tell this lane from the application flow's and put
             // a bounce on the stream: a mailbox refusing the code locks out whoever holds no passkey,
             // and an untagged event reaches no reader at all.
-            await sendMail({ to: email, subject, html, text, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
+            await sendMail({ to: email, ...message, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
           } catch (failed) {
-            // Filed by a deployment that mails nothing, which the mailer's own line records.
-            if (failed instanceof MailWithheldError) return;
+            // Filed by a deployment that mails nothing, or kept from an address barred since the gate
+            // above read it, each recorded by the mailer's own line (`docs/frontend/spec.md :: I542`).
+            if (failed instanceof MailWithheldError || failed instanceof MailBarredError) return;
 
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.

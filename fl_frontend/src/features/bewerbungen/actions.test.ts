@@ -477,6 +477,25 @@ describe("the message that follows a decision", () => {
       assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte niemandem zugestellt werden`), `${where} drops the delivery report`);
     }
   });
+
+  /* Told the ban is why, by count: an address in the report is one the administrator is asked to
+     write to by hand, which would name a barred person (`docs/frontend/spec.md :: I542`). */
+  it("reports a decision the ban list kept from every address as taken, naming nobody", async () => {
+    answerMailWith(() => "barred");
+
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
+
+      const result = await press();
+
+      assert.equal(result.success, true, `${where} fails the whole decision over a ban`);
+      assert.match(
+        answerOf(result),
+        new RegExp(`Die ${betreff} ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht`),
+      );
+      assert.ok(!answerOf(result).includes("@"), `${where} named an address`);
+    }
+  });
 });
 
 /** Where one surface's German comes from: what it rendered, split into its sentences. */
@@ -898,6 +917,18 @@ describe("the re-sent confirmation link", () => {
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
     assert.deepEqual(result, { success: true, message: ZURUECKGEHALTEN });
+  });
+
+  /* A retry meets the same ban, so a refusal would offer one no repeat can reach; and the answer
+     names no address (`docs/frontend/spec.md :: I542`). */
+  it("answers a link the ban list kept from its address as no failure, naming nobody", async () => {
+    answerMailWith(() => "barred");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    const result = await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.deepEqual(result, { success: true, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." });
   });
 
   /* The spine leaves a refusal standing, and a message that did not go leaves the mint standing: the

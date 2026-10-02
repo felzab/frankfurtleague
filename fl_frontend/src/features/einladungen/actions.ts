@@ -14,7 +14,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { einladungsLink } from "./einladungLink";
 import { bestaetigteEmpfaenger } from "./empfaenger";
-import { adressenSatz, versandSatz, ZURUECKGEHALTEN } from "./meldungen";
+import { adressenSatz, gesperrtSatz, versandSatz, ZURUECKGEHALTEN } from "./meldungen";
 import { deleteEinladung, postEinladung, postEinladungVersand } from "./mutations";
 import { getEinladung, getEinladungVersandVorschau } from "./queries";
 import { mapEinladungRefusal } from "./refusals";
@@ -156,6 +156,11 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
         }),
     });
 
+    // Every address barred is no failure either: a retry meets the same ban (`docs/frontend/spec.md :: I542`).
+    if (outcome.delivered.length === 0 && outcome.unreachable.length === 0 && outcome.ungewiss.length === 0 && outcome.gesperrt > 0) {
+      return { success: true, message: "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht." };
+    }
+
     // A withheld send is this deployment rather than the mailbox, as `app/api/registrierung/route.ts`
     // reads it: outside production every address is withheld, and a refusal here would offer a
     // retry that cannot succeed.
@@ -170,9 +175,11 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
       };
     }
 
+    const versandt = outcome.delivered.length === 0 ? ZURUECKGEHALTEN : adressenSatz(outcome.delivered.length, empfaenger.length);
+
     return {
       success: true,
-      message: outcome.delivered.length === 0 ? ZURUECKGEHALTEN : adressenSatz(outcome.delivered.length, empfaenger.length),
+      message: outcome.gesperrt === 0 ? versandt : `${versandt} ${gesperrtSatz(outcome.gesperrt)}`,
     };
   });
 }
@@ -260,6 +267,7 @@ export async function postEinladungVersandAction(
           zugestellt: [],
           unerreichbar: [],
           zurueckgehalten: [],
+          gesperrt: 0,
         });
         continue;
       }
@@ -288,6 +296,7 @@ export async function postEinladungVersandAction(
         // Carried for the reason the single press reads it: outside production every address is
         // withheld, and a row that cannot tell the two apart names every one of them in danger red.
         zurueckgehalten: outcome.withheld,
+        gesperrt: outcome.gesperrt,
       });
     }
 

@@ -4,15 +4,26 @@ import { APINetworkError, MailSendError } from "./errors.ts";
 import { registerDoubles } from "./exportingModule.ts";
 import { recordWriteSent } from "./requestScope.ts";
 
+import type { MailArt } from "./mailArt.ts";
+
 /** One message handed to the mailer, as `fl_frontend/src/core/mail.ts :: OutboundMail` carries it. */
-export type SentMail = { to: string; subject: string; html: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
+export type SentMail = {
+  to: string;
+  art: MailArt;
+  subject: string;
+  html: string;
+  text: string;
+  tags?: Record<string, string>;
+  idempotencyKey?: string;
+};
 
 /**
- * How the mailer ends one message. `withheld`, `recipient` and `unsent` are raised before any
- * attempt, so no write is recorded; an acceptance, a refusal and `lost` answer an attempt, which
+ * How the mailer ends one message. `barred`, `withheld`, `recipient` and `unsent` are raised before
+ * any attempt, so no write is recorded; an acceptance, a refusal and `lost` answer an attempt, which
  * records one.
  */
 export type MailOutcome =
+  | "barred"
   | "withheld"
   | "recipient"
   | "unsent"
@@ -28,8 +39,15 @@ type MailAnswer = (mail: SentMail) => MailOutcome | Promise<MailOutcome>;
 
 const PROVIDER = "https://provider.invalid/emails";
 
-// The three classes the real module declares, with its names and sentences; the two the double
+// The four classes the real module declares, with its names and sentences; the two the double
 // throws from `errors.ts` are the real ones, which the fan-outs sort a failure by.
+class MailBarredError extends Error {
+  constructor() {
+    super("The recipient is on the ban list.");
+    this.name = "MailBarredError";
+  }
+}
+
 class MailWithheldError extends Error {
   constructor() {
     super("This deployment does not send mail.");
@@ -45,9 +63,16 @@ class MailRecipientError extends Error {
 }
 
 class MailUnsentError extends Error {
-  constructor() {
-    super("The request's deadline had passed before the message was sent.");
+  readonly reason: "deadline" | "ban-unread";
+
+  constructor(reason: "deadline" | "ban-unread") {
+    super(
+      reason === "deadline"
+        ? "The request's deadline had passed before the message was sent."
+        : "The ban list could not be read, so the message was not sent.",
+    );
     this.name = "MailUnsentError";
+    this.reason = reason;
   }
 }
 
@@ -63,9 +88,10 @@ export function doubleSendMail(): { sent: SentMail[]; answerWith: (next: MailAns
   const sendMail = async (mail: SentMail): Promise<{ id: string | null }> => {
     sent.push(mail);
     const outcome = await answering(mail);
+    if (outcome === "barred") throw new MailBarredError();
     if (outcome === "withheld") throw new MailWithheldError();
     if (outcome === "recipient") throw new MailRecipientError();
-    if (outcome === "unsent") throw new MailUnsentError();
+    if (outcome === "unsent") throw new MailUnsentError("deadline");
     recordWriteSent();
     const refusal = outcome === "refused" ? { refused: 422 } : outcome;
     if (typeof refusal === "object" && "refused" in refusal) {
@@ -89,7 +115,7 @@ export function doubleSendMail(): { sent: SentMail[]; answerWith: (next: MailAns
     }
     return { id: typeof outcome === "object" && "accepted" in outcome ? outcome.accepted : `msg-${String(sent.length)}` };
   };
-  const doubled = { MailWithheldError, MailRecipientError, MailUnsentError, sendMail };
+  const doubled = { MailBarredError, MailWithheldError, MailRecipientError, MailUnsentError, sendMail };
 
   registerDoubles({ modules: { "core/mail.ts": doubled } });
 

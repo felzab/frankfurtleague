@@ -4,7 +4,7 @@ import { buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
-import { MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
+import { MailBarredError, MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 
 import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mutations";
@@ -126,7 +126,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
     return true;
   }
 
-  const { subject, html, text } = buildBerechtigungEmail(zugangsaenderung(aenderung), urheber(aenderung), frontend_config.AUTH_URL);
+  const message = buildBerechtigungEmail(zugangsaenderung(aenderung), urheber(aenderung), frontend_config.AUTH_URL);
 
   let alleErledigt = true;
   // A recipient an earlier pass told is not mailed again: past the provider's day its key collapses nothing.
@@ -136,17 +136,16 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
       // provider's day; the body depends on the row alone, which the provider needs to collapse it.
       await sendMail({
         to: adresse,
-        subject,
-        html,
-        text,
+        ...message,
         // A bounce is then a line an operator reads (`fl_frontend/src/app/api/mail/zustellung/route.ts`).
         tags: { [BERECHTIGUNG_TAG]: BERECHTIGUNG_HINWEIS },
         idempotencyKey: mailIdempotencyKey(["berechtigung", aenderung.id], adresse),
       });
       erreicht.add(adresse);
     } catch (error) {
-      // Logged by the mailer itself, and as told: a stack that mails nothing would claim the same rows forever.
-      if (error instanceof MailWithheldError) continue;
+      // Logged by the mailer itself, and as told: a stack that mails nothing would claim the same rows
+      // forever, and a barred address would hold its change unstamped for as long as the ban stands.
+      if (error instanceof MailWithheldError || error instanceof MailBarredError) continue;
 
       if (!(error instanceof MailRecipientError)) alleErledigt = false;
       // The name alone: a failure on this path routinely carries the address.

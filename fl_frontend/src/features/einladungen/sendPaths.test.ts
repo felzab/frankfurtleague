@@ -168,6 +168,31 @@ describe("what the single invite press answers", () => {
     assert.ok(!log.includes("refresh"), "a press that sent nothing refreshed the panel as though it had written");
   });
 
+  /* A retry meets the same ban, so a refusal offering one sends the administrator round a loop; the
+     answer names no address (`docs/frontend/spec.md :: I542`). */
+  it("counts a fan-out the ban list kept from every address as answered, offering no retry", async () => {
+    const teamId = "8b".repeat(12);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendWith(() => "barred");
+
+    const res = await press(teamId);
+
+    assert.equal(res.success, true);
+    assert.equal(sentence(res), "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht.");
+    assert.ok(!sentence(res).includes("@"), "the answer named an address");
+  });
+
+  it("says how many addresses the ban list kept the link from, beside the ones it reached", async () => {
+    const teamId = "9c".repeat(12);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendWith(({ to }) => (to === "erika@beispiel.de" ? "barred" : "accepted"));
+
+    const res = await press(teamId);
+
+    assert.equal(res.success, true);
+    assert.equal(sentence(res), "Der Link ist unterwegs: 1 von 2. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.");
+  });
+
   it("refuses a fan-out that delivered to nobody and was withheld from nobody", async () => {
     const teamId = "d".repeat(24);
     sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
@@ -323,6 +348,17 @@ describe("what the season-wide press answers", () => {
 
     assert.equal(res.success, true);
     assert.deepEqual(res.success ? res.zeilen[0]?.zurueckgehalten : [], ["erika-aa@beispiel.de"]);
+  });
+
+  /* A count and never the address: the row is the administrator's, and a barred one is in no list
+     it names (`docs/frontend/spec.md :: I542`). */
+  it("carries how many addresses the ban list kept the link from, naming none of them", async () => {
+    sendWith(() => "barred");
+
+    const res = await pressSeason([zeile("aa", "t-aa", null)]);
+
+    const row = res.success ? res.zeilen[0] : undefined;
+    assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten, row?.gesperrt], [[], [], [], 1]);
   });
 
   it("leaves a skipped team's row empty on all three address lists", async () => {

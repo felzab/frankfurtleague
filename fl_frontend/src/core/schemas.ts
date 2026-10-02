@@ -85,3 +85,13 @@ export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   inhaber_seit: z.string().nullable(),
 });
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
+
+/**
+ * The address `POST /identitaet/gesperrt` is asked about, as the mailer was handed it. No length or
+ * alphabet restated, for `FLSubjektPayloadSchema`'s reason.
+ */
+export const FLGesperrtPayloadSchema = z.object({ email: z.string() });
+export type FLGesperrtPayload = z.infer<typeof FLGesperrtPayloadSchema>;
+
+/** Whether a standing ban holds that address, and nothing of any record (`docs/backend/spec.md :: I543`). */
+export const FLGesperrtResponseSchema = BaseAPIResponseSchema.extend({ gesperrt: z.boolean() });

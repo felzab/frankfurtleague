@@ -33,4 +33,6 @@ export type EinladungVersandErgebnis = {
    * send apart from a refused mailbox, which outside production is every row on the panel.
    */
   zurueckgehalten: readonly string[];
+  /** How many addresses the ban list kept the link from, in neither list above and never named (`docs/frontend/spec.md :: I542`). */
+  gesperrt: number;
 };

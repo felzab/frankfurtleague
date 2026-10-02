@@ -39,4 +39,21 @@ describe("the link the referee's minter mails", () => {
     assert.equal(texts.length, 1);
     assert.ok(texts[0]?.includes(schiedsrichterBestaetigungsLink(ORIGIN, TOKEN)), `the mailed link stands elsewhere: ${texts[0] ?? ""}`);
   });
+
+  /* Its own outcome, apart from a failure: a press reading „fehlgeschlagen“ offers a second route to a
+     person the ban keeps the league from writing to (`docs/frontend/spec.md :: I542`). */
+  it("ends as barred where the ban list kept the link from the address", async () => {
+    mail.answerWith(() => "barred");
+
+    const versand = await mailSchiedsrichterLink({
+      operation: "POST /schiedsrichter",
+      schiedsrichterId: "6890a1b2c3d4e5f607190002",
+      email: "gerda@example.org",
+      name: "Gerda Beispiel",
+      mint: { token: TOKEN, frist: "2026-10-05", email: "gerda@example.org" },
+      anlass: "empfang",
+    });
+
+    assert.equal(versand, "gesperrt");
+  });
 });

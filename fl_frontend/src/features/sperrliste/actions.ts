@@ -55,7 +55,9 @@ async function abmelden(email: string): Promise<Abmeldung> {
 // A failure leaves the ban standing rather than undoing it: the write is acknowledged and no address
 // survives to re-send to, so the administrator is told instead.
 async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId: string): Promise<string | null> {
-  const { subject, html, text } = buildSperreEmail({
+  // Sent whole, its kind the builder's: that kind alone reaches an address the ban list holds, which
+  // this one now is (`docs/frontend/spec.md :: I541`).
+  const message = buildSperreEmail({
     grund: grund,
     gesperrtBisSaisonId: gesperrtBisSaisonId,
     origin: frontend_config.AUTH_URL,
@@ -64,7 +66,7 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
   try {
     // Unwrapped, a deadline cut here answers the whole press as of unknown outcome, sending the administrator to
     // check a ban written before this send (`docs/frontend/spec.md :: I372`).
-    await runAnsweringOwnCut(() => sendMail({ to: email, subject: subject, html: html, text: text }));
+    await runAnsweringOwnCut(() => sendMail({ to: email, ...message }));
 
     return null;
   } catch (failed) {

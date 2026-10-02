@@ -216,6 +216,21 @@ describe("the registration handler", () => {
     assert.deepEqual(answer.body, { success: true });
   });
 
+  /* A pupil whose address a ban took after the write is told what a sent message would have told
+     them, and no refusal is filed against the row (`docs/frontend/spec.md :: I542`). */
+  it("answers a send the ban list kept as a send, and records no refusal", async () => {
+    mail.answerWith(() => "barred");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: true });
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      [WRITE],
+      "a barred send filed a delivery state against the row",
+    );
+  });
+
   /* `docs/backend/spec.md :: I346`: the key is the page's, and the backend is what replays on it. */
   it("passes the page's submission key on to the write, and none where the page sent none", async () => {
     const KEY = "9c5b94b1-35ad-49bb-b118-8e8fc24abf80";

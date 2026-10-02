@@ -424,6 +424,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: ["erika@beispiel.de"],
                 unerreichbar: [],
                 zurueckgehalten: [],
+                gesperrt: 0,
               },
               {
                 team_id: ID("f"),
@@ -433,6 +434,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: ["mila@beispiel.de", "til@beispiel.de"],
                 unerreichbar: ["gelöscht@beispiel.de"],
                 zurueckgehalten: [],
+                gesperrt: 0,
               },
               // The row every team carries on every stack but production: nobody was written to, and
               // nobody was refused either.
@@ -444,6 +446,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: [],
                 unerreichbar: ["holger@beispiel.de"],
                 zurueckgehalten: ["holger@beispiel.de"],
+                gesperrt: 0,
               },
               {
                 team_id: ID("b"),
@@ -453,6 +456,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: [],
                 unerreichbar: [],
                 zurueckgehalten: [],
+                gesperrt: 0,
               },
               // The one value that is a failure rather than a state: its transaction rolled back, so
               // this team was not written to AND keeps the link it already had.
@@ -465,6 +469,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: [],
                 unerreichbar: [],
                 zurueckgehalten: [],
+                gesperrt: 0,
               },
             ],
           }),
@@ -493,6 +498,54 @@ describe("the season's bulk invite send", () => {
     assert.equal(raised[0]?.variant, "success");
   });
 
+  /* Counted against the team's whole, so the shortfall shows, and said by count in the row's own
+     grade: a ban is no failure to chase, and the row names no barred address (`docs/frontend/spec.md :: I542`). */
+  it("says how many of a team's addresses the ban list kept the link from, naming none", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    await pressTwice(user, {
+      resting: RESTING,
+      armed: ARMED,
+      whileArmed: () => {
+        answerWith(() =>
+          Promise.resolve({
+            success: true,
+            message: "Registrierungslinks gesendet: 1 von 2 Teams.",
+            zeilen: [
+              {
+                team_id: ID("a"),
+                team_name: "Ernst-Reuter-Schule",
+                uebersprungen: null,
+                ersetzt_link: false,
+                zugestellt: ["erika@beispiel.de"],
+                unerreichbar: [],
+                zurueckgehalten: [],
+                gesperrt: 1,
+              },
+              {
+                team_id: ID("f"),
+                team_name: "Wöhlerschule",
+                uebersprungen: null,
+                ersetzt_link: false,
+                zugestellt: [],
+                unerreichbar: [],
+                zurueckgehalten: [],
+                gesperrt: 2,
+              },
+            ],
+          }),
+        );
+      },
+    });
+
+    await waitFor(() => assert.ok(isInTheFlow("Gesendet: 1 von 2"), "the barred address went uncounted, so the team reads as reached whole"));
+    assert.ok(isInTheFlow("An eine Adresse ging nichts, weil sie auf der Sperrliste steht."));
+    assert.ok(isInTheFlow("An 2 Adressen ging nichts, weil sie auf der Sperrliste stehen."));
+    assert.equal(isInTheFlow("Nicht erreicht:"), false, "a barred address was offered for writing to by hand");
+  });
+
   /* The commit went out and no answer came back, so the row is true of a link revoked and of one
      that still opens, and says nothing about a previous link to a team that held none. */
   it("words a mint of unknown outcome apart from a failed one, naming a previous link only where there was one", async () => {
@@ -508,6 +561,7 @@ describe("the season's bulk invite send", () => {
       zugestellt: [],
       unerreichbar: [],
       zurueckgehalten: [],
+      gesperrt: 0,
     });
 
     await pressTwice(user, {
@@ -556,6 +610,7 @@ describe("the season's bulk invite send", () => {
       zugestellt: [],
       unerreichbar: [],
       zurueckgehalten: [],
+      gesperrt: 0,
     });
 
     await pressTwice(user, {

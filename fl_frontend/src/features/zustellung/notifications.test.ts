@@ -71,6 +71,7 @@ const SECOND_ADDRESS = "quillon@example.com";
 const auftrag: ZielAuftrag = { ziel: "schiedsrichter", zielId: ZIEL_ID, anlass: "eingang" };
 
 const buildMail = (address: string) => ({
+  art: "schiedsrichter_bestaetigung" as const,
   subject: "Bitte bestätige Deine Angaben",
   html: `<p>${address}</p>`,
   text: `Hallo ${address}`,
@@ -424,5 +425,34 @@ describe("one fan-out about a record", () => {
     assert.ok(!written.includes(ADDRESS), "an address reached the stream");
     assert.ok(!written.includes(SECOND_ADDRESS), "an address reached the stream");
     for (const line of logged) assert.ok(String(line.meta["error_code"]).startsWith("FE-MAIL-"), "a line carried no mail error code");
+  });
+});
+
+describe("a recipient the ban list holds", () => {
+  /* Counted and in no list: an address in `unreachable` is one a caller tells an administrator to
+     write to by hand, which would name a barred person (`docs/frontend/spec.md :: I542`). */
+  it("is counted, named in no list, and costs the others nothing", async () => {
+    outcomes.set(ADDRESS, "barred");
+
+    const outcome = await sendZielMail({
+      operation: "mailEinladungAction",
+      auftrag: auftrag,
+      recipients: [ADDRESS, SECOND_ADDRESS],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual(outcome, { delivered: [SECOND_ADDRESS], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 });
+  });
+
+  /* A refusal recorded would store on the record that its address is barred, and a failure line
+     would report as a fault what the gate's own line already records. */
+  it("records no refusal on the record and writes no line", async () => {
+    outcomes.set(ADDRESS, "barred");
+
+    await sendZielMail({ operation: "postRegistrierung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
+
+    assert.deepEqual(abgewiesen, []);
+    assert.deepEqual(gemeldet, []);
+    assert.deepEqual(logged, []);
   });
 });

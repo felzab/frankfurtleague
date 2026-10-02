@@ -2375,6 +2375,35 @@ describe("a send this deployment withheld", () => {
   });
 });
 
+/* A barred send is the gate's own line alone (`docs/frontend/spec.md :: I542`): a failure line beside
+   it reads a ban working as a mailbox that failed. */
+describe("a send the ban list kept", () => {
+  const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
+
+  it("logs no failed code send", async () => {
+    answerMail(() => "barred");
+    logged.length = 0;
+    const before = sent.length;
+
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+
+    assert.equal(sent.length, before + 1, "the sign-in gate mailed nothing, so the mailer barred nothing");
+    assert.deepEqual(failedLines("auth.code_send_failed"), []);
+  });
+
+  it("logs no failed passkey notice, and the enrolment stands", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+    answerMail(() => "barred");
+    logged.length = 0;
+    const before = sent.length;
+
+    assert.equal((await enrolPasskey(cookie)).status, 200);
+
+    assert.equal(sent.length, before + 1, "the enrolment mailed nothing, so the mailer barred nothing");
+    assert.deepEqual(failedLines("auth.passkey_notice_failed"), []);
+  });
+});
+
 describe("what the code costs an address holding nothing", () => {
   it("mails the granted address and mails the other nothing, on the same answer", async () => {
     const before = sent.length;

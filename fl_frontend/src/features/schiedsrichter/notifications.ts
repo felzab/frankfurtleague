@@ -13,9 +13,10 @@ import type { FLSchiedsrichterMint } from "./schemas";
 
 /**
  * How the link's message ended. `zurueckgehalten` is a deployment that mails nothing filing it
- * (`fl_frontend/src/core/mail.ts :: MailWithheldError`): neither sent nor a failure to warn about.
+ * (`fl_frontend/src/core/mail.ts :: MailWithheldError`), `gesperrt` the ban list keeping it from the
+ * address (`:: MailBarredError`): neither is sent, and neither is a failure to warn about.
  */
-export type LinkVersand = "gesendet" | "zurueckgehalten" | "fehlgeschlagen";
+export type LinkVersand = "gesendet" | "zurueckgehalten" | "gesperrt" | "fehlgeschlagen";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: the
 // undo route mints a link too, and a helper it could not import would leave that token unmailed.
@@ -38,7 +39,7 @@ export async function mailSchiedsrichterLink({
   mint: FLSchiedsrichterMint;
   anlass: ZustellAnlass;
 }): Promise<LinkVersand> {
-  const { delivered, withheld } = await sendZielMail({
+  const { delivered, withheld, gesperrt } = await sendZielMail({
     operation: operation,
     // No `idempotenzTag`: the body carries a freshly minted token, and a key reused over a changed
     // body is refused rather than ignored.
@@ -56,6 +57,7 @@ export async function mailSchiedsrichterLink({
   });
 
   if (delivered.length > 0) return "gesendet";
+  if (gesperrt > 0) return "gesperrt";
 
   return withheld.length > 0 ? "zurueckgehalten" : "fehlgeschlagen";
 }
@@ -64,6 +66,8 @@ export async function mailSchiedsrichterLink({
 export function describeLinkMail(email: string, versand: LinkVersand): string {
   if (versand === "gesendet") return `Der Bestätigungslink ging an ${email}.`;
   if (versand === "zurueckgehalten") return ZURUECKGEHALTEN;
+  // Naming no address, as every barred send's report names none (`docs/frontend/spec.md :: I542`).
+  if (versand === "gesperrt") return "Der Bestätigungslink ging nicht raus, weil die Adresse auf der Sperrliste steht.";
 
   return `Der Bestätigungslink konnte nicht an ${email} zugestellt werden. Melde Dich selbst bei der Person.`;
 }

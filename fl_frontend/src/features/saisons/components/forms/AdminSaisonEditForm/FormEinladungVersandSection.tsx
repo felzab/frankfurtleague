@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Envelope from "@gravity-ui/icons/Envelope";
 
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
-import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
+import { gesperrtSatz, ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -89,11 +89,13 @@ const nichtErreicht = (zeile: EinladungVersandErgebnis): readonly string[] =>
  * sentence produces (`docs/frontend/spec.md :: 1.12`).
  */
 function zustellSatz(zeile: EinladungVersandErgebnis): string {
-  const gesamt = zeile.zugestellt.length + zeile.unerreichbar.length;
+  const versucht = zeile.zugestellt.length + zeile.unerreichbar.length;
+  // A barred address is one of the team's, counted against the whole: its own line says why it got nothing.
+  const gesamt = versucht + zeile.gesperrt;
 
   // Ahead of the count, because outside production it is EVERY row: a deployment that sends nothing
   // is not a team the league failed to reach, and grading it as one teaches a reader to ignore red.
-  if (gesamt > 0 && zeile.zurueckgehalten.length === gesamt) return ZURUECKGEHALTEN;
+  if (versucht > 0 && zeile.zurueckgehalten.length === versucht) return ZURUECKGEHALTEN;
   if (zeile.zugestellt.length === 0) return "Nicht zugestellt";
   if (zeile.zugestellt.length < gesamt) return `Gesendet: ${String(zeile.zugestellt.length)} von ${String(gesamt)}`;
 
@@ -314,6 +316,9 @@ export function FormEinladungVersandSection({
                             {nichtErreicht(zeile).length > 0 && (
                               <span className="block font-bold text-danger-strong">Nicht erreicht: {nichtErreicht(zeile).join(", ")}</span>
                             )}
+                            {/* Ungraded and unnamed: a ban is no failure to chase, and the row names no
+                                barred address (`docs/frontend/spec.md :: I542`). */}
+                            {zeile.gesperrt > 0 && <span className="block">{gesperrtSatz(zeile.gesperrt)}</span>}
                             {zeile.ersetzt_link && <span className="block font-bold text-warning-strong">{ERSETZT_VERGANGEN}</span>}
                           </>
                         )}
