@@ -442,8 +442,8 @@ product; major and minor versions, since any change of words is a new label here
 
 - A page places its sections by key (`fl_frontend/src/core/einwilligung.ts :: SPIELER_EINWILLIGUNG`'s
   `absaetzeNachSchluessel`) while a label freezes them by position, and a reader's own facts fill
-  `{slots}` (`:: fuelleFassung`). What the backend serves carries both, or the keyed words stay in a
-  second place.
+  `{slots}` (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+  What the backend serves carries both, or the keyed words stay in a second place.
 - The administrative contact edit admits a seat's own stored label beside the running one
   (`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`); the backend's check
   keeps that admission.

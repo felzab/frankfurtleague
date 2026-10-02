@@ -386,7 +386,7 @@ function SpielerBestaetigungForm({
     minAlter: String(ansicht.mindestalter),
     medienMinAlter: String(ansicht.medien_mindestalter),
     kontakt: KONTAKT_EMAIL,
-    // Filled rather than left standing: `fuelleFassung` leaves an unfilled slot as written, so the
+    // Filled rather than left standing: `Gefuellt` leaves an unfilled slot as written, so the
     // consent text would spell its own placeholder on the live page.
     loeschung: "Konto löschen",
   };

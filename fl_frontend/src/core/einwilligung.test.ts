@@ -8,7 +8,6 @@ import {
   BESTAETIGUNG_ABSAETZE,
   BESTAETIGUNG_KENNTNISNAHME,
   einwilligungFassung,
-  fuelleFassung,
   LIGA_KENNTNISNAHME,
   LIGA_KENNTNISNAHMEN,
   SCHIEDSRICHTER_EINWILLIGUNG,
@@ -353,20 +352,5 @@ describe("LIGA_KENNTNISNAHMEN", () => {
         `"${textVersion}" is ${String(textVersion.length)} characters, past the ${String(bound)} a record may cite`,
       );
     }
-  });
-});
-
-describe("fuelleFassung", () => {
-  it("puts the reader's own facts in the slots the stored wording leaves for them", () => {
-    assert.equal(
-      fuelleFassung("Du bist als {rolle} für {schule} eingetragen.", { rolle: "Ansprechperson", schule: "Lessing-Kolleg" }),
-      "Du bist als Ansprechperson für Lessing-Kolleg eingetragen.",
-    );
-  });
-
-  /* Blanked, the sentence reads as finished and the stored label answers a wording with a hole
-     nobody can see; left standing, the slot names the fact that never arrived. */
-  it("leaves a slot no record filled standing", () => {
-    assert.equal(fuelleFassung("{rolle} für {schule}", { schule: "Lessing-Kolleg" }), "{rolle} für Lessing-Kolleg");
   });
 });

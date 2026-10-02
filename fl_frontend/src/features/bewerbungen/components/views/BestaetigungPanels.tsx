@@ -58,8 +58,8 @@ function stueckInhalt(stueck: string, werte: Slots, eigene: ReadonlySet<string>)
 
   const wert = werte[name];
 
-  // A slot no record filled stands as written, which is `fl_frontend/src/core/einwilligung.ts ::
-  // fuelleFassung`'s rule at the string end.
+  // Standing as written rather than blanked: a sentence quietly missing its subject reads as
+  // finished, and one still spelling `{rolle}` says which fact never arrived.
   if (wert === undefined) return stueck;
 
   // Emphasis is presentation, so each page decides it here rather than in the stored sentence,
@@ -68,8 +68,8 @@ function stueckInhalt(stueck: string, werte: Slots, eigene: ReadonlySet<string>)
 }
 
 /**
- * A stamped sentence with its slots filled here rather than by `fuelleFassung`, which answers a
- * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
+ * A stamped sentence with its slots filled as elements rather than into one string: a string cannot
+ * carry the mark a reader's own name has to wear, nor the privacy link.
  */
 export function Gefuellt({ text, werte, eigene }: { text: string; werte: Slots; eigene: ReadonlySet<string> }) {
   return (

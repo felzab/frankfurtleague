@@ -652,13 +652,3 @@ export function einwilligungFassung(textVersion: string): EinwilligungFassung | 
   // spelling `toString` would resolve to a function rather than to nothing.
   return Object.hasOwn(fassungen, textVersion) ? (fassungen[textVersion] ?? null) : null;
 }
-
-/**
- * A stored wording with this reader's own facts in its slots.
- *
- * An unfilled slot is left standing rather than blanked: a sentence quietly missing its subject
- * reads as finished, and one still spelling `{rolle}` says which fact never arrived.
- */
-export function fuelleFassung(text: string, werte: Readonly<Record<string, string>>): string {
-  return text.replace(/\{(\w+)\}/g, (slot, name: string) => werte[name] ?? slot);
-}

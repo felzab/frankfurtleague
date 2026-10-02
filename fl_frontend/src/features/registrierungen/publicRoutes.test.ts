@@ -480,7 +480,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     for (const [schluessel, wieOft] of gezaehlt) assert.equal(wieOft, 1, `${schluessel} stands on the page ${String(wieOft)} times`);
   });
 
-  /* `fuelleFassung` leaves an unfilled slot standing, so a slot the page supplies no value for is
+  /* `Gefuellt` leaves an unfilled slot standing, so a slot the page supplies no value for is
      spelled at a pupil in the middle of a consent sentence. */
   it("renders no slot as its own literal", () => {
     assert.doesNotMatch(textOf(STANDING, " "), /\{\w+\}/, "the consent text spells a placeholder at its reader");
