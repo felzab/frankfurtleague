@@ -5,7 +5,7 @@ import logging
 import re
 import sys
 import time
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from datetime import datetime
@@ -339,14 +339,20 @@ _CLOCK_SLACK_S = 2.0
 _EXPIRED_REFUSAL: list[str] = []
 
 
-def _expired_since_start(url: str) -> str | None:
-    """The refusal for a transaction the server aborted at its lifetime limit during this run, or `None`."""
+def _server_status(url: str) -> Mapping[str, Any]:
+    """Apart from the judgement, so `tests/core/test_tier.py` can drive the hooks calling it against a stand-in server."""
 
     client = MongoClient(url)
     try:
-        now = expired_transaction_kills(client.admin.command("serverStatus"))
+        return client.admin.command("serverStatus")
     finally:
         client.close()
+
+
+def _expired_since_start(url: str) -> str | None:
+    """The refusal for a transaction the server aborted at its lifetime limit during this run, or `None`."""
+
+    now = expired_transaction_kills(_server_status(url))
 
     return expired_transactions_refusal(_KILLS_AT_START.get(url), now, lambda: _named_aborts(url))
 

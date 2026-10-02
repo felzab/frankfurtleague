@@ -261,3 +261,126 @@ def test_a_run_the_expiry_check_fails_ends_on_the_line_saying_so(pytester: pytes
 
     assert result.ret == pytest.ExitCode.TESTS_FAILED, result.stdout.str()
     assert "FAILED" in lines[-1] and "aborted 1 transaction(s)" in lines[-1], result.stdout.str()
+
+
+# The check itself, end to end through the hooks and the fixture that make it, against a stand-in
+# replica set: a status whose count rose by one, and a log holding that abort and its transaction's
+# record.
+EXPIRY_CONFTEST: Final = b"""import json
+import os
+import time
+from contextlib import contextmanager
+from datetime import UTC, datetime
+
+import pytest
+
+import tests.conftest as harness
+from tests.conftest import (
+    REPLICA_SET_KEY,
+    mongo_replica_set_url,
+    pytest_configure,
+    pytest_runtest_logreport,
+    pytest_runtestloop,
+    pytest_sessionfinish,
+)
+
+STAND_IN = "mongodb://stand-in"
+SESSION = "6f0c1a52-0000-4000-8000-000000000001"
+TXN_NUMBER = 4
+OPEN_S = 60.0
+OPENED: list[float] = []
+
+
+def _entry(log_id, moment, attr):
+    return json.dumps({"t": {"$date": datetime.fromtimestamp(moment, UTC).isoformat()}, "id": log_id, "attr": attr})
+
+
+class _Container:
+    def get_logs(self):
+        aborted = OPENED[0] + OPEN_S
+        record = {
+            "parameters": {"lsid": {"id": {"$uuid": SESSION}}, "txnNumber": TXN_NUMBER},
+            "timeActiveMicros": 0,
+            "timeInactiveMicros": int(OPEN_S * 1e6),
+            "ninserted": 1,
+        }
+        abort = {"sessionId": {"uuid": {"$uuid": SESSION}}, "txnNumberAndRetryCounter": {"txnNumber": TXN_NUMBER}}
+        lines = ["not json", _entry(51802, aborted, record), _entry(20707, aborted, abort)]
+        return "\\n".join(lines).encode(), b""
+
+
+def _server_status(url):
+    assert url == STAND_IN, url
+    return {"metrics": {"abortExpiredTransactions": {"successfulKills": 1}}}
+
+
+@contextmanager
+def _replica_set_mongod():
+    harness._KILLS_AT_START[STAND_IN] = 0
+    harness._REPLICA_SET_CONTAINERS[STAND_IN] = _Container()
+    yield STAND_IN
+
+
+harness._server_status = _server_status
+harness._replica_set_mongod = _replica_set_mongod
+if os.environ["FL_EXPIRY_PROBE"] == "controller":
+    harness._SHARED_SERVERS[REPLICA_SET_KEY] = STAND_IN
+    harness._KILLS_AT_START[STAND_IN] = 0
+    harness._REPLICA_SET_CONTAINERS[STAND_IN] = _Container()
+
+
+@pytest.fixture
+def left_open():
+    OPENED.append(time.time())
+"""
+
+EXPIRY_SUITE: Final = {
+    "controller": b"def test_left_open(left_open) -> None:\n    pass\n",
+    # Asking for the server is what runs the fixture's teardown, the serial run's half of the check.
+    "serial": b"import pytest\n\n\n@pytest.mark.db\ndef test_left_open(left_open, mongo_replica_set_url) -> None:\n    pass\n",
+}
+
+LEFT_OPEN: Final = "suite/test_left_open.py::test_left_open"
+
+
+def _expiry_run(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mode: str) -> pytest.RunResult:
+    suite = pytester.path / "suite"
+    suite.mkdir()
+    (pytester.path / "pytest.ini").write_bytes(b"[pytest]\nmarkers =\n    db: a stand-in\n")
+    (suite / "conftest.py").write_bytes(EXPIRY_CONFTEST)
+    (suite / "test_left_open.py").write_bytes(EXPIRY_SUITE[mode])
+    monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[2]))
+    monkeypatch.setenv("FL_EXPIRY_PROBE", mode)
+
+    return pytester.runpytest_subprocess("-p", "no:cacheprovider", "-p", "no:xdist", "-m", "", str(suite))
+
+
+def _names_the_case_that_left_it_open(output: str) -> bool:
+    """Opened and aborted a minute apart: the case is named at the opening alone only where the abort met its transaction's record."""
+
+    return f"running as it opened: ['{LEFT_OPEN}']" in output and "running as it was aborted: none recorded" in output
+
+
+def test_the_controller_fails_a_run_whose_replica_set_aborted_an_expired_transaction(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Under `-n`, where the case passes in a worker and only the controller still holds the server."""
+
+    result = _expiry_run(pytester, monkeypatch, "controller")
+    output = result.stdout.str()
+
+    result.assert_outcomes(passed=1)
+    assert result.ret == pytest.ExitCode.TESTS_FAILED, output
+    assert "FAILED the db tier's replica set aborted 1 transaction(s)" in output, output
+    assert _names_the_case_that_left_it_open(output), output
+
+
+def test_a_serial_run_fails_the_teardown_of_the_server_that_aborted_one(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Serially the server stops with the session fixture, before the controller's hook would ask it."""
+
+    result = _expiry_run(pytester, monkeypatch, "serial")
+    output = result.stdout.str()
+
+    result.assert_outcomes(passed=1, errors=1)
+    assert "aborted 1 transaction(s)" in output, output
+    assert _names_the_case_that_left_it_open(output), output
