@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
+import { useFocusRing } from "react-aria/useFocusRing";
+
 import { Button } from "@heroui/react/button";
 import { InputOTP, REGEXP_ONLY_DIGITS } from "@heroui/react/input-otp";
 import { Label } from "@heroui/react/label";
@@ -107,6 +109,10 @@ export function CodeStep({
     codeRef.current?.focus();
   }, []);
 
+  // The caret's modality as react-aria's own text input reads it, so a frozen slot draws its outline only where a
+  // frozen text field does: after keyboard use, never after a click and a paste or a tapped suggestion.
+  const { isFocusVisible, focusProps } = useFocusRing({ isTextInput: true });
+
   // A refusal empties the code, which closes the check's button under a caret that pressed it; the
   // field the next code goes into takes the focus instead.
   useEffect(() => {
@@ -160,6 +166,8 @@ export function CodeStep({
           Code aus der E-Mail
         </Label>
         <InputOTP
+          {...focusProps}
+          data-focus-visible={isFocusVisible || undefined}
           id={inputId}
           name="code"
           maxLength={SIGN_IN_CODE_LENGTH}

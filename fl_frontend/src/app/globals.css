@@ -738,9 +738,9 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
 
-  /* Read-only while its check runs: a frozen field's outline rather than its focus border. The digits
-     arrive from a keyboard or a paste, so the outline needs no modality test. */
-  &[data-active="true"]:where([data-input-otp-container]:has(input[readonly]) *) {
+  /* Read-only while its check runs: a frozen field's outline rather than its focus border, and only for
+     keyboard focus, which `CodeStep.tsx` marks on the input from react-aria's modality as a text field does. */
+  &[data-active="true"]:where([data-input-otp-container]:has(input[readonly][data-focus-visible="true"]) *) {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
