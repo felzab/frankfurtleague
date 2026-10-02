@@ -42,6 +42,9 @@ GETFIXTUREVALUE: Final = "getfixturevalue"
 # The mark that hands a test an argument itself, so pytest asks no fixture of that name for it.
 PARAMETRIZE_MARK: Final = "parametrize"
 
+# `mock.patch` and its `object`, `dict` and `multiple` forms, all reached through this name.
+PATCH: Final = "patch"
+
 # The file whose module-level fixtures reach its whole directory, and the name of the list that makes
 # a module's fixtures every test's.
 CONFTEST: Final = "conftest.py"
@@ -107,6 +110,8 @@ class Definition(NamedTuple):
     scope: Scope
     autouse: bool
     in_class: bool
+    # Registered under `name=` wherever it is bound, rather than under the name binding it there.
+    named: bool
 
 
 class Request(NamedTuple):
@@ -142,6 +147,20 @@ class Module:
         is_test_file = TEST_FILE.fullmatch(path.name) is not None
         module_marks = tuple(_pytestmarks(tree.body))
         self.tests = list(_tests(tree.body, (), module_marks)) if is_test_file else []
+        # pytest strips the arguments a `mock.patch` decorator injects (`num_mock_patch_args`, read at its
+        # release 9.1.1), and how many depends on values only the run knows, so such a test is never judged.
+        patching = {PATCH} | {
+            alias.asname or alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and "mock" in (node.module or "")
+            for alias in node.names
+            if alias.name == PATCH
+        }
+        for test in self.tests:
+            if any(set(_dotted_parts(mark)) & patching for mark in test.marks):
+                raise Unfollowed(
+                    f"line {test.node.lineno} patches `{test.node.name}` with `mock.patch`, whose injected arguments pytest strips"
+                )
         self.functions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
         self.imports: dict[str, tuple[str, str | None]] = {}
         for node in tree.body:
@@ -164,11 +183,22 @@ class Module:
                 if decorator is not None:
                     subtree = self.path.name == CONFTEST and not classes
                     scope = Scope(self.path.parent, True) if subtree else Scope(self.path, False, classes)
-                    yield Definition(_fixture_name(decorator, node.name), node, scope, _is_autouse(decorator), bool(classes))
+                    named = isinstance(decorator, ast.Call) and any(keyword.arg == "name" for keyword in decorator.keywords)
+                    yield Definition(_fixture_name(decorator, node.name), node, scope, _is_autouse(decorator), bool(classes), named)
                 # pytest never registers a fixture defined inside a function, so one there is read past.
                 for inner in ast.walk(node):
                     if inner is not node and isinstance(inner, (ast.FunctionDef, ast.AsyncFunctionDef)) and _fixture_decorator(inner):
                         raise Unfollowed(f"line {inner.lineno} defines fixture `{inner.name}` inside a function, which pytest never registers")
+
+
+def _dotted_parts(decorator: ast.expr) -> Iterator[str]:
+    """Every name in a decorator's dotted callee: `mock.patch.object(...)` gives `mock`, `patch` and `object`."""
+    target = decorator.func if isinstance(decorator, ast.Call) else decorator
+    while isinstance(target, ast.Attribute):
+        yield target.attr
+        target = target.value
+    if isinstance(target, ast.Name):
+        yield target.id
 
 
 def _pytestmarks(body: list[ast.stmt]) -> Iterator[ast.expr]:
@@ -309,8 +339,9 @@ class Estate:
             except Unfollowed as error:
                 self.unfollowed.append((path, str(error)))
         self.by_dotted = {self._dotted(module.path): module for module in self.modules}
-        self.scopes: dict[int, list[Scope]] = {
-            id(definition): [definition.scope] for module in self.modules for definition in module.definitions
+        # Each place a fixture is supplied, and the name pytest registers it under there.
+        self.scopes: dict[int, list[tuple[Scope, str]]] = {
+            id(definition): [(definition.scope, definition.name)] for module in self.modules for definition in module.definitions
         }
         self.requests: list[Request] = []
         # Every scope is widened before any request is read, a fixture's own requests being made from all of them.
@@ -368,19 +399,24 @@ class Estate:
         return next((definition for definition in module.definitions if definition.node is node), None)
 
     def _supply_imports(self, module: Module) -> None:
-        """Widen a fixture's scope to every module importing it by name, and the whole estate where a plugin entry names its module."""
+        """Widen a fixture's scope to every module binding it, and the whole estate where a plugin entry names its module."""
         here = Scope(module.path.parent, True) if module.path.name == CONFTEST else Scope(module.path, False)
-        for source_name, name in module.imports.values():
-            source = self._module(module, source_name) if name is not None else None
-            definition = None if source is None or name is None else self._definition_of(source, name)
+        bound = [(alias, self._module(module, source_name), name) for alias, (source_name, name) in module.imports.items() if name is not None]
+        for node in module.tree.body:
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name):
+                bound += [(target.id, module, node.value.id) for target in node.targets if isinstance(target, ast.Name)]
+        for alias, source, name in bound:
+            definition = None if source is None else self._definition_of(source, name)
             if definition is not None:
-                self.scopes[id(definition)].append(here)
+                # pytest registers a module's fixture under the attribute holding it, its `name=` excepted
+                # (its `parsefactories`, read at release 9.1.1), so an alias is a name of its own.
+                self.scopes[id(definition)].append((here, definition.name if definition.named else alias))
         for node in module.tree.body:
             if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == PLUGINS for target in node.targets):
                 for entry in _literal_names(node.value, node.lineno):
                     plugin = self._module(module, entry)
                     for definition in [] if plugin is None else plugin.definitions:
-                        self.scopes[id(definition)].append(Scope(self.root, True))
+                        self.scopes[id(definition)].append((Scope(self.root, True), definition.name))
 
     def _request(self, module: Module) -> None:
         """Every request a test or a fixture of `module` makes: its arguments pytest fills, and its `usefixtures` marks."""
@@ -392,7 +428,7 @@ class Estate:
             self.requests.extend(Request(name, where, True, None) for name in names)
         for definition in module.definitions:
             for name in _parameters(definition.node, definition.in_class):
-                self.requests.extend(Request(name, scope, False, id(definition)) for scope in self.scopes[id(definition)])
+                self.requests.extend(Request(name, scope, False, id(definition)) for scope, _ in self.scopes[id(definition)])
 
     def _ask_through_calls(self) -> None:
         """Every `getfixturevalue` string in a function a test or a fixture runs or reaches by calling it.
@@ -406,7 +442,7 @@ class Estate:
             (module, definition.node, scope, False, id(definition))
             for module in self.modules
             for definition in module.definitions
-            for scope in self.scopes[id(definition)]
+            for scope, _ in self.scopes[id(definition)]
         ]
         reached: set[tuple[int, Scope, bool]] = set()
         while pending:
@@ -425,15 +461,16 @@ class Estate:
 
         A fixture asking for its own name is handed the one it overrides, never itself.
         """
-        if definition.name in configured:
+        supplied = self.scopes[id(definition)]
+        if any(name in configured for _, name in supplied):
             return True
-        scopes = self.scopes[id(definition)]
         for request in self.requests:
-            if request.name != definition.name or request.origin == id(definition):
+            if request.origin == id(definition):
                 continue
-            if request.point and any(scope.holds(request.scope.path, request.scope.classes) for scope in scopes):
+            named = [scope for scope, name in supplied if name == request.name]
+            if request.point and any(scope.holds(request.scope.path, request.scope.classes) for scope in named):
                 return True
-            if not request.point and any(scope.meets(request.scope) for scope in scopes):
+            if not request.point and any(scope.meets(request.scope) for scope in named):
                 return True
         return False
 

@@ -208,6 +208,35 @@ CLASS_FIXTURE = "import pytest\n\n\nclass TestOwner:\n    @pytest.fixture\n    d
             [],
             id="imported-into-the-asking-module",
         ),
+        pytest.param(
+            {
+                "api/test_owner.py": ORPHAN + "def test_nothing():\n    assert True\n",
+                "api/test_user.py": "from .test_owner import league as season\n\n\ndef test_reads(season):\n    assert season\n",
+            },
+            [],
+            id="asked-under-the-alias-it-is-imported-as",
+        ),
+        pytest.param(
+            {
+                "api/test_owner.py": ORPHAN + "def test_nothing():\n    assert True\n",
+                "api/test_user.py": "from .test_owner import league as season\n\n\n" + ASKS_LEAGUE,
+            },
+            ["league"],
+            id="asked-by-its-own-name-where-only-the-alias-is-bound",
+        ),
+        pytest.param(
+            {
+                "api/test_owner.py": 'import pytest\n\n\n@pytest.fixture(name="league")\ndef _league():\n    return 1\n',
+                "api/test_user.py": "from .test_owner import _league as season\n\n\n" + ASKS_LEAGUE,
+            },
+            [],
+            id="a-name-argument-wins-over-the-alias",
+        ),
+        pytest.param(
+            {"api/test_case.py": ORPHAN + "season = league\n\n\ndef test_reads(season):\n    assert season\n"},
+            [],
+            id="bound-to-a-second-name-in-its-own-module",
+        ),
     ],
 )
 def test_a_fixture_is_consumed_only_where_pytest_would_supply_it(files: dict[str, str], dead: list[str]):
@@ -283,6 +312,32 @@ def test_an_argument_pytest_fills_itself_asks_no_fixture(consumer: str, dead: li
             "import pytest\n\n\ndef build():\n    @pytest.fixture\n    def league():\n        return 1\n",
             "inside a function",
             id="nested-fixture",
+        ),
+        pytest.param(
+            'from unittest import mock\n\n\n@mock.patch("os.getcwd")\ndef test_reads(league):\n    assert league\n',
+            "patches `test_reads`",
+            id="mock-patch",
+        ),
+        pytest.param(
+            'import os\nfrom unittest import mock\n\n\n@mock.patch.object(os, "getcwd")\ndef test_reads(league):\n    assert league\n',
+            "patches `test_reads`",
+            id="patch-object",
+        ),
+        pytest.param(
+            "import os\nfrom unittest import mock\n\n\n@mock.patch.dict(os.environ, {})\ndef test_reads(league):\n    assert league\n",
+            "patches `test_reads`",
+            id="patch-dict",
+        ),
+        pytest.param(
+            'from unittest import mock\n\n\n@mock.patch("os.getcwd")\nclass TestPatched:\n'
+            "    def test_reads(self, league):\n        assert league\n",
+            "patches `test_reads`",
+            id="patch-on-the-class",
+        ),
+        pytest.param(
+            'from unittest.mock import patch as fake\n\n\n@fake("os.getcwd")\ndef test_reads(league):\n    assert league\n',
+            "patches `test_reads`",
+            id="patch-under-an-alias",
         ),
     ],
 )
