@@ -20,6 +20,7 @@ import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebh
 import { after } from "next/server"; // expect: next-after
 import { auth } from "@/core/auth"; // expect: auth-instance
 import { signInStore } from "@/core/db?probe"; // expect: sign-in-store
+export { sendSperreNotice } from "@/core/mail?probe"; // expect: sperre-notice
 
 export const USED = [TEAM_FACETS, HeroForm, DatePicker, Bars, AppRouterContext, HintPanel, captureStdout, TEAMS_RELATIVE];
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-shared-load

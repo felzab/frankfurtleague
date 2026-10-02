@@ -14,6 +14,7 @@ import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
 import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "../config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
 import { auth } from "../auth"; // expect: auth-instance
 import { signInStore } from "../db?probe"; // expect: sign-in-store
+export { sendSperreNotice } from "../mail?probe"; // expect: sperre-notice
 import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
 import { after } from "next/server"; // expect: next-after
 

@@ -1,10 +1,7 @@
-// Linted as src/app/api/mail/zustellung/route.ts.
-// The provider's delivery report route may import the key it verifies a report with, and every other import ban still reaches it.
-import { resendWebhookSecret } from "@/core/config";
-import { authResendKey, authSecret, internalApiKeySystem, mongodbUri } from "@/core/config"; // expect: secret-mail expect: secret-session expect: secret-backend expect: secret-store
-import { auth } from "@/core/auth"; // expect: auth-instance
-import { signInStore } from "@/core/db?probe"; // expect: sign-in-store
-export { sendSperreNotice } from "@/core/mail?probe"; // expect: sperre-notice
+// Linted as src/features/sperrliste/actions.ts.
+// The ban action may import the notice's sender, and every other import ban still reaches it.
+import { sendSperreNotice } from "@/core/mail";
+import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { Form } from "@heroui/react/form"; // expect: heroui-form
@@ -18,8 +15,11 @@ import { SITE_URL } from "@/core/brand"; // expect: site-origin
 import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
 import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
 import { after } from "next/server"; // expect: next-after
+import { auth } from "@/core/auth"; // expect: auth-instance
+import { signInStore } from "@/core/db?probe"; // expect: sign-in-store
 
-export const USED = [resendWebhookSecret, authResendKey, authSecret, internalApiKeySystem, mongodbUri, PinnedLocale, Button, Form];
-export const MORE_USED = [AppRouterContext, DateField, NumberField, HintPopover, captureStdout, loadVia, SITE_URL, HeroTextField, mintRequestActor];
-export const AFTER_USED = after;
 export const HOLDERS_USED = [auth, signInStore];
+export const USED = [after, sendSperreNotice, authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, PinnedLocale, Button];
+export const MORE_USED = [Form, AppRouterContext, DateField, NumberField, HintPopover, captureStdout, loadVia, SITE_URL, HeroTextField, mintRequestActor];
+// Static import alone: a load would hand the module over as every other module's would.
+export const MAILER_LOADED = import("@/core/mail"); // expect: sperre-notice-load

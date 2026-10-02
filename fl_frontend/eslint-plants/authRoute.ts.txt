@@ -2,6 +2,7 @@
 // The library's own route handler may import its instance whole, and every other import ban still reaches it.
 import { auth } from "@/core/auth";
 import { signInStore } from "@/core/db"; // expect: sign-in-store
+export { sendSperreNotice } from "@/core/mail"; // expect: sperre-notice
 import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "@/core/config"; // expect: secret-mail expect: secret-session expect: secret-backend expect: secret-store expect: secret-webhook
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { Button } from "@heroui/react"; // expect: vendor-root

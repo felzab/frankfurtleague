@@ -6,6 +6,7 @@ import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
 import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
 import { auth } from "@/core/auth"; // expect: auth-instance
 import { signInStore } from "@/core/db?probe"; // expect: sign-in-store
+export { sendSperreNotice } from "@/core/mail?probe"; // expect: sperre-notice
 // Every other import ban still reaches it.
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private

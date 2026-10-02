@@ -62,6 +62,10 @@ import { mongodbUri as viaQuery } from "@/core/config?probe"; // expect: secret-
 import { auth as heldAuth } from "@/core/auth"; // expect: auth-instance
 import { signInStore as heldStore } from "@/core/db"; // expect: sign-in-store
 export const HOLDERS_USED = [heldAuth, heldStore];
+// The ban's notice skips the gate, so a feature module takes the mailer's other exports and not it.
+import { MailBarredError, sendMail, sendSperreNotice as heldNotice } from "@/core/mail"; // expect: sperre-notice
+import * as wholeMailer from "@/core/mail.ts?probe"; // expect: sperre-notice
+export const MAILER_USED = [MailBarredError, sendMail, heldNotice, wholeMailer];
 import { mintRequestActor as signViaQuery } from "@/core/actorToken.ts?probe"; // expect: actor-signing
 
 export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
@@ -105,7 +109,10 @@ export const AUTH_MEMBER = (await import("@/core/auth")).auth; // expect: auth-t
 export const AUTH_SAFE_MEMBER = (await import("@/core/auth")).getAdminSession;
 const { signInStore: loadedStore } = await import("@/core/db"); // expect: store-taken
 const { frontend_config: loadedSettings, mongodbUri: loadedReader } = await import("@/core/config"); // expect: config-load expect: config-taken
-export const LOADED_USED = [getAdminSession, loadedAuth, wholeAuth, loadedStore, loadedSettings, loadedReader];
+const { sendMail: loadedSend } = await import("@/core/mail");
+const { sendSperreNotice: loadedNotice } = await import("@/core/mail"); // expect: sperre-notice-load
+export const MAILER_HELD = import(`../../core/mail.ts`); // expect: sperre-notice-load
+export const LOADED_USED = [getAdminSession, loadedAuth, wholeAuth, loadedStore, loadedSettings, loadedReader, loadedSend, loadedNotice];
 export const STALE = "/bestaetigung?token=x"; // expect: stale-path
 export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
 export const STALE_ADMIN = "/admin/teams"; // expect: stale-admin

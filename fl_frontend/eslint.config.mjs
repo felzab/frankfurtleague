@@ -276,6 +276,16 @@ const SIGN_IN_STORE = {
     "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
 };
 
+/** The ban's own notice skips the ban list's gate, so only the ban action, which checks the reason it carries, sends it. */
+const SPERRE_NOTICE = {
+  regex: moduleNamed("mail"),
+  importNames: ["sendSperreNotice"],
+  message:
+    "sendSperreNotice sends past the ban list's gate: fl_frontend/src/features/sperrliste/actions.ts imports it, and a *.test.ts(x) file may; nothing else may (docs/frontend/spec.md :: I541).",
+};
+
+const SPERRE_NOTICE_OWNER = "src/features/sperrliste/actions.ts";
+
 /** Each secret's name and file, as `fl_frontend/src/core/config.ts :: SECRET_FILES` pairs them. */
 const SECRET_FILE_ENTRIES = (() => {
   const files = /^const SECRET_FILES = \{\n([^}]*)\} as const;$/m.exec(readFileSync(path.join(HERE, "src", "core", "config.ts"), "utf8"));
@@ -787,6 +797,7 @@ const PRODUCTION_IMPORTS = [
   ...Object.values(SECRET_READERS),
   AUTH_INSTANCE,
   SIGN_IN_STORE,
+  SPERRE_NOTICE,
 ];
 
 /**
@@ -863,6 +874,11 @@ const SOURCE_BANS = [
     selector: takenFromLoad(SIGN_IN_STORE.regex, SIGN_IN_STORE.importNames),
     message:
       "A loaded fl_frontend/src/core/db.ts is taken apart where it is loaded, and never into `signInStore`, whose client holds the store's login.",
+  },
+  {
+    selector: takenFromLoad(SPERRE_NOTICE.regex, SPERRE_NOTICE.importNames),
+    message:
+      "A loaded fl_frontend/src/core/mail.ts is taken apart where it is loaded, and never into `sendSperreNotice`, which sends past the ban list's gate.",
   },
   {
     // `process.env.<name>` and every other spelling of one: the retired variable is a host's live value.
@@ -1297,6 +1313,7 @@ const eslintConfig = defineConfig([
     [["src/core/auth.ts"], [ACTOR_SIGNING, SECRET_READERS["src/core/auth.ts"], SIGN_IN_STORE], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
     [["src/core/authIndexes.ts"], [SIGN_IN_STORE], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
     [[AUTH_ROUTE], [AUTH_INSTANCE], PRODUCTION_IMPORTS],
+    [[SPERRE_NOTICE_OWNER], [SPERRE_NOTICE], PRODUCTION_IMPORTS],
     ...Object.entries(SECRET_READERS)
       .filter(([owner]) => owner !== "src/core/auth.ts")
       .map(([owner, reader]) => [

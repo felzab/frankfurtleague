@@ -90,6 +90,8 @@ const BANS = [
   ["sign-in-store", /signInStore hands out a client holding the store's login/],
   ["secret-name", /A secret is read through its reader in/],
   ["secret-file", /A secret's file is named in/],
+  ["sperre-notice", /sendSperreNotice sends past the ban list's gate/],
+  ["sperre-notice-load", /never into `sendSperreNotice`/],
   ["test-only", /a \*\.test\.ts\(x\) file may import it, production code may not/],
   ["test-only-load", /loaded at run time stays the suite's/],
   ["hint-internals-load", /Load the popover or the panel through Hint/],
