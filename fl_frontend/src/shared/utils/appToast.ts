@@ -7,7 +7,6 @@ import type { ReactNode } from "react";
 /** Every failure title says the change did not happen, which is false where nobody can tell. */
 const OUTCOME_UNKNOWN_TITLE = "Unklar, ob es gespeichert wurde";
 
-/** Spelled as the two-part editors raise it at their own site, so a partly saved press reads one title wherever it was pressed. */
 const OUTCOME_PARTIAL_TITLE = "Nur teilweise gespeichert";
 
 const OUTCOME_TITLES: Readonly<Record<NonNullable<ActionFailure["outcome"]>, string>> = {

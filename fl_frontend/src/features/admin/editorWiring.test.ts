@@ -625,16 +625,31 @@ async function pressBothHalves(
   }
 }
 
+describe("a two-part press whose second half was refused", () => {
+  for (const [file, change] of Object.entries(TWO_HALVES)) {
+    /* The half that saved stands, so the one failure is marked partly saved, and `appToast.failure`
+       titles it from the marker rather than the editor at its own raise. */
+    it(`${file} marks the one failure it raises partly saved, beside the half that saved`, async () => {
+      const danger = await pressBothHalves(file, change, [() => Promise.resolve({ success: true, message: "Gespeichert." }), REFUSED]);
+
+      assert.deepEqual(
+        danger.map((toast) => [toast.title, toast.options?.outcome]),
+        [["Änderung nicht gespeichert", "partial"]],
+      );
+    });
+  }
+});
+
 describe("a two-part press whose second half nobody can tell landed", () => {
   for (const [file, change] of Object.entries(TWO_HALVES)) {
-    /* One half of unknown outcome makes the whole press one: titled as saved-in-part it would call a
-       change that may stand „nicht gespeichert“, the sentence the marker exists to keep off the toast. */
+    /* One half of unknown outcome makes the whole press one, over the half that saved: marked partly
+       saved, its title would call a change that may stand unsaved. */
     it(`${file} carries the marker onto the one failure it raises, beside the half that saved`, async () => {
       const danger = await pressBothHalves(file, change, [() => Promise.resolve({ success: true, message: "Gespeichert." }), UNKNOWN_COMMIT]);
 
       assert.deepEqual(
         danger.map((toast) => [toast.title, toast.options?.outcome]),
-        [["Nur teilweise gespeichert", "unknown"]],
+        [["Änderung nicht gespeichert", "unknown"]],
       );
     });
 
@@ -649,7 +664,7 @@ describe("a two-part press whose second half nobody can tell landed", () => {
 
       assert.deepEqual(
         danger.map((toast) => [toast.title, toast.options?.outcome]),
-        [["Nur teilweise gespeichert", "unknown"]],
+        [["Änderung nicht gespeichert", "unknown"]],
       );
       assert.ok(screen.queryByRole("button", { name: "Speichern" }) !== null, "the rejection took the editor off the page");
       assert.equal(seen.refresh, 0, "a rejected half read the page again over the draft of the half not written");

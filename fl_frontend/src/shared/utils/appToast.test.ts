@@ -33,7 +33,7 @@ describe("appToast.failure", () => {
   });
 
   /* A press whose first write stands and whose second was refused saved something, so the site's
-     „nicht gespeichert“ is false there too: the editors' own title for that press stands in. */
+     „nicht gespeichert“ is false there too: the partly-saved title stands in. */
   it("raises the partly-saved title where part of the press landed", () => {
     const error = "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden.";
     appToast.failure("Änderung nicht gespeichert", { error, outcome: "partial" });
