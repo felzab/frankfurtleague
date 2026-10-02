@@ -43,7 +43,7 @@ class TestGatherCancelling:
 
         assert asyncio.run(cancelled_by_the_answer()), "the read still running when the first failed ran on past the caller's answer"
 
-    def test_two_reads_failing_before_the_cancellation_raise_the_first_with_the_other_as_its_cause(self):
+    def test_two_reads_failing_before_the_cancellation_raise_the_first_naming_the_other_by_class(self):
         """An outage fails every read in one turn: grouped, the handlers would answer it as a crash rather than the database's."""
 
         first, second = ConnectionError("one"), TimeoutError("two")
@@ -51,9 +51,20 @@ class TestGatherCancelling:
         with pytest.raises(ConnectionError) as raised:
             asyncio.run(gather_cancelling(_Read(1, raises=first).run(), _Read(1, raises=second).run(), _Read(50).run()))
 
-        cause = raised.value.__cause__
         assert raised.value is first
-        assert isinstance(cause, ExceptionGroup) and list(cause.exceptions) == [second], "the second failure was dropped"
+        assert raised.value.__notes__ == ["Failed beside it: TimeoutError"], "the second failure went unreported"
+
+    def test_the_failure_raised_keeps_the_chain_its_read_gave_it(self):
+        own_cause = OSError("the socket closed")
+
+        async def failing() -> None:
+            await asyncio.sleep(0)
+            raise ConnectionError("the read failed") from own_cause
+
+        with pytest.raises(ConnectionError) as raised:
+            asyncio.run(gather_cancelling(failing(), _Read(50).run()))
+
+        assert raised.value.__cause__ is own_cause
 
     def test_the_caller_s_cancellation_cancels_every_read(self):
         reads = (_Read(50), _Read(50))

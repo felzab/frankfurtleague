@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import refuse
 from app.core.domain import OPERATION_SEPARATOR, RULES
@@ -857,6 +858,21 @@ def database_crash_document(caplog, exc: PyMongoError) -> str:
     return logged_document(caplog)
 
 
+@VALIDATION_APP.get("/gathered-crash")
+async def crash_beside_a_refused_write() -> None:
+    """A crash and a refused write failing in one turn of a gather, the crash first."""
+
+    async def crashing() -> None:
+        await asyncio.sleep(0)
+        raise KeyError("verwaltung")
+
+    async def refused_write() -> None:
+        await asyncio.sleep(0)
+        raise WriteError("Document failed validation", 121, REFUSED_DOCUMENT_REPORT)
+
+    await gather_cancelling(crashing(), refused_write())
+
+
 class TestValidationLoggingWithholdsTheValue:
     """The refusal reaches the log naming its field, with the value gone (`docs/logging/spec.md :: L9`).
 
@@ -918,6 +934,17 @@ class TestValidationLoggingWithholdsTheValue:
         assert "nachname" in document
         assert "WriteError" in document and "code 121" in document
         assert DATABASE_FAILED in document
+
+    def test_a_crash_s_stack_withholds_the_refused_value_of_a_write_failing_beside_it(self, caplog):
+        """The crash handler logs the whole stack, which would render a chained sibling's message, the refused document in it."""
+
+        with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
+            response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get("/gathered-crash")
+
+        assert response.status_code == 500
+        document = logged_document(caplog)
+        assert REFUSED_CONSENT_SOURCE not in document
+        assert UNHANDLED_CRASH in document and "Failed beside it: WriteError" in document
 
     def test_the_walk_never_descends_into_the_refused_value(self, caplog):
         """Catches widening the report keys walked to the ones a refused value sits under."""

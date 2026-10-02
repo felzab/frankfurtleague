@@ -31,6 +31,12 @@ async def gather_cancelling(*coroutines: Coroutine[Any, Any, Any]) -> tuple[Any,
     else:
         return tuple(task.result() for task in tasks)
 
+    # Named by class alone, never chained: a crash's logged stack renders a cause in full, and a
+    # sibling's text can quote a value its own handler withholds (`docs/logging/spec.md :: L9`).
+    if beside:
+        first.add_note(f"Failed beside it: {', '.join(type(failure).__name__ for failure in beside)}")
+
     # Never grouped: the handlers map a failure by its class, and an outage fails every read at once,
-    # which a group would answer as a crash rather than the database's. Any others stay its cause.
-    raise first from (ExceptionGroup("failed beside it", beside) if beside else None)
+    # which a group would answer as a crash rather than the database's. No `from`: the chain stays its
+    # read's own.
+    raise first
