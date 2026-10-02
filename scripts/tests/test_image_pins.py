@@ -190,45 +190,61 @@ def test_the_edge_s_nginx_is_a_release_with_the_control_api() -> None:
 # (`testcontainers/build/container-runtime/image-name.js`), so `MongoDBContainer.isV5OrLater` reads
 # no version and waits on the `mongo` shell MongoDB 8 does not ship.
 FRONTEND: Final = REPO_ROOT / "fl_frontend"
-# Read by content, never by a file's name: a start moved into a shared helper leaves a reader keyed on
-# the db tier's suffix finding nothing. The installed and the built trees hold no call this repo wrote.
-UNREAD_DIRS: Final = frozenset({"node_modules", ".next"})
-SOURCE_SUFFIXES: Final = frozenset({".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
-CONTAINER_CALL_RE: Final = re.compile(r"\bMongoDBContainer\(")
-CONTAINER_IMAGE_RE: Final = re.compile(r'\bMongoDBContainer\("([^"]+)"\)')
+BACKEND: Final = REPO_ROOT / "fl_backend"
+# Counted by the string naming the image, never by its file or the call it is handed to: a start
+# moved into a helper, made under an alias or through another container class runs a server all the same.
+UNREAD_DIRS: Final = frozenset({"node_modules", ".next", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache"})
+FRONTEND_SUFFIXES: Final = frozenset({".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
+# A string naming the image: the bare name, a tag, a digest, a registry path ahead of it.
+MONGO_LITERAL_RE: Final = re.compile(r"""(["'`])((?:[\w.-]+/)*mongo(?:[:@][^"'`\s]*)?)\1""")
+# The image as a shell spells it, unquoted, as the script reader reads it; a URI's `//mongo:` is a host.
+MONGO_SHELL_RE: Final = re.compile(REFERENCE_RE.format(name="mongo"))
 
 
-def frontend_sources() -> list[Path]:
-    """Every source file under `fl_frontend`, its installed and built trees aside."""
+def sources_under(root: Path, suffixes: frozenset[str]) -> list[Path]:
+    """Every file under `root` with one of `suffixes`, the installed, built and cached trees aside."""
     found: list[Path] = []
-    for root, dirs, files in os.walk(FRONTEND):
+    for directory, dirs, files in os.walk(root):
         dirs[:] = [name for name in dirs if name not in UNREAD_DIRS]
-        found += [Path(root) / name for name in files if Path(name).suffix in SOURCE_SUFFIXES]
+        found += [Path(directory) / name for name in files if Path(name).suffix in suffixes]
     return sorted(found)
 
 
-def container_starts(sources: list[Path]) -> list[tuple[str, list[str]]]:
-    """Each file starting a `MongoDBContainer`, with the literal image of every start it spells; a start not naming one reads as `?`."""
-    starts: list[tuple[str, list[str]]] = []
-    for path in sources:
-        text = path.read_text(encoding="utf-8")
-        calls = len(CONTAINER_CALL_RE.findall(text))
-        if calls:
-            named = CONTAINER_IMAGE_RE.findall(text)
-            starts.append((path.relative_to(REPO_ROOT).as_posix(), named + ["?"] * (calls - len(named))))
-    return starts
+def mongo_images(sources: list[Path], pattern: re.Pattern[str], group: int) -> list[tuple[str, str]]:
+    """Every mongo image `pattern` reads out of `sources`, each beside its file."""
+    return [
+        (path.relative_to(REPO_ROOT).as_posix(), match[group])
+        for path in sources
+        for match in pattern.finditer(path.read_text(encoding="utf-8"))
+    ]
 
 
 def test_the_frontend_db_tier_names_the_backend_pin_s_release_by_tag_alone() -> None:
     """A second release under the frontend's tier runs its db tests against a server the backend's never meets."""
     _, backend = script_references()["fl_backend/tests/conftest.py:mongo"]
     release = backend.split("@", 1)[0]
-    starts = container_starts(frontend_sources())
-    # One place, so a second start cannot name another release where no case reads it.
-    assert sum(len(images) for _, images in starts) == 1, (
-        f"the frontend starts a MongoDBContainer at {starts}, where the case reads exactly one"
-    )
-    assert starts[0][1] == [release], f"{starts[0][0]} starts {starts[0][1][0]}, where it is to name `{release}` as a literal"
+    images = mongo_images(sources_under(FRONTEND, FRONTEND_SUFFIXES), MONGO_LITERAL_RE, 2)
+
+    # One place, so a second server cannot run another release where no case reads it.
+    assert len(images) == 1, f"the frontend names a mongo image at {images}, where the case reads exactly one"
+    assert images[0][1] == release, f"{images[0][0]} names {images[0][1]}, where it is to name `{release}` alone"
+
+
+def test_the_backend_names_its_mongo_image_only_where_its_pin_is_read() -> None:
+    """The conftest's pin is the one the stack's case holds, so a second image elsewhere runs unheld."""
+    _, pin = script_references()["fl_backend/tests/conftest.py:mongo"]
+
+    assert mongo_images(sources_under(BACKEND, frozenset({".py"})), MONGO_LITERAL_RE, 2) == [("fl_backend/tests/conftest.py", pin)]
+
+
+def test_the_scripts_run_mongo_only_where_the_dump_s_image_is_read() -> None:
+    """The dump's image is the one held to the local stack's, so a second script's runs unheld.
+
+    Which image `scripts/ops/local.sh` names, and that it names one, is `script_references`' to read.
+    """
+    images = mongo_images(sources_under(REPO_ROOT / "scripts", frozenset({".sh"})), MONGO_SHELL_RE, 0)
+
+    assert {path for path, _ in images} == {"scripts/ops/local.sh"}, f"scripts name mongo at {images}"
 
 
 # The db job's pull step reads the pin itself and sits behind `continue-on-error`, so a pin moved
