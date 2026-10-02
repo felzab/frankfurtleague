@@ -389,8 +389,8 @@ scanner's GET and a reader's are one request to the same-origin guard.
 either, and is the route handler that SPENDS a credential.** It declares no GET, so nothing a mail
 gateway or a prefetch fetches spends a code (I444), and a cross-site post of an attacker's own code
 would sign the reader into the attacker's account — which is why its origin check falls back to
-the pinned `AUTH_URL` rather than the caller's. It answers every outcome it decided at 200, as
-`handlePublicRequest` does, so `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`
+the pinned `AUTH_URL` rather than the caller's. Past that check it answers every outcome at 200,
+its own failure included, as `handlePublicRequest` does, so `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`
 tells an edge's own 429 apart; the success carries no body but `success`, the session riding the
 cookie `nextCookies()` writes (I198). **Its calls run in process, where neither the library's
 limiter nor `DISABLED_PATHS` reaches them**: what bounds them is the per-address failure bound

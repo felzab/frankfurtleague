@@ -127,9 +127,13 @@ export async function POST(request: NextRequest) {
     // No `request`, so the library's own origin check never runs: the pair above stands in for it.
     await auth.api.signInEmailOTP({ body, headers: requestHeaders });
   } catch (error) {
-    // Anything the library did not raise is this application failing, which is never worded to the
-    // reader as a wrong code.
-    if (!isAPIError(error)) throw error;
+    // Anything the library did not raise is this application failing: never a wrong code, and never a
+    // throw, whose 500 the page words as an answer that was not this application's. The NAME alone,
+    // for `alreadySignedIn`'s reason.
+    if (!isAPIError(error)) {
+      logger.error("auth.code_check_failed", undefined, { error_code: "FE-AUTH-002", name: error instanceof Error ? error.name : "unknown" });
+      return refused(VERSUCHE_ES_ERNEUT_SATZ);
+    }
 
     // A refusal no code names is worded as a retry, the one answer that promises nothing it cannot
     // keep; the mint's outage is the exception, its code being spent before the mint was asked.

@@ -245,10 +245,16 @@ describe("the route a typed code is checked at", () => {
     assert.equal(((await (await handler.POST(post({ email: ADDRESS, code: CODE }))).json()) as { success: boolean }).success, false);
   });
 
-  /* A failure that is this application's never reads to the reader as a wrong code. */
-  it("throws a failure the library did not raise rather than wording it", async () => {
+  /* Never a wrong code, and never a throw: its 500 is worded by the page as an answer from in front
+     of this application. */
+  it("answers a failure the library did not raise with the retry, at 200, and logs its name alone", async () => {
     outcome = "broken";
-    await assert.rejects(() => handler.POST(post({ email: ADDRESS, code: CODE })));
+
+    const answer = await handler.POST(post({ email: ADDRESS, code: CODE }));
+
+    assert.equal(answer.status, 200);
+    assert.deepEqual(await answer.json(), { success: false, error: "Versuche es erneut." });
+    assert.deepEqual(logged, [{ event: "auth.code_check_failed", meta: { error_code: "FE-AUTH-002", name: "Error" } }]);
   });
 
   it("answers a body it cannot read as a wrong code, and reaches the library not at all", async () => {
