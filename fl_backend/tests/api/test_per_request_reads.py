@@ -5,14 +5,14 @@ from typing import Any, cast
 
 import pytest
 from bson import ObjectId
-from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen import crud as berechtigungen_crud
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet import router as identitaet_router
 from app.api.identitaet.schemas import FLSubjekt, FLSubjektPayload
-from app.api.sperrliste.lookup import BanList
+from app.core.collections import Collection
+from tests.bans import ban_list
 
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 
@@ -94,7 +94,7 @@ class TestTheSubjectLookupsReads:
                 saisons_collection=stand_in,
                 spieler_collection=stand_in,
                 schiedsrichter_collection=stand_in,
-                sperrliste=BanList(stand_in, stand_in, SecretStr("fabricated-ban-list-key-not-a-credential")),
+                sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
                 berechtigungen_collection=stand_in,
             )
         )
