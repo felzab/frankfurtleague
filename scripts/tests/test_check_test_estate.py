@@ -413,6 +413,17 @@ def test_an_argument_pytest_fills_itself_asks_no_fixture(consumer: str, dead: li
             "patches `test_reads`",
             id="patch-under-an-alias",
         ),
+        pytest.param(
+            "from unittest import mock\n\npatched = mock.patch('os.getcwd')\n\n\n@patched\ndef test_reads(league):\n    assert league\n",
+            "patches `test_reads`",
+            id="patch-bound-to-a-name",
+        ),
+        pytest.param(
+            "from unittest import mock\n\npatched = mock.patch('os.getcwd')\nrepatched = patched\n\n\n"
+            "@repatched\ndef test_reads(league):\n    assert league\n",
+            "patches `test_reads`",
+            id="patch-bound-through-a-second-name",
+        ),
     ],
 )
 def test_a_spelling_this_cannot_follow_leaves_the_module_unjudged(body: str, said: str):

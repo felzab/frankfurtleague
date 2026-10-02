@@ -176,6 +176,11 @@ class Module:
             for alias in node.names
             if alias.name == PATCH
         }
+        # A name bound to a patch is that patch where it decorates: in source order, so one name bound
+        # through another is read after it.
+        for node in sorted((node for node in ast.walk(tree) if isinstance(node, ast.Assign)), key=lambda node: node.lineno):
+            if set(_dotted_parts(node.value)) & patching:
+                patching |= {target.id for target in node.targets if isinstance(target, ast.Name)}
         for test in self.tests:
             if any(set(_dotted_parts(mark)) & patching for mark in test.marks):
                 raise Unfollowed(
