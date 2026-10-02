@@ -18,9 +18,12 @@ from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, Ser
 from app.core.config import (
     INTERNAL_API_KEY_LENGTH,
     MONGODB_URI_FILE,
+    RETIRED_PREFIX,
     SECRET_FILES,
     SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
+    BackendEnvironment,  # noqa: TID251
+    BackendSecrets,  # noqa: TID251
     EnvironmentValidationError,
     get_app_config,
     get_config,  # noqa: TID251
@@ -65,13 +68,11 @@ FILES = {
     "sperrliste_schluessel": BAN_LIST_KEY,
 }
 
-# Each file's variable before it became a file, which a machine's own shell may still carry.
+# Each file's variable before it became a file, which a machine's own shell may still carry: read off
+# the environment half's retired twin of each secret field, so a file whose twin is gone fails loudly.
 RETIRED_VARIABLE_OF = {
-    MONGODB_URI_FILE: "MONGODB_URI",
-    "internal_api_key_base": "INTERNAL_API_KEY_BASE",
-    "internal_api_key_system": "INTERNAL_API_KEY_SYSTEM",
-    "internal_api_key_admin": "INTERNAL_API_KEY_ADMIN",
-    "sperrliste_schluessel": "SPERRLISTE_SCHLUESSEL",
+    str(field.validation_alias or name): str(BackendEnvironment.model_fields[f"{RETIRED_PREFIX}{name}"].validation_alias)
+    for name, field in BackendSecrets.model_fields.items()
 }
 
 # Every name the environment half declares as retired, which a machine's own shell may carry.
