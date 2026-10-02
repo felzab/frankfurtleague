@@ -28,7 +28,7 @@ import {
 } from "./schemas";
 import { describeReplacementUmfang } from "./utils";
 
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionFailure, ActionResult } from "@/shared/types/types";
 import type {
   FLDeleteTeamPayload,
   FLPatchTeamPayload,
@@ -99,7 +99,8 @@ export async function postTeamAction(
         error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${
           reason ? `: ${reason}` : "."
         } Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.`,
-      };
+        outcome: "partial",
+      } satisfies ActionFailure;
     }
 
     invalidateSeasonScoped("teams", saison_id);

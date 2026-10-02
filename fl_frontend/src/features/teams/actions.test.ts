@@ -134,20 +134,41 @@ describe("the club's writes", () => {
   });
 });
 
+/**
+ * What the create answers for each code the entry publishes, spelled out rather than composed from the
+ * mapper: composed, a reason carrying the club editor's own repair reads as one sentence too many.
+ */
+const PARTLY_SAVED: Readonly<Record<string, string>> = {
+  "REQ-ENTER-001":
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+  "REQ-ENTER-002":
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Gruppe gibt es in dieser Saison nicht. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+  "REQ-ENTER-003":
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Gruppe ist schon voll. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+  "REQ-ENTER-005":
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Dieses Team ist inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+  [DUPLICATE_KEY]:
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+};
+
 describe("a club created whose entry into the season is refused", () => {
-  it("tells the administrator the club stands and where to enter it, in the approved words", async () => {
-    const refused = refusedOn(ENTRY_OPERATION, "REQ-ENTER-001");
-    answerWith((call) => (call.endpoint === "/teams" ? Promise.resolve(landed(call)) : Promise.reject(refused)));
-    const entry = mapEntryRefusal(refused);
-    const reason = entry?.error ?? entry?.fieldErrors?.gruppe;
-    assert.ok(reason, "the entry's refusal carries no reason, so the sentence below would not name one");
+  /* The club stands, so the answer is marked partly saved rather than titled „nicht gespeichert“, and
+     its one way out is the club's own page: the editor's repairs name controls the create has not got. */
+  it("answers every refusal the entry publishes as partly saved, naming one way out", async () => {
+    const answers: Record<string, unknown> = {};
+    for (const code of publishedRefusals(ENTRY_OPERATION)) {
+      const refused = refusedOn(ENTRY_OPERATION, code);
+      answerWith((call) => (call.endpoint === "/teams" ? Promise.resolve(landed(call)) : Promise.reject(refused)));
 
-    const result = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+      answers[code] = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+    }
 
-    assert.deepEqual(result, {
-      success: false,
-      error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: ${reason} Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.`,
-    });
+    // One comparison over every code, keyed by the published set: a code the entry starts publishing
+    // fails here with its answer shown, rather than passing unread.
+    assert.deepEqual(
+      answers,
+      Object.fromEntries(Object.entries(PARTLY_SAVED).map(([code, error]) => [code, { success: false, error, outcome: "partial" }])),
+    );
   });
 
   /* The actor check refuses ahead of any handler, so the club stands in no season. The spine's own
@@ -162,6 +183,7 @@ describe("a club created whose entry into the season is refused", () => {
       success: false,
       error:
         "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+      outcome: "partial",
     });
   });
 
