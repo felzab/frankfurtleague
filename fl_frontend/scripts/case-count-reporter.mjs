@@ -6,8 +6,9 @@
 import path from "node:path";
 
 /**
- * A file that never summarises its run ended before its runner did, or declared nothing; one
- * summarising no test it did not skip ran none. A skip stands where it names its reason.
+ * A file that never summarises its run ended early or declared nothing. One whose tests are all
+ * skipped or todo ran none, a todo case's failure failing nothing; a skip stands where it names its
+ * reason.
  */
 export default async function* caseCountReporter(source) {
   const finished = new Set();
@@ -23,7 +24,7 @@ export default async function* caseCountReporter(source) {
     if (type === "test:pass" && data.file !== undefined && typeof data.skip === "string") reasoned.add(path.resolve(data.file));
     // A file's process summarises its own run; the run's closing summary carries no file.
     if (type === "test:summary" && data.file !== undefined) {
-      ran.set(path.resolve(data.entryFile ?? data.file), data.counts.tests - data.counts.skipped);
+      ran.set(path.resolve(data.entryFile ?? data.file), data.counts.tests - data.counts.skipped - data.counts.todo);
     }
   }
 
@@ -33,6 +34,6 @@ export default async function* caseCountReporter(source) {
   // The runner leaves the exit code alone on a run it counts as passed, so this one stands.
   process.exitCode = 1;
   for (const file of empty) {
-    yield `✖ ${path.relative(process.cwd(), file)} ran no case: it declares none, skips each without a reason, a filter left each out, or its process ended before one reported\n`;
+    yield `✖ ${path.relative(process.cwd(), file)} ran no case: it declares none, skips each without a reason, marks each todo, a filter left each out, or its process ended before one reported\n`;
   }
 }

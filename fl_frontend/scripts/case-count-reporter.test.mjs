@@ -27,6 +27,10 @@ const FILES = {
   "bare-skipped-suite.test.mjs":
     'import { describe, it } from "node:test";\ndescribe.skip("needs a store", () => {\n  it("reads", () => {});\n});\n',
   "bare-skipped-case.test.mjs": 'import { it } from "node:test";\nit.skip("reads", () => {});\n',
+  // Its todo case's body fails, which node:test reports and fails nothing for.
+  "todo-only.test.mjs":
+    'import assert from "node:assert/strict";\nimport { it } from "node:test";\nit.todo("reads");\nit("writes", { todo: "later" }, () => assert.fail("not yet"));\n',
+  "todo-beside-case.test.mjs": 'import { it } from "node:test";\nit.todo("reads");\nit("runs", () => {});\n',
 };
 for (const [name, source] of Object.entries(FILES)) writeFileSync(path.join(SCRATCH, name), source);
 
@@ -91,6 +95,14 @@ describe("the case-count reporter", () => {
 
   it("leaves a file whose suite or case is skipped with a reason passing", () => {
     assert.deepEqual(run(["skipped-suite.test.mjs", "skipped-case.test.mjs"]), { status: 0, said: "" });
+  });
+
+  it("fails a file whose every case is todo, naming it, and leaves a todo beside a case passing", () => {
+    const { status, said } = run(["todo-only.test.mjs", "todo-beside-case.test.mjs"]);
+
+    assert.equal(status, 1);
+    assert.match(said, /todo-only\.test\.mjs ran no case/);
+    assert.doesNotMatch(said, /todo-beside-case/);
   });
 
   it("fails a file whose suite or case is skipped without a reason, naming it", () => {
