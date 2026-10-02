@@ -7,7 +7,7 @@ import { buildRefusal } from "./refusal";
 
 // Every page opened by a link strips its token from the address bar, so „Lade die Seite neu“ lands a
 // live link on the panel calling it void; only the link itself reopens the page.
-/** What each of the three link confirmations tells a visitor whose answer only a page older than the running one sends. */
+/** What each link confirmation tells a visitor whose answer only a page older than the running one sends. */
 export const ANTWORT_NEU_OEFFNEN =
   "Deine Antwort konnten wir so nicht übernehmen. Öffne den Link aus Deiner E-Mail noch einmal und antworte dort erneut.";
 
@@ -17,7 +17,7 @@ export const REGISTRIERUNG_NEU_OEFFNEN =
 
 // Named plainly where the forms' own refusals are neutral: whoever holds a mailed link holds that
 // mailbox, as a sign-in code's holder does, and the ban's own mail has already told them.
-/** What each of the three link confirmations tells a person whose address was barred after the link was mailed. */
+/** What each link confirmation tells a person whose address was barred after the link was mailed. */
 export const LINK_ADRESSE_GESPERRT = buildRefusal({
   reason: "Deine E-Mail-Adresse ist gesperrt",
   repair: `Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}`,

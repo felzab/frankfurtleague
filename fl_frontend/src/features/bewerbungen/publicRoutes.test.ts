@@ -251,7 +251,7 @@ describe("the window state the application page renders", () => {
     );
   });
 
-  /* The lead is the one site: the receipt panel and the three mails carry the fact from the press
+  /* The lead is the one site: the receipt panel and the mails carry the fact from the press
      onwards, so a second wording above the button is one promise said twice. */
   it("says in the lead, and only there, what the press sets in motion", () => {
     assert.ok(
@@ -842,7 +842,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     assert.ok(text.includes(BESTAETIGUNG_KENNTNISNAHME.schalter), "the switch says something the stamped version does not hold");
     assert.ok(describedBy.length > 0, "no control on the form describes itself by anything at all");
     assert.ok(
-      // Cut at the first close, which is this block's: the four points stand in a list, and no
+      // Cut at the first close, which is this block's: the points stand in a list, and no
       // element between the id and them opens a `div` of its own.
       describedBy.some((id) => {
         const describedFrom = FORM_PANEL.indexOf(`id="${id}"`);

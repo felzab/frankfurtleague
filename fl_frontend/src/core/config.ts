@@ -64,7 +64,7 @@ function readSecretFiles(directory: string): { values: Partial<Record<SecretKey,
   const values: Partial<Record<SecretKey, string>> = {};
 
   // The directory's own shape first, as the backend names it: missing, it would otherwise read as
-  // every file missing, naming seven files where one directory is at fault.
+  // every file missing, naming each of them where one directory is at fault.
   try {
     if (!statSync(directory).isDirectory()) return { values, unreadable: [`${directory} (ENOTDIR)`] };
   } catch (error) {
@@ -238,8 +238,8 @@ const client = {};
 
 const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
 
-// Read before the schema is, so a boot refusing an unreadable file names it rather than seven
-// missing values. A skipped validation refuses nothing: the builder holds none of these files.
+// Read before the schema is, so a boot refusing an unreadable file names it rather than the
+// values it left missing. A skipped validation refuses nothing: the builder holds none of these files.
 const secrets = readSecretFiles(process.env.SECRETS_DIR ?? DEFAULT_SECRETS_DIR);
 if (!skipValidation && secrets.unreadable.length > 0) refuseUnreadableSecretFiles(secrets.unreadable);
 

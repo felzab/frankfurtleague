@@ -36,6 +36,6 @@ async function AnmeldungWeiterInhalt() {
   await connection();
 
   // The one decision this page renders, and it decides none of it: the passkey requirement and the
-  // three lifetimes are judged per request in the guard `getSignInDestination` asks.
+  // session lifetimes are judged per request in the guard `getSignInDestination` asks.
   return redirect(await getSignInDestination());
 }

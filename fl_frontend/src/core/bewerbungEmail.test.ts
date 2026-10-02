@@ -891,7 +891,7 @@ const WIDERSPRUCH = {
 const OPEN_LIST = "Jonas (Trainerin oder Trainer) und Mira (Stellvertretung)";
 
 /**
- * The six workflow messages, each beside the close it must carry. Paired here rather than per case,
+ * The workflow messages, each beside the close it must carry. Paired here rather than per case,
  * so no sweep can check one message against another's.
  */
 const WORKFLOW = [

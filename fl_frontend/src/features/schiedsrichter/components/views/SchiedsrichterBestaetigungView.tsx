@@ -191,7 +191,7 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
 }
 
 /**
- * **The one wording of the five points**: the button describes itself by this block's `id` rather
+ * **The one wording of the points**: the button describes itself by this block's `id` rather
  * than by a summary sentence beside it, which is how a reader met the same promise twice.
  */
 function KlickBestaetigung({ id, werte }: { id: string; werte: Slots }) {
@@ -248,7 +248,7 @@ type BestaetigungAntwort =
   ({ success: true } & Omit<Gespeichert, "vorname">) | (PublicEnvelope & { success: false; zustand?: SchiedsrichterLinkZustand });
 
 /**
- * **The acknowledgement is the press, not a switch**: the five points above the button say what the
+ * **The acknowledgement is the press, not a switch**: the points above the button say what the
  * press records, and a required „gelesen“ switch would be a second act recording the same thing.
  */
 function SchiedsrichterFormPanel({

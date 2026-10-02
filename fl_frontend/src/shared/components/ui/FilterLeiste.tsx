@@ -35,7 +35,7 @@ const CONTROL_BOX_CLASSES = "flex h-10 shrink-0 flex-row rounded-xl border bg-su
 /** `items-stretch` so the remove control is full height; `overflow-hidden` so its fill takes the corner. */
 const PILL_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} items-stretch overflow-hidden border-border`;
 
-/** Split from `ICON_SHELL_CLASSES` because the picker is a field and its three neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
+/** Split from `ICON_SHELL_CLASSES` because the picker is a field and its neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
 const FIELD_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} cursor-pointer items-center gap-x-2 border-control px-3 whitespace-nowrap text-foreground transition-colors duration-(--motion-fast)`;
 
 /** The same box holding one 16px icon: `px-3` either side makes it 40 wide, its own height. */

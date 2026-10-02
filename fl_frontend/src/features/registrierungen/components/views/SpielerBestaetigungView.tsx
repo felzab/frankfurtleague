@@ -109,7 +109,7 @@ function toCalendarDate(stored: string): CalendarDate | null {
 
 /**
  * The standing text, in the order a reader meets it rather than the legal draft's: the media
- * paragraph sits at its switch and the four points at the button.
+ * paragraph sits at its switch and the points at the button.
  */
 function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaetze"]; werte: Slots }) {
   const absatz = (schluessel: SpielerAbsatzSchluessel) => (
@@ -154,7 +154,7 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaet
 }
 
 /**
- * **The one wording of the four points**: the button describes itself by this block's `id` rather
+ * **The one wording of the points**: the button describes itself by this block's `id` rather
  * than by a summary sentence beside it, which is how a reader meets the same promise twice.
  */
 function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: SpielerFassung["absaetze"]; werte: Slots }) {

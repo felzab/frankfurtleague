@@ -40,7 +40,7 @@ export type ShapeRefusal = "noBracket" | "bracketTooLarge" | "overQualifies" | "
 
 /**
  * A closed row's note, in `RefusableSelect`'s register — a state phrase, no sentence. One table for
- * every panel: all three word these refusals identically.
+ * every panel, so each words these refusals identically.
  */
 export const SHAPE_REFUSAL_NOTE: Record<ShapeRefusal, string> = {
   noBracket: "keine KO-Runde",

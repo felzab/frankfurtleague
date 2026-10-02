@@ -133,7 +133,7 @@ describe("the stored consent panel", () => {
     const text = words(null);
     assert.ok(text.includes("keine Einwilligung"), "a person with no consent gets a panel saying nothing");
     // The read-only sentence renders on the other branch alone, so this one carries the missing
-    // control itself: an empty panel among four editable ones is read as one still to be filled.
+    // control itself: an empty panel among editable ones is read as one still to be filled.
     assert.ok(text.includes("Eintragen lässt sie sich nicht"), "an empty panel sends the reader looking for a control");
     // The absence is the whole product's, so a scope word here would send the reader to hunt for the
     // panel that does hold the control.

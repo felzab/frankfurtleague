@@ -237,7 +237,7 @@ export function FormBestaetigungSection({
         )}
 
         {einwilligung === null ? (
-          // The missing control belongs in the same breath: this panel stands among four editable
+          // The missing control belongs in the same breath: this panel stands among editable
           // ones, so a reader meeting an empty one goes looking for the way to record a consent.
           <p className="muted-hint">
             Diese Person hat ihren Eintrag noch nicht bestätigt. Bis dahin steht im Spielplan bei ihren Spielen „anonym“, und eintragen lässt

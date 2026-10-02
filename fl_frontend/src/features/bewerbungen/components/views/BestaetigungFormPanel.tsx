@@ -231,7 +231,7 @@ function BestaetigungEntscheidung({
 }
 
 /**
- * **The acknowledgement is the press, not a switch**: the four points above the button say what the
+ * **The acknowledgement is the press, not a switch**: the points above the button say what the
  * press records, and a required „gelesen“ switch would be a second act recording the same thing.
  */
 export function BestaetigungFormPanel({

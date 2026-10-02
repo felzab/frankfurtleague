@@ -33,7 +33,7 @@ export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAET
 
 /**
  * Rendered in the order a reader meets it rather than the legal draft's order: the WhatsApp
- * paragraph sits at its switch, the four points at the button. **One column**: two give a page two
+ * paragraph sits at its switch, the points at the button. **One column**: two give a page two
  * places to have stopped in.
  */
 export function BestaetigungHinweise({
@@ -182,7 +182,7 @@ export function WhatsappHinweis() {
 }
 
 /**
- * **The one wording of the four points**: the button describes itself by this block's `id` rather
+ * **The one wording of the points**: the button describes itself by this block's `id` rather
  * than by a summary sentence beside it, which is how a reader met the same promise twice.
  */
 export function KlickBestaetigung({

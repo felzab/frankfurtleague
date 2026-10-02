@@ -66,8 +66,8 @@ function mirroredOptions(html: string): { value: string; label: string; isSelect
 }
 
 describe("the bar without a read order", () => {
-  /* The whole safety property of the control: eight of the ten surfaces that draw this bar pass no
-     direction, and every one of them must draw exactly what it drew before. */
+  /* The whole safety property of the control: every surface drawing this bar but the capped lists
+     passes no direction, and every one of them must draw exactly what it drew before. */
   it("draws no read-order control at all", () => {
     for (const query of ["", "status=aktiv", "status=aktiv&gruppe=A"]) {
       const html = bar(query);

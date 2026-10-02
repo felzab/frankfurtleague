@@ -634,8 +634,9 @@ function codeSignInAddress(body: unknown): string | null {
   return typeof email === "string" ? email : null;
 }
 
-/* The library mounts forty endpoints and an upgrade adds more, so the surface is closed from two
-   sides: the documented switch below, and the default-deny hook that also covers what it cannot. */
+/* The library mounts far more endpoints than a browser here calls, and an upgrade adds more, so the
+   surface is closed from two sides: the documented switch below, and the default-deny hook that also
+   covers what it cannot. */
 
 // What a browser of this league calls: `fl_frontend/src/core/authClient.ts`'s two ceremonies, four
 // paths. The sign-in, the sign-out and every guard run in process instead.

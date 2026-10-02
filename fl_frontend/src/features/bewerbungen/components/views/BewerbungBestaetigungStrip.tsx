@@ -250,7 +250,7 @@ export function BewerbungBestaetigungStrip({
 
 /**
  * One seat: who stands in it and where the league writes to them, then what their link has reached
- * and the two things an administrator can do about it.
+ * and what an administrator can do about it.
  */
 function SitzZeile({
   bewerbungId,

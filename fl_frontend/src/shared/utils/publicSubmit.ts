@@ -27,7 +27,7 @@ export type PublicEnvelope = {
 };
 
 /**
- * What each of the three link confirmations tells a visitor whose answer may have landed: reopened, a
+ * What each link confirmation tells a visitor whose answer may have landed: reopened, a
  * spent link says so, and a live one takes the answer again.
  */
 export const ANTWORT_UNKLAR =

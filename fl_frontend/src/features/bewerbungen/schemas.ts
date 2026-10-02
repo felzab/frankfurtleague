@@ -800,9 +800,9 @@ export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchem
   ausstehend: z.array(FLKontaktRolleSchema),
   geburtsdatum: CustomDateStringSchema.nullable(),
   whatsapp: z.boolean(),
-  // The seven below are the route handler's alone:
+  // Every field below is the route handler's alone:
   // `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` composes the two outbound messages from
-  // them and answers the browser the four above, so no contact person is handed another one's address.
+  // them and answers the browser those above, so no contact person is handed another one's address.
   bewerbung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   rolle: FLKontaktRolleSchema,

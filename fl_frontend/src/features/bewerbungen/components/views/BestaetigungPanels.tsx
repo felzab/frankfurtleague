@@ -238,7 +238,7 @@ export function BestaetigungErgebnis({
 }
 
 /**
- * **The whole page a barred link opens on, on all three confirmation pages**: the sentence and
+ * **The whole page a barred link opens on, on every confirmation page**: the sentence and
  * nothing else (`docs/frontend/spec.md :: I516`). A Widerspruch or any other request goes by mail to
  * the address it names.
  */

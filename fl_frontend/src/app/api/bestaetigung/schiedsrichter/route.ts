@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      // Judged BEFORE the parse, by the check all three confirmation handlers share: a page opened
+      // Judged BEFORE the parse, by the check every confirmation handler shares: a page opened
       // before a deploy moved the label posts the words its reader saw, and only the mail's link
       // reopens the page on the running ones.
       if (!nenntLaufendeFassung(body, SCHIEDSRICHTER_EINWILLIGUNG.textVersion)) return { success: false as const, error: ANTWORT_NEU_OEFFNEN };

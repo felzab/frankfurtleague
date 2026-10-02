@@ -38,7 +38,7 @@ async function PasskeyInhalt() {
   await connection();
 
   // Which control stands here is the guard's answer and never this page's: the requirement it
-  // enforces is judged per request, beside the three lifetimes.
+  // enforces is judged per request, beside the session lifetimes.
   const schritt = await getPasskeyStep();
   if (schritt === null) redirect(SIGN_IN_LANDING);
 
