@@ -19,9 +19,7 @@ export function SignedInCard({ address }: { address: string }) {
   const { confirm, press, disarm } = useSignOut(signOutAction);
 
   return (
-    <SignInCard
-      title="Anmelden"
-      ornament={<span className="mb-3 text-4xl sm:text-5xl">⚽</span>}>
+    <SignInCard title="Anmelden">
       <div className="flex flex-col gap-y-4">
         <p className="text-center fluid-sm text-foreground">
           Du bist als <span className="font-bold break-all">{address}</span> angemeldet.

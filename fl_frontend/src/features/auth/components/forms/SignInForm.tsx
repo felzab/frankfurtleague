@@ -54,9 +54,7 @@ export function SignInForm({ next }: { next: string }) {
   const [email, setEmail] = useState("");
 
   return (
-    <SignInCard
-      title="Anmelden"
-      ornament={<span className="mb-3 text-4xl sm:text-5xl">⚽</span>}>
+    <SignInCard title="Anmelden">
       {/* The card's heading stays standing through a catch: the boundary is around the region the
           send can fail in, and a route-segment `error.tsx` would replace the page instead. */}
       <SignInActionBoundary>

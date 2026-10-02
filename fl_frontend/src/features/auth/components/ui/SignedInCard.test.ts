@@ -31,6 +31,13 @@ describe("the sign-in page for somebody already signed in", () => {
     assert.ok(screen.queryByRole("textbox") === null, "a sign-in field stands beside the signed-in card");
   });
 
+  /* The page's header carries the league's mark; the card under it carries no glyph of its own. */
+  it("draws no glyph above its title", () => {
+    render(underNext(h(SignedInCard, { address: ADDRESS }), { router: recordingRouter().router }));
+
+    assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u);
+  });
+
   /* A link is given no `data-hovered`, so a hover keyed on it never shows; a HeroUI button latches CSS
      `:hover` after a tap (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`). */
   it("hovers the link by CSS and the sign-out by the attribute its button sets", () => {

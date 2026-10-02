@@ -146,7 +146,6 @@ export function CodeStep({
       <div
         role="status"
         className="flex flex-col items-center gap-y-3 text-center">
-        <span className="text-4xl">📬</span>
         <p className="fluid-lg font-extrabold tracking-tight text-foreground">Prüfe Dein Postfach</p>
 
         {address !== "" && <p className="fluid-sm font-bold break-all text-foreground">{address}</p>}

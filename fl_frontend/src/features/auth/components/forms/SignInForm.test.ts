@@ -120,6 +120,19 @@ describe("the sign-in card's address step", () => {
   });
 });
 
+describe("the sign-in card's look", () => {
+  /* The page's header carries the league's mark; neither step of the card carries a glyph of its own. */
+  it("draws no glyph on the address step or the code step", async () => {
+    const user = userEvent.setup();
+    render(h(SignInForm, { next: LANDING }));
+    assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, "the address step carries a glyph");
+
+    await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+    await screen.findByLabelText("Code aus der E-Mail");
+    assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, "the code step carries a glyph");
+  });
+});
+
 describe("the sign-in card's two ways in", () => {
   /* The button's autofill arms against the address step's own field, so it stands where that field
      does and nowhere else. */
