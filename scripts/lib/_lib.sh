@@ -872,16 +872,18 @@ nothing here says whether the frontend can sign with it or the backend verify it
 # `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; each image judges whether it can use
 # them. The signing key and the tunnel token are checked apart.
 
-# shellcheck disable=SC2034
+# shellcheck disable=SC2034  # read by the scripts that source this file
 FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
-# shellcheck disable=SC2034
+# shellcheck disable=SC2034  # read by the scripts that source this file
 BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+
 # The local stack sends no mail and is sent no provider event, so its frontend is handed no key to
 # the provider, and each login is an inline config naming the stack's own database
 # (`docker-compose.local.yml`).
-# shellcheck disable=SC2034
+
+# shellcheck disable=SC2034  # read by the scripts that source this file
 LOCAL_FRONTEND_SECRETS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
-# shellcheck disable=SC2034
+# shellcheck disable=SC2034  # read by the scripts that source this file
 LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # The environment names those files replace. An image from before the files still reads them, so a
