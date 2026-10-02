@@ -5,7 +5,7 @@ import { MongoError, MongoServerError } from "mongodb";
 import { signInStore } from "./db";
 import { logger } from "./logging";
 
-import type { CreateIndexesOptions, IndexSpecification } from "mongodb";
+import type { CreateIndexesOptions, IndexSpecification, TopologyDescriptionChangedEvent } from "mongodb";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
@@ -48,7 +48,7 @@ const INDEX_BUILD_TIMEOUT_MS = 60_000;
 /** The run in flight, which the next waits out, for the reason one collection's builds run in order. */
 let running: Promise<void> = Promise.resolve();
 
-/** Whether a rebuild already waits on the client's next `open`, so one outage arms one. */
+/** Whether a rebuild already waits on the store's recovery, so one outage arms one. */
 let rebuildArmed = false;
 
 /**
@@ -73,7 +73,7 @@ async function buildOnce(): Promise<void> {
         } catch (failed) {
           logUnbuilt(options.name, failed);
           // No server code is a store that did not answer, which a restart would only meet again.
-          if (!(failed instanceof MongoServerError)) rebuildOnOpen();
+          if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
         }
       }
     }),
@@ -81,16 +81,22 @@ async function buildOnce(): Promise<void> {
 }
 
 /**
- * The client reconnects on its own once the store answers (`docs/frontend/spec.md :: I364`), and
- * `open` marks it: the build runs again then, rather than waiting for the next boot.
+ * The client reconnects on its own once the store answers (`docs/frontend/spec.md :: I364`), and the
+ * build runs again on the first topology holding a writable server, rather than waiting for the next boot.
  */
-function rebuildOnOpen(): void {
+function rebuildOnRecovery(): void {
   if (rebuildArmed) return;
   rebuildArmed = true;
-  signInStore().once("open", () => {
+  const store = signInStore();
+  // Never `open`, which the driver emits for a new topology alone: one recovering after its first open
+  // emits none, and the rebuild would wait for the next boot.
+  const recovered = ({ newDescription }: TopologyDescriptionChangedEvent): void => {
+    if (![...newDescription.servers.values()].some((server) => server.isWritable)) return;
+    store.off("topologyDescriptionChanged", recovered);
     rebuildArmed = false;
     void buildAuthIndexes();
-  });
+  };
+  store.on("topologyDescriptionChanged", recovered);
 }
 
 /**

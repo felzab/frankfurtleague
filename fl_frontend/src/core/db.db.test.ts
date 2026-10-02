@@ -386,3 +386,35 @@ process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
     }
   });
 });
+
+describe("the sign-in store's indexes recover with the store (`docs/frontend/spec.md :: I520`)", () => {
+  /* The client opened before the outage, so its topology is the one recovering, and the driver marks
+     that recovery with no `open`: only a new topology emits one. */
+  it("builds an index again once a store that stopped answering after the first open answers again", async () => {
+    const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes.ts");
+    const sessions = client.db(MONGO_DB_NAME).collection("session");
+    await buildAuthIndexes();
+    await sessions.dropIndex("session_userId_idx");
+    let opens = 0;
+    const counted = () => {
+      opens += 1;
+    };
+    client.on("open", counted);
+
+    try {
+      await relay.hang(() => buildAuthIndexes());
+      const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "session_userId_idx");
+      assert.equal(await indexed(), false, "the index was built while the store answered nothing");
+
+      // A monitor's check of a store marked unknown, the pause before it, and the build itself.
+      const deadline = Date.now() + OPERATION_BOUND + client.options.heartbeatFrequencyMS + LATENESS_MS;
+      while (!(await indexed()) && Date.now() < deadline) await pause(200);
+
+      assert.equal(await indexed(), true, "the index was not built again once the store answered");
+      assert.equal(opens, 0, "the client emitted `open`, so this drove a new topology rather than a recovered one");
+    } finally {
+      client.off("open", counted);
+      logged.length = 0;
+    }
+  });
+});

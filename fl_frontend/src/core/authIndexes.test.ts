@@ -13,7 +13,7 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 /** One `createIndex` the build issued, by collection and name, and the time budget it carried. */
 type Build = { collection: string; name: string; timeoutMS?: number };
 
-/** The store client's own events, of which the build listens for `open`. */
+/** The store client's own events, of which the build listens for `topologyDescriptionChanged`. */
 const clientEvents = new EventEmitter();
 
 const builds: Build[] = [];
@@ -28,7 +28,8 @@ let answer: (build: Build) => Promise<unknown> = () => Promise.resolve("built");
 
 const DB_DOUBLE = {
   signInStore: () => ({
-    once: (event: string, listener: () => void) => clientEvents.once(event, listener),
+    on: (event: string, listener: (...args: unknown[]) => void) => clientEvents.on(event, listener),
+    off: (event: string, listener: (...args: unknown[]) => void) => clientEvents.off(event, listener),
     db: () => ({
       collection: (collection: string) => ({
         createIndex: async (_key: unknown, options: { name: string; timeoutMS?: number }) => {
@@ -86,13 +87,17 @@ const DUPLICATE_ADDRESS = new MongoServerError({
 /** What an unreachable store answers every build: no server code at all. */
 const UNANSWERED = new MongoServerSelectionError("Server selection timed out after 3000 ms", { type: "Unknown" } as never);
 
+/** A topology change as the driver emits it, its one server of the type named. */
+const changedTo = (type: string) => ({ newDescription: { servers: new Map([["store:27017", { type, isWritable: type === "RSPrimary" }]]) } });
+
+// The driver emits `open` for a new topology alone, so this double emits none.
 /**
- * Emits the client's `open` and waits out whatever run it starts, a turn at a time: until one has begun
+ * Emits a topology change and waits out whatever run it starts, a turn at a time: until one has begun
  * and every build of it settled, or a bounded number of turns where none begins.
  */
-async function afterOpen(): Promise<void> {
+async function afterChange(type = "RSPrimary"): Promise<void> {
   const before = builds.length;
-  clientEvents.emit("open");
+  clientEvents.emit("topologyDescriptionChanged", changedTo(type));
   for (let turn = 0; turn < 200 && (builds.length === before || [...running.values()].some((open) => open > 0)); turn += 1) {
     await new Promise((resolve) => setImmediate(resolve));
   }
@@ -135,35 +140,37 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
 
     // The rebuild it arms is the next case's subject; run it out here, so no case inherits it.
     answer = () => Promise.resolve("built");
-    await afterOpen();
+    await afterChange();
   });
 
   /* The client reconnects once the store answers (`docs/frontend/spec.md :: I364`), and a restart is
      what the build waited for otherwise. */
-  it("builds every index again once a store that did not answer opens, and not before", async () => {
+  it("builds every index again once a store that did not answer is writable, and not before", async () => {
     answer = () => Promise.reject(UNANSWERED);
     await buildAuthIndexes();
     const first = builds.length;
 
     answer = () => Promise.resolve("built");
     for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(builds.length, first, "the build ran again before the store opened");
+    assert.equal(builds.length, first, "the build ran again before the store answered");
+    await afterChange("Unknown");
+    assert.equal(builds.length, first, "the build ran again on a topology holding no writable server");
 
-    await afterOpen();
+    await afterChange();
 
     const names = (from: Build[]) => from.map(({ name }) => name).sort();
     assert.deepEqual(names(builds.slice(first)), names(builds.slice(0, first)));
   });
 
-  // A refusal the server answered meets the same answer on every open, so it waits for the next release.
-  it("waits for no open where the server itself refused an index", async () => {
+  // A refusal the server answered meets the same answer on every recovery, so it waits for the next release.
+  it("waits for no recovery where the server itself refused an index", async () => {
     answer = (build) => (build.collection === "user" ? Promise.reject(DUPLICATE_ADDRESS) : Promise.resolve("built"));
     await buildAuthIndexes();
     const first = builds.length;
 
-    await afterOpen();
+    await afterChange();
 
-    assert.equal(builds.length, first, "a refusal the server answered was built again on an open");
+    assert.equal(builds.length, first, "a refusal the server answered was built again on a recovery");
   });
 
   /* The client's `timeoutMS` is a visitor's, and a build cut short by it is abandoned by the server. */
@@ -180,6 +187,16 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
   // MongoDB documents nothing about two builds racing on one collection.
   it("never runs two builds on one collection at once", async () => {
     await buildAuthIndexes();
+
+    assert.ok(builds.length > 1);
+    assert.equal(mostAtOnceInOneCollection, 1);
+  });
+
+  // The boot and a recovery can each start a run while the other is building: the second waits.
+  it("never runs two builds on one collection at once across two runs started together", async () => {
+    const first = buildAuthIndexes();
+    const second = buildAuthIndexes();
+    await Promise.all([first, second]);
 
     assert.ok(builds.length > 1);
     assert.equal(mostAtOnceInOneCollection, 1);
