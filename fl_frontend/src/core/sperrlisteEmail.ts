@@ -17,9 +17,8 @@ import {
 } from "./emailShell";
 
 import type { Aktion } from "./emailShell";
-import type { ArtMail } from "./mailArt";
 
-export type SperrlisteEmail = ArtMail<"sperre">;
+export type SperrlisteEmail = { subject: string; html: string; text: string };
 
 const UEBERSCHRIFT = "Deine E-Mail-Adresse ist gesperrt";
 
@@ -153,7 +152,6 @@ export function buildSperreEmail({
   const site = mailOrigin(origin);
 
   return {
-    art: "sperre",
     subject: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     html: renderHtml(grund, gesperrtBisSaisonId, site),
     text: renderText(grund, gesperrtBisSaisonId, site),

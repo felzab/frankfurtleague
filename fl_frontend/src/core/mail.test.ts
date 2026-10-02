@@ -37,12 +37,12 @@ const LOGGER_DOUBLE = {
 
 /** What the ban list's gate answers the next send, and every question it was asked. */
 let gate: "admitted" | "barred" | "failed" = "admitted";
-const gateAsked: { art: string; to: string }[] = [];
+const gateAsked: string[] = [];
 
 // The gate's own read is `fl_frontend/src/core/mailGate.test.ts`'s; here it is the verdict the mailer acts on.
 const GATE_DOUBLE = {
-  mayReceiveMail: async (art: string, to: string) => {
-    gateAsked.push({ art: art, to: to });
+  mayReceiveMail: async (to: string) => {
+    gateAsked.push(to);
     return gate;
   },
 };
@@ -60,8 +60,7 @@ type RecordedLine = { message: string; error?: unknown; meta?: Record<string, un
 
 const logs: RecordedLine[] = [];
 
-const { sendMail, MailBarredError, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
-const { ERREICHT_GESPERRTE } = await import("./mailArt.ts");
+const { sendMail, sendSperreNotice, MailBarredError, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
 const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 
@@ -111,7 +110,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   ]);
 }) as typeof fetch;
 
-const MESSAGE = { to: "trainer@example.org", art: "anmeldecode", subject: "Anmeldecode", html: "<p>Hallo</p>", text: "Hallo" } as const;
+const MESSAGE = { to: "trainer@example.org", subject: "Anmeldecode", html: "<p>Hallo</p>", text: "Hallo" };
 
 const jsonResponse = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), { status: status, headers: { "content-type": "application/json" } });
@@ -354,12 +353,13 @@ describe("the recipient the provider is handed", () => {
 describe("the ban list's gate at the one send", () => {
   beforeEach(resetTransport);
 
-  /* Asked with the kind and the address exactly as the caller handed them: a gate asked anything
-     else answers for some other message. */
-  it("asks the gate once, with the message's own kind and recipient", async () => {
-    await sendMail(MESSAGE);
+  /* Two recipients, neither the suite's own: a gate asked about a fixed address passes a case
+     sending to that address alone. */
+  it("asks the gate once per message, about that message's own recipient", async () => {
+    await sendMail({ ...MESSAGE, to: "erste@schule.de" });
+    await sendMail({ ...MESSAGE, to: "zweite@schule.de" });
 
-    assert.deepEqual(gateAsked, [{ art: MESSAGE.art, to: MESSAGE.to }]);
+    assert.deepEqual(gateAsked, ["erste@schule.de", "zweite@schule.de"]);
   });
 
   it("sends nothing to a barred address and records no write", async () => {
@@ -390,8 +390,9 @@ describe("the ban list's gate at the one send", () => {
     );
   });
 
-  /* Closed: a send past a failed read would defeat the ban, and the gate's own line says why. */
-  it("sends nothing where the gate could not read the list, and says the list was not read", async () => {
+  /* Closed: a send past a failed read would defeat the ban. The gate writes its own line
+     (`fl_frontend/src/core/mailGate.test.ts`), so the mailer writes none beside it. */
+  it("sends nothing where the gate could not read the list, and writes no line of its own", async () => {
     gate = "failed";
 
     const error = await sendMail(MESSAGE).then(
@@ -400,8 +401,8 @@ describe("the ban list's gate at the one send", () => {
     );
 
     assert.ok(error instanceof MailUnsentError, `expected an unsent refusal, saw ${inspect(error)}`);
-    assert.equal(error.reason, "ban-unread");
     assert.equal(sends.length, 0, "a message left past an unread ban list");
+    assert.deepEqual(logs, []);
   });
 
   it("files nothing where the gate could not read the list on a stack that is not production", async () => {
@@ -426,10 +427,52 @@ describe("the ban list's gate at the one send", () => {
     assertHidesRecipient(error, "the barred refusal");
   });
 
-  /* Every other kind is closed to a barred address, so widening this set reopens the ban for a whole
-     kind of message: that is a ruling, made here and in `docs/frontend/spec.md :: I541` together. */
-  it("lets the ban's own notice alone through to a barred address", () => {
-    assert.deepEqual([...ERREICHT_GESPERRTE], ["sperre"]);
+  /* Merged, a caller testing one class would read production's withheld send, a missing key, as a
+     barred address told, and erase an application whose notice never went (`docs/frontend/spec.md :: I542`). */
+  it("keeps a barred send and a withheld one two classes, neither a kind of the other", () => {
+    assert.equal(new MailBarredError() instanceof MailWithheldError, false);
+    assert.equal(new MailWithheldError() instanceof MailBarredError, false);
+  });
+});
+
+describe("the ban's own notice", () => {
+  beforeEach(resetTransport);
+
+  const FACTS = { grund: "Falsches Geburtsdatum", gesperrtBisSaisonId: "2930", origin: "https://liga.example.de" };
+
+  /* The one message a barred address is sent, and it is sent BECAUSE the address is barred: a notice
+     the gate stopped would leave the person told nothing (`docs/frontend/spec.md :: I541`). */
+  for (const verdict of ["barred", "failed"] as const) {
+    it(`reaches the address past a gate that would answer ${verdict}, without asking it`, async () => {
+      gate = verdict;
+
+      assert.deepEqual(await sendSperreNotice({ to: MESSAGE.to, ...FACTS }), { id: "01HZ" });
+
+      assert.deepEqual(gateAsked, [], "the notice asked the ban list");
+      assert.equal(sends.length, 1);
+    });
+  }
+
+  /* Composed by the sender itself from the ban's facts, so nothing a caller hands over travels past
+     the ban list under the notice's name. */
+  it("sends the notice the ban's facts compose, and nothing a caller wrote", async () => {
+    await sendSperreNotice({ to: MESSAGE.to, ...FACTS });
+    const body = JSON.parse(String(sends[0]!.init.body)) as { to: string; text: string };
+
+    assert.equal(body.to, MESSAGE.to);
+    assert.match(body.text, /Falsches Geburtsdatum/);
+    assert.match(body.text, /2930/);
+  });
+
+  /* The one delivery path both entries share: the notice is withheld and filed off production as
+     every other message is. */
+  it("is withheld and filed where the environment is not production", async () => {
+    appEnv = "local";
+
+    await assert.rejects(sendSperreNotice({ to: MESSAGE.to, ...FACTS }), (error: Error) => error instanceof MailWithheldError);
+
+    assert.equal(sends.length, 0);
+    assert.equal(sinkNames().length, 1);
   });
 });
 
@@ -1026,10 +1069,10 @@ describe("a send inside a request whose deadline runs out", () => {
     assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
     assert.equal(wrote, false, "a message the deadline refused unsent was recorded as a write");
     assert.ok(thrown instanceof MailUnsentError, "the send refused before it left was thrown as one that may have gone");
-    assert.equal(thrown.reason, "deadline");
+    // The deadline's own code, where an unread ban list writes the gate's `FE-MAIL-012`.
     assert.deepEqual(
-      logs.map((line) => [line.message, line.meta?.["is_timeout"]]),
-      [["mail.send_failed", true]],
+      logs.map((line) => [line.message, line.meta?.["error_code"], line.meta?.["is_timeout"]]),
+      [["mail.send_failed", "FE-NET-001", true]],
     );
     assertHidesRecipient(thrown, "the refused send");
   });

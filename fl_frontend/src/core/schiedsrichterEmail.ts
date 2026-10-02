@@ -17,7 +17,6 @@ import {
 } from "./emailShell";
 
 import type { Aktion } from "./emailShell";
-import type { ArtMail } from "./mailArt";
 
 /** A segment of its own rather than a query on a shared page, so the sitemap and `robots.ts` answer it by name. */
 export const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
@@ -53,7 +52,7 @@ const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
 const art21Satz = (adresse: string): string =>
   `Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
 
-export type SchiedsrichterEmail = ArtMail<"schiedsrichter_bestaetigung">;
+export type SchiedsrichterEmail = { subject: string; html: string; text: string };
 
 /** What one referee is asked to confirm. No season: a referee's entry is bound to none, so the deadline is the only date here. */
 export interface SchiedsrichterBestaetigungData {
@@ -153,7 +152,6 @@ export function buildSchiedsrichterBestaetigungEmail({
   const url = schiedsrichterBestaetigungsLink(site, token);
 
   return {
-    art: "schiedsrichter_bestaetigung",
     subject: `Bitte bestätigen: Dein Eintrag bei der ${BRAND_NAME}`,
     html: renderHtml(name, url, frist, site),
     text: renderText(name, url, frist, site),

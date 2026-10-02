@@ -363,7 +363,7 @@ describe("the budgets a request's calls nest inside", () => {
   // own bound: the deadline's cut would mark the request's outcome unknown.
   for (const [client, call] of [
     ["the backend client", () => apiClient("/x", { parse: (value: unknown) => value } as never)],
-    ["the mail client", () => sendMail({ to: "anna@example.org", art: "anmeldecode", subject: "Betreff", html: "<p>x</p>", text: "x" })],
+    ["the mail client", () => sendMail({ to: "anna@example.org", subject: "Betreff", html: "<p>x</p>", text: "x" })],
   ] as const) {
     it(`ends ${client}'s call by its own bound, inside the deadline`, async () => {
       const [aborted, cut] = await runWithRequestScope(scope(), async () => {

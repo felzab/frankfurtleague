@@ -66,40 +66,31 @@ const failedLine = () => logs.filter((line) => line.message === "mail.gate_faile
 
 describe("the ban list's gate", () => {
   it("admits an address no ban holds, and writes no line", async () => {
-    assert.equal(await mayReceiveMail("anmeldecode", "anna@schule.de"), "admitted");
+    assert.equal(await mayReceiveMail("anna@schule.de"), "admitted");
     assert.deepEqual(logs, []);
   });
 
   it("bars an address a ban holds", async () => {
-    assert.equal(await mayReceiveMail("bewerbung_zusage", BARRED), "barred");
+    assert.equal(await mayReceiveMail(BARRED), "barred");
   });
 
-  /* A subject can name a school, and the address is the very thing a ban keeps off every line. */
-  it("logs a barred message by its kind alone", async () => {
-    await mayReceiveMail("einladung", BARRED);
+  /* The address is the very thing a ban keeps off every line, so the line names nothing at all. */
+  it("logs a barred message naming nothing", async () => {
+    await mayReceiveMail(BARRED);
 
-    assert.deepEqual(logs, [{ level: "info", message: "mail.barred", meta: { art: "einladung" } }]);
+    assert.deepEqual(logs, [{ level: "info", message: "mail.barred", meta: undefined }]);
   });
 
   /* In the body and on no query: a URL carrying an address reaches the edge's access line. Read-only
      and system tier, as the published operation declares it (`docs/backend/spec.md :: I543`). */
   it("asks the published question once, the address in the body alone", async () => {
-    await mayReceiveMail("anmeldecode", "anna@schule.de");
+    await mayReceiveMail("anna@schule.de");
 
     assert.equal(asked.length, 1);
     assert.equal(asked[0]!.url, GATE_URL);
     assert.equal(asked[0]!.init.method, "POST");
     assert.deepEqual(JSON.parse(String(asked[0]!.init.body)), { email: "anna@schule.de" });
     assert.equal(new Headers(asked[0]!.init.headers).get("Authorization"), "Bearer fabricated-system-not-a-credential");
-  });
-
-  /* Unread rather than read and overruled: the notice telling somebody they are barred neither waits
-     on the list nor fails with it. */
-  it("lets the ban's own notice through to a barred address without asking the list", async () => {
-    answer = async () => assert.fail("the ban's own notice asked the list");
-
-    assert.equal(await mayReceiveMail("sperre", BARRED), "admitted");
-    assert.equal(asked.length, 0);
   });
 });
 
@@ -113,7 +104,7 @@ describe("a ban list the gate cannot read", () => {
     it(`fails closed on ${what}, under its own code and the error's name alone`, async () => {
       answer = fails;
 
-      assert.equal(await mayReceiveMail("bewerbung_absage", BARRED), "failed");
+      assert.equal(await mayReceiveMail(BARRED), "failed");
 
       const [line, ...rest] = failedLine();
       assert.deepEqual(rest, []);
@@ -131,7 +122,7 @@ describe("a ban list the gate cannot read", () => {
 
     const verdict = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
       t.mock.method(performance, "now", () => clock + REQUEST_DEADLINE_MS);
-      return mayReceiveMail("registrierung_erinnerung", BARRED);
+      return mayReceiveMail(BARRED);
     });
 
     assert.equal(verdict, "failed");

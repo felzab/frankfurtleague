@@ -53,7 +53,7 @@ export type ZielMailOutcome = {
 };
 
 /** One message as its builder composed it, without the envelope the fan-out fills in. */
-export type ZielMail = Pick<OutboundMail, "art" | "subject" | "html" | "text">;
+export type ZielMail = Pick<OutboundMail, "subject" | "html" | "text">;
 
 /**
  * What the provider echoes back on every event about this message, and the only thing that routes

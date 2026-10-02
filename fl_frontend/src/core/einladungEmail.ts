@@ -17,7 +17,6 @@ import {
 } from "./emailShell";
 
 import type { Aktion } from "./emailShell";
-import type { ArtMail } from "./mailArt";
 
 const UEBERSCHRIFT = "Registrierungslink";
 
@@ -42,7 +41,7 @@ export interface EinladungEmailData {
   readonly link: string;
 }
 
-export type EinladungEmail = ArtMail<"einladung">;
+export type EinladungEmail = { subject: string; html: string; text: string };
 
 /**
  * One control, as the sign-in message carries one (`fl_frontend/src/core/authEmail.ts :: aktionen`):
@@ -102,7 +101,6 @@ export function buildEinladungEmail(data: EinladungEmailData): EinladungEmail {
   const site = mailOrigin(data.origin);
 
   return {
-    art: "einladung",
     subject: `${UEBERSCHRIFT} für ${data.teamName}: ${BRAND_NAME}, Saison ${data.saisonId}`,
     html: renderHtml({ ...data, origin: site }),
     text: renderText({ ...data, origin: site }),

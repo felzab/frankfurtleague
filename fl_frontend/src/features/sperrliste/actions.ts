@@ -4,9 +4,8 @@ import { endSessionsOfAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { MailWithheldError, sendMail } from "@/core/mail";
+import { MailWithheldError, sendSperreNotice } from "@/core/mail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
-import { buildSperreEmail } from "@/core/sperrlisteEmail";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -55,18 +54,14 @@ async function abmelden(email: string): Promise<Abmeldung> {
 // A failure leaves the ban standing rather than undoing it: the write is acknowledged and no address
 // survives to re-send to, so the administrator is told instead.
 async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId: string): Promise<string | null> {
-  // Sent whole, its kind the builder's: that kind alone reaches an address the ban list holds, which
-  // this one now is (`docs/frontend/spec.md :: I541`).
-  const message = buildSperreEmail({
-    grund: grund,
-    gesperrtBisSaisonId: gesperrtBisSaisonId,
-    origin: frontend_config.AUTH_URL,
-  });
-
+  // The notice's own sender, the one past the ban list: the address it goes to is now on it
+  // (`docs/frontend/spec.md :: I541`).
   try {
     // Unwrapped, a deadline cut here answers the whole press as of unknown outcome, sending the administrator to
     // check a ban written before this send (`docs/frontend/spec.md :: I372`).
-    await runAnsweringOwnCut(() => sendMail({ to: email, ...message }));
+    await runAnsweringOwnCut(() =>
+      sendSperreNotice({ to: email, grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: frontend_config.AUTH_URL }),
+    );
 
     return null;
   } catch (failed) {

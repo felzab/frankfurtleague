@@ -31,7 +31,6 @@ import {
 import { joinUnd } from "./joinUnd";
 
 import type { Aktion } from "./emailShell";
-import type { ArtMail, MailArt } from "./mailArt";
 
 /**
  * Future tense because it has to be: a club is entered only while its season is `future`
@@ -130,7 +129,7 @@ const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adress
 /** The singular sentence standing over two addresses tells its reader that one of them is theirs. */
 const FALLBACK_SATZ_MEHRERE = "Falls die Buttons nicht funktionieren, kopiert diese Adressen in Euren Browser:";
 
-export type BewerbungEmail = ArtMail<Extract<MailArt, `bewerbung_${string}`>>;
+export type BewerbungEmail = { subject: string; html: string; text: string };
 
 /**
  * What an accepted application is told. `gruppe`, `trikotFarbeLabel` and `rollenText` arrive rendered
@@ -368,7 +367,7 @@ export function buildBewerbungZusageEmail({
     `${WEBSITE_SATZ.vor}${site}${WEBSITE_SATZ.nach}`,
   ]);
 
-  return { art: "bewerbung_zusage", subject: `Zusage: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Zusage: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**
@@ -415,7 +414,7 @@ export function buildBewerbungAbsageEmail({ teamName, saisonId, origin, rollenTe
     "Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter.",
   ]);
 
-  return { art: "bewerbung_absage", subject: `Absage: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Absage: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /** One seat, as a message names it to somebody who is not sitting in it. */
@@ -606,7 +605,7 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
     art21Satz(mehrere, KONTAKT_EMAIL),
   ]);
 
-  return { art: "bewerbung_bestaetigung", subject: `Bitte bestätigen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Bitte bestätigen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
@@ -673,7 +672,7 @@ export function buildBewerbungErinnerungEmail({ saisonId, origin, schule, seats,
     ...fallbackZeilen(seatFallbacks(seats)),
   ]);
 
-  return { art: "bewerbung_erinnerung", subject: `Erinnerung: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Erinnerung: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**
@@ -773,7 +772,7 @@ export function buildBewerbungEingangOffenEmail({
     "Sag den anderen am besten selbst Bescheid, dann geht es schneller.",
   ]);
 
-  return { art: "bewerbung_eingang_offen", subject: `Bewerbung eingegangen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Bewerbung eingegangen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /** What the submitter is told the moment the last open seat confirms. */
@@ -822,7 +821,7 @@ export function buildBewerbungVollstaendigEmail({ saisonId, origin, rollenText }
     `${WEBSITE_SATZ.vor}${site}${WEBSITE_SATZ.nach}`,
   ]);
 
-  return { art: "bewerbung_vollstaendig", subject: `Bewerbung vollständig: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Bewerbung vollständig: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**
@@ -876,7 +875,7 @@ export function buildBewerbungGeloeschtEmail({ saisonId, origin, rollenText, aus
     "Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
   ]);
 
-  return { art: "bewerbung_geloescht", subject: `Bewerbung wird gelöscht: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Bewerbung wird gelöscht: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**
@@ -937,5 +936,5 @@ export function buildBewerbungWiderspruchEmail({
     "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.",
   ]);
 
-  return { art: "bewerbung_widerspruch", subject: `Widerspruch zum Eintrag: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
+  return { subject: `Widerspruch zum Eintrag: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }

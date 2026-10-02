@@ -4,18 +4,11 @@ import { APINetworkError, MailSendError } from "./errors.ts";
 import { registerDoubles } from "./exportingModule.ts";
 import { recordWriteSent } from "./requestScope.ts";
 
-import type { MailArt } from "./mailArt.ts";
-
 /** One message handed to the mailer, as `fl_frontend/src/core/mail.ts :: OutboundMail` carries it. */
-export type SentMail = {
-  to: string;
-  art: MailArt;
-  subject: string;
-  html: string;
-  text: string;
-  tags?: Record<string, string>;
-  idempotencyKey?: string;
-};
+export type SentMail = { to: string; subject: string; html: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
+
+/** What `fl_frontend/src/core/mail.ts :: sendSperreNotice` is handed: the address and the ban's own facts. */
+type SperreFacts = { to: string; grund: string; gesperrtBisSaisonId: string; origin: string };
 
 /**
  * How the mailer ends one message. `barred`, `withheld`, `recipient` and `unsent` are raised before
@@ -63,35 +56,29 @@ class MailRecipientError extends Error {
 }
 
 class MailUnsentError extends Error {
-  readonly reason: "deadline" | "ban-unread";
-
-  constructor(reason: "deadline" | "ban-unread") {
-    super(
-      reason === "deadline"
-        ? "The request's deadline had passed before the message was sent."
-        : "The ban list could not be read, so the message was not sent.",
-    );
+  constructor() {
+    super("Nothing reached the provider, so the message was not sent.");
     this.name = "MailUnsentError";
-    this.reason = reason;
   }
 }
 
 /**
  * Stands in for `fl_frontend/src/core/mail.ts` alone: the real fan-outs send through it, so the write
- * record a suite reads is the one the mailer and the fan-out leave together.
+ * record a suite reads is the one the mailer and the fan-out leave together. `notices` holds the
+ * messages handed to the ban notice's own sender, which `sent` holds too.
  */
-export function doubleSendMail(): { sent: SentMail[]; answerWith: (next: MailAnswer) => void } {
+export function doubleSendMail(): { sent: SentMail[]; notices: SentMail[]; answerWith: (next: MailAnswer) => void } {
   const sent: SentMail[] = [];
+  const notices: SentMail[] = [];
   const accepted: MailAnswer = () => "accepted";
   let answering = accepted;
 
-  const sendMail = async (mail: SentMail): Promise<{ id: string | null }> => {
-    sent.push(mail);
+  const settle = async (mail: SentMail): Promise<{ id: string | null }> => {
     const outcome = await answering(mail);
     if (outcome === "barred") throw new MailBarredError();
     if (outcome === "withheld") throw new MailWithheldError();
     if (outcome === "recipient") throw new MailRecipientError();
-    if (outcome === "unsent") throw new MailUnsentError("deadline");
+    if (outcome === "unsent") throw new MailUnsentError();
     recordWriteSent();
     const refusal = outcome === "refused" ? { refused: 422 } : outcome;
     if (typeof refusal === "object" && "refused" in refusal) {
@@ -115,15 +102,31 @@ export function doubleSendMail(): { sent: SentMail[]; answerWith: (next: MailAns
     }
     return { id: typeof outcome === "object" && "accepted" in outcome ? outcome.accepted : `msg-${String(sent.length)}` };
   };
-  const doubled = { MailBarredError, MailWithheldError, MailRecipientError, MailUnsentError, sendMail };
+
+  const sendMail = async (mail: SentMail): Promise<{ id: string | null }> => {
+    sent.push(mail);
+    return settle(mail);
+  };
+
+  // Composed by the real builder, as the real sender composes it: a case reads the notice's words.
+  const sendSperreNotice = async ({ to, ...facts }: SperreFacts): Promise<{ id: string | null }> => {
+    const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
+    const notice = { to: to, ...buildSperreEmail(facts) };
+    sent.push(notice);
+    notices.push(notice);
+    return settle(notice);
+  };
+
+  const doubled = { MailBarredError, MailWithheldError, MailRecipientError, MailUnsentError, sendMail, sendSperreNotice };
 
   registerDoubles({ modules: { "core/mail.ts": doubled } });
 
   // Back to accepted before every case: a case that named a refusal would hand it to the next case's message.
   beforeEach(() => {
     sent.length = 0;
+    notices.length = 0;
     answering = accepted;
   });
 
-  return { sent, answerWith: (next) => void (answering = next) };
+  return { sent, notices, answerWith: (next) => void (answering = next) };
 }

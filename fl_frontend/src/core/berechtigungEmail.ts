@@ -14,9 +14,7 @@ import {
   textFooter,
 } from "./emailShell";
 
-import type { ArtMail } from "./mailArt";
-
-export type BerechtigungEmail = ArtMail<"berechtigung">;
+export type BerechtigungEmail = { subject: string; html: string; text: string };
 
 /** The zone a reader checks the stamp against, never the image's UTC. */
 const ZEITZONE = "Europe/Berlin";
@@ -117,5 +115,5 @@ export function buildBerechtigungEmail(aenderung: Zugangsaenderung, urheber: Urh
   ];
   const text = [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");
 
-  return { art: "berechtigung", subject: BETREFF, html: html, text: text };
+  return { subject: BETREFF, html: html, text: text };
 }

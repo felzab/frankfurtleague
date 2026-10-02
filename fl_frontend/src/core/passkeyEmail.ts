@@ -15,9 +15,8 @@ import {
 } from "./emailShell";
 
 import type { Aktion } from "./emailShell";
-import type { ArtMail } from "./mailArt";
 
-export type PasskeyEmail = ArtMail<"passkey_hinzugefuegt" | "passkey_geloescht">;
+export type PasskeyEmail = { subject: string; html: string; text: string };
 
 /**
  * Named here rather than taken from the server's clock: the image runs UTC, and a notice a reader
@@ -40,21 +39,18 @@ function zeitText(zeitpunkt: Date): string {
 
 /** The heading, the sentence and the subject of one event; nothing here names a row or a device. */
 interface Ereignis {
-  readonly art: PasskeyEmail["art"];
   readonly ueberschrift: string;
   readonly betreff: string;
   readonly satz: (zeit: string) => string;
 }
 
 const HINZUGEFUEGT: Ereignis = {
-  art: "passkey_hinzugefuegt",
   ueberschrift: "Neuer Passkey",
   betreff: `Neuer Passkey für Dein Konto bei der ${BRAND_NAME}`,
   satz: (zeit) => `Deinem Konto wurde am ${zeit} ein Passkey hinzugefügt.`,
 };
 
 const GELOESCHT: Ereignis = {
-  art: "passkey_geloescht",
   ueberschrift: "Passkey gelöscht",
   betreff: `Passkey für Dein Konto bei der ${BRAND_NAME} gelöscht`,
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
@@ -90,12 +86,7 @@ function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): Passke
   const site = mailOrigin(origin);
   const zeit = zeitText(zeitpunkt);
 
-  return {
-    art: ereignis.art,
-    subject: ereignis.betreff,
-    html: renderHtml(ereignis, zeit, site, konto),
-    text: renderText(ereignis, zeit, site, konto),
-  };
+  return { subject: ereignis.betreff, html: renderHtml(ereignis, zeit, site, konto), text: renderText(ereignis, zeit, site, konto) };
 }
 
 /**

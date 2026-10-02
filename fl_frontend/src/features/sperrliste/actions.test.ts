@@ -140,14 +140,13 @@ describe("the message the barred person is sent", () => {
     assert.match(String(mail.sent[0]?.text), new RegExp(GRUND));
   });
 
-  /* Sent under the one kind the mailer lets through to a barred address, which is the address it has
-     just barred: under any other the notice would be kept from its own reader (`docs/frontend/spec.md :: I541`). */
-  it("hands the mailer the notice under the kind the ban list lets through", async () => {
-    const { ERREICHT_GESPERRTE } = await import("@/core/mailArt.ts");
+  /* Through the notice's own sender, the one past the ban list, which holds the address it has just
+     barred: through `sendMail` the notice would be kept from its own reader (`docs/frontend/spec.md :: I541`). */
+  it("hands the notice to its own sender, the one the ban list lets through", async () => {
     await anAddressIsBanned();
 
-    const kind = mail.sent[0]?.art;
-    assert.ok(kind !== undefined && ERREICHT_GESPERRTE.has(kind), `the notice went out as ${String(kind)}`);
+    assert.equal(mail.notices.length, 1);
+    assert.equal(mail.notices[0], mail.sent[0]);
   });
 
   /* The ban is already written and no address survives to re-send to, so a failure is reported

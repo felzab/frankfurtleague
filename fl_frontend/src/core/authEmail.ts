@@ -14,8 +14,6 @@ import {
   textFooter,
 } from "./emailShell";
 
-import type { ArtMail } from "./mailArt";
-
 /**
  * The one figure: `fl_frontend/src/core/auth.ts` expires the code on it and this message states it.
  * It lives HERE because the import the other way round would read it inside its own dead zone.
@@ -46,7 +44,7 @@ const IGNORIER_SATZ = "Du hast keinen Code angefordert? Dann ignoriere diese E-M
 /** Wide-set and large, so six digits read off a phone beside the laptop they are typed into. */
 const CODE_GRADE = "font-size:32px;line-height:1.2;letter-spacing:8px;font-weight:800;font-family:ui-monospace,Menlo,Consolas,monospace;";
 
-export type CodeEmail = ArtMail<"anmeldecode">;
+export type CodeEmail = { subject: string; html: string; text: string };
 
 function renderHtml(code: string, origin: string): string {
   return renderKarte({
@@ -81,7 +79,6 @@ export function buildCodeEmail(code: string, origin: string): CodeEmail {
   const site = mailOrigin(origin);
 
   return {
-    art: "anmeldecode",
     subject: `Dein Anmeldecode für die ${BRAND_NAME}`,
     html: renderHtml(code, site),
     text: renderText(code, site),

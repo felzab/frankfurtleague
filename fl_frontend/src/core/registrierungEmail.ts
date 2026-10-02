@@ -18,7 +18,6 @@ import {
 } from "./emailShell";
 
 import type { Aktion } from "./emailShell";
-import type { ArtMail } from "./mailArt";
 
 const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 
@@ -38,7 +37,7 @@ export function spielerBestaetigungsLink(origin: string, token: string): string 
 }
 
 /** One message as this slice builds it, in the two parts every message here carries. */
-export type RegistrierungEmail = ArtMail<"registrierung_bestaetigung" | "registrierung_erinnerung" | "registrierung_saisonende">;
+export type RegistrierungEmail = { subject: string; html: string; text: string };
 
 /** What the two link messages are addressed with. The surname never travels: a forwarded link learns no full name. */
 export interface RegistrierungLinkEmailData {
@@ -116,7 +115,6 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
   const [anrede, worum, frist] = bestaetigungSaetze(data);
 
   return {
-    art: "registrierung_bestaetigung",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
     subject: `Registrierung für ${data.teamName} bestätigen: ${BRAND_NAME}, Saison ${data.saisonId}`,
@@ -178,7 +176,6 @@ export function buildRegistrierungErinnerungEmail(data: RegistrierungLinkEmailDa
   const [anrede, frist, zweiLinks] = erinnerungSaetze(data);
 
   return {
-    art: "registrierung_erinnerung",
     subject: `Erinnerung: Registrierung für ${data.teamName} bestätigen`,
     html: renderKarte({
       titel: `${BRAND_NAME}: Erinnerung an Deine Registrierung`,
@@ -233,7 +230,6 @@ export function buildRegistrierungSaisonendeEmail(data: RegistrierungNotizEmailD
   const [anrede, geloescht, naechste] = saisonendeSaetze(data);
 
   return {
-    art: "registrierung_saisonende",
     subject: `Deine Registrierung für ${data.teamName} wurde gelöscht`,
     html: renderKarte({
       titel: `${BRAND_NAME}: Registrierung gelöscht`,
