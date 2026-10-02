@@ -488,26 +488,32 @@ class Estate:
 
         An uncalled one excuses no fixture; a reached one asks from where its test or fixture stands.
         """
-        pending: list[tuple[Module, CalledNode, Scope, bool, int | None]] = [
+        roots: list[tuple[Module, CalledNode, Scope, bool, int | None]] = [
             (module, test.node, Scope(module.path, False, test.classes), True, None) for module in self.modules for test in module.tests
         ]
-        pending += [
+        roots += [
             (module, definition.node, scope, False, id(definition))
             for module in self.modules
             for definition in module.definitions
             for scope, _ in self.scopes[id(definition)]
         ]
         reached: set[tuple[int, Scope, bool]] = set()
-        while pending:
-            module, node, where, point, origin = pending.pop()
+
+        # Recursive rather than a loop over a pending list: with the `reached` check gone, a helper
+        # calling itself overflows the stack and fails the run, where a loop would hang it.
+        def ask(module: Module, node: CalledNode, where: Scope, point: bool, origin: int | None) -> None:
             if (id(node), where, point) in reached:
-                continue
+                return
             reached.add((id(node), where, point))
             try:
                 self.requests.extend(Request(name, where, point, origin) for name in _requested(node, GETFIXTUREVALUE))
             except Unfollowed as error:
                 self.unfollowed.append((module.path, str(error)))
-            pending.extend((callee_module, callee, where, point, origin) for callee_module, callee in self._callees(module, node))
+            for callee_module, callee in self._callees(module, node):
+                ask(callee_module, callee, where, point, origin)
+
+        for root in roots:
+            ask(*root)
 
     def consumed(self, definition: Definition, configured: frozenset[str] = frozenset()) -> bool:
         """Whether any request pytest would answer with this fixture names it, a fixture's own name inside it excepted.

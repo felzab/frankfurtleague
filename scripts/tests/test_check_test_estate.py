@@ -116,6 +116,27 @@ def test_every_consumer_pytest_hands_a_fixture_to_excuses_it():
 
 
 @pytest.mark.parametrize(
+    "recursive",
+    [
+        pytest.param(
+            'def asked(request, depth):\n    return request.getfixturevalue("league") if depth == 0 else asked(request, depth - 1)\n\n\n'
+            "def test_reads(request):\n    assert asked(request, 2)\n",
+            id="calling-itself",
+        ),
+        pytest.param(
+            'def even(request, depth):\n    return request.getfixturevalue("league") if depth == 0 else odd(request, depth - 1)\n\n\n'
+            "def odd(request, depth):\n    return even(request, depth - 1)\n\n\n"
+            "def test_reads(request):\n    assert even(request, 2)\n",
+            id="calling-each-other",
+        ),
+    ],
+)
+def test_a_helper_reached_again_through_a_call_cycle_still_excuses_its_fixture(recursive: str):
+    """The cycle is the case that ends the walk only through its record of what it reached."""
+    assert fixtures(ORPHAN + recursive) == []
+
+
+@pytest.mark.parametrize(
     "unreached",
     [
         pytest.param('def helper(request):\n    return request.getfixturevalue("league")\n', id="uncalled-helper"),
