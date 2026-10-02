@@ -12,6 +12,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -20,6 +21,7 @@ import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import { describePlatz, describeUebernommeneSpiele } from "./replacementOffer";
 
@@ -82,6 +84,8 @@ export function FormTeamErsatzSection({
     // Ahead of `press`, so a half-made pair neither arms nor writes.
     if (outgoing === null || incoming === null) return;
 
+    // The page re-keys on the season's new club, drawing this control anew.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id }).catch(
@@ -93,6 +97,7 @@ export function FormTeamErsatzSection({
         return;
       }
 
+      landing.landed();
       appToast.success("Team ersetzt", { description: res.message });
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.
@@ -108,7 +113,9 @@ export function FormTeamErsatzSection({
   const restingLabel = "Team ersetzen";
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("teamersatz")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
@@ -244,20 +251,22 @@ export function FormTeamErsatzSection({
             <ConfirmActionRow confirm={twoPress}>
               {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                   §1.14). */}
-              <ConfirmPressButton
-                confirm={twoPress}
-                reason={isMissingAPick ? missingPickHint : null}
-                resting={restingLabel}
-                armed="Ja, Team ersetzen"
-                running="Wechselt aus..."
-                icon={
-                  <ArrowRight
-                    className="size-4.5"
-                    aria-hidden="true"
-                  />
-                }
-                onPress={handleReplace}
-              />
+              <FocusSlot name="ersatz">
+                <ConfirmPressButton
+                  confirm={twoPress}
+                  reason={isMissingAPick ? missingPickHint : null}
+                  resting={restingLabel}
+                  armed="Ja, Team ersetzen"
+                  running="Wechselt aus..."
+                  icon={
+                    <ArrowRight
+                      className="size-4.5"
+                      aria-hidden="true"
+                    />
+                  }
+                  onPress={handleReplace}
+                />
+              </FocusSlot>
             </ConfirmActionRow>
           </>
         )}

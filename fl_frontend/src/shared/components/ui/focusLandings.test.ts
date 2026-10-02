@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Fragment, createElement as h } from "react";
+import { Fragment, createElement as h, useState } from "react";
 
 import { screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -47,6 +47,9 @@ const { FormAustragenSection } = await import("@/features/spieler/components/for
 const { AdminKontakteEditView } = await import("@/features/kontakte/components/views/AdminKontakteEditView.tsx");
 const { deriveKontakteDraftStatus } = await import("@/features/kontakte/kontakteDraftStatus.ts");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+const { FormGruppenSwapSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx");
+const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
+const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -153,7 +156,7 @@ const spielerList = (rows: ReturnType<typeof spieler>[]) =>
   h(AdminSpielerView, { spieler: rows, teams: SAISON_TEAMS, selectedSaisonId: "2026" });
 
 /** The player's editor in the season its squad row stands in, retired as the case says. */
-const spielerEditor = (inactiveSince: string | null) =>
+const spielerEditor = (inactiveSince: string | null, inKader = true) =>
   h(AdminSpielerEditView, {
     spieler: { id: SP_A, vorname: "Lena", nachname: "Meier", inactive_since: inactiveSince, geburtsdatum: null },
     einwilligung: null,
@@ -162,7 +165,7 @@ const spielerEditor = (inactiveSince: string | null) =>
       saisonStatus: "active" as const,
       erlaubteStufen: ["Q1" as const],
       nachnominierungLaeuft: null,
-      membership: { ...SQUAD, inactive_since: null },
+      membership: inKader ? { ...SQUAD, inactive_since: null } : null,
     },
     teams: SAISON_TEAMS,
     membershipCount: 1,
@@ -179,26 +182,110 @@ const TEAM_RECORD = {
   schulform: null,
 };
 
-/** The club's editor in a planned season it is entered in. */
-const teamEditor = (inactiveSince: string | null) =>
+/** A club in a season that has played nothing, as a swap reads it. */
+const swapTeam = (id: string, name: string, gruppe: "A" | "B") => ({
+  id,
+  name,
+  gruppe,
+  gespielteGruppenSpiele: 0,
+  gruppenSpieleProSpieltag: {},
+  koSpieleProSpieltag: {},
+});
+
+/** The club's editor in a planned season, entered in the group the case names or in none, its group locked to a swap where it says. */
+const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | null, locked = false } = {}) =>
   h(AdminTeamEditView, {
     team: { ...TEAM_RECORD, inactive_since: inactiveSince },
     saison: {
       saisonId: "2026",
       saisonStatus: "future" as const,
-      membership: { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+      membership: gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
     },
     today: "2026-09-14",
-    gruppeLocked: false,
+    gruppeLocked: locked,
     gruppeOffer: [
       { gruppe: "A" as const, occupied: 1, capacity: 4 },
       { gruppe: "B" as const, occupied: 0, capacity: 4 },
     ],
-    swap: { teams: [], playedKnockoutSpiele: 0 },
+    swap: locked
+      ? {
+          teams: [swapTeam(TEAM_A, "SG Alpha", gruppe ?? "A"), swapTeam(TEAM_B, "SG Beta", gruppe === "B" ? "A" : "B")],
+          playedKnockoutSpiele: 0,
+        }
+      : { teams: [], playedKnockoutSpiele: 0 },
     einladung: null,
   });
 
 const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
+
+/** A pick in one of react-aria's pickers: its trigger, then the option. */
+const pickOption = async (user: UserEvent, box: RegExp, option: RegExp) => {
+  await user.click(screen.getByRole("button", { name: box }));
+  await user.click(screen.getByRole("option", { name: option }));
+};
+
+const gruppenSwap = (alpha: "A" | "B") =>
+  h(FormGruppenSwapSection, {
+    saisonId: "2026",
+    swap: { teams: [swapTeam(TEAM_A, "SG Alpha", alpha), swapTeam(TEAM_B, "TSV Beta", alpha === "A" ? "B" : "A")], playedKnockoutSpiele: 0 },
+    isFinishedSaison: false,
+  });
+
+const teamErsatz = (ausscheidend: { id: string; name: string }) =>
+  h(FormTeamErsatzSection, {
+    saisonId: "2026",
+    ersatz: {
+      rows: [
+        { teamId: ausscheidend.id, name: ausscheidend.name, gruppe: "A", spiele: 4, gespielteSpiele: 0, hasAustritt: false, isVerwaist: false },
+      ],
+      candidates: [{ id: "68c1f0a2b3c4d5e6f7a8b971", name: "TSV Gamma", isStillgelegt: false, isInSaison: false }],
+    },
+    isFinishedSaison: false,
+  });
+
+const SCHEDULE = [
+  { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 },
+  { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
+  { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+];
+const SPIELPLAN_UNDRAWN = {
+  saisonId: "2026",
+  saisonStatus: "future",
+  rules: {
+    win_points: 3,
+    draw_points: 1,
+    qualifiers_per_group: 2,
+    number_of_groups: 2,
+    teams_per_group: 4,
+    max_kadergroesse: 18,
+    tiebreak_order: "tordifferenz",
+    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+    erlaubte_stufen: ["E1", "Q1"],
+  },
+  startDate: "2026-08-01",
+  endDate: "2027-06-30",
+  spielplan: null,
+  spieltageCount: 0,
+  schedule: SCHEDULE,
+  gruppenOccupancy: { A: 4, B: 4 },
+  bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+  hasDrawnSpiele: false,
+  onBeforeWrite: () => true,
+};
+const SPIELPLAN_DRAWN = {
+  ...SPIELPLAN_UNDRAWN,
+  spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
+  spieltageCount: 5,
+  bestand: { spiele: 15, erfasst: 0, angesetzt: 0 },
+  hasDrawnSpiele: true,
+};
+
+/** The plan's panel under state of its own for the pick and the boxes, which the season's view holds on the page. */
+function HeldSpielplan(props: object): ReactNode {
+  const [redraw, setRedraw] = useState({ picked: null, shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2 } });
+
+  return h(FormSpielplanSection as (props: object) => ReactNode, { ...props, redraw, onRedrawChange: setRedraw } as object);
+}
 
 /** The slices' own shapes, typed off their components: this layer imports no slice's types. */
 type Einladung = NonNullable<Parameters<typeof FormEinladungSection>[0]["einladung"]>;
@@ -725,6 +812,70 @@ const LANDINGS: Record<string, Landing> = {
     after: () => kontakteEditor({ ...MIT_GRACE, ansprechperson: null }),
     remount: true,
     lands: () => heading("Ansprechperson"),
+  },
+  /* Each of these is drawn anew closed, waiting on the picks it was pressed with: its overlay is the stop. */
+  "a season's group swap, on its control drawn anew": {
+    before: () => gruppenSwap("A"),
+    press: async (user) => {
+      await pickOption(user, /^Team/, /^SG Alpha/);
+      await pickOption(user, /^Tauscht Gruppen mit/, /^TSV Beta/);
+      await pressTwice(user, { resting: "Gruppen tauschen", armed: "Ja, Gruppen tauschen" });
+    },
+    after: () => gruppenSwap("B"),
+    remount: true,
+    lands: () => openStop("Gruppen tauschen"),
+  },
+  "a club replaced in the season, on its control drawn anew": {
+    before: () => teamErsatz({ id: TEAM_A, name: "SG Alpha" }),
+    press: async (user) => {
+      await pickOption(user, /^Ausscheidendes Team/, /^SG Alpha/);
+      await pickOption(user, /^Nachrückendes Team/, /^TSV Gamma/);
+      await pressTwice(user, { resting: "Team ersetzen", armed: "Ja, Team ersetzen" });
+    },
+    after: () => teamErsatz({ id: "68c1f0a2b3c4d5e6f7a8b971", name: "TSV Gamma" }),
+    remount: true,
+    lands: () => openStop("Team ersetzen"),
+  },
+  "a season's first draw, on the plan's control drawn anew": {
+    before: () => h(HeldSpielplan, SPIELPLAN_UNDRAWN),
+    press: (user) => pressTwice(user, { resting: "Spielplan anlegen", armed: /^Ja, / }),
+    after: () => h(HeldSpielplan, SPIELPLAN_DRAWN),
+    remount: true,
+    lands: () => openStop("Spielplan neu anlegen"),
+  },
+  "a club's group swap from its editor, on its control drawn anew": {
+    before: () => teamEditor(null, { locked: true }),
+    press: async (user) => {
+      await pickOption(user, /Tauschen mit/, /^SG Beta/);
+      await pressTwice(user, { resting: "Gruppen tauschen", armed: "Ja, Gruppen tauschen" });
+    },
+    after: () => teamEditor(null, { gruppe: "B", locked: true }),
+    remount: true,
+    lands: () => openStop("Gruppen tauschen"),
+  },
+  "a club's entry into the season, on the panel's heading": {
+    before: () => teamEditor(null, { gruppe: null }),
+    press: async (user) => {
+      const gruppe = document.querySelector('select[name="gruppe"]');
+      assert.ok(gruppe, "the entry offers no group");
+      await user.selectOptions(gruppe, "A");
+      await user.click(screen.getByRole("button", { name: "In Saison 2026 aufnehmen" }));
+    },
+    after: () => teamEditor(null),
+    remount: true,
+    lands: () => heading("Saison 2026"),
+  },
+  "a player's entry into the squad, on the panel's heading": {
+    before: () => spielerEditor(null, false),
+    press: async (user) => {
+      const team = document.querySelector('select[name="team_id"]');
+      assert.ok(team, "the entry offers no club");
+      await user.selectOptions(team, TEAM_A);
+      await user.click(screen.getByRole("button", { name: "In Kader 2026 aufnehmen" }));
+    },
+    after: () => spielerEditor(null),
+    remount: true,
+    lands: () => heading("Kader 2026"),
   },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),

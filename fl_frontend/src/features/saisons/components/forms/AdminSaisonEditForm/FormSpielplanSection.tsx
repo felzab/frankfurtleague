@@ -35,6 +35,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import {
   FIELD_LABEL_CLASSES,
   FIELD_TRIO_CLASSES,
@@ -48,6 +49,7 @@ import { RequiredSchemas } from "@/shared/components/ui/RequiredMarks";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { spielplanHoldsADraw, spielplanPress, spielplanReplacesDraw } from "./blockedReasons";
@@ -171,6 +173,8 @@ export function FormSpielplanSection({
 
     // What makes the guard's second run load-bearing here: the draw READS the rules it is guarded
     // against, so a draft typed after arming would go with the refresh while the draw used the stored ones.
+    // The page re-keys on the drawn or withdrawn plan, drawing this control anew.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here either write takes the page down with it.
       if (isDrawing) {
@@ -185,6 +189,7 @@ export function FormSpielplanSection({
           return;
         }
 
+        landing.landed();
         appToast.success(replacesDraw ? "Spielplan neu angelegt" : "Spielplan angelegt", { description: res.message });
       } else {
         const res = await undrawSpielplanAction({ id: saisonId }).catch(rejectedWrite(router));
@@ -199,6 +204,7 @@ export function FormSpielplanSection({
         const removedNothing =
           res.undraw !== undefined && res.undraw.spieltage === 0 && res.undraw.spiele === 0 && !res.undraw.watermark_cleared;
 
+        landing.landed();
         const report = removedNothing ? appToast.info : appToast.success;
         report(removedNothing ? "Kein Spielplan vorhanden" : "Spielplan zurückgenommen", { description: res.message });
       }
@@ -219,7 +225,9 @@ export function FormSpielplanSection({
   const armedLabel = isDrawing ? (replacesDraw ? "Ja, löschen und neu anlegen" : "Ja, Spielplan anlegen") : "Ja, Spielplan zurücknehmen";
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("spielplan")}>
       <div className={`${panel.header()} relative`}>
         {/* The one fact the heading cannot carry and every sentence below depends on. The rollover
             panel established the treatment. */}
@@ -503,27 +511,29 @@ export function FormSpielplanSection({
         <ConfirmActionRow confirm={twoPress}>
           {/* The reason is said on the control itself rather than only in the panel above it, the
               treatment the rollover established. */}
-          <ConfirmPressButton
-            confirm={twoPress}
-            reason={closedReason}
-            resting={restingLabel}
-            armed={armedLabel}
-            running={runningLabel}
-            icon={
-              isDrawing ? (
-                <Calendar
-                  className="size-4.5"
-                  aria-hidden="true"
-                />
-              ) : (
-                <CalendarXmark
-                  className="size-4.5"
-                  aria-hidden="true"
-                />
-              )
-            }
-            onPress={handlePress}
-          />
+          <FocusSlot name="spielplan">
+            <ConfirmPressButton
+              confirm={twoPress}
+              reason={closedReason}
+              resting={restingLabel}
+              armed={armedLabel}
+              running={runningLabel}
+              icon={
+                isDrawing ? (
+                  <Calendar
+                    className="size-4.5"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <CalendarXmark
+                    className="size-4.5"
+                    aria-hidden="true"
+                  />
+                )
+              }
+              onPress={handlePress}
+            />
+          </FocusSlot>
         </ConfirmActionRow>
       </div>
     </section>

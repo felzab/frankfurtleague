@@ -19,6 +19,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -32,6 +33,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -101,6 +103,8 @@ function GruppenTauschControl({
     // is what carries the narrowing into the closure below.
     if (partner === null) return;
 
+    // The page re-keys on the swapped membership, drawing this control anew.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id }).catch(rejectedWrite(router));
@@ -116,6 +120,7 @@ function GruppenTauschControl({
         return;
       }
 
+      landing.landed();
       appToast.success("Gruppen getauscht", { description: res.message });
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.
@@ -200,20 +205,22 @@ function GruppenTauschControl({
           <ConfirmActionRow confirm={twoPress}>
             {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                 §1.14). */}
-            <ConfirmPressButton
-              confirm={twoPress}
-              reason={partner === null ? "Wähle zuerst ein Team." : null}
-              resting="Gruppen tauschen"
-              armed="Ja, Gruppen tauschen"
-              running="Tauscht..."
-              icon={
-                <ArrowRightArrowLeft
-                  className="size-4.5"
-                  aria-hidden="true"
-                />
-              }
-              onPress={handleSwap}
-            />
+            <FocusSlot name="tausch">
+              <ConfirmPressButton
+                confirm={twoPress}
+                reason={partner === null ? "Wähle zuerst ein Team." : null}
+                resting="Gruppen tauschen"
+                armed="Ja, Gruppen tauschen"
+                running="Tauscht..."
+                icon={
+                  <ArrowRightArrowLeft
+                    className="size-4.5"
+                    aria-hidden="true"
+                  />
+                }
+                onPress={handleSwap}
+              />
+            </FocusSlot>
           </ConfirmActionRow>
         </>
       )}
@@ -287,6 +294,8 @@ export function FormSaisonSection({
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
     // `saison_teams` has no DELETE, so an entry is a step-up write (`docs/frontend/spec.md :: I432`).
+    // The entry draws the membership's own fields where its control stood, so the panel's heading takes the focus.
+    const landing = focusAfterWrite();
     entryStepUp.confirmThen(true, () =>
       startEntering(async () => {
         // A rejected action may still have saved, and uncaught here it takes the page down with it.
@@ -297,6 +306,7 @@ export function FormSaisonSection({
         startEntering(() => {
           if (res.success) {
             setEntryGruppeError(null);
+            landing.landed();
             appToast.success("Team aufgenommen", { description: res.message });
             return;
           }
@@ -314,7 +324,9 @@ export function FormSaisonSection({
   };
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("saison")}>
       {/* `relative` + an absolutely placed badge, so the h2 keeps every other panel heading's flow;
           a flex row would push the info glyph off the text's baseline. */}
       <div className={`${panel.header()} relative`}>
