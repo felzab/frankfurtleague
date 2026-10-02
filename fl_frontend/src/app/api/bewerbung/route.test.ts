@@ -1,19 +1,14 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
-const NEXT_SERVER = replacingPackage("next/server", {
-  NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
-});
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
 const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
@@ -29,33 +24,7 @@ const calls = doubleApiClient(({ endpoint }, schema) =>
 const { sent: mails } = doubleSendMail();
 const QUERIES = { getBewerbungSchulen: async () => ({ acknowledged: 1, schulen: [] }) };
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package the route reaches that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/server": NEXT_SERVER,
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": replacingPackage("next/navigation", { unstable_rethrow: () => undefined }),
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG), shortCircuit: true };
-    if (url.endsWith("/src/features/bewerbungen/queries.ts")) {
-      return { format: "module", source: replacingModule(url, "the application reads", QUERIES), shortCircuit: true };
-    }
-    return nextLoad(url, context);
-  },
-});
+doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG, "features/bewerbungen/queries.ts": QUERIES } });
 
 const { POST } = await import("./route.ts");
 const { BEWERBUNG_VERALTET, bewerbungPayload, buildEmptyBewerbungDraft } = await import("@/features/bewerbungen/utils.ts");

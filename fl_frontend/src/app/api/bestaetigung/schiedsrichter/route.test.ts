@@ -1,52 +1,25 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
-const NEXT_SERVER = replacingPackage("next/server", {
-  NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
-});
 const tags: [string, unknown][] = [];
-const NEXT_CACHE = replacingPackage("next/cache", {
+const NEXT_CACHE = {
   revalidateTag: (tag: string, profile: unknown) => void tags.push([tag, profile]),
   updateTag: (tag: string): never => {
     tags.push(["updateTag", tag]);
     throw new Error("updateTag in a route handler");
   },
-});
+};
 const inert = (): undefined => undefined;
 const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package the route reaches that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/server": NEXT_SERVER,
-  "next/cache": NEXT_CACHE,
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": replacingPackage("next/navigation", { unstable_rethrow: () => undefined }),
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
