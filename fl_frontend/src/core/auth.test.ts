@@ -16,14 +16,18 @@ import {
   cookieHeader,
   lastMailedCode,
   madeByPasskey,
+  memoryStore,
   ORIGIN,
   registerAuthDoubles,
+  sessionByCode,
   signInByCode,
 } from "./authDoubles.ts";
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
+import { NO_RECORDS, SITZ } from "./subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
+import type { MemoryStore, SessionRow } from "./authDoubles.ts";
 
 /** Granted nothing: the person arm of every case below. */
 const PERSON_EMAIL = "spielerin@example.org";
@@ -119,16 +123,8 @@ const { sent } = registerAuthDoubles({
 /** What the backend's one read answers an address, or that it throws for it or refuses it as a payload. */
 type Backend = Record<string, unknown> | "throws" | "refuses";
 
-const NOTHING_HELD = {
-  sitze: [],
-  spieler: [],
-  schiedsrichter: [],
-  unbestaetigt: false,
-  gesperrt: false,
-  verwaltung: null,
-  berechtigt_seit: null,
-};
-const A_SEAT = { saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
+const NOTHING_HELD = NO_RECORDS;
+const A_SEAT = SITZ;
 
 /** Before every session a case makes, so a grant dated by it admits what it held before grants were dated. */
 const GRANTED_BEFORE_ANY_SESSION = "2026-01-01T00:00:00Z";
@@ -185,25 +181,6 @@ after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
 });
 
-type SessionRow = {
-  id: string;
-  token: string;
-  userId: string;
-  expiresAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  authFactor?: string;
-  passkeyCredentialId?: string;
-};
-
-type Store = {
-  user: { id: string; email: string }[];
-  session: SessionRow[];
-  account: unknown[];
-  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
-  passkey: Record<string, unknown>[];
-};
-
 /** A stored passkey as the plugin's own routes read one, so an admitted route would really act. */
 const aPasskeyFor = (userId: string) => ({
   id: "ein-passkey",
@@ -221,7 +198,7 @@ const aPasskeyFor = (userId: string) => ({
 /** One call the module made on the application's own writer. */
 type LogLine = { message: string; error: unknown; meta: Record<string, unknown> };
 
-const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
+const store = memoryStore("__flAuthStore");
 const logged: LogLine[] = [];
 const adapterCalls = {
   databases: [] as string[],
@@ -289,12 +266,12 @@ async function answerOf(email: string, otp: string): Promise<Refusal> {
 }
 
 /** The code row the plugin holds for `email`, the latest of them. */
-function codeRowOf(email: string): Store["verification"][number] | undefined {
+function codeRowOf(email: string): MemoryStore["verification"][number] | undefined {
   return store.verification.findLast((row) => row.identifier === `sign-in-otp-${email}`);
 }
 
 /** The rows counting failed codes, every address's. */
-function failureRows(): Store["verification"] {
+function failureRows(): MemoryStore["verification"] {
   return store.verification.filter((row) => row.identifier.startsWith("sign-in-attempt-"));
 }
 
@@ -314,15 +291,10 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
   // nobody else, and a seat left standing would change what a later case's send mails.
   const seated = !BACKENDS.has(email);
   if (seated) BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT] });
-  const verified = await signInByCode(auth, email).finally(() => {
+
+  return sessionByCode(auth, store, email).finally(() => {
     if (seated) BACKENDS.delete(email);
   });
-  const cookie = cookieHeader(verified);
-
-  const row = store.session.at(-1);
-  assert.ok(row !== undefined, "the verification wrote no session row");
-
-  return { cookie, row };
 }
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */

@@ -16,6 +16,7 @@ import {
   sessionByCode,
 } from "./authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "./cacheScope.ts";
+import { SITZ } from "./subjectFixtures.ts";
 
 import type { SessionRow } from "./authDoubles.ts";
 import type { RequestActor } from "./requestScope.ts";
@@ -72,13 +73,12 @@ type Subjekt = {
   berechtigt_seit: string | null;
 };
 
-const SEAT = { saison_id: "2025/26", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
 const PUPIL = { spieler_id: "b".repeat(24) };
 
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subjekt>([
-  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }],
+  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SITZ], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }],
   [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL] }],
   [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL] }],
 ]);
@@ -208,7 +208,7 @@ describe("who the seam answers for", () => {
 
     assert.equal(answer?.admin, false);
     assert.equal(answer?.email, ADMIN_EMAIL);
-    assert.deepEqual(answer?.subjekt.sitze, [SEAT]);
+    assert.deepEqual(answer?.subjekt.sitze, [SITZ]);
   });
 
   it("marks the same address an administrator once the passkey made the session", async () => {
@@ -234,7 +234,7 @@ describe("who the seam answers for", () => {
      gated on this mark offers it nothing either; the person's records stand. */
   it("drops that mark from a passkey session made before its grant, and keeps it once the grant is dated before", async (t) => {
     t.after(() =>
-      RECORDS.set(ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }),
+      RECORDS.set(ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SITZ], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }),
     );
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
@@ -244,14 +244,14 @@ describe("who the seam answers for", () => {
     for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
       RECORDS.set(ADMIN_EMAIL, {
         ...HOLDS_NOTHING,
-        sitze: [SEAT],
+        sitze: [SITZ],
         verwaltung: "administration",
         berechtigt_seit: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
       });
       beginRenderPass();
       const answer = await getSubjectSession();
       assert.ok(answer, "the person's lane refused the session its grant postdates");
-      assert.deepEqual(answer.subjekt.sitze, [SEAT]);
+      assert.deepEqual(answer.subjekt.sitze, [SITZ]);
       marks.push(answer.admin);
     }
 

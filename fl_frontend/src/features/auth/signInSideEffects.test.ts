@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ADMIN_EMAIL, asDataUrl, HOLDS_NOTHING, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
+import { ADMIN_EMAIL, asDataUrl, HOLDS_NOTHING, memoryAdapterDouble, memoryStore, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
+import { SITZ, sitz } from "@/core/subjectFixtures.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -32,21 +33,13 @@ const UNCONFIRMED = "unbestaetigte@example.org";
 /** What the backend's one read answers an address with, or that it threw. */
 type Backend = Record<string, unknown> | "throws";
 
-const A_SEAT = {
-  saison_id: "2026",
-  team_id: "0123456789abcdef01234567",
-  rolle: "trainer",
-  team_name: "Goethe-Gymnasium",
-  saison_status: "active",
-};
-
 const BACKENDS: Readonly<Record<string, Backend>> = {
   [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" },
-  [BARRED]: { ...HOLDS_NOTHING, sitze: [A_SEAT], gesperrt: true },
-  [PAST_SEATED]: { ...HOLDS_NOTHING, sitze: [{ ...A_SEAT, saison_status: "past" }] },
+  [BARRED]: { ...HOLDS_NOTHING, sitze: [SITZ], gesperrt: true },
+  [PAST_SEATED]: { ...HOLDS_NOTHING, sitze: [sitz({ saison_status: "past" })] },
   [UNREACHED]: "throws",
   [UNCONFIRMED]: { ...HOLDS_NOTHING, unbestaetigt: true },
-  [SEATED]: { ...HOLDS_NOTHING, sitze: [A_SEAT] },
+  [SEATED]: { ...HOLDS_NOTHING, sitze: [SITZ] },
 };
 
 /** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
@@ -90,16 +83,7 @@ const { sent } = registerAuthDoubles({
 });
 
 const deferred: (() => Promise<void>)[] = [];
-const store = {
-  user: [] as { email: string }[],
-  session: [] as unknown[],
-  account: [],
-  verification: [] as { identifier: string; expiresAt: Date }[],
-  passkey: [],
-};
-
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[STORE] = store;
+const store = memoryStore(STORE);
 
 /** What `headers()` answers, replaced by the case that needs the cookie a press has just written. */
 function arriveAs(cookie: string | null): void {

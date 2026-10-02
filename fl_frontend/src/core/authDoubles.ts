@@ -191,7 +191,7 @@ export type SessionRow = {
 
 /** The library's in-memory store, typed as far as a case reads it. */
 export type MemoryStore = {
-  user: { id: string; email: string }[];
+  user: ({ id: string; email: string } & Record<string, unknown>)[];
   session: SessionRow[];
   account: unknown[];
   verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];

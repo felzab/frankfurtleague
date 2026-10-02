@@ -5,14 +5,14 @@ import {
   ADMIN_EMAIL,
   asDataUrl,
   configDouble,
-  cookieHeader,
   GATE_BACKEND_CONFIG,
   madeByPasskey,
   memoryAdapterDouble,
+  memoryStore,
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
-  signInByCode,
+  sessionByCode,
 } from "@/core/authDoubles.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
@@ -46,11 +46,7 @@ registerAuthDoubles({
   },
 });
 
-type SessionRow = { id: string; userId: string; authFactor?: string };
-
-const store = { user: [], session: [] as SessionRow[], account: [], verification: [], passkey: [] };
-
-(globalThis as unknown as Record<string, unknown>)[STORE] = store;
+const store = memoryStore(STORE);
 
 // Imported here rather than at the top: a static import resolves before the hooks above are registered.
 const { pruefeInhaberAction } = await import("@/features/konto/actions.ts");
@@ -66,10 +62,7 @@ beforeEach(() => {
  * administrator's guard admits no other, and arrives as that session. Answers its account's id.
  */
 async function arriveSignedIn(email: string, { byPasskey = false } = {}): Promise<string> {
-  const cookie = cookieHeader(await signInByCode(auth, email));
-
-  const row = store.session.at(-1);
-  assert.ok(row !== undefined, "the verification wrote no session row");
+  const { cookie, row } = await sessionByCode(auth, store, email);
   if (byPasskey) madeByPasskey(store, row);
 
   requestHeaders = new Headers({ ...ORIGIN, cookie });

@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
+import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, memoryStore, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
 
 const STORE = "__flAuthCookieStore";
 
 /** A served origin over https, which is what production and every non-local stack run on. */
 const HTTPS_ORIGIN = "https://liga.example";
 
-const globals = globalThis as unknown as Record<string, unknown>;
-const store = { user: [], session: [], account: [], verification: [] as unknown[], passkey: [] };
-globals[STORE] = store;
+memoryStore(STORE);
 
 registerAuthDoubles({
   core: { config: configDouble({ AUTH_URL: HTTPS_ORIGIN }) },

@@ -3,7 +3,15 @@ import { describe, it } from "node:test";
 
 import { answerReadsWith, callPage, EMPTIEST_ANSWER, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 
-import { cookieHeader, HOLDS_NOTHING, memoryAdapterDouble, ORIGIN, registerAuthDoubles, signInByCode } from "../../core/authDoubles.ts";
+import {
+  cookieHeader,
+  HOLDS_NOTHING,
+  memoryAdapterDouble,
+  memoryStore,
+  ORIGIN,
+  registerAuthDoubles,
+  signInByCode,
+} from "../../core/authDoubles.ts";
 import { SITZ } from "../../core/subjectFixtures.ts";
 
 const STORE = "__flOfferLaterStore";
@@ -14,9 +22,7 @@ let requestHeaders: Headers | undefined;
 const PERSON_EMAIL = "spielerin@example.org";
 const TEAM_ID = SITZ.team_id;
 
-const globals = globalThis as unknown as Record<string, unknown>;
-const store = { user: [], session: [] as { createdAt: Date }[], account: [], verification: [] as unknown[], passkey: [] };
-globals[STORE] = store;
+memoryStore(STORE);
 
 /* Registered after the page harness's, so this request's cookie answers `headers()` rather than its
    empty one: the real sign-in store judges the session the cookie names. */

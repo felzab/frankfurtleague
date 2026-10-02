@@ -3,7 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
 
-import { configDouble, cookieHeader, GATE_BACKEND_CONFIG, ORIGIN, registerAuthDoubles, seatEveryAddress } from "./authDoubles.ts";
+import { configDouble, cookieHeader, GATE_BACKEND_CONFIG, memoryStore, ORIGIN, registerAuthDoubles, seatEveryAddress } from "./authDoubles.ts";
 import { assertionFor, COSE_KEY } from "./testAuthenticator.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
@@ -42,9 +42,7 @@ registerAuthDoubles({
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": ADAPTER_DOUBLE },
 });
 
-type Store = Record<"user" | "session" | "account" | "verification" | "passkey", Record<string, unknown>[]>;
-
-const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
+const store = memoryStore("__flPasskeyLastUseStore");
 const warned: [string, Record<string, unknown>][] = [];
 
 // Imported here rather than at the top: a static import resolves before the doubles above exist.
