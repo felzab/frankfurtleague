@@ -583,6 +583,25 @@
 #
 # The arms that overlap cost less than this machine resolves. No row moves and none takes a stamp.
 #
+# `frontend` gained a check, and `scripts` and `db` the cases that pin it and its siblings, each
+# figure measured locally on 2026-10-02 on a sixteen-core Windows machine carrying a fleet of agent
+# sessions, so every figure is an upper bound:
+#
+# - `scripts/gate/verify.sh`'s peer step, `pnpm peers check` behind the lockfile step: 1.30-1.55 s
+#   and one round of 3.52 s, against the lockfile step's 1.46-1.83 s, five interleaved rounds. It
+#   runs before the frontend pool, so the job pays it whole; the `frontend` row carries `-` for its
+#   reference, so it moves no figure and answers to the budget alone
+# - `scripts/tests/test_peer_range_step.py`, five runs of `verify.sh` behind a stand-in pnpm:
+#   10.5-11.5 s alone against 12.4-14.1 s for its sibling `scripts/tests/test_lockfile_release_age.py`,
+#   three interleaved rounds
+# - the tracker ban's four scenarios in `scripts/tests/test_branch_checks.py`: 0.74-1.91 s a case
+#   over three runs, the top of the range being the first case's, which builds the fixture
+# - the sign-in store's commit cases in `fl_frontend/src/core/db.db.test.ts`: the lost commit
+#   3.8-4.4 s and the lost answer 3.4 s a run over four runs, and the hung commit 6.9-7.4 s, its
+#   abort taking a `timeoutMS` of its own beside the commit's
+#
+# No row moves and none takes a stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor is `-` while `ops` is the one row holding a reference: the sum is then that row's own
 # median, which its row already compares against its own floor, so a floor here would only print
