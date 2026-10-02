@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 
@@ -7,6 +9,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 # endpoint publishes.
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.saisons.schemas import FLSaisonStatus
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
@@ -92,3 +95,19 @@ class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
     # Null exactly where `verwaltung` is not `owner`: a session older than it administers and holds no
     # owner's power (`docs/backend/spec.md :: I534`).
     inhaber_seit: FLUtcInstant | None
+
+
+class FLGesperrtPayload(BaseModel):
+    """The one address a message is about to go to."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Held to no address rule, as the erasure's lookup is: a seat stored under an older rule is still
+    # mailed, and refusing it here would close the mailer on an address no ban can key.
+    email: Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@")]
+
+
+class FLGesperrtResponse(BaseAPIResponse):
+    """Whether a standing ban holds that address, and nothing of any record: the mailer needs none."""
+
+    gesperrt: bool

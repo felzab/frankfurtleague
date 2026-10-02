@@ -201,9 +201,10 @@ no consent from a barred address however old its link (I505), their three views,
 link `gesperrt` (I515), the tier change, whose promotion of a barred address it refuses
 `REQ-BERECHTIGUNG-003` and whose demotion counts no barred owner (I479), the grants' revoke and claim and every
 admin read naming an author, which withhold what it finds (I452), the actor check on every
-admin-tier request, which admits no barred holder (I463), and the person check every person's
-binder carries, which serves no barred person (I488). Each asks through the request's
-`fl_backend/app/api/sperrliste/lookup.py :: get_ban_list`, which reads the season a ban is judged
+admin-tier request, which admits no barred holder (I463), the person check every person's
+binder carries, which serves no barred person (I488), and `POST /identitaet/gesperrt`, which the
+frontend's mailer asks about every address it sends to and which answers it as `gesperrt` (I543).
+Each asks through the request's `fl_backend/app/api/sperrliste/lookup.py :: get_ban_list`, which reads the season a ban is judged
 against unless its caller already holds it. **The two sweeps' reminders withhold rather than refuse**
 (I417): they ask `:: adressen_gesperrt` once a page, over every due
 row before the share is cut. A barred seat or registration is sent nothing and nothing of the ban is
@@ -264,9 +265,10 @@ what follows from that decision travels in its transaction (I42, I51) rather tha
 
 #### `identitaet` router — system tier
 
-| Method | Path                  | Guard and what it does                                                                                                                                             |
-| ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| POST   | `/identitaet/subjekt` | `verify_access_system`. A mailbox's confirmed, live seats, pupil rows and referee rows, whether only unconfirmed ones matched, its ban and its grant's tier (I270) |
+| Method | Path                   | Guard and what it does                                                                                                                                             |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/identitaet/subjekt`  | `verify_access_system`. A mailbox's confirmed, live seats, pupil rows and referee rows, whether only unconfirmed ones matched, its ban and its grant's tier (I270) |
+| POST   | `/identitaet/gesperrt` | `verify_access_system`. Whether a standing ban holds one address the mailer is about to send to, and nothing else (I543)                                           |
 
 #### `berechtigungen` reconciliation router — system tier
 
@@ -1120,6 +1122,7 @@ rather than by the handler remembering to conceal one.
 | I530 | A grant's row and its `berechtigungen_angekuendigt` record are one snapshot read: a commit landing between two reads admits a session older than the grant                                                                                                                      | `fl_backend/app/api/berechtigungen/crud.py :: _grant_and_its_record`; `fl_backend/tests/api/test_berechtigungen_isolation.py :: TestTheRowAndItsRecordAreReadAtOneInstant`; Atlas Flex serving it confirmed by my read-only Playground read, 2026-10-02                                                                                                                                                                                                                                                                      |
 | I534 | An owner's power dates from the promotion the tier change made or the comparison found; an older session only administers; a demotion acts at once                                                                                                                              | `fl_backend/app/api/berechtigungen/services.py :: inhaber_seit`, judged by `:: find_nur_inhaber_refusal`; `fl_backend/tests/api/test_berechtigungen_execution.py :: TestAnOwnersPowerDatesFromThePromotion`, `fl_backend/tests/api/test_berechtigungen_comparison.py :: TestWhenAnOwnersPowerTookEffect`, `fl_backend/tests/api/test_identitaet_subjekt_execution.py :: TestTheGrant`                                                                                                                                        |
 | I539 | Work failing inside a transaction, a cancellation and the deadline's cut included, sends the server its abort inside `fl_backend/app/core/transactions.py :: ABORT_GRACE_S` past the deadline                                                                                   | `fl_backend/app/core/transactions.py :: transaction_session`; `fl_backend/tests/core/test_request_deadline.py :: TestATransactionPastTheRequestDeadlineCommitsNothing`, `fl_backend/tests/core/test_transactions.py :: TestEveryTransactionRunsOnTheHelpersSession`, `:: TestAFailedSessionAbortsInsideItsGrace` and `:: TestACancelledRequestStillAbortsItsTransaction`                                                                                                                                                     |
+| I543 | `POST /identitaet/gesperrt` answers the ban a stored address meets, in every spelling folding alike, and nothing more; one no ban can key answers false                                                                                                                         | `fl_backend/app/api/identitaet/router.py :: get_gesperrt` over `fl_backend/app/api/sperrliste/lookup.py :: adressen_gesperrt`; `fl_backend/tests/api/test_identitaet_gesperrt_execution.py`                                                                                                                                                                                                                                                                                                                                  |
 
 ## 3. Violation → remedy
 

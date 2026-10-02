@@ -114,6 +114,7 @@ SYSTEM_WRITES = [
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
     ("/api/v0/identitaet/subjekt", "post"),
+    ("/api/v0/identitaet/gesperrt", "post"),
     # The grants' reconciliation, one call reading and one stamping: the frontend's timer holds no
     # session, and a change made in the database directly has no administrator to attribute it to.
     ("/api/v0/berechtigungen/abgleich", "post"),
