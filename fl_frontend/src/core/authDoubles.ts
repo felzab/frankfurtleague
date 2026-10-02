@@ -10,7 +10,7 @@ import { ObjectId } from "mongodb";
 
 import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
-import { deepFrozen, NO_RECORDS } from "./subjectFixtures.ts";
+import { deepFrozen, NO_RECORDS, SITZ } from "./subjectFixtures.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 import type { auth as AuthInstance } from "./auth.ts";
@@ -276,9 +276,7 @@ function answerTheLookup(answerFor: (email: string) => Record<string, unknown> |
  * (`docs/frontend/spec.md :: I403`).
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
-  const seat = { saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
-
-  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [seat] }));
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ] }));
 }
 
 /**
