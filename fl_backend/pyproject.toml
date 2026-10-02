@@ -133,11 +133,15 @@ ignore = ["B008"]
 "app.core.config.read_secrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 "app.core.config.BackendEnvironment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 "app.core.config.BackendSecrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-# The environment read raw, or through a settings class of a module's own: the same hazard, without
-# even the validation `read_environment` runs.
+# The environment read raw, or through a settings source of a module's own, without even
+# `read_environment`'s validation. Each package is banned whole: ruff matches the path an import
+# spells, so a member's entry misses the submodule defining it.
 "os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"os.environb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 "os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"pydantic_settings.BaseSettings".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"os.getenvb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"pydantic_settings".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"dotenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 # Ruff matches the path an import spells rather than the function it binds, so the same function
 # imported from the module building the app would pass the entry above.
 "app.main.get_config".msg = "Read the request's settings through `get_app_config`; `app.main` holds no `get_config` for a caller."
