@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { SERVER_REACT_URL } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
-import { doubleActionRequest, REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /** The slice modules under test, whose `react` imports are the ones the server build must answer. */
@@ -24,8 +24,6 @@ doubleApiClient(() => {
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "react" && context.parentURL?.startsWith(FEATURES_URL)) return { url: SERVER_REACT_URL, shortCircuit: true };
-    const double = REQUEST_PACKAGES[specifier];
-    if (double !== undefined) return { url: `data:text/javascript,${encodeURIComponent(double)}`, shortCircuit: true };
     return nextResolve(specifier, context);
   },
 });

@@ -5,11 +5,8 @@ import { pathToFileURL } from "node:url";
 
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors";
-import { doubleActionRequest, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-
-/** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 /** What the doubled client throws, so a query's own catch arm is what a case exercises. */
 let failure: unknown;
@@ -30,7 +27,6 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     // Only for the module under test: Next's client runtime is in this process and needs the client build.
     if (specifier === "react" && context.parentURL?.startsWith(FEATURE_URL) === true) return { url: SERVER_REACT_URL, shortCircuit: true };
-    if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
 });
