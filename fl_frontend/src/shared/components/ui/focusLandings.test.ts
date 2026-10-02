@@ -75,6 +75,7 @@ const ort = (id: string, name: string, inactive_since: string | null) => ({
 });
 const ORT_A = "68c1f0a2b3c4d5e6f7a8b901";
 const ORT_B = "68c1f0a2b3c4d5e6f7a8b902";
+const ORT_C = "68c1f0a2b3c4d5e6f7a8b903";
 
 const team = (id: string, name: string, inactive_since: string | null) => ({
   id,
@@ -123,6 +124,7 @@ const spieler = (id: string, vorname: string, inactive_since: string | null, row
 });
 const SP_A = "68c1f0a2b3c4d5e6f7a8b931";
 const SP_B = "68c1f0a2b3c4d5e6f7a8b932";
+const SP_C = "68c1f0a2b3c4d5e6f7a8b933";
 const SAISON_TEAMS = [{ teamId: TEAM_A, name: "SG Alpha", shorthand: "SGA" }];
 
 const spielerList = (rows: ReturnType<typeof spieler>[]) =>
@@ -178,17 +180,21 @@ const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
 
 const LANDINGS: Record<string, Landing> = {
   "a venue row's reactivation, on the retirement replacing it": {
-    before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", null)] }),
-    press: (user) => user.click(buttonIn("spielorte-karten", "Spielort Halle A reaktivieren")),
+    before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
+    press: (user) => user.click(buttonIn("spielorte-karten", "Spielort Halle B reaktivieren")),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
-    lands: () => buttonIn("spielorte-karten", "Spielort Halle A stilllegen"),
+    lands: () => buttonIn("spielorte-karten", "Spielort Halle B stilllegen"),
   },
   "a venue row's reactivation the filter then hides, on the next row's": {
     search: "status=stillgelegt",
-    before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", RETIRED_ON)] }),
-    press: (user) => user.click(buttonIn("spielorte-tabelle", "Spielort Halle A reaktivieren")),
-    after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren"),
+    before: () =>
+      h(AdminSpielorteView, {
+        spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)],
+      }),
+    press: (user) => user.click(buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren")),
+    after: () =>
+      h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", null), ort(ORT_C, "Halle C", RETIRED_ON)] }),
+    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle C reaktivieren"),
   },
   "a venue's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
@@ -242,10 +248,11 @@ const LANDINGS: Record<string, Landing> = {
   /* The list narrowed to retired squad rows drops the row its return revived, as working through them does. */
   "a squad row's return from the list, on the next row's": {
     search: "kader=ausgetragen&saison_id=2026",
-    before: () => spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null, RETIRED_ON)]),
-    press: (user) => user.click(buttonIn("spieler-karten", "Kadereintrag von Lena Meier reaktivieren")),
-    after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null, RETIRED_ON)]),
-    lands: () => buttonIn("spieler-karten", "Kadereintrag von Mia Meier reaktivieren"),
+    before: () =>
+      spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
+    press: (user) => user.click(buttonIn("spieler-karten", "Kadereintrag von Mia Meier reaktivieren")),
+    after: () => spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null), spieler(SP_C, "Nora", null, RETIRED_ON)]),
+    lands: () => buttonIn("spieler-karten", "Kadereintrag von Nora Meier reaktivieren"),
   },
   "a venue editor's reactivation, on the editor's heading": {
     before: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", RETIRED_ON), inactiveSince: RETIRED_ON }),
