@@ -18,6 +18,7 @@ type SweepEvent =
 const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
 const refused = new Set<string>();
+const withheld = new Set<string>();
 
 /** One failure line, as an operator reads it: which half stopped, and for which season. */
 type SweepLog = { event: string; saison_id: string | undefined };
@@ -26,6 +27,7 @@ const logs: SweepLog[] = [];
 
 /** The sweep's switch as the doubled config answers it, which a case sets. */
 let sweepSwitch: string | undefined = "on";
+let appEnv = "production";
 
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 
@@ -68,6 +70,9 @@ const CONFIG_DOUBLE = {
     ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     get BEWERBUNG_SWEEP() {
       return sweepSwitch;
+    },
+    get APP_ENV() {
+      return appEnv;
     },
   },
   retiredVariablesSet: () => [],
@@ -190,12 +195,14 @@ beforeEach(() => {
   events.length = 0;
   logs.length = 0;
   refused.clear();
+  withheld.clear();
   // Appended as the send happens, so a send and the calls around it stay in the order they ran.
   mail.answerWith((sent) => {
     events.push({ kind: "mail", ...sent });
-    return refused.has(sent.to) ? "refused" : "accepted";
+    return refused.has(sent.to) ? "refused" : withheld.has(sent.to) ? "withheld" : "accepted";
   });
   sweepSwitch = "on";
+  appEnv = "production";
   sweepAnswers({});
 });
 
@@ -447,6 +454,29 @@ describe("one pass of the sweep", () => {
     assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
     assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
   });
+
+  /* A deployment that mails nothing files the notice, and off production that is as told as anyone
+     there is; production waits for a real send, a withheld one there being a deployment missing its key. */
+  for (const [env, erased] of [
+    ["local", true],
+    ["production", false],
+  ] as const) {
+    it(`${erased ? "stamps and erases" : "keeps"} a candidate whose notice was filed on ${env}`, async () => {
+      appEnv = env;
+      withheld.add("erika@schule.de");
+      sweepAnswers({ saisonIds: ["2627"], loeschungen: { "2627": [deletion(ID_REACHED, "erika@schule.de")] } });
+
+      await runBewerbungSweep();
+
+      assert.equal(events.filter((event) => event.kind === "mail").length, 1, "the notice was never sent, so nothing was filed");
+      const stamp = callTo("/bewerbungen/sweep/2627/angekuendigt");
+      const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
+      assert.deepEqual(
+        [stamp, erasure].map((call) => (call === undefined ? null : JSON.parse(call.body ?? "{}"))),
+        erased ? [{ bewerbung_ids: [ID_REACHED] }, { bewerbung_ids: [ID_REACHED] }] : [null, null],
+      );
+    });
+  }
 
   /* The pass after an erasure that failed: the candidate is listed again, already announced. Mailing
      it a second time is what the stamp exists to stop, and the erasure is retried on its own. */
