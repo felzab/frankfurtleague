@@ -51,7 +51,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
-import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
+import { EINWILLIGUNG_UMFANG_OPTIONS, SPIELER_UMFANG_FRAGE } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
 import type { SpielerAbsatzSchluessel } from "@/core/einwilligungSeiten";
@@ -110,8 +110,6 @@ const EIGENE_SLOTS = new Set(["vorname", "team", "schule", "saison"]);
  */
 const umfangOptionen = (fassung: SpielerFassung): readonly { value: FLEinwilligungUmfang; label: string }[] =>
   EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({ value: value, label: fassung.bedienelemente[value] }));
-
-const UMFANG_FRAGE = "Was darf von Deinem Namen auf der Website stehen?";
 
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -484,9 +482,9 @@ function SpielerBestaetigungForm({
             value={entwurf.umfang ?? ""}
             onChange={() => undefined}
             className="flex w-full flex-col gap-y-1">
-            <Label className={FIELD_LABEL_CLASSES}>{UMFANG_FRAGE}</Label>
+            <Label className={FIELD_LABEL_CLASSES}>{SPIELER_UMFANG_FRAGE}</Label>
             <ToggleButtonGroup
-              aria-label={UMFANG_FRAGE}
+              aria-label={SPIELER_UMFANG_FRAGE}
               size="sm"
               isDetached
               selectionMode="single"
