@@ -902,8 +902,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
-        // The same authenticator enrolled twice at once: the credential index refuses the second row, inside
-        // a set-up's transaction as a write conflict, and the plugin reports either as any other failure.
+        // One authenticator enrolled twice at once: the credential index refuses the second row, inside a set-up's
+        // transaction as a write conflict. Any conflict there maps here, so a write added to that transaction joins it.
         if (message.startsWith(REGISTRATION_FAILED) && (isDuplicateCredential(raised) || isWriteConflict(raised))) {
           logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
           return;
