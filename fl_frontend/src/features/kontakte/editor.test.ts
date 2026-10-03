@@ -534,6 +534,25 @@ describe("the editor's shape", () => {
     );
   });
 
+  /* Any unconfirmed seat takes a re-send, and a pair shares one link: the press stands on exactly one of
+     its two seats, so a half-confirmed pair is never left with none. */
+  it("offers the re-send on every unconfirmed person once, a half-confirmed pair included", () => {
+    const offen = (person: FLKontaktperson): FLKontaktperson => ({ ...person, einwilligung: { ...person.einwilligung, bestaetigt_am: null } });
+    const offers = (kontakte: FLSaisonTeamKontakte): string[] =>
+      [...sectionMarkup(kontakte).matchAll(/aria-label="[^"]*senden an ([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
+    const grace = BLOCK.ansprechperson ?? assert.fail("the block seats no Ansprechperson");
+    const ada = BLOCK.trainer ?? assert.fail("the block seats no Trainer");
+
+    assert.deepEqual(offers(BLOCK), [], "a confirmed seat offers a re-send");
+    assert.deepEqual(offers({ ...BLOCK, stellvertretung: offen(BLOCK.stellvertretung ?? grace) }), ["Stellvertretung"]);
+    // Both seats of the pair open: one person, one press, on the named seat.
+    assert.deepEqual(offers({ ...BLOCK, ansprechperson: offen(grace), trainer: offen(grace), trainer_ist_zugleich: "ansprechperson" }), [
+      "Ansprechperson",
+    ]);
+    // The named seat confirmed and the Trainer's not: the press moves to the Trainer rather than vanishing.
+    assert.deepEqual(offers({ ...BLOCK, ansprechperson: grace, trainer: offen(ada), trainer_ist_zugleich: "ansprechperson" }), ["Trainer"]);
+  });
+
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field
      saying why it is empty — so neither surface may say why either. */
   it("renders an empty seat as its switch alone, and never explains one", () => {

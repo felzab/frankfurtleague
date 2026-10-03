@@ -56,14 +56,19 @@ const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
 
 /**
- * Whether the stored seat takes a re-send: a person who has not confirmed, on the seat that holds them.
- * A paired Trainer is that seat's person, whose one link the seat's own press already replaces.
+ * Whether the stored seat takes a re-send: any seat whose person has not confirmed. A paired Trainer
+ * shares the named seat's one link, so the press stands on one of the two: the named seat's while it
+ * is unconfirmed, the Trainer's once the named seat alone is confirmed.
  */
 function istEinladbar(stored: FLSaisonTeamKontakte | null, rolle: KontaktRolle): boolean {
-  const person = stored?.[rolle] ?? null;
-  if (person === null || person.einwilligung.bestaetigt_am !== null) return false;
+  const unbestaetigt = (sitz: KontaktRolle) => {
+    const person = stored?.[sitz] ?? null;
+    return person !== null && person.einwilligung.bestaetigt_am === null;
+  };
+  if (!unbestaetigt(rolle)) return false;
 
-  return !(rolle === "trainer" && stored?.trainer_ist_zugleich != null);
+  const gepaart = stored?.trainer_ist_zugleich ?? null;
+  return !(rolle === "trainer" && gepaart !== null && unbestaetigt(gepaart));
 }
 
 /** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
