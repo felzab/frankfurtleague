@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import { after, afterEach, beforeEach, mock } from "node:test";
 
 import { judgeAtProcessEnd, judging } from "@/core/verdicts.ts";
-import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 
-import type { InFlight } from "@/shared/testing/answersInFlight.ts";
 import type { Mock } from "node:test";
 
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -31,15 +30,8 @@ export function doubleFetch(): {
   // A fresh double per case rather than `restore()`, which leaves an unused once-answer standing for
   // the next case's request to meet.
   let current = unansweredDouble();
-  const inFlight = new Set<InFlight>();
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-    const answer = current(input, init);
-    const entry = { name: String(input), answer };
-    inFlight.add(entry);
-    const settle = (): void => void inFlight.delete(entry);
-    answer.then(settle, settle);
-    return answer;
-  }) as typeof fetch;
+  const requests = answersInFlight();
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => requests.track(String(input), current(input, init))) as typeof fetch;
 
   /** Emptied as it is judged, so one request fails one place. */
   const judge = (where: string): void => {
@@ -50,7 +42,6 @@ export function doubleFetch(): {
   beforeEach(() => {
     judge("a request was sent between two cases, after the one before had ended");
     current = unansweredDouble();
-    inFlight.clear();
   });
   afterEach((t) => judging(t.fullName, () => judge("the case sent a request it never answered")));
   after(() => judging("the file's last case", () => judge("a request was sent after the file's last case had ended")));
@@ -61,6 +52,6 @@ export function doubleFetch(): {
     get mock() {
       return current.mock;
     },
-    answered: () => untilAnswered(() => [...inFlight], "settle a held answer before awaiting `answered`"),
+    answered: requests.answered,
   };
 }

@@ -11,12 +11,11 @@ import { userEvent } from "@testing-library/user-event";
 import { z } from "zod";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
-import type { InFlight } from "@/shared/testing/answersInFlight.ts";
 import type { ActionResult } from "@/shared/types/types.ts";
 
 // Replaced at the module boundary: the real toast module hands its raising to HeroUI's queue.
@@ -32,25 +31,11 @@ const { StepUpContext, STEP_UP_REFUSED } = await import("./stepUp.ts");
 
 type Draft = { name: string };
 
-const inFlight = new Set<InFlight>();
-
 /**
- * Hands the form `answer` as its write's or its prompt's, held until it lands: both arrive as props, so
- * no module double stands between the form and the case to record it.
+ * The write's and the prompt's answers, held until they land: both arrive as props, so no module double
+ * stands between the form and the case to record them.
  */
-function handedOut<T>(name: string, answer: Promise<T>): Promise<T> {
-  const entry = { name, answer };
-  inFlight.add(entry);
-  const settle = (): void => void inFlight.delete(entry);
-  answer.then(settle, settle);
-  return answer;
-}
-
-/**
- * Awaited inside `act` before a poll of the page, so the render an answer sets off lands inside it: a
- * poll alone gives up after its second, which a loaded machine's answer and render outlast.
- */
-const answered = (): Promise<void> => untilAnswered(() => [...inFlight], "settle a held answer before awaiting `answered`");
+const { track: handedOut, answered } = answersInFlight();
 
 /** A caller whose payload step trims: the padded value as typed is one the schema below refuses. */
 function renderTrimmingCaller(onSubmit: (payload: Draft) => Promise<ActionResult>, onClose: () => void = () => undefined) {

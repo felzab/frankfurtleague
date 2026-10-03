@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { beforeEach } from "node:test";
 // Imported rather than global: a case's mocked clock holds the globals, and would hold the wait with them.
 import { setImmediate as nextTurn, setTimeout as wallClock } from "node:timers/promises";
 
@@ -29,4 +30,30 @@ export async function untilAnswered(inFlight: () => readonly InFlight[], repair:
   } finally {
     lapse.abort();
   }
+}
+
+/**
+ * The answers one double has handed out and not yet seen land, emptied before every case. A double a
+ * suite writes itself tracks its answers here, so a case awaits them as it awaits a shared double's.
+ */
+export function answersInFlight(): {
+  /** Hands `answer` back unchanged, held as in flight until it lands. */
+  track: <T>(name: string, answer: Promise<T>) => Promise<T>;
+  answered: () => Promise<void>;
+} {
+  const inFlight = new Set<InFlight>();
+  beforeEach(() => {
+    inFlight.clear();
+  });
+
+  return {
+    track: (name, answer) => {
+      const entry = { name, answer };
+      inFlight.add(entry);
+      const settle = (): void => void inFlight.delete(entry);
+      answer.then(settle, settle);
+      return answer;
+    },
+    answered: () => untilAnswered(() => [...inFlight], "settle a held answer before awaiting `answered`"),
+  };
 }

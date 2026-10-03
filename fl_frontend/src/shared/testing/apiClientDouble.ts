@@ -5,9 +5,7 @@ import { afterEach, beforeEach } from "node:test";
 import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch.ts";
 import { replacingModule } from "@/core/exportingModule.ts";
 import { judging } from "@/core/verdicts.ts";
-import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
-
-import type { InFlight } from "@/shared/testing/answersInFlight.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 
 /** One request a module handed the backend client: the path, and what it went with. */
 export type ApiCall = {
@@ -96,7 +94,7 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
 } {
   let answering = answer;
   const malformed: string[] = [];
-  const inFlight = new Set<InFlight>();
+  const requests = answersInFlight();
   const parsed = async (call: ApiCall, schema: ApiSchema): Promise<unknown> => {
     const answered = await answering(call);
     try {
@@ -106,20 +104,13 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
       throw error;
     }
   };
-  const calls = doubleApiClient((call, schema) => {
-    const entry = { name: `${call.method ?? "GET"} ${call.endpoint}`, answer: parsed(call, schema) };
-    inFlight.add(entry);
-    const settle = (): void => void inFlight.delete(entry);
-    entry.answer.then(settle, settle);
-    return entry.answer;
-  });
+  const calls = doubleApiClient((call, schema) => requests.track(`${call.method ?? "GET"} ${call.endpoint}`, parsed(call, schema)));
 
   // Back to `answer` before every case: a case that named another would hand it to the next case's write.
   beforeEach(() => {
     answering = answer;
     calls.length = 0;
     malformed.length = 0;
-    inFlight.clear();
   });
   // Judged after the case, not at the call: the action catches the parse's throw and may answer just
   // as the case expects of a real failure. A fixture error, never the client's malformed-data error.
@@ -132,6 +123,6 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
   return {
     calls,
     answerWith: (next) => void (answering = next),
-    answered: () => untilAnswered(() => [...inFlight], "settle a held answer before awaiting `answered`"),
+    answered: requests.answered,
   };
 }
