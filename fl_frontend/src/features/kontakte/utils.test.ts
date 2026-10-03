@@ -34,7 +34,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
 const block = (overrides: Partial<SaisonTeamKontakteDraft> = {}): SaisonTeamKontakteDraft => ({
   trainer: person(),
   ansprechperson: person({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321", geburtsdatum: "1985-05-05" }),
-  stellvertretung: person({ vorname: "Lena", email: "lena@beispiel.de" }),
+  stellvertretung: person({ vorname: "Lena", email: "lena@beispiel.de", telefon: "069 2345678" }),
   trainer_ist_zugleich: null,
   ...overrides,
 });
