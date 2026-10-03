@@ -2,10 +2,10 @@ import ast
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, cast, get_args, get_type_hints
 
 import anyio
 import pytest
@@ -20,7 +20,7 @@ from app.core.exception_handlers import DATABASE_FAILED
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
-from app.core.transactions import ABORT_GRACE_S, actor_judge_var, drain, transaction_session
+from app.core.transactions import ABORT_GRACE_S, UNJUDGED_KINDS, actor_judge_var, drain, transaction_session
 from app.main import create_app
 from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, app_calls, callee, parsed
@@ -102,7 +102,10 @@ class TestAFullPageIsRunAgain:
 
 
 class _Judged:
-    """A judge recording where it ran, refusing before the callback where `refuses` is set."""
+    """A judge recording when the hook enters and leaves it, refusing on entry where `refuses` is set.
+
+    What a production judge does on leaving is its own: `TestTheAdministratorsJudgeOverARealGrant` holds it.
+    """
 
     def __init__(self, events: list[str], *, refuses: bool = False) -> None:
         self.events = events
@@ -111,13 +114,13 @@ class _Judged:
     @asynccontextmanager
     async def __call__(self, session: Any) -> AsyncIterator[None]:
         assert session.open, "the judge ran outside the attempt's session"
-        self.events.append("judged")
+        self.events.append("entered")
         if self.refuses:
             raise _RefusedByTheJudge
 
         yield
 
-        self.events.append("anchored")
+        self.events.append("left")
 
 
 class _RefusedByTheJudge(Exception):
@@ -158,31 +161,30 @@ PERSON = PersonActor(pseudonym="0" * 64, funktion="spieler")
 
 
 class TestEveryAttemptJudgesItsActorFirst:
-    """`docs/backend/spec.md :: I921`: the judge a binder bound runs inside every attempt the driver makes, around its callback."""
+    """`docs/backend/spec.md :: I921`: the judge a binder bound is entered inside every attempt the driver makes, around its callback."""
 
-    @pytest.mark.parametrize("actor", [ADMINISTRATOR, PERSON], ids=["an administrator", "a person"])
-    def test_the_judge_runs_before_the_callback_and_anchors_after_it_on_every_attempt(self, actor: Actor | PersonActor):
+    def test_the_judge_is_entered_before_the_callback_and_left_after_it_on_every_attempt(self):
         """Two attempts, as a write conflict makes: a judge entered once per session would let the retry run on the first attempt's read."""
 
-        events = _run_judged(actor, _Judged([]), attempts=2)
+        events = _run_judged(ADMINISTRATOR, _Judged([]), attempts=2)
 
-        assert events == ["judged", "callback", "anchored", "judged", "callback", "anchored"]
+        assert events == ["entered", "callback", "left", "entered", "callback", "left"]
 
     def test_a_refusing_judge_runs_no_callback(self):
         events: list[str] = []
         with pytest.raises(_RefusedByTheJudge):
             _run_judged(ADMINISTRATOR, _Judged(events, refuses=True))
 
-        assert events == ["judged"]
+        assert events == ["entered"]
 
-    def test_a_failing_callback_writes_no_anchor(self):
-        """The anchor is the judgement's last write, and an attempt that failed has nothing for it to protect."""
+    def test_a_failing_callback_reaches_the_judge_as_its_failure(self):
+        """Never as a callback that returned: a judge's last step runs only after one that did."""
 
         events: list[str] = []
         with pytest.raises(_FailedInTheCallback):
             _run_judged(ADMINISTRATOR, _Judged(events), fails=True)
 
-        assert events == ["judged", "callback"]
+        assert events == ["entered", "callback"]
 
 
 class TestTheSystemAndThePublicAreJudgedByNothing:
@@ -191,6 +193,19 @@ class TestTheSystemAndThePublicAreJudgedByNothing:
         events = _run_judged(actor, None)
 
         assert events == ["callback"]
+
+
+def _actor_kinds() -> frozenset[str]:
+    """Every `kind` an actor can carry, read off the two actor types rather than listed, so a kind added there is found here."""
+
+    return frozenset(kind for actor_type in (Actor, PersonActor) for kind in get_args(get_type_hints(actor_type)["kind"]))
+
+
+# The kinds a binder binds a judge beside, each with the binder: the half of the partition the hook does not name.
+JUDGED_BY: Mapping[str, str] = {
+    "admin_session": "app/core/security.py :: bind_actor",
+    "person_session": "app/core/security.py :: person_actor_binder",
+}
 
 
 class TestAnUnjudgedActorIsRefused:
@@ -203,6 +218,12 @@ class TestAnUnjudgedActorIsRefused:
             _run_judged(actor, None, client=client)
 
         assert client.sessions == []
+
+    def test_every_actor_kind_is_unjudged_by_name_or_judged_by_its_binder(self):
+        """A kind added to either actor type fails here until it is placed: refused by the hook meanwhile, never let through."""
+
+        assert UNJUDGED_KINDS.isdisjoint(JUDGED_BY)
+        assert UNJUDGED_KINDS | JUDGED_BY.keys() == _actor_kinds()
 
 
 class _TransactedSession(_Session):

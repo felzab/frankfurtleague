@@ -87,8 +87,9 @@ ActorJudge = Callable[[AsyncClientSession], AbstractAsyncContextManager[object]]
 # Bound beside `app/core/recording.py :: actor_var` by the binder that bound the actor, and reset with it.
 actor_judge_var: ContextVar[ActorJudge | None] = ContextVar("actor_judge", default=None)
 
-# Every actor kind a binder judges; the system and the public are judged by no grant and no ban.
-JUDGED_KINDS: Final = frozenset({"admin_session", "person_session"})
+# The actor kinds no grant and no ban can judge. Named rather than the judged ones, so a kind added
+# later is refused until its binder binds a judge, never let through unjudged.
+UNJUDGED_KINDS: Final = frozenset({"system", "public"})
 
 
 def _unjudged(_session: AsyncClientSession) -> AbstractAsyncContextManager[object]:
@@ -127,7 +128,7 @@ async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[JudgedS
     judge = actor_judge_var.get()
     # Refused rather than run unjudged: a binder that bound such an actor and no judge would let a
     # revoked administrator or a barred person write.
-    if judge is None and actor.kind in JUDGED_KINDS:
+    if judge is None and actor.kind not in UNJUDGED_KINDS:
         raise LookupError(f"a transaction of a `{actor.kind}` actor has no judge bound")
 
     async with client.start_session() as session:
