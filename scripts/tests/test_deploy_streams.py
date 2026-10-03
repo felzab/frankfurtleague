@@ -1055,6 +1055,26 @@ def test_every_credential_line_refuses_naming_each_in_any_case_and_no_value() ->
     assert "Delete them" in output, output
 
 
+# Each a form compose's own parser reads a name from (compose-go `dotenv/parser.go :: locateKeyName`,
+# which moves without us; read 2026-10-03): it ends a name at `=` or `:`, and drops a leading `export`.
+@pytest.mark.parametrize(
+    "line",
+    [
+        pytest.param("AUTH_SECRET: a value no case reads", id="colon"),
+        pytest.param("  AUTH_SECRET :a value no case reads", id="colon-spaced"),
+        pytest.param("export AUTH_SECRET: a value no case reads", id="export-colon"),
+    ],
+)
+def test_a_credential_line_in_any_form_compose_reads_refuses(line: str) -> None:
+    body = f"printf '%s\\n' {shlex.quote(line)} > fl_backend/.env\nrefuse_credential_lines fl_backend/.env\necho credential-lines-passed\n"
+    code, output, _ = _run(body)
+
+    assert code == 2, output
+    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "a value no case reads" not in output, output
+    assert "credential-lines-passed" not in output, output
+
+
 @pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
 def test_each_script_runs_the_check_over_both_files_before_compose_reads_either(script: Path) -> None:
     """The local stack runs neither image's name check, so there this is the one reader standing between a credential's line and a container."""

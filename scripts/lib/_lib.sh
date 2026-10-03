@@ -964,8 +964,9 @@ refuse_credential_lines() { # $@ the environment files
   for file in "$@"; do
     held=()
     while IFS= read -r line || [[ -n "$line" ]]; do
-      # A bare name too: compose's pass-through form, which hands the container the shell's own value.
-      [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*(=|$) ]] || continue
+      # Every form compose's parser ends a name at: `=`, the YAML-style `:`, and a bare name, its
+      # pass-through form, which hands the container the shell's own value.
+      [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$) ]] || continue
       name="${BASH_REMATCH[2]}"
       for moved in "${MOVED_ENV_NAMES[@]}"; do
         if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
