@@ -13,7 +13,7 @@
     "node": ">=26",
     "pnpm": ">=11.18.0"
   },
-  "packageManager": "pnpm@11.27.1",
+  "packageManager": "pnpm@11.28.3",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key SECRETS_DIR=../secrets next dev --turbo",
     "build": "next build",
