@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -15,9 +15,11 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
+import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants.ts";
 import { MAIL_ABGEWIESEN } from "./utils.ts";
@@ -42,6 +44,7 @@ const failureToasts = () =>
 const { RegistrierungView } = await import("./components/views/RegistrierungView.tsx");
 const { RegistrierungFormPanel } = await import("./components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("./components/views/SpielerBestaetigungView.tsx");
+const { AdresseGesperrt } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { NUMMER_MAX_LENGTH, STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
 
 const { default: SpielerBestaetigungPage } = await import("@/app/(public)/bestaetigung/spieler/page.tsx");
@@ -155,8 +158,6 @@ const SLOTS: Readonly<Record<string, string>> = {
   datenschutz: "Datenschutzerklärung",
 };
 
-const gefuellt = (text: string): string => text.replace(/\{(\w+)\}/g, (slot, name: string) => SLOTS[name] ?? slot);
-
 describe("the state the registration page renders", () => {
   /* First: every case below reads these renders, and a fixture table that had collapsed onto one
      state would leave each of them asserting over the same page five times. */
@@ -244,11 +245,17 @@ describe("the state the registration page renders", () => {
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
 
-    const html = await screen.findByText(/Frag in Deinem Team nach dem aktuellen Link/).then(() => container.innerHTML);
+    const satz = await screen.findByText(/Frag in Deinem Team nach dem aktuellen Link/);
+    const html = container.innerHTML;
 
     assert.ok(!html.includes(TEAM.name), "the dead-link page still names the team");
     assert.ok(!html.includes(TEAM.full_name), "the dead-link page still names the school");
     assert.match(/<h1[^>]*>([^<]*)<\/h1>/.exec(html)?.[1] ?? "", /Link ung/, "the heading is not the dead link's");
+    // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
+    assert.ok(
+      document.activeElement === satz.closest('[role="status"]'),
+      "the panel replaced the pressed button and the focus fell to the page",
+    );
   });
 
   it("says a pupil is nachnominiert only where the invite says the period has opened", () => {
@@ -470,7 +477,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
     for (const absatz of gerendert) {
       for (const [schluessel, text] of Object.entries(ABSAETZE)) {
-        if (absatz === gefuellt(text)) gezaehlt.set(schluessel, (gezaehlt.get(schluessel) ?? 0) + 1);
+        if (absatz === filledSlots(text, SLOTS)) gezaehlt.set(schluessel, (gezaehlt.get(schluessel) ?? 0) + 1);
       }
     }
 
@@ -479,7 +486,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     for (const [schluessel, wieOft] of gezaehlt) assert.equal(wieOft, 1, `${schluessel} stands on the page ${String(wieOft)} times`);
   });
 
-  /* `fuelleFassung` leaves an unfilled slot standing, so a slot the page supplies no value for is
+  /* `Gefuellt` leaves an unfilled slot standing, so a slot the page supplies no value for is
      spelled at a pupil in the middle of a consent sentence. */
   it("renders no slot as its own literal", () => {
     assert.doesNotMatch(textOf(STANDING, " "), /\{\w+\}/, "the consent text spells a placeholder at its reader");
@@ -495,7 +502,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
       describedBy.some((id) => {
         const from = STANDING.indexOf(`id="${id}"`);
 
-        return from !== -1 && textOf(STANDING.slice(from).split("</div>")[0] ?? "").includes(gefuellt(ABSAETZE.klickIdentitaet));
+        return from !== -1 && textOf(STANDING.slice(from).split("</div>")[0] ?? "").includes(filledSlots(ABSAETZE.klickIdentitaet, SLOTS));
       }),
       "no described element holds the stamped points, so the button promises something written nowhere",
     );
@@ -622,8 +629,8 @@ describe("how a pupil operates the confirmation page without a pointer", () => {
     );
     // The paragraph belonging to each control stands above it, or a reader meets the answer before
     // the question.
-    assert.ok(html.indexOf(gefuellt(ABSAETZE.geburtsdatum)) < stellen[0]!, "the birthdate paragraph stands below its control");
-    assert.ok(html.indexOf(gefuellt(ABSAETZE.veroeffentlichung)) > stellen[0]!, "the publication paragraph stands above the date");
+    assert.ok(html.indexOf(filledSlots(ABSAETZE.geburtsdatum, SLOTS)) < stellen[0]!, "the birthdate paragraph stands below its control");
+    assert.ok(html.indexOf(filledSlots(ABSAETZE.veroeffentlichung, SLOTS)) > stellen[0]!, "the publication paragraph stands above the date");
   });
 
   it("gives each of the three an accessible name and a tab stop", async () => {
@@ -773,5 +780,83 @@ describe("the media switch, offered from the media age alone", () => {
       false,
       "the yes given at the older date was sent for the younger one",
     );
+  });
+});
+
+describe("what a link to a barred address opens on", () => {
+  it("is the shared barred page and nothing beside it", () => {
+    assert.equal(
+      renderMarkup(SpielerBestaetigungView, { start: { zustand: "gesperrt" }, fassung: FASSUNG }),
+      renderMarkup(AdresseGesperrt, { panelRef: createRef<HTMLElement>() }),
+      "the page draws its own barred page, or something beside the shared one",
+    );
+  });
+
+  /* A ban entered while the form stood open: the refused press swaps the form for the same page
+     rather than raising the sentence as a toast over the form. */
+  it("swaps an open form for that page when the press is refused on the ban", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ success: false, zustand: "gesperrt" }))));
+    const user = userEvent.setup();
+    const { unmount } = render(
+      h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: FASSUNG }),
+    );
+
+    await user.click(screen.getByRole("radio", { name: FASSUNG.bedienelemente.intern }));
+    const [tag] = screen.getAllByRole("spinbutton");
+    await user.click(tag!);
+    await user.keyboard(getippt(geborenVor(MIN_ALTER + 1)));
+    await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+
+    const shown = await screen.findByText(LINK_ADRESSE_GESPERRT);
+    const buttons = screen.queryAllByRole("button").length;
+    const toasts = raised.length;
+    unmount();
+
+    assert.ok(shown, "the page kept the form the press cannot use again");
+    assert.equal(buttons, 0, "a press stands beside the barred sentence");
+    assert.equal(toasts, 0, "the ban was raised as a toast over the form");
+  });
+});
+
+describe("the address a link page opened under", () => {
+  /** Where the page stands once it has opened at `url`. */
+  function adresseNach(url: string, seite: ReactElement): string {
+    window.history.replaceState(null, "", url);
+    const { unmount } = render(seite);
+    const adresse = `${window.location.pathname}${window.location.search}`;
+    unmount();
+
+    return adresse;
+  }
+
+  it("loses the invite's token on the registration page", () => {
+    const adresse = adresseNach("/registrierung?token=kein-echtes-token", h(RegistrierungView, { start: { zustand: "ungueltig" } }));
+
+    assert.equal(adresse, "/registrierung", "the page leaves its token in the address bar");
+  });
+
+  it("loses the link's token on the pupil's confirmation page", () => {
+    const adresse = adresseNach(
+      "/bestaetigung/spieler?token=kein-echtes-token",
+      h(SpielerBestaetigungView, { start: { zustand: "bestaetigt" }, fassung: FASSUNG }),
+    );
+
+    assert.equal(adresse, "/bestaetigung/spieler", "the page leaves its token in the address bar");
+  });
+
+  it("keeps the invite's token on the registration page where the invite could not be read", () => {
+    const adresse = adresseNach("/registrierung?token=kein-echtes-token", h(RegistrierungView, { start: { zustand: "unlesbar" } }));
+
+    assert.equal(adresse, "/registrierung?token=kein-echtes-token", "the page stripped the token a reload needs");
+  });
+
+  it("keeps the link's token on the pupil's confirmation page where the link could not be read", () => {
+    const adresse = adresseNach(
+      "/bestaetigung/spieler?token=kein-echtes-token",
+      h(SpielerBestaetigungView, { start: { zustand: "unlesbar" }, fassung: FASSUNG }),
+    );
+
+    assert.equal(adresse, "/bestaetigung/spieler?token=kein-echtes-token", "the page stripped the token a reload needs");
   });
 });

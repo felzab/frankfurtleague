@@ -95,7 +95,7 @@ const shown = (href: string, rows: AdminTeamRow[]): AdminTeamRow[] =>
 
 describe("the squad row's link into the club list", () => {
   it("points into the club list", () => {
-    assert.ok(HREF.startsWith("/admin/teams?"), `the club's name links to ${HREF}`);
+    assert.ok(HREF.startsWith("/bereich/admin/teams?"), `the club's name links to ${HREF}`);
   });
 
   /* The defect this closes: a club replacement takes a club out of the season and leaves the squad
@@ -119,7 +119,7 @@ describe("the squad row's link into the club list", () => {
      link, rather than left to whoever next reads the facet's default. */
   it("carries the parameter because the list's own default narrows to the season", () => {
     assert.deepEqual(
-      shown(`/admin/teams?q=${encodeURIComponent(TEAM_NAME)}&saison_id=${SAISON_ID}`, [INSIDE, OUTSIDE]).map((team) => team.id),
+      shown(`/bereich/admin/teams?q=${encodeURIComponent(TEAM_NAME)}&saison_id=${SAISON_ID}`, [INSIDE, OUTSIDE]).map((team) => team.id),
       ["inside"],
     );
   });
@@ -143,6 +143,6 @@ describe("the squad row's link into the club list", () => {
 
     const back = within(screen.getByRole("menu")).getByRole("menuitem", { name: "Spieler anzeigen" }).getAttribute("href") ?? "";
 
-    assert.equal(back, `/admin/spieler?team=${TEAM_ID}&saison_id=${SAISON_ID}`);
+    assert.equal(back, `/bereich/admin/spieler?team=${TEAM_ID}&saison_id=${SAISON_ID}`);
   });
 });

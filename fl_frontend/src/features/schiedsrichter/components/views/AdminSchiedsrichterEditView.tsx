@@ -3,6 +3,7 @@
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { AdminSchiedsrichterEditForm } from "@/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm";
 import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
+import { returnMayMint } from "@/features/schiedsrichter/linkMint";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
@@ -23,7 +24,7 @@ export function AdminSchiedsrichterEditView({
   /** The day this referee was retired, or `null` while they officiate — on no field of the form. */
   inactiveSince: string | null;
 }) {
-  const { isReactivating, reactivate } = useReactivation({ action: reactivateSchiedsrichterAction, noun: "Schiedsrichter" });
+  const { isReactivating, isPrompting, reactivate } = useReactivation({ action: reactivateSchiedsrichterAction, noun: "Schiedsrichter" });
 
   const isRetired = inactiveSince !== null;
   const { name } = schiedsrichter;
@@ -38,7 +39,14 @@ export function AdminSchiedsrichterEditView({
           title: name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
           // The retirement date, which the rail's banner states as a state and never as a day.
           chip: isRetired ? <RetiredBadge since={inactiveSince} /> : undefined,
-          reactivate: isRetired ? { isPending: isReactivating, onPress: () => reactivate({ id: schiedsrichter.id }) } : undefined,
+          reactivate: isRetired
+            ? {
+                isPending: isReactivating,
+                isPrompting,
+                // A return that mints the referee a link is a step-up write.
+                onPress: () => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter) }),
+              }
+            : undefined,
         }}
       />
     </div>

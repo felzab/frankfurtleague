@@ -8,11 +8,15 @@ requires-python = ">=3.14"
 # nothing checks against the real one, and puts a row on the dependabot dashboard for code no
 # module in `app/` reaches. Each line below is either an import or a comment saying why it is not.
 dependencies = [
+    "anyio>=4.15.1",
     "email-validator>=2.3.0",
     "fastapi>=0.138.0",
     "pydantic>=2.13.4",
     "pydantic-core>=2.46.4",
     "pydantic-settings>=2.14.2",
+    # Imported as `jwt`. `[crypto]` because Ed25519 verification is `cryptography`'s: without the
+    # extra, a key for `EdDSA` raises `MissingCryptographyError` on the first actor token.
+    "pyjwt[crypto]>=2.15.0",
     # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
     # that name.
     "pymongo>=4.17.0",
@@ -78,7 +82,7 @@ DEP002 = ["tzdata", "uvicorn"]
 [tool.uv]
 # The uv the Dockerfile copies in, so one resolver builds the gate's venv and the image's;
 # setup-uv's `version-file` reads it too. Moves with the Dockerfile's `FROM ghcr.io/astral-sh/uv:`
-# line, and `scripts/gate/selfcheck.sh :: UV_PIN` refuses the pair when it does not.
+# line, and `scripts/gate/selfcheck.sh :: check_uv_pin` refuses the pair when it does not.
 required-version = "==0.12.19"
 
 [tool.ruff]
@@ -114,12 +118,40 @@ select = [
 ]
 ignore = ["B008"]
 
+[tool.ruff.lint.per-file-ignores]
+# `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
+# design: every entry in the banned list guards the backend alone.
+"../scripts/**" = ["TID251"]
+
 # A handler reading the environment's settings answers with those whatever the app was built with,
 # and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
 "app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+# The readers `get_config` is built from, each the same hazard under another name.
+"app.core.config.read_environment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"app.core.config.read_secrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"app.core.config.BackendEnvironment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"app.core.config.BackendSecrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+# The environment read raw, or through a settings source of a module's own, without even
+# `read_environment`'s validation. Each package is banned whole: ruff matches the path an import
+# spells, so a member's entry misses the submodule defining it.
+"os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"os.environb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"os.getenvb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"pydantic_settings".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"dotenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+# The platform mapping `os.environ` is copied from, a path expansion reading it, and the two other
+# settings readers installed beside the backend: Starlette's, and pydantic's legacy namespace.
+"posix.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"nt.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"starlette.config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"pydantic.v1".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"os.path.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"posixpath.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"ntpath.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 # Ruff matches the path an import spells rather than the function it binds, so the same function
 # imported from the module building the app would pass the entry above.
 "app.main.get_config".msg = "Read the request's settings through `get_app_config`; `app.main` holds no `get_config` for a caller."

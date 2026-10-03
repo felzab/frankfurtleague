@@ -11,6 +11,9 @@ import { Button } from "@heroui/react/button";
 import { Dropdown } from "@heroui/react/dropdown";
 import { Label } from "@heroui/react/label";
 
+import { focusRow } from "@/shared/utils/focusAfterWrite";
+
+import { FocusSlot } from "./FocusSlot";
 import { Hint } from "./Hint";
 import { IconTooltip } from "./IconTooltip";
 import { ROW_ACTION_SIZE_CLASSES } from "./rowActionSize";
@@ -60,6 +63,9 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
   );
 }
 
+/** The place a retirement and its reactivation share, so a landed write hands the focus from one to the other. */
+const RETIREMENT_PLACE = "stilllegung";
+
 /** Shown in `RowActionDelete`'s place on a retired row. No confirmation step: one press of the delete reverses it. */
 export function RowActionRestore({
   label,
@@ -67,10 +73,14 @@ export function RowActionRestore({
   onPress,
   disabledReason,
   isPending = false,
+  place = RETIREMENT_PLACE,
 }: {
   label: string;
   ariaLabel: string;
-  onPress: () => void;
+  /** Handed the pressed control, which a landing anchors on: a grid row takes the focus off a control pressed without a pointer. */
+  onPress: (pressed: Element) => void;
+  /** A restore no delete stands in for, as the squad row's beside the person's, names a place of its own. */
+  place?: string;
   /**
    * The refusal this row can already see, or null while the return is offered. Offering what the endpoint refuses is one
    * defect whichever control reaches it, and a list reaches the squad row's reactivate as its editor does.
@@ -89,7 +99,7 @@ export function RowActionRestore({
       // page mid-press, where react-aria's pending state keeps it and ignores the press.
       isPending={isPending}
       className={ACTION_BUTTON_CLASSES}
-      onPress={onPress}>
+      onPress={(event) => onPress(event.target)}>
       <ArrowRotateLeft
         className="size-4.5"
         aria-hidden="true"
@@ -97,15 +107,19 @@ export function RowActionRestore({
     </Button>
   );
 
-  return disabledReason != null ? (
-    <Hint
-      mode="refusal"
-      reason={disabledReason}
-      label={ariaLabel}>
-      {button}
-    </Hint>
-  ) : (
-    <IconTooltip label={label}>{button}</IconTooltip>
+  return (
+    <FocusSlot name={place}>
+      {disabledReason != null ? (
+        <Hint
+          mode="refusal"
+          reason={disabledReason}
+          label={ariaLabel}>
+          {button}
+        </Hint>
+      ) : (
+        <IconTooltip label={label}>{button}</IconTooltip>
+      )}
+    </FocusSlot>
   );
 }
 
@@ -118,7 +132,7 @@ export function RowActionDelete({
 }: {
   label: string;
   ariaLabel: string;
-  onPress: () => void;
+  onPress: (pressed: Element) => void;
   /** The refusal this row can already see, or null while the retirement is offered. */
   disabledReason?: string | null;
 }) {
@@ -129,7 +143,7 @@ export function RowActionDelete({
       variant="ghost"
       isDisabled={disabledReason != null}
       className={DANGER_CLASSES}
-      onPress={onPress}>
+      onPress={(event) => onPress(event.target)}>
       <TrashBin
         className="size-4.5"
         aria-hidden="true"
@@ -139,19 +153,23 @@ export function RowActionDelete({
 
   // The live control keeps `IconTooltip`: `label` names the act, which is a description rather than a
   // refusal, and a press there opens the delete instead of an explanation.
-  return disabledReason != null ? (
-    <Hint
-      mode="refusal"
-      reason={disabledReason}
-      label={ariaLabel}>
-      {button}
-    </Hint>
-  ) : (
-    <IconTooltip
-      label={label}
-      tone="danger">
-      {button}
-    </IconTooltip>
+  return (
+    <FocusSlot name={RETIREMENT_PLACE}>
+      {disabledReason != null ? (
+        <Hint
+          mode="refusal"
+          reason={disabledReason}
+          label={ariaLabel}>
+          {button}
+        </Hint>
+      ) : (
+        <IconTooltip
+          label={label}
+          tone="danger">
+          {button}
+        </IconTooltip>
+      )}
+    </FocusSlot>
   );
 }
 
@@ -221,6 +239,19 @@ export function RowActionMenuItem({
   );
 }
 
-export function RowActions({ children }: { children: ReactNode }) {
-  return <div className="flex items-center justify-end gap-2">{children}</div>;
+export function RowActions({
+  row,
+  children,
+}: {
+  /** The entity's id where a press in the row writes: the landing finds the row again by it after the refresh. */
+  row?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="flex items-center justify-end gap-2"
+      {...(row === undefined ? {} : focusRow(row))}>
+      {children}
+    </div>
+  );
 }

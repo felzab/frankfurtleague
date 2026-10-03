@@ -23,7 +23,6 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { appToast } from "@/shared/utils/appToast";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -214,7 +213,7 @@ export function AdminTeamEditForm({
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/admin/teams"),
+    fallbackHref: saisonHref("/bereich/admin/teams"),
     isDirty,
     resetDraftToStored,
   });
@@ -290,19 +289,18 @@ export function AdminTeamEditForm({
       // so bare it commits before the pending state lifts.
       startSaving(() => {
         if (failures.length > 0) {
-          // One press, one failure: the half that saved leads each sentence, and one half of unknown
-          // outcome makes the whole press one, whatever the other half answered.
+          // One press, one failure: the half that saved leads each sentence and marks the press partly
+          // saved, and one half of unknown outcome makes the whole press one, whatever the other answered.
           reportSubmitFailure(
             {
               success: false,
               error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
               fieldErrors: collectedErrors,
               unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
-              outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
+              outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : savedParts.length > 0 ? "partial" : undefined,
             },
             { team: clubPayload, saisonTeam: saisonPayload },
             {
-              raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
               // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
               // said nowhere else.
               evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
@@ -417,7 +415,7 @@ export function AdminTeamEditForm({
             <FormKontakteLinkSection
               saisonId={saison.saisonId}
               kontakte={storedMembership.kontakte}
-              href={`/admin/kontakte/${team.id}?saison_id=${encodeURIComponent(saison.saisonId)}`}
+              href={`/bereich/admin/kontakte/${team.id}?saison_id=${encodeURIComponent(saison.saisonId)}`}
             />
           )}
 

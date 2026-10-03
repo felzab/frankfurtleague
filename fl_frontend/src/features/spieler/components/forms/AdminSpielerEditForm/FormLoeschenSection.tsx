@@ -42,7 +42,7 @@ export function FormLoeschenSection({
   const saisonHref = useSaisonHref();
   // No draft guard, unlike the anonymisation's: that one leaves a form standing whose next save would
   // write the cleared values back. Here the press removes the subject the draft describes.
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, press } = twoPress;
 
   const blockedReason = isRetired ? null : ERASURE_NEEDS_RETIREMENT;
@@ -61,7 +61,7 @@ export function FormLoeschenSection({
       appToast.success("Spieler gelöscht", { description: res.message });
       // `replace`, never `push`: this page is the erased player's own and now answers not-found, so
       // Back must not return to it. The action's own revalidation is what refreshes the list.
-      router.replace(saisonHref("/admin/spieler"));
+      router.replace(saisonHref("/bereich/admin/spieler"));
     });
   };
 

@@ -43,12 +43,17 @@ class BaseAPIException(HTTPException):
         error_code: str,
         message: str,
         headers: dict[str, str] | None = None,
+        *,
+        jti: str | None = None,
     ):
         # A real attribute, not only a key inside `detail`: every handler logs `exc.error_code` and
         # the response body carries it, so a code reachable only through the detail dict is one
         # every log line silently replaces with a fallback.
         self.error_code = error_code
         self.error_detail = {"error_code": error_code, "message": message}
+        # The actor token a refusal is about, named by its id alone: the token is a credential for the
+        # minute it lives, and the id is what a later line about the same token repeats.
+        self.jti = jti
         # A refused payload's `fields`, which a 422 alone publishes; `None` keeps them off every other body.
         self.fields: list[dict[str, Any]] | None = None
         super().__init__(status_code=status_code, detail=self.error_detail, headers=headers)
@@ -71,12 +76,56 @@ class RequestAuthorizationException(BaseAPIException):
 class MalformedRequestException(BaseAPIException):
     """A header the request needs is missing or malformed.
 
-    400 and never 401: it is judged after the key has passed, and no `WWW-Authenticate` scheme covers
-    the header, so a 401's challenge would name a credential that was valid.
+    400 and never 401: the caller composed no credential at all, a defect of the caller's, where
+    `ActorTokenRefusedException` answers a credential it composed and this side refused.
     """
 
     def __init__(self, error_code: str, message: str):
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, error_code=error_code, message=message)
+
+
+# RFC 9110's 401 must carry a challenge, and `Bearer` would name the tier key, which passed: the
+# scheme names the actor token's own header instead.
+ACTOR_TOKEN_CHALLENGE = "FL-Actor"
+
+
+class ActorTokenRefusedException(BaseAPIException):
+    """The key passed, and the actor token beside it failed verification: a credential present and not accepted, RFC 9110's 401."""
+
+    def __init__(self, error_code: str, reason: str, *, jti: str | None):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code=error_code,
+            # `reason` is `app/core/actor_token.py :: ActorTokenRefusal`'s fixed phrase: the token never reaches the log.
+            message=f"the actor token was refused: {reason}",
+            headers={"WWW-Authenticate": ACTOR_TOKEN_CHALLENGE},
+            jti=jti,
+        )
+
+
+class ActorConfirmationRequiredException(BaseAPIException):
+    """The actor may act, from a sign-in older than this write asks: RFC 9470's step-up challenge, a 401 remedied by signing in again."""
+
+    def __init__(self, error_code: str, max_age_s: int, *, jti: str):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code=error_code,
+            message=f"the actor's sign-in or confirmation is older than the {max_age_s} seconds this write asks for",
+            # RFC 9470 §3's error and parameter, under the actor's own scheme as every refusal of the token names it.
+            headers={"WWW-Authenticate": f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{max_age_s}"'},
+            jti=jti,
+        )
+
+
+class ActorForbiddenException(BaseAPIException):
+    """The key passed and the actor it names may not act on its tier.
+
+    403, never 401, whose challenge would name a valid credential. Not a `WriteRefusal`, which is a
+    domain rule's and refuses no read.
+    """
+
+    def __init__(self, error_code: str, message: str, *, jti: str):
+        super().__init__(status_code=status.HTTP_403_FORBIDDEN, error_code=error_code, message=message, jti=jti)
 
 
 class DatabaseUnavailableException(BaseAPIException):

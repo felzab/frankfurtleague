@@ -2,105 +2,96 @@
 
 import { headers } from "next/headers";
 
-import { getAuthenticatorName } from "@better-auth/passkey";
+import { isAPIError } from "better-auth/api";
 
-import { auth, isRecentlyAsserted, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
+import { notifyPasskeyRemoved, PASSKEY_LIMIT, passkeysOf, removePasskey, renamePasskey } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { stepUpRequired } from "@/shared/utils/adminMutation";
+import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { VALIDATION_FAILED } from "@/shared/utils/validation";
+import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
+
+import { PasskeyNamePayloadSchema } from "./schemas";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { PasskeyEintrag } from "./types";
 
-/* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these two actions are
-   the whole of the surface (`docs/frontend/spec.md :: I198`); a removal is judged against the rows
-   the list's own session middleware answers. */
+/* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these actions, each
+   calling in process, are the whole of the surface (`docs/frontend/spec.md :: I198`). */
 
 /**
- * The step-up the dialog re-runs the assertion for, worded for a reader whose window ran out between
- * the ceremony and the press (`docs/frontend/spec.md :: I312`).
- */
-const BESTAETIGUNG_ABGELAUFEN = "Die Bestätigung mit dem Passkey ist abgelaufen. Versuche es noch einmal.";
-
-/**
- * What protects the last ROW; what protects this administrator's own authenticator is the step-up.
- * The dialog closes its own control with the same sentence
- * (`fl_frontend/src/features/passkeys/components/modals/PasskeyModal.tsx :: LETZTER_PASSKEY`):
- * **move both.**
+ * What protects an administrator's last ROW; a person may remove theirs and signs in by code again.
+ * The card closes its own control with the same sentence
+ * (`fl_frontend/src/features/passkeys/components/ui/PasskeyKarteView.tsx :: LETZTER_PASSKEY`): **move both.**
  */
 const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
 
-/** A removal that met a change to this administrator's passkeys or sessions (`docs/frontend/spec.md :: I312`). */
+/**
+ * A change that met another to the holder's passkeys or sessions (`docs/frontend/spec.md :: I312`), or
+ * addressed a row another change took away or that was never the holder's: a stale list either way.
+ */
 const GLEICHZEITIG_GEAENDERT = buildRefusal({
   reason: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert",
   repair: "Lade die Seite neu",
 });
 
-export async function readPasskeysAction(): Promise<QueryResult<{ passkeys: PasskeyEintrag[]; kannHinzufuegen: boolean }>> {
-  return runAdminMutation("readPasskeysAction", async () => {
-    const held = await auth.api.listPasskeys({ headers: await headers() });
-
-    return {
-      success: true,
-      // Projected rather than handed over: `listPasskeys` answers the whole row, the public key and
-      // the credential id among its fields, and the dialog draws none of them.
-      passkeys: held.map((row) => ({
-        id: row.id,
-        createdAt: new Date(row.createdAt).toISOString(),
-        label: getAuthenticatorName(row.aaguid) ?? null,
-      })),
-      // The cap is judged again at the enrolment itself; this is what closes the control so the
-      // reader meets a sentence rather than a refused browser prompt.
-      kannHinzufuegen: held.length < PASSKEY_LIMIT,
-    };
-  });
-}
-
-export async function removePasskeyAction(id: string): Promise<ActionResult> {
-  return runAdminMutation("removePasskeyAction", async (served) => {
+/** `diesesGeraet` says the removal ended the session the request came with, which the page then leaves. */
+export async function removePasskeyAction(id: string): Promise<ActionResult<{ diesesGeraet: boolean }>> {
+  return runKontoMutation("removePasskeyAction", async (served) => {
     // A server action's argument is whatever a caller posted, and this one reaches a store query.
-    if (typeof id !== "string" || id === "") {
-      return { success: false, error: VALIDATION_FAILED };
-    }
+    if (typeof id !== "string" || id === "") return { success: false, error: VALIDATION_FAILED };
 
-    // A cookie alone may not remove: the dialog re-runs the assertion ceremony first, which mints a
-    // session whose `createdAt` is now and which an authenticator this account never enrolled cannot.
-    if (!isRecentlyAsserted(served.session.createdAt)) {
-      return { success: false, error: BESTAETIGUNG_ABGELAUFEN };
-    }
-
-    const requestHeaders = await headers();
-    const held = await auth.api.listPasskeys({ headers: requestHeaders });
-
-    // Read off the caller's own rows, which is all `listPasskeys` answers: at zero rows the mailed
-    // link enrols again, so the administrator is locked out of nothing, but the page offers it to
-    // nobody either.
-    const [own] = held;
-    if (own === undefined || held.length <= 1) {
-      return { success: false, error: LETZTER_PASSKEY };
-    }
+    const held = await passkeysOf(served.user.id);
+    // Read before the removal, which may end the session this request arrived with.
+    const diesesGeraet = held.some((row) => row.id === id && row.credentialID === served.session.passkeyCredentialId);
 
     // Named here because the sign-in store is written past the API client, which records its own writes: unrecorded,
     // the spine answers a success unrefreshed and a throw after the commit as a plain failure.
     recordWriteSent();
 
-    // The rows above are the caller's own, so their `userId` is the account the removal is judged on
-    // again, inside the transaction that deletes and signs the other devices out.
-    const removal = await removePasskey(own.userId, id, served.session.id);
+    const removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
 
     if (removal === "last") return { success: false, error: LETZTER_PASSKEY };
-
-    // A row that is gone, or another person's: both read to this administrator as a list they are
-    // holding a stale copy of.
-    if (removal === "absent") {
-      return { success: false, error: buildRefusal({ reason: "Der Passkey wurde nicht gelöscht", repair: "Lade die Seite neu" }) };
-    }
-
-    if (removal === "conflict") return { success: false, error: GLEICHZEITIG_GEAENDERT };
+    if (removal === "absent" || removal === "conflict") return { success: false, error: GLEICHZEITIG_GEAENDERT };
 
     await notifyPasskeyRemoved(served.user.email);
 
-    return { success: true, message: "Passkey gelöscht" };
+    return { success: true, message: "Passkey gelöscht", diesesGeraet: diesesGeraet };
+  });
+}
+
+/** The name the card shows; the plugin checks the row is the caller's own and the length is this slice's. */
+export async function renamePasskeyAction(id: string, name: string): Promise<ActionResult> {
+  return runKontoMutation("renamePasskeyAction", async () => {
+    const parsed = PasskeyNamePayloadSchema.safeParse({ name: name });
+    if (typeof id !== "string" || id === "") return { success: false, error: VALIDATION_FAILED };
+    if (!parsed.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(parsed.error) };
+
+    recordWriteSent();
+
+    try {
+      await renamePasskey(id, parsed.data.name, await headers());
+    } catch (failed) {
+      // The plugin refuses a row that is gone and a row that is another person's alike, both before it
+      // writes: to the holder either is a stale list.
+      if (isAPIError(failed) && failed.statusCode < 500) return { success: false, error: GLEICHZEITIG_GEAENDERT };
+      throw failed;
+    }
+
+    return { success: true, message: "Passkey umbenannt" };
+  });
+}
+
+/**
+ * Read after the enrolment guard's 404, which answers the cap, a stale sign-in and a held authenticator
+ * alike: the step-up refusal, by the enrolment's own window, names the second, the count the first
+ * (`docs/frontend/spec.md :: I427`).
+ */
+export async function readPasskeyStandAction(): Promise<QueryResult<{ kannHinzufuegen: boolean }>> {
+  return runKontoMutation("readPasskeyStandAction", async (served) => {
+    if (enrolmentUntil(served) === null) return stepUpRequired();
+
+    const held = await passkeysOf(served.user.id);
+
+    return { success: true, kannHinzufuegen: held.length < PASSKEY_LIMIT };
   });
 }

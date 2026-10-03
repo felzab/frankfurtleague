@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+import { useShellSaisonHref } from "@/shared/components/layout/shell/ShellSaisonQuery";
 
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
@@ -14,8 +14,8 @@ import { StatusPanel } from "./StatusPanel";
  * catch-all hands over (`docs/frontend/spec.md :: I232`).
  */
 export function ShellNotFound({ message, href, linkLabel }: { message: string; href: string; linkLabel: string }) {
-  // The season is still on the url the 404 was served for, so the way out keeps it.
-  const saisonHref = useSaisonHref();
+  // The way out links as the shell around it does, keeping the season where that shell's query holds it.
+  const saisonHref = useShellSaisonHref();
 
   return (
     <StatusPanel

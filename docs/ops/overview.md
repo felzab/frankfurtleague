@@ -13,9 +13,13 @@ graph TB
     internet["Internet"]
     cf["Cloudflare<br/>proxy — terminates public TLS"]
 
-    subgraph net["Docker network: frankfurtleague-net"]
+    subgraph edgenet["Docker network: frankfurtleague-net"]
         connector["cloudflared<br/>dials out; the host publishes nothing"]
-        nginx["nginx<br/>:80 and :443 inside the network only"]
+    end
+
+    nginx["nginx<br/>:80 and :443, on both networks and no host port"]
+
+    subgraph appnet["Docker network: frankfurtleague-app"]
         fe["frontend :3000<br/>Next.js standalone, user nextjs"]
         be["backend :8000<br/>FastAPI"]
     end
@@ -32,8 +36,9 @@ graph TB
     be --> mongo
 ```
 
-**The diagram is production's** — the local stack adds its own database service to the same network
-and points both application services at it ([`spec.md`](spec.md) §1.5).
+**The diagram is production's** — the local stack adds its own database service to the application
+network and points both application services at it ([`spec.md`](spec.md) §1.5). **nginx alone
+joins both networks** ([`spec.md`](spec.md) I471), so the connector reaches nothing else.
 
 **The host publishes no port at all** ([`spec.md`](spec.md) I1): the connector dials out, so nginx's
 routing table is the whole of what the internet can address on this host, and there is no address to

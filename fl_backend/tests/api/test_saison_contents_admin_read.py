@@ -18,10 +18,8 @@ from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
-from app.main import create_app
 from tests import documents
-from tests.config import build_test_config
-from tests.core.app_source import api_routes
+from tests.core.app_source import api_routes, application
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.worker import worker_database
 
@@ -267,8 +265,6 @@ class TestTheBaseTierStillSeesNoneOfThePlannedSeason:
         assert on_a_league(seeded_league, lambda database: base_spiele(database, PLANNED)).spiele == []
 
 
-APP = create_app(build_test_config())
-
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
 # The three resources whose season-scoped base reads the gate closed. `/saisons` is not one: what it
@@ -278,7 +274,7 @@ GATED_PREFIXES = ("/api/v0/teams/", "/api/v0/spiele/", "/api/v0/spieltage/")
 
 # In the order a request is matched against them: `api_routes` opens each included router's wrapper
 # where it stands in `app.routes`, which is where matching descends into it.
-ROUTES = list(api_routes(APP))
+ROUTES = list(api_routes(application()))
 
 # Concrete ids, never `{spieltag_id}`: what is asked here is which route a REQUEST lands on, and a
 # literal segment reaching an id route is the failure these paths are shaped to rule out.

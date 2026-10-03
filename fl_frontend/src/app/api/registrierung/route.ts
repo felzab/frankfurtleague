@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       // After the write and never before it: outside production this send is withheld after writing
       // the message to the sink, and the row has to survive that so the person can still be reached
       // about it.
-      const { delivered, withheld } = await sendZielMail({
+      const { delivered, withheld, gesperrt } = await sendZielMail({
         operation: "postRegistrierung",
         // `eingang` is the occasion the application flow already names for a confirmation link sent
         // at a submission.
@@ -74,8 +74,9 @@ export async function POST(request: NextRequest) {
       });
 
       // A withheld send is this deployment and not the address, so it answers as a send: the sink
-      // holds the message and the link is followed out of it.
-      if (delivered.length === 0 && withheld.length === 0) {
+      // holds the message and the link is followed out of it. A barred one answers as a send too
+      // (`docs/frontend/spec.md :: I301`).
+      if (delivered.length === 0 && withheld.length === 0 && gesperrt === 0) {
         return { success: false as const, ...abgewiesenerVersand() };
       }
 

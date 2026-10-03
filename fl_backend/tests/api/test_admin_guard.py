@@ -8,15 +8,21 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
-from app.core.security import MISSING_TOKEN, verify_access_admin, verify_access_base, verify_access_system
-from app.main import create_app
-from tests.config import build_test_config
-from tests.core.app_source import api_routes
+from app.core.security import (
+    MISSING_TOKEN,
+    PERSON_ACTOR_BINDERS,
+    bind_actor,
+    verify_access_admin,
+    verify_access_base,
+    verify_access_system,
+    verify_actor_is_admin,
+)
+from tests.core.app_source import api_routes, application
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
-APP = create_app(build_test_config())
+APP = application()
 
 MISSING_BEARER_TOKEN = MISSING_TOKEN
 
@@ -108,6 +114,11 @@ SYSTEM_WRITES = [
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
     ("/api/v0/identitaet/subjekt", "post"),
+    ("/api/v0/identitaet/gesperrt", "post"),
+    # The grants' reconciliation, one call reading and one stamping: the frontend's timer holds no
+    # session, and a change made in the database directly has no administrator to attribute it to.
+    ("/api/v0/berechtigungen/abgleich", "post"),
+    ("/api/v0/berechtigungen/abgleich/angekuendigt", "post"),
 ]
 
 MUTATIONS = [
@@ -183,6 +194,56 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
         return
 
     assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
+
+
+# The operations a signed-in person reaches on the admin key through `PERSON_ACTOR_BINDERS`, whose actor
+# is a person no grant names: the one exemption from the check below, by name. Empty until the
+# first router serving a person is mounted.
+PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset()
+
+# Derived from the guard, as every tier here is, so a router added later is swept without being listed.
+ADMIN_TIER_OPERATIONS = [
+    operation
+    for operation in PUBLISHED_OPERATIONS
+    if guards_of(ROUTES_BY_OPERATION[operation]) == {verify_access_admin} and operation not in PERSON_OPERATIONS
+]
+
+
+@pytest.mark.parametrize(("path", "method"), ADMIN_TIER_OPERATIONS, ids=lambda value: value)
+def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, method: str):
+    """Every method, a read among them: a person's session reaches an admin read as it reaches a write.
+
+    After the key, or a caller holding none learns from a 403 which addresses are administrators.
+    """
+    calls = [dependency.call for dependency in ROUTES_BY_OPERATION[(path, method)].dependant.dependencies]
+
+    assert verify_actor_is_admin in calls, f"{method.upper()} {path} judges no actor against the grants"
+    assert calls.index(verify_access_admin) < calls.index(verify_actor_is_admin), f"{method.upper()} {path} judges its actor before its key"
+    # The grants check passes a request naming nobody, so without the binder that one is served.
+    assert bind_actor in calls, f"{method.upper()} {path} refuses no request naming nobody"
+    assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
+
+
+def test_the_person_exemption_names_only_published_operations():
+    """A stale entry would exempt nothing while reading as a decision."""
+    assert set(PERSON_OPERATIONS) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(PERSON_OPERATIONS) - set(PUBLISHED_OPERATIONS))} is not published"
+
+
+def test_every_person_operation_binds_a_person_after_the_key():
+    """What earns an operation its exemption from the grants check.
+
+    `tests/api/test_actor_binding.py :: PERSON_WRITES` is held to the same routes, so the two lists
+    agree. Not parametrised: the list is empty until a person's router is mounted.
+    """
+    unearned = []
+    for operation in sorted(PERSON_OPERATIONS):
+        route = ROUTES_BY_OPERATION.get(operation)
+        calls = [dependency.call for dependency in route.dependant.dependencies] if route else []
+        binders = [index for index, call in enumerate(calls) if any(call is binder for binder in PERSON_ACTOR_BINDERS.values())]
+        if verify_access_admin not in calls or not binders or binders[0] < calls.index(verify_access_admin):
+            unearned.append(operation)
+
+    assert unearned == [], f"{unearned} is exempt from the grants check without binding a person after the admin key"
 
 
 def test_every_guard_this_file_knows_names_a_tier():

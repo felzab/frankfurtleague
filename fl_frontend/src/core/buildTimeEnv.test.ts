@@ -10,12 +10,11 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
 /**
- * The names the builder stage itself sets, its `node` base image's `NODE_VERSION` among them; a name added
- * here is a claim about the Dockerfile and that image (`docs/frontend/spec.md :: I84`).
+ * The names the builder stage sets, its base image's `NODE_VERSION` among them; a name added here is a
+ * claim about the Dockerfile and that image (`docs/frontend/spec.md :: I84`).
  */
 const PROVIDED_WHILE_BUILDING = new Set([
   "CI",
-  "MONGODB_URI",
   "NEXT_RUNTIME",
   "NEXT_TELEMETRY_DISABLED",
   "NODE_ENV",
@@ -25,8 +24,14 @@ const PROVIDED_WHILE_BUILDING = new Set([
   "SKIP_ENV_VALIDATION",
 ]);
 
-/** The validated source (`fl_frontend/src/core/config.ts :: frontend_config`): every read off it is a value, and the call building it is no subject. */
+/** The validated settings (`fl_frontend/src/core/config.ts :: frontend_config`): every read off them is a value. */
 const VALIDATED_CONFIG = "frontend_config";
+
+/** The one validation (`fl_frontend/src/core/config.ts :: validated`), whose own arguments are no subject. */
+const VALIDATION = "validated";
+
+/** Where a secret's reader is imported from: its call is a value the builder leaves undefined, as a setting is. */
+const CONFIG_MODULE = /(?:^|\/)config(?:\.ts)?$/;
 
 const collectModules = (dir: string): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 350);
 
@@ -57,6 +62,22 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
 
   const derived = new Set<string>();
   const holders = new Map<string, ts.ObjectLiteralExpression | ts.ArrayLiteralExpression>();
+  // A name taken from the config beside the settings is a secret's reader, whose call returns what the
+  // builder leaves undefined.
+  const readers = new Set(
+    sourceFile.statements.flatMap((statement) =>
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      CONFIG_MODULE.test(statement.moduleSpecifier.text) &&
+      statement.importClause?.isTypeOnly !== true &&
+      statement.importClause?.namedBindings !== undefined &&
+      ts.isNamedImports(statement.importClause.namedBindings)
+        ? statement.importClause.namedBindings.elements
+            .filter((element) => !element.isTypeOnly && element.name.text !== VALIDATED_CONFIG)
+            .map((element) => element.name.text)
+        : [],
+    ),
+  );
   const findings: Finding[] = [];
   let validator: ts.Node | undefined;
 
@@ -69,8 +90,9 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
     ts.isBinaryExpression(node) &&
     (node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken || node.operatorToken.kind === ts.SyntaxKind.BarBarToken);
 
-  /** A name the builder does not set, read off the validated config or off `process.env` directly. */
+  /** A name the builder does not set, read off the validated config, through a secret's reader, or off `process.env` directly. */
   function isEnvRead(node: ts.Node): boolean {
+    if (ts.isCallExpression(node)) return ts.isIdentifier(node.expression) && readers.has(node.expression.text);
     if (!ts.isPropertyAccessExpression(node)) return false;
     if (ts.isIdentifier(node.expression) && node.expression.text === VALIDATED_CONFIG) return !PROVIDED_WHILE_BUILDING.has(node.name.text);
 
@@ -153,13 +175,46 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
     return values.some((value) => (resolvesToEnv(value) && !(written && isFallback(unwrap(value)))) || carriesEnv(value, written));
   }
 
-  /** A fallback or a branch stands something else in where the value is missing, and nothing throws. */
+  /** The environment names an expression reads, and the module-scope names it reads that hold one. */
+  function namesRead(node: ts.Node): Set<string> {
+    const names = new Set<string>();
+    const walk = (candidate: ts.Node): void => {
+      if (ts.isPropertyAccessExpression(candidate) && isEnvRead(candidate)) names.add(candidate.name.text);
+      else if (ts.isCallExpression(candidate) && ts.isIdentifier(candidate.expression) && isEnvRead(candidate))
+        names.add(candidate.expression.text);
+      else if (ts.isIdentifier(candidate) && derived.has(candidate.text)) names.add(candidate.text);
+      ts.forEachChild(candidate, walk);
+    };
+    walk(node);
+    return names;
+  }
+
+  /** The test that decides whether `child` runs at all, where `ancestor` is a branch or a short circuit holding it. */
+  function testOf(ancestor: ts.Node, child: ts.Node): ts.Node | undefined {
+    if (ts.isIfStatement(ancestor) && child !== ancestor.expression) return ancestor.expression;
+    if (ts.isConditionalExpression(ancestor) && child !== ancestor.condition) return ancestor.condition;
+    if (!ts.isBinaryExpression(ancestor) || child !== ancestor.right) return undefined;
+    const operator = ancestor.operatorToken.kind;
+    const shortCircuits = [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(
+      operator,
+    );
+    return shortCircuits ? ancestor.left : undefined;
+  }
+
+  /**
+   * A fallback stands in where the value is missing; a branch or a short circuit guards a site only
+   * where its test reads a value the site consumes, one testing another name leaving the site to throw.
+   */
   function isGuarded(node: ts.Node): boolean {
     if (isFallback(unwrap(node))) return true;
 
+    const consumed = namesRead(node);
+    let child = node;
     let ancestor: ts.Node | undefined = node.parent;
     while (ancestor !== undefined && !isFunctionLike(ancestor)) {
-      if (isFallback(ancestor) || ts.isConditionalExpression(ancestor) || ts.isIfStatement(ancestor)) return true;
+      const test = testOf(ancestor, child);
+      if (test !== undefined && [...namesRead(test)].some((name) => consumed.has(name))) return true;
+      child = ancestor;
       ancestor = ancestor.parent;
     }
     return false;
@@ -200,7 +255,7 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
 
         // Only the call's own arguments are spared, never a read consumed inside them
         // (`docs/frontend/spec.md` §1.9).
-        if (declaration.name.text === VALIDATED_CONFIG) validator = unwrap(declaration.initializer);
+        if (declaration.name.text === VALIDATION) validator = unwrap(declaration.initializer);
       }
     }
     visit(statement);
@@ -210,15 +265,17 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
 
 const modules = collectModules(SRC_DIR);
 
-/** Every module reading a build-time name at all, at module scope or from inside a function. */
-const envReaders = modules.filter((file) => /frontend_config\.|process\.env\./.test(readFileSync(file, "utf8")));
+/** Every module reading a build-time name at all, at module scope or from inside a function, a secret's reader among them. */
+const envReaders = modules.filter((file) =>
+  /frontend_config\.|process\.env\.|from "(?:@\/core|\.{1,2})(?:\/[\w.]+)*\/config(?:\.ts)?"/.test(readFileSync(file, "utf8")),
+);
 
 describe("what a module does with the environment while the image builds", () => {
   it("tells a consumed value from a composed one, and a module's body from a function's", () => {
     /* The reader on input, because the tree is CLEAN and a sweep that saw nothing would report the
        same answer (`docs/frontend/spec.md` §1.9). */
     const sample = [
-      'import { frontend_config } from "./config";',
+      'import { authSecret, frontend_config, mongodbUri } from "./config";',
       "",
       "const BASE = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;",
       "",
@@ -226,7 +283,7 @@ describe("what a module does with the environment while the image builds", () =>
       "",
       "export const parseLater = () => new URL(BASE);",
       "",
-      "const upperAtLoad = frontend_config.AUTH_SECRET.toUpperCase();",
+      "const upperAtLoad = authSecret().toUpperCase();",
       "",
       'const secure = (frontend_config.AUTH_URL ?? "").startsWith("https://");',
       "",
@@ -234,9 +291,10 @@ describe("what a module does with the environment while the image builds", () =>
       "",
       'const fromALiteral = new URL("https://example.test/api/v1");',
       "",
-      "const client = new MongoClient(frontend_config.MONGODB_URI);",
+      // The store's client, built at load.
+      "const client = new MongoClient(mongodbUri());",
       "",
-      "const auth = betterAuth({ database: client, secret: frontend_config.AUTH_SECRET });",
+      "const auth = betterAuth({ database: client, secret: authSecret() });",
       "",
       "const options = { mail: { from: frontend_config.AUTH_URL } } satisfies MailerOptions;",
       "",
@@ -250,14 +308,23 @@ describe("what a module does with the environment while the image builds", () =>
       "",
       'const fallbackHeld = { from: frontend_config.AUTH_URL ?? "" };',
       "",
+      // A fallback handed on away from its site.
       "const handedOn = createMailer(fallbackHeld);",
       "",
-      "export const frontend_config = createEnv({ runtimeEnv: { AUTH_URL: process.env.AUTH_URL, API_URL: new URL(process.env.API_URL).href } });",
+      // A parse inside the validator's own input.
+      "const validated = createEnv({ runtimeEnv: { AUTH_URL: process.env.AUTH_URL, API_URL: new URL(process.env.API_URL).href } });",
+      "",
+      // Two branches testing another value than the one they parse.
+      'if (process.env.NODE_ENV === "development") new URL(frontend_config.API_URL);',
+      "",
+      "const branched = frontend_config.AUTH_URL ? new URL(frontend_config.API_URL) : undefined;",
+      "",
+      // A short circuit testing the value it parses, and no subject.
+      "const tested = frontend_config.API_URL && new URL(frontend_config.API_URL);",
     ].join("\n");
 
-    /* Composed, deferred, guarded, branched, builder-set, a LITERAL parse, a literal holding a value,
-       and the validator's own input: none is a subject. Line 33 hands on a fallback away from its
-       site; line 35 parses inside the validator's input. */
+    /* Composed, deferred, guarded, branched on the value itself, a LITERAL parse, a literal holding a
+       value, and the validator's own input: none is a subject. Each line that is one says why beside it. */
     const found = moduleScopeConsumers("sample.ts", sample);
 
     assert.deepEqual(
@@ -265,11 +332,14 @@ describe("what a module does with the environment while the image builds", () =>
       [
         "5 passed to a call",
         "9 reached through",
+        "17 passed to a call",
         "19 passed to a call",
         "23 passed to a call",
         "25 reached through",
         "33 passed to a call",
         "35 passed to a call",
+        "37 passed to a call",
+        "39 passed to a call",
       ],
       `the reader saw: ${found.map((finding) => `${String(finding.line)}:${finding.source}`).join(" | ")}`,
     );

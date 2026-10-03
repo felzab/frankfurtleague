@@ -180,8 +180,8 @@ export async function getBewerbungSweepSaisons(): Promise<FLBewerbungSweepSaison
 }
 
 /**
- * Runs one season's retention clocks: the reminders are stamped before this answers, the three
- * silent clocks have acted, and the deletion candidates are still standing.
+ * Runs one season's retention clocks: the reminders are stamped before this answers, the silent
+ * clocks have acted, and the deletion candidates are still standing.
  */
 export async function postBewerbungSweep(saisonId: string): Promise<FLBewerbungSweepResponse> {
   return apiClient<FLBewerbungSweepResponse>(`/bewerbungen/sweep/${saisonId}`, FLBewerbungSweepResponseSchema, {

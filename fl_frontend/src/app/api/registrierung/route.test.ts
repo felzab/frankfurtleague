@@ -1,20 +1,19 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
-const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 /* The serving origin, which `SKIP_ENV_VALIDATION` leaves unset: the mail shell refuses a relative
    one rather than composing a message whose every link is a bare path. */
 /** The serving origin this run is configured with, which the link the mail carries has to be built on. */
 const ORIGIN = "http://localhost:3000";
-const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
 /** The row's write, apart from the delivery reports the real fan-out files after a send. */
 const WRITE = "/registrierungen";
 const calls = doubleApiClient(({ endpoint }, schema) => {
@@ -28,28 +27,7 @@ const calls = doubleApiClient(({ endpoint }, schema) => {
 const mail = doubleSendMail();
 const mails = mail.sent;
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package the route reaches that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/server": NEXT_SERVER,
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG } });
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
@@ -238,6 +216,21 @@ describe("the registration handler", () => {
     assert.deepEqual(answer.body, { success: true });
   });
 
+  /* A pupil whose address a ban took after the write is told what a sent message would have told
+     them, and no refusal is filed against the row (`docs/frontend/spec.md :: I542`). */
+  it("answers a send the ban list kept as a send, and records no refusal", async () => {
+    mail.answerWith(() => "barred");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: true });
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      [WRITE],
+      "a barred send filed a delivery state against the row",
+    );
+  });
+
   /* `docs/backend/spec.md :: I346`: the key is the page's, and the backend is what replays on it. */
   it("passes the page's submission key on to the write, and none where the page sent none", async () => {
     const KEY = "9c5b94b1-35ad-49bb-b118-8e8fc24abf80";
@@ -270,14 +263,6 @@ describe("the registration handler", () => {
 
     assert.equal(body.success, false);
     assert.equal(body.unplacedError, REGISTRIERUNG_NEU_OEFFNEN);
-    assert.deepEqual(calls, []);
-  });
-
-  /* The one CSRF-shaped defence a route with no session can have
-     (`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`). */
-  it("writes nothing for a cross-site caller", async () => {
-    await bodyOf(aRequest(gueltigerKoerper, { "sec-fetch-site": "cross-site" }));
-
     assert.deepEqual(calls, []);
   });
 

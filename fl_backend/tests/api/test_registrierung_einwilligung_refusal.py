@@ -162,10 +162,13 @@ class TestTheLookupAndItsProjections:
             "medien",
         }
 
-    def test_the_answers_read_names_no_team_and_no_address(self):
-        """The press echoes what it was sent; widened to the view's, this projection would carry the address into a path with no use for one."""
+    def test_the_answers_read_holds_what_the_press_judges_and_no_team_or_name(self):
+        """Widened to the view's, the read would name the team and the pupil.
 
-        assert not {"team_id", "saison_id", "vorname", "email"} & set(BESTAETIGUNG_ANTWORT_FIELDS)
+        The address is read for the ban alone, and the answer's model above keeps it off the response.
+        """
+
+        assert set(BESTAETIGUNG_ANTWORT_FIELDS) == {"bestaetigung.frist", "status", "einwilligung.bestaetigt_am", "email"}
 
 
 class TestATokenNoRegistrationHolds:
@@ -218,6 +221,7 @@ class TestARegistrationAlreadyConfirmed:
         [
             pytest.param(None, False, id="nobody has answered"),
             pytest.param({"bestaetigt_am": None}, False, id="a record without its stamp"),
+            pytest.param({"bestaetigt_am": ""}, False, id="a record stamped with an empty string"),
             pytest.param(einwilligung(), True, id="confirmed"),
         ],
     )
@@ -328,9 +332,13 @@ class TestWhatAReopenedLinkShows:
         ],
     )
     def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], zustand: str):
-        """The last case is the ordering: a stamp outranks everything, so a pupil who answered is never shown an expired link."""
+        """The last case is the ordering: a stamp outranks the deadline, so a pupil who answered is never shown an expired link.
 
-        assert zustand_of(registrierung_raw=stored, today=TODAY) == zustand
+        The ban outranks both: a barred pupil's page shows nothing else.
+        """
+
+        assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=False) == zustand
+        assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=True) == "gesperrt"
 
 
 class TestWhoseAnswersThePagePresents:
@@ -367,7 +375,7 @@ class TestWhoseAnswersThePagePresents:
             pytest.param("Quillhilde", True, id="the name as stored"),
             pytest.param("quillhilde", True, id="another case of it"),
             pytest.param("  Quillhilde ", True, id="padded, as a form submits it"),
-            pytest.param("Bramblewick", False, id="a sibling registering at the family mailbox"),
+            pytest.param("Bramblewick", False, id="a sibling registering at the same mailbox"),
         ],
     )
     def test_the_address_is_narrowed_by_the_name_before_anybody_is_shown_back(self, spelling: str, found: bool):
@@ -380,13 +388,13 @@ class TestWhoseAnswersThePagePresents:
 
         assert (sole_person(named) is not None) == found
 
-    def test_a_household_the_narrowing_parts_shows_each_pupil_their_own_record(self):
+    def test_a_mailbox_the_narrowing_parts_shows_each_pupil_their_own_record(self):
         """The other half: narrowing to nothing wherever two rows share a mailbox would cost a returning sibling their own answers."""
 
-        household = [self.PERSON, self.SIBLING]
+        at_the_mailbox = [self.PERSON, self.SIBLING]
 
-        for person in household:
-            named = persons_named(household, vorname=person["vorname"], nachname=person["nachname"])
+        for person in at_the_mailbox:
+            named = persons_named(at_the_mailbox, vorname=person["vorname"], nachname=person["nachname"])
 
             assert sole_person(named) == person
 
@@ -398,7 +406,7 @@ class TestWhoseAnswersThePagePresents:
         assert named == []
 
     def test_a_sharp_s_surname_and_its_ss_spelling_are_two_pupils(self):
-        """„Weiß“ and „Weiss“ at one family mailbox are two families' children, whom `casefold` would show each other's record."""
+        """„Weiß“ and „Weiss“ at one mailbox are two pupils, whom `casefold` would show each other's record."""
 
         stored = {**self.PERSON, "nachname": "Weiß"}
 

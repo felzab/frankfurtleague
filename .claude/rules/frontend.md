@@ -19,7 +19,7 @@ own config files included, on §7's terms.
 - **forms** — Judge a typed field between keystrokes; return the editor to a dialog
 - **spiele** — Guess a voided result rather than dry-running it; scope the undo offer to the destructive save
 - **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
-- **finalrunden** — Write from `/admin/finalrunden`; render its wiring as cards
+- **finalrunden** — Write from `/bereich/admin/finalrunden`; render its wiring as cards
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
 - **undo** — Route-handle an undo outside a page-owned editor; revert before E592
 - **saisons** — Fetch the season list inside `resolveSaisonId` when `?saison_id=` is absent; drop `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
@@ -40,10 +40,10 @@ own config files included, on §7's terms.
 `.claude/CLAUDE.md` §6's, on §6's terms: each fails silently.
 
 - Import a HeroUI component's CSS per component, into whichever stylesheet can reach it —
-  `fl_frontend/src/app/globals.css` loads on every route, `fl_frontend/src/app/admin/admin.css` only
-  under `/admin`. Named in neither, the component renders unstyled while `tsc`, `next build` and
-  ESLint all pass. Read [the checklist](../../docs/frontend/spec.md#111-adding-a-heroui-component)
-  before writing the code.
+  `fl_frontend/src/app/globals.css` loads on every route,
+  `fl_frontend/src/app/bereich/admin/admin.css` only under `/bereich/admin`. Named in neither, the
+  component renders unstyled while `tsc`, `next build` and ESLint all pass. Read
+  [the checklist](../../docs/frontend/spec.md#111-adding-a-heroui-component) before writing the code.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
 - Add the matching `updateTag` in the same change as any granular cache tag; a tag nothing

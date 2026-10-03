@@ -1,22 +1,13 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package these modules reach that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/cache": `export const revalidateTag = () => {}; export const updateTag = () => {};`,
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
+// Every package these modules reach that this process cannot load, doubled at resolve time.
+registerDoubles({
+  specifiers: {
+    "next/headers": NEXT_HEADERS_DOUBLE,
   },
 });
 
@@ -163,11 +154,20 @@ describe("what one refused link read asks the page to show", () => {
 
 describe("what the administrator is told about the message a write sent", () => {
   it("names the address on both arms, and only the failed one asks for a second route", () => {
-    assert.match(describeLinkMail("anna@example.de", true), /ging an anna@example\.de/);
-    assert.doesNotMatch(describeLinkMail("anna@example.de", true), /Melde Dich selbst/);
+    assert.match(describeLinkMail("anna@example.de", "gesendet"), /ging an anna@example\.de/);
+    assert.doesNotMatch(describeLinkMail("anna@example.de", "gesendet"), /Melde Dich selbst/);
 
-    assert.match(describeLinkMail("anna@example.de", false), /nicht an anna@example\.de zugestellt/);
-    assert.match(describeLinkMail("anna@example.de", false), /Melde Dich selbst bei der Person/);
+    assert.match(describeLinkMail("anna@example.de", "fehlgeschlagen"), /nicht an anna@example\.de zugestellt/);
+    assert.match(describeLinkMail("anna@example.de", "fehlgeschlagen"), /Melde Dich selbst bei der Person/);
+  });
+
+  /* Naming no address and offering no second route: the ban is why nothing went, and a report naming
+     the address would name a barred person (`docs/frontend/spec.md :: I542`). */
+  it("says the ban list kept the link back, naming no address and asking for no second route", () => {
+    assert.equal(
+      describeLinkMail("anna@example.de", "gesperrt"),
+      "Der Bestätigungslink ging nicht raus, weil die Adresse auf der Sperrliste steht.",
+    );
   });
 });
 

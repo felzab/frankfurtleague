@@ -9,9 +9,11 @@ import { SPERRE_AUFHEBEN_CONSEQUENCE } from "@/features/sperrliste/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 /**
  * One row's removal, escalated where the row stands rather than in a dialog:
@@ -19,11 +21,13 @@ import { appToast } from "@/shared/utils/appToast";
  * („stilllegen“) that no ban is, this delete keeping nothing (`docs/frontend/spec.md :: I37`).
  */
 export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: string; gesperrtAm: string }) {
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, press } = twoPress;
 
   const handleAufheben = () => {
+    // The next row's control takes the focus once the row has gone (`docs/frontend/spec.md :: I536`).
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await deleteSperreAction({ id: sperreId }).catch(rejectedWrite(router));
@@ -33,6 +37,7 @@ export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: s
         return;
       }
 
+      landing.landed();
       appToast.success("Sperre aufgehoben", { description: res.message });
     });
   };
@@ -49,20 +54,22 @@ export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: s
         {/* The day and never the reason: the reason runs to 500 characters an administrator typed,
             the card prints it directly above this control, and a name quoting it reads it out
             twice — once at rest and once armed. */}
-        <ConfirmPressButton
-          confirm={twoPress}
-          reason={null}
-          resting={`Sperre vom ${gesperrtAm} aufheben`}
-          armed={`Ja, Sperre vom ${gesperrtAm} endgültig aufheben`}
-          running="Hebt auf..."
-          icon={
-            <TrashBin
-              className="size-4.5"
-              aria-hidden="true"
-            />
-          }
-          onPress={handleAufheben}
-        />
+        <FocusSlot name="aufheben">
+          <ConfirmPressButton
+            confirm={twoPress}
+            reason={null}
+            resting={`Sperre vom ${gesperrtAm} aufheben`}
+            armed={`Ja, Sperre vom ${gesperrtAm} endgültig aufheben`}
+            running="Hebt auf..."
+            icon={
+              <TrashBin
+                className="size-4.5"
+                aria-hidden="true"
+              />
+            }
+            onPress={handleAufheben}
+          />
+        </FocusSlot>
       </ConfirmActionRow>
     </div>
   );

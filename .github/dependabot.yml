@@ -10,14 +10,16 @@ version: 2
 #
 # Invariants:
 # - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule
-#   (`docs/_git/spec.md`, Repository settings); for `github-actions` there are no such alerts.
+#   (`docs/_git/spec.md`, Repository settings); `github-actions`, `docker` and `docker-compose` get
+#   none.
 # - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
 #   before a pull request proposes it. A security update is exempt from the cooldown — except under
-#   `github-actions`, where that exemption is empty for the reason above.
+#   those three, where that exemption is empty.
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
 # - No ecosystem below reads an image a script or a test names in a string, so these are kept by
 #   hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, mongo in
-#   `scripts/ops/local.sh`, `fl_backend/tests/conftest.py :: MONGO_IMAGE` and the `*.db.test.ts` files.
+#   `scripts/ops/local.sh`, `fl_backend/tests/conftest.py :: MONGO_IMAGE` and
+#   `fl_frontend/src/core/expiredTransactions.ts :: startJudgedReplicaSet`.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------
@@ -56,7 +58,8 @@ updates:
 
   # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
   # and are deliberately unmanaged -- bumping the package manager is a decision, not a routine
-  # update.
+  # update, and `fl_frontend/Dockerfile :: ARG PNPM_VERSION` moves with it
+  # (`docs/ops/spec.md :: I512`).
   - package-ecosystem: npm
     directory: /fl_frontend
     schedule:
@@ -104,10 +107,17 @@ updates:
 
   # Each `FROM` names a tag and its digest (`docs/ops/spec.md` §1.1), and this ecosystem rewrites the
   # two together; the compose ecosystem below does the same for every image either stack names.
+
+  # It moves the `FROM` line alone, so its pull request for a new Node, or a Python outside
+  # `fl_backend/.python-version`'s series, stays red until the checkout's pin moves on the same branch
+  # (`docs/ops/spec.md :: I511`, `:: I513`).
+
+  # No security update reaches this ecosystem, so a Node or Python security release waits for this
+  # schedule and its cooldown: weekly, so two weeks at worst (`docs/ops/spec.md` §4).
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:
-      interval: monthly
+      interval: weekly
     cooldown:
       default-days: 7
     commit-message:
@@ -120,7 +130,7 @@ updates:
   - package-ecosystem: docker
     directory: /fl_backend
     schedule:
-      interval: monthly
+      interval: weekly
     cooldown:
       default-days: 7
     commit-message:
@@ -141,7 +151,7 @@ updates:
   - package-ecosystem: docker-compose
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
     cooldown:
       default-days: 7
     commit-message:

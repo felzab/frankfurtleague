@@ -17,7 +17,7 @@
 **/*.crt
 **/.npmrc
 # The mail sink a non-production deployment writes into, each file naming a real person with a live
-# sign-in link. Written under `fl_frontend/` alone; here because the two lists are held to what
+# sign-in code. Written under `fl_frontend/` alone; here because the two lists are held to what
 # `scripts/lib/_lib.sh :: IMAGE_CONTEXT_FIND` searches both images for.
 **/.tmp-*
 

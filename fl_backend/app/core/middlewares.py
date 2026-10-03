@@ -1,12 +1,15 @@
 import re
 import secrets
 import time
+from contextvars import ContextVar
 from typing import Final
 
 import pymongo
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import FastAPI
 from starlette.requests import Request
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.crud import WritesSent, writes_sent_var
 from app.core.logging import fl_logger, span_id_var, trace_id_var
 
 # W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text. Anchored
@@ -20,6 +23,10 @@ ZERO_SPAN_ID = "0" * 16
 # this one cannot: the hop in, the queue before this runs, the answer's way back
 # (`docs/backend/spec.md :: I320`).
 REQUEST_DEADLINE_S: Final = 10.0
+
+# Where the request's deadline falls, which pymongo holds and publishes no getter for: every abort
+# the request sends past it shares one grace after this instant (`docs/backend/spec.md :: I539`).
+request_deadline_var: ContextVar[float | None] = ContextVar("request_deadline", default=None)
 
 
 def resolve_trace_id(header_value: str | None) -> str:
@@ -36,10 +43,20 @@ def mint_span_id() -> str:
     return secrets.token_hex(8)
 
 
-class TraceContextMiddleware(BaseHTTPMiddleware):
+# Pure ASGI, never Starlette's `BaseHTTPMiddleware`: that runs the app in an anyio task group, where a
+# request cancelled once is cancelled again at every await, its cleanup's included.
+class TraceContextMiddleware:
     """Binds a trace id and this hop's own span id to every request context and writes the per-request access line."""
 
-    async def dispatch(self, request: Request, call_next):
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
         # The incoming span is read for validity and discarded: this hop's lines carry its OWN span,
         # the trace id being what joins them to the edge's and the frontend's (L12).
         trace_id = resolve_trace_id(request.headers.get("traceparent"))
@@ -47,27 +64,40 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
 
         trace_token = trace_id_var.set(trace_id)
         span_token = span_id_var.set(span_id)
+        # Fresh per request, as the ids are: a record inherited from the context this runs in would
+        # answer another request's write as this one's.
+        writes_token = writes_sent_var.set(WritesSent())
         started = time.perf_counter()
+        deadline_token = request_deadline_var.set(time.monotonic() + REQUEST_DEADLINE_S)
+
+        status: int | None = None
+
+        # Nothing is echoed on the response: the failure body carries the trace id, and a response
+        # header would put it where nothing reads it.
+        async def send_noting_status(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            await send(message)
 
         try:
-            # Nothing is echoed on the response: the failure body carries the trace id, and a
-            # response header would put it where nothing reads it.
-
-            # Entered before `call_next`, whose task copies this context at creation. A deadline, not the
-            # client's `timeoutMS`: `with_transaction` retries a transient failure, an unreachable
-            # server's included, for 120 s, and a deadline is the one limit its loop checks sooner.
+            # A deadline, not the client's `timeoutMS`: `with_transaction` retries a transient failure,
+            # an unreachable server's included, for 120 s, and a deadline is the one limit its loop
+            # checks sooner.
             with pymongo.timeout(REQUEST_DEADLINE_S):
-                response = await call_next(request)
-
-            self._log_access(request, response.status_code, started, trace_id, span_id)
-            return response
+                await self.app(scope, receive, send_noting_status)
         except Exception:
-            # Reached only when no exception handler produced a response; the access line is still
-            # written.
-            self._log_access(request, 500, started, trace_id, span_id)
+            # Reached by every crash, which Starlette answers and raises again for the server to log;
+            # the access line carries the status the client was sent, 500 where none had started.
+            self._log_access(request, 500 if status is None else status, started, trace_id, span_id)
             raise
+        else:
+            # An app returning without a response is answered 500 by the server.
+            self._log_access(request, 500 if status is None else status, started, trace_id, span_id)
         finally:
             # Reset, or the ids bleed onto the log lines of whichever request the loop runs next.
+            request_deadline_var.reset(deadline_token)
+            writes_sent_var.reset(writes_token)
             span_id_var.reset(span_token)
             trace_id_var.reset(trace_token)
 
@@ -89,3 +119,14 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
                 "duration_ms": round((time.perf_counter() - started) * 1000, 1),
             },
         )
+
+
+class TracedApp(FastAPI):
+    """`add_middleware` places a layer inside `ServerErrorMiddleware`, which runs the catch-all handler once that layer returned.
+
+    The handler's line and body would then read ids already reset (`docs/logging/spec.md :: L4`).
+    """
+
+    def build_middleware_stack(self) -> ASGIApp:
+        # The method FastAPI itself overrides to place a layer Starlette's builder has no slot for.
+        return TraceContextMiddleware(super().build_middleware_stack())

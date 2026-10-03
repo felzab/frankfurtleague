@@ -1,30 +1,26 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { serveServerReactTo } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
-import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-import { SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The slice modules under test, whose `react` imports are the ones the server build must answer. */
 const FEATURES_URL = pathToFileURL(`${import.meta.dirname}/../features/`).href;
 
 /** What the doubled client throws for every read, set by each case. */
 let failure: unknown;
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
+
 doubleApiClient(() => {
   throw failure;
 });
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "react" && context.parentURL?.startsWith(FEATURES_URL)) return { url: SERVER_REACT_URL, shortCircuit: true };
-    const double = REQUEST_PACKAGES[specifier];
-    if (double !== undefined) return { url: `data:text/javascript,${encodeURIComponent(double)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+serveServerReactTo((parentURL) => parentURL.startsWith(FEATURES_URL));
 
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
 const saisons = await import("@/features/saisons/queries.ts");

@@ -329,7 +329,7 @@ describe("settledErasureAnsicht", () => {
     });
     const said2 = settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: false, error: "Keine Berechtigung." } });
 
-    assert.deepEqual(fieldOf, { email: EMAIL, status: "refused", reason: "Brich ab und starte das Löschen noch einmal." });
+    assert.deepEqual(fieldOf, { email: EMAIL, status: "refused", reason: "Brich ab und starte das Löschen erneut." });
     assert.deepEqual(said2, { email: EMAIL, status: "refused", reason: "Keine Berechtigung." });
   });
 
@@ -343,7 +343,7 @@ describe("teamPageHref", () => {
   /* The season rides along, as it does on every other link into a season-scoped admin page: without
      it the club page falls back to a season the admin did not pick. */
   it("carries the selected season into the club page", () => {
-    assert.equal(teamPageHref("507f1f77bcf86cd799439011", "2025"), "/admin/teams/507f1f77bcf86cd799439011?saison_id=2025");
+    assert.equal(teamPageHref("507f1f77bcf86cd799439011", "2025"), "/bereich/admin/teams/507f1f77bcf86cd799439011?saison_id=2025");
   });
 
   it("encodes the season it is given", () => {

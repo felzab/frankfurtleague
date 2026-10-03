@@ -18,6 +18,7 @@ from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.router import get_bewerbung_by_id
 from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
+    BEWERBUNG_ADRESSE_GESPERRT,
     BEWERBUNG_FASSUNG_VERALTET,
     BEWERBUNG_FENSTER_GESCHLOSSEN,
     BEWERBUNG_LAUFENDE_FASSUNG,
@@ -32,6 +33,7 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.kontakte.services import build_clearing_update
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exception_handlers import PAYLOAD_REFUSED
@@ -40,9 +42,10 @@ from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.app_client import app_client
+from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
 from tests.worker import worker_database
 
@@ -172,6 +175,10 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
 SCHLUESSEL = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
 
 
+# Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+
+
 async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bewerbungen: Any = None, **overrides: Any) -> Any:
     """A fresh key per call unless the case names one, so every other case here is a first press."""
 
@@ -182,6 +189,7 @@ async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bew
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        sperrliste=ban_list(database),
         db=database.client,
         today=TODAY,
     )
@@ -516,6 +524,17 @@ class TestTheSubmissionKey:
 
         assert second.bestaetigungen is None
         assert after == before
+
+    def test_a_seat_stamped_empty_is_no_answer_and_the_replay_still_hands_links(self, mongo_replica_set_url: str):
+        """`is_confirmed` reads `""` as unconfirmed (`docs/backend/spec.md :: I387`), and the replay's filter reads it the same way."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.BEWERBUNGEN].update_one({}, {"$set": {"kontakte.trainer.einwilligung.bestaetigt_am": ""}})
+
+            return await submit(database, schluessel=SCHLUESSEL)
+
+        assert on_a_league(mongo_replica_set_url, body).bestaetigungen is not None
 
     @pytest.mark.parametrize(
         "zustellung",
@@ -1170,7 +1189,11 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
 
         async def body(database: AsyncDatabase) -> Any:
             created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_confirmation_fields())
-            response = await get_bewerbung_by_id(bewerbung_id=created.inserted_id, bewerbungen_collection=database[Collection.BEWERBUNGEN])
+            response = await get_bewerbung_by_id(
+                bewerbung_id=created.inserted_id,
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                sperrliste=ban_list(database),
+            )
 
             return response.bewerbung.kontakte.trainer
 
@@ -1233,3 +1256,38 @@ class TestAKuerzelARetiredClubStillHolds:
             return await database[Collection.TEAMS].count_documents({"shorthand": RETIRED_SHORTHAND})
 
         assert on_a_league(mongo_replica_set_url, body) == 1
+
+
+class TestABannedContactAddress:
+    """`REQ-BEWERBUNG-018`: an address the ban list holds applies for nobody, on whichever seat it stands."""
+
+    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
+    def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
+        async def body(database: AsyncDatabase) -> tuple[str, int]:
+            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE[seat]["email"], bis=STANDING))
+            with pytest.raises(WriteRefusalException) as failure:
+                await submit(database)
+
+            return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (BEWERBUNG_ADRESSE_GESPERRT, 0)
+
+    def test_a_replay_after_an_address_was_banned_is_refused_and_mints_nothing(self, mongo_replica_set_url: str):
+        """The first press left nothing on record, the one state a replay mints in.
+
+        Without the ask, the replay hands the banned address three fresh links.
+        """
+
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], bis=STANDING))
+            before = await database[Collection.BEWERBUNGEN].find_one({})
+            with pytest.raises(WriteRefusalException) as failure:
+                await submit(database, schluessel=SCHLUESSEL)
+
+            return failure.value.error_code, before, await database[Collection.BEWERBUNGEN].find({}).to_list()
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_ADRESSE_GESPERRT
+        assert after == [before]

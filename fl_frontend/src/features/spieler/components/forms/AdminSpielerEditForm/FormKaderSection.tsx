@@ -25,6 +25,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
@@ -90,6 +91,8 @@ export function FormKaderSection({
   const [entryTeamError, setEntryTeamError] = useState<string | null>(null);
 
   const handleEnterSaison = () => {
+    // The entry draws the squad row's own fields where its control stood, so the panel's heading takes the focus.
+    const landing = focusAfterWrite();
     startEntering(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await postSaisonSpielerAction({
@@ -109,6 +112,7 @@ export function FormKaderSection({
       startEntering(() => {
         if (res.success) {
           setEntryTeamError(null);
+          landing.landed();
           appToast.success("Spieler aufgenommen", { description: res.message });
           return;
         }
@@ -125,7 +129,9 @@ export function FormKaderSection({
   };
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("kader")}>
       {/* `relative` + an absolutely placed badge, so the h2 keeps every other panel heading's flow. */}
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">

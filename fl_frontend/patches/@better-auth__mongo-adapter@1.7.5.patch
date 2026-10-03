@@ -1,0 +1,43 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index c63a7dc804dacc99c70eb067a370796d5d8ec31a..881f830e7d99a3cc3b63be2a16f969b7fb073853 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1,5 +1,6 @@
+ import { createAdapterFactory } from "@better-auth/core/db/adapter";
+ import { resolveDatabaseTableIndexes } from "@better-auth/core/db/internal";
++import { createLogger } from "@better-auth/core/env";
+ import { ObjectId, UUID } from "mongodb";
+ //#region src/query-builders.ts
+ /**
+@@ -490,6 +491,7 @@ const mongodbAdapter = (db, config) => {
+ 			transaction: config?.client && (config?.transaction ?? true) ? async (cb) => {
+ 				if (!config.client) return cb(lazyAdapter(lazyOptions));
+ 				const session = config.client.startSession();
++				let committing = false;
+ 				try {
+ 					session.startTransaction();
+ 					const result = await cb(createAdapterFactory({
+@@ -499,10 +501,22 @@ const mongodbAdapter = (db, config) => {
+ 						},
+ 						adapter: createCustomAdapter(db, session)
+ 					})(lazyOptions));
++					committing = true;
+ 					await session.commitTransaction();
+ 					return result;
+ 				} catch (err) {
+-					await session.abortTransaction();
++					// The driver sends no abort once a commit was attempted, and a commit lost on its way leaves
++					// the server holding the transaction until its lifetime limit. A transaction command on the
++					// session carries its number, under a timeout of its own; a landed commit refuses it.
++					// Never the session's own abort after a commit: the driver's refusal would replace the commit's
++					// error, which is the one saying whether the write may stand.
++					// NoSuchTransaction and TransactionCommitted leave nothing open; any other failure leaves the
++					// transaction standing, which no other line says, through the logger the options name.
++					if (committing) await config.client.db("admin").command({ abortTransaction: 1 }, { session }).catch((abortError) => {
++						if (abortError?.code === 251 || abortError?.code === 256) return;
++						createLogger(lazyOptions?.logger).error("Transaction left open on the server until its lifetime limit: its abort failed", abortError);
++					});
++					else await session.abortTransaction();
+ 					throw err;
+ 				} finally {
+ 					await session.endSession();

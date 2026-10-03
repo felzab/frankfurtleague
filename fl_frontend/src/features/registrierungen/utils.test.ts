@@ -219,8 +219,8 @@ describe("what one refused confirmation shows", () => {
     assert.deepEqual(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-006"), floorOf(16).lesen), { zustand: "bestaetigt" });
   });
 
-  /* Three of the four codes are link states, and a second backend read spent on each of them is a
-     round trip per refusal that answers nothing the page renders. */
+  /* Every code but the age refusal is a link state, and a second backend read spent on each of them
+     is a round trip per refusal that answers nothing the page renders. */
   it("reads the floor for the age refusal alone", async () => {
     const zustaende = floorOf(16);
 
@@ -287,6 +287,7 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-006",
       "REQ-REGISTRIERUNG-007",
       "REQ-REGISTRIERUNG-010",
+      "REQ-REGISTRIERUNG-012",
     ];
 
     for (const code of new Set([...published, ...mapped])) {

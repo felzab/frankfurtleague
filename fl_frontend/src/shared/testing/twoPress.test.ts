@@ -1,7 +1,7 @@
 import "./dom.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
@@ -56,8 +56,14 @@ describe("the helper that confirms a two-press control", () => {
     let writes = 0;
     render(h(Probe, { onWrite: () => void (writes += 1) }));
 
-    await user.click(screen.getByRole("button", { name: RESTING }));
-    await user.click(screen.getByRole("button", { name: ARMED }));
+    // Held still: on the real clock, a loaded machine spacing the two presses past the window writes.
+    mock.timers.enable({ apis: ["Date"] });
+    try {
+      await user.click(screen.getByRole("button", { name: RESTING }));
+      await user.click(screen.getByRole("button", { name: ARMED }));
+    } finally {
+      mock.timers.reset();
+    }
 
     assert.equal(writes, 0, "two presses inside the window wrote");
   });
@@ -66,17 +72,29 @@ describe("the helper that confirms a two-press control", () => {
      invite send does: the control is armed after the click has already returned. */
   it("waits for a control that arms after its first press returns", async () => {
     const user = userEvent.setup();
+    let answerTheRead: () => void = () => undefined;
+    const read = new Promise<void>((resolve) => (answerTheRead = resolve));
     let writes = 0;
-    render(h(LateProbe, { onWrite: () => void (writes += 1) }));
+    render(h(LateProbe, { read, onWrite: () => void (writes += 1) }));
 
-    await pressTwice(user, { resting: RESTING, armed: ARMED });
+    await pressTwice(
+      {
+        ...user,
+        click: async (element) => {
+          await user.click(element);
+          // Answered as the click returns, never on a timer a loaded machine could hold past the find's own wait.
+          answerTheRead();
+        },
+      },
+      { resting: RESTING, armed: ARMED },
+    );
 
     assert.equal(writes, 1, "the armed press wrote nothing, or wrote twice");
   });
 });
 
-/** Arms a timer's turn after the press that asked for it, and writes on the press after that at once. */
-function LateProbe({ onWrite }: { onWrite: () => void }): ReturnType<typeof h> {
+/** Arms once `read` has answered after the press that asked for it, and writes on the press after that at once. */
+function LateProbe({ read, onWrite }: { read: Promise<void>; onWrite: () => void }): ReturnType<typeof h> {
   const { isConfirming, press } = useTwoPressConfirm();
   const write = async () => {
     onWrite();
@@ -86,7 +104,7 @@ function LateProbe({ onWrite }: { onWrite: () => void }): ReturnType<typeof h> {
     "button",
     {
       type: "button",
-      onClick: () => (isConfirming ? press(write) : setTimeout(() => press(write), 30)),
+      onClick: () => (isConfirming ? press(write) : void read.then(() => press(write))),
     },
     isConfirming ? ARMED : RESTING,
   );

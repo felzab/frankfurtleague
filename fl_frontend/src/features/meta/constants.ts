@@ -148,3 +148,9 @@ export const QA_QUESTIONS: QaQuestion[] = [
     a: "Nach der Gruppenphase folgt die KO-Runde bis zum Finale. Diese Spiele sind größer aufgezogen als die Gruppenspiele.",
   },
 ];
+
+/**
+ * The day the privacy notice's words took effect: its „Stand“, and the sitemap's date for it. Hand-set,
+ * since a live `new Date()` is a dynamic read, which would take the notice off the static shell.
+ */
+export const DATENSCHUTZ_STAND = "2026-09-28";

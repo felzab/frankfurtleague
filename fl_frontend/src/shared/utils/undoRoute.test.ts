@@ -1,64 +1,72 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import z from "zod";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { UndoReport } from "./undoRoute.ts";
 
 /* Replaced at the module boundary, as `fl_frontend/src/app/api/admin/spiele/undo/route.test.ts`
    replaces them: a session and a response are the framework's, and the spine between them is driven. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "next/server": `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
+const PACKAGE_DOUBLES = {
+  "next/server": { NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) } },
+  "next/navigation": { unstable_rethrow: () => undefined },
   "next/headers": NEXT_HEADERS_DOUBLE,
   // Throws as Next does outside a server action, so a route that reached it fails here.
-  "next/cache": `export const refresh = () => { throw new Error("refresh() outside a server action"); };`,
+  "next/cache": {
+    refresh: (): never => {
+      throw new Error("refresh() outside a server action");
+    },
+  },
 };
+type ServedSession = { user: { email: string }; session: { authFactor: string } } | null;
+
 /**
- * The session each case sets on the bus below; unset, an administrator is signed in. The landing
- * derives from that one session, so a case cannot set a verdict its session contradicts.
+ * The session each case sets; unset, an administrator is signed in. The landing derives from that one
+ * session, so a case cannot set a verdict its session contradicts.
  */
-const AUTH = `const ALLOWLISTED = "admin@example.de";
-const session = () =>
-  globalThis.__flUndoRouteSession === undefined
-    ? { user: { email: ALLOWLISTED }, session: { authFactor: "passkey" } }
-    : globalThis.__flUndoRouteSession;
-const through = () => {
+let undoRouteSession: ServedSession | undefined;
+
+const GRANTED = "admin@example.de";
+const session = (): ServedSession =>
+  undoRouteSession === undefined ? { user: { email: GRANTED }, session: { authFactor: "passkey" } } : undoRouteSession;
+const through = (): boolean => {
   const served = session();
-  return served !== null && served.user.email === ALLOWLISTED && served.session.authFactor === "passkey";
+  return served !== null && served.user.email === GRANTED && served.session.authFactor === "passkey";
 };
-export const getAdminSession = async () => (through() ? session() : null);
-export const getSignInDestination = async () => {
-  const served = session();
-  if (served === null) return "/signin";
-  if (served.user.email !== ALLOWLISTED) return "/";
-  return through() ? "/admin" : "/signin";
-};`;
-const bus = globalThis as unknown as Record<string, unknown>;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+/** Whether the backend leaves the grant unanswered for the rest of a case. */
+let grantUnread = false;
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
+/* Replaced whole, its export names read off the real module: a name the spine starts importing then
+   links, where a hand-kept list failed this suite before its first case. */
+const AUTH = {
+  getAdminSession: async () => (through() && !grantUnread ? session() : null),
+  isFreshlySignedIn: () => true,
+  judgeAdminRequest: async () => {
+    const served = session();
+    if (served === null) return { refused: "signIn" };
+    if (grantUnread) return { refused: "unread" };
+    // A passkey session holding no grant is one whose grant is gone; a code-made one a person's.
+    if (served.user.email !== GRANTED) return { refused: served.session.authFactor === "passkey" ? "grantGone" : "noGrant" };
+    return through() ? { session: served } : { refused: "signIn" };
+  },
+  // Answering where the spine asked the landing after its guard's own verdict: a second read of the session.
+  getSignInDestination: async () => {
+    throw new Error("the undo spine read the landing for a status its guard already judged");
+  },
+};
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { debug: inert, info: inert, warn: inert, error: inert } };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/auth.ts": AUTH, "core/logging.ts": LOGGING }, specifiers: PACKAGE_DOUBLES });
 
 const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { recordWriteSent } = await import("@/core/requestScope.ts");
-const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
+const { ADMIN_FORBIDDEN, FORBIDDEN_BY_REFUSAL } = await import("./adminMutation.ts");
+const { AENDERUNG_STEHT_WEITERHIN, ZUGANG_WEG } = await import("./actionError.ts");
 
 const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
 
@@ -135,9 +143,9 @@ describe("what the undo spine answers when nobody can tell whether its replay la
 
 describe("who the undo spine answers before it does any work", () => {
   /* The spine's own authorization: the backend refuses too, but that is a different service, and
-     `proxy.ts` matches `/admin/:path*`, never `/api/admin/*`. */
+     `proxy.ts` matches pages under `/bereich` and `/signin`, never `/api/admin/*`. */
   it("refuses a caller with no admin session before reading the body or restoring anything", async () => {
-    bus.__flUndoRouteSession = null;
+    undoRouteSession = null;
     let restored = 0;
 
     try {
@@ -146,44 +154,57 @@ describe("who the undo spine answers before it does any work", () => {
         return {};
       });
 
-      assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN }, "the session check falls through instead of refusing");
+      assert.deepEqual(
+        answer,
+        { success: false, error: `${ADMIN_FORBIDDEN} Die Änderung steht weiterhin.` },
+        "the session check falls through instead of refusing",
+      );
       assert.equal(status, 401, "the refusal is answered with a status the dispatch reads as something else");
       // First rather than merely before the restore: a check behind the body's read has already worked for a caller nobody authorized.
       assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
       assert.equal(restored, 0, "the undo restores without checking who is asking");
       assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
     } finally {
-      delete bus.__flUndoRouteSession;
+      undoRouteSession = undefined;
     }
   });
 
-  /* The line `fl_frontend/src/proxy.ts` draws: a session the allowlist does not carry is sent to `/`
-     rather than to sign in again, where that same allowlist would refuse it once more. */
-  it("answers a session outside the allowlist apart from a missing one, and still does no work for it", async () => {
-    bus.__flUndoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } };
-    let restored = 0;
+  /* The line `fl_frontend/src/proxy.ts` draws: a session holding no grant goes to the person's own
+     `/bereich`, a sign-in granting it nothing, told the cause an action would be told and that the
+     change stands. */
+  it("answers a session holding no grant apart from a missing one, and still does no work for it", async () => {
+    // A person's code-made session, and an administrator's passkey session whose grant is gone.
+    const told: Record<string, string> = {
+      code: `${ZUGANG_WEG} Die Änderung steht weiterhin.`,
+      passkey: `${ZUGANG_WEG} Die Änderung steht weiterhin.`,
+    };
+    for (const authFactor of ["code", "passkey"]) {
+      undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor } };
+      let restored = 0;
 
-    try {
-      const { answer, status, invalidated, bodiesRead } = await undo(async () => {
-        restored += 1;
-        return {};
-      });
+      try {
+        const { answer, status, invalidated, bodiesRead } = await undo(async () => {
+          restored += 1;
+          return {};
+        });
 
-      assert.equal(status, 403, "a person's live session is answered as though nobody were signed in");
-      // The envelope, which is what tells this 403 from an edge's challenge in the dispatch.
-      assert.equal(answer.success, false, "the refusal carries no outcome the dispatch can recognise as the route's");
-      assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
-      assert.equal(restored, 0, "the undo restores for a session nobody authorized");
-      assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
-    } finally {
-      delete bus.__flUndoRouteSession;
+        assert.equal(status, 403, `a ${authFactor} session holding no grant is answered as though nobody were signed in`);
+        // The envelope, which is what tells this 403 from an edge's challenge in the dispatch.
+        assert.equal(answer.success, false, "the refusal carries no outcome the dispatch can recognise as the route's");
+        assert.equal(answer.error, told[authFactor], `a ${authFactor} session holding no grant is told another cause`);
+        assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
+        assert.equal(restored, 0, "the undo restores for a session nobody authorized");
+        assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
+      } finally {
+        undoRouteSession = undefined;
+      }
     }
   });
 
   /* The other half of the split: an administrator who has followed the link and not yet presented
-     the passkey is 401, which sends them somewhere they can finish, rather than 403 to the root. */
-  it("answers an allowlisted session short of the second factor the way it answers a missing one", async () => {
-    bus.__flUndoRouteSession = { user: { email: "admin@example.de" }, session: { authFactor: "link" } };
+     the passkey is 401, which sends them somewhere they can finish, rather than 403 to a person's landing. */
+  it("answers a granted session short of the second factor the way it answers a missing one", async () => {
+    undoRouteSession = { user: { email: "admin@example.de" }, session: { authFactor: "link" } };
     let restored = 0;
 
     try {
@@ -192,11 +213,58 @@ describe("who the undo spine answers before it does any work", () => {
         return {};
       });
 
-      assert.equal(status, 401, "an administrator short of the factor is sent to the public root with no way back");
+      assert.equal(status, 401, "an administrator short of the factor is sent to a person's landing with no way to the step");
       assert.equal(restored, 0, "the undo restores for a session short of the second factor");
       assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
     } finally {
-      delete bus.__flUndoRouteSession;
+      undoRouteSession = undefined;
+    }
+  });
+
+  /* A 401 would send an administrator to sign in again into the same unread grant, and a 403 to a
+     person's landing: the undo did not run, which the route's own refusal says where the admin stands. */
+  it("answers a grant the backend left unread as a refusal, turning nobody away and doing no work", async () => {
+    grantUnread = true;
+    let restored = 0;
+
+    try {
+      const { answer, status, bodiesRead } = await undo(async () => {
+        restored += 1;
+        return {};
+      });
+
+      assert.equal(status, 200, "an unread grant turned the administrator away");
+      assert.equal(answer.success, false);
+      assert.ok(answer.error?.endsWith(AENDERUNG_STEHT_WEITERHIN), "the refusal does not say the change stands");
+      assert.ok(!answer.error?.startsWith(ADMIN_FORBIDDEN), "an unread grant is told it holds no administration");
+      assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
+      assert.equal(restored, 0, "the undo restores while the grant is unread");
+    } finally {
+      grantUnread = false;
+    }
+  });
+
+  /* Each reason in the action's own words, so the save and its undo never word one condition two ways:
+     an arm answering another reason's sentence reads as a cause the administrator does not have. */
+  it("answers every reason its guard turns a caller away for in the action's sentence, and that the change stands", async () => {
+    // Typed by the table's own key, so a reason added there fails to compile here until it is driven.
+    const arrange: Record<keyof typeof FORBIDDEN_BY_REFUSAL, () => void> = {
+      signIn: () => (undoRouteSession = null),
+      noGrant: () => (undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "code" } }),
+      grantGone: () => (undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } }),
+      unread: () => (grantUnread = true),
+    };
+
+    for (const [reason, sentence] of Object.entries(FORBIDDEN_BY_REFUSAL)) {
+      arrange[reason as keyof typeof FORBIDDEN_BY_REFUSAL]();
+      try {
+        const { answer } = await undo(async () => ({}));
+
+        assert.deepEqual(answer, { success: false, error: `${sentence} ${AENDERUNG_STEHT_WEITERHIN}` }, `the ${reason} arm`);
+      } finally {
+        undoRouteSession = undefined;
+        grantUnread = false;
+      }
     }
   });
 });

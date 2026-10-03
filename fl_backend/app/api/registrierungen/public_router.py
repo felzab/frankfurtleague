@@ -28,11 +28,9 @@ from app.api.registrierungen.services import (
     find_team_junction_refusal,
     saison_nimmt_registrierungen_an,
 )
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt, sperrliste_saison
 from app.api.spieltage.crud import nachnominierung_laeuft_in
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -41,7 +39,6 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
-    SperrlisteCollection,
     SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
@@ -49,6 +46,7 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
+from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
@@ -160,14 +158,23 @@ async def _answer_as_the_first(
     registrierungen_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     teams_collection: AsyncCollection,
+    sperrliste: BanList,
     stored: Mapping[str, Any],
     fingerabdruck: str,
+    gehasht: str,
+    massgebliche_saison_id: str | None,
     today: str,
     session: AsyncClientSession,
 ) -> FLPostRegistrierungResponse:
     """The answer a stored key gets: the registration it already holds, never a second one (`docs/backend/spec.md :: I346`)."""
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
+
+    # Before the mint below, as the first request asked it before its own, or a ban entered since is
+    # answered with a fresh link. The fingerprint just matched, so `gehasht` keys the stored address
+    # (`docs/backend/spec.md :: I413`).
+    gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
+    refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
     raw: str | None = None
     db_filter = build_wiederholung_filter(registrierung_raw=stored, today=today)
@@ -222,9 +229,8 @@ async def post_registrierung(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # pupil's own press is then refused as a changed replay.
     # Optional, so a page loaded before the form sent one still submits, unprotected.
@@ -242,7 +248,8 @@ async def post_registrierung(
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
     registration it holds and stores none: a fresh link where no message is known to have reached the
     inbox and nothing is confirmed, none otherwise. The same key over other details is refused
-    (`REQ-REGISTRIERUNG-011`).
+    (`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since
+    (`REQ-REGISTRIERUNG-009`), before any link is minted.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
@@ -250,11 +257,11 @@ async def post_registrierung(
 
     # Hashed outside the transaction: it reads no document, and `with_transaction` may run its
     # callback again.
-    gehasht = adresse_hash(str(registrierung_data.email), schluessel=config.sperrliste_schluessel)
+    gehasht = sperrliste.hash_of(str(registrierung_data.email))
 
     # The REFERENCE season a ban is counted from, and never the invite's: a ban covers the seasons
     # following the one it was entered in, so counting from a link for a future season lifts it early.
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def store_or_replay(session: AsyncClientSession) -> FLPostRegistrierungResponse:
         """The replay, or every refusal in the flow's order and then the one write, in one transaction.
@@ -277,8 +284,11 @@ async def post_registrierung(
                 registrierungen_collection=registrierungen_collection,
                 saison_teams_collection=saison_teams_collection,
                 teams_collection=teams_collection,
+                sperrliste=sperrliste,
                 stored=stored,
                 fingerabdruck=fingerabdruck,
+                gehasht=gehasht,
+                massgebliche_saison_id=massgebliche_saison_id,
                 today=today,
                 session=session,
             )
@@ -303,9 +313,9 @@ async def post_registrierung(
         squad_size = await saison_spieler_collection.count_documents(_live_squad_filter(saison_id=saison_id, team_id=team_id), session=session)
         refuse(find_kader_refusal(squad_size=squad_size, max_kadergroesse=int(rules.get("max_kadergroesse") or 0)))
 
-        gesperrt = await address_is_gesperrt(
-            sperrliste_collection=sperrliste_collection,
-            adresse_hash=gehasht,
+        gesperrt = await hash_gesperrt(
+            sperrliste,
+            gehasht,
             # Read before this transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
@@ -353,5 +363,5 @@ async def post_registrierung(
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the insert a write conflict `with_transaction` retries.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(store_or_replay)

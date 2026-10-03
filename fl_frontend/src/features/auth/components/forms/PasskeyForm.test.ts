@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -11,35 +10,37 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
-const BUS = "__flPasskeyCeremonies";
-
 /* The browser's own credential calls, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = `export const authClient = {
-  passkey: { addPasskey: () => globalThis.${BUS}.run("addPasskey") },
-  signIn: { passkey: () => globalThis.${BUS}.run("signInPasskey") },
-};`;
+const CLIENT_DOUBLE = {
+  authClient: {
+    passkey: { addPasskey: (options: unknown) => run("addPasskey", options) },
+    signIn: { passkey: () => run("signInPasskey") },
+  },
+};
 
 /* A full document navigation, which jsdom does not implement and whose `location` no test can
    replace: recorded at the same module boundary the credential calls are. */
-const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.${BUS}.left.push(path); }`;
+const NAVIGATION_DOUBLE = { leaveDocumentFor: (path: string) => void left.push(path) };
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: CLIENT_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) return { format: "module", source: NAVIGATION_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/authClient.ts": CLIENT_DOUBLE,
+    "shared/utils/documentNavigation.ts": NAVIGATION_DOUBLE,
   },
 });
 
 const { raised } = doubleToasts();
 
-/** Which ceremony the card reached for, in order; the double reads this through the global. */
+/** Which ceremony the card reached for, in order. */
 const reached: string[] = [];
+
+/** What each enrolment asked the library for. */
+const asked: unknown[] = [];
 
 /** What the next ceremony answers. Better Auth reports a cancelled prompt on `error`, never by throwing. */
 let answer: () => Promise<unknown> = () => Promise.resolve({ data: {}, error: null });
@@ -47,13 +48,11 @@ let answer: () => Promise<unknown> = () => Promise.resolve({ data: {}, error: nu
 /** Every path the card left the document for. */
 const left: string[] = [];
 
-Reflect.set(globalThis, BUS, {
-  left: left,
-  run: (name: string) => {
-    reached.push(name);
-    return answer();
-  },
-});
+function run(name: string, options?: unknown): Promise<unknown> {
+  reached.push(name);
+  if (name === "addPasskey") asked.push(options);
+  return answer();
+}
 
 const { PasskeyForm } = await import("./PasskeyForm.tsx");
 
@@ -62,21 +61,28 @@ const LANDING = "/signin/weiter";
 
 const { router, seen } = recordingRouter();
 
-function renderCard(step: "enrol" | "assert") {
-  return render(underNext(h(PasskeyForm, { step: step, address: ADDRESS, next: LANDING }), { router }));
+/** Where the offer's „Später“ goes. */
+const LATER = "/bereich";
+
+function renderCard(step: "enrol" | "assert" | "offer") {
+  const props =
+    step === "offer" ? { step: step, address: ADDRESS, next: LANDING, later: LATER } : { step: step, address: ADDRESS, next: LANDING };
+  return render(underNext(h(PasskeyForm, props), { router }));
 }
 
 beforeEach(() => {
   reached.length = 0;
+  asked.length = 0;
   raised.length = 0;
   left.length = 0;
   seen.replaced.length = 0;
+  seen.pushed.length = 0;
   seen.refresh = 0;
   answer = () => Promise.resolve({ data: {}, error: null });
 });
 
 describe("which ceremony the card runs", () => {
-  /* The guard decides the step and the card obeys it: an enrolment offered to a link-borne session
+  /* The guard decides the step and the card obeys it: an enrolment offered to a code-borne session
      that already holds one is refused by the server (`docs/frontend/spec.md :: I261`). */
   it("enrols on the step the guard asked to enrol, and signs in on the step it asked to assert", async () => {
     const user = userEvent.setup();
@@ -92,17 +98,20 @@ describe("which ceremony the card runs", () => {
     assert.deepEqual(reached, ["signInPasskey"]);
   });
 
-  /* The enrolment leaves the link-borne session standing, so this same page is what offers the
-     assertion next: re-read, the guard answers the other step, and the toast above it survives. */
-  it("re-reads its own page after an enrolment, and goes nowhere", async () => {
+  /* Setting the passkey up signs in with it, so the card asks for no second press: one enrolment,
+     and the landing decides where the new session goes. */
+  it("signs in with the passkey it sets up, and leaves the document for the landing, on both enrolling steps", async () => {
     const user = userEvent.setup();
-    renderCard("enrol");
 
-    await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
+    for (const step of ["enrol", "offer"] as const) {
+      const { unmount } = renderCard(step);
+      await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
+      unmount();
+    }
 
-    assert.equal(seen.refresh, 1, "the card still offers the enrolment the reader has just completed");
-    assert.deepEqual([seen.replaced, left], [[], []]);
-    assert.ok(screen.getByRole("button", { name: "Jetzt einrichten" }), "the control stayed pending over a page that re-renders under it");
+    assert.deepEqual(asked, [{ createSession: true }, { createSession: true }], "an enrolment left the code's session standing");
+    assert.deepEqual(left, [LANDING, LANDING]);
+    assert.deepEqual([seen.refresh, seen.replaced], [0, []]);
   });
 
   /* The assertion replaces the session, so this page's own guard now redirects: a refresh racing a
@@ -119,18 +128,14 @@ describe("which ceremony the card runs", () => {
 });
 
 describe("what the reader is told when the step worked", () => {
-  /* The enrolment lands them back on this same card, asking for a second ceremony: silent, that
-     reads as the press having failed, and the danger title is the only thing the card ever said. */
-  it("confirms an enrolment and names the step the reader is being sent to", async () => {
+  /* The enrolment ends signed in on the surface the reader was after, as the assertion does. */
+  it("says nothing when the enrolment works, the page it lands on being the answer", async () => {
     const user = userEvent.setup();
     renderCard("enrol");
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
 
-    assert.deepEqual(
-      raised.map((toast) => [toast.variant, toast.title, toast.description]),
-      [["success", "Passkey eingerichtet", "Melde Dich jetzt damit an."]],
-    );
+    assert.deepEqual(raised, []);
   });
 
   /* The assertion ends on the surface the reader was after, which says where they are: a toast over
@@ -174,7 +179,7 @@ describe("a prompt the browser did not complete", () => {
     assert.deepEqual([seen.replaced, left, seen.refresh], [[], [], 0], "a refused ceremony sent the reader on");
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
-      [["danger", "Passkey nicht eingerichtet", "Versuche es noch einmal."]],
+      [["danger", "Passkey nicht eingerichtet", "Versuche es erneut."]],
     );
     assert.ok(screen.getByRole("button", { name: "Jetzt einrichten" }), "the control the reader would press again is gone");
   });
@@ -211,8 +216,8 @@ describe("a prompt the browser did not complete", () => {
         [
           "danger",
           "Passkey nicht eingerichtet",
-          "Für diesen Zugang wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
-            `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Zugangs.`,
+          "Für dieses Konto wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
+            `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Kontos.`,
         ],
       ],
     );
@@ -230,7 +235,7 @@ describe("a prompt the browser did not complete", () => {
 
     assert.deepEqual(
       raised.map((toast) => toast.description),
-      ["Versuche es noch einmal."],
+      ["Versuche es erneut."],
     );
     assert.deepEqual([seen.refresh, seen.replaced, left], [1, [], []]);
   });
@@ -253,6 +258,15 @@ describe("a prompt the browser did not complete", () => {
 });
 
 describe("what the card puts in front of the reader", () => {
+  /* The page's header carries the league's mark; no step of the card carries a glyph of its own. */
+  it("draws no glyph on any of its three steps", () => {
+    for (const step of ["enrol", "assert", "offer"] as const) {
+      const { unmount } = renderCard(step);
+      assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, `the ${step} step carries a glyph`);
+      unmount();
+    }
+  });
+
   /* `docs/frontend/spec.md` §1.16: a person's own datum never sits unmarked in prose, so the address
      the passkey will belong to takes the bold rung rather than the paragraph's. */
   it("marks the signed-in address as the reader's own datum", () => {
@@ -270,5 +284,47 @@ describe("what the card puts in front of the reader", () => {
       screen.getAllByRole("button").map((control) => control.textContent),
       ["Jetzt anmelden"],
     );
+  });
+
+  /* An administrator's passkey is required, so their card has no way past it: „Später“ there would
+     land on the landing, which sends them straight back. */
+  it("gives the offer a way past it and the administrator's required enrolment none", () => {
+    const { unmount } = renderCard("enrol");
+    assert.deepEqual(
+      screen.getAllByRole("button").map((control) => control.textContent),
+      ["Jetzt einrichten"],
+    );
+    unmount();
+
+    renderCard("offer");
+    assert.deepEqual(
+      screen.getAllByRole("button").map((control) => control.textContent),
+      ["Jetzt einrichten", "Später"],
+    );
+  });
+
+  it("explains a passkey on the offer, where the reader meets one for the first time", () => {
+    renderCard("offer");
+
+    assert.equal(screen.getByRole("heading", { level: 1 }).textContent, "Passkey einrichten");
+    for (const sentence of [
+      "Mit einem Passkey meldest Du Dich künftig ohne Code an, mit Fingerabdruck, Gesicht oder der Displaysperre Deines Geräts.",
+      "Was ist ein Passkey? Ein digitaler Schlüssel, den Dein Gerät sicher speichert.",
+      "Wo wird er gespeichert? In Deinem Passwortmanager, zum Beispiel im iCloud-Schlüsselbund oder im Google Passwortmanager, damit Du Dich auch auf Deinen anderen Geräten anmelden kannst.",
+      "Richte ihn nur auf Deinem eigenen Gerät ein.",
+    ])
+      assert.ok(screen.getByText(sentence));
+  });
+
+  /* The session is unchanged by „Später“, so a soft navigation is right, and it goes past the
+     landing, which would offer the passkey again. */
+  it("sends „Später“ to the destination the page named, running no ceremony", async () => {
+    const user = userEvent.setup();
+    renderCard("offer");
+
+    await user.click(screen.getByRole("button", { name: "Später" }));
+
+    assert.deepEqual(seen.pushed, [LATER]);
+    assert.deepEqual([reached, left], [[], []]);
   });
 });

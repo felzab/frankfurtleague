@@ -2,6 +2,7 @@
 
 import { updateTag } from "next/cache";
 
+import { toActionErrorResult } from "@/shared/utils/actionError";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -9,6 +10,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
 import {
   mapAlreadyEnteredRefusal,
+  mapCreatedClubEntryRefusal,
   mapEntryRefusal,
   mapReplacementRefusal,
   mapRetireRefusal,
@@ -27,7 +29,7 @@ import {
 } from "./schemas";
 import { describeReplacementUmfang } from "./utils";
 
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionFailure, ActionResult } from "@/shared/types/types";
 import type {
   FLDeleteTeamPayload,
   FLPatchTeamPayload,
@@ -50,7 +52,10 @@ export async function postTeamAction(
   // that into a field error rather than a type error.
   rawPayload: TeamCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postTeamAction", async () => {
+  // Every create enters the club into a season, which nothing reverses: the entry's own step-up. The
+  // backend declares it on the entry alone, and both calls carry one token judged at its `iat`
+  // (`docs/backend/spec.md :: I527`).
+  return runAdminMutation("postTeamAction", { stepUp: true }, async () => {
     const validated = FLCreateTeamFormPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -73,21 +78,22 @@ export async function postTeamAction(
       return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
-    // The junction row, in the same action: without one the club is invisible to every
-    // season-scoped read (backend spec I11). A failure here leaves the club EXISTING.
+    // A refused entry leaves the club EXISTING in no season (`docs/backend/spec.md :: I11`), which the
+    // admin teams list shows and the club's page enters: recoverable, so two requests stand rather
+    // than one transaction.
     try {
       await postSaisonTeam({ team_id: postOperation.created_id, saison_id, gruppe });
     } catch (error) {
+      // Only an entry that may have landed goes to the spine, which calls it unclear. A refusal wrote
+      // nothing, the actor token's 401 included, and keeps this sentence: the spine's own retry would
+      // re-create a club that stands.
+      if (toActionErrorResult(error).outcome === "unknown") {
+        invalidateSeasonScoped("teams", saison_id);
+        throw error;
+      }
       updateTag("teams");
       // The form pre-filters seasons and groups, so a refusal here means the picture changed under it.
-      const refusal = mapEntryRefusal(error);
-      const reason = refusal?.error ?? refusal?.fieldErrors?.gruppe;
-      return {
-        success: false,
-        error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${
-          reason ? `: ${reason}` : "."
-        } Es ist dadurch auf keiner Seite sichtbar. Melde dies dem Betreiber, bevor Du es erneut versuchst.`,
-      };
+      return { success: false, error: mapCreatedClubEntryRefusal(error), outcome: "partial" } satisfies ActionFailure;
     }
 
     invalidateSeasonScoped("teams", saison_id);
@@ -206,7 +212,7 @@ export async function postSaisonTeamAction(
   // Draft-shaped for the same reason as the create: an untouched group picker submits null.
   rawPayload: SaisonTeamEnterDraft,
 ): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
-  return runAdminMutation("postSaisonTeamAction", async () => {
+  return runAdminMutation("postSaisonTeamAction", { stepUp: true }, async () => {
     const validated = FLPostSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -286,7 +292,7 @@ export async function patchSaisonTeamAction(
 export async function replaceSaisonTeamAction(
   rawPayload: FLReplaceSaisonTeamPayload,
 ): Promise<ActionResult<{ replacement?: FLReplaceSaisonTeamResponse }>> {
-  return runAdminMutation("replaceSaisonTeamAction", async () => {
+  return runAdminMutation("replaceSaisonTeamAction", { stepUp: true }, async () => {
     const validated = FLReplaceSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

@@ -15,10 +15,12 @@ export function AdminDeleteSpielerModal({
   spielerData,
   isOpen,
   onClose,
+  onRetired,
 }: {
   spielerData: AdminSpielerRow | null;
   isOpen: boolean;
   onClose: () => void;
+  onRetired: () => void;
 }) {
   const spieler = useRetainedValue(spielerData);
 
@@ -28,6 +30,7 @@ export function AdminDeleteSpielerModal({
     <ConfirmDeleteModal
       isOpen={isOpen}
       onClose={onClose}
+      onRetired={onRetired}
       heading="Spieler stilllegen"
       entityLabel="den Spieler"
       entityName={spieler.fullName}

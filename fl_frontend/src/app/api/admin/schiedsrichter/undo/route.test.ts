@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
@@ -17,13 +17,9 @@ const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 doubleRouteRequest();
 const mail = doubleSendMail();
 // The origin the link is minted on, which the real config reads from an environment this run has not got.
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) {
-      return { format: "module", source: `export const frontend_config = { AUTH_URL: "http://localhost:3000" };`, shortCircuit: true };
-    }
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } },
   },
 });
 

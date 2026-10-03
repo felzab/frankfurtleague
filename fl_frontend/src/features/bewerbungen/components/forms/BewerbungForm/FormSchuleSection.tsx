@@ -159,7 +159,7 @@ export function FormSchuleSection({
         <div className={FIELD_PAIR_CLASSES}>
           <div className="flex w-full flex-col">
             {/* `name="team_id"`, because that is the path the payload and every server refusal spell the
-                picked club under — including the two that arrive as a whole-record rule. */}
+                picked club under — including those that arrive as a whole-record rule. */}
             <Autocomplete
               // Marked by hand: the pair rule refuses no club and no new school under this path, which
               // the field's own nullable schema cannot state.

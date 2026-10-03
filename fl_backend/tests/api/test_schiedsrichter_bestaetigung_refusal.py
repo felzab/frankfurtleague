@@ -142,11 +142,19 @@ class TestTheRecordTheConfirmationWrites:
 class TestWhatALeakedLinkLearns:
     """`READ-REFEREE-002`: a first name and a role, and no field the admin tier holds."""
 
-    @pytest.mark.parametrize("projection", [BESTAETIGUNG_ANSICHT_FIELDS, BESTAETIGUNG_ANTWORT_FIELDS], ids=["ansicht", "antwort"])
-    def test_neither_projection_reaches_a_field_behind_the_contact_rule(self, projection: Mapping[str, int]):
-        withheld = {"schule", "kontakt", "default_payment", "geburtsdatum", "inactive_since"}
+    @pytest.mark.parametrize(
+        ("projection", "asked_of_the_ban_list"),
+        [(BESTAETIGUNG_ANSICHT_FIELDS, {"kontakt.email"}), (BESTAETIGUNG_ANTWORT_FIELDS, {"kontakt.email"})],
+        ids=["ansicht", "antwort"],
+    )
+    def test_neither_projection_reaches_a_field_behind_the_contact_rule(self, projection: Mapping[str, int], asked_of_the_ban_list: set[str]):
+        """Both read the address for the ban list alone; `test_neither_base_tier_answer_carries_the_mint` keeps it off both answers."""
 
-        assert not {key.partition(".")[0] for key, kept in projection.items() if kept} & withheld
+        withheld = {"schule", "kontakt", "default_payment", "geburtsdatum", "inactive_since"}
+        read = {key for key, kept in projection.items() if kept}
+
+        assert asked_of_the_ban_list <= read
+        assert not {key.partition(".")[0] for key in read - asked_of_the_ban_list} & withheld
 
     def test_the_view_declares_exactly_the_six_names_it_may_answer(self):
         """An EQUALITY, not a subset: a field added to this model reaches a caller holding nothing but a token."""
@@ -201,11 +209,16 @@ class TestWhatAReopenedLinkShows:
             (confirmed(), LIVE_BLOCK, "bestaetigt"),
             # A stamp outranks the deadline: a person who answered on the last valid day is shown that they did.
             (confirmed(), {**LIVE_BLOCK, "frist": YESTERDAY}, "bestaetigt"),
+            # A stamp of `""` is no answer: the page offers the link again rather than thanking nobody.
+            (confirmed(bestaetigt_am=""), LIVE_BLOCK, "gueltig"),
         ],
-        ids=["live", "over", "answered", "answered-then-over"],
+        ids=["live", "over", "answered", "answered-then-over", "empty-stamp"],
     )
     def test_each_state_reads_as_the_page_expects(self, einwilligung: Any, bestaetigung: Any, zustand: str):
-        assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY) == zustand
+        """The ban outranks every one of them: a barred referee's page shows the ban and nothing else."""
+
+        assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY, gesperrt=False) == zustand
+        assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY, gesperrt=True) == "gesperrt"
 
 
 class TestABlockWithNoReadableDeadline:
@@ -289,8 +302,8 @@ class TestALinkWhoseDeadlineHasPassed:
 class TestAnEntryAlreadyConfirmed:
     @pytest.mark.parametrize(
         "einwilligung",
-        [None, {"umfang": "intern", "bestaetigt_am": None}, "not-a-record"],
-        ids=["absent", "unstamped", "unreadable"],
+        [None, {"umfang": "intern", "bestaetigt_am": None}, "not-a-record", confirmed(bestaetigt_am="")],
+        ids=["absent", "unstamped", "unreadable", "empty-stamp"],
     )
     def test_an_entry_nobody_has_answered_takes_one(self, einwilligung: Any):
         assert find_already_confirmed_refusal(einwilligung=einwilligung) is None
@@ -313,7 +326,7 @@ class TestAnEntryAlreadyConfirmed:
 
         assert find_already_confirmed_refusal(einwilligung=confirmed()) is not None
         assert find_expired_token_refusal(frist=frist_of(over), today=TODAY) is not None
-        assert zustand_of(einwilligung=confirmed(), bestaetigung=over, today=TODAY) == "bestaetigt"
+        assert zustand_of(einwilligung=confirmed(), bestaetigung=over, today=TODAY, gesperrt=False) == "bestaetigt"
 
     def test_the_re_send_reads_the_stamp_it_judges(self):
         """A confirmed referee takes no fresh link: minting one would replace a live block with a credential the confirmation always refuses."""
@@ -443,8 +456,9 @@ class TestTheReactivationAsks:
             ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": "2026-01-01"}, False),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
             ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
+            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am=""), "inactive_since": "2026-01-01"}, True),
         ],
-        ids=["retired-unanswered", "not-retired", "answered", "no-address", "placeholder"],
+        ids=["retired-unanswered", "not-retired", "answered", "no-address", "placeholder", "empty-stamp"],
     )
     def test_it_is_owed_exactly_where_a_retired_unanswered_row_holds_a_usable_address(self, stored: Mapping[str, Any], owed: bool):
         assert owes_reactivation_mint(stored=stored) is owed
@@ -507,8 +521,9 @@ class TestACorrectedAddressReMints:
             ({"kontakt": {"email": "Old@example.com"}, EINWILLIGUNG_FELD: None}, "old@example.com"),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None}, "first@example.com"),
             ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
+            ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am="")}, "new@example.com"),
         ],
-        ids=["address-moved", "address-moved-in-the-local-part-s-case-alone", "address-entered", "placeholder-replaced"],
+        ids=["address-moved", "address-moved-in-the-local-part-s-case-alone", "address-entered", "placeholder-replaced", "empty-stamp"],
     )
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == (

@@ -18,24 +18,13 @@ export async function onRequestError(...args: Parameters<typeof logRequestErrorI
  * silently stop running in the container.
  */
 export async function register() {
-  // Excludes Edge rather than requiring Node: NEXT_RUNTIME is unset in the standalone server, so a
-  // `!== "nodejs"` test would return early and validate nothing.
+  // Excludes Edge rather than requiring Node, one of the two shapes Next's instrumentation reference
+  // gives; the build writes each runtime's name over the variable, so both compile alike, and this one
+  // also boots under the suite, where nothing writes it.
   if (process.env.NEXT_RUNTIME === "edge") return;
 
-  // Importing it *is* the gate — validation runs during this module load, before anything is served.
-  const { frontend_config } = await import("./core/config");
-
-  // Installed before the first request can error, so Next's own multi-line console dumps still
-  // reach the log as one JSON document per line; the shim itself stands down under the console
-  // format, at the line that would otherwise recurse.
-  const { installConsoleShim } = await import("./core/consoleShim");
-  installConsoleShim();
-
-  // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
-  // and the league's real people. Compared to "on" rather than "off": a skipped validation leaves it
-  // undefined, where a negated test would arm.
-  if (process.env.NODE_ENV === "production" && frontend_config.BEWERBUNG_SWEEP === "on") {
-    const { armBewerbungSweep } = await import("./features/bewerbungen/sweep");
-    armBewerbungSweep();
-  }
+  // Every Node API stays in that module: the Edge compile still reads this file, and flags one
+  // spelled here even past the return above.
+  const { registerOnNode } = await import("./instrumentation-node");
+  await registerOnNode();
 }

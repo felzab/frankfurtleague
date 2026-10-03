@@ -1,0 +1,269 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/pageHarness.ts";
+
+import assert from "node:assert/strict";
+import path from "node:path";
+import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
+
+import { Component, createElement as h } from "react";
+import { notFound, redirect } from "next/navigation";
+
+import { cleanup, render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+
+import { person } from "@/core/subjectFixtures.ts";
+import { filesUnder } from "@/core/treeWalk.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { callPage, clearSteps, pageBody, steps } from "@/shared/testing/pageHarness.ts";
+
+import type { ComponentType, ReactElement, ReactNode } from "react";
+
+const { setSession, setSubject } = doubleActionRequest();
+// Each shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
+doubleEveryAction();
+// The area's panel reports the crash it draws.
+const fetchDouble = doubleFetch();
+
+/* Reached with `await import` and never a static import beside the harness, which registers the JSX
+   compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
+const { default: PersoenlichLayout } = await import("@/app/bereich/(persoenlich)/layout.tsx");
+const { default: TeamLayout } = await import("@/app/bereich/team/[team_id]/[saison_id]/layout.tsx");
+const { default: AdminLayout } = await import("@/app/bereich/admin/layout.tsx");
+const { PersonAreaBoundary } = await import("@/features/funktionen/components/providers/PersonAreaBoundary.tsx");
+const { TeamAreaBoundary } = await import("@/features/funktionen/components/providers/TeamAreaBoundary.tsx");
+const { AdminAreaBoundary } = await import("@/features/admin/components/providers/AdminAreaBoundary.tsx");
+const { PERSON_SHELL_CRASH, PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ENTRIES } =
+  await import("@/features/funktionen/constants.ts");
+
+const TEAM = { team_id: "6890a1b2c3d4e5f607250011", saison_id: "2526" };
+const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
+
+/** What the backend answered the layout's read with: an outage, never a missing session. */
+const OUTAGE = new Error("die Anmeldung ist nicht erreichbar");
+
+const Redirecting = (): never => redirect("/signin");
+const Missing = (): never => notFound();
+
+/** Next's two answers a boundary must hand on, each with the digest Next acts on. */
+const NAVIGATIONS = [
+  { child: Redirecting, digest: "NEXT_REDIRECT;replace;/signin;307;" },
+  { child: Missing, digest: "NEXT_HTTP_ERROR_FALLBACK;404" },
+];
+
+/** Next's own boundary above the area's, recording what reached it rather than rendering it. */
+class Above extends Component<{ caught: unknown[]; children?: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: unknown): void {
+    this.props.caught.push(error);
+  }
+
+  override render(): ReactNode {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+const Throwing = (): never => {
+  throw OUTAGE;
+};
+
+type Area = {
+  name: string;
+  /** The layout's file under `/bereich`, which is where the area begins. */
+  file: string;
+  /** What that file exports, which `layout` calls. */
+  Layout: unknown;
+  /** The layout as Next mounts it, with a page slot standing in for whatever page is asked for. */
+  layout: () => ReactElement<{ children?: ReactNode }>;
+  boundary: ComponentType<{ children?: ReactNode }>;
+  /** Makes the read the layout's guard awaits throw. */
+  failRead: () => void;
+  pathname: string;
+  params: Record<string, string> | null;
+};
+
+const AREAS: Area[] = [
+  {
+    name: "the person area",
+    file: "(persoenlich)/layout.tsx",
+    Layout: PersoenlichLayout,
+    layout: () => PersoenlichLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
+    boundary: PersonAreaBoundary,
+    failRead: () => setSubject(OUTAGE),
+    pathname: "/bereich",
+    params: null,
+  },
+  {
+    name: "the team area",
+    file: "team/[team_id]/[saison_id]/layout.tsx",
+    Layout: TeamLayout,
+    layout: () => TeamLayout({ params: Promise.resolve(TEAM), children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
+    boundary: TeamAreaBoundary,
+    failRead: () => setSubject(OUTAGE),
+    pathname: `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`,
+    params: TEAM,
+  },
+  {
+    name: "the admin area",
+    file: "admin/layout.tsx",
+    Layout: AdminLayout,
+    layout: () => AdminLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
+    boundary: AdminAreaBoundary,
+    failRead: () => setSession(OUTAGE),
+    pathname: "/bereich/admin/sperrliste",
+    params: null,
+  },
+];
+
+describe("a read failing in an area's layout", () => {
+  /* Held to the tree rather than trusted: a fourth area would read outside every boundary these cases
+     drive until listed here. A layout nested in an area needs none: the area's `error.tsx` wraps every
+     segment below the area's layout. */
+  it("drives every area layout under /bereich", async () => {
+    const walked = filesUnder(import.meta.dirname, (name) => name === "layout.tsx", 1).map((file) =>
+      path
+        .relative(import.meta.dirname, file)
+        .split(path.sep)
+        .join("/"),
+    );
+    const outermost = walked.filter((file) => !walked.some((other) => other !== file && file.startsWith(`${path.posix.dirname(other)}/`)));
+
+    assert.deepEqual(AREAS.map((area) => area.file).sort(), outermost.sort());
+    for (const area of AREAS) {
+      const { default: Layout } = (await import(pathToFileURL(path.join(import.meta.dirname, area.file)).href)) as { default: unknown };
+      assert.equal(area.Layout, Layout, `${area.name} drives a layout other than ${area.file}'s`);
+    }
+  });
+
+  /* The area's `error.tsx` sits inside its layout, so a throw in the layout's guard or chrome reaches
+     the root boundary, the visitor's chrome and all, unless the layout wraps it itself. */
+  it("throws inside the boundary the layout wraps itself in", async () => {
+    for (const area of AREAS) {
+      area.failRead();
+      const tree = area.layout();
+
+      assert.equal(tree.type, area.boundary, `${area.name}'s layout renders no boundary of its own around its reads`);
+      const { thrown } = await callPage(() => tree.props.children, NO_PROPS);
+      assert.ok(thrown.includes(OUTAGE), `${area.name}'s layout reads nothing inside its boundary that could fail`);
+    }
+  });
+
+  /* The shell stays, so the person keeps the bar's sign-out and the area's own panel answers. */
+  it("is answered by the area's own panel inside the area's shell", () => {
+    fetchDouble.mock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+
+    for (const area of AREAS) {
+      const { container } = render(
+        underNext(h(area.boundary, null, h(Throwing)), { pathname: area.pathname, ...(area.params === null ? {} : { params: area.params }) }),
+      );
+      try {
+        assert.ok(container.querySelector("[data-app-shell]"), `${area.name} answers its failing read outside its shell`);
+        assert.ok(container.textContent.includes("Spielunterbrechung"), `${area.name} answers its failing read with no panel`);
+        assert.ok(container.textContent.includes("Ansicht neu laden"), `${area.name}'s panel offers no retry`);
+        assert.equal(container.querySelectorAll("h1").length, 1, `${area.name}'s panel raises a heading the shell owns`);
+        assert.ok(container.querySelector('[aria-label="Abmelden"]'), `${area.name} leaves its person no way to sign out`);
+      } finally {
+        cleanup();
+      }
+    }
+  });
+
+  /* The guard's own answer to a missing session is a redirect, which is Next's to act on: caught here,
+     a lapsed session would read as an outage rather than reach sign-in. */
+  it("lets a redirect and a not-found through to Next", () => {
+    for (const area of AREAS) {
+      for (const { child, digest } of NAVIGATIONS) {
+        const caught: unknown[] = [];
+        const { container } = render(
+          underNext(h(Above, { caught }, h(area.boundary, null, h(child))), {
+            pathname: area.pathname,
+            ...(area.params === null ? {} : { params: area.params }),
+          }),
+        );
+        try {
+          assert.deepEqual(
+            caught.map((error) => (error as { digest?: unknown }).digest),
+            [digest],
+            `${area.name}'s boundary keeps ${digest} from Next`,
+          );
+          assert.ok(!container.textContent.includes("Spielunterbrechung"), `${area.name} answers ${digest} with its error panel`);
+        } finally {
+          cleanup();
+        }
+      }
+    }
+  });
+});
+
+describe("the chrome under a person lane's guard", () => {
+  /* The builder stage reaches no sign-in store, and the guard's own `connection()` shields the chrome
+     only while it is mounted over it: the chrome's read failing as the build's does must find the
+     request already awaited. */
+  it("awaits the request before its own session read, whatever is mounted above it", async () => {
+    for (const area of AREAS.filter(({ boundary }) => boundary !== AdminAreaBoundary)) {
+      setSubject(person());
+      // What the guard hands on: the chrome's element, called below on its own.
+      const guarded = (await pageBody(area.layout, {})) as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
+      const chrome = guarded.props.children as ReactElement<Record<string, unknown>> & { type: (props: unknown) => Promise<unknown> };
+      area.failRead();
+      clearSteps();
+
+      await assert.rejects(chrome.type(chrome.props), OUTAGE, `${area.name}'s chrome reads no session`);
+      assert.deepEqual(
+        steps.map(({ kind }) => kind),
+        ["connection"],
+        `${area.name}'s chrome reads the session before it awaits the request`,
+      );
+    }
+  });
+});
+
+/** The hint the bar over an area's crash panel opens on a press, the bar named `label` at `pathname`. */
+async function crashBarHint(
+  boundary: ComponentType<{ children?: ReactNode }>,
+  pathname: string,
+  label: string,
+  params?: Record<string, string>,
+): Promise<string> {
+  fetchDouble.mock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+  render(underNext(h(boundary, null, h(Throwing)), { pathname: pathname, ...(params === undefined ? {} : { params: params }) }));
+  try {
+    await userEvent.setup().click(screen.getByRole("button", { name: `Was auf „${label}“ zu finden ist` }));
+    return document.body.textContent;
+  } finally {
+    cleanup();
+  }
+}
+
+describe("the bar over an area's crash panel", () => {
+  /* A failing read says nothing of the seats held, so the bar heads the landing by its own entry: the
+     refusal's words would tell a seat holder they hold none, and a missing page's call the landing no page. */
+  it("heads the team's landing by its own entry", async () => {
+    const [landing] = TEAM_SIDEMENU_ENTRIES;
+    const shown = await crashBarHint(TeamAreaBoundary, `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`, landing.label, TEAM);
+
+    assert.ok(shown.includes(landing.hint.lead), "the crash panel's bar reads no hint of the landing's own");
+    assert.ok(!shown.includes(TEAM_SHELL_FALLBACK.hint.lead), "the crash panel's bar calls the team's landing no page");
+    assert.ok(!shown.includes(TEAM_SHELL_REFUSAL.hint.lead), "the crash panel's bar tells a seat holder they hold no seat");
+  });
+
+  /* The same for the person area, whose landing every person holds; at any other address the failed
+     read is what would have said whether the person holds the page, so the bar says the area failed. */
+  it("heads the person's landing by its entry, and any other address by the crash", async () => {
+    const landing = await crashBarHint(PersonAreaBoundary, "/bereich", PERSON_SIDEMENU_ENTRIES.landing.label);
+    const spieler = await crashBarHint(PersonAreaBoundary, "/bereich/spieler", PERSON_SHELL_CRASH.label);
+
+    assert.ok(landing.includes(PERSON_SIDEMENU_ENTRIES.landing.hint.lead), "the crash panel's bar reads no hint of the landing's own");
+    assert.ok(spieler.includes(PERSON_SHELL_CRASH.hint.lead), "the crash panel's bar reads no crash hint off the landing");
+    for (const shown of [landing, spieler]) {
+      assert.ok(!shown.includes(PERSON_SHELL_FALLBACK.hint.lead), "the crash panel's bar calls a page of the area no page");
+    }
+  });
+});

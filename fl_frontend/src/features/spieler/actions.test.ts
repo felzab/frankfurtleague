@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -10,6 +9,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
@@ -55,38 +55,29 @@ const { AdminSpielerTable } = await import("./components/collections/AdminSpiele
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
 
 /** What the editor page's doubled reads answer, set by the case that renders it. */
-const PAGE_READS = "__flSpielerEditorLesungen";
+let pageAnswers: { memberships?: unknown; saisons?: unknown; teams?: unknown; asked?: string[]; nachnominierung?: boolean } = {};
+
+const getSaisons = () => Promise.resolve(pageAnswers.saisons);
 
 /* The page's own reads, each double answering only the fields the page reads. */
-const PAGE_DOUBLES: [string, string][] = [
-  [
-    "/src/features/spieler/queries.ts",
-    `export const getSpielerMemberships = async () => globalThis.${PAGE_READS}.memberships;
-export const getSpielerNachnominierung = async (saison_id) => {
-  globalThis.${PAGE_READS}.asked?.push(saison_id);
-  return { saison_id, nachnominierung: globalThis.${PAGE_READS}.nachnominierung ?? false };
-};`,
-  ],
-  [
-    "/src/features/saisons/queries.ts",
-    `export const getAdminSaisons = async () => globalThis.${PAGE_READS}.saisons;
-export const getSaisons = async () => globalThis.${PAGE_READS}.saisons;`,
-  ],
-  ["/src/features/teams/queries.ts", `export const getTeamMemberships = async () => globalThis.${PAGE_READS}.teams;`],
-];
-
-registerHooks({
-  load(url, context, nextLoad) {
-    const doubled = PAGE_DOUBLES.find(([ending]) => url.endsWith(ending));
-    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
-    return nextLoad(url, context);
+const PAGE_DOUBLES = {
+  "features/spieler/queries.ts": {
+    getSpielerMemberships: () => Promise.resolve(pageAnswers.memberships),
+    getSpielerNachnominierung: (saison_id: string) => {
+      pageAnswers.asked?.push(saison_id);
+      return Promise.resolve({ saison_id, nachnominierung: pageAnswers.nachnominierung ?? false });
+    },
   },
-});
+  "features/saisons/queries.ts": { getAdminSaisons: getSaisons, getSaisons },
+  "features/teams/queries.ts": { getTeamMemberships: () => Promise.resolve(pageAnswers.teams) },
+};
 
-const { default: AdminSpielerEditPage } = await import("@/app/admin/spieler/[spieler_id]/page.tsx");
-const { default: AdminSpielerPage } = await import("@/app/admin/spieler/page.tsx");
+registerDoubles({ modules: PAGE_DOUBLES });
 
-/** A tree under all three contexts, on the season the sidemenu names. */
+const { default: AdminSpielerEditPage } = await import("@/app/bereich/admin/spieler/[spieler_id]/page.tsx");
+const { default: AdminSpielerPage } = await import("@/app/bereich/admin/spieler/page.tsx");
+
+/** A tree under every context `next/navigation` reads, on the season the sidemenu names. */
 const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
   underNext(tree, { router, search: `saison_id=${SAISON_ID}` });
 
@@ -294,7 +285,7 @@ describe("the erasure's gate and its exit", () => {
 
     await pressTwice(user, { resting: ERASE_LABEL, armed: `Ja, ${ERASE_LABEL}` });
 
-    assert.deepEqual(seen.replaced, [withSaisonId("/admin/spieler", SAISON_ID)], "the erasure does not leave the page it just emptied");
+    assert.deepEqual(seen.replaced, [withSaisonId("/bereich/admin/spieler", SAISON_ID)], "the erasure does not leave the page it just emptied");
     assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
   });
 
@@ -313,7 +304,7 @@ describe("the erasure's gate and its exit", () => {
     });
     const saison = (id: string, status: string) => ({ id, status, rules: { erlaubte_stufen: ["Q1"], max_kadergroesse: 20 } });
 
-    (globalThis as unknown as Record<string, unknown>)[PAGE_READS] = {
+    pageAnswers = {
       memberships: {
         spieler: [
           {
@@ -353,7 +344,7 @@ const THIRD_ID = "68c1f0a2b3c4d5e6f7a8b9d1";
 const EARLIER = "2025";
 
 type PageReads = { asked: string[]; nachnominierung: boolean };
-const pageReads = (): PageReads => (globalThis as unknown as Record<string, PageReads>)[PAGE_READS]!;
+const pageReads = (): PageReads => pageAnswers as PageReads;
 
 /** A player holding one live squad row per entry. */
 function person(id: string, vorname: string, rows: { saison_id: string; team_id: string; rolle?: FLSpielerRolle }[]) {
@@ -388,7 +379,7 @@ function answerPages(spieler: ReturnType<typeof person>[]): void {
     memberships: [{ saison_id: EARLIER }, { saison_id: SAISON_ID }],
   });
 
-  (globalThis as unknown as Record<string, unknown>)[PAGE_READS] = {
+  pageAnswers = {
     memberships: { spieler },
     saisons: {
       saisons: [
@@ -546,6 +537,9 @@ describe("the reactivate's gate on the editor", () => {
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" }));
     rerender(underNext(h(FormAustragenSection, { ...props, key: "ausgetragen", rowInactiveSince: RETIRED_ON })));
+    // One tick: the landing watches the page for the pressed control to go, and an observer reports a
+    // commit a microtask after it.
+    await Promise.resolve();
 
     assert.ok(document.activeElement === screen.getByRole("button", { name: ROW_REACTIVATE }), "focus fell to the page");
   });

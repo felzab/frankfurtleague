@@ -2,18 +2,19 @@
 
 import { refresh } from "next/cache";
 
+import { isFreshlySignedIn } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { buildEinladungEmail } from "@/core/einladungEmail";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { sendZielMail } from "@/features/zustellung/notifications";
-import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { einladungsLink } from "./einladungLink";
 import { bestaetigteEmpfaenger } from "./empfaenger";
-import { adressenSatz, versandSatz, ZURUECKGEHALTEN } from "./meldungen";
+import { adressenSatz, gesperrtSatz, versandSatz, ZURUECKGEHALTEN } from "./meldungen";
 import { deleteEinladung, postEinladung, postEinladungVersand } from "./mutations";
 import { getEinladung, getEinladungVersandVorschau } from "./queries";
 import { mapEinladungRefusal } from "./refusals";
@@ -34,12 +35,18 @@ const VERSAND_IDEMPOTENZ_TAG = "versand";
 export async function postEinladungAction(
   rawPayload: FLEinladungKeyPayload,
 ): Promise<ActionResult<{ einladung_id: string; token: string; link: string }>> {
-  return runAdminMutation("postEinladungAction", async () => {
+  return runAdminMutation("postEinladungAction", async (session) => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
+
+    // A mint voiding a standing link is a step-up write and the first mint is not, so a read decides; made
+    // only for a session past the window, the one it can refuse (`docs/frontend/spec.md :: I432`).
+    const standing = isFreshlySignedIn(session) ? null : (await getEinladung(validated.data.team_id, validated.data.saison_id)).einladung;
+    const unconfirmed = standing === null ? null : refuseUnconfirmed(session);
+    if (unconfirmed !== null) return unconfirmed;
 
     let mintOperation;
     try {
@@ -67,7 +74,7 @@ export async function postEinladungAction(
  * mint**: the link is shown for copying first, and this is what puts it in an inbox.
  */
 export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult> {
-  return runAdminMutation("mailEinladungAction", async () => {
+  return runAdminMutation("mailEinladungAction", { stepUp: true }, async () => {
     const validated = FLEinladungMailPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -149,6 +156,11 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
         }),
     });
 
+    // Every address barred is no failure either: a retry meets the same ban (`docs/frontend/spec.md :: I542`).
+    if (outcome.delivered.length === 0 && outcome.unreachable.length === 0 && outcome.ungewiss.length === 0 && outcome.gesperrt > 0) {
+      return { success: true, message: "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht." };
+    }
+
     // A withheld send is this deployment rather than the mailbox, as `app/api/registrierung/route.ts`
     // reads it: outside production every address is withheld, and a refusal here would offer a
     // retry that cannot succeed.
@@ -163,16 +175,18 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
       };
     }
 
+    const versandt = outcome.delivered.length === 0 ? ZURUECKGEHALTEN : adressenSatz(outcome.delivered.length, empfaenger.length);
+
     return {
       success: true,
-      message: outcome.delivered.length === 0 ? ZURUECKGEHALTEN : adressenSatz(outcome.delivered.length, empfaenger.length),
+      message: outcome.gesperrt === 0 ? versandt : `${versandt} ${gesperrtSatz(outcome.gesperrt)}`,
     };
   });
 }
 
 /** Closes the team's live link. Nothing reverses it: the next link is a fresh mint with a fresh value. */
 export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteEinladungAction", async () => {
+  return runAdminMutation("deleteEinladungAction", { stepUp: true }, async () => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -216,7 +230,7 @@ export async function previewEinladungVersandAction(
 export async function postEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[] }>> {
-  return runAdminMutation("postEinladungVersandAction", async () => {
+  return runAdminMutation("postEinladungVersandAction", { stepUp: true }, async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -253,6 +267,7 @@ export async function postEinladungVersandAction(
           zugestellt: [],
           unerreichbar: [],
           zurueckgehalten: [],
+          gesperrt: 0,
         });
         continue;
       }
@@ -281,6 +296,7 @@ export async function postEinladungVersandAction(
         // Carried for the reason the single press reads it: outside production every address is
         // withheld, and a row that cannot tell the two apart names every one of them in danger red.
         zurueckgehalten: outcome.withheld,
+        gesperrt: outcome.gesperrt,
       });
     }
 

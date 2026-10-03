@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLSpieleAdminListResponseSchema, FLSpieleAdminSingleResponseSchema, FLSpieleListResponseSchema } from "./schemas";
 
@@ -40,9 +40,7 @@ export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSp
   const held = adminSpieleInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runWithIncomingTrace(() =>
-    apiClient("/spiele/list/admin", FLSpieleAdminListResponseSchema, { authType: "admin", params: filters }),
-  );
+  const started = runAdminRead(() => apiClient("/spiele/list/admin", FLSpieleAdminListResponseSchema, { authType: "admin", params: filters }));
   adminSpieleInFlight().set(key, started);
 
   return started;
@@ -56,7 +54,7 @@ export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSp
  */
 
 export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingleResponse | null> {
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
     // status still throws.
     apiClient(`/spiele/${spielId}/admin`, FLSpieleAdminSingleResponseSchema, { authType: "admin" }).catch((error: unknown) => {

@@ -6,14 +6,14 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 
-import { act, createElement as h } from "react";
+import { act, createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
-import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME, fuelleFassung } from "@/core/einwilligung.ts";
+import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
@@ -22,9 +22,11 @@ import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
+import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
+import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
@@ -72,7 +74,7 @@ const { BestaetigungFormPanel } = await import("./components/views/BestaetigungF
 const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
-const { FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");
+const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -249,7 +251,7 @@ describe("the window state the application page renders", () => {
     );
   });
 
-  /* The lead is the one site: the receipt panel and the three mails carry the fact from the press
+  /* The lead is the one site: the receipt panel and the mails carry the fact from the press
      onwards, so a second wording above the button is one promise said twice. */
   it("says in the lead, and only there, what the press sets in motion", () => {
     assert.ok(
@@ -773,7 +775,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
   type Absatz = keyof typeof BESTAETIGUNG_ABSAETZE;
 
-  const stamped = (key: Absatz): string => fuelleFassung(BESTAETIGUNG_ABSAETZE[key], SLOTS);
+  const stamped = (key: Absatz): string => filledSlots(BESTAETIGUNG_ABSAETZE[key], SLOTS);
 
   /** Every paragraph and list item a render puts on the page, as a reader reads it. */
   const paragraphsOf = (html: string): string[] =>
@@ -840,7 +842,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     assert.ok(text.includes(BESTAETIGUNG_KENNTNISNAHME.schalter), "the switch says something the stamped version does not hold");
     assert.ok(describedBy.length > 0, "no control on the form describes itself by anything at all");
     assert.ok(
-      // Cut at the first close, which is this block's: the four points stand in a list, and no
+      // Cut at the first close, which is this block's: the points stand in a list, and no
       // element between the id and them opens a `div` of its own.
       describedBy.some((id) => {
         const describedFrom = FORM_PANEL.indexOf(`id="${id}"`);
@@ -903,10 +905,10 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     kontakt: KONTAKT_EMAIL,
     datenschutz: "Datenschutzerklärung",
   };
-  const STAMPED = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => fuelleFassung(text, SLOTS)));
+  const STAMPED = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => filledSlots(text, SLOTS)));
 
   const VALID_PAGE = renderMarkup(BestaetigungView, { start: { zustand: "gueltig", ansicht: OPENED_LINK, token: "kein-echtes-token" } });
-  const STATE_PAGES = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar"] as const).map((zustand) => ({
+  const STATE_PAGES = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar", "gesperrt"] as const).map((zustand) => ({
     zustand: zustand,
     html: renderMarkup(BestaetigungView, { start: { zustand: zustand } }),
   }));
@@ -1158,7 +1160,7 @@ describe("which floor the confirmation form judges a typed date by", () => {
     const { user } = renderBestaetigung(VERTRETUNG_MIN_ALTER);
     await tippeGeburtsdatum(user, zwischenDenBoeden());
 
-    assert.notEqual(zuJungPanel(), null, "a seventeen-year-old is accepted at a seat whose floor is eighteen");
+    assert.ok(zuJungPanel() !== null, "a seventeen-year-old is accepted at a seat whose floor is eighteen");
     assert.ok(
       (zuJungPanel()?.parentElement?.textContent ?? "").includes(`ab ${String(VERTRETUNG_MIN_ALTER)}`),
       "the panel that names the floor and points at the Widerspruch states another number",
@@ -1171,7 +1173,7 @@ describe("which floor the confirmation form judges a typed date by", () => {
     const { user } = renderBestaetigung(BEWERBUNG_MIN_ALTER);
     await tippeGeburtsdatum(user, zwischenDenBoeden());
 
-    assert.equal(zuJungPanel(), null, "a seventeen-year-old is turned away at the seat whose floor is sixteen");
+    assert.ok(zuJungPanel() === null, "a seventeen-year-old is turned away at the seat whose floor is sixteen");
   });
 
   /* The confirmation's submit runs outside the two-press hook, so this panel alone hands its control
@@ -1336,5 +1338,70 @@ describe("what a decline may carry", () => {
       "the refusal lands somewhere other than the switch",
     );
     assert.equal(FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: false }).success, true);
+  });
+});
+
+describe("what a link to a barred address opens on", () => {
+  const OFFEN = {
+    acknowledged: 1,
+    zustand: "gueltig",
+    saison_id: "2026",
+    schule: "Lessing-Kolleg",
+    rolle: "ansprechperson",
+    zugleich_rolle: null,
+    vorname: "Mira",
+    text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+    mindestalter: BEWERBUNG_MIN_ALTER,
+  } as const;
+
+  it("is the shared barred page and nothing beside it", () => {
+    assert.equal(
+      renderMarkup(BestaetigungView, { start: { zustand: "gesperrt" } }),
+      renderMarkup(AdresseGesperrt, { panelRef: createRef<HTMLElement>() }),
+      "the page draws its own barred page, or something beside the shared one",
+    );
+  });
+
+  /* A ban entered while the form stood open: the refused press swaps the form for the same page
+     rather than raising the sentence as a toast over a form and a Widerspruch button. */
+  it("swaps an open form for that page when the press is refused on the ban", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ success: false, zustand: "gesperrt" }))));
+    const user = userEvent.setup();
+    const { unmount } = render(h(BestaetigungView, { start: { zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token" } }));
+
+    const [jahr = "", monat = "", tag = ""] = parseDate(getGermanTodayStr()).subtract({ years: 30 }).toString().split("-");
+    await user.click(within(screen.getByRole("group", { name: "Dein Geburtsdatum" })).getAllByRole("spinbutton")[0]!);
+    await user.keyboard(`${tag}${monat}${jahr}`);
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+    const shown = await screen.findByText(LINK_ADRESSE_GESPERRT);
+    const buttons = screen.queryAllByRole("button").length;
+    const toasts = raised.length;
+    unmount();
+
+    assert.ok(shown, "the page kept the form the press cannot use again");
+    assert.equal(buttons, 0, "a press — a Widerspruch among them — stands beside the barred sentence");
+    assert.equal(toasts, 0, "the ban was raised as a toast over the form");
+  });
+});
+
+describe("the address the confirmation page opened under", () => {
+  it("loses the link's token once the page is open", () => {
+    window.history.replaceState(null, "", "/bestaetigung/kontakt?token=kein-echtes-token");
+    const { unmount } = render(h(BestaetigungView, { start: { zustand: "bestaetigt" } }));
+    const adresse = `${window.location.pathname}${window.location.search}`;
+    unmount();
+
+    assert.equal(adresse, "/bestaetigung/kontakt", "the page leaves its token in the address bar");
+  });
+
+  it("keeps the token where the link could not be read, so a reload can retry it", () => {
+    window.history.replaceState(null, "", "/bestaetigung/kontakt?token=kein-echtes-token");
+    const { unmount } = render(h(BestaetigungView, { start: { zustand: "unlesbar" } }));
+    const adresse = `${window.location.pathname}${window.location.search}`;
+    unmount();
+
+    assert.equal(adresse, "/bestaetigung/kontakt?token=kein-echtes-token", "the page stripped the token a reload needs");
   });
 });

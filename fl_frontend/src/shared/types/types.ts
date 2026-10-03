@@ -62,11 +62,11 @@ export type ActionFailure = {
    */
   errorCode?: string;
   /**
-   * Present where nobody can tell whether the write landed, the server or the frontend alike
-   * (`docs/frontend/spec.md :: I326`). `appToast.failure` reads it: a title saying the change was not
-   * saved is then the one false sentence on the toast.
+   * Present where a title saying nothing was saved would be false: `unknown` where nobody can tell
+   * whether the write landed (`docs/frontend/spec.md :: I326`), `partial` where one write of the press
+   * stands and a later one was refused (`:: I531`).
    */
-  outcome?: "unknown";
+  outcome?: "unknown" | "partial";
 };
 
 type ActionSuccess<TPayload extends object = object> = TPayload & {

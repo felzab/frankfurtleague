@@ -70,8 +70,17 @@ class FLRegistrierungEntscheidung(BaseModel):
     grund: str | None
 
 
+class FLRegistrierungEntscheidungZeile(FLRegistrierungEntscheidung):
+    """A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address."""
+
+    # Null exactly where `von_gesperrt` is set, as the grants list withholds its actors
+    # (`docs/backend/spec.md :: I452`).
+    von: CustomNonEmptyString | None
+    von_gesperrt: bool
+
+
 class FLRegistrierung(BaseModel):
-    """One pupil's registration for one team's season, as it is stored.
+    """One pupil's registration for one team's season, as stored, its decision as served.
 
     The submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and
     `einwilligung`, and a decline writes `status` and `entscheidung`.
@@ -99,7 +108,9 @@ class FLRegistrierung(BaseModel):
     geburtsdatum: CustomOptionalDateString
     einwilligung: FLEinwilligung | None
     bestaetigung: FLRegistrierungBestaetigung | None
-    entscheidung: FLRegistrierungEntscheidung | None
+    # As served, so a row reaches the wire only through
+    # `app/api/registrierungen/services.py :: mit_vorenthaltener_entscheidung`.
+    entscheidung: FLRegistrierungEntscheidungZeile | None
     # Composed by the read rather than left to a consumer to derive from `einwilligung`: no
     # unconfirmed registration may be admitted, and two readers deriving that differently is how an
     # unconfirmed pupil gets a squad row.
@@ -217,7 +228,8 @@ FLRegistrierungUmfang = Literal["kader_oeffentlich", "intern"]
 
 # What a reopened link shows. The page's own `ungueltig` and `unlesbar` are not here: a token
 # nothing opens is a refusal rather than a state, and an unreadable one never reached the backend.
-FLRegistrierungBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen"]
+# `gesperrt` ranks first (`docs/backend/spec.md :: I515`).
+FLRegistrierungBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
 
 class FLRegistrierungBestaetigungAnsichtPayload(BaseModel):

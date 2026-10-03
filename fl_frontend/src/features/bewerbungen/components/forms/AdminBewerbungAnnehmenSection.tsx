@@ -22,6 +22,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
@@ -63,7 +64,7 @@ export function AdminBewerbungAnnehmenSection({
   /** Whether the decline holds a typed reason, which this write re-keys the page over. */
   isDirty: boolean;
 }) {
-  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
+  const twoPress = useTwoPressConfirm({ guard: () => guardAgainstDraft(isDirty, DRAFT_DISCARDED), stepUp: true });
   const router = useRouter();
   const { isConfirming, press, cancel } = twoPress;
 
@@ -86,6 +87,8 @@ export function AdminBewerbungAnnehmenSection({
     const chosen = gruppe;
     if (chosen === null || hindernis !== null) return;
 
+    // The decision takes both decision panels away, so the application's heading takes the focus.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe }).catch(rejectedWrite(router));
@@ -104,6 +107,7 @@ export function AdminBewerbungAnnehmenSection({
         }
 
         setGruppeError(null);
+        landing.landed();
         appToast.success("Bewerbung angenommen", { description: res.message });
       });
     });
@@ -111,7 +115,9 @@ export function AdminBewerbungAnnehmenSection({
 
   // The object stays in the label: „Ja, endgültig aufnehmen“ alone would not say what is taken into what.
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("annahme")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}

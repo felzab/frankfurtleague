@@ -40,11 +40,12 @@ export function AdminSpielerView({
           setDeletingSpieler={onDelete}
         />
       )}
-      renderDeleteModal={({ item, isOpen, onClose }) => (
+      renderDeleteModal={({ item, isOpen, onClose, onRetired }) => (
         <AdminDeleteSpielerModal
           spielerData={item}
           isOpen={isOpen}
           onClose={onClose}
+          onRetired={onRetired}
         />
       )}
     />

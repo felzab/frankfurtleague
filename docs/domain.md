@@ -41,7 +41,9 @@ model holds; read this for the shape those tables are stating.
   season's rules and the clubs entered into it.
 - **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
   to play it (`registrierungen`), one minted registration link (`einladungen`), one barred address
-  (`sperrliste`) and one recorded write (`aktionen`).
+  (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
+  administrators have been told of it (`berechtigungen_angekuendigt`) and what they are still to be
+  told (`berechtigungen_postausgang`), and one recorded write (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.

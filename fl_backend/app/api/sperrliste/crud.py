@@ -6,13 +6,15 @@ Here rather than in `services.py`, which decides from its arguments and names no
 The router opens the collection and the client; what it does not do is compose a query.
 """
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any
 
+from pydantic import SecretStr
 from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.sperrliste.services import stored_adresse_hash
 from app.core.crud import aggregate_many_from_db, pull_many_from_db
 
 # What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
@@ -77,19 +79,74 @@ async def address_is_gesperrt(
     one that removes what it lapsed.
     """
 
-    # The hash alone while no season is running, rather than an answer given without asking:
-    # `find_keine_saison_refusal` leaves no row to find, and one that reached the collection another
-    # way bars rather than passing unjudged.
-    bound = {} if massgebliche_saison_id is None else {"gesperrt_bis_saison_id": {"$gte": massgebliche_saison_id}}
-
     # The id alone and capped at one: a registration asks whether, never which row, and the answer
     # must carry no part of a ban past the lane that may read it.
     found = await pull_many_from_db(
         collection=sperrliste_collection,
-        db_filter={"adresse_hash": adresse_hash, **bound},
+        db_filter={"adresse_hash": adresse_hash, **_standing(massgebliche_saison_id)},
         limit=1,
         projection=["_id"],
         session=session,
     )
 
     return bool(found)
+
+
+async def gesperrte_hashes(
+    *,
+    sperrliste_collection: AsyncCollection,
+    adresse_hashes: Iterable[str],
+    massgebliche_saison_id: str | None,
+    session: AsyncClientSession | None = None,
+) -> set[str]:
+    """Which of these hashes a standing ban holds, judged as `address_is_gesperrt` judges one.
+
+    ONE read for a sweep's page of mailboxes: a read each would spend the round trips its share is
+    sized on (`docs/backend/spec.md :: I322`).
+    """
+
+    asked = sorted(set(adresse_hashes))
+    if not asked:
+        return set()
+
+    found = await pull_many_from_db(
+        collection=sperrliste_collection,
+        db_filter={"adresse_hash": {"$in": asked}, **_standing(massgebliche_saison_id)},
+        limit=len(asked),
+        projection=["adresse_hash"],
+        session=session,
+    )
+
+    return {str(row["adresse_hash"]) for row in found}
+
+
+async def gesperrte_adressen(
+    adressen: Iterable[str],
+    *,
+    sperrliste_collection: AsyncCollection,
+    schluessel: SecretStr,
+    massgebliche_saison_id: str | None,
+    session: AsyncClientSession | None = None,
+) -> set[str]:
+    """Which of these stored addresses a standing ban holds, in `gesperrte_hashes`' one read.
+
+    One today's rule refuses is barred by none, as no ban can key it
+    (`app/api/sperrliste/services.py :: stored_adresse_hash`).
+    """
+
+    hashes = {adresse: gehasht for adresse in set(adressen) if (gehasht := stored_adresse_hash(adresse, schluessel=schluessel)) is not None}
+    barred = await gesperrte_hashes(
+        sperrliste_collection=sperrliste_collection,
+        adresse_hashes=hashes.values(),
+        massgebliche_saison_id=massgebliche_saison_id,
+        session=session,
+    )
+
+    return {adresse for adresse, gehasht in hashes.items() if gehasht in barred}
+
+
+def _standing(massgebliche_saison_id: str | None) -> Mapping[str, Any]:
+    # The hash alone while no season is running, rather than an answer given without asking:
+    # `find_keine_saison_refusal` leaves no row to find, and one that reached the collection another
+    # way bars rather than passing unjudged.
+    return {} if massgebliche_saison_id is None else {"gesperrt_bis_saison_id": {"$gte": massgebliche_saison_id}}

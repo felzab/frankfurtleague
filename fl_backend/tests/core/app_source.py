@@ -8,21 +8,30 @@ caller reshaped would be the next caller's answer.
 Invariants:
 - Nothing inside a test process changes the file set under `app/` or rebinds `APP_ROOT`, or a
   cached sweep answers the first tree.
+- Nothing edits `application()`'s app -- an override, a route, an exception handler, a middleware,
+  its `state`, the document `app.openapi()` hands out -- or every module reading it later in the
+  process meets the edit.
 """
 
 import ast
+import copy
+import dataclasses
 import functools
 import inspect
+import operator
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute, iter_route_contexts
+from starlette.routing import BaseRoute
 
 from app.core.collections import Collection
+from app.main import create_app
+from tests.config import build_test_config
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
@@ -38,6 +47,23 @@ BOUNDED_COMPARISONS = frozenset({"$lt", "$lte", "$gt", "$gte", "$in", "$eq"})
 
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset({"insert_live", "patch_many_in_db", "patch_one_in_db", "post_many_to_db", "post_one_to_db", "set_inactive_since"})
+
+# The driver's own writes, on a collection a module holds rather than through `app/core/crud.py`.
+DRIVER_WRITES = frozenset(
+    {
+        "bulk_write",
+        "delete_many",
+        "delete_one",
+        "find_one_and_delete",
+        "find_one_and_replace",
+        "find_one_and_update",
+        "insert_many",
+        "insert_one",
+        "replace_one",
+        "update_many",
+        "update_one",
+    }
+)
 
 # `app/core/crud.py`'s reading half: a call to one of these is where the application learns what it
 # then judges against.
@@ -689,6 +715,218 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
         )
 
     return tuple(sorted(found, key=lambda carrier: carrier.where))
+
+
+# What `application()` built, each surface a caller can edit held apart so an edit is told from it.
+_BUILT_ROUTES: list[BaseRoute] = []
+_BUILT_STATE: dict[str, Any] = {}
+_BUILT_HANDLERS: dict[Any, Any] = {}
+_BUILT_MIDDLEWARE: list[Any] = []
+
+# `app.openapi()` hands every reader the one document it cached on the app, so an edit to it is told
+# from a read only against this copy.
+_BUILT_DOCUMENT: dict[str, Any] = {}
+
+
+@dataclass(frozen=True)
+class _HeldAttributes:
+    """One route's attributes, or its dependant's, as built, a container's members held apart so an edit in place is told too."""
+
+    label: str
+    owner: Any
+    values: dict[str, Any]
+    members: dict[str, Any]
+    #: A slotted dataclass, which a dependant is: no `__dict__`, and no attribute it can gain.
+    slotted: bool
+    #: Every value read off in one call, and the values as built in the same order, so the
+    #: common answer is one identity sweep run in C: the guard pays it per module, twice.
+    read: Callable[[Any], tuple[Any, ...]]
+    built: tuple[Any, ...]
+
+
+# Every route the table reaches, nested includes opened, each with its dependant: the table's entries
+# are the routers holding them, so an edit inside one leaves every entry's identity standing.
+_BUILT_ROUTE_ATTRIBUTES: list[_HeldAttributes] = []
+
+
+_MISSING = object()
+
+
+def _attributes(owner: Any) -> dict[str, Any]:
+    if dataclasses.is_dataclass(owner):
+        return {field.name: getattr(owner, field.name) for field in dataclasses.fields(owner)}
+
+    return dict(vars(owner))
+
+
+def _members(value: Any) -> Any:
+    """A copy of a mutable container's members, `None` for anything else, whose only edit is a rebinding."""
+
+    if isinstance(value, list | set | dict):
+        return copy.copy(value)
+
+    return None
+
+
+def _same_members(now: Any, built: Any) -> bool:
+    if isinstance(built, dict):
+        return now.keys() == built.keys() and all(now[key] is built[key] for key in built)
+    if isinstance(built, set):
+        return {id(member) for member in now} == {id(member) for member in built}
+
+    return len(now) == len(built) and all(map(operator.is_, now, built, strict=True))
+
+
+def _hold(label: str, owner: Any) -> _HeldAttributes:
+    values = _attributes(owner)
+    members = {name: held for name, value in values.items() if (held := _members(value)) is not None}
+    names = tuple(values)
+    getter = operator.attrgetter(*names)
+
+    return _HeldAttributes(
+        label,
+        owner,
+        values,
+        members,
+        slotted=dataclasses.is_dataclass(owner),
+        # `attrgetter` answers one name with the bare value rather than a tuple of one.
+        read=(lambda held: (getter(held),)) if len(names) == 1 else getter,
+        built=tuple(values.values()),
+    )
+
+
+def _route_attributes(app: FastAPI) -> list[_HeldAttributes]:
+    held: list[_HeldAttributes] = []
+    seen: set[int] = set()
+    for context in iter_route_contexts(app.routes):
+        route = context.original_route
+        if id(route) in seen:
+            continue
+        seen.add(id(route))
+        label = f"{','.join(sorted(getattr(route, 'methods', None) or ()))} {getattr(route, 'path', repr(route))}"
+        held.append(_hold(label, route))
+        if (dependant := getattr(route, "dependant", None)) is not None:
+            held.append(_hold(f"{label} dependant", dependant))
+
+    return held
+
+
+def _unchanged(held: _HeldAttributes) -> bool:
+    owner = held.owner
+    if not held.slotted and len(vars(owner)) != len(held.values):
+        return False
+    try:
+        current = held.read(owner)
+    except AttributeError:
+        return False
+
+    return all(map(operator.is_, current, held.built, strict=True)) and all(
+        _same_members(held.values[name], members) for name, members in held.members.items()
+    )
+
+
+def _changed_attributes(held: _HeldAttributes) -> list[str]:
+    if _unchanged(held):
+        return []
+    now = _attributes(held.owner)
+
+    return sorted(
+        name
+        for name in now.keys() | held.values.keys()
+        if now.get(name, _MISSING) is not held.values.get(name, _MISSING)
+        or (name in held.members and not _same_members(now[name], held.members[name]))
+    )
+
+
+def _restore_attributes(held: _HeldAttributes) -> None:
+    """Each container refilled in place rather than replaced, since the route's other holders keep that object."""
+
+    if not held.slotted:
+        for added in vars(held.owner).keys() - held.values.keys():
+            delattr(held.owner, added)
+    for name, value in held.values.items():
+        setattr(held.owner, name, value)
+        if isinstance(value, list):
+            value[:] = held.members[name]
+        elif isinstance(value, set | dict):
+            value.clear()
+            value.update(held.members[name])
+
+
+@functools.cache
+def application() -> FastAPI:
+    """One build a process for every module reading what the application mounts.
+
+    Every xdist worker imports every module at collection, the tier's `-m` filtering only after, so a
+    build per module is paid by each worker for each module.
+    """
+
+    app = create_app(build_test_config())
+    _BUILT_ROUTES[:] = app.routes
+    _BUILT_STATE.clear()
+    _BUILT_STATE.update({key: app.state[key] for key in app.state})
+    _BUILT_HANDLERS.clear()
+    _BUILT_HANDLERS.update(app.exception_handlers)
+    _BUILT_MIDDLEWARE[:] = app.user_middleware
+    _BUILT_ROUTE_ATTRIBUTES[:] = _route_attributes(app)
+    # Published now rather than at the first reader's call, which could follow an edit to the routes
+    # and cache a document no build publishes.
+    _BUILT_DOCUMENT.clear()
+    _BUILT_DOCUMENT.update(copy.deepcopy(app.openapi()))
+
+    return app
+
+
+def _changed_keys(held: Mapping[Any, Any], built: Mapping[Any, Any]) -> list[str]:
+    """Every key added, dropped or rebound, by IDENTITY: a value swapped for an equal one is still another module's object."""
+
+    missing = object()
+
+    return sorted(
+        str(getattr(key, "__name__", key)) for key in held.keys() | built.keys() if held.get(key, missing) is not built.get(key, missing)
+    )
+
+
+def undo_edits_to_application() -> list[str]:
+    """What a caller changed on `application()`'s app, each undone so only the module making it is charged; empty where none was built."""
+
+    if not application.cache_info().currsize:
+        return []
+    app = application()
+    edits: list[str] = []
+    if app.dependency_overrides:
+        edits.append(f"dependency overrides for {sorted(getattr(call, '__name__', repr(call)) for call in app.dependency_overrides)}")
+        app.dependency_overrides.clear()
+    if changed := _changed_keys({key: app.state[key] for key in app.state}, _BUILT_STATE):
+        edits.append(f"its state at {changed}")
+        for key in list(app.state):
+            del app.state[key]
+        for key, value in _BUILT_STATE.items():
+            app.state[key] = value
+    if changed := _changed_keys(app.exception_handlers, _BUILT_HANDLERS):
+        edits.append(f"its exception handlers for {changed}")
+        app.exception_handlers.clear()
+        app.exception_handlers.update(_BUILT_HANDLERS)
+    if len(app.user_middleware) != len(_BUILT_MIDDLEWARE) or any(
+        held is not built for held, built in zip(app.user_middleware, _BUILT_MIDDLEWARE, strict=False)
+    ):
+        edits.append("its middleware")
+        app.user_middleware[:] = _BUILT_MIDDLEWARE
+    if app.routes != _BUILT_ROUTES:
+        edits.append("its route table")
+        app.router.routes[:] = _BUILT_ROUTES
+    if changed := [f"{held.label} {names}" for held in _BUILT_ROUTE_ATTRIBUTES if (names := _changed_attributes(held))]:
+        edits.append(f"its routes at {'; '.join(changed)}")
+        for held in _BUILT_ROUTE_ATTRIBUTES:
+            _restore_attributes(held)
+    if app.openapi_schema != _BUILT_DOCUMENT:
+        edits.append("its published document")
+        app.openapi_schema = copy.deepcopy(_BUILT_DOCUMENT)
+    # Dropped whether or not an edit stands: Starlette keeps the stack it builds at the first request, so
+    # an edit served and then put back leaves a stack built over it that nothing above sees.
+    app.middleware_stack = None
+
+    return edits
 
 
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:

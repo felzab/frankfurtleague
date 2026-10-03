@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export type PageExitOptions = {
   /**
    * Wrapped by the caller, never here: `fl_frontend/eslint.config.mjs :: SOURCE_BANS` reads each
-   * `/admin…` literal at its carrier call, so a route passed in bare is a link no ban can check
+   * `/bereich/admin…` literal at its carrier call, so a route passed in bare is a link no ban can check
    * for the season.
    */
   fallbackHref: string;

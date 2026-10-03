@@ -1,39 +1,33 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { z } from "zod";
 
+import { registerDoubles } from "./exportingModule.ts";
 import { documentsWrittenByAsync } from "./stdoutCapture.ts";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
-
-// Replaced at the module boundary: the real config reads three credentials no test run holds, and
+// Replaced at the module boundary: the real config reads credentials no test run holds, and
 // the client composes its base URL from `API_URL` at import.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  API_URL: "http://backend:8000",
-  API_VERSION: 0,
-  INTERNAL_API_KEY_BASE: "base-key-double",
-  INTERNAL_API_KEY_SYSTEM: "system-key-double",
-  INTERNAL_API_KEY_ADMIN: "admin-key-double",
-  LOG_FORMAT: "json",
-  LOG_LEVEL: "INFO",
-};`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
+const CONFIG_DOUBLE = {
+  frontend_config: {
+    API_URL: "http://backend:8000",
+    API_VERSION: 0,
+    LOG_FORMAT: "json",
+    LOG_LEVEL: "INFO",
   },
-  load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+  internalApiKeyBase: () => "base-key-double",
+  internalApiKeySystem: () => "system-key-double",
+  internalApiKeyAdmin: () => "admin-key-double",
+};
+
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG_DOUBLE,
   },
 });
 
 const { apiClient } = await import("./api.ts");
-const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } = await import("./errors.ts");
+const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, UnattributedAdminCallError } = await import("./errors.ts");
 const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
@@ -149,18 +143,76 @@ describe("the two headers this hop sets", () => {
     assert.deepEqual(sentTraceparent(), { traceId: TRACE, spanId: SPAN });
   });
 
-  // The actor is the admin scope's or nothing: a caller's own would attribute this read to a person
-  // who never made it, and a base call mints none to overwrite one with.
-  it("sends the scope's actor on an admin call and none at all on a base one", async () => {
-    await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: "admin@frankfurtleague.de" }, () =>
-      apiClient("/saisons", z.array(z.unknown()), { authType: "admin", headers: { ...CALLER_HEADERS } }),
-    );
-    assert.equal(new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER), "admin@frankfurtleague.de");
+  const ADMIN_ACTOR = { email: "admin@frankfurtleague.de", lane: "admin", token: "admin-lane-token-double" } as const;
+  const PERSON_ACTOR = { email: "spielerin@example.org", lane: "person", token: "person-lane-token-double" } as const;
 
-    await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: "admin@frankfurtleague.de" }, () =>
-      apiClient("/saisons", z.array(z.unknown()), { headers: { ...CALLER_HEADERS } }),
+  /** The actor header the one call sent from a scope recording `actor`, under `authType`. */
+  async function actorSent(
+    actor: typeof ADMIN_ACTOR | typeof PERSON_ACTOR,
+    authType?: "base" | "system" | "admin" | "none",
+  ): Promise<string | null> {
+    await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: actor }, () =>
+      apiClient("/saisons", z.array(z.unknown()), { authType: authType, headers: { ...CALLER_HEADERS } }),
     );
-    assert.equal(new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER), null);
+
+    return new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER);
+  }
+
+  // The signed token alone: the backend believes no address it cannot verify. A person's route rides
+  // the admin key too, so whichever guard recorded the actor, the token goes.
+  it("sends the scope's token on an admin-tier call, whichever lane recorded it, and never the address", async () => {
+    assert.equal(await actorSent(ADMIN_ACTOR, "admin"), ADMIN_ACTOR.token);
+    assert.equal(await actorSent(PERSON_ACTOR, "admin"), PERSON_ACTOR.token);
+  });
+
+  // The error is what a spine hands the logger, and the token a bearer credential while it lives: a
+  // refused call and one that never landed each come back carrying none of it.
+  it("puts the token into no error an admin-tier call throws", async () => {
+    const failures: unknown[] = [];
+    nextAnswer = new Response(JSON.stringify({ error_code: "REQ-AUTH-006" }), { status: 403, headers: { "content-type": "application/json" } });
+    failures.push(
+      await actorSent(ADMIN_ACTOR, "admin").then(
+        () => undefined,
+        (error: unknown) => error,
+      ),
+    );
+    nextTimesOut = true;
+    failures.push(
+      await actorSent(ADMIN_ACTOR, "admin").then(
+        () => undefined,
+        (error: unknown) => error,
+      ),
+    );
+
+    for (const failure of failures) {
+      assert.ok(failure instanceof Error, "the call did not fail, so nothing below was asked");
+      const seen = JSON.stringify({ ...failure, message: failure.message, stack: failure.stack }, (_key, value: unknown) =>
+        value instanceof Error ? { ...value, message: value.message, stack: value.stack } : value,
+      );
+      assert.ok(!seen.includes(ADMIN_ACTOR.token), `${failure.name} carried the token`);
+    }
+  });
+
+  // A base or system call is the app acting as itself: an actor on one would attribute a machine read
+  // to a person, and a caller's own header is taken off rather than passed on.
+  for (const authType of [undefined, "base", "system", "none"] as const) {
+    it(`sends no actor at all on a ${authType ?? "default"}-tier call, though the scope holds one`, async () => {
+      assert.equal(await actorSent(ADMIN_ACTOR, authType), null);
+    });
+  }
+
+  // The backend refuses it on arrival (REQ-AUTH-005), and the sweep over every query relies on this
+  // refusal to name a read that opened outside `runAdminRead`. A caller's own header names nobody.
+  it("refuses an admin call whose scope names nobody before anything is sent", async () => {
+    await assert.rejects(
+      runWithRequestScope({ traceId: TRACE, spanId: SPAN }, () =>
+        apiClient("/saisons", z.array(z.unknown()), { authType: "admin", headers: { ...CALLER_HEADERS } }),
+      ),
+      UnattributedAdminCallError,
+    );
+    await assert.rejects(apiClient("/saisons", z.array(z.unknown()), { authType: "admin" }), UnattributedAdminCallError);
+
+    assert.deepEqual(sends, []);
   });
 
   it("keeps a header the caller passes that this hop does not mint", async () => {

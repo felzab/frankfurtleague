@@ -74,20 +74,36 @@ that line cannot render this app at all. It does **not** govern Next's own polyf
 
 ## Authentication and authorization
 
-Better Auth, with a magic-link sign-in and a passkey as the administrator's second factor. **This is
+Better Auth, with a passkey sign-in, a six-digit code mailed as the fallback, and a passkey as the
+administrator's second factor. **This is
 the one place the frontend touches MongoDB directly** — a separate `auth` database, no business
 entities — and it exists because the adapter has no HTTP transport and sits on the hot path of every
 authorization check. Application data goes through FastAPI without exception.
 
-**Admin is an email allowlist, not a stored role.** `ALLOWED_ADMIN_EMAILS` is checked on every
-session read, through `fl_frontend/src/core/auth.ts :: isUserAdmin`, where the policy is defined. `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
+**Admin is a stored grant, read on every request.** A row of `berechtigungen` (the glossary's
+`Berechtigung`) makes an address an administrator: the frontend reads it on the subject lookup,
+through `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend reads it on every
+admin-tier request and refuses one naming an actor who holds none
+([`../backend/spec.md`](../backend/spec.md) I383). A backend that cannot answer admits nobody
+([`spec.md`](spec.md) I121). Grants are made on `/bereich/admin/administratoren`, and every change to
+them, one made in the database included, is mailed to every holder by a pass this process runs
+([`spec.md`](spec.md) I455). `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
 return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
-**Route protection is layered**: `fl_frontend/src/proxy.ts` guards `/admin/:path*`, and
-`fl_frontend/src/features/admin/components/providers/AdminAuthGuard.tsx :: AdminAuthGuard` — rendered
-inside the admin layout's `Suspense` boundary, so the shell still prerenders — checks independently,
-so rendering fails closed even if the matcher stops matching. What ends a session early is a
-revocation out of band rather than a lifetime expiring ([`spec.md`](spec.md) §4).
+**Route protection is layered**: `fl_frontend/src/proxy.ts` runs on every page a session serves,
+where it slides the session a person only reads ([`spec.md`](spec.md) I495), and under
+`/bereich/admin/:path*` it turns away a request with no session or one no passkey made, reading
+nothing but the session, as Next's own guidance has a proxy check; the admin guard,
+`fl_frontend/src/features/admin/components/providers/AdminAuthGuard.tsx :: AdminAuthGuard`, rendered
+inside the admin layout's `Suspense` boundary so the shell still prerenders, reads the grant and
+refuses the rest, so rendering fails closed even if the matcher stops matching. A revoke ends no session: the grant
+is read on every request, so a revoked one admits nothing from the next ([`spec.md`](spec.md) §4).
+
+**A person's sign-in is managed on one account page, `/bereich/konto`, whichever area they hold**:
+every signed-in shell links it, and its passkeys and sign-ins change only behind a sign-in or a
+confirmation inside the step-up window, in either lane ([`spec.md`](spec.md) I422). It reads the
+sign-in store directly for the same reason the guards do, and never through the library's session
+list, which answers every session's cookie value ([`spec.md`](spec.md) I420).
 
 ## Read next
 

@@ -19,7 +19,7 @@ import type { ErasureAnsicht, SaisonTeamKontaktePayloadDraft } from "./types";
  * The erasure panel's repair where the read answered no sentence of its own: arming it again is what
  * reads the list a second time.
  */
-const NOCH_EINMAL = "Brich ab und starte das Löschen noch einmal.";
+const ERNEUT_STARTEN = "Brich ab und starte das Löschen erneut.";
 
 /** One count as German reads it, with a word for none and a word for one. */
 function countPhrase(count: number, singular: string, plural: string): string {
@@ -85,7 +85,7 @@ export function settledErasureAnsicht(
   // box this panel does not render.
   const gesagt = res.success || res.fieldErrors !== undefined ? undefined : res.error;
 
-  return { email, status: "refused", reason: gesagt ?? NOCH_EINMAL };
+  return { email, status: "refused", reason: gesagt ?? ERNEUT_STARTEN };
 }
 
 /**
@@ -186,7 +186,7 @@ export function renamedConfirmedSeatLabels(stored: SaisonTeamKontakteDraft | nul
 export function teamPageHref(teamId: string, saisonId: string): string {
   // The season rides along: the seats are season-scoped, and a link without it lands the admin on
   // whichever season that page falls back to.
-  return `/admin/teams/${teamId}?saison_id=${encodeURIComponent(saisonId)}`;
+  return `/bereich/admin/teams/${teamId}?saison_id=${encodeURIComponent(saisonId)}`;
 }
 
 /**

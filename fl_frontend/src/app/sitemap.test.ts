@@ -2,39 +2,29 @@ import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { SITE_URL } from "@/core/brand";
+import { registerRenderingNothing } from "@/core/exportingModule.ts";
 
 import sitemap from "./sitemap.ts";
 
 import type { Metadata } from "next";
 
-/** Each page's view and form, doubled whole: the withheld pages are loaded for their metadata alone. */
-const COMPONENT = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.tsx$/;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    const component = COMPONENT.exec(url);
-    if (component !== null) return { format: "module", source: `export const ${component[1]!} = () => null;`, shortCircuit: true };
-
-    return nextLoad(url, context);
-  },
-});
+// Each page's view and form, doubled whole: the withheld pages are loaded for their metadata alone.
+registerRenderingNothing(/\/src\/features\/[a-z]+\/components\/(?:views|forms)\/\w+\.tsx$/);
 
 const APP_DIR = import.meta.dirname;
 
 /**
- * The public pages the list withholds, each for a reason no walk of the tree can see. `/admin` is
+ * The public pages the list withholds, each for a reason no walk of the tree can see. `/bereich` is
  * withheld too and needs no entry here: `robots.ts` disallows the whole prefix.
  */
 const WITHHELD = [
   "/signin",
   "/signin/weiter",
-  "/signin/bestaetigen",
   "/signin/passkey",
   "/bestaetigung/kontakt",
   "/bestaetigung/schiedsrichter",
@@ -69,7 +59,7 @@ function staticRoutes(dir: string, segments: readonly string[] = []): { route: s
 const FOUND = staticRoutes(APP_DIR);
 
 const PUBLIC_ROUTES = FOUND.map((page) => page.route)
-  .filter((route) => !route.startsWith("/admin") && !WITHHELD.includes(route))
+  .filter((route) => route !== "/bereich" && !route.startsWith("/bereich/") && !WITHHELD.includes(route))
   .sort();
 
 const LISTED = sitemap()

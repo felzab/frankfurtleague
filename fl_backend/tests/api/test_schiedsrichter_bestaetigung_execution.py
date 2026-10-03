@@ -33,6 +33,7 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ADRESSE_GESPERRT,
     SCHIEDSRICHTER_ALREADY_CONFIRMED,
     SCHIEDSRICHTER_ALTER,
+    SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
     SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
     SCHIEDSRICHTER_MEDIEN_ALTER,
@@ -42,8 +43,6 @@ from app.api.schiedsrichter.services import (
     bestaetigung_frist_from,
     compose_bestaetigung,
 )
-from app.api.sperrliste.admin_router import post_sperrliste_eintrag
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.zustellung.router import angenommen_zustellung
 from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
@@ -51,7 +50,9 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
-from tests.config import build_test_config
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.bans import ban_list, ban_through_the_route
+from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -60,9 +61,9 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_bestaetigung_test")
 
-CONFIG = build_test_config()
-
 SAISON_ID = "2026"
+# The season before the running one, so a ban naming it as its last has lapsed.
+LAPSED = f"{int(SAISON_ID) - 1}"
 TODAY = "2026-04-01"
 # One day past the deadline a link minted on `TODAY` carries, so the expiry case needs no second mint.
 AFTER_THE_DEADLINE = "2026-04-16"
@@ -147,6 +148,8 @@ def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None =
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document())
             seeded = [referee_document()] if referees is None else referees
             if seeded:
@@ -162,10 +165,8 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
     return await post_schiedsrichter(
         schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         db=client,
-        config=CONFIG,
         today=today,
     )
 
@@ -176,11 +177,10 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         db=client,
-        config=CONFIG,
         today=today,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -190,23 +190,15 @@ async def resend(
     return await einladen_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         db=client,
-        config=CONFIG,
         today=today,
     )
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
-    return await post_sperrliste_eintrag(
-        sperrliste_data=FLPostSperrlistePayload(email=email, grund="Wiederholte Falschangaben"),
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
-        db=client,
-        config=CONFIG,
-        erstellt_von="admin@frankfurtleague.de",
-        today=TODAY,
+    return await ban_through_the_route(
+        database, client, email=email, grund="Wiederholte Falschangaben", von="admin@frankfurtleague.de", today=TODAY
     )
 
 
@@ -214,6 +206,7 @@ async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) ->
     return await get_bestaetigung_ansicht(
         ansicht_data=FLSchiedsrichterBestaetigungAnsichtPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste=ban_list(database),
         today=today,
     )
 
@@ -231,6 +224,7 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str,
     return await post_bestaetigung(
         antwort_data=FLSchiedsrichterBestaetigungPayload.model_validate(body),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste=ban_list(database),
         db=client,
         today=today,
     )
@@ -647,11 +641,10 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     return await reactivate_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         db=client,
-        config=CONFIG,
         today=TODAY,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -841,6 +834,47 @@ class TestTheConfirmation:
         assert surviving == 0
 
 
+# A record a hand edit stamped `""`: every key the validator requires, which admits a string there.
+EMPTY_STAMPED: Mapping[str, Any] = {
+    "umfang": "intern",
+    "erteilt_von": SCHIEDSRICHTER_ERTEILT_VON,
+    "datum": "2026-03-01",
+    "bestaetigt_am": "",
+}
+
+
+class TestAStoredEmptyStamp:
+    """Every read of a stored referee record meets `""` either as absent or not at all, so none fails validation over it."""
+
+    def test_the_admin_list_serves_it_as_no_stamp(self, mongo_replica_set_url: str):
+        """`FLEinwilligung` reads the stamp as an optional date, which takes `""` for none."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            return await get_schiedsrichter(
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], filters=FLSchiedsrichterFilterParams()
+            )
+
+        listed = on_a_league(mongo_replica_set_url, body, referees=[{**referee_document(), EINWILLIGUNG_FELD: dict(EMPTY_STAMPED)}])
+
+        [served] = [row for row in listed.schiedsrichter if row.id == SCHIEDSRICHTER_OID]
+        assert served.einwilligung is not None
+        assert served.einwilligung.bestaetigt_am is None
+
+    def test_its_link_takes_the_answer_and_the_answer_carries_the_day(self, mongo_replica_set_url: str):
+        """The confirmation's answer is composed from the day it writes, never read off the stored stamp, which is what keeps `""` out of it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            response = await confirm(database, client, minted.bestaetigung.token)
+
+            return response, await stored(database)
+
+        response, row = on_a_league(mongo_replica_set_url, body, referees=[{**referee_document(), EINWILLIGUNG_FELD: dict(EMPTY_STAMPED)}])
+
+        assert response.bestaetigt_am == TODAY
+        assert row[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
+
+
 class TestAWithheldNameReachesOneCollection:
     """The scope has one home, so there is nothing to fan out and nothing on a fixture to fall out of step."""
 
@@ -922,3 +956,152 @@ class TestTheMediaAge:
             return await stored(database)
 
         assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["medien"] is False
+
+
+class TestALinkToABarredAddress:
+    """`REQ-SCHIEDSRICHTER-009`: a ban reaches a link already in somebody's inbox, entered here through its own route after the mint."""
+
+    def test_the_press_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await confirm(database, client, minted.bestaetigung.token)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body)
+
+        assert (refused.error_code, refused.status_code) == (SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT, 403)
+        assert row.get(EINWILLIGUNG_FELD) is None
+        assert row.get("geburtsdatum") is None
+
+    def test_a_ban_on_another_address_leaves_the_link_answering(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a check refusing every press."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await ban(database, client, email=BANNED_EMAIL)
+            await confirm(database, client, minted.bestaetigung.token)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
+
+    def test_the_link_answers_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        """Nothing of the ban is written on the entry, so lifting it is all a mistaken ban needs undone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+            with pytest.raises(WriteRefusalException):
+                await confirm(database, client, minted.bestaetigung.token)
+            await database[Collection.SPERRLISTE].delete_many({})
+            await confirm(database, client, minted.bestaetigung.token)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
+
+    def test_a_ban_past_its_last_season_bars_nothing(self, mongo_replica_set_url: str):
+        """The running season is what the bound is read against: asked without it, the lapsed row would still bar.
+
+        Seeded by hand, the route entering a standing ban alone; the cases above are its control.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(EMAIL, bis=LAPSED))
+            await confirm(database, client, minted.bestaetigung.token)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
+
+    def test_an_entry_confirmed_before_the_ban_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
+        """The order: the answer given before the ban stands until an administrator acts, so a second press is refused as confirmed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await confirm(database, client, minted.bestaetigung.token)
+            await ban(database, client, email=EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await confirm(database, client, minted.bestaetigung.token)
+
+            return refused.value
+
+        assert on_a_league(mongo_replica_set_url, body).error_code == SCHIEDSRICHTER_ALREADY_CONFIRMED
+
+    def test_a_barred_press_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
+        """The other half of the order: a corrected date buys a barred address nothing, so it is not what the referee is asked for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_CHILDS_BIRTHDATE)
+
+            return refused.value
+
+        assert on_a_league(mongo_replica_set_url, body).error_code == SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT
+
+
+class TestTheViewOfALinkToABarredAddress:
+    """`docs/backend/spec.md :: I515`: the page reads the ban off the view, so it never offers a barred referee the form."""
+
+    def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+
+            return (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gesperrt"
+
+    def test_a_ban_on_another_address_leaves_the_view_open(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a view answering `gesperrt` to everyone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            minted = await resend(database, client)
+            await ban(database, client, email=BANNED_EMAIL)
+
+            return (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gueltig"
+
+    def test_the_view_opens_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str]:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+            barred = (await ansicht(database, minted.bestaetigung.token)).zustand
+            await database[Collection.SPERRLISTE].delete_many({})
+
+            return barred, (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == ("gesperrt", "gueltig")
+
+    def test_a_ban_past_its_last_season_leaves_the_view_open(self, mongo_replica_set_url: str):
+        """Read against the running season as the press reads it: asked without it, the lapsed row would bar the view alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            minted = await resend(database, client)
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(EMAIL, bis=LAPSED))
+
+            return (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gueltig"
+
+    def test_an_entry_confirmed_before_the_ban_reopens_on_the_ban(self, mongo_replica_set_url: str):
+        """The ban outranks the stamp here, where the press ranks it below: the page shows a barred referee nothing else."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            minted = await resend(database, client)
+            await confirm(database, client, minted.bestaetigung.token)
+            await ban(database, client, email=EMAIL)
+
+            return (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gesperrt"

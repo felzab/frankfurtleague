@@ -15,6 +15,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { CONFIRM_DANGER_PANEL_CLASSES } from "./ConfirmReveal";
 import { formButton, MODAL_FOOTER_ROW_CLASSES } from "./formButtons";
 import { ModalShell } from "./ModalShell";
+import { NAME_WRAP_CLASSES } from "./nameWrap";
 
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ActionResult } from "@/shared/types/types";
@@ -37,6 +38,7 @@ const RETIRE_RUNNING = "Legt still...";
 export function ConfirmDeleteModal({
   isOpen,
   onClose,
+  onRetired,
   heading,
   entityLabel,
   entityName,
@@ -47,6 +49,8 @@ export function ConfirmDeleteModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
+  /** The list's landing for the row control that opened this, its replacement taking the focus the dialog hands back. */
+  onRetired: () => void;
   /** "Spielort stilllegen" */
   heading: string;
   /** "den Spielort" — reads as "Möchtest Du {entityLabel} <name> wirklich stilllegen?" */
@@ -90,6 +94,7 @@ export function ConfirmDeleteModal({
         return;
       }
 
+      onRetired();
       // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
       // the title: an action with nothing to add sends the title's own words.
       appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
@@ -124,7 +129,10 @@ export function ConfirmDeleteModal({
           {!isConfirming ? (
             <p className="fluid-sm leading-relaxed text-foreground-muted">
               Möchtest Du {entityLabel}
-              <span className="mx-1.5 inline-block rounded-md border border-border bg-surface px-2 py-0.5 font-bold text-foreground shadow-sm">
+              {/* The entity's name, which the page does not write: an inline-block sizes to its longest word
+                  unless capped, and the dialog clips what passes its edge. */}
+              <span
+                className={`mx-1.5 inline-block rounded-md border border-border bg-surface px-2 py-0.5 font-bold text-foreground shadow-sm ${NAME_WRAP_CLASSES}`}>
                 {entityName}
               </span>
               wirklich {RETIRE_INFINITIVE}?

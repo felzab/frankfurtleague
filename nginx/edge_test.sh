@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # OPS · the running edge: what its logs CONTAIN, which headers it sends, and which it hands upstream.
 #
-# `nginx -t` is a parse and sees neither a log line nor a response, so a redaction failing open and a
-# location dropping a header both pass it. This serves the checkout's own files, never a copy — a
-# copy proves the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every
-# location and the Control API the deploy reloads through, started as `docker-compose.yml` starts
-# it, and `nginx/prod/` behind a throwaway certificate for the block production alone serves. Which
-# locations the edge makes reachable (`docs/ops/spec.md` I13) is a question this answers nothing
-# about.
+# `nginx -t` parses, seeing no log line and no response, so a redaction failing open and a location
+# dropping a header both pass it. This serves the checkout's own files, never a copy — a copy proves
+# the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every location and
+# the Control API the deploy reloads through, started as `docker-compose.yml` starts it, and
+# `nginx/prod/` behind a throwaway certificate for the block production alone serves. It answers
+# nothing about which locations the edge makes reachable (`docs/ops/spec.md` I13).
 #
 # Invariants:
 # - `docs/logging/spec.md` L11, and the edge's half of L12, the span every line carries.
 # - `docs/logging/spec.md` L7 and L10, on every location proxying to the frontend.
 # - `docs/ops/spec.md` I2, each security header sent once, as written, on every location's response.
 # - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
+# - `docs/ops/spec.md` I507, and §1.3's server-action pair.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -91,8 +91,12 @@ server {
     access_log off;
     add_header X-Seen-Traceparent $http_traceparent always;
     add_header X-Seen-Actor $http_x_fl_actor always;
+    add_header X-Seen-Next-Action $http_next_action always;
 STUB
   for name in "${!SECURITY_HEADERS[@]}"; do printf '    add_header %s "upstream" always;\n' "$name"; done
+  # Setting no header, so it forwards every one the edge sent as the edge sent it, to the listener
+  # the empty `Next-Action` case starts.
+  printf '%s\n' '    location = /next-action-relay { proxy_pass http://127.0.0.1:3001; }'
   printf '%s\n' '    location / { return 200 "stub\n"; }' '}'
 } > "${SCRATCH}/zz-upstream-stub.conf"
 # Empty, and written below the redaction cases to drive a reload nginx refuses.
@@ -108,19 +112,15 @@ for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
 done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
 
-# The edge's image, `command` and `tmpfs` off the model Compose renders for the local stack, as
-# `scripts/gate/verify.sh`'s compose step renders it: the Control API the deploy reloads through
+# The edge's image, `command` and `tmpfs` off the model Compose renders for the local stack, by the
+# gate's own `scripts/lib/_lib.sh :: render_compose_model`: the Control API the deploy reloads through
 # exists only as that command starts that release.
 EDGE_PY="$(any_python || true)"
 if [[ -z "$EDGE_PY" ]] || ! python_at_floor "$EDGE_PY"; then
   refuse "no python at the checkers' floor, so the edge's command could not be read off its model."
 fi
-mkdir -p "${SCRATCH}/model/fl_backend" "${SCRATCH}/model/fl_frontend"
-cp docker-compose.yml docker-compose.local.yml "${SCRATCH}/model/"
-: > "${SCRATCH}/model/fl_backend/.env"
-: > "${SCRATCH}/model/fl_frontend/.env"
-quietly docker compose -f "${SCRATCH}/model/docker-compose.yml" -f "${SCRATCH}/model/docker-compose.local.yml" \
-  config --format json --no-env-resolution --output "${SCRATCH}/model/local.json" \
+stage_compose_models "${SCRATCH}/model"
+render_compose_model "${SCRATCH}/model" local \
   || refuse "compose could not render the local stack's model, so the edge's command is unknown."
 EDGE_MODEL_READ='
 import json
@@ -133,10 +133,16 @@ for argument in nginx.get("command") or []:
 tmpfs = nginx.get("tmpfs") or []
 for entry in [tmpfs] if isinstance(tmpfs, str) else tmpfs:
     print("tmpfs", entry, sep="\t")
+for key, flag in (("cap_drop", "--cap-drop"), ("cap_add", "--cap-add"), ("security_opt", "--security-opt")):
+    for entry in nginx.get(key) or []:
+        print("privilege", flag, entry, sep="\t")
 '
 EDGE_IMAGE=""
 EDGE_COMMAND=()
 EDGE_TMPFS=()
+# The capabilities and options the model starts nginx with, on both edges below: a master refused a
+# capability it needs never starts (`docs/ops/spec.md :: I507`).
+EDGE_PRIVILEGES=()
 mapfile -t EDGE_MODEL < <("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json" \
   || echo "unread")
 for model_line in "${EDGE_MODEL[@]}"; do
@@ -145,6 +151,9 @@ for model_line in "${EDGE_MODEL[@]}"; do
     image$'\t'*) EDGE_IMAGE="${model_line#*$'\t'}" ;;
     command$'\t'*) EDGE_COMMAND+=( "${model_line#*$'\t'}" ) ;;
     tmpfs$'\t'*) EDGE_TMPFS+=( --tmpfs "${model_line#*$'\t'}" ) ;;
+    privilege$'\t'*)
+      model_line="${model_line#*$'\t'}"
+      EDGE_PRIVILEGES+=( "${model_line%%$'\t'*}" "${model_line#*$'\t'}" ) ;;
     *) refuse "the local stack's model could not be read: ${model_line}" ;;
   esac
 done
@@ -167,6 +176,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
   "${LOCAL_MOUNTS[@]}" \
   "${EDGE_TMPFS[@]}" \
+  "${EDGE_PRIVILEGES[@]}" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "/${SCRATCH}/zz-reload-probe.conf:/etc/nginx/conf.d/zz-reload-probe.conf:ro" \
@@ -199,36 +209,12 @@ done
 #   KEEP|<url>|<text>  <text> MUST appear; the controls below carry why
 
 CASES=(
-  # The plain case: the library's own verification path, the token in the query.
-  "LEAK|${BASE}/api/auth/magic-link/verify?callbackURL=%2F&token=${TOK}"
-
-  # Spellings the raw URI does not begin with, which $request_uri carries and $uri does not. A
-  # trailing slash on AUTH_URL produces the first of them for real.
-  "LEAK|${BASE}//api/auth/magic-link/verify?token=${TOK}"
-  "LEAK|${BASE}/api//auth/magic-link/verify?token=${TOK}"
-  "LEAK|${BASE}/%61pi/auth/magic-link/verify?token=${TOK}"
-  "LEAK|${BASE}/api/./auth/magic-link/verify?token=${TOK}"
-  "LEAK|${BASE}/api/auth/magic-link/verify%3Ftoken=${TOK}"
-
-  # Case, and the trailing slash a prefix written without one still has to cover.
-  "LEAK|${BASE}/API/AUTH/MAGIC-LINK/VERIFY?token=${TOK}"
-  "LEAK|${BASE}/Api/Auth/Magic-Link/Verify?token=${TOK}"
-  "LEAK|${BASE}/api/auth/magic-link/verify/?token=${TOK}"
-
-  # The parameter guard standing alone, on paths the verification prefix never covers -- the mailed
-  # landing among them, which is the URL this application actually sends.
-  "LEAK|${BASE}/signin/bestaetigen?token=${TOK}"
-  # The referee's own landing. The map matches the parameter wherever it sits, so this case is a pin
-  # against narrowing it to a path list rather than a fix for anything.
+  # The pages a mailed link lands on, each served by `location /`: pins against narrowing the map,
+  # which matches the parameter wherever it sits, to a path list.
   "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
-  # The pupil's own landing, a pin for the referee case's reason.
   "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
-  # The contact person's own landing, a pin for the referee case's reason.
   "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
-  # The pupil's registration landing, a pin for the referee case's reason: the invite link a whole
-  # team is handed arrives here, so it is a mailed landing like the four above it.
   "LEAK|${BASE}/registrierung?token=${TOK}"
-  "LEAK|${BASE}/api/auth/sign-in/magic-link?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&EMAIL=${EM}"
@@ -252,12 +238,9 @@ CASES=(
   "LEAK|${BASE}/signin?token=a%09b${TOK}"
   "LEAK|${BASE}/signin?token=a%22b${TOK}"
   "LEAK|${BASE}/signin?token=a,b${TOK}"
-  "LEAK|${BASE}/api/auth/magic-link/verify?token=a%20b${TOK}&email=${EM}"
 
   # The referer, which Referrer-Policy: strict-origin-when-cross-origin fills with the whole URL on
   # a same-origin navigation. It needs no misspelling at all to carry a credential.
-  "LEAK-REF|http://localhost/api/auth/magic-link/verify?token=${TOK}&email=${EM}"
-  "LEAK-REF|http://localhost/api/auth/magic-link/verify%3Ftoken=${TOK}"
   "LEAK-REF|http://localhost/x%3Ftoken%3D${TOK}"
   "LEAK-REF|http://localhost/x?a=1&token=${TOK}"
   "LEAK-REF|http://localhost/x/token=${TOK}"
@@ -268,7 +251,7 @@ CASES=(
   "KEEP|${BASE}/signin?error=Verification|error=Verification"
   "KEEP|${BASE}/api/bewerbung/kuerzel?q=ABC|q=ABC"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
-  "KEEP|${BASE}/admin/spiele?saison_id=abc|saison_id=abc"
+  "KEEP|${BASE}/bereich/admin/spiele?saison_id=abc|saison_id=abc"
 
   # A control over the CLIENT: it fails when `--path-as-is` stops taking effect, and every
   # spelling above is then graded on a path nginx never received.
@@ -532,6 +515,8 @@ done < "${REPO_ROOT}/nginx/shared/site.conf"
 # dropping the inherited set hands both to Next as they arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
 CLIENT_ACTOR="fl-edge-actor-probe"
+# On a GET, which no zone meters, so every location answers.
+CLIENT_ACTION="fl-edge-action-probe"
 # One curl for every path, each response's headers to a file of its own, and the counting in bash:
 # on Windows a spawn costs ~0.1s, which a grep per header would pay a hundred times.
 HEADER_REQUESTS=()
@@ -539,7 +524,7 @@ for _i in "${!HEADER_PATHS[@]}"; do
   if (( _i > 0 )); then HEADER_REQUESTS+=( --next ); fi
   HEADER_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/headers-${_i}" --max-time 5 -H "Host: localhost"
     -H "traceparent: 00-${CLIENT_TRACE}-b7ad6b7169203331-01" -H "X-FL-Actor: ${CLIENT_ACTOR}"
-    "${BASE}${HEADER_PATHS[_i]}" )
+    -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
 UPSTREAM_READ=0
@@ -559,7 +544,129 @@ for _i in "${!HEADER_PATHS[@]}"; do
     detail "expected no X-FL-Actor at Next, Next received '${SENT_VALUE[x-seen-actor]}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
+  # That no location clears the id a server action is posted with; the empty one is the relay's below.
+  if [[ "${SENT_VALUE[x-seen-next-action]:-}" != "$CLIENT_ACTION" ]]; then
+    fail "UPSTREAM ${HEADER_PATHS[_i]}"
+    detail "expected Next-Action ${CLIENT_ACTION} at Next, Next received '${SENT_VALUE[x-seen-next-action]:-}'"
+    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+  fi
 done
+
+# --- an empty Next-Action, as Next would receive it --------------------------------------------------
+
+# The empty header `nginx/shared/site.conf` drops before Next, which runs one as a server action: the
+# stub's `$http_next_action` reads empty and missing alike, so a raw listener behind the stub's relay
+# records the headers themselves.
+
+# One transfer through the edge to the relay, printing the request the listener recorded, or nothing
+# where no whole header block arrived.
+relay_seen() { # the curl options naming the transfer's headers
+  local _k status="" seen=""
+  MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c \
+    "rm -f /tmp/relay-seen; printf 'HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n' | nc -l -p 3001 > /tmp/relay-seen" \
+    || return 0
+  # Until the listener takes the connection: before it listens, the relay answers 502.
+  for _k in $(seq 1 25); do
+    status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "$@" "${BASE}/next-action-relay" || true)"
+    [[ "$status" == 204 ]] && break
+    sleep 0.2
+  done
+  [[ "$status" == 204 ]] || return 0
+  # Until the request's blank line has reached the file, which can trail curl's answer.
+  for _k in $(seq 1 25); do
+    # The `.` keeps the head's closing newline, which the substitution would strip: a bodiless
+    # request ends on its blank line, so without it no whole head ever matches.
+    seen="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" cat /tmp/relay-seen 2>/dev/null || true; printf .)"
+    seen="${seen%.}"
+    [[ "$seen" == *$'\r\n\r\n'* ]] && break
+    sleep 0.2
+  done
+  # A capture cut before its blank line can lack the very header the empty case looks for, which
+  # would read as the edge having dropped it.
+  [[ "$seen" == *$'\r\n\r\n'* ]] || return 0
+  printf '%s' "${seen//$'\r'/}"
+}
+RELAY_SENT="$(relay_seen -H "Next-Action: ${CLIENT_ACTION}")"
+RELAY_EMPTY="$(relay_seen -H "Next-Action;")"
+if [[ "$RELAY_SENT" != *"GET /next-action-relay "* || "$RELAY_EMPTY" != *"GET /next-action-relay "* ]]; then
+  refuse "the stub's relay recorded no whole request head, so whether the edge hands Next an empty Next-Action was not judged.
+It listens with the image's own busybox nc: ask it with  docker exec ${CONTAINER} nc -h"
+fi
+# The control: a relay dropping every Next-Action would pass the empty case below unasked.
+if ! grep -qiE "^next-action: ${CLIENT_ACTION}$" <<< "$RELAY_SENT"; then
+  fail "UPSTREAM /next-action-relay"
+  detail "expected Next-Action ${CLIENT_ACTION} at the relay, it recorded: ${RELAY_SENT}"
+  HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+fi
+if grep -qi "^next-action:" <<< "$RELAY_EMPTY"; then
+  fail "UPSTREAM an empty Next-Action"
+  detail "the edge handed Next an empty Next-Action, which Next runs as a server action and the action meter reads as none: ${RELAY_EMPTY}"
+  HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+fi
+
+# --- the server-action pair -----------------------------------------------------------------------
+
+# One network's actions: saves at an administrator's pace pass, a flood past the burst is refused,
+# both form posts count as actions, and a request that is no action is never metered.
+ACTION_FAILURES=0
+ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
+action_request() { # $1 a label, the rest curl options naming one transfer
+  local label="$1"; shift
+  ACTION_LABELS+=( "$label" )
+  if (( ${#ACTION_REQUESTS[@]} > 0 )); then ACTION_REQUESTS+=( --next ); fi
+  ACTION_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
+}
+ACTION_LABELS=()
+ACTION_REQUESTS=()
+# Twenty saves at once, under the burst of thirty.
+for _ in $(seq 1 20); do
+  action_request rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
+    --data '[]' "${BASE}/bereich/admin/spiele"
+done
+# Thirty more inside the same seconds: the burst and the second or two of refill are spent.
+for _ in $(seq 1 30); do
+  action_request flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
+    --data '[]' "${BASE}/"
+done
+# The key spent, so each of these answers 429 only if the map takes it for an action.
+action_request multipart -X POST -F "probe=1" "${BASE}/"
+action_request urlencoded -X POST --data "probe=1" "${BASE}/"
+action_request admin-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/api/admin/probe"
+action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
+# An id opening with a colon, which a key joined on `:` would read as no id at all.
+action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+# And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
+action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
+action_request page-load "${BASE}/"
+action_request asset-load "${BASE}/_next/static/chunk.js"
+
+mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
+expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
+  local label="$1" wanted="$2" _j _status found=0 all=1
+  for _j in "${!ACTION_LABELS[@]}"; do
+    [[ "${ACTION_LABELS[_j]}" == "$label" ]] || continue
+    _status="${ACTION_STATUSES[_j]:-none}"; _status="${_status%$'\r'}"
+    if [[ "$_status" == "${wanted#some:}" ]]; then found=1; else all=0; fi
+  done
+  if [[ "$wanted" == some:* ]] && (( found )); then return 0; fi
+  if [[ "$wanted" != some:* ]] && (( all )); then return 0; fi
+  fail "ACTION ${label}"
+  detail "expected ${wanted/some:/at least one } from every '${label}' transfer, nginx answered: $(
+    for _j in "${!ACTION_LABELS[@]}"; do [[ "${ACTION_LABELS[_j]}" == "$label" ]] && printf '%s ' "${ACTION_STATUSES[_j]%$'\r'}"; done)"
+  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+}
+expect_action rhythm 200
+expect_action flood some:429
+expect_action multipart 429
+expect_action urlencoded 429
+expect_action admin-prefix 429
+expect_action static-prefix 429
+expect_action colon-id 429
+expect_action empty-id 200
+expect_action json-post 200
+expect_action page-load 200
+expect_action asset-load 200
 
 # --- the Control API the deploy reloads through ----------------------------------------------------
 
@@ -664,6 +771,7 @@ MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -day
 MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -p 127.0.0.1:0:443 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
+  "${EDGE_PRIVILEGES[@]}" \
   -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/certs:/etc/nginx/certs:ro" \
@@ -692,12 +800,13 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
 fi
 grade_security_headers "www.frankfurtleague.de"
 
-if (( HEADER_FAILURES + CONTROL_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} header and ${CONTROL_FAILURES} Control API cases failed. Each is what nginx SENT or
-ANSWERED, or what reached Next through it."
+if (( HEADER_FAILURES + ACTION_FAILURES + CONTROL_FAILURES > 0 )); then
+  die "${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action and ${CONTROL_FAILURES} Control API cases failed.
+Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
 ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, and the
-Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"
+${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, an empty
+Next-Action handed to no one, server
+actions metered on their own pair and nothing else metered by it, and the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"

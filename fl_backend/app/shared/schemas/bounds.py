@@ -118,6 +118,11 @@ SPERRLISTE_GRUND_MAX_LENGTH: Final = 500
 # does not count, so the fifth one after it is the last the ban covers.
 SPERRE_DAUER_SAISONS: Final = 5
 
+# What the log read serves of a person's pseudonym, and what its page shows: enough to tell two people
+# apart by eye. The whole value would hand every administrator's browser a stable key to one person,
+# which no control reads.
+AKTEUR_PSEUDONYM_SHOWN: Final = 8
+
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.
@@ -146,3 +151,20 @@ REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16
 # judgement over every record carrying `medien`, and nobody below it is recognisable in a published
 # photograph or video, or interviewed (`docs/backend/spec.md :: I338`).
 MEDIEN_MIN_AGE_YEARS: Final = 18
+
+# The frontend expires an administrator's session this long after its sign-in, and the backend
+# refuses an actor token whose sign-in is older: a looser backend honours a session the frontend
+# believes gone.
+ADMIN_WINDOW_HOURS: Final = 48
+
+# The frontend ends a person's session this long after its sign-in however recently it was used, and
+# the backend refuses a person-lane token whose sign-in is older, for the administrator's reason above.
+PERSON_WINDOW_DAYS: Final = 30
+
+# The frontend's enrolment window, which it holds a grant, a revoke and a tier change to as well: the
+# backend refuses those writes from a sign-in older than it, so one the page failed to step up still meets it.
+ENROLMENT_WINDOW_MINUTES: Final = 5
+
+# The frontend's step-up window, which it holds every other step-up write to: the backend refuses
+# those writes from a sign-in older than it, so one the page failed to step up still meets it.
+STEP_UP_WINDOW_HOURS: Final = 2

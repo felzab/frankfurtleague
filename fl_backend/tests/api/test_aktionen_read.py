@@ -7,11 +7,15 @@ from typing import Any, cast
 
 import pytest
 from bson import ObjectId
+from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.admin_router import get_aktionen
 from app.api.aktionen.schemas import FLAktion, FLAktionenFilterParams, FLAktionenListAdapter, FLAktionMitStand
+from app.api.aktionen.services import akteur_adressen, mit_vorenthaltenem_akteur
+from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from tests.bans import ban_list
 
 # A `spiele` document as Mongo returns it: ids at the top, nested inside the embedded copies, and one
 # in a list. A pass over the top level alone would leave every id that actually breaks serialization.
@@ -44,6 +48,12 @@ def stored_row(**overrides):
     return row
 
 
+def served_row(**overrides):
+    """A stored row as both reads hand it to their models, its actor barred by nobody."""
+
+    return mit_vorenthaltenem_akteur(stored_row(**overrides), frozenset())
+
+
 class TestARecordedRowSurvivesTheResponseModel:
     """The write side is proved elsewhere; nothing proved a stored row could be served back out.
 
@@ -52,13 +62,13 @@ class TestARecordedRowSurvivesTheResponseModel:
     """
 
     def test_a_stored_pre_image_serializes_to_json(self):
-        serialized = FLAktionMitStand.model_validate(stored_row()).model_dump_json()
+        serialized = FLAktionMitStand.model_validate(served_row()).model_dump_json()
 
         assert json.loads(serialized)["before"]["ergebnis"] == "2:1"
 
     def test_every_objectid_in_the_pre_image_becomes_text(self):
         """`ObjectId` has no JSON form, so one left anywhere under `before` raises on serialization."""
-        before = json.loads(FLAktionMitStand.model_validate(stored_row()).model_dump_json())["before"]
+        before = json.loads(FLAktionMitStand.model_validate(served_row()).model_dump_json())["before"]
 
         assert before["_id"] == "6890a1b2c3d4e5f607200010"
         assert before["team1"]["team_id"] == "6890a1b2c3d4e5f607200011"
@@ -68,7 +78,7 @@ class TestARecordedRowSurvivesTheResponseModel:
 
     def test_the_pre_image_keeps_every_other_value_as_stored(self):
         """A read model repairs nothing: the row answers with the document as it was, minus the id types."""
-        before = FLAktionMitStand.model_validate(stored_row()).before
+        before = FLAktionMitStand.model_validate(served_row()).before
 
         # One document, never the array a removal stores: this row records a patch.
         assert isinstance(before, dict)
@@ -84,7 +94,7 @@ class TestARecordedRowSurvivesTheResponseModel:
         ],
     )
     def test_either_kind_of_document_id_serializes(self, collection: str, document_id: object):
-        row = stored_row(collection=collection, document_id=document_id, before={"_id": document_id})
+        row = served_row(collection=collection, document_id=document_id, before={"_id": document_id})
 
         assert json.loads(FLAktion.model_validate(row).model_dump_json())["document_id"] == str(document_id)
 
@@ -96,12 +106,12 @@ class TestARecordedRowSurvivesTheResponseModel:
         """
 
         removed = [ObjectId("6890a1b2c3d4e5f607200040"), ObjectId("6890a1b2c3d4e5f607200041")]
-        row = stored_row(operation="delete_many", document_id=removed, before=[dict(STORED_SPIEL)], db_filter={"saison_id": "2026"})
+        row = served_row(operation="delete_many", document_id=removed, before=[dict(STORED_SPIEL)], db_filter={"saison_id": "2026"})
 
         assert json.loads(FLAktion.model_validate(row).model_dump_json())["document_id"] is None
 
     def test_a_fan_out_row_serializes_with_its_filter_and_count(self):
-        row = stored_row(operation="patch_many", document_id=None, before=None, db_filter={"saison_id": "2026"}, modified_count=40)
+        row = served_row(operation="patch_many", document_id=None, before=None, db_filter={"saison_id": "2026"}, modified_count=40)
         served = json.loads(FLAktion.model_validate(row).model_dump_json())
 
         assert served["db_filter"] == {"saison_id": "2026"}
@@ -109,9 +119,69 @@ class TestARecordedRowSurvivesTheResponseModel:
 
     def test_a_list_of_rows_serializes_whole(self):
         """The read answers with a list, so one unrenderable row would take every other row with it."""
-        rows = FLAktionenListAdapter.validate_python([stored_row(), stored_row(operation="insert", before=None)])
+        rows = FLAktionenListAdapter.validate_python([served_row(), served_row(operation="insert", before=None)])
 
         assert len(FLAktionenListAdapter.dump_json(rows)) > 0
+
+
+class TestAPersonsPseudonymIsServedAsItsPrefix:
+    """What the page renders is all the read hands the browser; the whole value stays in the store."""
+
+    PERSON = {"kind": "person_session", "pseudonym": "3f9a07c2" + "d" * 56, "funktion": "spieler"}
+
+    @pytest.mark.parametrize("model", [FLAktion, FLAktionMitStand])
+    def test_both_reads_serve_the_first_eight_characters(self, model: type[FLAktion] | type[FLAktionMitStand]):
+        served = json.loads(model.model_validate(served_row(actor=dict(self.PERSON))).model_dump_json())["actor"]
+
+        assert served == {"kind": "person_session", "pseudonym": "3f9a07c2", "funktion": "spieler"}
+
+    def test_an_administrators_address_is_served_whole(self):
+        """The control: the cut is the person variant's, and an administrator's row keeps naming its mailbox."""
+        served = json.loads(FLAktion.model_validate(served_row()).model_dump_json())["actor"]
+
+        assert served == {"kind": "admin_session", "email": "admin@example.invalid", "email_gesperrt": False}
+
+
+class TestABarredActorIsWithheldOnBothReads:
+    """No barred address is served in plain, an actor's included (`docs/backend/spec.md :: I452`)."""
+
+    @pytest.mark.parametrize("model", [FLAktion, FLAktionMitStand])
+    def test_an_address_the_ban_list_holds_is_null_beside_the_flag(self, model: type[FLAktion] | type[FLAktionMitStand]):
+        row = mit_vorenthaltenem_akteur(stored_row(), {"admin@example.invalid"})
+        served = json.loads(model.model_validate(row).model_dump_json())
+
+        assert served["actor"] == {"kind": "admin_session", "email": None, "email_gesperrt": True}
+        assert "admin@example.invalid" not in json.dumps({key: value for key, value in served.items() if key != "before"})
+
+    def test_the_address_is_asked_and_compared_on_its_fold(self):
+        """The ban list holds folded addresses: a stored spelling in capitals is still the barred mailbox."""
+
+        row = stored_row(actor={"kind": "admin_session", "email": "Admin@Example.INVALID"})
+
+        assert akteur_adressen([row]) == ["admin@example.invalid"]
+        assert mit_vorenthaltenem_akteur(row, set(akteur_adressen([row])))["actor"]["email"] is None
+
+    def test_a_person_carries_no_address_to_ask_about(self):
+        person = stored_row(actor={"kind": "person_session", "pseudonym": "3f9a07c2" + "d" * 56, "funktion": "spieler"})
+
+        assert akteur_adressen([person]) == []
+
+    def test_the_image_is_served_as_recorded(self):
+        """The read a restore starts from: an image with its addresses withheld would restore a document the write never replaced."""
+
+        row = mit_vorenthaltenem_akteur(stored_row(before={**STORED_SPIEL, "erstellt_von": "admin@example.invalid"}), {"admin@example.invalid"})
+        before = FLAktionMitStand.model_validate(row).before
+
+        assert isinstance(before, dict)
+        assert before["erstellt_von"] == "admin@example.invalid"
+
+    def test_a_row_nobody_judged_is_refused_by_both_models(self):
+        """The flag has no default, so a read skipping the withholding fails rather than serving the address as unbarred."""
+
+        with pytest.raises(ValidationError):
+            FLAktion.model_validate(stored_row())
+        with pytest.raises(ValidationError):
+            FLAktionMitStand.model_validate(stored_row())
 
 
 class TestTheListReportsTheImageWithoutServingIt:
@@ -132,10 +202,10 @@ class TestTheListReportsTheImageWithoutServingIt:
         ids=["one-image", "a-set-of-images", "a-removal-that-matched-nothing", "no-image-kept"],
     )
     def test_the_flag_reads_the_stored_image(self, before: object, recorded: bool):
-        assert FLAktion.model_validate(stored_row(before=before)).stand_gesichert is recorded
+        assert FLAktion.model_validate(served_row(before=before)).stand_gesichert is recorded
 
     def test_the_image_itself_never_reaches_the_list_wire(self):
-        served = json.loads(FLAktion.model_validate(stored_row()).model_dump_json())
+        served = json.loads(FLAktion.model_validate(served_row()).model_dump_json())
 
         assert "before" not in served
         assert served["stand_gesichert"] is True
@@ -218,6 +288,22 @@ class _LogCollection:
         return self.documents if length is None else self.documents[:length]
 
 
+class _NothingStored:
+    """The ban list and the seasons, holding nothing: the log's own doubles answer what these cases are about."""
+
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _NothingStored:
+        return self
+
+    def limit(self, count: int) -> _NothingStored:
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
+        return []
+
+    async def find_one(self, filter: Any, projection: Any = None, session: Any = None) -> None:
+        return None
+
+
 def log_of(count: int) -> list[dict[str, Any]]:
     return [stored_row(_id=ObjectId(f"6890a1b2c3d4e5f607{index:06d}")) for index in range(1, count + 1)]
 
@@ -249,6 +335,7 @@ def run_list(log: _LogCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_aktionen(
             aktionen_collection=cast(AsyncCollection, log),
+            sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLAktionenFilterParams.model_validate(filters),
         )
     )

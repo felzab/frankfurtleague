@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { FLBewerbungSchema } from "../../schemas.ts";
@@ -74,7 +75,11 @@ describe("the panel a triage decision is taken from", () => {
   it("links the club a decided application was entered into, although it names a school too", () => {
     const row = factLine(markup(), "Team");
 
-    assert.match(row, new RegExp(`<a[^>]*href="/admin/teams/${TEAM_ID}\\?saison_id=2026"`), "the club the acceptance created is not linked");
+    assert.match(
+      row,
+      new RegExp(`<a[^>]*href="/bereich/admin/teams/${TEAM_ID}\\?saison_id=2026"`),
+      "the club the acceptance created is not linked",
+    );
     assert.equal(textOf(row), TEAM_NAME);
   });
 
@@ -128,6 +133,22 @@ describe("the panel a triage decision is taken from", () => {
       [],
       "the wished opponent reaches an attribute",
     );
+  });
+});
+
+describe("who the panel says decided", () => {
+  const entschieden = (von: string | null, vonGesperrt: boolean): string =>
+    textOf(factLine(markup({ entscheidung: { getroffen_am: "2026-09-10", von, von_gesperrt: vonGesperrt, grund: null } }), "Von"));
+
+  /* First: a cut the markup does not answer reads as the empty string, which the withheld case would
+     otherwise fail on for the wrong reason. */
+  it("names the administrator by the address", () => {
+    assert.equal(entschieden("admin@beispiel.invalid", false), "admin@beispiel.invalid");
+  });
+
+  /* The read serves a barred administrator as `null` beside the flag (`docs/frontend/spec.md :: I492`). */
+  it("names an administrator the ban list holds by that state", () => {
+    assert.equal(entschieden(null, true), GESPERRTE_ADRESSE);
   });
 });
 

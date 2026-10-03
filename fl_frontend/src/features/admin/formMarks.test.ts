@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
@@ -26,19 +25,6 @@ import type { ReactNode } from "react";
 doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
 doubleToasts();
 globalThis.fetch = (() => new Promise(() => undefined)) as unknown as typeof globalThis.fetch;
-
-/* `next/error` is CommonJS whose exports Node's static reader cannot see, so the sign-in card's ESM import
-   of `catchError` fails at link: `fl_frontend/src/shared/hooks/draftFieldWiring.test.ts`'s shim. */
-const NEXT_ERROR_INTEROP = `import { createRequire } from "node:module";
-export const { catchError } = createRequire(${JSON.stringify(import.meta.filename)})("next/error");`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/error" && (context.parentURL ?? "").endsWith("/SignInForm.tsx"))
-      return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
 
 const { router } = recordingRouter();
 
@@ -515,6 +501,39 @@ const FORMS: Record<string, FormCase> = {
       "open aria INPUT:Mietpreis",
     ],
   },
+  "a passkey card's rename": {
+    module: "features/passkeys/components/ui/PasskeyKarteView.tsx",
+    marks: async () => {
+      const { PasskeyKarteView } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
+      const RENAME = () => Promise.resolve();
+      return marksOf(
+        h(
+          "ul",
+          null,
+          h(PasskeyKarteView, {
+            karte: {
+              id: "p1",
+              name: null,
+              anbieter: null,
+              eingerichtetAm: "2026-09-01T08:00:00.000Z",
+              zuletztVerwendetAm: null,
+              diesesGeraet: false,
+            },
+            reason: null,
+            istLetzter: false,
+            onRemove: () => Promise.resolve(),
+            onRename: RENAME,
+          }),
+        ),
+        async (into) => {
+          await userEvent.setup().click(screen.getByRole("button", { name: "Passkey vom 1. September 2026 umbenennen" }));
+          await settle();
+          marksOn(into);
+        },
+      );
+    },
+    expected: ["name name", "star Name suppressed"],
+  },
   "the sign-in card": {
     module: "features/auth/components/forms/SignInForm.tsx",
     marks: async () => {
@@ -804,6 +823,14 @@ const FORMS: Record<string, FormCase> = {
       "star Name drawn",
       "star Standard-Honorar drawn",
     ],
+  },
+  "the grant dialog": {
+    module: "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx",
+    marks: async () => {
+      const { AdminCreateBerechtigungForm } = await import("@/features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx");
+      return marksOf(h(AdminCreateBerechtigungForm, { onClose: () => undefined }));
+    },
+    expected: ["name email", "star E-Mail drawn"],
   },
   "the block dialog": {
     module: "features/sperrliste/components/forms/AdminCreateSperreForm.tsx",

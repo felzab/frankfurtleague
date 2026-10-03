@@ -98,7 +98,7 @@ export type KuerzelVerdikt = { shorthand: string; vergeben: boolean };
  * What a link is once the backend has looked it up. `abgelaufen` and `ungueltig` render one wording:
  * telling them apart would tell a guessed link that a record once existed.
  */
-export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig";
+export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
 /** A link still open, and so a seat that still holds the person the page is about to name. */
 export type EinwilligungGeoeffnet = FLBewerbungEinwilligungAnsichtResponse & { vorname: string };

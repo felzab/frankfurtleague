@@ -53,7 +53,7 @@ function mount(privateQuery: boolean): { seen: Navigations; container: HTMLEleme
             ),
         }),
       }),
-      { router: router, pathname: "/admin/sperrliste" },
+      { router: router, pathname: "/bereich/admin/sperrliste" },
     ),
   );
 
@@ -85,8 +85,8 @@ describe("the query a page holds rather than writing", () => {
     assert.equal(rowsIn(container), 0, "the typed query never reached the list, so the two halves are joined by nothing");
   });
 
-  /* The control the case above needs, and the neighbours' own behaviour: eight routes narrow through
-     `?q=`, where back and forward are what the reader expects to work. */
+  /* The control the case above needs, and the neighbours' own behaviour: every other route narrows
+     through `?q=`, where back and forward are what the reader expects to work. */
   it("still reaches the URL on a page that asks for none", async () => {
     const user = userEvent.setup();
     const { seen, container } = mount(false);
@@ -96,7 +96,11 @@ describe("the query a page holds rather than writing", () => {
     await waitFor(() => {
       assert.equal(seen.replaced.length, 1, "the ordinary bar wrote no query to the URL");
     });
-    assert.match(seen.replaced[0] ?? "", /^\/admin\/sperrliste\?q=Fremde$/, "the ordinary bar wrote something other than the typed query");
+    assert.match(
+      seen.replaced[0] ?? "",
+      /^\/bereich\/admin\/sperrliste\?q=Fremde$/,
+      "the ordinary bar wrote something other than the typed query",
+    );
     assert.equal(rowsIn(container), ROWS.length, "the list narrowed off the field rather than off the URL the router never changed");
   });
 });

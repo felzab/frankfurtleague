@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      // No label check here, unlike the three confirmation handlers: the backend judges the label after
+      // No label check here, unlike the confirmation handlers: the backend judges the label after
       // its replay lookup, and one here would refuse a retry whose first press is stored (`REQ-BEWERBUNG-016`).
       const parsed = FLPostBewerbungPayloadSchema.safeParse(body);
 

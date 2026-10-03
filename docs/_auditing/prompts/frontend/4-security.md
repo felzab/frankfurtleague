@@ -11,8 +11,9 @@ authorization table (S1), and the per-segment protected-route table (S3). Every 
 concrete exploit sentence.
 
 CONTEXT — derive, do not assume: auth is Better Auth via `src/core/auth.ts` with a proxy matcher on
-`/admin/:path*` **plus** an in-layout `getAdminSession()` guard (defence in depth — verify both still
-exist rather than assuming either); the frontend holds tiered internal API keys used by
+`/bereich` and `/signin`, checking the session and its passkey factor under `/bereich/admin` alone, **plus** an
+in-layout `getAdminSession()` guard that reads the grant (defence in depth — verify both still exist rather than
+assuming either); the frontend holds tiered internal API keys used by
 `src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate — each is a
 `.claude/rules/cross-surface.md` clause: the single enforced CSP with `react/no-danger` as compensating control,
 the kept system tier, and the absence of a reference-data invalidation endpoint.
@@ -43,7 +44,11 @@ needs a shown chain or a named bundle file.
 S3. **Protected route coverage.** The required table per route segment: intended protection |
 proxy-matcher coverage | in-layout or in-page guard | gap. Probe the matcher for holes (variants,
 redirects evaluated before the proxy, route handlers and actions that layout guards do not
-protect).
+protect). **Probe the proxy's subtree check as a second surface**: the matcher admits a path, then
+the `/bereich/admin` prefix test inside the proxy decides whether the administrator check runs, and
+it reads the path raw and decoded. A spelling the matcher admits and the prefix test misses — an
+encoded segment, a doubled or trailing slash, a case variant, a malformed escape — reaches the panel
+with no proxy check at all, leaving the in-layout guard alone.
 
 S4. **Privilege escalation via key tiers.** Per `apiClient` call site: authType | routes it is
 reachable from | minimum privilege actually required. A public page transitively invoking an
@@ -51,7 +56,8 @@ admin-key call is CRITICAL.
 
 S5. **Auth configuration.** Session strategy and lifetime, cookie flags and what derives them, CSRF,
 role assignment provenance (user-controllable?), account linking, sign-out revocation, the
-magic-link flow (validity window, email content source), and the pinned-beta risk if the pin still
+mailed-code flow (validity window, the per-address failure and mail bounds, email content source),
+and the pinned-beta risk if the pin still
 exists — check the installed version's own documented behaviour, not stable-version assumptions.
 
 S6. **Enumeration and side channels.** For every authentication-adjacent flow: does _any_ observable

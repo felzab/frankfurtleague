@@ -21,7 +21,11 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
 | [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
-| [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
+| [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                                             | What builds them, and what a boot that could not leaves        |
+| [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
+| [16. The secret files](#16-the-secret-files)                                                                                                    | What each holds, and how each machine makes its own            |
+| [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
+| [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                                    | What `pnpm install` fetches, and what a bare `node` still runs |
 
 ---
 
@@ -33,11 +37,20 @@ the machine is outside the repository. What it does tell you:
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
   compose file, `nginx/prod/` and `nginx/shared/` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod/`, `./nginx/shared/`, `./secrets/tunnel_token` and
-  `./certs/` must all exist beside the compose file — preflight checks each before anything is pulled.
+- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod/`, `./nginx/shared/`, every file under
+  `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
+  checks each before anything is pulled. What each secret file holds, who owns it and how it is
+  made, is §16.
+- **A line naming a value a secret file holds draws a warning, and nothing more**: the image a
+  rollback restores reads it, so it stays until the deploy that follows it runs healthy, and is then
+  deleted (§16).
+- **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
+  `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
+  `git status` never shows it; move it out of the checkout, keeping it only if it holds something
+  you still need ([`spec.md`](spec.md) §1.5).
 - **Compose is asked whether it can parse its own configuration before anything is pulled**
   (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
-  recreated**, and names the compose file and both environment files without printing what compose
+  recreated**, and names the compose file and the two environment files without printing what compose
   said, a parse error quoting the line it could not read ([`spec.md`](spec.md) §1.5). To see that
   message, run the same check on the server, where its answer is not being captured:
   `docker compose -f docker-compose.yml config --quiet`.
@@ -52,9 +65,9 @@ the machine is outside the repository. What it does tell you:
   accept, refuses the deploy at exit 2 with nothing recreated**, and the printed line names the
   variables and never a value — so the remedy is read off the names: **delete an undeclared line,
   correct a rejected value, or declare the name in the settings class**. A check that could not be made at all is an advisory the deploy goes on
-  past. Two things it does not catch: a misspelling whose value is EMPTY, which the settings reader
-  drops before the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5), and a quoting
-  form the two parsers read differently ([`spec.md`](spec.md) §1.5).
+  past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
+  the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5); a spelling the two parsers
+  read differently was refused before either image was asked ([`spec.md`](spec.md) I487).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
   frontend does not declare, and a name it requires that the file gives no value, each refuse the
@@ -62,14 +75,22 @@ the machine is outside the repository. What it does tell you:
   with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct its
   spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
   **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
-  from the shell that ran compose and reaching the container as nothing at all. That is where a
-  release adding a required name meets a host nobody edited, and it covers `AUTH_RESEND_KEY`, which
-  the schema demands under `APP_ENV=production` and this deploy always puts live. Every VALUE is
-  judged at boot and nowhere else, `AUTH_SECRET` below the sign-in library's floor of 32 characters
-  and an `ALLOWED_ADMIN_EMAILS` entry that library will not take among them — each a refusal this
-  reader passes and the recreated container meets. It does catch the misspelling whose value is EMPTY
+  from the shell that ran compose, which holds none for it, and reaching the container as nothing at
+  all. That is where a
+  release adding a required name meets a host nobody edited. Every VALUE is judged at boot and
+  nowhere else, a sign-in secret below its library's floor of 32 characters among them — each a
+  refusal this reader and the secret files' reader both pass and the recreated container meets. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
+- **Each application service's own container then judges its secret files**, started as the stack
+  starts it, so as its own user and in its own group, and by its own image's list: the frontend's
+  reads every file its schema requires (`scripts/lib/_lib.sh :: check_frontend_secret_files`), and
+  **a file missing, not a file, unreadable by that user or blank refuses the deploy at exit 2** with
+  nothing recreated, naming the file and never its contents. The remedy is §16's owner, mode or
+  contents for that file. The backend's container builds its settings as its boot does
+  (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
+  validators refuse — an internal key outside its alphabet among them — refuse there, naming the
+  variable or the file.
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
   the reload applied. The edge keeps running across the swap, so a deploy that succeeds costs seconds
@@ -98,7 +119,11 @@ the machine is outside the repository. What it does tell you:
   pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/ops/deploy.sh <tag>`,
   the tag the rollback names — until a good build is published. Nothing is put back where the pull left
   `:latest` naming the images that were already running: restoring them would restore the build that
-  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
+  just failed, and the script says so instead ([`spec.md`](spec.md) §4). **A deploy by tag to a build
+  from before the secret files is refused by this checkout whatever the environment files hold**,
+  before either tag moves (`scripts/ops/deploy.sh :: check_pin_reads_secret_files`), and a rollback
+  restoring such a build names §16's steps rather than its tag: that build is deployed from its own
+  commit.
 - After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
   that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
   are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
@@ -127,26 +152,35 @@ validator.
 own:
 
 ```bash
-docker run --rm --network <compose-network> \
+docker run --rm --network <compose-network> --user 0:0 \
   -v "$PWD/fl_backend/app:/app/app:ro" \
   -v "$PWD/fl_backend/.env:/app/.env:ro" \
+  -v "$PWD/secrets/backend_mongodb_uri:/run/secrets/backend_mongodb_uri:ro" \
+  -v "$PWD/secrets/sperrliste_schluessel:/run/secrets/sperrliste_schluessel:ro" \
+  -v "$PWD/secrets/internal_api_key_base:/run/secrets/internal_api_key_base:ro" \
+  -v "$PWD/secrets/internal_api_key_system:/run/secrets/internal_api_key_system:ro" \
+  -v "$PWD/secrets/internal_api_key_admin:/run/secrets/internal_api_key_admin:ro" \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Eight variables are required and the environment file is what supplies them.** `BackendConfig`
-declares eight fields with no default, so a run reaching none of them exits 1 on a validation error
-naming all eight; the settings class reads its file from the image's own working directory
-(`fl_backend/app/core/config.py :: model_config`), which is what the second mount lands it at.
-**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the eight
-as `-e` values instead puts that one in the shell's history and in the process list, and sends the
-operator looking up six values `--check` never reads — the run touches `MONGODB_URI` and
-`DB_BASE_NAME` and nothing else the settings class requires. It is the same mount
-`scripts/ops/deploy.sh :: read_env_names` makes of the same file for the same image (§1).
+**`--user 0:0` is not optional.** The image runs as uid 1002, and the internal keys are root's and
+group 1003's (§16), a group a bare `docker run` does not add, so without it the run cannot read them
+and exits on a permission error before it checks anything. Root inside the
+container reads them; `--check` writes nothing either way. **Each of the backend's five files is
+mounted by name, and never `secrets/` whole**, which would hand this container the frontend's
+credentials and the signing key besides.
 
-Three caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so both
-mounted paths must be readable by that uid — `--user 0:0` before the image name is the way past a
-permission error, `--check` writing nothing either way — and an SELinux host needs `:z` on each
-mount.
+**Every setting given no default is required, and the environment file and the five secret files
+are what supply them.** A run reaching none of them exits 1 on a validation error naming each; the
+settings class reads the package's file from the image's own working directory
+(`fl_backend/app/core/config.py :: model_config`) and the secret files from `/run/secrets`, which is
+where the mounts land them.
+**Mounted rather than retyped, because the URI carries the cluster's credential**: passing them as
+`-e` values instead puts that one in the shell's history and in the process list, and sends the
+operator looking up values `--check` never reads — the run touches the database URI and
+`DB_BASE_NAME` and nothing else the settings require.
+
+One caveat, untested against the server itself: an SELinux host needs `:z` on each mount.
 
 **Counting a key's presence is not a substitute for the run.** The report reads each validator back as a
 query, so it fails a document whose key is there with the wrong BSON type; a `$exists` count passes that
@@ -320,27 +354,94 @@ a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
 
-Editing `ALLOWED_ADMIN_EMAILS` and restarting is the whole procedure; why a restart is needed and how `role`
-is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that are easy to get wrong:
+One thing admits an administrator: a grant in the `berechtigungen` collection, which the backend
+reads on every admin-tier request and the frontend on every request, through the lookup its sign-in
+gate and its guards share. A grant or a revoke takes hold on the next request of both, and nothing
+restarts ([`spec.md`](spec.md) §4). A backend that cannot answer admits nobody, so the
+administration is shut while it is down. Each of these is easy to get wrong:
 
+- **An `administration` grant is made on the „Administratoren“ page, and only an `owner` is offered
+  its revoke there** (`docs/frontend/spec.md :: I459`). Both ask a passkey confirmation of the last
+  five minutes, a grant outliving the session making it (`docs/frontend/spec.md :: I458`).
+- **An `owner` is made, and steps down, only through the tier change an `owner` makes**
+  (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
+  administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
+  (`docs/backend/spec.md :: I479`). The person made an owner signs in once more before acting as
+  one: an older sign-in keeps administering and is offered no owner's control
+  (`docs/backend/spec.md :: I534`). A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
+  the application only an `owner` revokes (`docs/backend/spec.md :: I449`).
+- **The database is written directly for two things alone: the first owner, before anybody can sign
+  in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
+  `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
+  which `fl_backend/.env` names). The row holds four fields, each typed by the validator: `adresse`,
+  the address FOLDED — trimmed, the letters of both halves lower-case, the domain in punycode — or it
+  admits nobody, the validator refusing no spelling and the boot counting it as `SRV-BOOT-007`
+  without naming it; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
+  paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
+  folded address revokes it. The statement itself is kept off this public repository.
+- **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
+  boot creates the validator and the unique index; a paste before it creates the collection with
+  neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
+  Until the paste lands no address holds a grant, so the site admits no administrator; the public
+  site is untouched.
+- **`ALLOWED_ADMIN_EMAILS` is read by nothing, and each boot names it while it stands**:
+  `FE-BOOT-002` for `fl_frontend/.env`, `SRV-BOOT-008` for `fl_backend/.env`. It stays in
+  `fl_frontend/.env` alone, so a rollback to the frontend before still finds the line it requires;
+  never add it to the server's `fl_backend/.env`, which the backend before refuses to boot with.
+  Delete it from the frontend's once this release is settled.
+- **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
+  (`docs/backend/spec.md :: I435`), the tier change to leave no owner
+  (`docs/backend/spec.md :: I479`), and the Playground refuses nothing: the boot warns with
+  `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
+  site either way.
+- **A barred address is granted nothing, and a granted one is banned by nothing**
+  (`docs/backend/spec.md :: I437`): lift the ban first, or revoke the grant first. A grant the
+  Playground writes onto a barred address is refused by nothing and admits nobody, neither to the
+  site (`docs/frontend/spec.md :: I409`) nor to the admin tier while the ban stands
+  (`docs/backend/spec.md :: I463`), and the reconciliation flags it.
+- **Every change is announced, a Playground one naming no administrator**
+  (`docs/backend/spec.md :: I439`). A Playground change undone again before the next claim is
+  announced by nothing, and deleting a row of `berechtigungen_angekuendigt` or
+  `berechtigungen_postausgang` by hand announces that grant again as new, or silences its notice.
+  The first also shuts its holder out until the pass finds the grant again, and asks them to sign in
+  once more after it.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
-- **An entry the sign-in library will not take stops the site rather than that one administrator.**
-  The deploy's reader judges names alone (`docs/ops/spec.md :: I183`), so the refusal is met at boot,
-  after the recreate and behind an edge already answering 502; it names `ALLOWED_ADMIN_EMAILS` and
-  never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
-  such address, so that person needs a mailbox it will accept before there is anything to allowlist.
-  An umlaut domain may be entered in either spelling, the entry and the sign-in box both converting it
-  to punycode.
-- **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
-  allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
-  until one stands, so there is nothing to prepare for them and nothing to hand over.
+- **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
+  no code. The grant page refuses such an address (`docs/frontend/spec.md :: I316`); the Playground
+  refuses nothing. An umlaut before the at sign is the case that turns up: the sign-in box takes no
+  such address, so that person needs a mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
+  which the sign-in box converts either spelling to.
+- **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
+  code, the same authority an administrator's first passkey rests on, so one enrolled before the grant
+  admits once the address is granted, though only on a passkey sign-in made after the grant: a
+  session older than the grant administers nothing (`docs/frontend/spec.md :: I470`). Grant an
+  address only where its mailbox is trusted as an administrator's.
+- **A Playground grant is dated twice, so whoever it admits signs in once more.** Until the
+  reconciliation's next pass (`fl_frontend/src/features/berechtigungen/abgleich.ts ::
+ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by the moment its
+  `_id` was generated where that is later — so leave `_id` to the Playground, write `new Date()` for
+  `erteilt_am`, and any sign-in after the paste admits. Once found, it is dated by that moment instead
+  (`docs/backend/spec.md :: I525`): a session signed in between the paste and the find is sent back to
+  the sign-in, and the next passkey sign-in admits.
+- **A row the pass has read is no fresh paste: edit it and it admits nobody until the pass finds the
+  edit** (`docs/backend/spec.md :: I529`), and then only on a sign-in after the find. That holds for
+  an address changed in place, a spelling the boot named folded to the stored form, and a removed
+  row put back with its `_id`; the pass marks every row it reads `gesehen_am`, so leave that field
+  as it stands. To hand a grant to another mailbox at once, paste a new row and remove the old one.
+- **A promotion to `owner` written in the Playground holds once the pass finds it, and then on a
+  sign-in after the find** (`docs/backend/spec.md :: I534`): until then its holder is answered as the
+  administrator they were. A demotion written there takes the tier at once.
+- **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
+  a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
+  so there is nothing to prepare for them and nothing to hand over.
 - **A lost passkey is the administrator's own to replace while they still hold another**: the
-  sidemenu's options menu lists what they hold, adds one and removes one, each behind a fresh
-  passkey ceremony, and the last row cannot be removed. Removing one signs their other devices out.
+  account page, `/bereich/konto`, lists what they hold, adds one and removes one, each behind a
+  passkey sign-in or confirmation inside the step-up window, and the last row cannot be removed.
+  Removing one signs out the devices that passkey signed in, and no other.
 - **An administrator who has lost every passkey is recovered in the Atlas console**, by deleting
-  their rows in the `passkey` collection of the `auth` database; their next sign-in through the
-  e-mail link enrols anew. **Until those rows are gone the mailed link enrols nothing**, their own
+  their rows in the `passkey` collection of the `auth` database; their next sign-in by mailed
+  code enrols anew. **Until those rows are gone a code sign-in enrols nothing**, their own
   included, so a deletion against the wrong database reads to them as the step never being offered.
 - **A device that cannot enrol a passkey is no way in, and no setting here relaxes it.** An
   administrator who enrolled a second device in advance still has one; one who did not is in the
@@ -352,22 +453,11 @@ is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that ar
   password and no code to fall back to. **Where nobody can get in at all, the way back is the
   previous image** (§1's deploy by tag), which authenticates against the store that build carries —
   so it works only while that store is still there, and dropping it is what closes this route.
-- **A removal is not a recovery route, and no control offers one to a session the mailed link alone
+- **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the second factor exists against.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
-- **A unique index on `credentialID` in the `auth` database's `passkey` collection is worth creating
-  by hand, and it is the only index that collection has.** The adapter resolves a model's indexes
-  from its schema's TABLE-level `indexes` alone, and the passkey plugin's schema declares none: its
-  `index: true` on `userId` and `credentialID` is read for name collisions and for nothing else, so
-  no `createIndex` is issued for that model on any write. Never on `userId`, which several passkeys
-  per administrator contradicts.
-- **Give a hand-made index a name of your own, and never one a release could generate.** Better
-  Auth documents no index behaviour for MongoDB at all — only that the schema needs no migration
-  there — so a release that starts declaring table-level indexes would ask for
-  `passkey_credentialID_uidx` on every create and inside the counter update every passkey sign-in
-  makes, and a hand-made index holding that name with a different spec would throw in both.
 
 ## 4. When the application queue has been flooded
 
@@ -446,15 +536,32 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                            |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                                 |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                           |
-| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                                 |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
-| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                          |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                                                                                                                                                                                                                     |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                                                                                                                                                                                                               |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                                                                                                                                                                                                             |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches, and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
+| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                      |
 
-`/admin/aktionen` answers what was written about them and by whom, and is the only place that
+**Anybody who has signed in is in the sign-in store too, and an erasure reaches it only by hand.**
+A person's first sign-in writes their `user` row and a session in the `auth` database, a pupil's,
+referee's or contact person's as an administrator's is, and no erasure route touches that database.
+Read it for an access request. **Finish the erasure of anybody who has signed in with one step in the
+Atlas console**, after the route's own erasure has run:
+
+1. In the `auth` database's `user` collection, find the row whose `email` is the address as the
+   sign-in box folds it, in lower case (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
+2. Delete every row of `session`, `account` and `passkey` whose `userId` is that row's `_id`, then
+   the `user` row itself.
+3. Delete the `verification` row whose `identifier` is `sign-in-otp-` followed by that address, a
+   code still waiting to be typed.
+
+The rows counting the address's failed and requested codes carry a keyed hash nobody can compute by
+hand, and expire within a day on their own (§17); a passkey ceremony's row carries an account id
+rather than an address, and expires within five minutes.
+
+`/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
 a row the log stamped is gone twelve months after the write it recorded and a row carrying no stamp
 is expired by nothing (`docs/backend/spec.md :: I119`), so an answer promising a period has to say
@@ -469,8 +576,8 @@ notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) fo
 rather than restating it in the mail.
 
 **A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
-and nothing else of the person, so `/admin/sperrliste` cannot be asked whether a given address is on
-it: the question is answered by computing that address's hash under `SPERRLISTE_SCHLUESSEL` — the
+and nothing else of the person, so `/bereich/admin/sperrliste` cannot be asked whether a given address is on
+it: the question is answered by computing that address's hash under `secrets/sperrliste_schluessel` — the
 same derivation `fl_backend/app/api/sperrliste/services.py :: adresse_hash` performs, label and fold
 included — and looking the value up against `sperrliste.adresse_hash`. The paste that does it belongs
 in the operator's own checklist and in no file here. What the answer then says is the row's reason,
@@ -524,7 +631,10 @@ you are in is decided by that seat's own link, not by the person's role:
   page the link opens, empties the seat at once and tells the submitter so the school can name
   somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
-  rather than that an administrator removed them. Once the school has named a replacement, seat them
+  rather than that an administrator removed them. **An address the ban list holds takes no second
+  link** (`REQ-BEWERBUNG-019`), and the link it already holds opens on the ban's sentence alone,
+  offering no Widerspruch (`docs/frontend/spec.md :: I516`): its withdrawal reaches the league's
+  mailbox and is performed by hand, through `POST /kontakte/erasure`. Once the school has named a replacement, seat them
   from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
   new person their own link and restarts the confirmation deadline for the whole application; it is
   acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
@@ -577,8 +687,8 @@ seat only where that one's address folds to the same spelling** once its capital
 pressing**: it names every one of those seats, by
 person and by the season or application it sits in, and the press stays shut until that list is on
 screen
-(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
-so a shared school inbox arrives as several names. Read the counts the result reports afterwards —
+(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`).
+Read the counts the result reports afterwards —
 they are what say how far the write reached.
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
@@ -588,17 +698,45 @@ in the same reply.
 **A false birthdate is found by a person, and the answer is a decision and a ban rather than a
 rule.** The one date anybody enters for themselves is a contact person's, at their own confirmation,
 and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
-Decline the application and bar the address at `/admin/sperrliste` with the reason in your own words
+Decline the application and bar the address at `/bereich/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
-([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). **The write
-mails the person itself**, naming the reason you typed and the last season the ban covers, so there
-is nothing to send by hand; where the send fails the page says so, and there is then no address left
-anywhere to try again with. **The ban refuses the sign-ups that ask it and nothing else.** A pupil's
-registration asks it and is
-refused (`REQ-REGISTRIERUNG-009`), and so does every referee write that mints a link; every other
-route consults the list nowhere
-([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
-still what keeps a barred address out of everything a sign-up does not cover.
+([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up-and-from-the-leagues-mail)). An
+address holding a grant is refused (`REQ-SPERRLISTE-003`) until the grant is revoked
+([section 3](#3-granting-or-revoking-admin-access)). **The write
+mails the person itself where the address holds a sign-in account**, naming the reason you typed and
+the last season the ban covers, so there is nothing to send by hand; an address that never signed in
+is mailed nothing, and the page says so. Where the send fails, or the sign-in store could not say
+whether an account holds the address, the page says the notice did not go, and there is then no
+address left anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
+account and passkeys for the day the ban ends (`docs/frontend/spec.md :: I402`); where that fails the
+page says so too, every person page refuses the sessions as no session at all
+(`docs/frontend/spec.md :: I406`), and each is deleted the next time its browser reaches the sign-in
+page (`docs/frontend/spec.md :: I518`). **Every later sign-in of the address
+is refused as its session would be created**, by a code or a passkey alike
+(`docs/frontend/spec.md :: I403`). **Beyond that the ban refuses the sign-ups that ask it and the
+administration.** A pupil's registration asks it and is refused (`REQ-REGISTRIERUNG-009`), and so do
+an application naming the address on any seat (`REQ-BEWERBUNG-018`), an administrator's correction,
+reseat or re-send of a seat to it (`REQ-BEWERBUNG-019`) and every referee write that mints a link,
+and both sweeps withhold the reminder they would send it, logging per season how many they held
+back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
+wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
+grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead
+(`docs/backend/spec.md :: I452`). **Every confirmation link
+already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
+(`REQ-REGISTRIERUNG-012`), a referee's (`REQ-SCHIEDSRICHTER-009`) and a contact seat's
+(`REQ-BEWERBUNG-020`) link opens on the ban's sentence alone, with nothing to press, and a press
+already under way is refused (`docs/backend/spec.md :: I515`, `docs/frontend/spec.md :: I516`). A
+contact person's Widerspruch then reaches the league's mailbox, as the withdrawal bullet above says.
+Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
+its deadline open on its form again. Nothing else refuses on the list, so a person reading the
+queue is still what keeps a barred address out of everything a sign-up does not cover. **What the address already
+holds stays until you take it away** — a record it confirmed before the ban, and one it can no
+longer confirm alike — and the ban names none of it:
+
+- a referee still booked on an unplayed fixture: reassign those fixtures first, then retire the
+  referee, which `REQ-RETIRE-004` holds to that order;
+- a pupil's squad row: retire it, which takes the pupil off the public squad list;
+- a contact seat: replace or clear it on the team's season.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while
@@ -623,9 +761,11 @@ and not entropy** (`fl_backend/app/core/config.py :: SPERRLISTE_KEY_MIN_LENGTH`)
 repeated letters pass it and are worthless: what makes the value a key is that it came from this
 command and not from a keyboard.
 
-**`SPERRLISTE_SCHLUESSEL` can never be rotated, and losing it costs the whole list**: replacing it
+**The ban list's key, `secrets/sperrliste_schluessel`, can never be rotated, and losing it costs the whole list**: replacing it
 disarms every ban in silence ([`../backend/spec.md`](../backend/spec.md#15-environment)), the one
-sign being a second ban of an address already on the list admitted rather than refused. Treat it as
+sign being a second ban of an address already on the list admitted rather than refused. It keys the
+action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
+pseudonyms and the older can never be recomputed. Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.
@@ -654,7 +794,8 @@ stream by the runtime's size rotation (`docs/logging/spec.md :: 1.2`), so a busy
 own oldest lines away and the window is set by traffic rather than chosen; a deploy's copy by the
 thirty days after the deploy wrote it; and the edge's two logs by eight days at most. The edge's
 access line carries the visitor's address, user agent and referer with the credential arms redacted
-(`docs/logging/spec.md :: L11`), so neither a sign-in token nor a confirmation token is in it; the
+(`docs/logging/spec.md :: L11`), so no confirmation token is in it, and a sign-in code travels in a
+request body rather than a URL; the
 same request line reached Cloudflare unredacted, and what Cloudflare keeps is settled in its
 dashboard rather than here.
 
@@ -662,7 +803,7 @@ dashboard rather than here.
 log.** Every recorded write appends a row carrying the actor, the route, the collection, the
 operation and the image of what the write replaced or removed
 ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
-at `/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
+at `/bereich/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
 (`docs/backend/spec.md :: I42`), so what survives an erasure is that the write happened and not what
 it held.
 
@@ -847,7 +988,7 @@ whatever closed the host's inbound 80 and 443 is opened.
 **One call answers it**, on the system key, from inside the frontend container: the backend publishes
 no port on the host, and the container holds the key, so it never passes through your shell.
 
-    docker compose exec frontend sh -c 'wget -qO- --header "Authorization: Bearer $INTERNAL_API_KEY_SYSTEM" http://backend:8000/api/v0/bewerbungen/sweep'
+    docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/bewerbungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
 
 **`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
 and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
@@ -864,7 +1005,7 @@ one just as a failed registration call would.
 
 **Null means no pass of that kind has ever run against this database**, which on production is one
 of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
-`fl_frontend/src/instrumentation.ts :: register` not reached, or a build that is not a production
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode` not reached, or a build that is not a production
 one. One switch arms both passes, so two nulls point at the frontend container's environment and its
 startup rather than at the backend.
 
@@ -884,7 +1025,7 @@ file, and it is the one that stops the frontend booting.
    `email.suppressed`, `email.failed` and `email.delivery_delayed` — and **neither `email.opened`
    nor `email.clicked`**, which the published notice promises are not measured
    ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
-3. Copy the signing secret into the frontend's environment as `RESEND_WEBHOOK_SECRET`. **It begins
+3. Copy the signing secret into the server's `secrets/resend_webhook_secret`, owned as §16 says. **It begins
    `whsec_` and must be pasted with that prefix**: the verifier accepts the value either way, and
    the boot check does not, deliberately — refusing at start beats answering 400 to every event.
 4. Confirm open and click tracking are OFF for the sending domain, which is a second switch from
@@ -1031,37 +1172,284 @@ does not look erased, and each role's guard reads something the restore took awa
   keyed on the address, so the address off the thread is the whole input — and the armed panel's list
   now names seats written since the snapshot as well, which is why section 5 says to read it before
   pressing.
-- **An administrator.** The sign-in store is the `auth` database, reached by hand (section 5), so whether
-  the restore reached it is a question about what was restored rather than about this step.
+- **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
+  ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,
+  `account` and `passkey` rows with everything else. Run section 5's hand step in the sign-in store
+  again for each of them, after the route's erasure above; for an administrator, after their
+  grant's revoke below.
 
 **The log's redactions came back as well**, so re-running each erasure is also what re-empties the
 images it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I212).
 
-**Two consequences that are not erasures.** The retention sweep repairs itself, its clocks being
+**Then re-run every grant and ban change made inside the window**, which the restore undid as it
+undid the erasures, and which nothing re-runs:
+
+- **A grant revoked, or a tier changed, after the snapshot is back as it was.** The grant and its
+  announced row return together, so the reconciliation mails nobody, and the grant admits its
+  holder again, an erased administrator among them. Revoke it again with
+  `DELETE /berechtigungen/{berechtigung_id}`, or repeat the tier change
+  ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
+  is made again. The record of each is the mail every change sent every administrator
+  (`docs/backend/spec.md :: I439`).
+- **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
+  at `/bereich/admin/sperrliste`, which mails the person again, and lift the others there; the mail
+  thread that asked for each is the record, the log having rolled back with it.
+
+**Two consequences more.** The retention sweep repairs itself, its clocks being
 stored dates — but a deletion notice already sent whose stamp the restore took back is sent a second
 time, that sweep mailing before it erases ([`../backend/spec.md`](../backend/spec.md#2-invariants)
 I151). And **an erasure with no mail thread behind it is reachable by nothing here**: the log cannot
 answer for it and no check finds it, so a request answered outside the mailbox is one this procedure
 misses.
 
-## 14. The `auth` database's two expiry indexes
+## 14. The `auth` database's indexes
 
-The sign-in library writes an `expiresAt` on every `verification` row and every `session` row, and
-it deletes neither on a schedule: a verification row is removed only by the caller that redeems it,
-and a session row only when its own cookie comes back. **Both collections therefore need a TTL index
-on `expiresAt`, created once in the Atlas console**, with an expiry-after of zero seconds so the
-stored value is itself the deletion time.
+**Every production boot of the frontend builds them, and serves the site whether or not each is
+built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`, `docs/frontend/spec.md :: I498`). An
+index the boot could not build is one `FE-AUTH-011` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that code after every deploy:
 
-`verification` is the one that matters. The sign-in action is public, it is reachable by a POST to
-any URL on the site rather than to `/signin` alone, and the library writes the row before the
-allowlist is consulted — so every address anyone submits is kept, with no path in the running system
-that removes it.
+| The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `85`              | An index on the same key under another name, which keeps serving  | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
+| `11000`           | Rows sharing a value the index keeps unique; no index on that key | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
+| `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend container                                             |
+| none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `FE-AUTH-011` again for any still refused                                                       |
 
-`session` is smaller and the index is defence in depth: a row for an administrator who closed the
-browser is held for the library's full `expiresIn` otherwise, and with the index the store stops
-serving what the guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
+**A name in the list is the one production's index carries.** Three of them — the `passkey`
+collection's unique `credentialID` and both expiry indexes — were made in the Atlas console before
+the frontend built any, and a same-key index under another name is the code-85 line above.
 
-**Nothing in this repository reports a missing one.** Neither index is created by the adapter and no
-configuration option asks for one, and `app.core.constraints --check` (§2) reads the backend's own
-declared indexes, which these are not — so the console is where both are made and where their
-presence is read.
+**For a release changing an index's key or options, drop the old one in the Atlas console as it
+deploys, then restart the frontend container**: `createIndex` refuses a name already held at other
+options and builds nothing in its place, so the old index would otherwise stand for good.
+
+**The two expiry indexes are the retention.** The library writes an `expiresAt` on every
+`verification` row and every `session` row and deletes neither on a schedule: an expired
+verification row goes when some later sign-in reads that collection, and a session row when its own
+cookie comes back. With an expiry-after of zero seconds the stored value is the deletion time.
+
+- **`verification` is the one that matters.** The sign-in action is public, reachable by a POST to
+  any URL on the site rather than to `/signin` alone, and the library writes the row before the send
+  gate is consulted, so the address of anyone who submits the form is held until the index removes
+  it.
+- **`session` is defence in depth**: a row for anybody who signed in and closed the browser is held
+  for the library's full `expiresIn` otherwise, and with the index the store stops serving what the
+  guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
+
+**An index dropped by hand after a boot is reported by nothing until the next one**, and
+`app.core.constraints --check` (§2) reads the backend's own declared indexes, which these are not.
+
+**A Better Auth release that declares an index of its own on a key the list covers throws on every
+write to that collection**, its adapter building the library's name where the list's already
+stands. The frontend's sign-in db suites build the list before each case, so such an upgrade fails
+them before it ships; the repair is the list's entry taking the library's name.
+
+## 15. When a sign-in code does not arrive
+
+**To the person, every reason a code does not arrive looks alike**: the page answers one sentence
+whether a code went or not, so the frontend's log is the only record, and no line on this path
+carries the address. Ask when they tried and read that window
+([`../logging/error-codes.md`](../logging/error-codes.md) for each code):
+
+- `auth.sign_in_gate_failed` under `FE-AUTH-002`: the send gate could not read what the backend
+  holds for the address, its ban included, so it sent nothing — the backend unreachable, failing,
+  or answering unreadably.
+- `auth.sign_in_gate_address_refused` under `FE-AUTH-002`: the backend refused the address as none
+  its own rule accepts, though the sign-in form took it; the two address rules disagree.
+- `auth.code_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
+  address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
+  is the provider refusing the message.
+- `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
+  hour, so this one was sent nothing (`docs/frontend/spec.md :: I442`). The five count every request,
+  a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
+  retries during a backend outage spend a person's hour the same way.
+- `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been mailed across every
+  address inside the hour (`docs/frontend/spec.md :: I447`), so nobody was sent one; a code a
+  person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
+  so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
+  within the hour, or at once by the sweep in §17.
+- `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
+  On the local stack that is `.tmp-mail/`, which every `./scripts/ops/local.sh` start empties of what
+  earlier runs filed, so a code there is this run's.
+
+**A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
+live, or whose only seat is on a `past` season; an address whose records all await confirmation is
+mailed, to be told so once signed in, unless it is barred. So a quiet window means a refusal, or a
+message the provider accepted and the mailbox never showed, whose bounce the delivery webhook
+reports (§10). An administrator's grant is read on that same call
+(`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an administrator too is mailed
+nothing while the backend does not answer.
+
+## 16. The secret files
+
+**Every credential is a file under `secrets/`, beside the compose file**, under one name on the
+host, at `/run/secrets/` in its container and in development ([`spec.md`](spec.md) §1.2, I508).
+Which service reads which, and each file's owner and mode on the server, is that section's table.
+**A file holds its value and nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a
+trailing newline and surrounding blanks, and everything else in the file is part of the value.
+
+**Each machine has its own.** The internal keys, the ban list's key, the sign-in secret and the
+actor token's key pair authenticate one machine's processes to each other, so a development machine
+generates fresh ones and never copies production's. **A development machine holds no production
+login at all**: its two database URI files name the local stack's database through the port that
+stack publishes on loopback, the local stack itself hands its services an inline config naming its
+own database, and the one production file a development machine holds is `secrets/dump_mongodb_uri` below.
+
+On a development machine, in Git Bash at the checkout root, this writes every file `pnpm dev`,
+`fastapi dev` and the local stack read but the actor token's key pair, which its own command below
+writes, each readable by its writer alone, and prints nothing:
+
+```bash
+(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_schluessel auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
+```
+
+`openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
+provider's keys is written: nothing outside production sends mail, and the provider sends its
+delivery events to production alone.
+
+**`secrets/dump_mongodb_uri` is the one exception, and it is production's read-only login**, which
+reads the application database and nothing else: `./scripts/ops/local.sh --seed` copies production
+with it and with no other login. Copy its URI out of the password manager into the file in an
+editor, never through a shell command that echoes it.
+
+**Every line the secret files replace in the package files stays on the server for one release**
+(`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`), the three `INTERNAL_API_KEY_*` lines in both of them
+among it, because the image a failed deploy is rolled back to reads them there: the deploy warns
+while they are there, and once the release reading the files runs healthy they are
+deleted in an editor, never with `cat`, and a second `./scripts/ops/deploy.sh` recreates both
+containers without them. `local.sh` refuses them outright, since the local stack restores no older
+image. Keep their password-manager entries: a rollback by hand across that release needs them, as
+below.
+
+**On the server, each file is owned by the user that reads it** ([`spec.md`](spec.md) §1.2): a new
+value is written without ever existing under another owner or mode, and without passing through the
+shell's history. For a value that exists only in the password manager, run the line for its owner
+and paste the value, then Ctrl-D:
+
+```bash
+sudo install -o 1001 -g 1001 -m 400 /dev/stdin secrets/<a frontend file>
+sudo install -o 1002 -g 1002 -m 400 /dev/stdin secrets/<a backend file>
+sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
+```
+
+This has not yet been run on the server. **Where a deploy refuses naming a file**, the refusal says
+which fault: a missing one is written, an unreadable one is given the user and mode above, a blank
+one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside
+the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with
+`openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
+and update the password-manager entry and, while they still hold the keys, both package files'
+`INTERNAL_API_KEY_*` lines: nothing compares the two, and a rollback's image reads the lines. Both containers are recreated by the same deploy, so the new
+keys never meet the old. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
+and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
+
+**Each machine also has its own actor token key pair** ([`spec.md`](spec.md) I472): an Ed25519
+private key the frontend signs with, and its public half the backend verifies with. In Git Bash on a
+development machine, or in a shell on the server, at the checkout root, this writes the private half
+to `secrets/fl_actor_signing_key.new`, readable by its writer alone, and appends the public half to
+`fl_backend/.env`, printing nothing:
+
+```bash
+(umask 077 && mkdir -p secrets && openssl genpkey -algorithm ed25519 | tr -d '\r' > secrets/fl_actor_signing_key.new) && printf '\nACTOR_TOKEN_PUBLIC_KEY=%s\n' "$(openssl pkey -in secrets/fl_actor_signing_key.new -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" >> fl_backend/.env
+```
+
+The `tr` calls are there because Git Bash's `openssl` ends each line with a carriage return. The
+public half is the key's last 32 bytes in DER form, which is the raw Ed25519 key that
+`ACTOR_TOKEN_PUBLIC_KEY` holds. The newline before it keeps it off a last line that has none. The
+`umask` is what keeps the private half from ever existing under the shell's default mode, which
+lets every account on the host read a new file.
+
+Then put the private half in place:
+
+- **On the server**, owned by the frontend's user and readable by it alone:
+  `sudo install -o 1001 -g 1001 -m 400 secrets/fl_actor_signing_key.new secrets/fl_actor_signing_key && rm secrets/fl_actor_signing_key.new`.
+  `install` replaces a key the deploying user cannot write, which is what an earlier pair left
+  behind. `deploy.sh` warns where the key's mode lets any other account reach it.
+- **On a development machine**:
+  `mv secrets/fl_actor_signing_key.new secrets/fl_actor_signing_key`.
+- **For `pnpm dev`**, write nothing more: the `dev` script names the file itself
+  ([`spec.md`](spec.md) §1.5). Never name it in `fl_frontend/.env`, which the frontend container
+  reads too: it would look for the key at that path rather than at its mount, and refuse to start.
+- **Rotating** is the same two steps and a deploy, after deleting the old `ACTOR_TOKEN_PUBLIC_KEY`
+  line from `fl_backend/.env`. A token lives sixty seconds, and the deploy recreates both containers
+  together. The pair is kept nowhere else: a lost key is replaced by generating a new pair.
+- **After a suspected leak of the signing key together with `internal_api_key_admin`**, the two can
+  have minted a grant credited to any administrator, which neither can alone. Rotating both is not
+  finished until `aktionen` has been read for every `berechtigungen` write since the leak, and every
+  grant nobody can account for is revoked in the Playground.
+
+`deploy.sh` and `local.sh` refuse a missing key file before anything starts. They then have the
+frontend service's own container, started as the stack starts it and handed the
+`ACTOR_TOKEN_PUBLIC_KEY` line alone, judge the pair: a key it cannot read where its environment
+points it, a key that is not Ed25519, or an `ACTOR_TOKEN_PUBLIC_KEY` that is missing, malformed or
+not its public half. Each refusal names the fault and never a value. The remedy is to run the command
+above again, or, where the refusal names `ACTOR_SIGNING_KEY_FILE`, to delete that line from
+`fl_frontend/.env`.
+
+**A deploy by tag to a build from before the secret files is refused by this checkout**, whatever
+the environment files hold and before either tag moves: that build was released with another
+compose file, edge and preflight than this checkout's, and runs under these only as the automatic
+rollback's accepted limit. The rollback a failed health wait makes is unaffected while the moved
+lines are still there, since it restores images and reads no environment file, and it names these
+steps rather than the restored build's tag. To roll back across that release by hand, on the server
+at the checkout root:
+
+1. `git checkout <commit>`, the older build's own commit, so the deploy script, the compose file and
+   nginx's configuration are the ones that build was released with.
+2. Put each moved line back from its file, printing nothing — for the backend's database URI,
+   `{ printf 'MONGODB_URI='; sudo cat secrets/backend_mongodb_uri; echo; } >> fl_backend/.env`, and
+   the same shape for every other line into the package file of the service that reads it, the
+   three internal keys into both.
+3. `./scripts/ops/deploy.sh sha-<commit>`.
+
+Rolling forward undoes each step before deploying: check out the newer commit, then deploy, and
+delete the lines again once it runs healthy.
+
+**A build from before the actor token takes a step more**, and every build published before the
+secret files is one, the two arriving in one release. Its backend's settings forbid a name they do
+not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that line in
+`fl_backend/.env` into a comment by putting `#` in front of it; its frontend also requires the
+`ALLOWED_ADMIN_EMAILS` line §3 keeps in `fl_frontend/.env`. Rolling forward restores the
+`ACTOR_TOKEN_PUBLIC_KEY` line.
+
+## 17. Clearing an address's code lock
+
+An address that has failed ten codes in a row, with no sign-in between them, is refused every code
+until the oldest of those failures is a day old, the right code included
+(`docs/frontend/spec.md :: I441`); the person is
+told there were too many tries with this address. Anyone who knows an address can bring it on, and
+the rows counting it carry a keyed hash rather than the address (`:: I445`), so no row can be picked
+out for one person:
+
+- **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock, and clears it.
+- **Otherwise it lifts by itself**, each failure's row expiring a day after it was written, removed
+  by the `verification` index in §14.
+- **To lift it sooner, lift every address's at once**: in the Atlas console, delete from the `auth`
+  database's `verification` collection every row whose `identifier` starts with
+  `sign-in-attempt-`. Every address then has its ten tries back, which is the price of an
+  identifier nobody can compute by hand.
+
+The five-an-hour mail cap (`docs/frontend/spec.md :: I442`) keeps rows of the same shape under
+`sign-in-mail-`, the every-address total (`:: I447`) among them as `sign-in-mail-every-address`;
+they lift within the hour. During a flood the total can be lifted sooner the same way, by deleting
+every row whose `identifier` starts with `sign-in-mail-`, which gives every address its hour back.
+
+**Twenty member addresses are enough to close code sign-in for everyone, and to close it again every
+hour.** Only mailed codes count toward the total, and a person's address is mailed up to five an
+hour, so anyone who knows twenty addresses the gate admits can ask for the hundredth code alone;
+while the total is full nobody is mailed a code, and a passkey still signs its holder in. Lines
+under `FE-AUTH-008` that come back hour after hour, or soon after a sweep, are that case rather
+than a busy evening. The sweep above reopens code sign-in only until the requests come again, since
+it clears the per-address rows too; while it recurs, point the people who sign in by code at a
+passkey, and repeat the sweep when it closes again.
+
+## 18. The Node a checkout runs
+
+**`pnpm install` in `fl_frontend/` downloads the Node `fl_frontend/package.json :: devEngines` pins,
+and every `pnpm run` and `pnpm exec` in that checkout runs it**, whatever Node the machine has
+installed; `pnpm exec node --version` there prints the pinned release. A pull request moving the pin
+needs nothing more on a machine than the next `pnpm install`.
+
+**A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh` and
+`scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
+https://nodejs.org/en/download, and again whenever the pin moves: a machine left on an older release
+of the line keeps every security flaw fixed since.

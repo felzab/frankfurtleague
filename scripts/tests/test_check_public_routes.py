@@ -244,8 +244,8 @@ def test_a_prefix_above_a_dynamic_segment_covers_it(monkeypatch):
 
 
 def test_a_prefix_inside_the_dynamic_segment_does_not_cover_it():
-    """`/api/auth/magic-link/verify` sits under the catch-all and covers no other path of it."""
-    inner = prefix("/api/auth/magic-link/verify")
+    """`/api/auth/passkey/verify-authentication` sits under the catch-all and covers no other path of it."""
+    inner = prefix("/api/auth/passkey/verify-authentication")
 
     assert routes.covering_prefix("/api/auth/", served(inner, CATCH_ALL)) is None
 

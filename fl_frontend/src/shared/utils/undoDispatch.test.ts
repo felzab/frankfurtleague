@@ -12,6 +12,7 @@ const { raised } = doubleToasts();
 
 // Imported here rather than at the top: a static import resolves before the hook above is registered.
 const { offerUndo } = await import("./undoDispatch.ts");
+const { STEP_UP_REFUSED } = await import("@/shared/components/ui/stepUp.ts");
 
 /** The ruling's words for an undo nobody can tell landed. */
 const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
@@ -102,7 +103,7 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     raised.length = 0;
   });
 
-  /* Said before leaving: a new sign-in lands on `/admin` rather than back on this change, so a
+  /* Said before leaving: a new sign-in lands on `/bereich/admin` rather than back on this change, so a
      departure alone leaves the change the admin meant to take back standing unnoticed. */
   it("says the change still stands, then leaves for `/signin` on the route's 401", async () => {
     const pressed = await pressAgainst(
@@ -117,19 +118,24 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
   });
 
-  /* `fl_frontend/src/proxy.ts`'s other destination: signing in again is no way back for an address the
-     allowlist does not hold, so the sentence names the cause and no repair. */
-  it("says the change still stands, then leaves for `/` on the route's own 403", async () => {
-    const pressed = await pressAgainst(
-      Response.json({ success: false, error: "Deine Sitzung hat keine Administratorrechte." }, { status: 403 }),
-    );
-    const gescheitert = pressed.toasts.at(-1);
+  /* `fl_frontend/src/proxy.ts`'s other destination, where no sign-in repairs anything: the route words
+     the cause, and the dispatch adds none of its own. */
+  it("says the route's own sentence, then leaves for the sign-in landing on the route's own 403", async () => {
+    for (const error of [
+      "Dein Zugang zur Verwaltung besteht nicht mehr. Die Änderung steht weiterhin.",
+      // Any sentence the route sends, so a dispatch holding the approved one as its own fails here.
+      "Die Rücknahme wurde nicht ausgeführt. Lade die Seite neu.",
+    ]) {
+      raised.length = 0;
+      const pressed = await pressAgainst(Response.json({ success: false, error }, { status: 403 }));
+      const gescheitert = pressed.toasts.at(-1);
 
-    assert.deepEqual(pressed.replacedWith, ["/"]);
-    assert.equal(gescheitert?.variant, "danger");
-    assert.equal(gescheitert?.title, "Änderung nicht zurückgenommen");
-    assert.equal(gescheitert?.options?.description, "Deine Sitzung hat keine Administratorrechte. Die Änderung steht weiterhin.");
-    assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
+      assert.deepEqual(pressed.replacedWith, ["/signin/weiter"]);
+      assert.equal(gescheitert?.variant, "danger");
+      assert.equal(gescheitert?.title, "Änderung nicht zurückgenommen");
+      assert.equal(gescheitert?.options?.description, error, "the dispatch said another cause than the route's");
+      assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
+    }
   });
 
   /* The cases proving the two above are the route's doing: an edge's 403 carries no envelope and is
@@ -164,6 +170,60 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.deepEqual(
       pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
       [["Änderung nicht zurückgenommen", "Der Spielort wurde inzwischen gelöscht."]],
+    );
+  });
+});
+
+describe("an undo whose replay is a step-up write", () => {
+  beforeEach(() => {
+    raised.length = 0;
+  });
+
+  /** Offers an undo under a page past the window, presses it, and reports the prompts and the dispatches. */
+  async function pressStale(answer: boolean): Promise<{ prompts: number; dispatched: number }> {
+    let prompts = 0;
+    let dispatched = 0;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      dispatched++;
+      return Response.json({ success: true, message: "Die Änderung wurde zurückgenommen.", warn: false });
+    };
+
+    try {
+      offerUndo({
+        endpoint: "/api/admin/kontakte/undo",
+        body: {},
+        fallback: "Die Kontakte wurden aktualisiert.",
+        stepUp: {
+          isStale: () => true,
+          confirm: () => {
+            prompts++;
+            return Promise.resolve(answer);
+          },
+        },
+        router: { refresh: () => undefined, replace: () => undefined },
+      });
+      raised[0]?.options?.actionProps?.onPress?.();
+      await settled();
+      await settled();
+
+      return { prompts, dispatched };
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  }
+
+  /* `docs/frontend/spec.md :: I431`: the offer outlives the page's tree, so it asks through the page
+     it was offered under, and the route refuses the replay from a stale session whatever it asked. */
+  it("asks for the passkey before it dispatches", async () => {
+    assert.deepEqual(await pressStale(true), { prompts: 1, dispatched: 1 });
+  });
+
+  it("dispatches nothing on a refused prompt, and says why", async () => {
+    assert.deepEqual(await pressStale(false), { prompts: 1, dispatched: 0 });
+    assert.deepEqual(
+      raised.slice(1).map((toast) => [toast.variant, toast.title, toast.description]),
+      [["danger", "Änderung nicht zurückgenommen", STEP_UP_REFUSED]],
     );
   });
 });

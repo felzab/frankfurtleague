@@ -3,7 +3,7 @@
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { BEWERBUNG_VERALTET, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -27,7 +27,7 @@ import type {
  * while the club they were reached for still plays.
  */
 export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePayload): Promise<ActionResult<{ cleared?: number }>> {
-  return runAdminMutation("eraseKontaktpersonAction", async () => {
+  return runAdminMutation("eraseKontaktpersonAction", { stepUp: true }, async () => {
     const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -68,7 +68,7 @@ export async function patchSaisonTeamKontakteAction(
   // field no control renders is a block with no repair.
   rawPayload: FLPatchSaisonTeamKontaktePayload,
 ): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse }>> {
-  return runAdminMutation("patchSaisonTeamKontakteAction", async () => {
+  return runAdminMutation("patchSaisonTeamKontakteAction", async (session) => {
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -78,6 +78,11 @@ export async function patchSaisonTeamKontakteAction(
         fieldErrors: toFieldErrors(validated.error),
       };
     }
+
+    // The cleared block alone is a step-up write, so the declaration is this call's rather than the
+    // action's: an edit of the seats keeps its undo (`docs/frontend/spec.md :: I432`).
+    const unconfirmed = validated.data.kontakte === null ? refuseUnconfirmed(session) : null;
+    if (unconfirmed !== null) return unconfirmed;
 
     // After the parse, where the application's check comes before it: only a parsed payload names
     // the row whose stored block admits its labels.

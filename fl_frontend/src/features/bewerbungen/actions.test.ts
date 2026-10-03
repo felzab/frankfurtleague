@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { toActionErrorResult } from "@/shared/utils/actionError.ts";
+import { toActionErrorResult, unansweredAction } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
-import { mapAlreadyEnteredRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
+import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
@@ -51,17 +51,9 @@ const errorOf = (result: { success: boolean; error?: string }): string => result
 const ORIGIN = "http://localhost:3000";
 /** Every argument each logger call was handed, whatever its level. */
 const logged: unknown[][] = [];
-const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flBewerbungLogged = logged;
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) {
-      return { format: "module", source: `export const frontend_config = { AUTH_URL: "${ORIGIN}" };`, shortCircuit: true };
-    }
-    return nextLoad(url, context);
-  },
-});
+const record = (...args: unknown[]): void => void logged.push(args);
+const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
+const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
 
 /* The real actions and their mutations, called: the request they run in, the application three of
    them read first, the club list, the backend client and the mailer are the doubles. */
@@ -69,14 +61,7 @@ doubleActionRequest();
 const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
 // After the request's own doubles, whose silent logger this one stands in front of: the stream is
 // where a token must never reach.
-registerHooks({
-  load(url, context, nextLoad) {
-    if (!url.endsWith("/src/core/logging.ts")) return nextLoad(url, context);
-    const source = `const record = (...args) => void globalThis.__flBewerbungLogged.push(args);
-export const logger = { debug: record, info: record, warn: record, error: record };`;
-    return { format: "module", source, shortCircuit: true };
-  },
-});
+registerDoubles({ modules: { "core/config.ts": CONFIG_DOUBLE, "core/logging.ts": LOGGER_DOUBLE } });
 /** Whether `call` is the delivery report a sent message files, after the write the case is about. */
 const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/bewerbungen/zustellung");
 /** The report's answer as the endpoint sends it: every seat the message named, applied. */
@@ -105,6 +90,7 @@ const {
 } = await import("./actions.ts");
 /* After the doubles, as the actions are: a static import would load the real mail module first. */
 const { rollenText } = await import("./notifications.ts");
+const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
@@ -491,6 +477,25 @@ describe("the message that follows a decision", () => {
       assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte niemandem zugestellt werden`), `${where} drops the delivery report`);
     }
   });
+
+  /* Told the ban is why, by count: an address in the report is one the administrator is asked to
+     write to by hand, which would name a barred person (`docs/frontend/spec.md :: I542`). */
+  it("reports a decision the ban list kept from every address as taken, naming nobody", async () => {
+    answerMailWith(() => "barred");
+
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
+
+      const result = await press();
+
+      assert.equal(result.success, true, `${where} fails the whole decision over a ban`);
+      assert.match(
+        answerOf(result),
+        new RegExp(`Die ${betreff} ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht`),
+      );
+      assert.ok(!answerOf(result).includes("@"), `${where} named an address`);
+    }
+  });
 });
 
 /** Where one surface's German comes from: what it rendered, split into its sentences. */
@@ -551,6 +556,7 @@ const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly
 const RETIRED_RENDERINGS = renderingsOf([
   ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-ENTER-005"), "bestehendes_team")),
   ...renderedBy("the club editor's entry", mapEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
+  ...renderedBy("the team create's entry", mapCreatedClubEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
   ...renderedBy(
     "the club editor's replacement",
     mapReplacementRefusal(refusedOn("POST /teams/{team_id}/saisons/{saison_id}/replace", "REQ-ENTER-005")),
@@ -616,8 +622,8 @@ describe("the German one refusal code is given", () => {
   it("finds every rendering of the retired-club refusal before judging one", () => {
     assert.equal(
       RETIRED_RENDERINGS.length,
-      6,
-      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the six this case reads`,
+      7,
+      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the seven this case reads`,
     );
     for (const { where, sentences } of RETIRED_RENDERINGS) {
       assert.notEqual(sentences.length, 0, `${where} holds no rendered sentence`);
@@ -764,6 +770,15 @@ describe("a message that cannot be sent", () => {
 });
 
 describe("the re-sent confirmation link", () => {
+  /* The button carries no address box, so the repairs' „Trage eine andere Adresse ein“ would name a
+     field that is not there: the sentence names the correction control beside it instead. */
+  it("words a barred address with the control the administrator can use from the button", () => {
+    const answered = mapEinwilligungErneutRefusal(refusedOn(ERNEUT_OPERATION, "REQ-BEWERBUNG-019", 409));
+
+    assert.match(String(answered), /Adresse korrigieren/);
+    assert.doesNotMatch(String(answered), /Trage eine andere Adresse ein/);
+  });
+
   it("answers every code the re-send publishes through its own mapper", async () => {
     for (const code of publishedRefusals(ERNEUT_OPERATION)) {
       assert.notEqual(
@@ -879,7 +894,41 @@ describe("the re-sent confirmation link", () => {
 
     assert.equal(result.success, false, "a refused send is still reported as a link on its way");
     assert.match(errorOf(result), /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
-    assert.match(errorOf(result), /Versuche es noch einmal/, "the failure names no way out");
+    assert.match(errorOf(result), /Versuche es erneut/, "the failure names no way out");
+  });
+
+  /* A link whose connection broke off may have reached the provider: the re-send's own reading is a
+     link on its way, and only the request's mark keeps the press from reporting one. */
+  it("answers a re-send whose message broke off in transit as of unknown outcome", async () => {
+    answerMailWith(() => "lost");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    assert.deepEqual(await einwilligungErneutSendenAction(ERNEUT), unansweredAction());
+  });
+
+  /* Outside production every send is withheld, and a refusal there offers a retry no repeat of the
+     press can reach. */
+  it("answers a message this deployment withheld as the deployment's, not as a failure", async () => {
+    answerMailWith(() => "withheld");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    const result = await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.deepEqual(result, { success: true, message: ZURUECKGEHALTEN });
+  });
+
+  /* A retry meets the same ban, so a refusal would offer one no repeat can reach; and the answer
+     names no address (`docs/frontend/spec.md :: I542`). */
+  it("answers a link the ban list kept from its address as no failure, naming nobody", async () => {
+    answerMailWith(() => "barred");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    const result = await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.deepEqual(result, { success: true, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." });
   });
 
   /* The spine leaves a refusal standing, and a message that did not go leaves the mint standing: the

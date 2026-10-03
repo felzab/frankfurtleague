@@ -1,5 +1,5 @@
 import { apiClient } from "@/core/api";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLSperrlisteListResponseSchema } from "./schemas";
 
@@ -13,7 +13,7 @@ import type { FLSperrlisteListResponse } from "./schemas";
  */
 export async function getSperrliste(): Promise<FLSperrlisteListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     apiClient<FLSperrlisteListResponse>("/sperrliste", FLSperrlisteListResponseSchema, {
       authType: "admin",
     }),

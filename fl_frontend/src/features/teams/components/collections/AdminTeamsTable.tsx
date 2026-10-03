@@ -39,6 +39,7 @@ import {
   RowActions,
 } from "@/shared/components/ui/RowActions";
 import { useReactivation } from "@/shared/hooks/useReactivation";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -63,7 +64,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   filteredTeams: AdminTeamRow[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
-  setDeletingTeam: (team: AdminTeamRow) => void;
+  setDeletingTeam: (team: AdminTeamRow, pressed: Element) => void;
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateTeamAction, noun: "Team" });
 
@@ -111,9 +112,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
     team.selected ? <span className="fluid-sm font-semibold text-foreground">{team.selected.gruppe}</span> : null;
 
   const renderActions = (team: AdminTeamRow) => (
-    <RowActions>
+    <RowActions row={team.id}>
       <RowActionLink
-        href={withSaisonId(`/admin/teams/${team.id}`, selectedFromUrl)}
+        href={withSaisonId(`/bereich/admin/teams/${team.id}`, selectedFromUrl)}
         label="Bearbeiten"
         ariaLabel={`Team ${team.name} bearbeiten`}>
         <Pencil
@@ -126,7 +127,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           label="Reaktivieren"
           ariaLabel={`Team ${team.name} reaktivieren`}
           isPending={isReactivating}
-          onPress={() => reactivate({ id: team.id })}
+          onPress={(pressed) => reactivate({ id: team.id }, { pressed })}
         />
       ) : (
         /* Present but DISABLED where the write path would refuse (`REQ-RETIRE-001`), so the rule is
@@ -137,7 +138,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           }
           label="Stilllegen"
           ariaLabel={`Team ${team.name} stilllegen`}
-          onPress={() => setDeletingTeam(team)}
+          onPress={(pressed) => setDeletingTeam(team, pressed)}
         />
       )}
       {/* Every one leaves the row for another list or page, and as inline icons they put six controls
@@ -147,7 +148,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             are that facet's options, so a club outside the season drops out and the link widens. */}
         <RowActionMenuItem
           id="spieler"
-          href={withSaisonId(`/admin/spieler?team=${team.id}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/spieler?team=${team.id}`, selectedFromUrl)}
           label="Spieler anzeigen">
           <PersonPencil
             aria-hidden="true"
@@ -158,7 +159,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             hang off the junction, so without it this opens another season's three people. */}
         <RowActionMenuItem
           id="kontakte"
-          href={withSaisonId(`/admin/kontakte?team=${team.id}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/kontakte?team=${team.id}`, selectedFromUrl)}
           label="Kontakte anzeigen">
           <Envelope
             aria-hidden="true"
@@ -169,7 +170,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             fixtures whichever slot it occupies. */}
         <RowActionMenuItem
           id="spiele"
-          href={withSaisonId(`/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
           label="Spiele anzeigen">
           <Magnifier
             aria-hidden="true"
@@ -198,7 +199,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
     <>
       {/* The table below `md` forced the whole grid sideways; a stacked card holds the same data and
           the same controls at reading width. */}
-      <div className="flex w-full flex-col gap-3 md:hidden">
+      <div
+        className="flex w-full flex-col gap-3 md:hidden"
+        {...focusSection("teams-karten")}>
         {filteredTeams.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredTeams.map((team) => (
           <div
@@ -211,7 +214,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div
+        className="hidden w-full md:block"
+        {...focusSection("teams-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
           {/* Never scrolled at a width this table renders at
               (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform

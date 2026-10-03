@@ -6,6 +6,7 @@ import Eye from "@gravity-ui/icons/Eye";
 
 import { BewerbungForm } from "@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm";
 import { BewerbungInstagramBand } from "@/features/bewerbungen/components/ui/BewerbungInstagramBand";
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { abiJahrgang, fensterZustand } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
@@ -60,7 +61,7 @@ export function BewerbungView({
   const zustand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
 
   return (
-    <section className="flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8">
+    <section className={SEITE_CLASSES}>
       <header className="relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-border bg-surface px-4 py-6 shadow-sm sm:p-8">
         <div className="absolute top-0 left-0 h-1.5 w-full bg-brand-solid" />
 

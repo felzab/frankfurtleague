@@ -330,9 +330,10 @@ export const spielStateKey = (spiel: FLSpielAdmin): string => `${spiel.id}:${JSO
 
 /**
  * The one spelling of the route. The season is REQUIRED, never optional: an optional one is what a
- * call site forgets, and this link exits three season-scoped lists.
+ * call site forgets, and this link exits season-scoped lists.
  */
-export const adminSpielEditHref = (spielId: string, saisonId: string | null): string => withSaisonId(`/admin/spiele/${spielId}`, saisonId);
+export const adminSpielEditHref = (spielId: string, saisonId: string | null): string =>
+  withSaisonId(`/bereich/admin/spiele/${spielId}`, saisonId);
 
 /**
  * The inverse of `listFeederSpiele`, over stored wiring. **Both routes matter**: a slot naming this

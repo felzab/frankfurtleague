@@ -59,7 +59,7 @@ const RULES: Row<ComponentProps<typeof AdminSaisonsTable>, "filteredSaisons">["r
 const AKTION: Row<ComponentProps<typeof AdminAktionenTable>, "filteredAktionen"> = {
   id: "68c1f0a2b3c4d5e6f7a8b9c0",
   at: "2026-08-20T14:23:05+00:00",
-  actor: { kind: "admin_session", email: "eine.person@beispiel.de" },
+  actor: { kind: "admin_session", email: "eine.person@beispiel.de", email_gesperrt: false },
   trace_id: "8f14e45fceea167a",
   request: { method: "PATCH", path: "/api/v1/teams/68c1f0a2b3c4d5e6f7a8b9c0" },
   collection: "teams",

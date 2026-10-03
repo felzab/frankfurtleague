@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import importlib
+import importlib.util
 import io
 import re
 import sys
@@ -23,6 +24,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Final
 
+import pytest
 from conftest import configure, copy_scripts, git, new_root, withdraw, write
 
 # Built rather than written, so no line of this file carries the markdown or the comment marker the
@@ -271,6 +273,8 @@ FRONTEND_RAISE: Final = '  const code = "' + FRONTEND_CODE + '";'
 # The rule register, at the path the checker names: a code it declares is spelled in the backend
 # tree and owed no row, which is what the clean corpus proves by carrying none for it.
 DOMAIN_REGISTER: Final = "fl_backend/app/core/domain.py"
+# The package the checker imports that register from, afresh on every run.
+BACKEND_APP: Final = "fl_backend/app"
 RULE_CODE: Final = "REQ-SAMPLE-002"
 UNENFORCED_SUBJECT: Final = "a sample state the register permits"
 # One live token of every shape a reason may take, each resolving in the corpus below.
@@ -326,6 +330,16 @@ def _code_row(code: str, meaning: str) -> str:
 BACKEND_ROW: Final = _code_row(BACKEND_CODE, "The sample module refused a write")
 FRONTEND_ROW: Final = _code_row(FRONTEND_CODE, "The sample component could not read the answer")
 SECOND_FRONTEND_ROW: Final = _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING)
+
+# The frontend sheet's action table, and the one module a directive makes an action's home: named
+# so no reader keyed on the usual file name finds it, opening on a comment the directive is read past.
+ACTIONS_MODULE: Final = "fl_frontend/src/features/sample/writes.ts"
+ACTION_NAME: Final = "saveSampleAction"
+ACTION_HEAD: Final = "| Action | Slice | Invalidates |"
+ACTION_ROW: Final = "| `" + ACTION_NAME + "` | sample | nothing |"
+# A module spelling the directive inside a function alone, which makes that function an action and
+# leaves the module's other exports ordinary ones.
+INLINE_DIRECTIVE_MODULE: Final = "fl_frontend/src/features/sample/inline.ts"
 # One entry per status arm, so a plant breaking one leaves the others answering. They ascend as
 # the page's entries do.
 DEPENDS_ENTRY: Final = "bqxs-4dtn"
@@ -619,6 +633,10 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             _heading(3, "1.1 The route"),
             "",
             "It renders one page.",
+            "",
+            ACTION_HEAD,
+            "| --- | --- | --- |",
+            ACTION_ROW,
             "",
             _heading(2, "2. Invariants"),
             "",
@@ -947,6 +965,17 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
         ),
         OPENAPI: '{"paths": {"/api/v0/sample": {"get": {}}}}\n',
         SAMPLE_PAGE: _page("export default function Page() {", "  return null;", "}"),
+        ACTIONS_MODULE: _page(
+            "/* The one module whose exports are server actions. */",
+            QUOTE + "use server" + QUOTE + ";",
+            "",
+            "export async function " + ACTION_NAME + "(): Promise<void> {}",
+        ),
+        INLINE_DIRECTIVE_MODULE: _page(
+            "export async function readSample(): Promise<void> {",
+            "  " + QUOTE + "use server" + QUOTE + ";",
+            "}",
+        ),
         SCHEME: _scheme_page(),
         APP_GLOBALS: _globals_page(),
         COPY_SAMPLE: _page(
@@ -1225,6 +1254,15 @@ def _clear_caches(scripts_dir: Path) -> None:
                 clear()
 
 
+def _drop_backend_bytecode(root: Path) -> None:
+    """Python trusts bytecode matching its source's size and whole-second mtime.
+
+    So a plant within a second of another the same size would import as that one.
+    """
+    for source in (root / BACKEND_APP).rglob("*.py"):
+        Path(importlib.util.cache_from_source(str(source))).unlink(missing_ok=True)
+
+
 def _output() -> tuple[int, str]:
     """One run's exit code and everything it printed, for a case that turns on a finding's words.
 
@@ -1233,6 +1271,7 @@ def _output() -> tuple[int, str]:
     """
     fixture = _gate()
     _clear_caches(fixture.root / SCRIPTS_COPY)
+    _drop_backend_bytecode(fixture.root)
     buffer = io.StringIO()
     argv = sys.argv
     sys.argv = ["check_docs.py"]
@@ -1501,6 +1540,23 @@ def _plant_error_codes() -> None:
     # A declared rule given a row: a second statement of what the rule register states, which the
     # tree's own spelling of the code would otherwise satisfy.
     _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n" + _code_row(RULE_CODE, "The sample rule refused a write"))
+
+
+def _plant_action_table() -> None:
+    """Both directions, and an action found by its directive under a name no module listing would guess."""
+    # The table losing the row an exported action still needs.
+    _drop(FRONTEND_SPEC, ACTION_ROW)
+    # A row for an action no module exports.
+    _replace(
+        FRONTEND_SPEC,
+        ACTION_HEAD + NEWLINE + "| --- | --- | --- |",
+        ACTION_HEAD + NEWLINE + "| --- | --- | --- |" + NEWLINE + "| `goneAction` | sample | nothing |",
+    )
+    # A second directive module, its action exported as a constant: reached by what makes it an
+    # action rather than by its name.
+    rel = "fl_frontend/src/features/sample/more.ts"
+    write(_gate().root, rel, _page(QUOTE + "use server" + QUOTE + ";", "", "export const moreSampleAction = async (): Promise<void> => {};"))
+    git(_gate().root, "add", "--", rel)
 
 
 def _plant_segment_map() -> None:
@@ -1859,6 +1915,7 @@ class Case:
 
 
 CASES: Final[tuple[Case, ...]] = (
+    Case("action-table", _fails("action-table", *[FRONTEND_SPEC] * 3), _plant_action_table),
     Case("anchor", _fails("anchor", NOTES, ROADMAP), _plant_anchors),
     Case(
         "bare-path",
@@ -2419,6 +2476,7 @@ def _main(*argv: str) -> tuple[int, str]:
     """
     fixture = _gate()
     _clear_caches(fixture.root / SCRIPTS_COPY)
+    _drop_backend_bytecode(fixture.root)
     buffer = io.StringIO()
     kept = sys.argv
     sys.argv = ["check_docs.py", *argv]
@@ -2682,6 +2740,166 @@ def test_a_module_that_will_not_tokenize_still_yields_its_comments() -> None:
     """Reading none would look like a file holding none, which every comment check then passes."""
     measured = _runs(UNTOKENIZABLE)
     assert [text for _, text in measured if "docs/gone.md" in text], measured
+
+
+# Ten words, so a block's count is read off how many lines it holds.
+PROSE_LINE: Final = "a reason a reader needs before changing the line below"
+SLASHES: Final = "//"
+WORKFLOW_SAMPLE: Final = ".github/workflows/sample.yml"
+
+
+@dataclass(frozen=True)
+class Directive:
+    """One directive form a tool the gate runs reads, in a file of the kind it lives in."""
+
+    path: str
+    marker: str
+    text: str
+    code: str
+
+
+# Each form `TOOL_DIRECTIVES` matches, as the corpus writes it where it writes one, each reason long
+# enough that the prose above it breaks the bound when the two are counted as one block.
+DIRECTIVES: Final[dict[str, Directive]] = {
+    "shellcheck": Directive(SHELL_FILE, HASH, "shellcheck disable=SC2034  " + HASH + " read by the scripts that source this file", "FLAG=1"),
+    "eslint": Directive(
+        TSX_SAMPLE, SLASHES, "eslint-disable-next-line local/admin-link -- the proxy turns it away first", "const link = base;"
+    ),
+    "typescript": Directive(TSX_SAMPLE, SLASHES, "@ts-expect-error -- the refusal under test", "const form = refused();"),
+    "prettier": Directive(TSX_SAMPLE, SLASHES, "prettier-ignore", "const grid = [1, 0, 0, 1];"),
+    "ruff": Directive(SAMPLE, HASH, "ruff: noqa: E501  " + HASH + " the fixtures quote whole lines", "VALUE = 2"),
+    "pyright": Directive(SAMPLE, HASH, "pyright: reportPrivateUsage=false  " + HASH + " the suite reads the gate's internals", "VALUE = 2"),
+    "type-ignore": Directive(SAMPLE, HASH, "type: ignore  " + HASH + " a generated module pyright cannot type", "VALUE = 2"),
+    "zizmor": Directive(
+        WORKFLOW_SAMPLE, HASH, "zizmor: ignore[unpinned-uses]  " + HASH + " a local action, pinned by the checkout", "on: push"
+    ),
+}
+
+
+def _bounded_blocks(form: Directive, *lines: str) -> list[tuple[int | None, str]]:
+    """What `comment-length` reports over a file holding these lines below a statement, every line the branch's own."""
+    raw = _page(form.code, "", *lines, form.code)
+    bounds = _module("docs_gate.branch").check_comment_length
+    found = bounds(_gate().root / form.path, raw, set(range(1, raw.count(NEWLINE) + 1)), lambda: [])
+    return [(finding.line, finding.detail) for finding in found]
+
+
+@pytest.mark.parametrize("family", list(DIRECTIVES))
+def test_a_tool_directive_never_joins_the_prose_above_it(family: str) -> None:
+    """The prose sits at the bound and the directive under it carries a reason: one block, they break it.
+
+    Parted by a blank line instead, the prose leaves the line it describes, which is what this
+    reading spares an author.
+    """
+    form = DIRECTIVES[family]
+    prose = [form.marker + " " + PROSE_LINE] * 4
+    cap = _module("docs_gate.branch").COMMENT_WORD_CAP
+    assert len(PROSE_LINE.split()) * len(prose) == cap, "the prose must sit at the bound, or nothing here is spared"
+    found = _bounded_blocks(form, *prose, form.marker + " " + form.text)
+    assert found == [], found
+
+
+@pytest.mark.parametrize("family", list(DIRECTIVES))
+def test_prose_over_the_bound_fails_on_either_side_of_a_directive(family: str) -> None:
+    """A directive parts two blocks as a blank line does, and neither is measured short.
+
+    A reader that dropped the run a directive closes, or resumed none below it, passes one of the two.
+    """
+    form = DIRECTIVES[family]
+    prose = [form.marker + " " + PROSE_LINE] * 5
+    cap = _module("docs_gate.branch").COMMENT_WORD_CAP
+    over = f"the comment block runs 50 words -- INC-9 caps a block at {cap}, every shape alike"
+    found = _bounded_blocks(form, *prose, form.marker + " " + form.text, *prose)
+    assert found == [(3, over), (9, over)], found
+
+
+@pytest.mark.parametrize("family", list(DIRECTIVES))
+def test_a_directive_s_reason_is_held_to_the_bound_on_its_own(family: str) -> None:
+    """A block of its own rather than none, so no paragraph rides past the bound as a directive's reason."""
+    form = DIRECTIVES[family]
+    reason = " ".join([PROSE_LINE] * 4)
+    found = _bounded_blocks(form, form.marker + " " + form.text + " " + reason)
+    assert [line for line, _ in found] == [3], found
+
+
+def _header_prose(marker: str) -> list[str]:
+    """A header body that, under a four-word title, sits just inside INC-2's bound."""
+    cap = _module("docs_gate.checks").HEADER_WORD_CAP
+    lines = [marker + PROSE_LINE] * ((cap - 4) // len(PROSE_LINE.split()))
+    assert cap - len(PROSE_LINE.split()) < 4 + len(lines) * len(PROSE_LINE.split()) <= cap, "the header must sit at the bound"
+    return lines
+
+
+def _directive(family: str) -> str:
+    form = DIRECTIVES[family]
+    return form.marker + " " + form.text
+
+
+def _header_findings(rel: str, raw: str, suffix: str) -> list[str]:
+    """What INC-2's check and INC-9's say about a file, every line the branch's own.
+
+    Both, because a block the header reader stops recognising passes INC-2's check by being no
+    header at all, and only INC-9's bound then reaches it.
+    """
+    shape = _module("docs_gate.checks").check_module_header(rel, raw, suffix)
+    bounds = _module("docs_gate.branch").check_comment_length(_gate().root / rel, raw, set(range(1, raw.count(NEWLINE) + 1)), lambda: [])
+    return [finding.detail for finding in shape + bounds]
+
+
+def test_a_tool_directive_stands_outside_a_shell_header() -> None:
+    """One above the header as a shebang stands, one ending it below: neither is its title, and neither reason joins its count."""
+    raw = _page(
+        "#!/usr/bin/env bash",
+        _directive("shellcheck"),
+        HASH + " OPS · a header",
+        *_header_prose(HASH + " "),
+        _directive("shellcheck"),
+        "FLAG=1",
+    )
+    assert _header_findings(SHELL_FILE, raw, ".sh") == []
+
+
+def test_a_tool_directive_above_a_python_header_stays_out_of_it() -> None:
+    """The docstring reader steps over every comment above it; this holds it there for a directive."""
+    raw = _page(_directive("pyright"), QUOTES + "BACKEND · a header", "", *_header_prose(""), QUOTES, "VALUE = 1")
+    assert _header_findings(SAMPLE, raw, ".py") == []
+
+
+@pytest.mark.parametrize(("lines", "words"), [(4, None), (5, 50)], ids=["at-the-bound", "over-it"])
+def test_a_comment_above_a_python_header_is_a_block_like_any_other(lines: int, words: int | None) -> None:
+    """Not header prose, so INC-9's bound and not INC-2's; the shebang over it is the interpreter's and joins nothing."""
+    raw = _page(
+        "#!/usr/bin/env python3",
+        *[HASH + " " + PROSE_LINE] * lines,
+        QUOTES + "BACKEND · a header" + QUOTES,
+        "VALUE = 1",
+    )
+    cap = _module("docs_gate.branch").COMMENT_WORD_CAP
+    expected = [] if words is None else [f"the comment block runs {words} words -- INC-9 caps a block at {cap}, every shape alike"]
+    assert _header_findings(SAMPLE, raw, ".py") == expected
+
+
+@pytest.mark.parametrize("family", ["shellcheck", "pyright"])
+def test_a_directive_above_a_header_is_still_held_to_the_bound(family: str) -> None:
+    """The header scan steps over it, so the comment reader must not: otherwise its reason sits under no bound at all."""
+    form = DIRECTIVES[family]
+    title = HASH + " OPS · a header" if form.path == SHELL_FILE else QUOTES + "BACKEND · a header" + QUOTES
+    raw = _page(_directive(family) + " " + " ".join([PROSE_LINE] * 4), title, "", form.code)
+    bounds = _module("docs_gate.branch").check_comment_length
+    found = bounds(_gate().root / form.path, raw, set(range(1, raw.count(NEWLINE) + 1)), lambda: [])
+    assert [finding.line for finding in found] == [1], [finding.detail for finding in found]
+
+
+def test_a_header_shaped_block_under_a_directive_is_placed_as_it_would_be_without_one() -> None:
+    """A directive is no content and no part of the block, so it neither hides a header below the opening nor pushes one off it."""
+    checks = _module("docs_gate.checks")
+    below = _page("FLAG=1", "", _directive("shellcheck"), HASH + " OPS · a header under a statement", "FLAG=2")
+    opening = _page(_directive("eslint"), SLASHES + " FRONTEND · a header opening the file", "const link = base;")
+    placed = [
+        [finding.line for finding in checks.check_module_header(rel, raw, suffix) if finding.line is not None]
+        for rel, raw, suffix in ((SHELL_FILE, below, ".sh"), (TSX_SAMPLE, opening, ".tsx"))
+    ]
+    assert placed == [[4], []], placed
 
 
 def test_a_rule_pattern_reaches_past_the_three_methods_typed_on_it() -> None:

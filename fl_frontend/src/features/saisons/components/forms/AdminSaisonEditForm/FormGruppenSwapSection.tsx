@@ -11,6 +11,7 @@ import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -18,6 +19,7 @@ import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -142,6 +144,8 @@ export function FormGruppenSwapSection({
     // Ahead of `press`, so a half-made pair neither arms nor writes.
     if (first === null || second === null) return;
 
+    // The page re-keys on the swapped season, drawing this control anew.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id }).catch(rejectedWrite(router));
@@ -160,6 +164,7 @@ export function FormGruppenSwapSection({
         return;
       }
 
+      landing.landed();
       appToast.success("Gruppen getauscht", { description: res.message });
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.
@@ -175,7 +180,9 @@ export function FormGruppenSwapSection({
   const restingLabel = "Gruppen tauschen";
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("gruppentausch")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
@@ -274,20 +281,22 @@ export function FormGruppenSwapSection({
             <ConfirmActionRow confirm={twoPress}>
               {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                   §1.14). */}
-              <ConfirmPressButton
-                confirm={twoPress}
-                reason={isMissingAPick ? missingPickHint : null}
-                resting={restingLabel}
-                armed="Ja, Gruppen tauschen"
-                running="Tauscht..."
-                icon={
-                  <ArrowRightArrowLeft
-                    className="size-4.5"
-                    aria-hidden="true"
-                  />
-                }
-                onPress={handleSwap}
-              />
+              <FocusSlot name="tausch">
+                <ConfirmPressButton
+                  confirm={twoPress}
+                  reason={isMissingAPick ? missingPickHint : null}
+                  resting={restingLabel}
+                  armed="Ja, Gruppen tauschen"
+                  running="Tauscht..."
+                  icon={
+                    <ArrowRightArrowLeft
+                      className="size-4.5"
+                      aria-hidden="true"
+                    />
+                  }
+                  onPress={handleSwap}
+                />
+              </FocusSlot>
             </ConfirmActionRow>
           </>
         )}

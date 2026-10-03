@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 /* The real client, mail transport and fan-out, only their network doubled below: what is driven is
@@ -9,24 +9,24 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
    them would hide. */
 const API_URL = "http://backend:8000";
 
-const CONFIG = `export const frontend_config = {
-  API_URL: "${API_URL}",
-  API_VERSION: 0,
-  INTERNAL_API_KEY_BASE: "base-key-double",
-  INTERNAL_API_KEY_SYSTEM: "system-key-double",
-  INTERNAL_API_KEY_ADMIN: "admin-key-double",
-  APP_ENV: "production",
-  AUTH_RESEND_KEY: "resend-key-double",
-  AUTH_URL: "https://liga.example.de",
-};`;
+const CONFIG = {
+  frontend_config: {
+    API_URL: API_URL,
+    API_VERSION: 0,
+    APP_ENV: "production",
+    AUTH_URL: "https://liga.example.de",
+  },
+  internalApiKeyBase: () => "base-key-double",
+  internalApiKeySystem: () => "system-key-double",
+  internalApiKeyAdmin: () => "admin-key-double",
+  authResendKey: () => "resend-key-double",
+};
 
 doubleActionRequest();
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG,
   },
 });
 
@@ -65,6 +65,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   if (url.endsWith("/einladungen/versand")) return json(VERSAND);
   if (url.endsWith("/zustellung/angenommen")) return json({ acknowledged: 1, angewendet: true });
+  // The mailer's gate, answered at once: no address of this press is barred, and its read spends no time.
+  if (url.endsWith("/identitaet/gesperrt")) return json({ acknowledged: 1, gesperrt: false });
   // Every other call is the provider's, whose address `mail.ts` alone names.
   assert.ok(!url.startsWith(API_URL), `the press reached a backend route nothing here answers: ${url}`);
 

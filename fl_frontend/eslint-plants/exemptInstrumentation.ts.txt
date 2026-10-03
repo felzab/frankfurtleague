@@ -1,0 +1,12 @@
+// Linted as src/instrumentation-node.ts.
+// The boot loads the actor's signing module and the config at run time, and every other load ban still reaches it.
+import { mintRequestActor } from "./core/actorToken"; // expect: actor-signing
+
+export const SIGNING_USED = mintRequestActor;
+export const SIGNING_LOADED = import("./core/actorToken");
+// Taken apart where the boot loads it, and never into a secret's reader.
+const { frontend_config, retiredVariablesSet } = await import("./core/config");
+const { mongodbUri } = await import("./core/config"); // expect: config-taken
+export const CONFIG_HELD = import("./core/config"); // expect: config-taken
+export const CONFIG_USED = [frontend_config, retiredVariablesSet, mongodbUri];
+export const DOUBLES_LOADED = import("./core/authDoubles"); // expect: test-only-load

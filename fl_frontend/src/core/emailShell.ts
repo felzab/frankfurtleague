@@ -74,7 +74,7 @@ export const TABLE_ATTRS = `role="presentation" cellpadding="0" cellspacing="0" 
 const CARD_WIDTH = 480;
 
 /**
- * `fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton` in email-safe terms: `h-12`,
+ * `fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton` in email-safe terms: `min-h-12`,
  * `px-6`, `rounded-xl`, `font-bold` and `shadow-md` as fixed pixels, because no `<td>` honours a
  * utility class and Word computes no shorthand.
  */
@@ -239,7 +239,10 @@ function renderAktionen(aktionen: readonly Aktion[]): string {
                 </table>`;
 }
 
-/** One message as the shell draws it. Every markup field arrives escaped; `titel` is the one plain string. */
+/**
+ * One message as the shell draws it. Every markup field arrives escaped; `titel` is the one plain
+ * string. `aktionen` may be empty, and the row and its upper rule are then left out rather than drawn empty.
+ */
 interface Karte {
   readonly titel: string;
   readonly ueberschrift: string;
@@ -279,8 +282,12 @@ export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss, orig
                   ${ueberschrift}
                 </h1>
                 ${bloecke.join("\n                ")}
-                <hr class="${RULE_MAIL_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0;" />
-                ${renderAktionen(aktionen)}
+                ${
+                  aktionen.length === 0
+                    ? ""
+                    : `<hr class="${RULE_MAIL_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0;" />
+                ${renderAktionen(aktionen)}`
+                }
                 <hr class="${RULE_MAIL_CLASS}" style="border:none;border-top:1px solid ${RULE_COLOR};margin:24px 0 16px;" />
                 <p class="${TEXT_MAIL_CLASS}" style="margin:0;${FOOTER_TEXT}">
                   ${fuss}

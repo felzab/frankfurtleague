@@ -22,13 +22,16 @@ from app.api.teams.schemas import (
 from app.api.teams.services import (
     KONTAKTE_MOVED_UNDER_THE_SAVE,
     UNCONFIRMED_HERKUNFT,
+    compose_kontakte_at_entry,
     compose_kontakte_herkunft,
     kontakte_stand_of,
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_team_document
+from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
@@ -207,6 +210,7 @@ async def write_kontakte(
         kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "kontakte_stand": stand}),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         db=database.client,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -223,28 +227,13 @@ async def erase_the_seats_person(database: AsyncDatabase) -> Any:
     )
 
 
-class JunctionRunningAHookBeforeTheWrite:
-    """The junction collection, running one hook immediately before the first update asked of it.
-
-    A stand-in rather than a subclass: the driver builds a collection off a database handle, so what
-    the endpoint is handed must delegate every other call.
-    """
-
-    def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:
-        self._inner = inner
-        self._hook: Callable[[], Awaitable[Any]] | None = hook
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
+class JunctionRunningAHookBeforeTheWrite(InterleavedCollection):
+    """The junction collection, running one hook immediately before the first update asked of it."""
 
     async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        # ONE-SHOT: a retry has to write against what the erasure left rather than erase again, and
-        # a second erasure would find the row already cleared and report nothing to prove.
-        if self._hook is not None:
-            hook, self._hook = self._hook, None
-            await hook()
+        await self.run_the_rival()
 
-        return await self._inner.find_one_and_update(*args, **kwargs)
+        return await self._collection.find_one_and_update(*args, **kwargs)
 
 
 async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[str, Any]:
@@ -500,6 +489,8 @@ class TestAnErasureLandingMidSaveIsNotUndone:
             junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
             with pytest.raises(WriteRefusalException) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
+            # An erasure committing first refuses the save at its read, before it reaches the write.
+            junction.assert_landed_inside(serially=0)
 
             return erased[0], refused.value, await row_now(database)
 
@@ -644,6 +635,28 @@ class TestTheCompositionDecidesFromItsArguments:
 
         assert composed is not None
         assert composed["trainer"]["einwilligung"]["bestaetigt_am"] is None
+
+    def test_a_seat_stamped_with_an_empty_string_is_saved_as_unconfirmed(self):
+        """Carried across a save, `""` would stand as a confirmation nobody gave; the same person is held, so only the stamp decides."""
+
+        held = {**PARTLY_CONFIRMED, "trainer": stored_person("Ida", erfasst_von="person", bestaetigt_am="")}
+        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=held)
+
+        assert composed is not None
+        assert composed["trainer"]["einwilligung"] == {**RESAVED_AS_RENDERED["trainer"]["einwilligung"], **UNCONFIRMED_HERKUNFT}
+
+    def test_an_application_seat_stamped_with_an_empty_string_enters_undated_and_unconfirmed(self):
+        """The acceptance's arm: the stamped seat beside it keeps its date, so the stamp alone parts the two."""
+
+        entering = {
+            **PARTLY_CONFIRMED,
+            "ansprechperson": stored_person("Jonas", erfasst_von="person", bestaetigt_am=""),
+        }
+        composed = compose_kontakte_at_entry(kontakte=entering)
+
+        assert composed["ansprechperson"]["geburtsdatum"] is None
+        assert composed["ansprechperson"]["einwilligung"] == {**entering["ansprechperson"]["einwilligung"], **UNCONFIRMED_HERKUNFT}
+        assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
     def test_a_null_slot_is_left_null(self):
         composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)

@@ -21,6 +21,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { rolloverBlockedReason } from "./blockedReasons";
@@ -58,7 +59,7 @@ export function FormRolloverSection({
   // Only a `future` season has an act on offer: the running season has nothing to switch to, and a
   // `past` one is refused by `REQ-ACTIVATE-002`.
   const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
-  const twoPress = useTwoPressConfirm(onBeforeActivate);
+  const twoPress = useTwoPressConfirm({ guard: onBeforeActivate, stepUp: true });
   const router = useRouter();
   const { isConfirming, press } = twoPress;
 
@@ -75,6 +76,8 @@ export function FormRolloverSection({
   });
 
   const handleActivate = () => {
+    // The season turns active and the panel keeps no control, so its heading takes the focus.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await activateSaisonAction({ id: saisonId }).catch(rejectedWrite(router));
@@ -84,6 +87,7 @@ export function FormRolloverSection({
         return;
       }
 
+      landing.landed();
       appToast.success("Saison umgestellt", { description: res.message });
     });
   };
@@ -91,7 +95,9 @@ export function FormRolloverSection({
   const restingLabel = `Auf Saison ${saisonId} umstellen`;
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("umstellung")}>
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           <SaisonBadge status={saisonStatus} />
@@ -187,7 +193,7 @@ export function FormRolloverSection({
                     <span className="min-w-0 flex-1 truncate fluid-xs font-semibold text-foreground">{spiel.paarung}</span>
                     <span className="shrink-0 fluid-xxs text-foreground-muted">{formatSpielDatum(spiel.datum)}</span>
                     <Link
-                      href={saisonHref(`/admin/spiele/${spiel.id}`)}
+                      href={saisonHref(`/bereich/admin/spiele/${spiel.id}`)}
                       className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} shrink-0 fluid-xxs font-bold`}>
                       Öffnen
                     </Link>

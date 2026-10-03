@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Mapping
+from datetime import datetime
 from functools import partial
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
@@ -9,7 +10,17 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
-from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktor
+from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson
+from app.api.berechtigungen.schemas import (
+    FLBerechtigung,
+    FLBerechtigungAenderungArt,
+    FLBerechtigungAngekuendigt,
+    FLBerechtigungPostausgangZeile,
+    FLBerechtigungStand,
+    FLBerechtigungUrheber,
+    FLBerechtigungVorenthalten,
+    FLVerwaltung,
+)
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
     FLBewerbungBestaetigung,
@@ -76,6 +87,8 @@ from app.api.teams.schemas import (
 from app.core.collections import Collection
 from app.core.constraints import (
     _AKTION_OPERATIONS,
+    _AKTOR,
+    _AKTOR_FUNKTIONEN,
     _AKTOR_KINDS,
     COLLECTION_VALIDATORS,
     SUPPORT_INDEXES,
@@ -84,7 +97,7 @@ from app.core.constraints import (
     _apply_concurrently,
     diagnose_failure,
 )
-from app.core.recording import Actor, Operation
+from app.core.recording import Actor, AktorFunktion, Operation, PersonActor
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.kontakt import FLKontakt
 
@@ -118,7 +131,9 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # The single read's model: the LIST model drops `before` and computes `stand_gesichert`,
     # which no document stores.
     (Collection.AKTIONEN, (), FLAktionMitStand, frozenset({"stand_gesichert"})),
-    (Collection.AKTIONEN, ("actor",), FLAktor, frozenset()),
+    # A discriminated union on `kind`: every variant's keys are declared once, and which of them each
+    # kind requires is the `oneOf` beside them (`test_each_actor_kind_requires_its_own_keys_and_no_address_beside_a_pseudonym`).
+    (Collection.AKTIONEN, ("actor",), (FLAktorMitAdresse, FLAktorPerson), frozenset()),
     (Collection.AKTIONEN, ("request",), FLAktionRequest, frozenset()),
     (Collection.SAISONS, (), FLSaison, frozenset({"schedule"})),
     (Collection.SAISONS, ("rules",), FLSaisonRules, frozenset()),
@@ -206,13 +221,25 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.REGISTRIERUNGEN, ("bestaetigung",), FLRegistrierungBestaetigung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("entscheidung",), FLRegistrierungEntscheidung, frozenset()),
+    (Collection.BERECHTIGUNGEN, (), FLBerechtigung, frozenset()),
+    (Collection.BERECHTIGUNGEN_ANGEKUENDIGT, (), FLBerechtigungAngekuendigt, frozenset()),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), FLBerechtigungPostausgangZeile, frozenset()),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), FLBerechtigungStand, frozenset()),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), FLBerechtigungStand, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
 # The `quelle` rows read members off a model field: `type` and `ausgang` are declared inline.
 MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...], bool]] = [
     (Collection.AKTIONEN, (), "operation", get_args(FLAktion.model_fields["operation"].annotation), False),
-    (Collection.AKTIONEN, ("actor",), "kind", get_args(FLAktor.model_fields["kind"].annotation), False),
+    (
+        Collection.AKTIONEN,
+        ("actor",),
+        "kind",
+        get_args(FLAktorMitAdresse.model_fields["kind"].annotation) + get_args(FLAktorPerson.model_fields["kind"].annotation),
+        False,
+    ),
+    (Collection.AKTIONEN, ("actor",), "funktion", get_args(FLAktorPerson.model_fields["funktion"].annotation), False),
     # Derived from the roster rather than spelled out, so adding a collection widens this enum and
     # forgetting to widen the validator fails here rather than at the first write to the new one.
     (Collection.AKTIONEN, (), "collection", tuple(c.value for c in Collection if c is not Collection.AKTIONEN), False),
@@ -370,6 +397,14 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
     (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
     (Collection.REGISTRIERUNGEN, (), "status", get_args(FLRegistrierungStatus), False),
+    # Closed on the stored row as well as the wire: the Playground writes a grant by hand.
+    (Collection.BERECHTIGUNGEN, (), "verwaltung", get_args(FLVerwaltung), False),
+    (Collection.BERECHTIGUNGEN_ANGEKUENDIGT, (), "verwaltung", get_args(FLVerwaltung), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "art", get_args(FLBerechtigungAenderungArt), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "urheber", get_args(FLBerechtigungUrheber), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "vorenthalten", get_args(FLBerechtigungVorenthalten), True),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), "verwaltung", get_args(FLVerwaltung), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), "verwaltung", get_args(FLVerwaltung), False),
     # Nullable for the reason a squad row's two are: a registration is filled in over time, and the
     # pupil may answer neither.
     (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
@@ -554,6 +589,9 @@ BSON_TYPES: Mapping[Any, str] = {
     # field that needs one is annotated for it and takes its own row, rather than widening this one.
     int: "int",
     str: "string",
+    # A driver `datetime` round-trips as BSON's date and nothing else: the grants' stamps, which a
+    # Playground paste writes as `new Date()`.
+    datetime: "date",
     type(None): "null",
 }
 
@@ -640,7 +678,8 @@ def test_every_mirrored_field_declares_the_bson_type_of_its_annotation(
 # validator refuses.
 RECORDED_LITERALS: list[tuple[str, tuple[object, ...], list[str]]] = [
     ("Operation", get_args(Operation), _AKTION_OPERATIONS),
-    ("Actor.kind", get_args(Actor.__annotations__["kind"]), _AKTOR_KINDS),
+    ("Actor.kind | PersonActor.kind", get_args(Actor.__annotations__["kind"]) + get_args(PersonActor.__annotations__["kind"]), _AKTOR_KINDS),
+    ("AktorFunktion", get_args(AktorFunktion), _AKTOR_FUNKTIONEN),
 ]
 
 
@@ -649,6 +688,28 @@ def test_every_recorded_literal_matches_the_validator_that_stores_it(name: str, 
     """The write side and the stored shape, compared directly: one is what a row CARRIES and the other what the database ACCEPTS."""
 
     assert set(recorded) == set(declared), f"app/core/recording.py :: {name} and its constraints.py copy disagree"
+
+
+def test_each_actor_kind_requires_its_own_keys_and_no_address_beside_a_pseudonym():
+    """Beyond `required_at`: each variant's own keys, required by its kinds in a `oneOf`.
+
+    A branch requiring less stores an administrator with no address or a person with no Funktion;
+    the `not` keeps an address off a person's row.
+    """
+
+    branches = {tuple(branch["properties"]["kind"]["enum"]): branch for branch in _AKTOR["oneOf"]}
+    variants = (FLAktorMitAdresse, FLAktorPerson)
+
+    assert set(branches) == {get_args(variant.model_fields["kind"].annotation) for variant in variants}
+    assert {kind for kinds in branches for kind in kinds} == set(get_args(FLAktorKind))
+
+    for variant in variants:
+        branch = branches[get_args(variant.model_fields["kind"].annotation)]
+        own = {name for name, field in variant.model_fields.items() if field.is_required() and name != "kind"}
+
+        assert set(branch["required"]) == own, f"{variant.__name__}'s kinds require {sorted(branch['required'])}"
+
+    assert branches[("person_session",)]["not"] == {"required": ["email"]}
 
 
 @pytest.mark.parametrize(("collection", "path", "field", "members", "nullable"), MIRRORED_ENUMS)
@@ -739,8 +800,9 @@ def test_a_driver_failure_is_diagnosed_rather_than_traced(code: int, errmsg: str
     diagnosis = diagnose_failure(failure)
 
     assert expected in diagnosis
-    # A diagnostic quoting the connection string is one nobody can paste into a bug report.
-    assert "mongodb" not in diagnosis and "@" not in diagnosis
+    # A diagnostic quoting the connection string is one nobody can paste into a bug report. The scheme
+    # rather than the word, which the secret file's own name carries.
+    assert "mongodb://" not in diagnosis and "mongodb+srv://" not in diagnosis and "@" not in diagnosis
 
 
 def test_no_two_declared_indexes_share_a_name():

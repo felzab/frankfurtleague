@@ -5,6 +5,8 @@ import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
 import { Button } from "@heroui/react/button";
 
 import { formButton } from "@/shared/components/ui/formButtons";
+import { STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
+import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { ReactNode } from "react";
 
@@ -13,11 +15,11 @@ export type EditPageHeaderContent = {
   title: string;
   /**
    * At most ONE thing horizontally beside the title — a status badge, a Kürzel, a phase chip. There is no
-   * second slot and no line below the title: a free slot is what lets eight editors' headers diverge.
+   * second slot and no line below the title: a free slot is what lets the editors' headers diverge.
    */
   chip?: ReactNode;
   /** Only where the entity can be retired; the write is the row's, not the draft's. */
-  reactivate?: { isPending: boolean; onPress: () => void };
+  reactivate?: { isPending: boolean; isPrompting?: boolean; onPress: () => void };
 };
 
 /**
@@ -54,18 +56,24 @@ export function EditPageHeader({
         <span>Zurück</span>
       </Button>
 
-      <header className="mb-6 flex w-full flex-col gap-y-2">
+      <header
+        className="mb-6 flex w-full flex-col gap-y-2"
+        {...focusSection("seitenkopf")}>
         {/* `flex-row` with no wrap at any width: the title truncates and the chip keeps its place, where
             wrapping would drop a phone's chip onto a ragged second line under the heading. */}
         <div className="flex w-full flex-row items-center gap-x-3">
-          <h2 className="min-w-0 truncate fluid-2xl font-extrabold tracking-tight text-foreground">{title}</h2>
+          <h2
+            {...FOCUS_HEADING}
+            className="min-w-0 truncate fluid-2xl font-extrabold tracking-tight text-foreground">
+            {title}
+          </h2>
           {chip !== undefined && <div className="flex shrink-0 items-center">{chip}</div>}
           {reactivate !== undefined && (
             <Button
               onPress={reactivate.onPress}
               isPending={reactivate.isPending}
               className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
-              {reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
+              {reactivate.isPrompting === true ? STEP_UP_RUNNING : reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
             </Button>
           )}
         </div>

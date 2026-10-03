@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any, get_args
 
 import pytest
@@ -19,9 +20,10 @@ from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.main import create_app
 from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
+from tests.bans import ban_list
 from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, saison_team_document, spieler_document, team_document
+from tests.documents import EINWILLIGUNG, ban_document, rules_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -30,7 +32,9 @@ DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identitaet/subjekt"
 
-APP = create_app(build_test_config())
+CONFIG = build_test_config()
+
+APP = create_app(CONFIG)
 
 # The folded form a caller sends, and the spellings the league stores it under. Deliberately
 # unusual, so a hit in a seeded corpus cannot be a coincidence.
@@ -56,6 +60,26 @@ DOUBLE_S_STORED = "Post@strasse.de"
 
 # Nobody this identifier may reach, in each of the three collections.
 BYSTANDER = "baldur.krautzberger@example.com"
+
+# A mailbox whose every record awaits its own person's confirmation, and one whose every record is
+# confirmed on a row that has since been retired.
+UNCONFIRMED = "ottilie.wartezeit@schule.de"
+RETIRED = "rudolf.ruhestand@schule.de"
+
+# A banned address holding a confirmed seat, stored and banned in one spelling and asked in another,
+# and an address whose ban ended with the season before the running one.
+GESPERRT_STORED = "Gerda.Gesperrt@Schule.de"
+GESPERRT_ASKED = "GERDA.GESPERRT@schule.de"
+ABGELAUFEN = "arno.abgelaufen@schule.de"
+BAN_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607820041")
+BAN_LAPSED_OID = ObjectId("6890a1b2c3d4e5f607820042")
+
+# The grants, stored folded as every grant is, and one asked in capitals.
+VERWALTUNG_INHABER = "inhaberin@frankfurtleague.de"
+VERWALTUNG_STORED = "verena.verwaltung@schule.de"
+VERWALTUNG_ASKED = "Verena.Verwaltung@SCHULE.de"
+GRANT_INHABER_OID = ObjectId("6890a1b2c3d4e5f607820051")
+GRANT_STORED_OID = ObjectId("6890a1b2c3d4e5f607820052")
 
 # One mailbox at an internationalised domain, stored as every payload stores it
 # (`docs/backend/spec.md :: I332`): the domain in punycode, and folded too on a pupil's row.
@@ -83,11 +107,14 @@ IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
 PUPIL_TWO_OID = ObjectId("6890a1b2c3d4e5f607820022")
 IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
+RETIRED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820024")
 BYSTANDER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820029")
 REFEREE_ONE_OID = ObjectId("6890a1b2c3d4e5f607820031")
 REFEREE_TWO_OID = ObjectId("6890a1b2c3d4e5f607820032")
 HAND_EDITED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820033")
 IDN_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820034")
+UNCONFIRMED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820035")
+RETIRED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820036")
 BYSTANDER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820039")
 
 # The name the junction row was entered under, and the one the club has taken since. They differ so
@@ -96,17 +123,28 @@ ROW_NAME_A = "Helmholtz"
 CLUB_NAME_A_NOW = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
 
-KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "administrativ", "text_version": "v1", "datum": "2026-01-05"}
+STAMP = "2026-01-20"
+
+KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-05"}
 
 
-def _person(email: str) -> dict[str, Any]:
-    """Every field `app/core/constraints.py :: _KONTAKTPERSON` requires, the address the only one a case reads."""
+def _person(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
+    """Every field `app/core/constraints.py :: _KONTAKTPERSON` requires, the address and the stamp the only ones a case reads.
 
-    return {"vorname": "Anna", "nachname": "Müller", "email": email, "telefon": "+49 69 5550101", "einwilligung": dict(KENNTNISNAHME)}
+    Stamped by default: the lookup answers a seat only once its own person has confirmed it.
+    """
+
+    return {
+        "vorname": "Anna",
+        "nachname": "Müller",
+        "email": email,
+        "telefon": "+49 69 5550101",
+        "einwilligung": {**KENNTNISNAHME, "bestaetigt_am": bestaetigt_am},
+    }
 
 
-def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str) -> dict[str, Any]:
-    """A `saison_teams` row seating whoever the caller names, the slots it does not name left empty."""
+def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str | dict[str, Any]) -> dict[str, Any]:
+    """A `saison_teams` row seating whoever the caller names, an address as a confirmed seat, the slots it does not name left empty."""
 
     return saison_team_document(
         saison_id,
@@ -116,7 +154,7 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
         _id=row_id,
         kontakte={
             **{slot: None for slot in KONTAKT_SLOTS},
-            **{slot: _person(email) for slot, email in slots.items()},
+            **{slot: _person(seat) if isinstance(seat, str) else seat for slot, seat in slots.items()},
             # A declaration about two slots rather than a slot of its own, so it names nobody and
             # no case here turns on it (`app/api/kontakte/services.py :: KONTAKT_SLOTS`).
             "trainer_ist_zugleich": None,
@@ -146,9 +184,9 @@ def _pupil(pupil_id: ObjectId, email: str) -> dict[str, Any]:
     return spieler_document(pupil_id, "Anna", "Müller", email=email)
 
 
-def _referee(referee_id: ObjectId, email: str, name: str) -> dict[str, Any]:
+def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     # A name per referee for `_club`'s reason: `app/core/constraints.py :: uniq_schiedsrichter_name`
-    # indexes it.
+    # indexes it. Confirmed unless the caller says otherwise, as `_person` is.
     return {
         "_id": referee_id,
         "name": name,
@@ -156,6 +194,8 @@ def _referee(referee_id: ObjectId, email: str, name: str) -> dict[str, Any]:
         "default_payment": 20,
         "kontakt": {"telefon": "+49 69 5550202", "email": email},
         "inactive_since": None,
+        "einwilligung": {**EINWILLIGUNG, "bestaetigt_am": STAMP},
+        **fields,
     }
 
 
@@ -163,7 +203,10 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 async def _seed(database: AsyncDatabase) -> None:
-    """One corpus for every case: the mailbox in all three collections twice over, a bystander beside each, and the refused spellings."""
+    """One corpus for every case: the mailbox in all three collections twice over, a bystander beside each, and the refused spellings.
+
+    Beside them, one mailbox whose records are all unconfirmed and one whose rows are all retired.
+    """
 
     await database[Collection.SAISONS].insert_many(
         [_saison(PAST_SAISON, "past"), _saison(ACTIVE_SAISON, "active"), _saison(FUTURE_SAISON, "future")]
@@ -183,7 +226,15 @@ async def _seed(database: AsyncDatabase) -> None:
                 trainer=SEAT_STORED_UPPER,
                 ansprechperson=SEAT_STORED_DOMAIN,
             ),
-            _junction(BYSTANDER_ROW_OID, ACTIVE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=BYSTANDER),
+            _junction(
+                BYSTANDER_ROW_OID,
+                ACTIVE_SAISON,
+                TEAM_C_OID,
+                name="Krautzberg",
+                trainer=BYSTANDER,
+                ansprechperson=_person(UNCONFIRMED, bestaetigt_am=None),
+                stellvertretung=GESPERRT_STORED,
+            ),
             _junction(SHARP_S_ROW_OID, FUTURE_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=SHARP_S_STORED),
             _junction(DOUBLE_S_ROW_OID, FUTURE_SAISON, TEAM_B_OID, name=ROW_NAME_B, trainer=DOUBLE_S_STORED),
             _junction(HAND_EDITED_ROW_OID, FUTURE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=HAND_EDITED_STORED),
@@ -196,6 +247,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _pupil(PUPIL_TWO_OID, PUPIL_STORED),
             _pupil(IDN_PUPIL_OID, IDN_PUPIL_STORED),
             _pupil(BYSTANDER_PUPIL_OID, BYSTANDER),
+            {**_pupil(RETIRED_PUPIL_OID, RETIRED), "inactive_since": "2026-03-01"},
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -205,8 +257,40 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(HAND_EDITED_REFEREE_OID, HAND_EDITED_STORED, "D. Umlaut"),
             _referee(IDN_REFEREE_OID, IDN_SEAT_STORED, "E. Umlaut"),
             _referee(BYSTANDER_REFEREE_OID, BYSTANDER, "B. Krautzberger"),
+            _referee(UNCONFIRMED_REFEREE_OID, UNCONFIRMED, "F. Wartezeit", einwilligung=None),
+            _referee(RETIRED_REFEREE_OID, RETIRED, "G. Ruhestand", inactive_since="2026-03-01"),
         ]
     )
+    await database[Collection.SPERRLISTE].insert_many(
+        [
+            ban_document(GESPERRT_STORED, bis=FUTURE_SAISON, _id=BAN_ACTIVE_OID),
+            ban_document(ABGELAUFEN, bis=PAST_SAISON, _id=BAN_LAPSED_OID),
+        ]
+    )
+    grants = [
+        _grant(GRANT_INHABER_OID, VERWALTUNG_INHABER, "owner") | {"gefunden_am": GRANT_FOUND},
+        _grant(GRANT_STORED_OID, VERWALTUNG_STORED, "administration"),
+    ]
+    await database[Collection.BERECHTIGUNGEN].insert_many(grants)
+    # Both announced: the `owner` grant found by the reconciliation, the other made by the grant route.
+    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_many(
+        [
+            {"_id": grant["_id"], "adresse": grant["adresse"], "verwaltung": grant["verwaltung"], "angekuendigt_am": GRANT_FOUND}
+            for grant in grants
+        ]
+    )
+
+
+# A paste's typed date, and the later moment the reconciliation found it: the `owner` grant's row carries both.
+GRANT_TYPED = datetime(2026, 1, 1, tzinfo=UTC)
+GRANT_FOUND = datetime(2026, 1, 2, 8, 30, tzinfo=UTC)
+GRANT_PROMOTED = datetime(2026, 2, 1, 9, 0, tzinfo=UTC)
+
+
+def _grant(grant_id: ObjectId, adresse: str, verwaltung: str) -> dict[str, Any]:
+    """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
+
+    return {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": GRANT_TYPED}
 
 
 def on_a_league(url: str, body: Body) -> Any:
@@ -234,6 +318,8 @@ async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjektResponse
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste=ban_list(database),
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
     )
 
 
@@ -242,26 +328,26 @@ def answered(url: str, email: str = IDENTIFIER) -> FLSubjektResponse:
 
 
 @pytest.mark.db
-def test_one_mailbox_answers_all_three_kinds_at_once(mongo_url: str):
+def test_one_mailbox_answers_all_three_kinds_at_once(mongo_replica_set_url: str):
     """The seat and the referee are stored in spellings other than the identifier's, the pupil in the folded form `spieler.email` holds.
 
     Split in three, a lookup answering only the collection a case names would pass all three.
     """
 
-    answer = answered(mongo_url)
+    answer = answered(mongo_replica_set_url)
 
     assert (bool(answer.sitze), bool(answer.spieler), bool(answer.schiedsrichter)) == (True, True, True)
 
 
 @pytest.mark.db
-def test_every_seat_the_mailbox_holds_is_answered_once_each(mongo_url: str):
+def test_every_seat_the_mailbox_holds_is_answered_once_each(mongo_replica_set_url: str):
     """Two clubs and two slots of one row, in the read's own order.
 
     Kills a first-match lookup, a de-duplication that folds one person's two seats into one, and a
     slot loop that stops at the Trainer.
     """
 
-    seats = [(seat.saison_id, seat.team_id, seat.rolle) for seat in answered(mongo_url).sitze]
+    seats = [(seat.saison_id, seat.team_id, seat.rolle) for seat in answered(mongo_replica_set_url).sitze]
 
     assert seats == [
         (PAST_SAISON, TEAM_A_OID, "trainer"),
@@ -271,38 +357,38 @@ def test_every_seat_the_mailbox_holds_is_answered_once_each(mongo_url: str):
 
 
 @pytest.mark.db
-def test_two_pupils_sharing_an_address_are_both_answered(mongo_url: str):
+def test_two_pupils_sharing_an_address_are_both_answered(mongo_replica_set_url: str):
     """Siblings on one inbox. Kills a lookup that answers the first `spieler` row and stops."""
 
-    assert [row.spieler_id for row in answered(mongo_url).spieler] == [PUPIL_ONE_OID, PUPIL_TWO_OID]
+    assert [row.spieler_id for row in answered(mongo_replica_set_url).spieler] == [PUPIL_ONE_OID, PUPIL_TWO_OID]
 
 
 @pytest.mark.db
-def test_two_referees_sharing_an_address_are_both_answered(mongo_url: str):
+def test_two_referees_sharing_an_address_are_both_answered(mongo_replica_set_url: str):
     """The same for referees, whose two rows are stored in two spellings so neither is reached by equality."""
 
-    assert [row.schiedsrichter_id for row in answered(mongo_url).schiedsrichter] == [REFEREE_ONE_OID, REFEREE_TWO_OID]
+    assert [row.schiedsrichter_id for row in answered(mongo_replica_set_url).schiedsrichter] == [REFEREE_ONE_OID, REFEREE_TWO_OID]
 
 
 @pytest.mark.db
-def test_a_spelling_the_database_match_accepts_and_the_fold_refuses_is_no_seat(mongo_url: str):
+def test_a_spelling_the_database_match_accepts_and_the_fold_refuses_is_no_seat(mongo_replica_set_url: str):
     """A case where the post-read fold is a judgement: the pre-filter reaches the row, and the fold keeps the long s apart from „s“.
 
     One of the cases killing a presence test in its place.
     """
 
-    assert answered(mongo_url, PARTED_ASKED).sitze == []
+    assert answered(mongo_replica_set_url, PARTED_ASKED).sitze == []
 
 
 @pytest.mark.db
-def test_a_spelling_the_database_match_accepts_and_the_fold_refuses_is_no_referee(mongo_url: str):
+def test_a_spelling_the_database_match_accepts_and_the_fold_refuses_is_no_referee(mongo_replica_set_url: str):
     """The referee half of the same judgement, whose comprehension carries its own fold clause."""
 
-    assert answered(mongo_url, PARTED_ASKED).schiedsrichter == []
+    assert answered(mongo_replica_set_url, PARTED_ASKED).schiedsrichter == []
 
 
 @pytest.mark.db
-def test_the_parted_spelling_is_one_the_database_match_reaches(mongo_url: str):
+def test_the_parted_spelling_is_one_the_database_match_reaches(mongo_replica_set_url: str):
     """The control under the two cases above: without it both would pass on a lookup that reaches those rows never.
 
     Read through the pipelines rather than asked for: the payload refuses the stored spelling, its local part being above ASCII.
@@ -316,7 +402,7 @@ def test_the_parted_spelling_is_one_the_database_match_reaches(mongo_url: str):
 
         return [row["_id"] for row in seats], [row["_id"] for row in referees]
 
-    seat_ids, referee_ids = on_a_league(mongo_url, candidates)
+    seat_ids, referee_ids = on_a_league(mongo_replica_set_url, candidates)
 
     assert (HAND_EDITED_ROW_OID in seat_ids, HAND_EDITED_REFEREE_OID in referee_ids) == (True, True)
 
@@ -330,10 +416,10 @@ def test_the_parted_spelling_is_one_no_payload_stores_and_the_fold_parts():
 
 
 @pytest.mark.db
-def test_an_internationalised_domain_answers_all_three_kinds(mongo_url: str):
+def test_an_internationalised_domain_answers_all_three_kinds(mongo_replica_set_url: str):
     """Kills a fold that decodes the punycode it is handed, which no stored row then equals."""
 
-    answer = answered(mongo_url, IDN_ASKED)
+    answer = answered(mongo_replica_set_url, IDN_ASKED)
 
     assert [seat.team_id for seat in answer.sitze] == [TEAM_C_OID]
     assert [row.spieler_id for row in answer.spieler] == [IDN_PUPIL_OID]
@@ -341,45 +427,45 @@ def test_an_internationalised_domain_answers_all_three_kinds(mongo_url: str):
 
 
 @pytest.mark.db
-def test_the_sharp_s_address_and_the_double_s_one_are_two_mailboxes(mongo_url: str):
+def test_the_sharp_s_address_and_the_double_s_one_are_two_mailboxes(mongo_replica_set_url: str):
     """Kills `casefold` in the fold, which maps „ß“ to „ss“ and would hand one person the other's seat.
 
     Each address holds a seat at a club of its own, so collapsing the two answers the wrong club
     rather than nothing.
     """
 
-    assert [seat.team_id for seat in answered(mongo_url, SHARP_S_ASKED).sitze] == [TEAM_A_OID]
-    assert [seat.team_id for seat in answered(mongo_url, DOUBLE_S_ASKED).sitze] == [TEAM_B_OID]
+    assert [seat.team_id for seat in answered(mongo_replica_set_url, SHARP_S_ASKED).sitze] == [TEAM_A_OID]
+    assert [seat.team_id for seat in answered(mongo_replica_set_url, DOUBLE_S_ASKED).sitze] == [TEAM_B_OID]
 
 
 @pytest.mark.db
-def test_an_address_arriving_unfolded_answers_the_same_seats(mongo_url: str):
+def test_an_address_arriving_unfolded_answers_the_same_seats(mongo_replica_set_url: str):
     """Kills trusting the caller to have folded: the payload lower-cases the domain alone, so a half-folded value would miss every seat."""
 
-    assert [seat.team_id for seat in answered(mongo_url, SEAT_STORED).sitze] == [TEAM_A_OID, TEAM_B_OID, TEAM_B_OID]
+    assert [seat.team_id for seat in answered(mongo_replica_set_url, SEAT_STORED).sitze] == [TEAM_A_OID, TEAM_B_OID, TEAM_B_OID]
 
 
 @pytest.mark.db
-def test_an_address_the_league_holds_nothing_for_answers_three_empty_lists(mongo_url: str):
+def test_an_address_the_league_holds_nothing_for_answers_three_empty_lists(mongo_replica_set_url: str):
     """The control: without it every case above would pass on a lookup that answers everything it is asked."""
 
-    answer = answered(mongo_url, "niemand.hierverzeichnet@example.com")
+    answer = answered(mongo_replica_set_url, "niemand.hierverzeichnet@example.com")
 
     assert (answer.sitze, answer.spieler, answer.schiedsrichter) == ([], [], [])
 
 
 @pytest.mark.db
-def test_a_seat_carries_the_name_the_club_was_played_under(mongo_url: str):
+def test_a_seat_carries_the_name_the_club_was_played_under(mongo_replica_set_url: str):
     """Kills a join onto `teams`: the first club has been renamed since, so its own document holds the other name."""
 
-    assert [seat.team_name for seat in answered(mongo_url).sitze] == [ROW_NAME_A, ROW_NAME_B, ROW_NAME_B]
+    assert [seat.team_name for seat in answered(mongo_replica_set_url).sitze] == [ROW_NAME_A, ROW_NAME_B, ROW_NAME_B]
 
 
 @pytest.mark.db
-def test_a_seat_carries_its_own_season_s_status(mongo_url: str):
+def test_a_seat_carries_its_own_season_s_status(mongo_replica_set_url: str):
     """The one read of `saisons` a seat costs. Two seasons of differing status, so a status taken from whichever sorted first is wrong here."""
 
-    assert [seat.saison_status for seat in answered(mongo_url).sitze] == ["past", "active", "active"]
+    assert [seat.saison_status for seat in answered(mongo_replica_set_url).sitze] == ["past", "active", "active"]
 
 
 def test_every_person_slot_the_block_declares_is_a_published_role():
@@ -419,14 +505,14 @@ def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
 
 
 @pytest.mark.db
-def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_url: str):
+def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_replica_set_url: str):
     """The whole body, so `response_model`'s own serialisation is compared rather than the objects behind it.
 
     A collection bound to the wrong parameter answers an empty list, and no case calling the
     function by keyword can tell.
     """
 
-    response = served_over_http(mongo_url)
+    response = served_over_http(mongo_replica_set_url)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -456,4 +542,178 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_url: st
         ],
         "spieler": [{"spieler_id": str(PUPIL_ONE_OID)}, {"spieler_id": str(PUPIL_TWO_OID)}],
         "schiedsrichter": [{"schiedsrichter_id": str(REFEREE_ONE_OID)}, {"schiedsrichter_id": str(REFEREE_TWO_OID)}],
+        "unbestaetigt": False,
+        "gesperrt": False,
+        "verwaltung": None,
+        "berechtigt_seit": None,
+        "inhaber_seit": None,
     }
+
+
+@pytest.mark.db
+def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirmation(mongo_replica_set_url: str):
+    """An unconfirmed seat and a referee row whose record is null: the lists empty and the flag set, which empty lists alone cannot say."""
+
+    response = served_over_http(mongo_replica_set_url, UNCONFIRMED)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "acknowledged": 1,
+        "sitze": [],
+        "spieler": [],
+        "schiedsrichter": [],
+        "unbestaetigt": True,
+        "gesperrt": False,
+        "verwaltung": None,
+        "berechtigt_seit": None,
+        "inhaber_seit": None,
+    }
+
+
+@pytest.mark.db
+def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_replica_set_url: str):
+    """A confirmed pupil row and a confirmed referee row, both retired: empty lists and the flag down, as for a mailbox holding nothing."""
+
+    response = served_over_http(mongo_replica_set_url, RETIRED)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "acknowledged": 1,
+        "sitze": [],
+        "spieler": [],
+        "schiedsrichter": [],
+        "unbestaetigt": False,
+        "gesperrt": False,
+        "verwaltung": None,
+        "berechtigt_seit": None,
+        "inhaber_seit": None,
+    }
+
+
+@pytest.mark.db
+class TestTheBanFlag:
+    def test_a_banned_address_asked_in_another_spelling_is_flagged_and_keeps_its_seat(self, mongo_replica_set_url: str):
+        """Asked in a spelling other than the one the ban was keyed under; the seat beside it kills a ban that narrows the records."""
+
+        answer = answered(mongo_replica_set_url, GESPERRT_ASKED)
+
+        assert answer.gesperrt is True
+        assert [(seat.team_id, seat.rolle) for seat in answer.sitze] == [(TEAM_C_OID, "stellvertretung")]
+
+    def test_an_address_the_list_does_not_hold_is_not_flagged(self, mongo_replica_set_url: str):
+        assert answered(mongo_replica_set_url).gesperrt is False
+
+    def test_a_ban_whose_last_season_has_passed_no_longer_flags(self, mongo_replica_set_url: str):
+        """The row still stands, as it does between the season's end and the rollover that deletes it; its bound is what lapses it."""
+
+        assert answered(mongo_replica_set_url, ABGELAUFEN).gesperrt is False
+
+
+@pytest.mark.db
+class TestTheGrant:
+    """`verwaltung`: the one stored answer, read off `berechtigungen` on the folded identifier."""
+
+    def test_an_administrators_grant_is_answered_whatever_case_it_is_asked_in(self, mongo_replica_set_url: str):
+        """Asked in capitals; the grant stores the folded spelling, so an equality on the raw address would answer null."""
+
+        assert answered(mongo_replica_set_url, VERWALTUNG_ASKED).verwaltung == "administration"
+
+    def test_the_owners_grant_is_answered_as_the_owner(self, mongo_replica_set_url: str):
+        assert answered(mongo_replica_set_url, VERWALTUNG_INHABER).verwaltung == "owner"
+
+    def test_a_mailbox_holding_records_and_no_grant_is_answered_null(self, mongo_replica_set_url: str):
+        """The control: a lookup answering a tier for every address passes both cases above."""
+
+        answer = answered(mongo_replica_set_url)
+
+        assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
+        assert answer.sitze
+
+    def test_each_grant_is_dated_by_the_reconciliation_s_find_where_it_made_one_and_by_its_own_date_otherwise(self, mongo_replica_set_url: str):
+        """The `owner` grant's row carries both, the later the find.
+
+        A lookup reading `erteilt_am` alone would date a paste by whatever was typed.
+        """
+
+        assert [answered(mongo_replica_set_url, email).berechtigt_seit for email in (VERWALTUNG_INHABER, VERWALTUNG_ASKED)] == [
+            GRANT_FOUND,
+            GRANT_TYPED,
+        ]
+
+    def test_an_address_changed_in_place_before_the_reconciliation_found_it_is_answered_no_grant(self, mongo_replica_set_url: str):
+        """Its row still carries the address before's dates, so a tier dated by them would admit the new holder's older sessions."""
+
+        async def repointed(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"adresse": BYSTANDER}})
+
+            return await call_subjekt(database, BYSTANDER)
+
+        answer = on_a_league(mongo_replica_set_url, repointed)
+
+        assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
+
+    def test_only_the_owners_grant_is_answered_with_when_its_tier_took_effect(self, mongo_replica_set_url: str):
+        assert [answered(mongo_replica_set_url, email).inhaber_seit for email in (VERWALTUNG_INHABER, VERWALTUNG_ASKED)] == [
+            GRANT_FOUND,
+            None,
+        ]
+
+    def test_a_promotion_after_the_grant_dates_the_owners_tier_and_leaves_the_grant_dated(self, mongo_replica_set_url: str):
+        """An administrator signed in between the two administers and holds no owner's power (`docs/backend/spec.md :: I534`)."""
+
+        async def promoted(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_INHABER_OID}, {"$set": {"ernannt_am": GRANT_PROMOTED}})
+
+            return await call_subjekt(database, VERWALTUNG_INHABER)
+
+        answer = on_a_league(mongo_replica_set_url, promoted)
+
+        assert (answer.verwaltung, answer.berechtigt_seit, answer.inhaber_seit) == ("owner", GRANT_FOUND, GRANT_PROMOTED)
+
+    def test_a_promotion_made_in_the_database_is_answered_as_the_administrator_until_the_reconciliation_finds_it(
+        self, mongo_replica_set_url: str
+    ):
+        """Nothing dates the edit, so the row's tier would date an owner's power by the administrator's grant."""
+
+        async def raised(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"verwaltung": "owner"}})
+
+            return await call_subjekt(database, VERWALTUNG_STORED)
+
+        answer = on_a_league(mongo_replica_set_url, raised)
+
+        assert (answer.verwaltung, answer.berechtigt_seit, answer.inhaber_seit) == ("administration", GRANT_TYPED, None)
+
+    def test_a_row_the_reconciliation_saw_that_stands_without_its_record_is_answered_no_grant(self, mongo_replica_set_url: str):
+        """As a row put back after the reconciliation erased its record stands: every date it carries predates its return."""
+
+        async def put_back(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"gesehen_am": GRANT_FOUND}})
+            await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].delete_one({"_id": GRANT_STORED_OID})
+
+            return await call_subjekt(database, VERWALTUNG_STORED)
+
+        answer = on_a_league(mongo_replica_set_url, put_back)
+
+        assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
+
+    def test_a_paste_no_reconciliation_has_found_is_dated_no_earlier_than_its_id(self, mongo_replica_set_url: str):
+        """Typed long before it was pasted, so the frontend's guard would admit sessions older than the paste."""
+
+        pasted = datetime(2026, 3, 1, 9, 0, tzinfo=UTC)
+
+        async def pasted_late(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].insert_one(_grant(ObjectId.from_datetime(pasted), BYSTANDER, "administration"))
+
+            return await call_subjekt(database, BYSTANDER)
+
+        answer = on_a_league(mongo_replica_set_url, pasted_late)
+
+        assert (answer.verwaltung, answer.berechtigt_seit) == ("administration", pasted)
+
+    def test_the_instant_is_served_with_its_offset(self, mongo_replica_set_url: str):
+        """The driver reads a stored instant back with no offset, which the frontend would compare as its own local time."""
+
+        response = served_over_http(mongo_replica_set_url, VERWALTUNG_STORED)
+
+        assert response.json()["berechtigt_seit"] == "2026-01-01T00:00:00Z"

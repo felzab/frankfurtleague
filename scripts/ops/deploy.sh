@@ -50,6 +50,10 @@ EDGE_START_POLLS=50
 # `scripts/tests/test_deploy_edge_config.py`: one missing here is fetched only after the recreate.
 EDGE_IMAGE_SERVICES=(nginx cloudflared)
 
+# Where a reader is handed its package's environment file, read-only, as `.env`: the name the backend's
+# settings class takes from the directory it is built in.
+ENV_MOUNTS="/run/fl-env"
+
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
@@ -84,6 +88,7 @@ fi
 require_platform linux
 require_docker
 require_file "$COMPOSE"
+refuse_compose_dotenv
 
 # `version`, never `revision`: the version label is the tag the build was pushed under, and the
 # revision is the full commit, which no tag spells.
@@ -145,13 +150,15 @@ Compose's own output is above."
   ok "this host holds the images ${EDGE_IMAGE_SERVICES[*]} run"
 }
 
-# `get_config`, never `BackendConfig()`: pydantic renders `input_value=` on its own ValidationError,
-# and everything below reaches this script's output. The names alone are what an operator needs.
+# `read_environment`, never `BackendEnvironment()`: pydantic renders `input_value=` on its own
+# ValidationError, and everything below reaches this script's output. The environment half alone:
+# this caller's uid reads no secret file (`scripts/lib/_lib.sh :: check_backend_boot_config` does).
 ENV_NAME_CHECK='
+import os
 import sys
 
 try:
-    from app.core.config import EnvironmentValidationError, get_config
+    from app.core.config import EnvironmentValidationError, read_environment
 except Exception as unavailable:
     # Guarded apart, and never inside the block below: an except clause naming a class the import
     # never bound raises a NameError of its own, which is the traceback this arm exists to prevent.
@@ -159,7 +166,15 @@ except Exception as unavailable:
     raise SystemExit(4)
 
 try:
-    get_config()
+    # Imported from the image working directory, then read from the one the file is mounted in:
+    # the settings class takes its file from wherever it is built.
+    os.chdir(sys.argv[1])
+    retired = read_environment().retired_variables
+    # Said and never refused: the image a rollback returns to reads these lines.
+    if retired:
+        # No single quote anywhere in this program: the shell string holding it would end there.
+        names = ", ".join(sorted(retired))
+        print(f"Retired, and read by nothing: {names}", file=sys.stderr)
 except EnvironmentValidationError as refusal:
     print(refusal, file=sys.stderr)
     raise SystemExit(3)
@@ -170,29 +185,69 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
+# 3 where the backend image predates the secret files, whose release added `read_secrets`; 4 where it
+# could not be asked. The module is imported apart, so a missing one is no answer about its age.
+SECRET_FILES_READER_CHECK='
+import sys
+
+try:
+    import app.core.config as config
+except Exception as unavailable:
+    print(type(unavailable).__name__, file=sys.stderr)
+    raise SystemExit(4)
+
+raise SystemExit(0 if hasattr(config, "read_secrets") else 3)
+'
+
+# A build from before the secret files was released with another compose file, edge and preflight
+# than this checkout's, so this checkout deploys it by no tag (docs/ops/runbooks.md §16).
+reads_secret_files() { # $1 a backend image this host holds
+  docker run --rm --pull never --network none "$1" python -c "$SECRET_FILES_READER_CHECK"
+}
+
+# Before either tag moves, so a refused pin leaves the host's pair as it found it.
+check_pin_reads_secret_files() {
+  local rc=0 said=""
+  said="$(reads_secret_files "${REPO_BACKEND}:${PIN}" 2>&1)" || rc=$?
+  if (( rc == 3 )); then
+    refuse "${PIN} is a build from before the secret files. It was released with another compose file,
+edge and preflight than this checkout's, so it is deployed from its own commit, as
+docs/ops/runbooks.md §16 says. NOTHING has been recreated, and neither :latest tag has moved."
+  elif (( rc )); then
+    if [[ -n "$said" ]]; then printf '%s\n' "$said" | detail; fi
+    # An advisory: every check after this one still runs against the pinned pair.
+    warn "the pinned backend image could not be asked whether it reads the secret files (exit ${rc}), so
+nothing here says whether ${PIN} predates them. Its own answer is above."
+  fi
+}
+
 # One mount, one user and one filter for either package's reader: the two judge different things and
 # each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
 read_env_names() {
   local package="$1" image="$2"; shift 2
   local rc=0 said=""
-  # The caller's own identity, never the image's user, whose uid this host does not have: the file is
-  # readable by whoever runs this script. `--network none` because a reader reaching one would reach
-  # it holding the file.
+  # The caller's own identity, never the image's user, whose uid this host does not have: the files
+  # are readable by whoever runs this script. `--network none` because a reader reaching one would
+  # reach it holding the files.
   said="$(docker run --rm --network none --user "$(id -u):$(id -g)" \
-    -v "${PWD}/${package}/.env:/app/.env:ro" "$image" "$@" 2>&1)" || rc=$?
+    -v "${PWD}/${package}/.env:${ENV_MOUNTS}/.env:ro" "$image" "$@" 2>&1)" || rc=$?
   # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
   if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  # The reader names its mount, which is no path on this host.
+  if [[ "$said" == *line* ]]; then
+    detail "A line number above counts lines of ${package}/.env, the file to open."
+  fi
   return "$rc"
 }
 
-# The one place the environment file is read AS A FILE, and so the only place a name nothing declares
+# The one place the environment files are read AS FILES, and so the only place a name nothing declares
 # can be seen: compose hands the container its keys as variables instead
 # (`fl_backend/app/core/config.py :: model_config`, `docs/ops/spec.md :: I181`).
 check_env_names() {
   local rc=0
-  read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" || rc=$?
+  read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_MOUNTS" || rc=$?
   if (( rc == 3 )); then
-    refuse "the backend refuses this host's environment file, and the line above is its own answer: the
+    refuse "the backend refuses this host's fl_backend/.env, and the line above is its own answer: the
 variables it could not accept, or the type of a read that failed before it reached one. No value is
 printed either way, and which remedy the line asks for is read off the names it carries. A name the
 backend declares is a value to correct; any other name is a line to delete or a field to add to the
@@ -205,20 +260,18 @@ NOTHING has been recreated, and the site is untouched."
     warn "the pulled backend image could not be asked to read fl_backend/.env (exit ${rc}), so nothing
 here says whether the backend accepts what it holds. Its own answer is above."
   else
-    ok "the backend accepts every name and value in fl_backend/.env, as python-dotenv parses it"
+    ok "the backend accepts every name and value in fl_backend/.env, as python-dotenv parses them"
   fi
 }
 
 # Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
-# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`, `:: REQUIRED_ENVIRONMENT_NAMES`
-# and `:: PRODUCTION_REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
+# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and
+# `:: REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
 check_frontend_env_names() {
   local rc=0
-  # `--production` because this script has one deployment, the production stack the compose file
-  # above names: the reader judges names, and the schema's production-only half rests on a VALUE.
-  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs --production || rc=$?
+  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_MOUNTS}/.env" || rc=$?
   if (( rc == 3 )); then
-    refuse "the frontend refuses this host's environment file, and the line above names the variables.
+    refuse "the frontend refuses this host's fl_frontend/.env, and the line above names the variables.
 An undeclared name is one nothing in the schema reads, so the line reads as omitted and the shipped
 default serves production -- delete it, correct its spelling, or declare it in the schema. A missing
 required name is one the boot gate would meet instead, after the recreate and behind an edge already
@@ -228,10 +281,24 @@ NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal, for the reason `check_env_names` carries.
     warn "the pulled frontend image could not be asked to read fl_frontend/.env (exit ${rc}), so nothing
-here says whether it holds every name the frontend requires and none it does not declare. Its own
-answer is above."
+here says whether it holds every name the frontend requires and none it does not declare.
+Its own answer is above."
   else
     ok "fl_frontend/.env holds every name the frontend requires and none it does not declare"
+  fi
+}
+
+# Compose hands the key over with the host file's owner and mode (`docs/ops/spec.md` §1.2): a key
+# another account can read passes every check here, while any login on this host could mint an actor.
+signing_key_mode_advisory() {
+  local mode=""
+  if ! mode="$(stat -c '%a' "$SIGNING_KEY_FILE" 2>/dev/null)" || [[ ! "$mode" =~ ^[0-7]+$ ]]; then
+    warn "the mode of ${SIGNING_KEY_FILE} could not be read, so nothing here says whether another account on this host can read it."
+  # A warning rather than a refusal: the stack runs either way, and the exposure is already there.
+  elif (( 8#$mode & 8#077 )); then
+    warn "${SIGNING_KEY_FILE} has mode ${mode}, so an account other than its owner can reach it, and with it mint
+any actor the backend trusts. Give it to the frontend's user alone (docs/ops/runbooks.md §16):
+  sudo chown 1001:1001 ${SIGNING_KEY_FILE} && sudo chmod 400 ${SIGNING_KEY_FILE}"
   fi
 }
 
@@ -542,9 +609,24 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   if (( edge_rc )); then return "$edge_rc"; fi
   # Not "the site is back", which neither read above establishes: the edge is answered by --status.
   ok "rolled back — ${name} is healthy again and nginx is proxying to it"
-  # Nothing here reaches the registry, so its `:latest` still resolves to the build that just failed
-  # and a bare re-run fetches it, fails again, and pays the whole outage a second time.
+  rollback_advice
+  return 0
+}
+
+# Nothing here reaches the registry, so its `:latest` still resolves to the build that just failed
+# and a bare re-run fetches it, fails again, and pays the whole outage a second time.
+rollback_advice() {
+  local reads=0
   if [[ -n "$PREV_PIN" ]]; then
+    # Asked of the image restored: a tag this checkout refuses is no way back to it.
+    reads_secret_files "$PREV_BE_IMG" >/dev/null 2>&1 || reads=$?
+  fi
+  if [[ -n "$PREV_PIN" ]] && (( reads == 3 )); then
+    detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
+           "script bare. ${PREV_PIN} is from before the secret files, which this checkout deploys by no tag:" \
+           "publish a good build (gh workflow run publish.yml --ref main), or deploy ${PREV_PIN} from its" \
+           "own commit as docs/ops/runbooks.md §16 says."
+  elif [[ -n "$PREV_PIN" ]]; then
     detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
            "script bare. Deploy by tag until a good build is published:" \
            "  ./scripts/ops/deploy.sh ${PREV_PIN}"
@@ -553,7 +635,6 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
            "script bare. Publish a good build (gh workflow run publish.yml --ref main), or deploy one by tag:" \
            "  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
   fi
-  return 0
 }
 
 # --- --status: answer "what is actually running?" ----------------------------------------------------
@@ -701,6 +782,8 @@ section "preflight"
 step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
+check_env_spellings "fl_frontend/.env"
+check_env_spellings "fl_backend/.env"
 # Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
 # loads no server of this site's or refuses the include, the edge serving its previous
 # configuration until it restarts.
@@ -709,6 +792,13 @@ require_file "nginx/shared/http.conf" "nginx/prod/prod.conf includes it from the
 require_file "nginx/shared/site.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
 require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
+require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate the pair: docs/ops/runbooks.md §16."
+signing_key_mode_advisory
+# Each file once, the two services sharing the internal keys.
+for secret_file in $(printf '%s\n' "${FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | sort -u); do
+  require_file "secrets/${secret_file}" "A service reads it at /run/secrets/${secret_file}. Write it as docs/ops/runbooks.md §16 says."
+done
+check_moved_names warn fl_frontend/.env fl_backend/.env
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
 
@@ -931,6 +1021,7 @@ Published builds are at https://github.com/felzab?tab=packages"
   docker pull "${REPO_BACKEND}:${PIN}"  || refuse "could not pull ${REPO_BACKEND}:${PIN} — docker's
 own reason is above. The frontend's :latest has NOT moved yet, so this host is untouched."
   compare_pulled_pair "${REPO_FRONTEND}:${PIN}" "${REPO_BACKEND}:${PIN}"
+  check_pin_reads_secret_files
   # Only now, with both pulls behind us and the pair accepted, do the moving tags compose reads by
   # name move.
   quietly docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND" || die "could not point ${IMAGE_FRONTEND} at ${PIN}."
@@ -960,6 +1051,18 @@ fi
 step "The environment files, read by the builds about to run"
 check_env_names
 check_frontend_env_names
+# Through compose, as `local.sh` asks it: only the service's own container reads the key where its
+# environment files point it. It holds nothing the running frontend does not, on the frontend's network.
+check_actor_key "NOTHING has been recreated, and the site is untouched." \
+  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
+
+step "The secret files, read by the containers about to run"
+# Each service's own container, for the key check's reason: only it runs as the user, and in the
+# group, the files are handed over to (`docs/ops/spec.md :: I510`).
+check_frontend_secret_files "NOTHING has been recreated, and the site is untouched." production \
+  docker compose -f "$COMPOSE" run --rm --no-deps -T
+check_backend_boot_config "NOTHING has been recreated, and the site is untouched." \
+  docker compose -f "$COMPOSE" run --rm --no-deps -T
 
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 
@@ -1041,7 +1144,8 @@ No rollback runs on that: it would be undoing a build nothing here has judged.
 Reload the edge first, which answers 200 once applied:
   docker compose -f ${COMPOSE} exec -T nginx curl -s -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config
 Then ask what is running:  docker compose -f ${COMPOSE} ps
-And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}"
+And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}
+(a build from before the secret files is refused by tag; docs/ops/runbooks.md §16 deploys it)."
   fi
 fi
 
@@ -1131,10 +1235,14 @@ else
          "names the env file to fix." \
          "A backend line opening 'The environment could not be read:' is that same gate on a file it" \
          "could not parse at all, naming the failure's type where it has no variable to name." \
-         "A line opening 'MONGODB_URI:' is the backend's other refusal, and its continuation says" \
+         "'Invalid secret files: <FILES>' names a secret file that is missing or holds a value the" \
+         "gate refuses, and 'Unreadable secret files: <PATH> (<ERRNO>)' one the service's user cannot" \
+         "read; both services word them identically." \
+         "A line opening 'backend_mongodb_uri:' is the backend's other refusal, and its continuation says" \
          "which of three: the value yielded no server to connect to, the server refused to" \
          "authenticate it, or the server could not be reached." \
-         "Neither gate prints a value, so the .env file is what to read and the log is not."
+         "Neither gate prints a value, so the .env file, or the file under secrets/ the line names," \
+         "is what to read, and the log is not."
   if (( SAME_BUILD )); then
     detail "" "This deploy pulled the images that were ALREADY running, so there is nothing to put" \
               "back: a rollback would restore the build that just failed and cost a second outage" \

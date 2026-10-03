@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
@@ -13,14 +13,17 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   ABSATZ_CLASSES,
+  AdresseGesperrt,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
   Gefuellt,
   GespeicherteAngaben,
+  useLinkSeite,
   Wert,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
@@ -51,8 +54,8 @@ import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
-import type { Slots } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
+import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 import type { FLEinwilligungUmfang } from "../../schemas";
@@ -67,8 +70,8 @@ import type {
 
 type Stand = SpielerBestaetigungStart | { zustand: "erfolg"; ansicht: SpielerBestaetigungGeoeffnet; gespeichert: SpielerBestaetigungDraft };
 
-/** One heading per state, uppercased by the page rather than typed so, as the application page does it. */
-const TITEL: Record<Stand["zustand"], string> = {
+/** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
+const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Registrierung bestätigen",
   erfolg: "Registrierung bestätigt",
   bestaetigt: "Schon erledigt",
@@ -76,9 +79,6 @@ const TITEL: Record<Stand["zustand"], string> = {
   ungueltig: "Link ungültig",
   unlesbar: "Link nicht geprüft",
 };
-
-/** The application page's own column, so both ends of every public workflow are one page wide. */
-const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
@@ -109,7 +109,7 @@ function toCalendarDate(stored: string): CalendarDate | null {
 
 /**
  * The standing text, in the order a reader meets it rather than the legal draft's: the media
- * paragraph sits at its switch and the four points at the button.
+ * paragraph sits at its switch and the points at the button.
  */
 function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaetze"]; werte: Slots }) {
   const absatz = (schluessel: SpielerAbsatzSchluessel) => (
@@ -154,7 +154,7 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaet
 }
 
 /**
- * **The one wording of the four points**: the button describes itself by this block's `id` rather
+ * **The one wording of the points**: the button describes itself by this block's `id` rather
  * than by a summary sentence beside it, which is how a reader meets the same promise twice.
  */
 function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: SpielerFassung["absaetze"]; werte: Slots }) {
@@ -190,21 +190,9 @@ type Antwort =
  */
 export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBestaetigungStart; fassung: SpielerFassung }) {
   const [stand, setStand] = useState<Stand>(start);
-  const [hatGeantwortet, setHatGeantwortet] = useState(false);
-  const ergebnisRef = useRef<HTMLElement>(null);
+  const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
-  useEffect(() => {
-    // The bare path after hydration, so the address bar, a screenshot and a bookmark carry no token.
-    // Not while the read failed: a reload is the way back, and it needs the token in the URL.
-    if (stand.zustand === "unlesbar" || window.location.search === "") return;
-    window.history.replaceState(null, "", window.location.pathname);
-  }, [stand.zustand]);
-
-  // The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
-  // announced; the panel takes it, and `role="status"` reads it out.
-  useEffect(() => {
-    if (hatGeantwortet) ergebnisRef.current?.focus();
-  }, [hatGeantwortet]);
+  if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   // Off the CURRENT state and never the one the page opened on: a link the write found dead is
   // answered by a panel that names nobody, and the banner beside it would name the team anyway.
@@ -233,7 +221,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
           ansicht={stand.ansicht}
           fassung={fassung}
           onAbschluss={(abschluss) => {
-            setHatGeantwortet(true);
+            beantwortet();
             setStand(
               abschluss.zustand === "erfolg"
                 ? { zustand: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert }
@@ -377,7 +365,7 @@ function SpielerBestaetigungForm({
     minAlter: String(ansicht.mindestalter),
     medienMinAlter: String(ansicht.medien_mindestalter),
     kontakt: KONTAKT_EMAIL,
-    // Filled rather than left standing: `fuelleFassung` leaves an unfilled slot as written, so the
+    // Filled rather than left standing: `Gefuellt` leaves an unfilled slot as written, so the
     // consent text would spell its own placeholder on the live page.
     loeschung: "Konto löschen",
   };

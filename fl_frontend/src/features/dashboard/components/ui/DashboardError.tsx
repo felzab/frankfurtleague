@@ -15,7 +15,7 @@ export function DashboardError({ error, retry, isRetrying }: { error: Error & { 
       tone="warning"
       badgeLabel="Spielunterbrechung"
       heading="Daten konnten nicht geladen werden."
-      message="Dieser Bereich ist gerade nicht erreichbar. Der Fehler wurde automatisch gemeldet."
+      message="Diese Seite ist gerade nicht erreichbar. Der Fehler wurde automatisch gemeldet."
       digest={error.digest}>
       <Button
         onPress={() => retry()}

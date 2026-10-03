@@ -11,10 +11,12 @@ export function AdminDeleteSchiedsrichterModal({
   schiedsrichterData,
   isOpen,
   onClose,
+  onRetired,
 }: {
   schiedsrichterData: FLSchiedsrichter | null;
   isOpen: boolean;
   onClose: () => void;
+  onRetired: () => void;
 }) {
   const schiedsrichter = useRetainedValue(schiedsrichterData);
 
@@ -28,6 +30,7 @@ export function AdminDeleteSchiedsrichterModal({
     <ConfirmDeleteModal
       isOpen={isOpen}
       onClose={onClose}
+      onRetired={onRetired}
       heading="Schiedsrichter stilllegen"
       entityLabel="den Schiedsrichter"
       entityName={nennung}

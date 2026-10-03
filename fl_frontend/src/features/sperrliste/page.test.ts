@@ -14,7 +14,7 @@ doubleActionRequest();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
-const { default: AdminSperrlistePage } = await import("@/app/admin/sperrliste/page.tsx");
+const { default: AdminSperrlistePage } = await import("@/app/bereich/admin/sperrliste/page.tsx");
 const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
 
 /** The one ban the list read answers, every other read the emptiest body its schema takes. */
@@ -22,6 +22,7 @@ const EINTRAG = {
   id: OBJECT_ID,
   grund: "Fremde Namen eingetragen",
   erstellt_von: "vorstand@example.org",
+  erstellt_von_gesperrt: false,
   erstellt_am: "2026-03-01",
   gesperrt_bis_saison_id: "2030",
 };
@@ -32,7 +33,7 @@ answerReadsWith((endpoint, schema, params) =>
 );
 
 /** The page at its own address. */
-const PAGE = underNext(h(AdminSperrlistePage, {}), { pathname: "/admin/sperrliste" });
+const PAGE = underNext(h(AdminSperrlistePage, {}), { pathname: "/bereich/admin/sperrliste" });
 
 describe("the page the ban list stands on", () => {
   /* One `h1` per page and the admin shell owns it (`.claude/rules/frontend.md`), so what this page
@@ -43,6 +44,16 @@ describe("the page the ban list stands on", () => {
     // The control: a page rendering no row at all would satisfy the absence below unread.
     assert.ok(markup.includes(EINTRAG.grund), "the list renders no ban, so the absence below proves nothing");
     assert.ok(!markup.includes("<h1"), "the page raises an h1 the shell already owns");
+  });
+
+  /* A reason is typed by an administrator and may quote an address or a link, one word wider than the
+     card on a phone: its line breaks that word rather than run it past the card. */
+  it("breaks a word of the reason wider than its card", async () => {
+    const markup = await renderPage(PAGE);
+    const zeile = new RegExp(`<p class="([^"]*)">${EINTRAG.grund}</p>`).exec(markup)?.[1]?.split(" ");
+
+    assert.ok(zeile !== undefined, "the reason renders in no line of its own, so the case below reads nothing");
+    assert.ok(zeile.includes("wrap-break-word"), "a long word of the reason runs past the card");
   });
 
   /* The bar an administrator types into is the one control this page offers, and the query it takes

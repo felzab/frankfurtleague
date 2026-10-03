@@ -66,7 +66,9 @@ export function RefusableSelect({
       <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop rather than `Select.Value`, which can lag a render behind and would show
             HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
-        <span className={value ? "" : "text-foreground-muted"}>
+        {/* Truncated as each option below is: a picked team's name is typed by somebody, and the
+            trigger is one line at the field's height. */}
+        <span className={`min-w-0 truncate ${value ? "" : "text-foreground-muted"}`}>
           {value === null ? placeholder : value.meta === null ? value.name : `${value.name} (${value.meta})`}
         </span>
         <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />

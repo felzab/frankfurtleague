@@ -29,8 +29,8 @@ class FLKontaktErasurePayload(BaseModel):
 class FLKontaktSitz(BaseModel):
     """One seat the address holds.
 
-    Per seat and not per person: colleagues share a school inbox, and one row seats one person twice
-    where `trainer_ist_zugleich` says so, so a list keyed on the name hides both cases.
+    Per seat and not per person: one person holds seats in several seasons, and one row seats them
+    twice where `trainer_ist_zugleich` says so, so a list keyed on the name hides both cases.
     """
 
     saison_id: str

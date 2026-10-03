@@ -1,78 +1,69 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
-
-const recorders = globalThis as unknown as Record<string, unknown>;
+import { registerDoubles } from "@/core/exportingModule.ts";
 
 /**
  * Its own throwaway, minted per run and never a real one: this file signs the fixtures it verifies,
  * so nothing outside the process has to agree with it.
  */
-recorders.__flWebhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
+const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 
-// A getter, so the double reads the value above rather than a copy taken at module evaluation.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  get RESEND_WEBHOOK_SECRET() { return globalThis.__flWebhookSecret; },
-};`;
-
-const LOG_RECORDER = "__flZustellungLogs";
-
-const LOGGER_DOUBLE = `export const logger = {
-  info: (message, meta) => globalThis.${LOG_RECORDER}.push({ level: "info", message, meta }),
-  warn: (message, meta) => globalThis.${LOG_RECORDER}.push({ level: "warn", message, meta }),
-  error: (message, error, meta) => globalThis.${LOG_RECORDER}.push({ level: "error", message, error, meta }),
-};`;
-
-// Replaced at the module boundary rather than the route being reshaped to admit a seam: the real
-// client reaches a backend no test process runs.
-const MUTATIONS_DOUBLE = `export const meldeZustellEreignis = async (payload) => {
-  globalThis.__flZustellungCalls.push(payload);
-  return globalThis.__flZustellungAnswer(payload);
-};`;
-
-// Its own recorder rather than the one above: a shared array would let a case asserting the
-// application was reached pass on a call the route made to the other endpoint.
-const ZIEL_MUTATIONS_DOUBLE = `export const meldeZielZustellEreignis = async (payload) => {
-  globalThis.__flZielZustellungCalls.push(payload);
-  return globalThis.__flZielZustellungAnswer(payload);
-};`;
-
-// `next/headers` is request-only and throws outside one, so the real scope cannot run here.
-const TRACE_DOUBLE = `export const runWithIncomingTrace = async (fn) => fn();`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGER_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/features/bewerbungen/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/features/zustellung/mutations.ts")) return { format: "module", source: ZIEL_MUTATIONS_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/shared/utils/traceScope.ts")) return { format: "module", source: TRACE_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+// Read by the route on every report, so a case can take the key away and put it back.
+let heldSecret: string | undefined = webhookSecret;
+const CONFIG_DOUBLE = { resendWebhookSecret: () => heldSecret };
 
 type LoggedLine = { level: string; message: string; error?: unknown; meta?: Record<string, unknown> };
 
 const logs: LoggedLine[] = [];
-recorders[LOG_RECORDER] = logs;
+
+const LOGGER_DOUBLE = {
+  logger: {
+    info: (message: string, meta?: Record<string, unknown>) => void logs.push({ level: "info", message, meta }),
+    warn: (message: string, meta?: Record<string, unknown>) => void logs.push({ level: "warn", message, meta }),
+    error: (message: string, error: unknown, meta?: Record<string, unknown>) => void logs.push({ level: "error", message, error, meta }),
+  },
+};
+
+/** What the backend answers a reported event, or throws for it; a case names another for itself. */
+type Answer = (payload: Record<string, unknown>) => unknown;
 
 const calls: Record<string, unknown>[] = [];
-recorders.__flZustellungCalls = calls;
-recorders.__flZustellungAnswer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
+let zustellungAnswer: Answer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
 
+// Its own recorder rather than the one above: a shared array would let a case asserting the
+// application was reached pass on a call the route made to the other endpoint.
 const zielCalls: Record<string, unknown>[] = [];
-recorders.__flZielZustellungCalls = zielCalls;
-recorders.__flZielZustellungAnswer = () => ({ acknowledged: 1, angewendet: true });
+let zielZustellungAnswer: Answer = () => ({ acknowledged: 1, angewendet: true });
+
+/** A write the doubled client makes: recorded, then answered as the case names, a throw included. */
+const reporting =
+  (recorded: Record<string, unknown>[], answer: () => Answer) =>
+  async (payload: Record<string, unknown>): Promise<unknown> => {
+    recorded.push(payload);
+    return answer()(payload);
+  };
+
+// Replaced at the module boundary rather than the route being reshaped to admit a seam: the real
+// client reaches a backend no test process runs.
+const MUTATIONS_DOUBLE = { meldeZustellEreignis: reporting(calls, () => zustellungAnswer) };
+
+const ZIEL_MUTATIONS_DOUBLE = { meldeZielZustellEreignis: reporting(zielCalls, () => zielZustellungAnswer) };
+
+// `next/headers` is request-only and throws outside one, so the real scope cannot run here.
+const TRACE_DOUBLE = { runWithIncomingTrace: async (fn: () => unknown) => fn() };
+
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG_DOUBLE,
+    "core/logging.ts": LOGGER_DOUBLE,
+    "features/bewerbungen/mutations.ts": MUTATIONS_DOUBLE,
+    "features/zustellung/mutations.ts": ZIEL_MUTATIONS_DOUBLE,
+    "shared/utils/traceScope.ts": TRACE_DOUBLE,
+  },
+});
 
 const {
   hatUnerreichbarenSitz,
@@ -129,7 +120,7 @@ function eventFor(type: string, data: Record<string, unknown> = {}): Record<stri
 function signed(payload: string, { alter = 0, headers = {} }: { alter?: number; headers?: Record<string, string> } = {}) {
   const stamp = new Date(Date.now() - alter);
   const id = "msg_2xyzABC";
-  const signature = new Webhook(String(recorders.__flWebhookSecret)).sign(id, stamp, payload);
+  const signature = new Webhook(webhookSecret).sign(id, stamp, payload);
 
   return new NextRequest("http://localhost/api/mail/zustellung", {
     method: "POST",
@@ -154,8 +145,8 @@ beforeEach(() => {
   logs.length = 0;
   calls.length = 0;
   zielCalls.length = 0;
-  recorders.__flZustellungAnswer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
-  recorders.__flZielZustellungAnswer = () => ({ acknowledged: 1, angewendet: true });
+  zustellungAnswer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
+  zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: true });
 });
 
 describe("what one delivery event says about a seat", () => {
@@ -240,7 +231,7 @@ describe("what one delivery event says about a seat", () => {
     assert.equal(leseZustellEreignis(eventFor("contact.created")), null);
   });
 
-  /* The sign-in link is the untagged case, and it has no record to hang a state on. */
+  /* A message outside every tagged lane, which has no record to hang a state on. */
   it("says nothing for a message this application did not tag", () => {
     assert.equal(leseZustellEreignis(eventFor("email.delivered", { tags: undefined })), null);
     assert.equal(leseZustellEreignis(eventFor("email.delivered", { tags: { anlass: "eingang" } })), null);
@@ -483,13 +474,13 @@ describe("POST /api/mail/zustellung", () => {
     assert.ok(!inspect(logs, { depth: null }).includes("<script>"), "the reported kind reached the stream");
   });
 
-  /* The sign-in link is the one credential an administrator has no second route to: a mailbox that
-     refuses it locks them out, and before the tag rode the send there was nothing to see at all. */
-  it("writes one line for a sign-in link that did not arrive, naming neither the address nor a record", async () => {
+  /* The sign-in code is the one way in for whoever holds no passkey: a mailbox that refuses it locks
+     them out, and without the tag riding the send there would be nothing to see at all. */
+  it("writes one line for a sign-in code that did not arrive, naming neither the address nor a record", async () => {
     const anmeldung = eventFor("email.bounced", {
       bounce: { type: "Permanent", subType: "Suppressed" },
-      subject: "Anmeldelink für die Frankfurt League",
-      tags: { anmeldung: "link" },
+      subject: "Dein Anmeldecode für die Frankfurt League",
+      tags: { anmeldung: "code" },
     });
 
     const { status, body } = await answerTo(signed(JSON.stringify(anmeldung)));
@@ -509,8 +500,8 @@ describe("POST /api/mail/zustellung", () => {
 
   /* The ordinary course, and the arm that decides whether the line above is a signal: a lane
      logging every event would bury the one an operator has to act on. */
-  it("writes nothing for a sign-in link that was delivered", async () => {
-    const anmeldung = eventFor("email.delivered", { tags: { anmeldung: "link" } });
+  it("writes nothing for a sign-in code that was delivered", async () => {
+    const anmeldung = eventFor("email.delivered", { tags: { anmeldung: "code" } });
 
     const { status, body } = await answerTo(signed(JSON.stringify(anmeldung)));
 
@@ -519,8 +510,30 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(logs, []);
   });
 
+  /* The notice telling every holder who administers: its outbox row is gone once stamped, so a holder it
+     missed is a line or nothing. */
+  it("writes one line for a grants notice that did not arrive, and none for one that did", async () => {
+    const hinweis = (type: string) =>
+      eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { berechtigung: "hinweis" } });
+
+    const zugestellt = await answerTo(signed(JSON.stringify(eventFor("email.delivered", { tags: { berechtigung: "hinweis" } }))));
+    assert.equal(logs.length, 0, "a delivered notice wrote a line");
+
+    const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
+
+    assert.equal(zugestellt.status, 200);
+    assert.equal(status, 200);
+    assert.deepEqual(body, { angewendet: [] });
+    assert.deepEqual(calls, [], "the notice lane reached the application's endpoint");
+    assert.deepEqual(zielCalls, [], "the notice lane reached the generic endpoint");
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-010");
+    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
+    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
+  });
+
   it("answers 200 where the backend applied the tagged event to no record", async () => {
-    recorders.__flZielZustellungAnswer = () => ({ acknowledged: 1, angewendet: false });
+    zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: false });
 
     const tagged = eventFor("email.delivered", { tags: { ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" } });
 
@@ -571,6 +584,25 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(calls, []);
   });
 
+  /* A deployment other than production holds no key, the provider sending it nothing: a signed event
+     reaching one is refused unverified rather than applied. */
+  it("answers 400 and applies nothing where the deployment holds no webhook key", async () => {
+    const request = signed(JSON.stringify(eventFor("email.delivered")));
+    heldSecret = undefined;
+    try {
+      const { status } = await answerTo(request);
+
+      assert.equal(status, 400);
+    } finally {
+      heldSecret = webhookSecret;
+    }
+    assert.deepEqual(calls, []);
+    assert.deepEqual(
+      logs.map(({ message, meta }) => [message, meta?.error_code]),
+      [["mail.zustellung_unsigniert", "FE-MAIL-003"]],
+    );
+  });
+
   it("answers 400 with any one of the three signing headers missing", async () => {
     for (const missingField of ["svix-id", "svix-timestamp", "svix-signature"]) {
       const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered")), { headers: { [missingField]: "" } }));
@@ -601,7 +633,7 @@ describe("POST /api/mail/zustellung", () => {
   });
 
   it("answers 200 where the backend applied the event to no seat", async () => {
-    recorders.__flZustellungAnswer = () => ({ acknowledged: 1, angewendet: [] });
+    zustellungAnswer = () => ({ acknowledged: 1, angewendet: [] });
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
@@ -612,7 +644,7 @@ describe("POST /api/mail/zustellung", () => {
   /* The retention sweep erases an application while its last message's events are still in flight.
      Retrying those spends the endpoint's standing with the provider on a record that is gone. */
   it("answers 200 where the application no longer exists", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new APIBadStatusError({
         message: "API returned a bad status.",
         url: "http://backend:8000",
@@ -634,7 +666,7 @@ describe("POST /api/mail/zustellung", () => {
      body it does not take would each lose the event, where the provider's retry lands later. */
   it("settles an event only on the record's own answer, and has every other 4xx sent again", async () => {
     const answered = (statusCode: number, serverErrorCode: string | undefined) => async () => {
-      recorders.__flZustellungAnswer = () => {
+      zustellungAnswer = () => {
         throw new APIBadStatusError({
           message: "API returned a bad status.",
           url: "http://backend:8000",
@@ -665,7 +697,7 @@ describe("POST /api/mail/zustellung", () => {
   /* The one case a retry repairs. A 200 here tells the provider the event is settled and the state
      is lost for good, which reads on the page exactly like a message that arrived. */
   it("answers 503 where the backend could not be reached", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new APINetworkError({
         message: "Request failed.",
         url: "http://backend:8000",
@@ -684,7 +716,7 @@ describe("POST /api/mail/zustellung", () => {
 
   /* Kept from the backend by the request's deadline rather than by the network, and as unwritten. */
   it("answers 503 where the deadline refused the write before it was sent", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new ApiUnsentError("POST");
     };
 
@@ -695,7 +727,7 @@ describe("POST /api/mail/zustellung", () => {
   });
 
   it("answers 503 where the backend answered a server error", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new APIBadStatusError({
         message: "API returned a bad status.",
         url: "http://backend:8000",
@@ -713,7 +745,7 @@ describe("POST /api/mail/zustellung", () => {
   /* `docs/logging/spec.md :: L9`, and the tag block carries the application id besides. Asserted over
      the whole line, so a field added later cannot reopen it. */
   it("names no recipient and no application on any line it writes", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new APINetworkError({
         message: "Request failed.",
         url: "http://backend:8000",

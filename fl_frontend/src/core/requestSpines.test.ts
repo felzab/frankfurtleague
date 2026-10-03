@@ -1,58 +1,68 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
 import { filesUnder } from "./treeWalk.ts";
 
 const APP_DIR = path.resolve(import.meta.dirname, "..", "app");
 
+const inert = (): undefined => undefined;
+
+/** Next's response as the sweep reads one: the status a handler answered, and its body. */
+class NextResponseDouble {
+  readonly body: unknown;
+  readonly status: number;
+
+  constructor(body: unknown, init?: ResponseInit) {
+    this.body = body;
+    this.status = init?.status ?? 200;
+  }
+
+  static json(body: unknown, init?: ResponseInit): NextResponseDouble {
+    return new NextResponseDouble(body, init);
+  }
+
+  static redirect(_url: unknown, status?: number): NextResponseDouble {
+    return new NextResponseDouble(null, { status: status ?? 307 });
+  }
+}
+
 /* Each handler runs for real against these: a refused request must reach none of them, and a
    request let through reaches whichever it reaches first, which the request itself records. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/cache":
-    "const inert = () => undefined; export { inert as updateTag, inert as refresh, inert as revalidateTag, inert as cacheTag, inert as cacheLife };",
-  "next/headers": "export const headers = async () => new Headers();",
-  "next/server": `export class NextResponse {
-  constructor(body, init) { this.body = body; this.status = init?.status ?? 200; }
-  static json(body, init) { return new NextResponse(body, init); }
-  static redirect(url, status) { return new NextResponse(null, { status: status ?? 307 }); }
-}
-export const after = () => undefined;
-export const connection = async () => undefined;`,
-  "next/navigation": "export const unstable_rethrow = () => undefined;",
+const PACKAGE_DOUBLES = {
+  "next/cache": { updateTag: inert, refresh: inert, revalidateTag: inert, cacheTag: inert, cacheLife: inert },
+  "next/headers": { headers: () => Promise.resolve(new Headers()) },
+  "next/server": { NextResponse: NextResponseDouble, after: inert, connection: () => Promise.resolve() },
+  "next/navigation": { unstable_rethrow: inert },
 };
 
-const unreached = (name: string) => `() => { throw new Error("${name} is past the guard and not doubled"); }`;
+const ADMINISTRATOR = { user: { email: "vorstand@example.org" } };
 
-const MODULE_DOUBLES: Record<string, string> = {
-  "/src/core/api.ts": `export const apiClient = ${unreached("the backend")};`,
-  "/src/core/logging.ts": "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };",
-  "/src/core/config.ts": `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`,
+/**
+ * Each module replaced whole, its export names read off the real one: a route importing a name a
+ * double left out fails to link, and the sweep's worker then exits without reporting a case.
+ */
+const MODULE_DOUBLES = {
+  // No export doubled: each throws where called, as a request past the guard reaching the backend would.
+  "core/api.ts": {},
+  "core/logging.ts": { logger: { debug: inert, info: inert, warn: inert, error: inert } },
+  "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } },
   // Signed in, so the undo spine's session check lets a request through to the body it reads.
-  "/src/core/auth.ts": `export const auth = { handler: async (request) => new Response(request.url), api: {} };
-export const SIGN_IN_LANDING = "/signin/weiter";
-export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
-export const getSignInDestination = async () => "/admin";`,
+  "core/auth.ts": {
+    auth: { handler: async (request: Request) => new Response(request.url), api: {} },
+    ADDRESS_ATTEMPTS_EXHAUSTED: "ADDRESS_ATTEMPTS_EXHAUSTED",
+    forgiveCodeAttempt: async () => undefined,
+    getAdminSession: async () => ADMINISTRATOR,
+    judgeAdminRequest: async () => ({ session: ADMINISTRATOR }),
+    isFreshlySignedIn: () => true,
+  },
 };
 const mail = doubleSendMail();
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined
-      ? nextResolve(specifier, context)
-      : { url: `data:text/javascript,${encodeURIComponent(double)}`, shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    const double = Object.entries(MODULE_DOUBLES).find(([ending]) => url.endsWith(ending))?.[1];
-    return double === undefined ? nextLoad(url, context) : { format: "module", source: double, shortCircuit: true };
-  },
-});
+registerDoubles({ modules: MODULE_DOUBLES, specifiers: PACKAGE_DOUBLES });
 
 /** Every method Next routes to a handler. */
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
@@ -62,7 +72,7 @@ type Handler = (request: unknown, context: unknown) => Promise<unknown>;
 /** The handlers this guard must not stand in front of, and why. */
 const UNGUARDED: Record<string, string> = {
   "api/auth/[...all]/route.ts GET":
-    "the sign-in library's verification path is followed out of a mail client, so it arrives cross-site by construction",
+    "the library's own hook refuses every GET but the passkey's options, which hand out only a challenge its verify checks",
   "api/auth/[...all]/route.ts POST": "the sign-in library brings an origin check of its own to every path a browser posts to",
   "api/mail/zustellung/route.ts POST":
     "the provider's delivery webhook, which a 200 from the spine would tell that a forgery and an unreachable backend were both accepted",

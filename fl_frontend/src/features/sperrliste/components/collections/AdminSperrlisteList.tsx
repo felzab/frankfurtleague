@@ -4,15 +4,17 @@ import { memo } from "react";
 
 import Ban from "@gravity-ui/icons/Ban";
 
+import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { SPERRE_BIS_LABEL, sperreBisWert, SPERRLISTE_CRUD_COPY } from "@/features/sperrliste/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_LINE_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
+import { focusRow, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { AdminSperreAufhebenPanel } from "../forms/AdminSperreAufhebenPanel";
 
-import type { FLSperrlisteEintrag } from "@/features/sperrliste/schemas";
+import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
@@ -34,13 +36,13 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
   filteredSperren,
   emptiness,
 }: {
-  filteredSperren: FLSperrlisteEintrag[];
+  filteredSperren: FLSperrlisteZeile[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
   /* The day leads, being the one short token that tells two rows apart: the address is a keyed hash
      and the reason is a sentence. */
-  const renderIdentity = (eintrag: FLSperrlisteEintrag) => (
+  const renderIdentity = (eintrag: FLSperrlisteZeile) => (
     <div className={IDENTITY_ROW_CLASSES}>
       <Ban
         aria-hidden="true"
@@ -52,7 +54,7 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
               day wears the grade `AdminBewerbungenList` gives one instead. */}
           <span className="font-numeric fluid-sm font-semibold text-foreground tabular-nums">{formatSpielDatum(eintrag.erstellt_am)}</span>
         </div>
-        <span className={IDENTITY_LINE_CLASSES}>{eintrag.erstellt_von}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{vonOderGesperrt(eintrag.erstellt_von, eintrag.erstellt_von_gesperrt)}</span>
       </div>
     </div>
   );
@@ -64,10 +66,12 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
        table collection says: these are cards. */
     <ul
       aria-label="Liste aller Sperren"
+      {...focusSection("sperren")}
       className="flex w-full flex-col gap-3">
       {filteredSperren.map((eintrag) => (
         <li
           key={eintrag.id}
+          {...focusRow(eintrag.id)}
           className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
           {renderIdentity(eintrag)}
 
@@ -75,7 +79,8 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
               and a column of a card's width clips it wherever it renders. */}
           <div className="flex w-full flex-col gap-1 border-t border-border/50 pt-3">
             <span className={FACT_LABEL_CLASSES}>Grund</span>
-            <p className="fluid-sm font-medium text-foreground">{eintrag.grund}</p>
+            {/* `wrap-break-word`: a reason may quote an address or a link, one word wider than the card on a phone. */}
+            <p className="fluid-sm font-medium wrap-break-word text-foreground">{eintrag.grund}</p>
           </div>
 
           {/* Its own track under the reason rather than a line inside it: the bound is the one fact

@@ -20,6 +20,7 @@ from app.api.registrierungen.services import (
     compose_confirmation_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
+    find_bestaetigung_gesperrt_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
@@ -27,11 +28,19 @@ from app.api.registrierungen.services import (
     sole_person,
     zustand_of,
 )
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, RegistrierungenCollection, SpielerCollection, TeamsCollection, get_german_date_str
+from app.core.dependencies import (
+    DBClient,
+    RegistrierungenCollection,
+    SpielerCollection,
+    TeamsCollection,
+    get_german_date_str,
+)
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
+from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 
@@ -43,8 +52,8 @@ router = APIRouter(
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
 
-# A household rather than a person: one mailbox stands behind several pupils, and the read is
-# bounded so a larger one narrows to nothing rather than to a guess.
+# Bounded for a mailbox shared anyway, which can stand behind several pupils: a larger set narrows
+# to nothing rather than to a guess.
 _PERSONS_READ = 8
 
 
@@ -60,6 +69,7 @@ async def get_bestaetigung_ansicht(
     registrierungen_collection: RegistrierungenCollection,
     teams_collection: TeamsCollection,
     spieler_collection: SpielerCollection,
+    sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungBestaetigungAnsichtResponse:
     """
@@ -69,12 +79,15 @@ async def get_bestaetigung_ansicht(
     will be judged by, the age from which the media switch is offered, and the wording's version. Beside them the
     three answers the league already holds for this person -- the birthdate, the publication scope and the media
     switch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on
-    the registration's folded address AND its folded name: a mailbox a family shares stands behind more than one
-    pupil, so an address alone would show one of them another's birthdate. All three are null wherever that match is not exactly one person.
+    the registration's folded address AND its folded name: an address is taken for one person but enforced as one nowhere,
+    and matched on the address alone a mailbox shared anyway would show one pupil another's birthdate. All three are null wherever
+    that match is not exactly one person.
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
-    than refused, so a reopened link shows what became of it.
+    than refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever
+    the ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred
+    pupil nothing to press.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -94,22 +107,24 @@ async def get_bestaetigung_ansicht(
     persons = await pull_many_from_db(
         collection=spieler_collection,
         db_filter={"email": sign_in_identifier(str(raw.get("email") or ""))},
-        # One PAST the bound, so a larger household is seen to be larger: capped at the bound, the read
-        # answers a subset of a larger household, and a namesake left outside it makes the other look sole.
+        # One PAST the bound, so a mailbox shared by more is seen to be: capped at the bound, the read
+        # answers a subset of the people behind it, and a namesake left outside it makes the other look sole.
         limit=_PERSONS_READ + 1,
         projection=[*PERSON_IDENTITY_FIELDS, "geburtsdatum", "einwilligung"],
     )
-    household = persons if len(persons) <= _PERSONS_READ else []
+    at_the_address = persons if len(persons) <= _PERSONS_READ else []
 
-    # Narrowed by the NAME before anything is shown back: a mailbox a family shares stands behind
-    # more than one pupil.
-    named = persons_named(household, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
+    # Narrowed by the NAME before anything is shown back: nothing stops a mailbox shared anyway
+    # standing behind more than one pupil.
+    named = persons_named(at_the_address, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
 
     shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
     einwilligung = shown_back.get("einwilligung") or {}
 
+    gesperrt = await adressen_gesperrt(sperrliste, [str(raw.get("email") or "")])
+
     return FLRegistrierungBestaetigungAnsichtResponse(
-        zustand=zustand_of(registrierung_raw=raw, today=today),
+        zustand=zustand_of(registrierung_raw=raw, today=today, gesperrt=bool(gesperrt)),
         team=str(team_raw["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
@@ -132,6 +147,7 @@ async def get_bestaetigung_ansicht(
 async def post_bestaetigung(
     antwort_data: Annotated[FLRegistrierungBestaetigungPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungBestaetigungResponse:
@@ -143,15 +159,18 @@ async def post_bestaetigung(
     given under older words is renewed under the words this person just read.
 
     Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
-    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), an age
-    below the floor (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged
-    before anything is written, so a mistyped year spends nothing and the pupil keeps the link.
+    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), a link mailed to
+    an address the ban list holds now, whenever the link was minted (`-012`), an age below the floor (`-007`), and a
+    media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged before
+    anything is written, so a mistyped year spends nothing and the pupil keeps the link.
 
     The registration stays pending after this: an admission is a later decision, and nothing here writes a person
     or a squad row.
     """
 
     token_hash = hash_token(antwort_data.token)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def answer_for_the_pupil(session: AsyncClientSession) -> FLRegistrierungBestaetigungResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
@@ -168,6 +187,12 @@ async def post_bestaetigung(
 
         refuse(find_expired_token_refusal(bestaetigung=raw.get("bestaetigung"), status=raw.get("status"), today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
+        # Asked at the press rather than only at the mint: a ban entered after the link went out
+        # stops it here, and one lifted while it runs lets it answer again.
+        gesperrt = await adressen_gesperrt(
+            sperrliste, [str(raw.get("email") or "")], massgebliche_saison_id=massgebliche_saison_id, session=session
+        )
+        refuse(find_bestaetigung_gesperrt_refusal(gesperrt=bool(gesperrt)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
         refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
 
@@ -194,5 +219,5 @@ async def post_bestaetigung(
             medien=antwort_data.medien,
         )
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(answer_for_the_pupil)

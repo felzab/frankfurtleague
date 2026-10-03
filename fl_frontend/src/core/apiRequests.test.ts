@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
@@ -162,9 +162,9 @@ for (const [publishedPath, item] of Object.entries(publishedPaths)) {
 // production would, naming a test file to whoever then goes looking for a broken route.
 const isProduction = (name: string): boolean => /\.tsx?$/.test(name) && !isTestFile(name);
 
-// Every module MENTIONING the client, not the two conventional filenames: a call added under `app/`
-// or `shared/` has to fall under the same comparison.
-const callerFiles = filesUnder(SRC_DIR, isProduction, 400).filter((file) => readFileSync(file, "utf8").includes("apiClient"));
+// Every production module, never those whose text names the client: one calling it under a name
+// another module re-exported it as never spells `apiClient`, and the symbol is what each call is matched by.
+const callerFiles = filesUnder(SRC_DIR, isProduction, 400);
 
 // The second route, and deliberately not the walk above: the two listings must agree, so they are
 // reached by different readers — one recursing, this one reading a single level
@@ -250,6 +250,14 @@ function resolvesToClient(callee: ts.Identifier): boolean {
   if (local === undefined || clientSymbol === undefined) return false;
   // Through the import alias, so a call site renaming the client on import is still seen.
   return ((local.flags & ts.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(local) : local) === clientSymbol;
+}
+
+/** Whether `node` names the client where a call of it is read, or where it declares, imports or re-exports it. */
+function namesTheClientInPlace(node: ts.Identifier): boolean {
+  const { parent } = node;
+  if (ts.isCallExpression(parent) && parent.expression === node) return true;
+  if ((ts.isVariableDeclaration(parent) || ts.isFunctionDeclaration(parent)) && parent.name === node) return true;
+  return ts.isImportSpecifier(parent) || ts.isImportClause(parent) || ts.isExportSpecifier(parent);
 }
 
 function endpointText(argument: ts.Expression): string | null {
@@ -356,11 +364,16 @@ function readOptions(argument: ts.Expression, where: string): ReadOptions | null
 for (const file of callerFiles) {
   const sourceFile = program.getSourceFile(file);
   if (sourceFile === undefined) {
-    unreadable.push(`${asPosix(file)}: names apiClient but is not in the program`);
+    unreadable.push(`${asPosix(file)}: is not in the program, so no call it makes can be read`);
     continue;
   }
 
   const visit = (node: ts.Node): void => {
+    // Handed on as a value, or reached through a namespace, the client sends what no call here reads.
+    if (ts.isIdentifier(node) && !namesTheClientInPlace(node) && resolvesToClient(node)) {
+      const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+      unreadable.push(`${asPosix(file)}:${line}: names the client other than as a call's callee, so what it sends is read nowhere`);
+    }
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && resolvesToClient(node.expression)) {
       const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
       const where = `${asPosix(file)}:${line}`;
@@ -480,6 +493,23 @@ describe("the reader sees every call site", () => {
 
   it("reads every apiClient call it finds", () => {
     assert.deepEqual(unreadable, [], `These calls could not be read statically, so nothing compares them:\n  ${unreadable.join("\n  ")}`);
+  });
+
+  /* The step-up sweep (`fl_frontend/src/shared/testing/stepUpWrites.ts`) reads a write's request off a
+     slice's mutations module alone: a write sent from anywhere else reaches the backend with no listing
+     naming whether it steps up (`docs/frontend/spec.md :: I432`). */
+  it("sends every write from a slice's mutations module", () => {
+    // `readOnly` is taken at its word: "every call to an operation storing nothing declares itself a
+    // read, and no other call does" holds each one to the backend's published `x-fl-stores-nothing`.
+    const writes = calls.filter((call) => call.method !== "GET" && !call.readOnly);
+    const strays = writes.filter((call) => !/^features\/\w+\/mutations\.ts:\d+$/.test(call.where)).map((call) => call.where);
+
+    assert.ok(writes.length > strays.length, "the reader found no write in any mutations module, so the case below proves nothing");
+    assert.deepEqual(
+      strays,
+      [],
+      `These writes are sent outside a mutations module, where the step-up sweep reads none:\n  ${strays.join("\n  ")}`,
+    );
   });
 
   it("finds a call in every queries and mutations module", () => {

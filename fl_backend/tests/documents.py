@@ -15,6 +15,11 @@ import copy
 from collections.abc import Mapping
 from typing import Any, Final
 
+from bson import ObjectId
+
+from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from tests.config import build_test_config
+
 ADDRESS: Final[Mapping[str, str]] = {
     "strasse": "Hanauer Landstraße",
     "hausnummer": "12a",
@@ -150,6 +155,25 @@ def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **
             "datum": "2026-03-20",
             "bestaetigt_am": bestaetigt_am,
         },
+        **fields,
+    }
+
+
+def ban_document(address: str, *, bis: str, **fields: Any) -> dict[str, Any]:
+    """One ban as the shipped write stores it, keyed under the suite's own settings.
+
+    `bis` has no default: read against the running season, it decides whether the ban stands, so each
+    case names the bound it seeds.
+    """
+
+    return {
+        "_id": ObjectId(),
+        "adresse_hash": adresse_hash(address, schluessel=build_test_config().sperrliste_schluessel),
+        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
+        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "erstellt_am": "2026-03-15",
+        "gesperrt_bis_saison_id": bis,
         **fields,
     }
 

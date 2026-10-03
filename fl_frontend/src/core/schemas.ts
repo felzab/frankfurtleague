@@ -33,8 +33,6 @@ export const FLRefusedPayloadBodySchema = FLFailureBodySchema.extend({ fields: z
 export const FLSubjektPayloadSchema = z.object({ email: z.string() });
 export type FLSubjektPayload = z.infer<typeof FLSubjektPayloadSchema>;
 
-// A fourth key declares a contract nothing serves: the pending flag a seat switcher shows is
-// derived beside the confirmation records this lookup never opens.
 /**
  * One contact seat the mailbox holds on a `saison_teams` row, per seat rather than per person: one
  * junction row seats one person twice where `trainer_ist_zugleich` says so.
@@ -61,12 +59,39 @@ export const FLSubjektSchiedsrichterSchema = z.object({ schiedsrichter_id: Custo
 export type FLSubjektSchiedsrichter = z.infer<typeof FLSubjektSchiedsrichterSchema>;
 
 /**
- * Which league records one mailbox matches. A list under each rather than an optional record: one
- * inbox holds seats at two clubs, and two pupils share an address (`docs/datenschutz.md`).
+ * Which confirmed, live league records one mailbox matches. A list under each rather than an
+ * optional record: one person holds seats at two clubs, and nothing enforces one pupil record per
+ * address (`docs/datenschutz.md :: "One address is one person"`).
  */
 export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   sitze: z.array(FLSubjektSitzSchema),
   spieler: z.array(FLSubjektSpielerSchema),
   schiedsrichter: z.array(FLSubjektSchiedsrichterSchema),
+  // Read beside the lists and never from their being empty: empty lists with this set are records
+  // that could grant a panel and that nobody has confirmed, not a mailbox the league holds nothing for
+  // (`docs/backend/spec.md :: I374`).
+  unbestaetigt: z.boolean(),
+  // Whether the address is on the ban list; it narrows none of the lists above
+  // (`docs/backend/spec.md :: I389`).
+  gesperrt: z.boolean(),
+  // The tier of the grant the address holds, null for none: the administrator verdict's one source,
+  // read per request and never stamped on a session (`docs/backend/spec.md :: I383`).
+  verwaltung: z.enum(["owner", "administration"]).nullable(),
+  // When that grant took effect, null exactly where `verwaltung` is: a session made before it is no
+  // administrator's (`docs/backend/spec.md :: I525`). An instant carrying its offset, as every served one does.
+  berechtigt_seit: z.string().nullable(),
+  // When the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: a session made
+  // before it administers and holds no owner's power (`docs/backend/spec.md :: I534`).
+  inhaber_seit: z.string().nullable(),
 });
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
+
+/**
+ * The address `POST /identitaet/gesperrt` is asked about, as the mailer was handed it. No length or
+ * alphabet restated, for `FLSubjektPayloadSchema`'s reason.
+ */
+export const FLGesperrtPayloadSchema = z.object({ email: z.string() });
+export type FLGesperrtPayload = z.infer<typeof FLGesperrtPayloadSchema>;
+
+/** Whether a standing ban holds that address, and nothing of any record (`docs/backend/spec.md :: I543`). */
+export const FLGesperrtResponseSchema = BaseAPIResponseSchema.extend({ gesperrt: z.boolean() });

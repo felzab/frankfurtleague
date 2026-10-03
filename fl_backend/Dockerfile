@@ -43,7 +43,10 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 
 FROM base AS runner
 
-RUN addgroup --system fl_api && adduser --system --group fl_api_user --home /usr/fl_backend --shell /usr/sbin/nologin
+# Pinned rather than allocated: the host's secret files are owned by this uid and gid, Compose
+# giving a file secret no owner of its own (`docs/ops/spec.md` §1.2).
+RUN groupadd --system --gid 1002 fl_api && \
+    useradd --system --uid 1002 --gid fl_api --create-home --home-dir /usr/fl_backend --shell /usr/sbin/nologin fl_api_user
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -57,7 +60,7 @@ EXPOSE 8000
 
 # app/asgi.py, not app/main.py: main.py exports the `create_app` factory and builds nothing on
 # import, so importing it needs no environment. asgi.py is the one module that constructs the real
-# application from the real environment.
+# application from the real environment and secret files.
 
 # uvicorn directly, not `fastapi run`: the CLI imports the application before uvicorn configures
 # logging, so uvicorn's default handlers install after the app's and print plain text into the JSON
@@ -66,4 +69,8 @@ EXPOSE 8000
 # --no-access-log because TraceContextMiddleware writes the per-request line, carrying the trace
 # and span ids uvicorn's could not; --log-config routes what uvicorn still logs through the app's
 # own handler (docs/logging/spec.md).
-CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-config", "app/core/uvicorn_logging.json"]
+
+# --timeout-graceful-shutdown at a request's whole bound, the deadline and its aborts' grace, so a
+# stop cancels no request still inside it; unset, uvicorn waits without limit
+# (`docs/ops/spec.md :: I540`).
+CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-config", "app/core/uvicorn_logging.json", "--timeout-graceful-shutdown", "11"]

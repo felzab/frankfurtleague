@@ -1,10 +1,15 @@
-from pydantic import BaseModel, ConfigDict
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, StringConstraints
+
+from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 
 # The wire's spelling of the three seats, imported rather than restated as
 # `app/api/kontakte/schemas.py` imports it: a second closed set here would name a seat no other
 # endpoint publishes.
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.saisons.schemas import FLSaisonStatus
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
@@ -56,13 +61,53 @@ class FLSubjektSchiedsrichter(BaseModel):
     schiedsrichter_id: CustomObjectId
 
 
-class FLSubjektResponse(BaseAPIResponse):
-    """Which league records one mailbox matches, as three lists rather than three optional records.
+class FLSubjekt(BaseModel):
+    """Which confirmed, live records one mailbox matches, as three lists rather than three optional records.
 
-    A list under each because one inbox holds seats at two clubs and two pupils share an address
-    (`docs/datenschutz.md :: "Colleagues sharing a school inbox"`).
+    One person holds seats at two clubs, and nothing enforces one pupil record per address
+    (`docs/datenschutz.md :: "One address is one person"`).
     """
 
     sitze: list[FLSubjektSitz]
     spieler: list[FLSubjektSpieler]
     schiedsrichter: list[FLSubjektSchiedsrichter]
+    # Its own field and never read off empty lists: set, the mailbox holds records that could grant a
+    # panel and none is confirmed, which empty lists alone would report as nothing held
+    # (`docs/backend/spec.md :: I374`).
+    unbestaetigt: bool
+
+
+class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
+    """Which confirmed, live records one mailbox matches, and whether the address is on the ban list.
+
+    The ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide.
+    """
+
+    # The endpoint's alone and not `FLSubjekt`'s: a person endpoint judging a Funktion reads the
+    # records, and the ban is keyed under a secret only this operation needs (`docs/backend/spec.md :: I389`).
+    gesperrt: bool
+    # The grant this mailbox holds, or null: stored, where the lists beside it are derived, so it is
+    # the endpoint's alone for `gesperrt`'s reason too -- no person endpoint authorises against it.
+    verwaltung: FLVerwaltung | None
+    # Null exactly where `verwaltung` is. Named for the grant and not the tier: a tier change leaves it
+    # where it stands (`docs/backend/spec.md :: I525`).
+    berechtigt_seit: FLUtcInstant | None
+    # Null exactly where `verwaltung` is not `owner`: a session older than it administers and holds no
+    # owner's power (`docs/backend/spec.md :: I534`).
+    inhaber_seit: FLUtcInstant | None
+
+
+class FLGesperrtPayload(BaseModel):
+    """The one address a message is about to go to."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Held to no address rule, as the erasure's lookup is: a seat stored under an older rule is still
+    # mailed, and refusing it here would close the mailer on an address no ban can key.
+    email: Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@")]
+
+
+class FLGesperrtResponse(BaseAPIResponse):
+    """Whether a standing ban holds that address, and nothing of any record: the mailer needs none."""
+
+    gesperrt: bool

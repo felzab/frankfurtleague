@@ -2,7 +2,7 @@ import "server-only";
 
 import { APINetworkError, MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
+import { MailBarredError, MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { markOutcomeUnknown } from "@/core/requestScope";
 
@@ -45,9 +45,14 @@ export type ZielMailOutcome = {
    * (`docs/frontend/spec.md :: I366`).
    */
   ungewiss: readonly string[];
+  /**
+   * How many addresses the ban list kept the message from: in no list above, and a count rather than
+   * addresses, so nothing a caller reports can name one (`docs/frontend/spec.md :: I542`).
+   */
+  gesperrt: number;
 };
 
-/** One message, without the envelope the fan-out fills in. */
+/** One message as its builder composed it, without the envelope the fan-out fills in. */
 export type ZielMail = Pick<OutboundMail, "subject" | "html" | "text">;
 
 /**
@@ -160,9 +165,7 @@ export async function sendZielMail({
 
       return sendMail({
         to: address,
-        subject: mail.subject,
-        html: mail.html,
-        text: mail.text,
+        ...mail,
         tags: zielZustellungTags(auftrag),
         idempotencyKey: auftrag.idempotenzTag === undefined ? undefined : zielIdempotenzSchluessel(auftrag, auftrag.idempotenzTag, address),
       });
@@ -173,6 +176,7 @@ export async function sendZielMail({
   const unreachable: string[] = [];
   const withheld: string[] = [];
   const ungewiss: string[] = [];
+  let gesperrt = 0;
   const gemeldet: Promise<void>[] = [];
 
   settled.forEach((result, index) => {
@@ -187,12 +191,23 @@ export async function sendZielMail({
       return;
     }
 
+    // Counted and nothing more: no failure line, the gate's own being the record, and no refusal
+    // recorded, which would store on the record that its address is barred (`docs/frontend/spec.md :: I542`).
+    if (result.reason instanceof MailBarredError) {
+      gesperrt += 1;
+      return;
+    }
+
     if (result.reason instanceof APINetworkError) {
       ungewiss.push(address);
       markOutcomeUnknown();
     } else unreachable.push(address);
     // Beside rather than instead: every caller reading `unreachable` alone keeps the answer it had.
-    if (result.reason instanceof MailWithheldError) withheld.push(address);
+    if (result.reason instanceof MailWithheldError) {
+      withheld.push(address);
+      // No failure line: the mailer's own records a filed message, and a deployment that mails nothing failed nothing.
+      return;
+    }
     // The submit is where a refused address is learnt at all: no message was minted, so no delivery
     // event will ever carry this to the record the clocks read.
     if (versandIstAbgewiesen(result.reason)) gemeldet.push(meldeAbgewiesen(auftrag, result.reason, operation));
@@ -208,5 +223,5 @@ export async function sendZielMail({
   // Together rather than one after another: each round trip is independent of the others.
   await Promise.all(gemeldet);
 
-  return { delivered: delivered, unreachable: unreachable, withheld: withheld, ungewiss: ungewiss };
+  return { delivered: delivered, unreachable: unreachable, withheld: withheld, ungewiss: ungewiss, gesperrt: gesperrt };
 }

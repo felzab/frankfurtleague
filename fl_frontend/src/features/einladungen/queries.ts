@@ -1,7 +1,7 @@
 import { cache } from "react";
 
 import { apiClient } from "@/core/api";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLEinladungResponseSchema, FLEinladungVersandVorschauResponseSchema } from "./schemas";
 
@@ -13,7 +13,7 @@ import type { FLEinladungResponse, FLEinladungVersandVorschauResponse } from "./
  */
 // `cache` memoizes per RENDER PASS (`docs/frontend/spec.md` §1.2).
 export const getEinladung = cache(async (teamId: string, saisonId: string): Promise<FLEinladungResponse> =>
-  runWithIncomingTrace(() =>
+  runAdminRead(() =>
     apiClient<FLEinladungResponse>(
       `/teams/${encodeURIComponent(teamId)}/saisons/${encodeURIComponent(saisonId)}/einladung`,
       FLEinladungResponseSchema,
@@ -27,7 +27,7 @@ export const getEinladung = cache(async (teamId: string, saisonId: string): Prom
  * with it true, so a list read without the value the press will carry describes a different press.
  */
 export async function getEinladungVersandVorschau(saisonId: string, erneut: boolean): Promise<FLEinladungVersandVorschauResponse> {
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     apiClient<FLEinladungVersandVorschauResponse>(
       `/saisons/${encodeURIComponent(saisonId)}/einladungen/versand/vorschau?erneut=${erneut ? "true" : "false"}`,
       FLEinladungVersandVorschauResponseSchema,

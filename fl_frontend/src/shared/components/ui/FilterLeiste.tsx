@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import ArrowUpArrowDown from "@gravity-ui/icons/ArrowUpArrowDown";
@@ -15,10 +15,12 @@ import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import { Select } from "@/shared/components/ui/Select";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { offeredOptions } from "@/shared/utils/facets";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { leserichtungHref } from "@/shared/utils/leserichtung";
 
 import { countBadge } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
+import { FocusSlot } from "./FocusSlot";
 import { IconTooltip } from "./IconTooltip";
 import { overlayPanel } from "./overlayPanel";
 import { PICKED_OPTION_CLASSES } from "./pickedOption";
@@ -33,7 +35,7 @@ const CONTROL_BOX_CLASSES = "flex h-10 shrink-0 flex-row rounded-xl border bg-su
 /** `items-stretch` so the remove control is full height; `overflow-hidden` so its fill takes the corner. */
 const PILL_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} items-stretch overflow-hidden border-border`;
 
-/** Split from `ICON_SHELL_CLASSES` because the picker is a field and its three neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
+/** Split from `ICON_SHELL_CLASSES` because the picker is a field and its neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
 const FIELD_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} cursor-pointer items-center gap-x-2 border-control px-3 whitespace-nowrap text-foreground transition-colors duration-(--motion-fast)`;
 
 /** The same box holding one 16px icon: `px-3` either side makes it 40 wide, its own height. */
@@ -146,6 +148,7 @@ function FilterPill<TItem>({
       <Button
         variant="ghost"
         aria-label={`Filter ${facet.label} entfernen`}
+        data-pill-entfernen=""
         onPress={() => {
           onClear(facet.param);
         }}
@@ -288,6 +291,40 @@ function FilterRow<TItem>({
   const filtered = facets.filter(isFiltering).sort((left, right) => paramOrder.indexOf(left.param) - paramOrder.indexOf(right.param));
   const unfiltered = facets.filter((facet) => !isFiltering(facet));
 
+  // `null` while no removal is pending, so a pill added from the add panel moves nothing.
+  const fokusNach = useRef<number | null>(null);
+  const pillFolge = filtered.map((facet) => facet.param).join(",");
+
+  // A removal unmounts the pressed clear control with its pill, or the reset with the last pills: the
+  // pill now in that place takes the focus, then the one before it, then the add control.
+  useEffect(() => {
+    const stelle = fokusNach.current;
+    if (stelle === null) return;
+    fokusNach.current = null;
+
+    const row = rowRef.current;
+    const clears = [...(row?.querySelectorAll<HTMLElement>("[data-pill-entfernen]") ?? [])];
+    const ziel = clears[stelle] ?? clears[stelle - 1] ?? row?.querySelector<HTMLElement>("[data-filter-hinzufuegen]");
+    ziel?.focus();
+  }, [pillFolge, rowRef]);
+
+  const entferne = (param: string) => {
+    fokusNach.current = filtered.findIndex((facet) => facet.param === param);
+    clearFacet(param);
+  };
+  // A pick from the add panel that leaves no dimension to add swaps the panel's trigger for the closed add
+  // control, under a focus still inside the panel: read from the trigger, which is the place the reader left.
+  const waehle = (param: string, values: readonly string[]) => {
+    const landing = focusAfterWrite(rowRef.current?.querySelector("[data-filter-hinzufuegen]") ?? null);
+    setFacet(param, values);
+    landing.landed();
+  };
+  const entferneAlle = () => {
+    // Past every pill, so the add control is the one left to take it.
+    fokusNach.current = filtered.length;
+    clearAll();
+  };
+
   // `md` rather than `lg`: the sidemenu is a drawer until `lg`, so the row is wider there than at `lg` itself.
   const addFace = (
     <>
@@ -302,46 +339,52 @@ function FilterRow<TItem>({
   return (
     <div
       ref={rowRef}
-      className="flex w-full flex-col gap-2">
+      className="flex w-full flex-col gap-2"
+      {...focusSection("filter")}>
       <div className="flex w-full flex-row items-center gap-2">
         {/* Outside the scroller and first, so the add control is never scrolled out of reach and an appended pill
             displaces nothing. */}
-        {unfiltered.length === 0 ? (
-          // Kept in place once every dimension is filtering: removing it would slide the whole row left.
-          // A button, never a `<span>`: ARIA forbids a name on a `generic` role, which would leave
-          // the row's one standing hint unspoken.
-          <button
-            type="button"
-            disabled
-            aria-label={ADD_HINT}
-            className={`${ICON_SHELL_CLASSES} cursor-not-allowed text-foreground-muted opacity-50`}>
-            {addFace}
-          </button>
-        ) : (
-          <IconTooltip label={ADD_HINT}>
-            <Popover>
-              <Popover.Trigger
-                aria-label={ADD_HINT}
-                className={ADD_FACE_CLASSES}>
-                {addFace}
-              </Popover.Trigger>
-              <Popover.Content
-                placement="bottom start"
-                offset={8}>
-                <FilterPanel
-                  facets={facets}
-                  shown={unfiltered}
-                  available={rowWidth}
-                  items={items}
-                  facetCounts={facetCounts}
-                  selection={selection}
-                  onSelect={setFacet}
-                  onClear={clearFacet}
-                />
-              </Popover.Content>
-            </Popover>
-          </IconTooltip>
-        )}
+        <FocusSlot name="hinzufuegen">
+          {unfiltered.length === 0 ? (
+            // Kept in place once every dimension is filtering: removing it would slide the whole row left.
+            // A button, never a `<span>`: ARIA forbids a name on a `generic` role, which would leave
+            // the row's one standing hint unspoken.
+            <button
+              type="button"
+              // Never `disabled`: it replaces the panel's trigger under the pick that filled the last
+              // dimension, and a disabled button cannot take the focus that trigger held.
+              aria-disabled="true"
+              aria-label={ADD_HINT}
+              className={`${ICON_SHELL_CLASSES} cursor-not-allowed text-foreground-muted opacity-50`}>
+              {addFace}
+            </button>
+          ) : (
+            <IconTooltip label={ADD_HINT}>
+              <Popover>
+                <Popover.Trigger
+                  aria-label={ADD_HINT}
+                  data-filter-hinzufuegen=""
+                  className={ADD_FACE_CLASSES}>
+                  {addFace}
+                </Popover.Trigger>
+                <Popover.Content
+                  placement="bottom start"
+                  offset={8}>
+                  <FilterPanel
+                    facets={facets}
+                    shown={unfiltered}
+                    available={rowWidth}
+                    items={items}
+                    facetCounts={facetCounts}
+                    selection={selection}
+                    onSelect={waehle}
+                    onClear={clearFacet}
+                  />
+                </Popover.Content>
+              </Popover>
+            </IconTooltip>
+          )}
+        </FocusSlot>
 
         {/* The shadow is the scroll affordance here: a scrollbar under a row this short would cost a quarter of it. */}
         {filtered.length > 0 && (
@@ -361,7 +404,7 @@ function FilterRow<TItem>({
                   selection={selection}
                   available={rowWidth}
                   onSelect={setFacet}
-                  onClear={clearFacet}
+                  onClear={entferne}
                 />
               ))}
             </div>
@@ -376,7 +419,7 @@ function FilterRow<TItem>({
       {activeCount > 1 && (
         <Button
           variant="ghost"
-          onPress={clearAll}
+          onPress={entferneAlle}
           className={`${CLEAR_ALL_FACE_CLASSES} self-start`}>
           <Xmark
             aria-hidden="true"

@@ -1,37 +1,30 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, connect as dial } from "node:net";
-import { after, describe, it } from "node:test";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { describe, it } from "node:test";
 import { setTimeout as pause } from "node:timers/promises";
 
-import { MongoDBContainer } from "@testcontainers/mongodb";
+import { isAPIError } from "better-auth/api";
 import {
   MongoNetworkTimeoutError,
   MongoNotConnectedError,
   MongoOperationTimeoutError,
   MongoServerSelectionError,
-  MongoTransactionError,
+  MongoClient as StoreProbe,
 } from "mongodb";
 
-import { ADMIN_EMAIL, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
+import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
+import { startJudgedReplicaSet } from "./expiredTransactions.ts";
+import { overridingModule } from "./exportingModule.ts";
 
-import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { MongoClient } from "mongodb";
 import type { Socket } from "node:net";
 
-/* Each resource set as it opens, and the hook registered before the first await that can throw: a
-   container that started is stopped whatever fails after it. */
-const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: MongoClient[] } = { clients: [] };
-
-after(async () => {
-  for (const client of opened.clients) await client.close();
-  await opened.relay?.close();
-  await opened.mongod?.stop();
-});
-
-const mongod = await new MongoDBContainer("mongo:8.3.11").start();
-opened.mongod = mongod;
+const { mongod, closing } = await startJudgedReplicaSet();
 
 /**
  * A TCP relay to the mongod that can stop passing the client's requests on: a hung connection as the
@@ -46,9 +39,26 @@ class Relay {
   private trigger: Buffer | null = null;
   /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
   triggered = false;
+  /** The command whose first request `dropOne` loses, every other passed on. */
+  private dropping: Buffer | null = null;
+  /** Whether `dropOne`'s command was ever sent, without which its case proves nothing. */
+  dropped = false;
+  /** The command whose first request `dropReplyOf` passes on and whose answer it loses. */
+  private silencing: Buffer | null = null;
+  /** Whether `dropReplyOf`'s command reached the server, without which its case proves nothing. */
+  silenced = false;
+  /** Connections `refuse` has closed: none, and the client it was to refuse dialed somewhere else. */
+  refused = 0;
   private readonly sockets = new Set<Socket>();
+  /**
+   * Connections holding a request the relay will never answer, ended with their scenario: the
+   * monitor's awaitable hello waits 13 s on one, and its timeout interrupts whatever then runs, a
+   * later case's commit included.
+   */
+  private readonly stranded = new Set<Socket>();
   private readonly server = createServer((inbound) => {
     if (this.refusing) {
+      this.refused += 1;
       inbound.destroy();
       return;
     }
@@ -63,7 +73,21 @@ class Relay {
       socket.on("close", () => this.sockets.delete(socket));
       socket.on("error", () => undefined);
     }
+    // Set once this connection carried the request whose answer is to be lost: nothing comes back on it.
+    let mute = false;
     inbound.on("data", (chunk: Buffer) => {
+      if (this.silencing !== null && chunk.includes(this.silencing)) {
+        this.silencing = null;
+        this.silenced = true;
+        mute = true;
+        this.stranded.add(inbound);
+      }
+      if (this.dropping !== null && chunk.includes(this.dropping)) {
+        this.dropping = null;
+        this.dropped = true;
+        this.stranded.add(inbound);
+        return;
+      }
       if (this.trigger !== null && chunk.includes(this.trigger)) {
         this.hung = true;
         this.triggered = true;
@@ -71,8 +95,11 @@ class Relay {
       // Requests are dropped and never answers, so no connection is left holding a reply to a request
       // its client has already given up on.
       if (!this.hung && answered) outbound.write(chunk);
+      else this.stranded.add(inbound);
     });
-    outbound.on("data", (chunk) => inbound.write(chunk));
+    outbound.on("data", (chunk) => {
+      if (!mute) inbound.write(chunk);
+    });
     inbound.on("close", () => outbound.destroy());
     outbound.on("close", () => inbound.destroy());
   });
@@ -105,6 +132,30 @@ class Relay {
     }
   }
 
+  /** Runs `body` losing the first request carrying `command` alone: a store answering all else. */
+  async dropOne<T>(command: string, body: () => Promise<T>): Promise<T> {
+    this.dropped = false;
+    this.dropping = Buffer.from(`${command}\0`);
+    try {
+      return await body();
+    } finally {
+      this.dropping = null;
+      this.endStranded();
+    }
+  }
+
+  /** Runs `body` passing the first request carrying `command` on and losing its answer alone: a reply lost on its way back. */
+  async dropReplyOf<T>(command: string, body: () => Promise<T>): Promise<T> {
+    this.silenced = false;
+    this.silencing = Buffer.from(`${command}\0`);
+    try {
+      return await body();
+    } finally {
+      this.silencing = null;
+      this.endStranded();
+    }
+  }
+
   /**
    * Runs `body` passing the first connection the client opens and hanging every later one: a store
    * that answers the monitor it meets first and never a handshake after it.
@@ -115,6 +166,7 @@ class Relay {
       return await body();
     } finally {
       this.passing = null;
+      this.endStranded();
     }
   }
 
@@ -128,9 +180,30 @@ class Relay {
     }
   }
 
+  /**
+   * Runs `body` while the store is gone: every socket open through the relay closed and every new one
+   * refused. A hang is no outage to the client's monitor, whose streamed heartbeats keep arriving.
+   */
+  async sever<T>(body: () => Promise<T>): Promise<T> {
+    this.refusing = true;
+    for (const socket of this.sockets) socket.destroy();
+    try {
+      return await body();
+    } finally {
+      this.refusing = false;
+    }
+  }
+
   private resume(): void {
     this.hung = false;
     this.trigger = null;
+    this.endStranded();
+  }
+
+  /** Closes every connection a scenario left waiting on an answer, its outbound half with it. */
+  private endStranded(): void {
+    for (const socket of this.stranded) socket.destroy();
+    this.stranded.clear();
   }
 
   async close(): Promise<void> {
@@ -140,53 +213,56 @@ class Relay {
 }
 
 const relay = new Relay();
-opened.relay = relay;
+closing(() => relay.close());
 const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnection=true`;
 
-const LOGGED = "__flDbTierLogged";
 const logged: Record<string, unknown>[] = [];
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[LOGGED] = logged;
 
 // The query suffix takes the real module past the load hook's match on a path's end: the client
 // under test is the one `fl_frontend/src/core/db.ts` builds, over the relay.
 const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
 
-const { sent } = registerAuthDoubles({
+registerAuthDoubles({
   core: {
-    config: configDouble({ MONGODB_URI: RELAYED_URL }),
-    db: `export { client } from ${JSON.stringify(PRODUCTION_DB)};`,
-    logging: `export const logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: (event, _error, fields) => globalThis.${LOGGED}.push({ event, ...fields }),
-};`,
+    config: configDouble({}, { mongodbUri: () => RELAYED_URL }),
+    db: overridingModule(PRODUCTION_DB, {}),
+    logging: {
+      logger: {
+        debug: () => undefined,
+        info: () => undefined,
+        warn: () => undefined,
+        error: (event: string, _error: unknown, fields?: Record<string, unknown>) => void logged.push({ event, ...fields }),
+      },
+    },
   },
 });
 
+/** The client a fresh evaluation of `db.ts` builds, the URL's suffix naming the evaluation. */
+async function storeOf(url: string): Promise<MongoClient> {
+  const { signInStore } = (await import(url)) as { signInStore: () => MongoClient };
+  const client = signInStore();
+  closing(() => client.close());
+  return client;
+}
+
 // Imported after the hooks above are registered: a static import resolves before they exist.
-const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
-opened.clients.push(client);
-const { auth } = await import("./auth.ts");
+const client = await storeOf(PRODUCTION_DB);
+const { auth, readServedSession } = await import("./auth.ts");
 // The same module evaluated again, so further clients built by the same code, each connecting first
 // inside its own case.
-const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?cold-start`)) as { client: MongoClient };
-opened.clients.push(coldClient);
+const coldClient = await storeOf(`${import.meta.resolve("./db.ts")}?cold-start`);
 // Built by the development branch, which caches its client on `global`: the cold start above holds the
-// production branch's. Next declares `NODE_ENV` read-only, which is true of a build and not of this process.
+// production branch's. Set around the first call, where the branch is taken, and never the import.
 const env = process.env as Record<string, string | undefined>;
 const nodeEnv = env.NODE_ENV;
+// Next declares `NODE_ENV` read-only, which is true of a build and not of this process.
 env.NODE_ENV = "development";
-const { client: recoveringClient } = (await import(`${import.meta.resolve("./db.ts")}?development`).finally(() => {
+const recoveringClient = await storeOf(`${import.meta.resolve("./db.ts")}?development`).finally(() => {
   if (nodeEnv === undefined) delete env.NODE_ENV;
   else env.NODE_ENV = nodeEnv;
-})) as { client: MongoClient };
-opened.clients.push(recoveringClient);
-const { client: handshakeClient } = (await import(`${import.meta.resolve("./db.ts")}?handshake`)) as { client: MongoClient };
-opened.clients.push(handshakeClient);
-const { client: closingClient } = (await import(`${import.meta.resolve("./db.ts")}?closing`)) as { client: MongoClient };
-opened.clients.push(closingClient);
+});
+const handshakeClient = await storeOf(`${import.meta.resolve("./db.ts")}?handshake`);
+const closingClient = await storeOf(`${import.meta.resolve("./db.ts")}?closing`);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -250,54 +326,120 @@ describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md
 });
 
 describe("the sign-in store's client bounds every operation it sends (`docs/frontend/spec.md :: I362`)", () => {
-  /* The read every admin request makes twice, in `fl_frontend/src/proxy.ts` and in each guard. The
-     library answers a failed read as no session and logs it, so the line is what names the bound. */
+  /* The read every admin request makes twice, in `fl_frontend/src/proxy.ts` and in each guard. A failed
+     read throws rather than reading as no session (`docs/frontend/spec.md :: I519`), and the line names the bound. */
   it("ends a session read the store never answers within its `timeoutMS`", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const verified = await auth.api.magicLinkVerify({
-      query: { token: lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`) },
-      headers: new Headers(ORIGIN),
-      returnHeaders: true,
-    });
-    const headers = new Headers({ ...ORIGIN, cookie: cookieHeader(verified) });
+    const headers = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
 
     // The control: the same read answers through the relay while it passes requests on.
-    const answered = await auth.api.getSession({ headers });
+    const answered = await readServedSession(headers);
     assert.equal(answered?.user.email, ADMIN_EMAIL);
     logged.length = 0;
 
-    const outcome = await relay.hang(() => settledWithin(OPERATION_BOUND, "the hung read", () => auth.api.getSession({ headers })));
+    const outcome = await relay.hang(() => settledWithin(OPERATION_BOUND, "the hung read", () => readServedSession(headers)));
 
-    assert.deepEqual(
-      { outcome, logged },
-      { outcome: null, logged: [{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }] },
-    );
+    assert.ok(isAPIError(outcome) && outcome.status === "INTERNAL_SERVER_ERROR", `the hung read settled with ${String(outcome)}`);
+    assert.deepEqual(logged, [{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
   });
 
-  /* A magic link's sign-in runs the adapter's own transaction to consume its token. The timeout does
-     not surface: the adapter aborts whatever failed, the driver refuses an abort after a commit, and
-     that refusal replaces it, unlogged. */
-  it("ends the adapter's own transaction within its `timeoutMS` when the store never answers its commit", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`);
+  /* A code's sign-in runs the adapter's own transaction to consume its row, and the commit's own
+     timeout is what surfaces: the driver's refusal of an abort after a commit says nothing of whether
+     the write may stand. */
+  it("ends the adapter's own transaction within two `timeoutMS` when the store never answers its commit", async () => {
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     logged.length = 0;
 
+    // Two bounds: the abort the client sends after a failed commit takes one of its own
+    // (`fl_frontend/patches/@better-auth__mongo-adapter@1.7.5.patch`).
     const outcome = await relay.hangFrom("commitTransaction", () =>
-      settledWithin(OPERATION_BOUND, "the hung commit", () =>
-        auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true }),
+      settledWithin(OPERATION_BOUND * 2, "the hung commit", () =>
+        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
+      ),
+    );
+    // The commit never reached the server, whose transaction would otherwise hold the sign-in's
+    // collections until its own lifetime ran out, a minute any later case writing them would wait.
+    // Inside the container: the client's strict Stable API refuses the command.
+    const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);
+    assert.equal(killed.output.trim(), "1", `the hung commit's transaction was left standing: ${killed.output}`);
+
+    assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
+    assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung commit settled with ${String(outcome)}`);
+    // The abort the hang swallowed too: the one line saying the server may hold the transaction, the
+    // commit's own failure being its caller's to log.
+    assert.deepEqual(logged, [{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
+  });
+
+  /* One request lost on its way to a store that answers everything else: the case above's whole hang
+     leaves no abort a way through, and this one does. */
+  it("leaves the server no transaction open when the adapter's commit is lost on its way", async () => {
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    logged.length = 0;
+
+    const outcome = await relay.dropOne("commitTransaction", () =>
+      settledWithin(OPERATION_BOUND * 2, "the lost commit", () =>
+        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
       ),
     );
 
-    assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
-    // Pinned to `@better-auth/mongo-adapter`'s masking, an upstream defect: a release that stops
-    // aborting after a failed commit turns this red, and the case then asserts the commit's own error.
-    assert.ok(
-      outcome instanceof MongoTransactionError && outcome.message === "Cannot call abortTransaction after calling commitTransaction",
-      `the hung commit settled with ${String(outcome)}`,
-    );
+    assert.ok(relay.dropped, "the sign-in sent no commit, so nothing here was lost");
+    assert.ok(outcome instanceof MongoOperationTimeoutError, `the lost commit settled with ${String(outcome)}`);
+    assert.deepEqual(await transactionsHeld(), []);
+    // The control for the case above's line: an abort that lands says nothing.
     assert.deepEqual(logged, []);
+    // Aborted rather than committed: the code the transaction would have spent still signs in.
+    assert.equal(await codeStillSignsIn(otp), true);
+  });
+
+  /* The commit lands and its answer does not: the abort after it finds the transaction committed,
+     which leaves nothing open and so says nothing, while the caller still hears the commit's own
+     timeout, the outcome being unknown to it. */
+  it("says nothing of a commit that landed when only its answer is lost", async () => {
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    logged.length = 0;
+
+    const outcome = await relay.dropReplyOf("commitTransaction", () =>
+      settledWithin(OPERATION_BOUND * 2, "the unanswered commit", () =>
+        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
+      ),
+    );
+
+    assert.ok(relay.silenced, "the sign-in sent no commit, so no answer was lost");
+    assert.ok(outcome instanceof MongoOperationTimeoutError, `the unanswered commit settled with ${String(outcome)}`);
+    assert.deepEqual(await transactionsHeld(), []);
+    assert.deepEqual(logged, []);
+    // Committed: the code is spent, which is what makes the abort's answer TransactionCommitted.
+    assert.equal(await codeStillSignsIn(otp), false);
   });
 });
+
+/** Whether a code signs in once the relay passes everything again: a spent one is refused. */
+async function codeStillSignsIn(otp: string): Promise<boolean> {
+  return auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }).then(
+    () => true,
+    () => false,
+  );
+}
+
+/**
+ * Every operation the server lists that holds a transaction, idle sessions included. Through a client of
+ * its own: the store's strict Stable API refuses `$currentOp`.
+ */
+async function transactionsHeld(): Promise<unknown[]> {
+  // IPv4: the mapped port answers there, and `localhost` tried as IPv6 first stalls every connect.
+  const probe = new StoreProbe(`${mongod.getConnectionString()}/?directConnection=true`, { family: 4 });
+  try {
+    return await probe
+      .db("admin")
+      .aggregate([
+        { $currentOp: { allUsers: true, idleSessions: true } },
+        { $match: { transaction: { $exists: true } } },
+        { $project: { type: 1, "transaction.parameters": 1 } },
+      ])
+      .toArray();
+  } finally {
+    await probe.close();
+  }
+}
 
 describe("the sign-in store's client recovers from a cold start it could not complete (`docs/frontend/spec.md :: I364`)", () => {
   const probe = () => recoveringClient.db("store_bound").collection("probe").findOne({});
@@ -337,6 +479,12 @@ describe("the sign-in store's client recovers from a cold start it could not com
   /* Its own process, so nothing of this file's holds the event loop open: once the read has failed,
      the reconnect's pause is all that is left. */
   it("lets a process whose store refuses it exit once its read has failed", async () => {
+    // A relay of the child's own, so what it refuses is the child's alone and never this file's clients'.
+    const childRelay = new Relay();
+    const childUrl = `mongodb://127.0.0.1:${await childRelay.listen()}/?directConnection=true`;
+    // The child's config reads the store's address from its secrets directory and never from the environment.
+    const secrets = mkdtempSync(path.join(tmpdir(), "fl-db-child-"));
+    writeFileSync(path.join(secrets, "frontend_mongodb_uri"), childUrl);
     const child = spawn(
       process.execPath,
       [
@@ -344,20 +492,21 @@ describe("the sign-in store's client recovers from a cold start it could not com
         "--conditions=react-server",
         "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
         "--import",
-        import.meta.resolve("../../tsconfig-alias-hook.mjs"),
+        import.meta.resolve("../../scripts/tsconfig-alias-hook.mjs"),
         "--input-type=module",
         "--eval",
-        `const { client } = await import(${JSON.stringify(import.meta.resolve("./db.ts"))});
+        `const client = (await import("@/core/db.ts")).signInStore();
 await client.db("store_bound").collection("probe").findOne({}).catch(() => undefined);
-process.stdout.write("${CHILD_SETTLED}");`,
+process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
       ],
-      { env: { ...process.env, MONGODB_URI: RELAYED_URL }, stdio: ["ignore", "pipe", "inherit"] },
+      // The marker travels as data in the environment rather than as source.
+      { env: { ...process.env, SECRETS_DIR: secrets, FL_CHILD_SETTLED: CHILD_SETTLED }, stdio: ["ignore", "pipe", "inherit"] },
     );
     const exited = once(child, "exit") as Promise<[number | null, NodeJS.Signals | null]>;
     const settled = new Promise<void>((resolve) => child.stdout.on("data", (chunk) => String(chunk).includes(CHILD_SETTLED) && resolve()));
 
     try {
-      await relay.refuse(async () => {
+      await childRelay.refuse(async () => {
         const first = await settledWithin(CHILD_LOAD_MS + OPERATION_BOUND, "the child's read", () =>
           Promise.race([settled.then(() => CHILD_SETTLED), exited.then(() => "an exit")]),
         );
@@ -369,8 +518,47 @@ process.stdout.write("${CHILD_SETTLED}");`,
         )) as [number | null];
         assert.equal(code, 0);
       });
+      assert.ok(childRelay.refused > 0, "the child's read was refused by no store here, so its exit proves nothing");
     } finally {
       child.kill();
+      await childRelay.close();
+      rmSync(secrets, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the sign-in store's indexes recover with the store (`docs/frontend/spec.md :: I520`)", () => {
+  /* The client opened before the outage, so its topology is the one recovering, and the driver marks
+     that recovery with no `open`: only a new topology emits one. */
+  it("builds an index again once a store that stopped answering after the first open answers again", async () => {
+    const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes.ts");
+    const sessions = client.db(MONGO_DB_NAME).collection("session");
+    await buildAuthIndexes();
+    await sessions.dropIndex("session_userId_idx");
+    let opens = 0;
+    const counted = () => {
+      opens += 1;
+    };
+    client.on("open", counted);
+
+    try {
+      logged.length = 0;
+      await relay.sever(() => buildAuthIndexes());
+      assert.ok(
+        logged.some((line) => line.event === "auth.index_unbuilt" && line.index === "session_userId_idx"),
+        `the run met no outage: ${JSON.stringify(logged)}`,
+      );
+      const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "session_userId_idx");
+
+      // The monitor's next check of a store it marked unknown, and the build itself.
+      const deadline = Date.now() + client.options.minHeartbeatFrequencyMS + OPERATION_BOUND + LATENESS_MS;
+      while (!(await indexed()) && Date.now() < deadline) await pause(200);
+
+      assert.equal(await indexed(), true, "the index was not built again once the store answered");
+      assert.equal(opens, 0, "the client emitted `open`, so this drove a new topology rather than a recovered one");
+    } finally {
+      client.off("open", counted);
+      logged.length = 0;
     }
   });
 });

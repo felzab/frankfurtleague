@@ -9,6 +9,7 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import canonical_address, mailbox_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -171,6 +172,7 @@ SCHIEDSRICHTER_KEINE_ADRESSE = "REQ-SCHIEDSRICHTER-006"
 # frontend cannot part.
 SCHIEDSRICHTER_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-007"
 SCHIEDSRICHTER_MEDIEN_ALTER = "REQ-SCHIEDSRICHTER-008"
+SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = "REQ-SCHIEDSRICHTER-009"
 
 # The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
 # A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
@@ -255,16 +257,6 @@ def vorname_of(name: Any) -> str | None:
     return parts[0] if parts else None
 
 
-def _stamp_of(einwilligung: Any) -> Any:
-    return einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
-
-
-def is_confirmed(*, einwilligung: Any) -> bool:
-    """Whether this referee has answered. The STAMP and never a nulled hash: the hash stays live so a second press is told why."""
-
-    return _stamp_of(einwilligung) is not None
-
-
 def link_is_over(*, frist: Any, today: str) -> bool:
     """Whether the deadline has passed. A block carrying no readable deadline is over: nothing can say it is still running."""
 
@@ -275,8 +267,14 @@ def frist_of(bestaetigung: Any) -> Any:
     return bestaetigung.get("frist") if isinstance(bestaetigung, Mapping) else None
 
 
-def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str) -> FLSchiedsrichterBestaetigungZustand:
-    """What a reopened link shows. A stamp outranks the deadline: a person who answered on the last valid day is shown that they did."""
+def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str, gesperrt: bool) -> FLSchiedsrichterBestaetigungZustand:
+    """What a reopened link shows: the ban first (`docs/backend/spec.md :: I515`), then a stamp over the deadline.
+
+    A person who answered on the last valid day is shown that they did.
+    """
+
+    if gesperrt:
+        return "gesperrt"
 
     if is_confirmed(einwilligung=einwilligung):
         return "bestaetigt"
@@ -317,6 +315,8 @@ def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None
 def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     """Why this entry takes no second answer, or `None`. The single use: a stamp is what spends the link."""
 
+    # The STAMP and never a nulled hash: the hash stays live so a second press is told why
+    # (`docs/backend/spec.md :: I307`).
     if not is_confirmed(einwilligung=einwilligung):
         return None
 
@@ -324,6 +324,21 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
         error_code=SCHIEDSRICHTER_ALREADY_CONFIRMED,
         status=HTTPStatus.CONFLICT,
         message="this entry has already been confirmed; an answer is given once",
+    )
+
+
+def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-SCHIEDSRICHTER-009`: the ban list holds the address this link was mailed to, however long ago it was minted."""
+
+    if not gesperrt:
+        return None
+
+    # 403 where the editor's `-007` is 409: this caller is the barred person, holding the mailbox the
+    # token was sent to, where the editor's is an administrator writing about an entry.
+    return WriteRefusal(
+        error_code=SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
+        status=HTTPStatus.FORBIDDEN,
+        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 
@@ -423,6 +438,23 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     )
 
 
+def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> bool:
+    """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox.
+
+    Either is a step-up write, a link granting its holder the answer (`app/core/security.py :: verify_step_up`).
+    """
+
+    # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
+    # them the address moved (`docs/ops/runbooks.md` §5).
+    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
+        return False
+
+    # One inbox rather than one string: a domain has no case (RFC 5321 §2.4), so a raw compare re-mails
+    # an address nobody moved wherever the stored row and the payload spell its domain differently.
+    stored_email = (stored.get("kontakt") or {}).get("email")
+    return stored_email is None or mailbox_key(payload_email) != mailbox_key(str(stored_email))
+
+
 def compose_korrektur_update(
     *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, token_hash: str, today: str
 ) -> tuple[dict[str, Any], bool]:
@@ -432,15 +464,7 @@ def compose_korrektur_update(
     mailbox replaced; the reactivation is what asks them.
     """
 
-    # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
-    # them the address moved (`docs/ops/runbooks.md` §5).
-    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
-        return {"$set": dict(payload)}, False
-
-    # One inbox rather than one string: a domain has no case (RFC 5321 §2.4), so a raw compare re-mails
-    # an address nobody moved wherever the stored row and the payload spell its domain differently.
-    stored_email = (stored.get("kontakt") or {}).get("email")
-    if stored_email is not None and mailbox_key(payload_email) == mailbox_key(str(stored_email)):
+    if not save_moves_the_link(stored=stored, payload_email=payload_email):
         return {"$set": dict(payload)}, False
 
     if stored.get("inactive_since") is not None:
@@ -472,15 +496,20 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{EINWILLIGUNG_FELD}.text_version": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
+    # For the ban list alone, as the answer's read takes it: the response model declares no field to
+    # carry it.
+    "kontakt.email": 1,
     # Suppressed here alone: this endpoint stores nothing, so it needs no key to patch on.
     "_id": 0,
 }
 
-# Narrower than the view's: the answer takes its wording from the payload rather than the row.
+# Narrower than the view's: the answer takes its wording from the payload rather than the row. The
+# address is what the press asks the ban list of, and no answer carries it.
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     "name": 1,
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
+    "kontakt.email": 1,
 }
 
 # What the re-send judges, and the address it hashes against the ban list.

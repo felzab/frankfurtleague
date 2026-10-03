@@ -2,11 +2,13 @@
 
 import { updateTag } from "next/cache";
 
-import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { isFreshlySignedIn } from "@/core/auth";
+import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants";
+import { returnMayMint, saveMayMint } from "./linkMint";
 import {
   anonymiseSchiedsrichter,
   deleteSchiedsrichter,
@@ -50,7 +52,7 @@ export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSchiedsrichterAction", async () => {
+  return runAdminMutation("postSchiedsrichterAction", { stepUp: true }, async () => {
     const validated = FLPostSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -101,7 +103,7 @@ export async function patchSchiedsrichterAction(
   // A flag beside the message rather than a sentence the caller parses: the editor grades the toast
   // a warning on it, and the save landed either way.
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
-  return runAdminMutation("patchSchiedsrichterAction", async () => {
+  return runAdminMutation("patchSchiedsrichterAction", async (session) => {
     const validated = FLPatchSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -111,6 +113,12 @@ export async function patchSchiedsrichterAction(
         fieldErrors: toFieldErrors(validated.error),
       };
     }
+
+    // A save minting a new link is a step-up write and any other save is not, so the stored row
+    // decides; read only for a session past the window, the one it can refuse.
+    const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(validated.data.id);
+    const unconfirmed = stored !== null && saveMayMint(stored.schiedsrichter, validated.data.kontakt.email) ? refuseUnconfirmed(session) : null;
+    if (unconfirmed !== null) return unconfirmed;
 
     // The refusal belongs on the form that asked, not on the error page.
     let postOperation;
@@ -156,7 +164,7 @@ export async function patchSchiedsrichterAction(
       // Its own field rather than folded into the message: the editor hands this to the undo offer,
       // and a save that mailed nothing has no sentence to hand it.
       versandSatz: mint === null || versand === null ? undefined : describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === false,
+      versandFehlgeschlagen: versand === "fehlgeschlagen",
     };
   });
 }
@@ -166,7 +174,7 @@ export async function patchSchiedsrichterAction(
  * would leave the referee with no working link and no message.
  */
 export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEinladenPayload): Promise<ActionResult<object>> {
-  return runAdminMutation("einladeSchiedsrichterAction", async () => {
+  return runAdminMutation("einladeSchiedsrichterAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterEinladenPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -268,7 +276,7 @@ export async function reactivateSchiedsrichterAction(
   // The save's flag, for the save's reason: the reactivation landed either way, and the row grades
   // its toast a warning where the link it minted did not leave.
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandFehlgeschlagen?: boolean }>> {
-  return runAdminMutation("reactivateSchiedsrichterAction", async () => {
+  return runAdminMutation("reactivateSchiedsrichterAction", async (session) => {
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -278,6 +286,11 @@ export async function reactivateSchiedsrichterAction(
         fieldErrors: toFieldErrors(validated.error),
       };
     }
+
+    // The save's reason: a return minting a link is a step-up write, any other return is not.
+    const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(validated.data.id);
+    const unconfirmed = stored !== null && returnMayMint(stored.schiedsrichter) ? refuseUnconfirmed(session) : null;
+    if (unconfirmed !== null) return unconfirmed;
 
     // The one refusal: the link an unanswered referee is minted on return would go to a banned address.
     let reactivateOperation;
@@ -312,7 +325,7 @@ export async function reactivateSchiedsrichterAction(
       success: true,
       updated_document: reactivateOperation.updated_document,
       message: mint === null || versand === null ? "Schiedsrichter reaktiviert" : describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === false,
+      versandFehlgeschlagen: versand === "fehlgeschlagen",
     };
   });
 }
@@ -325,7 +338,7 @@ export async function reactivateSchiedsrichterAction(
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("anonymiseSchiedsrichterAction", async () => {
+  return runAdminMutation("anonymiseSchiedsrichterAction", { stepUp: true }, async () => {
     const validated = FLAnonymiseSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

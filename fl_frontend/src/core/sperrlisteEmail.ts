@@ -39,11 +39,25 @@ function bisSatz(gesperrtBisSaisonId: string): string {
 const GRUND_VOR = "Angegebener Grund:";
 
 /**
- * What the row keeps, named because the reader cannot be shown it: the address itself is stored
- * nowhere, so nobody can hand it back and this sentence is the only account of the record.
+ * What the ban's row keeps, named because the reader cannot be shown it: the list holds a check value
+ * rather than the address, while the account the address signs in to keeps it, frozen.
  */
 const GESPEICHERT_SATZ =
-  "Gespeichert sind ein Fingerabdruck Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat. Deine Adresse selbst speichern wir nicht.";
+  "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat; Deine Adresse selbst steht dort nicht. Dein Konto mit dieser Adresse bleibt gespeichert.";
+
+/**
+ * The one way to a copy or a deletion while the address cannot sign in, and how the league knows the
+ * request is the address holder's.
+ */
+const auskunftSatz = (kontakt: string): string =>
+  `Möchtest Du eine Kopie Deiner Daten oder ihre Löschung, schreib uns an ${kontakt}. Wir bestätigen Deine Anfrage mit einer E-Mail an diese gesperrte Adresse.`;
+
+/**
+ * A barred address's confirmation link shows the ban's sentence and nothing else, so a contact person
+ * withdrawing a consent that link took has only this mail to learn where it now goes.
+ */
+const einwilligungSatz = (kontakt: string): string =>
+  `Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an ${kontakt} vor.`;
 
 /**
  * Art. 6 (1) (f). Named because the mail is the ONLY record this reader ever gets: the notice they
@@ -59,9 +73,14 @@ const GRUNDLAGE_SATZ =
 const widerspruchSatz = (kontakt: string): string =>
   `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}; dort beantworten wir auch Fragen zur Sperre.`;
 
-/* „anmelden“ is this branch's verb for the SIGN-IN, which consults no ban list. What a ban actually
-   refuses is a registration and a referee's entry, so the sentence names those two. */
-const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt. Mit ihr kannst Du Dich vorerst nicht für eine Saison registrieren und auch nicht als Schiedsrichterin oder Schiedsrichter eingetragen werden.`;
+// Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
+// application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
+const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt. Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.`;
+
+// „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held,
+// a failure being the administrator's to read.
+const ANMELDUNGEN_SATZ =
+  "Bestehende Anmeldungen mit dieser Adresse werden beendet. Dein Konto bleibt bestehen und ist gesperrt, bis die Sperre endet; danach kannst Du Dich wieder anmelden.";
 
 /** What the form's hint promises the mail explains, so the two say one thing. */
 const LAPSE_SATZ = "Danach endet die Sperre von selbst; Du musst dafür nichts tun.";
@@ -77,9 +96,13 @@ function renderHtml(grund: string, gesperrtBisSaisonId: string, origin: string):
     bloecke: [
       // The bound is emphasised inside the prose rather than panelled: a card of one fact beside a
       // heading naming the ban reads as a certificate of it.
-      paragraph(`${escapeHtml(EINLEITUNG)} ${strong(escapeHtml(bisSatz(gesperrtBisSaisonId)))} ${escapeHtml(LAPSE_SATZ)}`),
+      paragraph(
+        `${escapeHtml(EINLEITUNG)} ${escapeHtml(ANMELDUNGEN_SATZ)} ${strong(escapeHtml(bisSatz(gesperrtBisSaisonId)))} ${escapeHtml(LAPSE_SATZ)}`,
+      ),
       paragraph(`${GRUND_VOR} ${escapeHtml(grund)}`),
       paragraph(escapeHtml(GESPEICHERT_SATZ), "0 0 16px", ASIDE_TEXT),
+      paragraph(auskunftSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0 0 16px", ASIDE_TEXT),
+      paragraph(einwilligungSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0 0 16px", ASIDE_TEXT),
       paragraph(escapeHtml(GRUNDLAGE_SATZ), "0 0 16px", ASIDE_TEXT),
       // Its own paragraph and the last before the control, which is the separateness Art. 21 (4) asks for.
       // The address as a marked link here too: the objection is one a reader has to select and paste otherwise.
@@ -95,11 +118,15 @@ function renderText(grund: string, gesperrtBisSaisonId: string, origin: string):
   const oben = [
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
-    `${EINLEITUNG} ${bisSatz(gesperrtBisSaisonId)} ${LAPSE_SATZ}`,
+    `${EINLEITUNG} ${ANMELDUNGEN_SATZ} ${bisSatz(gesperrtBisSaisonId)} ${LAPSE_SATZ}`,
     "",
     `${GRUND_VOR} ${grund}`,
     "",
     GESPEICHERT_SATZ,
+    "",
+    auskunftSatz(KONTAKT_EMAIL),
+    "",
+    einwilligungSatz(KONTAKT_EMAIL),
     "",
     GRUNDLAGE_SATZ,
     "",

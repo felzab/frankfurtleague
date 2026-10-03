@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
@@ -14,13 +14,16 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   ABSATZ_CLASSES,
+  AdresseGesperrt,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
   Gefuellt,
   GespeicherteAngaben,
+  useLinkSeite,
   Wert,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
@@ -53,10 +56,10 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
-import type { Slots } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
 import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
+import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 
@@ -71,8 +74,8 @@ type Gespeichert = { vorname: string; geburtsdatum: string; umfang: FLSchiedsric
 
 type Stand = SchiedsrichterBestaetigungStart | ({ zustand: "erfolg" } & Gespeichert);
 
-/** One heading per state, in the contact page's own words: one workflow's two ends read alike. */
-const TITEL: Record<Stand["zustand"], string> = {
+/** One heading per state, in the contact page's own words: one workflow's two ends read alike. A barred link's page has none. */
+const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
   bestaetigt: "Schon erledigt",
@@ -80,9 +83,6 @@ const TITEL: Record<Stand["zustand"], string> = {
   ungueltig: "Link ungültig",
   unlesbar: "Link nicht geprüft",
 };
-
-/** The contact confirmation's own column, so the league's two consent pages are one page wide. */
-const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
@@ -130,7 +130,7 @@ function StandAbsatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slo
 
 /**
  * Rendered in the order a reader meets it rather than the legal draft's order: the media paragraph
- * sits at its switch and the four points at the button. **One column**, as the contact page keeps.
+ * sits at its switch and the points at the button. **One column**, as the contact page keeps.
  */
 function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
   return (
@@ -191,7 +191,7 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
 }
 
 /**
- * **The one wording of the five points**: the button describes itself by this block's `id` rather
+ * **The one wording of the points**: the button describes itself by this block's `id` rather
  * than by a summary sentence beside it, which is how a reader met the same promise twice.
  */
 function KlickBestaetigung({ id, werte }: { id: string; werte: Slots }) {
@@ -248,7 +248,7 @@ type BestaetigungAntwort =
   ({ success: true } & Omit<Gespeichert, "vorname">) | (PublicEnvelope & { success: false; zustand?: SchiedsrichterLinkZustand });
 
 /**
- * **The acknowledgement is the press, not a switch**: the five points above the button say what the
+ * **The acknowledgement is the press, not a switch**: the points above the button say what the
  * press records, and a required „gelesen“ switch would be a second act recording the same thing.
  */
 function SchiedsrichterFormPanel({
@@ -488,21 +488,9 @@ function SchiedsrichterFormPanel({
  */
 export function SchiedsrichterBestaetigungView({ start }: { start: SchiedsrichterBestaetigungStart }) {
   const [stand, setStand] = useState<Stand>(start);
-  const [hatGeantwortet, setHatGeantwortet] = useState(false);
-  const ergebnisRef = useRef<HTMLElement>(null);
+  const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
-  useEffect(() => {
-    // The bare path after hydration, so the address bar, a screenshot and a bookmark carry no
-    // token. Not while the read failed: a reload is the way back, and it needs the token in the URL.
-    if (stand.zustand === "unlesbar" || window.location.search === "") return;
-    window.history.replaceState(null, "", window.location.pathname);
-  }, [stand.zustand]);
-
-  // The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
-  // announced; the panel takes it, and `role="status"` reads it out.
-  useEffect(() => {
-    if (hatGeantwortet) ergebnisRef.current?.focus();
-  }, [hatGeantwortet]);
+  if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   return (
     <section className={SEITE_CLASSES}>
@@ -517,7 +505,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
           mindestalter={stand.ansicht.mindestalter}
           medienMindestalter={stand.ansicht.medien_mindestalter}
           onAbschluss={(naechster) => {
-            setHatGeantwortet(true);
+            beantwortet();
             setStand(naechster);
           }}
         />

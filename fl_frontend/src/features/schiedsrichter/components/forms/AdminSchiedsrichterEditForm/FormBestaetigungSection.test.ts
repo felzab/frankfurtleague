@@ -244,7 +244,7 @@ describe("the control that sends the link", () => {
 
       assert.deepEqual(
         toasts.map((raised) => [raised.title, raised.description, raised.options?.outcome]),
-        [["Bestätigungslink nicht gesendet", repair, "unknown"]],
+        [["Unklar, ob es gespeichert wurde", repair, "unknown"]],
       );
     });
   }

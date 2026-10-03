@@ -1,0 +1,93 @@
+import { joinUnd } from "@/core/joinUnd";
+import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+
+import { teamHref } from "./teamSeats";
+
+import type { Funktion } from "@/core/funktionen";
+import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
+import type { PersonEintrag } from "./constants";
+
+/** The address one Funktion opens on. */
+function funktionHref(funktion: Funktion): string {
+  switch (funktion.art) {
+    case "kontakt":
+      return teamHref(funktion.team_id, funktion.saison_id);
+    case "spieler":
+      return "/bereich/spieler";
+    case "schiedsrichter":
+      return "/bereich/schiedsrichter";
+    case "administration":
+      // eslint-disable-next-line local/admin-link -- a Funktion's own address; no season is in scope where a person lands
+      return "/bereich/admin";
+  }
+}
+
+/** One address a person's Funktionen lead to, with every one of them that leads there. */
+export type FunktionZiel = { href: string; funktionen: readonly [Funktion, ...Funktion[]] };
+
+/**
+ * Grouped by address rather than listed per Funktion: two pupil rows on one mailbox, or a Trainer
+ * who is also the Ansprechperson, lead to one page, and two links to it would read as two places.
+ */
+export function zieleOf(funktionen: readonly Funktion[]): FunktionZiel[] {
+  const byHref = new Map<string, [Funktion, ...Funktion[]]>();
+  for (const funktion of funktionen) {
+    const href = funktionHref(funktion);
+    const held = byHref.get(href);
+    if (held === undefined) byHref.set(href, [funktion]);
+    else held.push(funktion);
+  }
+
+  return [...byHref].map(([href, held]) => ({ href: href, funktionen: held }));
+}
+
+/** One address's two lines: what it is, and which of the person's Funktionen lead there. */
+export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } {
+  const [erste] = ziel.funktionen;
+
+  switch (erste.art) {
+    case "kontakt": {
+      // Every seat at one address shares its team and season, so the first names both.
+      const gehalten = new Set(ziel.funktionen.flatMap((funktion) => (funktion.art === "kontakt" ? [funktion.rolle] : [])));
+      // In `KONTAKT_ROLLEN`'s order rather than the lookup's, so one person's roles read alike on every visit.
+      const rollen = KONTAKT_ROLLEN.filter((rolle) => gehalten.has(rolle.value)).map((rolle) => rolle.label);
+      return { titel: erste.team_name, detail: `Saison ${erste.saison_id} · ${joinUnd(rollen)}` };
+    }
+    case "spieler":
+      return { titel: "Spieler", detail: "Dein Kadereintrag" };
+    case "schiedsrichter":
+      return { titel: "Schiedsrichter", detail: "Deine Einsätze" };
+    case "administration":
+      return { titel: "Verwaltung", detail: "Die Verwaltung der Liga" };
+  }
+}
+
+/**
+ * The places `FunktionSwitcher` lists, labelled as the landing's cards are, in the landing's order.
+ * One place is no choice to offer, so the switcher shows only from two.
+ */
+export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
+  const orte = zieleOf(funktionen).map((ziel) => ({ ziel: ziel, ...zeilenOf(ziel) }));
+
+  return orte.map(({ ziel, titel, detail }) => {
+    const [erste] = ziel.funktionen;
+    // One team in two seasons is two places under one title, which a screen reader would name alike
+    // (`docs/frontend/spec.md :: I469`).
+    const geteilt = erste.art === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
+    const name = geteilt ? `${titel}, Saison ${erste.saison_id}` : titel;
+
+    return { href: ziel.href, titel: titel, detail: detail, name: name };
+  });
+}
+
+/**
+ * The landing is listed whatever is held: for a person whose one place is a team or the
+ * administration, „Übersicht“ is the account page's way back (`docs/frontend/spec.md :: I467`).
+ */
+export function personEintraegeOf(funktionen: readonly Funktion[]): ReadonlySet<PersonEintrag> {
+  const eintraege = new Set<PersonEintrag>(["landing"]);
+  if (funktionen.some((funktion) => funktion.art === "spieler")) eintraege.add("spieler");
+  if (funktionen.some((funktion) => funktion.art === "schiedsrichter")) eintraege.add("schiedsrichter");
+
+  return eintraege;
+}

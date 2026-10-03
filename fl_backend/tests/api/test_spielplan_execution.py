@@ -40,6 +40,7 @@ from app.core.exception_handlers import refused_index_of
 from app.core.exceptions import WriteRefusalException
 from app.core.logging import trace_id_var
 from tests import documents
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -216,6 +217,7 @@ async def call_draw(
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 

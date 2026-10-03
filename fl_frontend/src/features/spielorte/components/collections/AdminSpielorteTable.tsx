@@ -39,6 +39,7 @@ import { useReactivation } from "@/shared/hooks/useReactivation";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
@@ -61,7 +62,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   filteredSpielorte: FLSpielort[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
-  setDeletingOrt: (ort: FLSpielort) => void;
+  setDeletingOrt: (ort: FLSpielort, pressed: Element) => void;
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateSpielortAction, noun: "Spielort" });
 
@@ -114,7 +115,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   );
 
   const renderActions = (ort: FLSpielort) => (
-    <RowActions>
+    <RowActions row={ort.id}>
       <RowActionCopy
         label="Adresse kopieren"
         ariaLabel={`Adresse von ${ort.name} kopieren`}
@@ -122,7 +123,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
       />
       {/* A link and not a press: the venue form edits on a page of its own. */}
       <RowActionLink
-        href={saisonHref(`/admin/spielorte/${ort.id}`)}
+        href={saisonHref(`/bereich/admin/spielorte/${ort.id}`)}
         label="Bearbeiten"
         ariaLabel={`Spielort ${ort.name} bearbeiten`}>
         <Pencil
@@ -135,13 +136,13 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           label="Reaktivieren"
           ariaLabel={`Spielort ${ort.name} reaktivieren`}
           isPending={isReactivating}
-          onPress={() => reactivate({ id: ort.id })}
+          onPress={(pressed) => reactivate({ id: ort.id }, { pressed })}
         />
       ) : (
         <RowActionDelete
           label="Stilllegen"
           ariaLabel={`Spielort ${ort.name} stilllegen`}
-          onPress={() => setDeletingOrt(ort)}
+          onPress={(pressed) => setDeletingOrt(ort, pressed)}
         />
       )}
       {/* Both leave the row; the copy above acts on it, which is what keeps that one inline. */}
@@ -160,7 +161,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
             here would fuzzy-match every `SEARCH_KEYS` entry and light no chip. */}
         <RowActionMenuItem
           id="spiele"
-          href={saisonHref(`/admin/spielsuche?ort=${ort.id}`)}
+          href={saisonHref(`/bereich/admin/spielsuche?ort=${ort.id}`)}
           label="Spiele anzeigen">
           <Magnifier
             aria-hidden="true"
@@ -174,7 +175,9 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   return (
     <>
       {/* One card per venue, so nothing scrolls horizontally. */}
-      <div className="flex w-full flex-col gap-3 md:hidden">
+      <div
+        className="flex w-full flex-col gap-3 md:hidden"
+        {...focusSection("spielorte-karten")}>
         {filteredSpielorte.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSpielorte.map((ort) => (
           <div
@@ -189,7 +192,9 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div
+        className="hidden w-full md:block"
+        {...focusSection("spielorte-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
           {/* Never scrolled at a width this table renders at
               (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform

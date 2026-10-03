@@ -45,7 +45,7 @@ describe("the registration window panel", () => {
 
     assert.ok(screen.getByRole("switch", { name: /Diese Saison hat eine Registrierungsfrist/, checked: false }));
     assert.ok(screen.queryByText("Registrierungsfrist") === null, "the span is rendered on a season that records no window");
-    assert.equal(freischaltung(), null);
+    assert.ok(freischaltung() === null, "the switch releasing registrations is offered on a season that records no window");
     unmount();
   });
 

@@ -4,7 +4,7 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
@@ -125,7 +125,7 @@ export function geburtsdatumSpanne(today: string, mindestalter: number): { frueh
 /** A body the running API refuses on a path no box takes, which only a page older than the deploy sends. */
 export const BEWERBUNG_VERALTET = buildRefusal({
   reason: "Einzelne Angaben konnten wir nicht übernehmen",
-  repair: "Lade die Seite neu und versuche es noch einmal",
+  repair: LADE_NEU_UND_VERSUCHE_ES_ERNEUT,
 });
 
 /**
@@ -178,6 +178,15 @@ export function mapBewerbungSubmitRefusal(
         error: buildRefusal({
           reason: "Deine Bewerbung ist schon angekommen, mit den Angaben, die Du zuerst abgeschickt hast",
           repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
+        }),
+      };
+    // A banner naming no seat, as a 403 carries no field, and neutral as the registration's is: a
+    // stranger learns nothing about a list, and the person it concerns already knows why.
+    case "REQ-BEWERBUNG-018":
+      return {
+        error: buildRefusal({
+          reason: "Mit einer der angegebenen E-Mail-Adressen ist keine Bewerbung möglich",
+          repair: `Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
     // With the record missing, the season this page names is one the running API does not hold: only a
@@ -242,6 +251,10 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-BEWERBUNG-012":
       return { fieldErrors: { geburtsdatum: alterAusserhalb(mindestalter) } };
+    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
+    // form either: the page offers no Widerspruch to a barred address (`docs/frontend/spec.md :: I516`).
+    case "REQ-BEWERBUNG-020":
+      return { zustand: "gesperrt" };
     default:
       return null;
   }

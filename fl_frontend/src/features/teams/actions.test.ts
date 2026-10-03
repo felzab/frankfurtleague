@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { APINetworkError } from "@/core/errors.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { unansweredAction } from "@/shared/utils/actionError.ts";
 
 import {
   mapAlreadyEnteredRefusal,
@@ -129,6 +131,92 @@ describe("the club's writes", () => {
       { endpoint: `${club}/saisons/${SAISON_ID}`, method: "PATCH", body: junction },
       { endpoint: `${club}/saisons/${SAISON_ID}/replace`, method: "POST", body: { incoming_team_id: INCOMING_ID } },
     ]);
+  });
+});
+
+/**
+ * What the create answers for each code the entry publishes, spelled out rather than composed from the
+ * mapper: composed, a reason carrying the club editor's own repair reads as one sentence too many.
+ */
+const PARTLY_SAVED: Readonly<Record<string, string>> = {
+  "REQ-ENTER-001":
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+  "REQ-ENTER-002":
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Gruppe gibt es in dieser Saison nicht. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+  "REQ-ENTER-003":
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Gruppe ist schon voll. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+  "REQ-ENTER-005":
+    "Das Team wurde angelegt, ist aber inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es auf seiner Seite und nimm es danach dort in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+  [DUPLICATE_KEY]:
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+};
+
+describe("a club created whose entry into the season is refused", () => {
+  /* The club stands, so the answer is marked partly saved rather than titled „nicht gespeichert“, and
+     its one way out is the club's own page: the editor's repairs name controls the create has not got. */
+  it("answers every refusal the entry publishes as partly saved, naming one way out", async () => {
+    const answers: Record<string, unknown> = {};
+    for (const code of publishedRefusals(ENTRY_OPERATION)) {
+      const refused = refusedOn(ENTRY_OPERATION, code);
+      answerWith((call) => (call.endpoint === "/teams" ? Promise.resolve(landed(call)) : Promise.reject(refused)));
+
+      answers[code] = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+    }
+
+    // One comparison over every code, keyed by the published set: a code the entry starts publishing
+    // fails here with its answer shown, rather than passing unread.
+    assert.deepEqual(
+      answers,
+      Object.fromEntries(Object.entries(PARTLY_SAVED).map(([code, error]) => [code, { success: false, error, outcome: "partial" }])),
+    );
+  });
+
+  /* The actor check refuses ahead of any handler, so the club stands in no season. The spine's own
+     answer would ask for a retry, which meets the shorthand the club already holds. */
+  it("tells of the club standing where the backend refuses the actor token at the entry", async () => {
+    const refused = refusedOn(ENTRY_OPERATION, "REQ-AUTH-007", 401);
+    answerWith((call) => (call.endpoint === "/teams" ? Promise.resolve(landed(call)) : Promise.reject(refused)));
+
+    const result = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+
+    assert.deepEqual(result, {
+      success: false,
+      error:
+        "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+      outcome: "partial",
+    });
+  });
+
+  /* Never the refused sentence: the entry may stand, and a second one meets it. */
+  it("answers an entry whose answer was lost as unclear, and reads the season's clubs again", async () => {
+    const lost = [
+      new APINetworkError({
+        message: "Request failed.",
+        url: "http://backend:8000",
+        method: "POST",
+        readOnly: false,
+        traceId: "0",
+        isTimeout: false,
+      }),
+      refusedOn(ENTRY_OPERATION, "DB-FAIL-002", 500),
+    ];
+    for (const failure of lost) {
+      cacheCalls.length = 0;
+      answerWith((call) => (call.endpoint === "/teams" ? Promise.resolve(landed(call)) : Promise.reject(failure)));
+
+      const result = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+
+      assert.deepEqual(result, unansweredAction(), failure.name);
+      assert.deepEqual(
+        cacheCalls,
+        [
+          { name: "updateTag", args: ["teams"] },
+          { name: "updateTag", args: [`teams:saison_id:${SAISON_ID}`] },
+          { name: "refresh", args: [] },
+        ],
+        failure.name,
+      );
+    }
   });
 });
 

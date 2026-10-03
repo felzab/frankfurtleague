@@ -141,7 +141,7 @@ class Unenforced:
     #: `<test path>::<class>` proving the claim, paired one-to-one with this tuple. An entry nothing
     #: executes decays into the oversight it exists to be distinguishable from.
     proven_by: str
-    #: An `/admin` route or a repo path to the component showing the state. Empty only where nothing
+    #: A `/bereich/admin` route or a repo path to the component showing the state. Empty only where nothing
     #: shows it, which `reason` then has to answer for.
     surfaced_by: str = ""
 
@@ -244,7 +244,8 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "season the ban covers (`docs/backend/spec.md :: I273`), and the activation that runs past it ERASES "
             "the row rather than deleting it, so the bound is outlived by no log image either "
             "(`docs/backend/spec.md :: I274`). Anonymous it is not: `erstellt_von` is that "
-            "administrator's address in plain and `grund` is free text that may name the person barred, both served "
+            "administrator's address in plain and `grund` is free text that may name the person barred, both served -- "
+            "`erstellt_von` withheld where the ban list holds that administrator too (`docs/backend/spec.md :: I452`) -- "
             "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
         ),
     ),
@@ -261,7 +262,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "link's LIFETIME is the season's registration window, read at every use rather than copied here, so a window moved "
             "after the mint moves every link with it. It names no SUBJECT, which is why an erasure never reaches one and why the "
             "row is deleted by nothing. Anonymous it is not: `erstellt_von` is an administrator's address in plain, served on "
-            "the admin read and outliving any erasure, as the ban list's is."
+            "the admin read unless the ban list holds it, and outliving any erasure, as the ban list's is."
         ),
     ),
     Aggregate(
@@ -277,6 +278,24 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "Nothing of it reaches `spieler` or `saison_spieler`: the person and the squad row are written by the admission, "
             "in the transaction that deletes this document, which is what keeps the squad cap and the junction's uniqueness "
             "judged once, inside the Saison boundary, by the path that writes them."
+        ),
+    ),
+    Aggregate(
+        name="Berechtigung",
+        root=Collection.BERECHTIGUNGEN,
+        members=(Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.BERECHTIGUNGEN_POSTAUSGANG),
+        boundary=(
+            "The whole list is the boundary, not one row: the floor of two is a rule over every grant at once, so every "
+            "transaction judging it writes every row of it, and two revokes or a grant beside a ban conflict instead of "
+            "both committing (`docs/backend/spec.md :: I53`). The announced record and the outbox join it because a grant, "
+            "a revoke or a tier change made here moves all three in one transaction: the change, the record accounting for it, and the "
+            "notice announcing it, so the comparison finds only what the database was edited to (`docs/backend/spec.md :: "
+            "I451`). A row names an address rather than a person record, as a ban does, so it is in no boundary with "
+            "`spieler`, a seat or a referee. The ban list is held apart by refusal in both directions rather than by "
+            "membership, each write reading the other collection inside its own transaction. A grant is always "
+            "`administration`: an owner's tier change is the one route that makes or unmakes an `owner`, so the first "
+            "owner is written in the database. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
+            "served to every administrator, and the outbox holds them until a pass has mailed them."
         ),
     ),
 )
@@ -1873,6 +1892,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestTheMediaAge",
     ),
     Rule(
+        code="REQ-SCHIEDSRICHTER-009",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /schiedsrichter/bestaetigung",
+        aggregate="Schiedsrichter",
+        summary="a link mailed to an address the ban list now holds records no consent, whenever it was minted",
+        implemented_by="app.api.schiedsrichter.services.find_bestaetigung_gesperrt_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
+    ),
+    Rule(
         code="REQ-SQUAD-001",
         status=HTTPStatus.CONFLICT,
         operation=(
@@ -2074,6 +2102,36 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheWordingTheFormShows",
     ),
     Rule(
+        code="REQ-BEWERBUNG-018",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="an address the ban list holds applies for nobody, on any of the three seats, a replayed key included",
+        implemented_by="app.api.bewerbungen.services.find_gesperrt_refusal",
+        tested_by="tests/api/test_bewerbung_submission_execution.py::TestABannedContactAddress",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-019",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
+            " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+        ),
+        aggregate="Bewerbung",
+        summary="no confirmation link is minted for a corrected, reseated or re-sent contact address the ban list still holds",
+        implemented_by="app.api.bewerbungen.services.find_kontakt_gesperrt_refusal",
+        tested_by="tests/api/test_bewerbung_triage_execution.py::TestABannedContactAddress",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-020",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Bewerbung",
+        summary="a link mailed to an address the ban list now holds takes no consent, whenever it was minted; its decline is still taken",
+        implemented_by="app.api.bewerbungen.services.find_einwilligung_gesperrt_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestALinkToABarredAddress",
+    ),
+    Rule(
         code="REQ-PURGE-001",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /spieler/{spieler_id}/erasure",
@@ -2099,6 +2157,81 @@ RULES: tuple[Rule, ...] = (
         summary="no ban is entered while no season is running, the five seasons it lapses after having nothing to count from",
         implemented_by="app.api.sperrliste.services.find_keine_saison_refusal",
         tested_by="tests/api/test_sperrliste_lapse_refusal.py::TestALeagueWithNoSeasonRunning",
+    ),
+    Rule(
+        code="REQ-SPERRLISTE-003",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /sperrliste",
+        aggregate="Sperrliste",
+        summary="an address holding a grant of either tier takes no ban until the grant is revoked",
+        implemented_by="app.api.sperrliste.services.find_verwaltung_refusal",
+        tested_by="tests/api/test_sperrliste_execution.py::TestABanOfAnAdministratorsAddress",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-001",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /berechtigungen",
+        aggregate="Berechtigung",
+        summary="an address a live grant of either tier already holds takes no second one",
+        implemented_by="app.api.berechtigungen.services.find_vorhanden_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestASecondGrantOfOneAddress",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-002",
+        status=HTTPStatus.CONFLICT,
+        operation="DELETE /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="an `owner` row is revoked by no route; an owner makes it an administrator first",
+        implemented_by="app.api.berechtigungen.services.find_inhaber_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestTheOwnersRow",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-003",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /berechtigungen · PATCH /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="an address the ban list holds is granted nothing, and made an owner by nobody, until the ban is lifted",
+        implemented_by="app.api.berechtigungen.services.find_gesperrt_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestAGrantToABarredAddress",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-005",
+        status=HTTPStatus.FORBIDDEN,
+        operation="DELETE /berechtigungen/{berechtigung_id} · PATCH /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary=(
+            "a revoke or a tier change is made only by an actor whose own live grant is `owner`, read inside the transaction,"
+            " from a sign-in made since that tier took effect"
+        ),
+        implemented_by="app.api.berechtigungen.services.find_nur_inhaber_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestOnlyAnOwnerRevokes",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-006",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /berechtigungen · POST /sperrliste",
+        aggregate="Berechtigung",
+        summary="a grant or a ban is made only by an actor whose own live grant still stands inside the transaction",
+        implemented_by="app.api.berechtigungen.services.find_ohne_zugang_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestAnActorRevokedMidRequest",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-004",
+        status=HTTPStatus.CONFLICT,
+        operation="DELETE /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="a revoke leaves at least two live, unbarred grants standing, any `owner` grant counted among them",
+        implemented_by="app.api.berechtigungen.services.find_mindestzahl_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestTheFloorOfTwo",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-007",
+        status=HTTPStatus.CONFLICT,
+        operation="PATCH /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="a demotion leaves at least one live, unbarred `owner` grant standing",
+        implemented_by="app.api.berechtigungen.services.find_letzter_inhaber_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestTheLastOwner",
     ),
     Rule(
         code="REQ-EINLADUNG-001",
@@ -2226,6 +2359,15 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.registrierungen.services.find_abweichender_fingerabdruck_refusal",
         tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
     ),
+    Rule(
+        code="REQ-REGISTRIERUNG-012",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /registrierungen/bestaetigung",
+        aggregate="Registrierung",
+        summary="a link mailed to an address the ban list now holds confirms no registration, whenever it was minted",
+        implemented_by="app.api.registrierungen.services.find_bestaetigung_gesperrt_refusal",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestALinkToABarredAddress",
+    ),
 )
 
 
@@ -2272,7 +2414,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-ELIGIBILITY-001",),
         proven_by="tests/core/test_unenforced.py::TestABracketSlotHeldByADisqualifiedClub",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a fixture still to be played booked onto a retired venue or referee",
@@ -2287,7 +2429,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-BOOKING-001", "REQ-RETIRE-003", "REQ-RETIRE-004"),
         proven_by="tests/core/test_unenforced.py::TestARetiredBookingOnAReopenedFixture",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="one venue or referee claimed by two fixtures less than four hours apart",
@@ -2302,14 +2444,14 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-CLASH-001",),
         proven_by="tests/core/test_unenforced.py::TestADoubleBookingALiftedNoShowLeaves",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a stored bracket fault",
         reason=("Every fault is derived on each admin read and none is stored. Reporting a shape is never licence to act on it."),
         near=("REQ-WIRING-001",),
         proven_by="tests/core/test_unenforced.py::TestNoBracketFaultIsStored",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a retired row kept indefinitely",
@@ -2341,7 +2483,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-RULES-007",),
         proven_by="tests/core/test_unenforced.py::TestAGroupPhaseEveryClubLeaves",
-        surfaced_by="/admin/spieltage",
+        surfaced_by="/bereich/admin/spieltage",
     ),
     Unenforced(
         subject="a Spieltag on which a club already stands twice",
@@ -2356,7 +2498,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-SWAP-005", "REQ-SPIELTAG-001", "REQ-SPIELTAG-002"),
         proven_by="tests/core/test_unenforced.py::TestASpieltagAlreadyHoldingAClubTwice",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a person holding no squad row at all",
@@ -2368,7 +2510,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-SQUAD-001",),
         proven_by="tests/core/test_unenforced.py::TestAPersonWithNoSquadRow",
-        surfaced_by="/admin/spieler",
+        surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
         subject="a person carrying no birthdate, whose age nothing judges",
@@ -2386,7 +2528,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-BEWERBUNG-012", "REQ-REGISTRIERUNG-007", "REQ-SQUAD-001"),
         proven_by="tests/core/test_unenforced.py::TestAPupilStoredWithNoBirthdate",
-        surfaced_by="/admin/spieler",
+        surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
         subject="a departed club holding drawn fixtures",
@@ -2399,7 +2541,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-ELIGIBILITY-001",),
         proven_by="tests/core/test_unenforced.py::TestADisqualifiedClubKeepsItsFixtures",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a stored pre-image no current model accepts",
@@ -2423,13 +2565,13 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "document -- so the same rule widened has no index to find its neighbour on: "
             "`uniq_saison_id_saison_phase_position` does not carry `beginn`, and the phase order is on no "
             "document at all. The state is reachable between phases alone: the draw gives every "
-            "knockout phase exactly one matchday, and one matchday makes no pair to order. `/admin/spieltage` "
+            "knockout phase exactly one matchday, and one matchday makes no pair to order. `/bereich/admin/spieltage` "
             "sections a season by phase in played order with each span beside it, so a phase dated against that "
             "order reads as dates running backwards down the page."
         ),
         near=("REQ-DATE-008",),
         proven_by="tests/core/test_unenforced.py::TestAPhaseDatedAgainstTheOrderItIsPlayedIn",
-        surfaced_by="/admin/spieltage",
+        surfaced_by="/bereich/admin/spieltage",
     ),
     Unenforced(
         subject="a person retired while holding a live squad row",
@@ -2441,7 +2583,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-RETIRE-001", "REQ-SQUAD-001"),
         proven_by="tests/core/test_unenforced.py::TestARetiredPersonKeepsALiveSquadRow",
-        surfaced_by="/admin/spieler",
+        surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
         subject="a `future` season holding recorded results",
@@ -2454,7 +2596,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-SPIELPLAN-005", "REQ-SPIELPLAN-006"),
         proven_by="tests/core/test_unenforced.py::TestAFutureSeasonHoldingRecordedResults",
-        surfaced_by="/admin/saisons/[saison_id]",
+        surfaced_by="/bereich/admin/saisons/[saison_id]",
     ),
     Unenforced(
         subject="an abandoned fixture carrying any result, or none",
@@ -2467,6 +2609,6 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-STATE-002", "REQ-STATE-003"),
         proven_by="tests/core/test_unenforced.py::TestAnAbandonedFixtureAndItsResult",
-        surfaced_by="/admin/spiele/[spiel_id]",
+        surfaced_by="/bereich/admin/spiele/[spiel_id]",
     ),
 )

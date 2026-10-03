@@ -44,6 +44,7 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.saisons.cache import dropping_the_saison_cache
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -58,9 +59,10 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import drain, refuse_a_stalled_page
+from app.core.transactions import drain, refuse_a_stalled_page, transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
@@ -160,6 +162,7 @@ async def sweep_saison(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     aktionen_collection: AktionenCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -169,7 +172,9 @@ async def sweep_saison(
 
     The reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one
     person one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the
-    mail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only
+    mail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is
+    sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and
+    reminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only
     LISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the
     delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose
     Ansprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to
@@ -183,8 +188,8 @@ async def sweep_saison(
     first; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step
     of the same call can answer an error in their place.
 
-    404 where no season has the id. Idempotent per day once every share has been taken: a run after that finds nothing
-    left to do.
+    404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
+    though it logs the count of withheld seats again.
 
     A season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a
     successor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly
@@ -203,6 +208,9 @@ async def sweep_saison(
     next_saison_status = naechste_raw.get("status") if naechste_raw is not None else None
 
     stamp = log_stamp(germany_now)
+    # Outside the reminder's transaction, whose callback may run again, as the correction reads it
+    # (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def stamp_the_run(session: AsyncClientSession) -> None:
         """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
@@ -253,8 +261,11 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession) -> list[FLBewerbungSweepErinnerung]:
-        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges."""
+    async def remind(session: AsyncClientSession) -> tuple[list[FLBewerbungSweepErinnerung], int]:
+        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
+
+        Also answers how many mailboxes on the page a ban kept from their reminder, for the log line.
+        """
 
         rows = await pull_many_from_db(
             collection=bewerbungen_collection,
@@ -265,19 +276,36 @@ async def sweep_saison(
             sort_by=[("bestaetigungsfrist", ASCENDING), ("_id", ASCENDING)],
             session=session,
         )
+        per_row = [
+            (
+                row,
+                [
+                    (email, reminder_link_groups(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seats=held))
+                    for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats)
+                ],
+            )
+            for row in rows
+            if (seats := reminder_seats(bewerbung_raw=row, today=today))
+        ]
+        # Asked over the whole page before the share is cut: nothing of a ban is stored, so a barred row
+        # stays due, and a share cut first would fill with the same barred rows on every pass.
+        gesperrt = await adressen_gesperrt(
+            sperrliste,
+            [email for _, mailboxes in per_row for email, _ in mailboxes],
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
+        withheld = sum(1 for _, mailboxes in per_row for email, _ in mailboxes if email in gesperrt)
+        reachable = [(row, [(email, gruppen) for email, gruppen in mailboxes if email not in gesperrt]) for row, mailboxes in per_row]
+
         # The rows past the share stay due and unstamped, so the next pass takes them: a stamped
         # seat leaves the filter, so a full page is drained by the passes that follow.
-        due = [(row, reminder_seats(bewerbung_raw=row, today=today)) for row in rows]
-        taken = [(row, seats) for row, seats in due if seats][:REMINDERS_PER_PASS]
+        taken = [(row, mailboxes) for row, mailboxes in reachable if mailboxes][:REMINDERS_PER_PASS]
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
         club_names = await _club_names(teams_collection=teams_collection, rows=[row for row, _ in taken], session=session)
 
         erinnerungen: list[FLBewerbungSweepErinnerung] = []
-        for row, seats in taken:
-            per_mailbox = [
-                (email, reminder_link_groups(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seats=held))
-                for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats)
-            ]
+        for row, per_mailbox in taken:
             gruppen_alle = [gruppe for _, gruppen in per_mailbox for gruppe in gruppen]
             # Minted per LINK rather than per seat: a token for a seat riding another's link is a
             # credential nobody is sent, live on the wire and in the document until the deadline.
@@ -317,7 +345,7 @@ async def sweep_saison(
 
         await stamp_the_run(session)
 
-        return erinnerungen
+        return erinnerungen, withheld
 
     async def erase_declined(session: AsyncClientSession) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
@@ -419,7 +447,7 @@ async def sweep_saison(
     if season_after_has_ended(next_saison_status=next_saison_status):
         angenommene, redacted_accepted = await drain(db=db, page_of=lambda session: session.with_transaction(erase_accepted), page=SWEEP_PAGE)
 
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             geleert, redacted_blocks = await session.with_transaction(clear_the_blocks)
         redacted_accepted += redacted_blocks
 
@@ -460,8 +488,13 @@ async def sweep_saison(
 
     # The run's day is a season write, which the cache serves.
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
-            erinnerungen = await session.with_transaction(remind)
+        async with transaction_session(db) as session:
+            erinnerungen, withheld = await session.with_transaction(remind)
+
+    # After the commit, so a retried transaction writes no second line. A count and never an id: a
+    # line naming the application would tie it to the ban for as long as the log is kept.
+    if withheld:
+        fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {withheld} mailbox(es)")
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,
@@ -527,7 +560,7 @@ async def angekuendigt_bewerbungen(
 
         return stamped
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         angekuendigt = await session.with_transaction(stamp_the_notified)
 
     return FLBewerbungSweepAngekuendigtResponse(saison_id=saison_id, angekuendigt=angekuendigt)
@@ -584,7 +617,7 @@ async def loeschen_bewerbungen(
 
         return result.deleted_count, redacted
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         geloescht, redigiert = await session.with_transaction(erase_the_notified)
 
     return FLBewerbungSweepLoeschenResponse(saison_id=saison_id, geloescht=geloescht, redigierte_aktionen=redigiert)

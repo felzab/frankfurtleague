@@ -71,29 +71,39 @@ DUMP_LOG="${REPO_ROOT}/.local-db/copy.log"
 # leaves one behind that a directory test would read as finished.
 DUMP_MARK="${REPO_ROOT}/.local-db/complete"
 
+# The copy's login: a read-only one, on the application database alone. No development machine
+# holds production's write login, so the stack's own is an inline config of
+# `docker-compose.local.yml` (`docs/ops/runbooks.md` §16).
+DUMP_URI_FILE="secrets/dump_mongodb_uri"
+
 # Two containers, never one: only the credential-bearing invocation is handed a mongodump command,
 # and `restore_dump` is handed no credential at all. A discipline, not a boundary -- the image
 # carries both tools.
 take_dump() {
   # Into a gitignored file, never a terminal and never partly filtered: a failed mongodump quotes
-  # the connection string back in shapes no pattern could be trusted to cover. --env-file keeps it
-  # out of the process list too.
+  # the connection string back in shapes no pattern could be trusted to cover. A mounted file keeps
+  # it out of the host's process list.
+  local base=""
+  # The database's name alone out of the backend's file, which is no credential: the file is not
+  # handed over whole.
+  base="$(sed -n -E 's/^[[:space:]]*DB_BASE_NAME[[:space:]]*=[[:space:]]*//p' fl_backend/.env | tail -n 1)"
 
   # The local stack's mongo to the digest (`docker-compose.local.yml`, `docs/ops/spec.md` §1.1), so the
   # copy and the server it restores into are one build.
-  MSYS_NO_PATHCONV=1 docker run --rm -i \
-    --env-file fl_backend/.env \
+  DB_BASE_NAME="$base" MSYS_NO_PATHCONV=1 docker run --rm -i \
+    -e DB_BASE_NAME \
+    -v "/${REPO_ROOT}/${DUMP_URI_FILE}:/run/secrets/dump_mongodb_uri:ro" \
     -v "/${REPO_ROOT}/.local-db/dump:/dump" \
     mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
 set -e
-# docker --env-file strips neither the quotes a dotenv value may carry nor the CR a Windows editor
-# leaves on it, and mongodump answers a URI holding either with a parse error.
+# Neither the file nor the dotenv line has its quotes or a Windows editor's CR stripped on the way
+# in, and mongodump answers a URI holding either with a parse error.
 q=$(printf '"\047')
 clean() { printf '%s' "$1" | tr -d '\r\n' | sed -e "s/^[$q]//" -e "s/[$q]\$//"; }
-uri=$(clean "$MONGODB_URI")
+uri=$(clean "$(cat /run/secrets/dump_mongodb_uri)")
 base=$(clean "$DB_BASE_NAME")
-# The application database alone: the Flex tier denies `admin`, and this credential cannot read the
-# sign-in store beside it -- least privilege working. One collection at a time stays under the
+# The application database alone: the Flex tier denies `admin`, and this login reads no other
+# database -- least privilege working. One collection at a time stays under the
 # tier's rate cap.
 mongodump --uri="$uri" --db="$base" --numParallelCollections=1 --out=/dump
 CONTAINER
@@ -104,6 +114,52 @@ CONTAINER
 # first, so a half-cleared directory is never trusted.
 clear_dump() {
   rm -f "$DUMP_MARK" && rm -rf "${DUMP_DIR:?}" && mkdir -p "$DUMP_DIR"
+}
+
+# Where `docker-compose.local.yml` mounts the directory `fl_frontend/src/core/mail.ts :: MAIL_SINK_DIR`
+# names inside the frontend's container.
+MAIL_SINK_TARGET="/app/.tmp-mail"
+
+# Emptied on every start, so a code an earlier run filed never reads as current
+# (`docs/ops/spec.md` §1.5).
+empty_mail_sink() {
+  local model="" rc=0 source="" probe="" rest="" root="" sink="" file removed=0
+  model="$(docker compose config --format json 2>/dev/null)" || rc=$?
+  if (( rc )); then
+    refuse "compose could not render the local stack's model (exit ${rc}), so the mail sink was not found
+and nothing in it was removed. NOTHING has been started. Ask it directly:  docker compose config"
+  fi
+  # A bind's source precedes its target inside its own object in compose's model.
+  local mount='"source": "([^"]*)",[^{}]*"target": "'"${MAIL_SINK_TARGET//./\\.}"'"'
+  if [[ ! "$model" =~ $mount ]]; then
+    refuse "compose's model mounts nothing at ${MAIL_SINK_TARGET}, so the mail sink was not found and nothing
+was removed. NOTHING has been started."
+  fi
+  # JSON doubles a Windows path's backslashes; forward slashes are a path both shells read.
+  source="${BASH_REMATCH[1]//\\\\/\\}"
+  source="${source//\\//}"
+  # Through the deepest directory that exists, followed to where its links lead: judged before
+  # anything is made, so a source outside the checkout is never created either.
+  probe="$source"
+  while [[ -n "$probe" && ! -d "$probe" ]]; do rest="/${probe##*/}${rest}"; probe="${probe%/*}"; done
+  root="$(cd "$REPO_ROOT" && pwd -P)"
+  if [[ -n "$probe" ]]; then sink="$(cd "$probe" && pwd -P)${rest}"; fi
+  if [[ "$sink" != "$root"/* ]]; then
+    refuse "the mail sink compose mounts is ${source}, which leads outside the checkout ${root}, so nothing
+there was removed. Point the frontend's ${MAIL_SINK_TARGET} mount in docker-compose.local.yml back
+inside it. NOTHING has been started."
+  fi
+  # Never left to the engine: a bind-mount source it creates is root-owned, and the frontend writes
+  # as `nextjs` (`docs/ops/spec.md` §1.2 records the same decision for the access log).
+  mkdir -p "$sink" || die "the mail sink's directory could not be created, and the frontend cannot make
+it either: it runs as a non-root user under a root-owned /app. mkdir's own account is above."
+  # `fl_frontend/src/core/mail.ts :: sinkFileStem`'s names: a timestamp, then `.html`.
+  for file in "$sink"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*.html; do
+    [[ -f "$file" && ! -L "$file" ]] || continue
+    rm -f -- "$file" || die "a message an earlier run filed could not be removed from ${sink}; rm's own account is above."
+    removed=$(( removed + 1 ))
+  done
+  ok "emptied — ${removed} message(s) an earlier run filed removed; this run's withheld mail lands in ${sink#"$root"/}"
 }
 
 restore_dump() {
@@ -131,6 +187,7 @@ fetch_copy() {
   # The marker and not the directory: an interrupted copy leaves a directory behind.
   if (( REFRESH_DB )) || [[ ! -f "$DUMP_MARK" ]]; then
     info "copying from production, one collection at a time — the Flex tier throttles past 500 ops/s"
+    require_file "$DUMP_URI_FILE" "The copy is taken with a read-only login's URI, and only that one: docs/ops/runbooks.md §16."
     clear_dump || refuse ".local-db could not be cleared for a new copy — the line above names the entry
 that refused — so nothing was copied: a copy written over the remains of the old one would be two
 vintages under one marker."
@@ -176,6 +233,7 @@ require_platform windows
 require_docker
 require_file "docker-compose.yml"
 require_file "docker-compose.local.yml"
+refuse_compose_dotenv
 
 if (( DOWN )); then
   section "down"
@@ -192,7 +250,7 @@ if (( DOWN )); then
     # `--remove-orphans` here as well as on the way up: a service deleted from the compose file
     # leaves a container behind that nothing else on this machine will ever mention again.
     quietly docker compose down --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
-    # A withheld sign-in mail holds a live magic link, a credential nothing needs once the stack is
+    # A withheld sign-in mail holds a live code, a credential nothing needs once the stack is
     # down; the copy and the access log stay until --fresh, being records rather than credentials.
     rm -rf "${REPO_ROOT:?}/.tmp-mail"
     ok "stopped — the withheld mail is gone"
@@ -203,9 +261,18 @@ fi
 section "preflight"
 
 step "Files the containers read"
-require_file "fl_frontend/.env" "The frontend container reads it via env_file. Copy it from your password manager."
+require_file "fl_frontend/.env" "The frontend container reads it via env_file. Write this machine's own with the variables
+docs/frontend/spec.md §1.7 lists; it holds no credential, each being a file under secrets/."
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
-ok "both .env files are in place"
+check_env_spellings "fl_frontend/.env"
+check_env_spellings "fl_backend/.env"
+# Nothing here restores an older image, so a line kept for a rollback is a line to delete.
+check_moved_names refuse fl_frontend/.env fl_backend/.env
+require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
+for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
+  require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
+done
+ok "both packages' .env files, the actor token's signing key and this machine's secret files are in place"
 
 step "Anything holding the build's files open"
 # A running `next dev` holds .next open and makes the build fail with EBUSY on Windows. Never
@@ -229,18 +296,23 @@ if (( FRESH )); then
 fi
 
 step "Where the frontend writes the mail it does not send"
-# Never left to the engine: a bind-mount source it creates is root-owned, and the frontend writes as
-# `nextjs` (`docs/ops/spec.md` §1.2 records the same decision for the access log).
-mkdir -p "${REPO_ROOT:?}/.tmp-mail" || die "the mail sink's directory could not be created, and the
-frontend cannot make it either: it runs as a non-root user under a root-owned /app. mkdir's own
-account is above."
-ok "ready — a message this stack withholds lands in .tmp-mail in the checkout"
+empty_mail_sink
 
 section "build"
 
 step "Building images from source"
 docker compose build || die "The image build failed — its own output is above."
 ok "images built"
+
+step "The actor token's key pair"
+# Through compose, so the key is mounted as the stack will mount it, owner and mode included, and
+# read at the path the frontend's environment files name.
+check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
+
+step "The secret files"
+# For the key check's reason: each container reads its files as the stack mounts them.
+check_frontend_secret_files "NOTHING has been started." local docker compose run --rm --no-deps -T
+check_backend_boot_config "NOTHING has been started." docker compose run --rm --no-deps -T
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
 # days. The copy comes before the database container as well, for the reason at `fetch_copy`.
@@ -310,9 +382,11 @@ else
   fail "The stack came up unhealthy."
   detail "If you see 'Invalid environment variables', fix those names in the .env files — that is" \
          "the startup gate doing its job." \
-         "A line opening 'MONGODB_URI:' is the backend's other refusal, and its continuation says" \
+         "'Invalid secret files: <FILES>' or 'Unreadable secret files: <PATH> (<ERRNO>)' names a" \
+         "file under secrets/ to write, or to give its owner and mode." \
+         "A line opening 'backend_mongodb_uri:' is the backend's other refusal, and its continuation says" \
          "which: the value yielded no server, the server refused to authenticate it, or nothing" \
-         "answered. Neither refusal prints a value, so the file is what to read." \
+         "answered. Neither refusal prints a value, so the file it names is what to read." \
          "Stop what is left:  ./scripts/ops/local.sh --down"
   finish
 fi

@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
@@ -29,17 +29,20 @@ from app.api.bewerbungen.services import (
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
     find_kontakt_email_refusal,
+    find_kontakt_gesperrt_refusal,
     find_new_club_refusal,
     find_reseat_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     mint_token,
+    mit_vorenthaltener_entscheidung,
     paired_seat,
     parse_new_club,
     seat_named,
 )
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
 from app.core.config import API_VERSION
@@ -55,12 +58,13 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 
@@ -70,11 +74,17 @@ def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
     return {"getroffen_am": today, "von": von, "grund": grund}
 
 
+# What a decision's own answer withholds: the actor check admits no barred holder
+# (`docs/backend/spec.md :: I463`), so the administrator it just wrote is served as written.
+_KEIN_ENTSCHEIDER_GESPERRT: Final[frozenset[str]] = frozenset()
+
+
 @router.post(
     f"{by_id('bewerbung_id')}/annehmen",
     response_model=FLAnnehmenBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def annehmen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
@@ -183,7 +193,7 @@ async def annehmen_bewerbung(
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
-                # application was, and `/admin/kontakte` reads them from here. Composed, never copied:
+                # application was, and `/bereich/admin/kontakte` reads them from here. Composed, never copied:
                 # a pre-flow application's dates are nobody's own (`docs/backend/spec.md :: I141`).
                 "kontakte": compose_kontakte_at_entry(kontakte=bewerbung_raw["kontakte"]),
                 # Copied rather than joined on read (`docs/backend/spec.md :: I95`).
@@ -207,7 +217,7 @@ async def annehmen_bewerbung(
         )
 
         return FLAnnehmenBewerbungResponse(
-            updated_document=FLBewerbung(**updated_raw),
+            updated_document=FLBewerbung(**mit_vorenthaltener_entscheidung(updated_raw, _KEIN_ENTSCHEIDER_GESPERRT)),
             team_id=team_id,
             created_team=schule is not None,
             saison_id=saison_id,
@@ -220,7 +230,7 @@ async def annehmen_bewerbung(
     with dropping_the_saison_cache():
         # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
         # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             accepted = await session.with_transaction(accept_and_enter_the_school)
 
     return accepted
@@ -231,6 +241,7 @@ async def annehmen_bewerbung(
     response_model=FLAblehnenBewerbungResponse,
     summary="Decline a Bewerbung",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def ablehnen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
@@ -268,7 +279,7 @@ async def ablehnen_bewerbung(
 
         raise
 
-    return FLAblehnenBewerbungResponse(updated_document=FLBewerbung(**updated_raw))
+    return FLAblehnenBewerbungResponse(updated_document=FLBewerbung(**mit_vorenthaltener_entscheidung(updated_raw, _KEIN_ENTSCHEIDER_GESPERRT)))
 
 
 @router.post(
@@ -276,11 +287,14 @@ async def ablehnen_bewerbung(
     response_model=FLBewerbungEinwilligungErneutResponse,
     summary="Re-send one seat's confirmation link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def erneut_einwilligung(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
+    sperrliste: SperrlisteLookup,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungErneutResponse:
     """
@@ -290,12 +304,26 @@ async def erneut_einwilligung(
     The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
     The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
     is judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a
-    decision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.
+    decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
+    holds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.
     """
 
     db_filter = {"_id": bewerbung_id}
     judged = ["status", "kontakte", "bestaetigungen"]
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
+
+    async def refuse_a_barred_address(
+        stored: Mapping[str, Any], seats: tuple[FLKontaktRolle, ...], *, massgebliche_saison_id: str | None, session: AsyncClientSession
+    ) -> None:
+        """Every address the seats the link answers hold, judged as the correction judges the one it writes."""
+
+        kontakte = stored.get("kontakte")
+        # Both seats of a pair, which no write path lets hold two addresses: the submission requires the
+        # pair's details equal and the correction moves both. Only a hand edit could part them.
+        slots = [kontakte.get(held) for held in seats] if isinstance(kontakte, Mapping) else []
+        adressen = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
+        gesperrt = await adressen_gesperrt(sperrliste, adressen, massgebliche_saison_id=massgebliche_saison_id, session=session)
+        refuse(find_kontakt_gesperrt_refusal(gesperrt=bool(gesperrt)))
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
     # application has, which is a miss and not a body fault.
@@ -321,18 +349,33 @@ async def erneut_einwilligung(
         return (rolle, other)
 
     seats = seats_judged_on(bewerbung_raw)
+    # Outside the callback, for `post_einladung`'s reason: a retry minting afresh would answer a link
+    # whose hash is not the one the winning attempt stored.
     raw, token_hash = mint_token()
     bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
     # The judgement is in the FILTER, so a decision or an answer landing after the read leaves the row
-    # untouched rather than overwritten; a transaction, as the correction takes, adds nothing here.
+    # untouched rather than overwritten.
     async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
-        return await patch_one_in_db(
-            collection=bewerbungen_collection,
-            db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
-            update=compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
-            return_document=ReturnDocument.BEFORE,
-        )
+        async def mint_unless_gesperrt(session: AsyncClientSession) -> Mapping[str, Any]:
+            """Write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
+
+            massgebliche_saison_id = await sperrliste_saison(sperrliste, session=session)
+            matched = await patch_one_in_db(
+                collection=bewerbungen_collection,
+                db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
+                update=compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
+                session=session,
+                return_document=ReturnDocument.BEFORE,
+            )
+            # Asked of what the write found, so a correction landing after the first read is judged at the
+            # address this link is mailed to.
+            await refuse_a_barred_address(matched, seats, massgebliche_saison_id=massgebliche_saison_id, session=session)
+
+            return matched
+
+        async with transaction_session(db) as session:
+            return await session.with_transaction(mint_unless_gesperrt)
 
     try:
         matched = await mint_on(seats)
@@ -340,7 +383,8 @@ async def erneut_einwilligung(
         # Judged again rather than answered as a miss, as the decline answers its race
         # (`app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung`), so a link is refused for the
         # reason it is refused.
-        seats = seats_judged_on(await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged))
+        reread = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
+        seats = seats_judged_on(reread)
         # A re-read that passes is a row that moved back between the two, a decline and then a reseat:
         # one more write, whose own miss is the only one answering 404.
         matched = await mint_on(seats)
@@ -355,12 +399,14 @@ async def erneut_einwilligung(
     response_model=FLBewerbungKontaktEmailResponse,
     summary="Correct one contact person's email address and re-send their link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def korrigiere_kontakt_email(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
     email_data: Annotated[FLBewerbungKontaktEmailPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungKontaktEmailResponse:
@@ -376,8 +422,14 @@ async def korrigiere_kontakt_email(
     for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
     write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
     — the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this
-    application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.
+    application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming
+    no seat is a 404.
     """
+
+    # Outside the transaction, whose callback may run again, as the referee editor reads both
+    # (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    gehasht = sperrliste.hash_of(email_data.email)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def correct_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktEmailResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
@@ -407,6 +459,8 @@ async def korrigiere_kontakt_email(
         # Asked over the seats this write does NOT reach, so a mirrored pair moving to one new address
         # together is not refused for sharing it with itself.
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=email_data.email))
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
+        refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
 
         raw, token_hash = mint_token()
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
@@ -425,7 +479,7 @@ async def korrigiere_kontakt_email(
 
     # A transaction where the re-send beside it takes none: this write moves an address as well as a
     # credential, so a decision landing mid-request must leave neither half standing.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(correct_and_mint)
 
 
@@ -434,12 +488,14 @@ async def korrigiere_kontakt_email(
     response_model=FLBewerbungKontaktSitzResponse,
     summary="Seat another person where a contact person stepped out",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def besetze_kontakt_sitz(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
     sitz_data: Annotated[FLBewerbungKontaktSitzPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungKontaktSitzResponse:
@@ -458,8 +514,13 @@ async def besetze_kontakt_sitz(
     Refused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody
     stepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored
     before the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another
-    contact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.
+    contact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds
+    (`REQ-BEWERBUNG-019`). A path naming no seat is a 404.
     """
+
+    # Outside the transaction, as the correction reads both.
+    gehasht = sperrliste.hash_of(sitz_data.email)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSitzResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
@@ -487,6 +548,8 @@ async def besetze_kontakt_sitz(
         # Asked over the seats this write does NOT reach, as the correction asks it: a mirrored pair
         # is one person, and comparing them against each other would refuse every such reseat.
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
+        refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
 
         raw, token_hash = mint_token()
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
@@ -512,5 +575,5 @@ async def besetze_kontakt_sitz(
 
     # A transaction for the correction's reason: this write seats a person as well as a credential,
     # so a decision landing mid-request must leave neither half standing.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(seat_and_mint)

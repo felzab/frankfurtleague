@@ -13,7 +13,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 # Arguments are read first, and this script joins RUNNABLE only below: the flag checks run every
 # runnable script, so a suite answering neither would run itself recursively.
-
 # shellcheck disable=SC2034  # VERBOSE is consumed by _lib.sh, which shellcheck cannot follow into
 for arg in "$@"; do
   case "$arg" in
@@ -314,9 +313,7 @@ step "4. Every helper called is defined"
 # pattern is the same thing one edit later.
 
 # Command position only: a name in a string, a comment, a case pattern or a `for` variable is not a
-# call. Underscored names only — the helper convention here, and the one class no external program
-# collides with. A single-word helper is outside it.
-
+# call.
 # shellcheck disable=SC2016  # awk's own $0 and $1, which must not expand before awk reads them
 CMD_WORDS='
 # Q is built here rather than passed with -v: MSYS re-parses a Windows command line and eats the
@@ -402,13 +399,16 @@ function emit(w, nextc, atcmd) {
   # command positions.
   if (w == "case") { incase++; cmd = 1; pat = 1; return }
   if (w == "esac") { if (incase > 0) incase--; cmd = 0; pat = (incase > 0); return }
-  if (w ~ /^(if|then|else|elif|do|while|until|time|in|done|fi|coproc)$/) { cmd = 1; return }
+  # Never `in`: the words after `for x in` are data, and a `case` arm is a pattern either way.
+  if (w ~ /^(if|then|else|elif|do|while|until|time|done|fi|coproc)$/) { cmd = 1; return }
   if (w == "for" || w == "select" || w == "function") { cmd = 1; skipnext = 1; return }
   atcmd = (cmd && !pat)
   cmd = 0
   if (skipnext) { skipnext = 0; return }
   if (w ~ /=/) { if (atcmd) { cmd = 1; assign = 1 }; return }
   assign = 0
+  # Underscored names only — the helper convention here, and the one class no external program
+  # collides with. A single-word helper is outside it.
   if (w !~ /^[a-z_][a-z0-9_]*$/ || w !~ /_/) return
   # `word`: a bare occurrence that is neither a call nor a definition — the shape a helper takes
   # when it is handed to a wrapper rather than run, which step 7 asks about.
@@ -921,19 +921,96 @@ redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
 
 info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 
+# Every tag the image's file names is judged on its own, one per matching line: read as one value,
+# two stages' tags hand the series check a string its glob matches across the line break.
+first_disagreeing_tag() { # $1 exact, or series for a pin naming a series · $2 the pin · $3… the tags
+  local mode="$1" pin="$2" tag
+  shift 2
+  for tag in "$@"; do
+    [[ "$tag" == "$pin" || ( "$mode" == series && "$tag" == "${pin}."* ) ]] && continue
+    printf '%s' "$tag"
+    return 0
+  done
+}
+
+# The one judgement every pin step makes; each step's reader differs and hands it the two values.
+judge_pin() { # $1 what is pinned · $2 exact, or series · $3 the manifest · $4 the Dockerfile · $5 what a disagreement costs · $6 the pin · $7… the tags
+  local what="$1" mode="$2" manifest="$3" dockerfile="$4" cost="$5" pin="$6" other
+  shift 6
+  if [[ -z "$pin" || $# -eq 0 ]]; then
+    # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
+    note_fail "could not read the ${what} version from both files — ${manifest} '${pin:-none}', ${dockerfile} '${*:-none}'"
+    return 0
+  fi
+  other="$(first_disagreeing_tag "$mode" "$pin" "$@")"
+  if [[ -n "$other" ]]; then
+    note_fail "${manifest} pins ${what} ${pin} and ${dockerfile} carries ${other}; ${cost}"
+  elif [[ "$mode" == series ]]; then
+    info "${what} ${*} in the image, inside the ${pin} the repository pins"
+  else
+    info "${what} ${pin} in the manifest and the image"
+  fi
+}
+
+check_uv_pin() { # $1 the manifest · $2 the Dockerfile
+  local pin
+  local -a tags
+  pin="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' "$1")"
+  mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
+  judge_pin uv exact "$1" "$2" "uv sync refuses the pair, so the backend image cannot build" "$pin" "${tags[@]}"
+}
+
+check_node_pin() { # $1 the manifest · $2 the Dockerfile
+  local pin
+  local -a tags
+  # Scoped to `devEngines` then `runtime`: the manifest's own top-level `version` names the package.
+  pin="$(awk '
+    /"devEngines"[[:space:]]*:/ { dev = 1 }
+    dev && /"runtime"[[:space:]]*:/ { runtime = 1 }
+    runtime && match($0, /"version"[[:space:]]*:[[:space:]]*"[^"]*"/) {
+      pin = substr($0, RSTART, RLENGTH); sub(/^"version"[[:space:]]*:[[:space:]]*"/, "", pin); sub(/"$/, "", pin)
+      print pin; exit
+    }
+  ' "$1")"
+  mapfile -t tags < <(sed -n 's|^FROM node:\([0-9][^-@ ]*\)[-@ ].*|\1|p' "$2")
+  judge_pin Node exact "$1" "$2" "move the one the bot left behind, and the lockfile with the manifest (pnpm install)" "$pin" "${tags[@]}"
+}
+
+check_pnpm_pin() { # $1 the manifest · $2 the Dockerfile
+  local pin
+  local -a tags
+  pin="$(sed -n 's/^[[:space:]]*"packageManager":[[:space:]]*"pnpm@\([0-9][^"+]*\).*/\1/p' "$1")"
+  mapfile -t tags < <(sed -n 's/^ARG PNPM_VERSION=\([^[:space:]]*\).*/\1/p' "$2")
+  judge_pin pnpm exact "$1" "$2" "bump both" "$pin" "${tags[@]}"
+}
+
+check_python_series() { # $1 the .python-version file · $2 the Dockerfile
+  local pin
+  local -a tags
+  pin="$(sed -n '1s/^\([0-9][0-9.]*\)[[:space:]]*$/\1/p' "$1")"
+  mapfile -t tags < <(sed -n 's|^FROM python:\([0-9][^-@ ]*\)[-@ ].*|\1|p' "$2")
+  judge_pin Python series "$1" "$2" "CI and the virtualenv test a Python production does not run" "$pin" "${tags[@]}"
+}
+
 step "15. The uv version is one number in two files"
 # A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
 # stops building on every branch at once — including branches that touched neither file.
-UV_PIN="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' fl_backend/pyproject.toml)"
-UV_TAG="$(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' fl_backend/Dockerfile)"
-if [[ -z "$UV_PIN" || -z "$UV_TAG" ]]; then
-  # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
-  note_fail "could not read the uv version from both files — pin '${UV_PIN:-none}', image tag '${UV_TAG:-none}'"
-elif [[ "$UV_PIN" != "$UV_TAG" ]]; then
-  note_fail "fl_backend/pyproject.toml pins uv ${UV_PIN} and fl_backend/Dockerfile copies in ${UV_TAG}; uv sync refuses the pair, so the backend image cannot build"
-else
-  info "uv ${UV_PIN} in the manifest and the image"
-fi
+check_uv_pin fl_backend/pyproject.toml fl_backend/Dockerfile
+
+step "16. The Node version is one number in two files"
+# pnpm downloads the pinned Node for the checkout and CI, and the image runs its base's own, so a
+# bot moving the tag alone ships a Node no test ran on (`docs/ops/spec.md :: I511`).
+check_node_pin fl_frontend/package.json fl_frontend/Dockerfile
+
+step "17. The pnpm version is one number in two files"
+# Nothing moves either by itself (`.github/dependabot.yml`), so a hand bump of one installs the image
+# with a pnpm the lockfile was never written by (`docs/ops/spec.md :: I512`).
+check_pnpm_pin fl_frontend/package.json fl_frontend/Dockerfile
+
+step "18. The Python series is one number in two files"
+# The file names a series and the tag a release inside it, so the tag's leading numbers are compared:
+# every CI job's interpreter comes from the file, and production's from the tag (`docs/ops/spec.md :: I513`).
+check_python_series fl_backend/.python-version fl_backend/Dockerfile
 
 # The only thing that tells a run with nothing to report from one that stopped reporting.
 if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then

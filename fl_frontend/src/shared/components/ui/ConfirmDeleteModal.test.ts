@@ -21,12 +21,14 @@ const { raised } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { ConfirmDeleteModal } = await import("./ConfirmDeleteModal.tsx");
+const { NAME_WRAP_CLASSES } = await import("./nameWrap.ts");
 
 /** The dialog over Halle West, retiring through `onConfirm`. */
 const dialog = (onConfirm: () => Promise<ActionResult>) =>
   h(ConfirmDeleteModal, {
     isOpen: true,
     onClose: () => undefined,
+    onRetired: () => undefined,
     heading: "Spielort stilllegen",
     entityLabel: "den Spielort",
     entityName: "Halle West",
@@ -50,7 +52,7 @@ describe("the retirement dialog", () => {
     const { error, outcome } = unansweredAction();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
-      [["danger", "Spielort nicht stillgelegt", error, outcome]],
+      [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
     );
   });
 
@@ -72,5 +74,16 @@ describe("the retirement dialog", () => {
 
     assert.equal(asked, 0, "a double-click retired the row before step 2 was read");
     assert.ok(screen.getByRole("alert"), "the double-click left step 2 unshown");
+  });
+
+  /* The name is whatever the entity is called, and the dialog clips what passes its edge: an
+     inline-block sizes to its longest word unless it is capped and may break it. */
+  it("breaks a name wider than the dialog inside its chip", () => {
+    render(underNext(dialog(() => Promise.resolve({ success: true, message: "Spielort stillgelegt" }))));
+
+    const chip = screen.getByText("Halle West");
+    for (const token of NAME_WRAP_CLASSES.split(" ")) {
+      assert.ok(chip.classList.contains(token), `the name's chip is missing ${token}, so a long name is cut off at the dialog's edge`);
+    }
   });
 });

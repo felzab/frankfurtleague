@@ -1,15 +1,12 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { FLKontaktperson } from "../teams/schemas.ts";
 import type { BewerbungSeats } from "./notifications.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
 type LoggedCall = { message: string; error: unknown; meta: Record<string, unknown> };
@@ -23,48 +20,39 @@ const logged: LoggedCall[] = [];
 /** How the provider answers each address a case aims a failure at; every other address is accepted. */
 const outcomes = new Map<string, MailOutcome>();
 
-const recorders = globalThis as unknown as Record<string, unknown>;
 /** What the recording half of the fan-out was handed. */
 const gemeldet: Record<string, unknown>[] = [];
 
-recorders.__flMailLogs = logged;
-recorders.__flZustellungCalls = gemeldet;
-recorders.__flZustellungFails = false;
+/** Whether the backend refuses the record the fan-out files. */
+let zustellungFails = false;
 
 // The recording half of the fan-out reaches the backend, which no test process runs.
-const MUTATIONS_DOUBLE = `export const meldeZustellungAngenommen = async (payload) => {
-  globalThis.__flZustellungCalls.push(payload);
-  if (globalThis.__flZustellungFails) throw new Error("the backend refused the record");
-  return { acknowledged: 1, angewendet: payload.rollen };
-};`;
+const MUTATIONS_DOUBLE = {
+  meldeZustellungAngenommen: async (payload: { rollen?: unknown }) => {
+    gemeldet.push(payload);
+    if (zustellungFails) throw new Error("the backend refused the record");
+    return { acknowledged: 1, angewendet: payload.rollen };
+  },
+};
 
 // The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
-const LOGGING_DOUBLE = `export const logger = {
-  info: () => {},
-  warn: () => {},
-  error: (message, error, meta) => {
-    globalThis.__flMailLogs.push({
-      message,
-      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
-      meta: meta ?? {},
-    });
+const LOGGING_DOUBLE = {
+  logger: {
+    info: () => undefined,
+    warn: () => undefined,
+    error: (message: string, error: unknown, meta?: Record<string, unknown>) => {
+      logged.push({
+        message,
+        error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+        meta: meta ?? {},
+      });
+    },
   },
-};`;
+};
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/features/bewerbungen/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/logging.ts": LOGGING_DOUBLE, "features/bewerbungen/mutations.ts": MUTATIONS_DOUBLE } });
 
 const {
   collectBewerbungEingangEmpfaenger,
@@ -77,10 +65,12 @@ const {
 } = await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
 const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
+const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
 /** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
 const buildMail = (rollenText: string) => ({
+  art: "bewerbung_zusage" as const,
   subject: "Zusage: Frankfurt League, Saison 2627",
   html: `<p>${rollenText}</p>`,
   text: `Zusage für ${rollenText}`,
@@ -122,7 +112,7 @@ function reset(): void {
   outcomes.clear();
   mail.answerWith(({ to }) => outcomes.get(to) ?? { accepted: ACCEPTED_ID });
   gemeldet.length = 0;
-  recorders.__flZustellungFails = false;
+  zustellungFails = false;
 }
 
 describe("how one seat is named to somebody who is not sitting in it", () => {
@@ -153,7 +143,7 @@ describe("who a decision is sent to", () => {
       sent.map((mail) => mail.to),
       ["a@schule.de"],
     );
-    assert.deepEqual(outcome, { delivered: ["a@schule.de"], unreachable: [], ungewiss: [] });
+    assert.deepEqual(outcome, { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 });
   });
 
   /* `trainer_ist_zugleich` stores ONE person in two slots, so the same address stands twice in
@@ -514,20 +504,44 @@ describe("a fan-out that cannot reach everyone", () => {
     assert.equal(logged[0]?.meta.name, "MailSendError", "the line no longer names the error class");
     assert.equal(logged[0]?.error, undefined, "the error object reaches the stream, and its message and stack with it");
   });
+
+  /* The mailer's own line records a filed message (`docs/logging/error-codes.md`, `FE-MAIL-004`), and
+     a second, failing one per address would read every local decision as a failed send. */
+  it("lists a withheld send apart and logs no failure for it", async () => {
+    reset();
+    outcomes.set("erste@schule.de", "withheld");
+
+    const outcome = await sendBewerbungMail({
+      operation: "annehmenBewerbungAction",
+      recipients: [empfaenger("erste@schule.de")],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual([outcome.unreachable, outcome.withheld], [["erste@schule.de"], ["erste@schule.de"]]);
+    assert.deepEqual(logged, []);
+  });
 });
 
 describe("what the administrator is told", () => {
   it("names nobody where every message arrived", () => {
     assert.equal(
-      describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [] }),
+      describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [], withheld: [], gesperrt: 0 }),
       "Die Zusage ging an 2 Kontaktpersonen.",
     );
     // Its own arm: German counts nothing and one with words rather than with a figure.
-    assert.equal(describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [] }), "Die Absage ging an eine Kontaktperson.");
+    assert.equal(
+      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], gesperrt: 0 }),
+      "Die Absage ging an eine Kontaktperson.",
+    );
   });
 
   it("names every address it could not reach", () => {
-    const report = describeBewerbungMail("Zusage", { delivered: ["a@schule.de"], unreachable: ["b@schule.de", "c@schule.de"] });
+    const report = describeBewerbungMail("Zusage", {
+      delivered: ["a@schule.de"],
+      unreachable: ["b@schule.de", "c@schule.de"],
+      withheld: [],
+      gesperrt: 0,
+    });
 
     assert.match(report, /b@schule\.de/);
     assert.match(report, /c@schule\.de/);
@@ -538,18 +552,43 @@ describe("what the administrator is told", () => {
      article, so lower-casing it renders „ging die absage“ where a fragment match sees nothing. */
   it("says so where the application named no address at all", () => {
     assert.equal(
-      describeBewerbungMail("Absage", { delivered: [], unreachable: [] }),
+      describeBewerbungMail("Absage", { delivered: [], unreachable: [], withheld: [], gesperrt: 0 }),
       "Die Bewerbung nennt keine E-Mail-Adresse, deshalb ging die Absage an niemanden raus.",
     );
   });
 
   /* Two different failures, and the words part company: nothing arrived, against some of it did. */
   it("tells a total failure apart from a partial one", () => {
-    const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"] });
-    const partial = describeBewerbungMail("Zusage", { delivered: ["b@schule.de"], unreachable: ["a@schule.de"] });
+    const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], gesperrt: 0 });
+    const partial = describeBewerbungMail("Zusage", { delivered: ["b@schule.de"], unreachable: ["a@schule.de"], withheld: [], gesperrt: 0 });
 
     assert.match(nothing, /niemandem zugestellt/);
     assert.notEqual(nothing, partial);
+  });
+
+  /* Outside production every send is withheld: a report naming those addresses to chase by hand
+     would grade every local decision as a failure. */
+  /* Pinned whole: the empty application's sentence would send the reader looking for an address the
+     application does hold, and a count is all the report may carry (`docs/frontend/spec.md :: I542`). */
+  it("says the ban list kept the decision from every address, naming none", () => {
+    assert.equal(
+      describeBewerbungMail("Zusage", { delivered: [], unreachable: [], withheld: [], gesperrt: 2 }),
+      "Die Zusage ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht.",
+    );
+  });
+
+  it("counts a barred address beside the ones that were sent, rather than as one to chase", () => {
+    assert.equal(
+      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], gesperrt: 1 }),
+      "Die Absage ging an eine Kontaktperson. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.",
+    );
+  });
+
+  it("reports a fan-out this deployment withheld in the deployment's words, naming nobody to chase", () => {
+    assert.equal(
+      describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: ["a@schule.de"], gesperrt: 0 }),
+      ZURUECKGEHALTEN,
+    );
   });
 });
 
@@ -576,7 +615,7 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
 
     /* The reader whose message could not be composed is unreachable, and the other one is still
        delivered: one broken compose must not cost the others their notification. */
-    assert.deepEqual(outcome, { delivered: ["zweite@schule.de"], unreachable: ["erste@schule.de"], ungewiss: [] });
+    assert.deepEqual(outcome, { delivered: ["zweite@schule.de"], unreachable: ["erste@schule.de"], withheld: [], ungewiss: [], gesperrt: 0 });
   });
 
   it("reports the failure on the same line a refused send uses", async () => {
@@ -592,6 +631,42 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
     assert.equal(failedLines[0]?.meta.error_code, "FE-MAIL-002");
     /* The address stays off the stream, as it does for a refused send (`docs/logging/spec.md :: L9`). */
     assert.ok(!JSON.stringify(failedLines[0]).includes("erste@schule.de"));
+  });
+});
+
+describe("a recipient the ban list holds", () => {
+  const AUFTRAG = { bewerbungId: `${"b".repeat(23)}1`, anlass: "eingang" as const };
+
+  /* Counted and in no list: an address in `unreachable` is one the administrator is told to write to
+     by hand, which would name a barred person to them (`docs/frontend/spec.md :: I542`). */
+  it("is counted, named in no list, and costs the others nothing", async () => {
+    reset();
+    outcomes.set("gesperrt@schule.de", "barred");
+
+    const outcome = await sendBewerbungMail({
+      operation: "annehmenBewerbungAction",
+      recipients: [empfaenger("erste@schule.de"), empfaenger("gesperrt@schule.de")],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual(outcome, { delivered: ["erste@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 });
+  });
+
+  /* No failure line, the gate's own being the record, and no delivery state, which would store on
+     the seat that its address is barred. */
+  it("writes no failure line and records nothing on the seat", async () => {
+    reset();
+    outcomes.set("gesperrt@schule.de", "barred");
+
+    await sendBewerbungMail({
+      operation: "postBewerbung",
+      auftrag: AUFTRAG,
+      recipients: [empfaenger("gesperrt@schule.de")],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual(logged, []);
+    assert.deepEqual(gemeldet, []);
   });
 });
 
@@ -682,11 +757,11 @@ describe("what an accepted send records about itself", () => {
      not, which on the sweep's path withholds an erasure for ever. */
   it("does not fail the send when the record cannot be written", async () => {
     reset();
-    recorders.__flZustellungFails = true;
+    zustellungFails = true;
 
     const outcome = await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
-    assert.deepEqual(outcome, { delivered: ["erika@schule.de"], unreachable: [], ungewiss: [] });
+    assert.deepEqual(outcome, { delivered: ["erika@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 });
     const unreportedLine = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
     assert.equal(unreportedLine?.meta.error_code, "FE-MAIL-003");
     assert.ok(!JSON.stringify(unreportedLine).includes("erika@schule.de"), "the recipient travels on the log line");

@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
 import pymongo
@@ -11,9 +11,19 @@ from pymongo import MongoClient
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exception_handlers import DATABASE_FAILED
-from app.core.security import ACTOR_HEADER, WRONG_ADMIN_KEY
+from app.core.security import WRONG_ADMIN_KEY
+from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
+from tests.config import (
+    ADMIN_AUTH,
+    ADMIN_KEY,
+    ADMINISTRATORS,
+    BASE_AUTH,
+    UNANSWERED_DEADLINE_S,
+    UNANSWERED_URI,
+    build_test_config,
+    grants_for_the_suite,
+)
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -133,9 +143,10 @@ def answered(
     headers: Mapping[str, str],
     *,
     database_name: str = CORPUS_DATABASE,
+    admitting: Iterable[str] | None = None,
 ) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, config=config_for(database_name)) as http:
+        async with app_client(uri, config=config_for(database_name), admitting=admitting) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
                 return await http.get(path, headers=dict(headers))
 
@@ -147,7 +158,7 @@ def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Resp
 
     async def _created() -> Response:
         async with app_client(uri, config=config_for(database_name)) as http:
-            return await http.post(SPIELORTE, json=dict(payload), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
+            return await http.post(SPIELORTE, json=dict(payload), headers=SignedActor(ACTOR, ADMIN_KEY))
 
     return asyncio.run(_created())
 
@@ -155,30 +166,33 @@ def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Resp
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """The venue and both referees, in `CORPUS_DATABASE`."""
 
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_replica_set_url)
     try:
-        database = a_clean_database_sync(client, mongo_url, CORPUS_DATABASE)
+        database = a_clean_database_sync(client, mongo_replica_set_url, CORPUS_DATABASE)
+        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SPIELORTE].insert_one(spielort_document())
         database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_documents())
 
-        with unwritten(mongo_url, CORPUS_DATABASE):
-            yield mongo_url
+        with unwritten(mongo_replica_set_url, CORPUS_DATABASE):
+            yield mongo_replica_set_url
     finally:
         client.close()
 
 
 @pytest.fixture
-def empty_url(mongo_url: str) -> str:
+def empty_url(mongo_replica_set_url: str) -> str:
     """`CREATED_VENUE_DATABASE`, holding nothing: the case that POSTs composes the venue it reads back."""
 
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_replica_set_url)
     try:
-        a_clean_database_sync(client, mongo_url, CREATED_VENUE_DATABASE)
+        a_clean_database_sync(client, mongo_replica_set_url, CREATED_VENUE_DATABASE)[Collection.BERECHTIGUNGEN].insert_many(
+            grants_for_the_suite()
+        )
 
-        return mongo_url
+        return mongo_replica_set_url
     finally:
         client.close()
 
@@ -201,7 +215,9 @@ def test_the_base_key_no_longer_reaches_a_venue_or_a_referee(path: str):
 def test_the_admin_key_clears_the_guard_and_reaches_the_database(path: str):
     """The control: without it, a refusal from a route that stopped existing would read as the guard's."""
 
-    response = answered(UNANSWERED_URI, path, ADMIN_AUTH)
+    # The actor check answered from the set, so the 500 is the handler's own read: against the
+    # unreachable grants, the check's read would answer it before the handler ran.
+    response = answered(UNANSWERED_URI, path, ADMIN_AUTH, admitting=ADMINISTRATORS)
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE

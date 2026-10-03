@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants.ts";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
 
@@ -9,15 +9,7 @@ import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE } from "./
 
 import type { BewerbungBestaetigungData } from "@/core/bewerbungEmail.ts";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+registerDoubles();
 
 const {
   buildBewerbungBestaetigungEmail,
@@ -96,8 +88,10 @@ const NUMBER_WORD: Readonly<Record<string, number>> = { drei: 3, sieben: 7, vier
 const STAMPED_CLOCK: Readonly<Record<string, number>> = {
   "2026-09-spielerseite": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
   "2026-09-spielerseite-2": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+  "2026-09-spielerseite-3": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
   "2026-09-schiedsrichterseite": SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
   "2026-09-schiedsrichterseite-2": SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+  "2026-09-schiedsrichterseite-3": SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
 };
 
 /** Every day count a text states, and `null` for one written in a word this reader does not hold. */

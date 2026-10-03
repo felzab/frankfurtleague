@@ -1,23 +1,18 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { ZielAuftrag } from "./notifications.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
 type LoggedCall = { message: string; error: unknown; meta: Record<string, unknown> };
 
 /** The id the doubled provider accepts a message under, unless a case names another for its address. */
 const ACCEPTED_ID = "56761188-7520-42d8-8898-ff6fc54ce618";
-
-const recorders = globalThis as unknown as Record<string, unknown>;
 
 const mail = doubleSendMail();
 const sent = mail.sent;
@@ -27,55 +22,43 @@ const outcomes = new Map<string, MailOutcome>();
 const gemeldet: Record<string, unknown>[] = [];
 const abgewiesen: Record<string, unknown>[] = [];
 
-recorders.__flZielMailLogs = logged;
-recorders.__flZielGemeldet = gemeldet;
-recorders.__flZielAbgewiesen = abgewiesen;
-recorders.__flZielAbweisungFails = false;
-recorders.__flZielMeldungFails = false;
-recorders.__flZielAngewendet = true;
+/** Whether the backend refuses each record, and what it answers it applied; each case sets them. */
+const backend = { abweisungFails: false, meldungFails: false, angewendet: true };
 
 // The recording half of the fan-out reaches the backend, which no test process runs.
-const MUTATIONS_DOUBLE = `export const meldeZielZustellungAngenommen = async (payload) => {
-  globalThis.__flZielGemeldet.push(payload);
-  if (globalThis.__flZielMeldungFails) throw new Error("the backend refused the record");
-  return { acknowledged: 1, angewendet: globalThis.__flZielAngewendet };
+const MUTATIONS_DOUBLE = {
+  meldeZielZustellungAngenommen: async (payload: Record<string, unknown>) => {
+    gemeldet.push(payload);
+    if (backend.meldungFails) throw new Error("the backend refused the record");
+    return { acknowledged: 1, angewendet: backend.angewendet };
+  },
+  meldeZielZustellungAbgewiesen: async (payload: Record<string, unknown>) => {
+    abgewiesen.push(payload);
+    if (backend.abweisungFails) throw new Error("the backend refused the record");
+    return { acknowledged: 1, angewendet: backend.angewendet };
+  },
 };
-
-export const meldeZielZustellungAbgewiesen = async (payload) => {
-  globalThis.__flZielAbgewiesen.push(payload);
-  if (globalThis.__flZielAbweisungFails) throw new Error("the backend refused the record");
-  return { acknowledged: 1, angewendet: globalThis.__flZielAngewendet };
-};`;
 
 // The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
-const LOGGING_DOUBLE = `export const logger = {
-  info: () => {},
-  warn: (message, meta) => {
-    globalThis.__flZielMailLogs.push({ message, error: undefined, meta: meta ?? {} });
+const LOGGING_DOUBLE = {
+  logger: {
+    info: () => undefined,
+    warn: (message: string, meta?: Record<string, unknown>) => {
+      logged.push({ message, error: undefined, meta: meta ?? {} });
+    },
+    error: (message: string, error: unknown, meta?: Record<string, unknown>) => {
+      logged.push({
+        message,
+        error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+        meta: meta ?? {},
+      });
+    },
   },
-  error: (message, error, meta) => {
-    globalThis.__flZielMailLogs.push({
-      message,
-      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
-      meta: meta ?? {},
-    });
-  },
-};`;
+};
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/features/zustellung/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/logging.ts": LOGGING_DOUBLE, "features/zustellung/mutations.ts": MUTATIONS_DOUBLE } });
 
 const { sendZielMail, zielIdempotenzSchluessel, zielZustellungTags } = await import("./notifications.ts");
 const { FLZustellungZielSchema } = await import("./schemas.ts");
@@ -88,6 +71,7 @@ const SECOND_ADDRESS = "quillon@example.com";
 const auftrag: ZielAuftrag = { ziel: "schiedsrichter", zielId: ZIEL_ID, anlass: "eingang" };
 
 const buildMail = (address: string) => ({
+  art: "schiedsrichter_bestaetigung" as const,
   subject: "Bitte bestätige Deine Angaben",
   html: `<p>${address}</p>`,
   text: `Hallo ${address}`,
@@ -99,9 +83,9 @@ beforeEach(() => {
   abgewiesen.length = 0;
   outcomes.clear();
   mail.answerWith(({ to }) => outcomes.get(to) ?? { accepted: ACCEPTED_ID });
-  recorders.__flZielAbweisungFails = false;
-  recorders.__flZielMeldungFails = false;
-  recorders.__flZielAngewendet = true;
+  backend.abweisungFails = false;
+  backend.meldungFails = false;
+  backend.angewendet = true;
 });
 
 describe("the tags one message rides out with", () => {
@@ -205,7 +189,7 @@ describe("one fan-out about a record", () => {
   /* Discarded, a `false` reads exactly like a recorded send, and it is what an operator needs to
      see when a whole slice's accepted sends are landing nowhere. */
   it("writes one line where the backend applied the accepted send to no record", async () => {
-    recorders.__flZielAngewendet = false;
+    backend.angewendet = false;
 
     const { delivered } = await sendZielMail({
       operation: "schiedsrichter.einladung",
@@ -327,7 +311,7 @@ describe("one fan-out about a record", () => {
   /* The message HAS gone, so a caller told otherwise would report a send that happened as one that
      did not — and the record is the half that can be repaired by the next send. */
   it("keeps a delivered address delivered when the record could not be written", async () => {
-    recorders.__flZielMeldungFails = true;
+    backend.meldungFails = true;
 
     const { delivered, unreachable } = await sendZielMail({
       operation: "schiedsrichter.einladung",
@@ -370,6 +354,8 @@ describe("one fan-out about a record", () => {
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
     assert.deepEqual(abgewiesen, []);
+    // The mailer's own line records the filed message; a failure line beside it would be a second, false one.
+    assert.deepEqual(logged, []);
   });
 
   /* A refusal a retry could land is no fact about the mailbox, and the person's one reminder is what
@@ -408,7 +394,7 @@ describe("one fan-out about a record", () => {
      the record — which the next send repairs. */
   it("keeps the fan-out's answer when the refusal could not be recorded", async () => {
     outcomes.set(ADDRESS, { refused: 422, providerErrorName: "invalid_parameter" });
-    recorders.__flZielAbweisungFails = true;
+    backend.abweisungFails = true;
 
     const { delivered, unreachable } = await sendZielMail({
       operation: "schiedsrichter.einladung",
@@ -425,7 +411,7 @@ describe("one fan-out about a record", () => {
      recipient cannot reach the stream through a serialised stack. */
   it("names no recipient on any line it writes", async () => {
     outcomes.set(ADDRESS, "refused");
-    recorders.__flZielMeldungFails = true;
+    backend.meldungFails = true;
 
     await sendZielMail({
       operation: "schiedsrichter.einladung",
@@ -439,5 +425,34 @@ describe("one fan-out about a record", () => {
     assert.ok(!written.includes(ADDRESS), "an address reached the stream");
     assert.ok(!written.includes(SECOND_ADDRESS), "an address reached the stream");
     for (const line of logged) assert.ok(String(line.meta["error_code"]).startsWith("FE-MAIL-"), "a line carried no mail error code");
+  });
+});
+
+describe("a recipient the ban list holds", () => {
+  /* Counted and in no list: an address in `unreachable` is one a caller tells an administrator to
+     write to by hand, which would name a barred person (`docs/frontend/spec.md :: I542`). */
+  it("is counted, named in no list, and costs the others nothing", async () => {
+    outcomes.set(ADDRESS, "barred");
+
+    const outcome = await sendZielMail({
+      operation: "mailEinladungAction",
+      auftrag: auftrag,
+      recipients: [ADDRESS, SECOND_ADDRESS],
+      buildMail: buildMail,
+    });
+
+    assert.deepEqual(outcome, { delivered: [SECOND_ADDRESS], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 });
+  });
+
+  /* A refusal recorded would store on the record that its address is barred, and a failure line
+     would report as a fault what the gate's own line already records. */
+  it("records no refusal on the record and writes no line", async () => {
+    outcomes.set(ADDRESS, "barred");
+
+    await sendZielMail({ operation: "postRegistrierung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
+
+    assert.deepEqual(abgewiesen, []);
+    assert.deepEqual(gemeldet, []);
+    assert.deepEqual(logged, []);
   });
 });

@@ -2,11 +2,11 @@
 
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
-import { after } from "next/server";
 
 import { APIError } from "better-auth/api";
 
-import { auth } from "@/core/auth";
+import { afterTheResponse } from "@/core/afterResponse";
+import { sendSignInCode, signOutHere } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
@@ -15,21 +15,22 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { FormState } from "@/shared/types/types";
 
-// Deliberately identical whether or not the address is allowlisted: this action is public, so a
+// Deliberately identical whether or not the send gate admits the address: this action is public, so a
 // distinguishable "not authorized" is a membership oracle.
 
-// `submittedEmail` reaches the panel that names where the link went, so it is the folded address a
-// send was really addressed to rather than the keystrokes -- which the refusal above echoes instead.
+// `submittedEmail` reaches the panel that names where the code went, and the code step posts it back,
+// so it is the folded address a send was really addressed to rather than the keystrokes -- which the
+// refusal above echoes instead.
 const neutralResult = (submittedEmail: string): FormState => ({
   success: true,
-  message: "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldelink unterwegs.",
+  message: "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.",
   submittedEmail,
 });
 
 /**
- * Public by necessity. `nginx/shared/site.conf :: location = /signin` bounds that PATH rather than this
- * action: a server action resolves from a process-wide module map, so the same POST to any other
- * page reaches this and is metered by nothing.
+ * Public by necessity. `nginx/shared/site.conf :: location = /signin` bounds that PATH, not this action:
+ * an action resolves from a process-wide module map, so a POST to any page reaches it, metered there
+ * by the server-action zone pair alone.
  */
 // `_prevState` is required by `useActionState`'s calling convention -- the action receives the
 // previous state first -- and read by nothing: the form re-renders from the returned state alone.
@@ -54,24 +55,21 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     // second read inside it would be a second trip through Next's own request store for one value.
     const requestHeaders = await headers();
 
-    // Folded HERE, which is the boundary: below this line the verification row, the mailed
-    // recipient, the allowlist gate and the stored `user` row all carry one string.
+    // Folded HERE, which is the boundary: below this line the code row, the mailed recipient, the
+    // gate and the stored `user` row all carry one string (`docs/frontend/spec.md :: I446`).
 
     // The library folds CASE alone and refuses a Unicode domain, so the punycode the fold converts
-    // one to is the only spelling in which that administrator signs in at all.
+    // one to is the only spelling in which that person signs in at all.
     const email = asSignInIdentifier(validated.data.email);
 
-    // The whole call, behind the response: the allowlist gate, the token write and the send all
+    // The whole call, behind the response: the mail cap, the code write, the gate and the send all
     // sit in the branch-dependent half, so no branch does any of it before the caller is answered.
-    after(async () => {
+    afterTheResponse(async () => {
       try {
-        // No `callbackURL`: the plugin spends it building a `url` this application discards, and a
-        // destination named at the request reads as one travelling in the mailed link.
-
-        // No `request` either, so the endpoint's own form-CSRF check never runs: what stands in its
-        // place is Next's server-action origin check, which refuses a mismatched `Origin` and lets a
+        // No `request`, so the endpoint's own form-CSRF check never runs: what stands in its place
+        // is Next's server-action origin check, which refuses a mismatched `Origin` and lets a
         // request carrying none through with a warning.
-        await auth.api.signInMagicLink({ body: { email }, headers: requestHeaders });
+        await sendSignInCode(email, requestHeaders);
       } catch (failed) {
         // Name only: an error on this path routinely carries the submitted address, and
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
@@ -91,7 +89,7 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
 export async function signOutAction(): Promise<FormState> {
   return runWithIncomingTrace(async () => {
     try {
-      await auth.api.signOut({ headers: await headers() });
+      await signOutHere(await headers());
 
       return { success: true, message: "Abgemeldet" };
     } catch (error) {

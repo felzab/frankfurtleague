@@ -7,7 +7,6 @@ import { KontaktEmailSchema } from "@/shared/schemas";
  * the rule is how the browser comes to refuse what the server accepts (`docs/frontend/spec.md` I18).
  */
 export const SignInPayloadSchema = z.object({
-  // The rule `fl_frontend/src/core/config.ts :: ADMIN_EMAIL_ALLOWLIST` holds its entries to. This box
-  // is the only route to a session, so an address the two judge differently locks its owner out.
+  // This box is the only route to a session, so a grant made to an address it refuses admits nobody.
   email: KontaktEmailSchema,
 });

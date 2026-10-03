@@ -16,21 +16,19 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.api.saisons.admin_router import activate_saison
-from app.api.sperrliste.admin_router import post_sperrliste_eintrag
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
-from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
-from tests.config import build_test_config
+from tests.bans import ban_through_the_route
+from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_sperrliste_isolation_test")
-
-CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
 ADMIN = "admin@frankfurtleague.de"
@@ -51,32 +49,27 @@ DUPLICATE = "duplicate key"
 TEAM_ID = ObjectId("6890a1b2c3d4e5f607250001")
 SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072500a1")
 
-Rival = Callable[[], Awaitable[Any]]
 Outcome = tuple[str, list[str]]
 
 
-class SeasonsRunningARivalAfterTheFirstRead:
-    """Runs a rival write once, just after the first `find_one`: the ban's reference season, so the rival lands before the list check.
-
-    Not a subclass: the driver builds a collection off a database handle, so every other call delegates.
-    """
-
-    def __init__(self, inner: Any, rival: Rival) -> None:
-        self._inner = inner
-        self._rival: Rival | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
+class SeasonsRunningARivalAfterTheFirstRead(InterleavedCollection):
+    """Runs a rival write once, just after the first `find_one`: the ban's reference season, so the rival lands before the list check."""
 
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._inner.find_one(*args, **kwargs)
-
-        # ONE-SHOT: a retry of the ban's transaction has to meet what landed rather than run the rival again.
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            await rival()
+        found = await self._collection.find_one(*args, **kwargs)
+        await self.run_the_rival()
 
         return found
+
+
+class GrantsRunningARivalAfterTheirRead(InterleavedCollection):
+    """Runs a rival write once, after the grants' read and before their anchor, which is this transaction's first write."""
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        await self.run_the_rival()
+
+        return cursor
 
 
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
@@ -96,26 +89,13 @@ def a_targets_fixture(target: str) -> dict[str, Any]:
 
 
 def the_lapsing_ban() -> dict[str, Any]:
-    return {
-        "adresse_hash": adresse_hash(BANNED, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": GRUND,
-        "erstellt_von": ADMIN,
-        "erstellt_am": "2021-04-01",
-        "gesperrt_bis_saison_id": LAPSING_BOUND,
-    }
+    return documents.ban_document(BANNED, bis=LAPSING_BOUND, erstellt_am="2021-04-01")
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any = None) -> str:
+async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any = None, berechtigungen: Any = None) -> str:
     try:
-        created = await post_sperrliste_eintrag(
-            sperrliste_data=FLPostSperrlistePayload(email=BANNED, grund=GRUND),
-            sperrliste_collection=database[Collection.SPERRLISTE],
-            saisons_collection=saisons if saisons is not None else database[Collection.SAISONS],
-            db=client,
-            config=CONFIG,
-            erstellt_von=ADMIN,
-            today=TODAY,
+        created = await ban_through_the_route(
+            database, client, email=BANNED, grund=GRUND, von=ADMIN, today=TODAY, saisons=saisons, berechtigungen=berechtigungen
         )
     except WriteRefusalException as refusal:
         return str(refusal.error_code)
@@ -137,6 +117,8 @@ def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             # Already counted, as a running season is once anything anchored it: `$inc` on a missing
             # field creates it, so an anchor that rewrites nothing would still conflict here without it.
             running = {**saison_document(RUNNING, "active"), "bounded_writes": 3}
@@ -185,20 +167,25 @@ class TestABanWhoseReferenceSeasonIsReadJustBeforeTheRolloverCommits:
                     db=client,
                 )
 
-            outcome = await ban(database, client, saisons=SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], roll_over))
+            seasons = SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], roll_over)
+            outcome = await ban(database, client, saisons=seasons)
+            seasons.assert_landed_inside(serially=1)
 
             return outcome, *await active_and_bounds(database)
 
         outcome, active, bounds = on_a_league(mongo_replica_set_url, body, target=target, lapsing=lapsing)
 
-        # The rollover landed at all, so the interleaving was forced rather than skipped.
         assert active == [target]
         assert (outcome, bounds) in (ban_first, rollover_first)
 
 
 class TestTwoBansOfOneAddressInsideOneWindow:
     def test_the_second_is_refused_as_already_on_the_list(self, mongo_replica_set_url: str):
-        """The rival ban commits after this one has read its season and before it asks the list."""
+        """Not at the season read, which follows the anchor.
+
+        A rival ban run there retries against the anchor until the server's transaction lifetime aborts
+        this ban: a minute or more for the same outcome.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str, list[str]]:
             results: dict[str, str] = {}
@@ -206,7 +193,9 @@ class TestTwoBansOfOneAddressInsideOneWindow:
             async def the_rival() -> None:
                 results["rival"] = await ban(database, client)
 
-            outcome = await ban(database, client, saisons=SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], the_rival))
+            grants = GrantsRunningARivalAfterTheirRead(database[Collection.BERECHTIGUNGEN], the_rival)
+            outcome = await ban(database, client, berechtigungen=grants)
+            grants.assert_landed_inside(serially=1)
             _, bounds = await active_and_bounds(database)
 
             return results["rival"], outcome, bounds

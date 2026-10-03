@@ -1,16 +1,9 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import { registerDoubles } from "./exportingModule.ts";
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+registerDoubles();
 
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
@@ -42,18 +35,26 @@ describe("the message a banned address is sent", () => {
     for (const { name, body } of BEIDE) {
       assert.ok(body.includes("gesperrt"), `${name} does not say the address is barred`);
       assert.ok(body.includes(GRUND), `${name} does not carry the reason that was entered`);
-      assert.ok(body.includes("Fingerabdruck"), `${name} does not say what is kept about the address`);
+      assert.ok(body.includes("Prüfwert Deiner Adresse"), `${name} does not say what is kept about the address`);
       assert.ok(body.includes(KONTAKT_EMAIL), `${name} offers no way to object or ask`);
     }
   });
 
-  /* Nothing in the sign-in path asks the ban list, and „anmelden“ is this branch's verb for the
-     sign-in everywhere else. What a ban refuses is a registration and a referee's entry. */
-  it("names the two acts a ban actually refuses, and not the sign-in", () => {
+  /* Every act the ban refuses, the sign-in among them, and the sign-ins it ends: a reader told less
+     would try the rest and meet a refusal the one message they get never named. */
+  it("names every act a ban refuses, and that live sign-ins end while the account is kept", () => {
     for (const { name, body } of BEIDE) {
+      assert.ok(body.includes("weder anmelden"), `${name} does not say a sign-in is refused`);
       assert.ok(body.includes("registrieren"), `${name} does not say a registration is refused`);
+      assert.ok(body.includes("Kontaktperson in einer Bewerbung"), `${name} does not say an application's contact seat is refused`);
       assert.ok(body.includes("Schiedsrichter"), `${name} does not say a referee entry is refused`);
-      assert.ok(!/nicht mehr anmelden/.test(body), `${name} tells the reader the sign-in is barred, which it is not`);
+      assert.ok(body.includes("Anmeldungen mit dieser Adresse werden beendet"), `${name} does not say live sign-ins end`);
+      assert.ok(body.includes("Dein Konto bleibt bestehen und ist gesperrt"), `${name} does not say the account is kept, frozen`);
+      assert.ok(
+        !body.includes("Deine Adresse selbst speichern wir nicht"),
+        `${name} says the address is stored nowhere, which the account contradicts`,
+      );
+      assert.ok(body.includes("mit einer E-Mail an diese gesperrte Adresse"), `${name} names no way to a copy or a deletion`);
     }
   });
 
@@ -69,6 +70,20 @@ describe("the message a banned address is sent", () => {
       MAIL.html,
       /Schreib uns dafür an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>; dort beantworten wir auch Fragen zur Sperre\.<\/p>/,
       "the card's objection is an address to copy, not a link",
+    );
+  });
+
+  /* A contact person's link shows a barred address the ban's sentence alone, so this mail is where they
+     learn an objection to their consent still reaches the league. The approved words, written out. */
+  it("says an objection to a consent still goes by mail, in both branches", () => {
+    assert.ok(
+      MAIL.text.includes("Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an kontakt@frankfurtleague.de vor."),
+      "the text branch does not say where an objection to a consent goes",
+    );
+    assert.match(
+      MAIL.html,
+      /Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an <a href="mailto:kontakt@frankfurtleague\.de"[^>]*>kontakt@frankfurtleague\.de<\/a> vor\./,
+      "the card does not say where an objection to a consent goes",
     );
   });
 

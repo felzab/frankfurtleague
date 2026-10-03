@@ -1,45 +1,46 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
+import { registerDoubles } from "./exportingModule.ts";
 import {
+  AFTER_RESPONSE_DEADLINE_MS,
   boundCall,
   getRequestActor,
   getRequestSpanId,
   getRequestTraceId,
+  oncePerRequest,
   recordWriteSent,
   REQUEST_DEADLINE_MS,
   requestOutcomeUnknown,
   requestWriteSent,
   runAnsweringOwnCut,
+  runBehindTheResponse,
   runWithRequestScope,
   setRequestActor,
 } from "./requestScope.ts";
 
 // The two outbound clients' configuration and log, replaced at the module boundary: the real config
 // reads credentials no test run holds, and the mail client posts only for a production deployment.
-const MODULE_DOUBLES: Readonly<Record<string, string>> = {
-  "/src/core/config.ts": `export const frontend_config = {
-  API_URL: "http://backend:8000",
-  API_VERSION: 0,
-  INTERNAL_API_KEY_BASE: "base-key-double",
-  INTERNAL_API_KEY_SYSTEM: "system-key-double",
-  INTERNAL_API_KEY_ADMIN: "admin-key-double",
-  APP_ENV: "production",
-  AUTH_RESEND_KEY: "resend-key-double",
-};`,
-  "/src/core/logging.ts": "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };",
-};
-
-registerHooks({
-  resolve: (specifier, context, nextResolve) =>
-    specifier === "server-only" ? { url: "data:text/javascript,export%20%7B%7D%3B", shortCircuit: true } : nextResolve(specifier, context),
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    const double = Object.entries(MODULE_DOUBLES).find(([tail]) => url.endsWith(tail))?.[1];
-    return double === undefined ? nextLoad(url, context) : { format: "module", source: double, shortCircuit: true };
+const inert = (): undefined => undefined;
+registerDoubles({
+  modules: {
+    "core/config.ts": {
+      frontend_config: {
+        API_URL: "http://backend:8000",
+        API_VERSION: 0,
+        APP_ENV: "production",
+      },
+      internalApiKeyBase: () => "base-key-double",
+      internalApiKeySystem: () => "system-key-double",
+      internalApiKeyAdmin: () => "admin-key-double",
+      authResendKey: () => "resend-key-double",
+    },
+    "core/logging.ts": { logger: { debug: inert, info: inert, warn: inert, error: inert } },
+    // Admitting, so the one call the mail client makes is the provider's: the gate's own read is a
+    // backend call, which the backend client's case already bounds.
+    "core/mailGate.ts": { mayReceiveMail: async () => "admitted" },
   },
 });
 
@@ -51,8 +52,8 @@ const SPAN_ID = `${"0".repeat(15)}1`;
 
 const scope = () => ({ traceId: TRACE_ID, spanId: SPAN_ID });
 
-const PERSON = "spielerin@example.org";
-const ADMIN = "vorstand@example.org";
+const PERSON = { email: "spielerin@example.org", lane: "person", token: "person-token-double" } as const;
+const ADMIN = { email: "vorstand@example.org", lane: "admin", token: "admin-token-double" } as const;
 
 describe("the ids a request carries", () => {
   it("answers the ids inside a scope and nothing outside one", () => {
@@ -73,20 +74,20 @@ describe("the one actor a request is attributed to", () => {
       return Promise.resolve(getRequestActor());
     });
 
-    assert.equal(actor, PERSON);
+    assert.deepEqual(actor, PERSON);
   });
 
   /* One guard reached twice on one request is the ordinary shape — a page and its own server action
-     both resolve the session — and the spelling both set is one. */
-  it("takes the same actor twice", async () => {
+     both resolve the session — and each mint signs afresh: the first token recorded is sent. */
+  it("takes the same actor twice, under a second token, keeping the first", async () => {
     const actor = await runWithRequestScope(scope(), () => {
       setRequestActor(PERSON);
-      setRequestActor(PERSON);
+      setRequestActor({ ...PERSON, token: "a-later-mint" });
 
       return Promise.resolve(getRequestActor());
     });
 
-    assert.equal(actor, PERSON);
+    assert.deepEqual(actor, PERSON);
   });
 
   /* Both session guards on one request: the second spelling would land in `aktionen.actor.email`
@@ -101,23 +102,22 @@ describe("the one actor a request is attributed to", () => {
       return Promise.resolve(getRequestActor());
     });
 
-    assert.equal(actor, PERSON, "the refused actor was written anyway");
+    assert.deepEqual(actor, PERSON, "the refused actor was written anyway");
   });
 
-  /* The sign-in library's types admit a session carrying no address, and a request that resolved
-     none is one nothing may attribute a write to. */
-  it("takes a missing actor for a no-op, before and after one is recorded", async () => {
-    const answers = await runWithRequestScope(scope(), () => {
-      setRequestActor(null);
-      const before = getRequestActor();
+  /* One address through both guards is still two actors: the backend admits a person's lane on none
+     of the administrator's routes, so whichever landed last would decide what the request may do. */
+  it("refuses the same address recorded again under the other lane", async () => {
+    const actor = await runWithRequestScope(scope(), () => {
+      setRequestActor(ADMIN);
+      assert.throws(() => {
+        setRequestActor({ ...ADMIN, lane: "person" });
+      });
 
-      setRequestActor(PERSON);
-      setRequestActor(undefined);
-
-      return Promise.resolve([before, getRequestActor()]);
+      return Promise.resolve(getRequestActor());
     });
 
-    assert.deepEqual(answers, [undefined, PERSON]);
+    assert.deepEqual(actor, ADMIN, "the refused lane was written anyway");
   });
 
   /* A slice's read opens a scope inside the action awaiting it: a scope of its own there would send
@@ -129,13 +129,56 @@ describe("the one actor a request is attributed to", () => {
       return runWithRequestScope({ traceId: `${"0".repeat(31)}2`, spanId: `${"0".repeat(15)}2` }, () => Promise.resolve(getRequestActor()));
     });
 
-    assert.equal(actor, ADMIN, "the nested scope dropped the actor");
+    assert.deepEqual(actor, ADMIN, "the nested scope dropped the actor");
   });
 
   it("records nothing outside a scope, where a cache fill and a build-time render run", () => {
     setRequestActor(PERSON);
 
     assert.equal(getRequestActor(), undefined);
+  });
+});
+
+/* What lets a guard's verdict serve every admin read in a server action's body, where React's `cache`
+   keeps nothing, and still never outlive the request: the render after the action opens its own scope. */
+describe("a read made once per request", () => {
+  /** A read counting its own calls, each answered with the count so far. */
+  function counted(): { read: () => Promise<number>; calls: () => number } {
+    let calls = 0;
+    return { read: oncePerRequest(() => Promise.resolve((calls += 1))), calls: () => calls };
+  }
+
+  it("answers every call of one scope from its first, a scope opened inside it included", async () => {
+    const { read, calls } = counted();
+
+    const answers = await runWithRequestScope(scope(), async () => [
+      await read(),
+      await read(),
+      await runWithRequestScope(scope(), () => read()),
+      await runAnsweringOwnCut(() => read()),
+    ]);
+
+    assert.deepEqual(answers, [1, 1, 1, 1]);
+    assert.equal(calls(), 1);
+  });
+
+  it("reads again in the next scope, as the render after an action opens one", async () => {
+    const { read, calls } = counted();
+
+    await runWithRequestScope(scope(), () => read());
+    const next = await runWithRequestScope(scope(), () => read());
+
+    assert.equal(next, 2, "a second request was answered from the first one's read");
+    assert.equal(calls(), 2);
+  });
+
+  it("reads on every call outside a scope, where nothing could end the memo", async () => {
+    const { read, calls } = counted();
+
+    await read();
+    await read();
+
+    assert.equal(calls(), 2);
   });
 });
 
@@ -148,6 +191,7 @@ describe("the one deadline a request runs under", () => {
   };
 
   const OWN_BOUND_MS = 15000;
+  const BEHIND_TRACE = "b".repeat(32);
 
   beforeEach(() => {
     clock = 0;
@@ -220,6 +264,47 @@ describe("the one deadline a request runs under", () => {
 
     assert.equal(aborted, true);
     assert.equal(cut, false, "a call's own timeout was taken for the request's deadline");
+  });
+
+  /* Run from a request whose deadline is spent, as Next runs an `after` callback once the answer has gone. */
+  it("gives work behind the response a deadline of its own, the request's trace and no actor", async () => {
+    const seen: { early: boolean; atDeadline: boolean; trace?: string; actor?: string }[] = [];
+
+    await runWithRequestScope(scope(), async () => {
+      setRequestActor({ email: "vorstand@example.org", lane: "admin", token: "token" });
+      advance(REQUEST_DEADLINE_MS);
+
+      await runBehindTheResponse(BEHIND_TRACE, () => {
+        const { signal } = boundCall(AFTER_RESPONSE_DEADLINE_MS + 1);
+        advance(AFTER_RESPONSE_DEADLINE_MS - 1);
+        const early = signal.aborted;
+        advance(1);
+        seen.push({ early, atDeadline: signal.aborted, trace: getRequestTraceId(), actor: getRequestActor()?.email });
+
+        return Promise.resolve();
+      });
+    });
+
+    assert.deepEqual(seen, [{ early: false, atDeadline: true, trace: BEHIND_TRACE, actor: undefined }]);
+  });
+
+  /* A stopping server waits on the callback's promise, so the deadline holds it whatever the work awaits. */
+  it("settles work behind the response at its deadline, though the work never does", async () => {
+    let settled = false;
+    void runBehindTheResponse(BEHIND_TRACE, () => new Promise<void>(() => {})).then(() => {
+      settled = true;
+    });
+    // A real turn of the loop, which the mocked timers leave alone: every reaction queued by then has run.
+    const drained = () => new Promise((resolve) => setImmediate(resolve));
+
+    advance(AFTER_RESPONSE_DEADLINE_MS - 1);
+    await drained();
+    assert.equal(settled, false, "the work was let go before its deadline");
+
+    // Never awaited: a runner with no cut would hold this case open for ever rather than fail it.
+    advance(1);
+    await drained();
+    assert.equal(settled, true, "the work held its callback past the deadline");
   });
 
   /* A ban's notice is sent after its ban's write was acknowledged, and the create's answer says the notice is
@@ -349,5 +434,30 @@ describe("the budgets a request's calls nest inside", () => {
     assert.ok(found, "nginx/shared/site.conf no longer declares the edge's read timeout");
 
     assert.ok(REQUEST_DEADLINE_MS < Number(found[1]) * 1000, "the request's deadline is not under the edge's cut");
+  });
+});
+
+// Next's own steps around its two waits on a stop (its start-server cleanup: the server's close, a trace flush,
+// the exit), so the engine's kill falls a whole second after both bounds.
+const NEXT_STEPS_AROUND_ITS_WAITS_MS = 1000;
+
+/** The frontend service's whole-second `stop_grace_period`, read as the backend's case reads its own. */
+function frontendStopGraceMs(): number {
+  const compose = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "docker-compose.yml"), "utf8");
+  const services = [...compose.matchAll(/^ {2}(\w+):$/gm)];
+  const at = services.findIndex((service) => service[1] === "frontend");
+  const start = services[at]?.index;
+  assert.ok(start !== undefined, "docker-compose.yml names no frontend service");
+  const block = compose.slice(start, services[at + 1]?.index ?? compose.length);
+  const grace = [...block.matchAll(/^ {4}stop_grace_period: (\d+)s$/gm)].map((match) => Number(match[1]));
+  assert.equal(grace.length, 1, "the frontend service sets no whole-second stop_grace_period, or more than one");
+
+  return grace.reduce((seconds) => seconds) * 1000;
+}
+
+describe("the stop a frontend container waits out", () => {
+  /* `docs/ops/spec.md :: I547`: Next drains every open request, then every pending `after` callback, before it exits. */
+  it("falls after a request's bound and the work behind its answer", () => {
+    assert.ok(frontendStopGraceMs() >= REQUEST_DEADLINE_MS + AFTER_RESPONSE_DEADLINE_MS + NEXT_STEPS_AROUND_ITS_WAITS_MS);
   });
 });

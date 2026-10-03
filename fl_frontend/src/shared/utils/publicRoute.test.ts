@@ -1,28 +1,27 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it, mock } from "node:test";
+
+import { registerDoubles } from "@/core/exportingModule.ts";
 
 /* Replaced at the module boundary, as `fl_frontend/src/shared/utils/undoRoute.test.ts` replaces them:
    a response is the framework's, and the spine between it and the handler is what is driven. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "next/server": `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`,
-  "next/headers": `export const headers = async () => { globalThis.__flPublicSpineTraces += 1; return new Headers(); };`,
+/** How many times the spine opened a trace, which reads the request's headers. */
+let spineTraces = 0;
+
+const PACKAGE_DOUBLES = {
+  "next/server": { NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) } },
+  "next/headers": {
+    headers: async () => {
+      spineTraces += 1;
+      return new Headers();
+    },
+  },
 };
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+// Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/logging.ts": LOGGING }, specifiers: PACKAGE_DOUBLES });
 
 const { handlePublicRequest, SCHON_VORLIEGEND } = await import("./publicRoute.ts");
 const { FELD_ABGELEHNT, toActionErrorResult } = await import("./actionError.ts");
@@ -36,8 +35,6 @@ const { DUPLICATE_KEY, refusedOn } = await import("@/shared/testing/publishedRef
 
 /** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
 const ORIGINS: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
-
-const counters = globalThis as unknown as Record<string, number>;
 
 /** A request carrying `origin` as its header, or no header at all, whose body counts its own reads. */
 function request(origin: string | null, read: { body: number }, method = "POST") {
@@ -56,7 +53,7 @@ function request(origin: string | null, read: { body: number }, method = "POST")
  * read, the handler itself. Every route carrying the guard is `fl_frontend/src/core/requestSpines.test.ts`'s population.
  */
 async function answerFor(origin: string | null): Promise<{ status: number; body: { success: boolean; error?: string }; didWork: boolean }> {
-  counters.__flPublicSpineTraces = 0;
+  spineTraces = 0;
   const read = { body: 0 };
   let ran = false;
   const answer = (await handlePublicRequest(request(origin, read), {
@@ -67,7 +64,7 @@ async function answerFor(origin: string | null): Promise<{ status: number; body:
     },
   })) as unknown as { status: number; body: { success: boolean; error?: string } };
 
-  return { status: answer.status, body: answer.body, didWork: ran || read.body > 0 || counters.__flPublicSpineTraces > 0 };
+  return { status: answer.status, body: answer.body, didWork: ran || read.body > 0 || spineTraces > 0 };
 }
 
 describe("what stands in for a session on the public spine", () => {

@@ -380,7 +380,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -642,7 +645,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -790,7 +796,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -846,7 +855,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1090,7 +1102,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1320,7 +1335,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1373,7 +1391,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1525,7 +1546,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1678,7 +1702,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1763,8 +1790,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1815,7 +1848,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1866,8 +1902,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1933,7 +1975,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1989,7 +2034,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2093,8 +2141,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2145,7 +2199,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2196,8 +2253,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2207,7 +2270,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for\nthe caller to mail to the new address: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints\nnothing and answers `bestaetigung: null`, the record being already given; the administrator tells\nthem by hand (`docs/ops/runbooks.md` §5).\n\n**A RETIRED referee's corrected address is stored and mails nothing**: no consent is collected for\na role nobody gives them. Their old link is retired all the same, and the reactivation mints the\nfresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for\nthe caller to mail to the new address: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints\nnothing and answers `bestaetigung: null`, the record being already given; the administrator tells\nthem by hand (`docs/ops/runbooks.md` §5).\n\n**A RETIRED referee's corrected address is stored and mails nothing**: no consent is collected for\na role nobody gives them. Their old link is retired all the same, and the reactivation mints the\nfresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`. A save retiring or\nreplacing a link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2263,7 +2326,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2319,7 +2385,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2331,7 +2400,7 @@
     "/api/v0/bewerbungen": {
       "get": {
         "summary": "List Bewerbungen",
-        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.\n\n`saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,\n`andere_saison` for every other one — and is ignored without a `saison_id` to stand against.\nBoth values is every season, as omitting the parameter is; `saison_id` alone is that season.\n\n`anzahl_je_status` counts every status over the seasons this request selected and never over the\nstatuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those\nstatuses and never over the relation, so a caller narrowed to one of either still knows what\nasking for the other would fetch. Repeating a parameter and comma-joining its values are one\nrequest; omitting one is every value, and sending it empty is too.\n\n`dubletten_schluessel` names every key two or more OPEN applications share, over every season the\nrequest selected rather than over the rows served, so a colliding pair the cap parted is named at\nboth ends; a key carries its own season, so no selection can part one. A key\nis the season and the club id, or the season and the upper-cased Kürzel, parted by the word\n`team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two\nmatch.",
+        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves. A decision's\nadministrator is `null` beside `entscheidung.von_gesperrt` where the ban list holds that\naddress, as no barred address is served in plain.\n\n`saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,\n`andere_saison` for every other one — and is ignored without a `saison_id` to stand against.\nBoth values is every season, as omitting the parameter is; `saison_id` alone is that season.\n\n`anzahl_je_status` counts every status over the seasons this request selected and never over the\nstatuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those\nstatuses and never over the relation, so a caller narrowed to one of either still knows what\nasking for the other would fetch. Repeating a parameter and comma-joining its values are one\nrequest; omitting one is every value, and sending it empty is too.\n\n`dubletten_schluessel` names every key two or more OPEN applications share, over every season the\nrequest selected rather than over the rows served, so a colliding pair the cap parted is named at\nboth ends; a key carries its own season, so no selection can part one. A key\nis the season and the club id, or the season and the upper-cased Kürzel, parted by the word\n`team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two\nmatch.",
         "operationId": "get_bewerbungen_api_v0_bewerbungen_get",
         "security": [
           {
@@ -2428,8 +2497,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2439,7 +2514,7 @@
       },
       "post": {
         "summary": "Submit a Bewerbung",
-        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds and stores none: fresh links where no message to any seat is known to have\nreached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).\n\nA seat naming a consent wording other than the one the form now shows is refused (`REQ-BEWERBUNG-016`),\nand only once the key has been looked up: a stored key is answered whatever wording it names.",
+        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds and stores none: fresh links where no message to any seat is known to have\nreached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).\n\nAn address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press and on a\nreplay alike, before any link is minted.\n\nA seat naming a consent wording other than the one the form now shows is refused (`REQ-BEWERBUNG-016`),\nand only once the key has been looked up: a stored key is answered whatever wording it names.",
         "operationId": "post_bewerbung_api_v0_bewerbungen_post",
         "security": [
           {
@@ -2504,6 +2579,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-BEWERBUNG-018"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -2514,7 +2592,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
         "summary": "One Bewerbung",
-        "description": "One application in full, which is what the triage decides against.",
+        "description": "One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.",
         "operationId": "get_bewerbung_by_id_api_v0_bewerbungen__bewerbung_id__get",
         "security": [
           {
@@ -2553,8 +2631,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2566,7 +2650,7 @@
     "/api/v0/registrierungen": {
       "get": {
         "summary": "List Registrierungen",
-        "description": "Every pending registration, newest first, narrowable by season, by team and by status.\n\n`bestaetigt` says whether the pupil answered their own confirmation link, composed here rather\nthan left to the reader: an admission is offered on no registration lacking it.\n`vollstaendig` is false where more rows exist than one read serves.",
+        "description": "Every pending registration, newest first, narrowable by season, by team and by status.\n\n`bestaetigt` says whether the pupil answered their own confirmation link, composed here rather\nthan left to the reader: an admission is offered on no registration lacking it.\n`vollstaendig` is false where more rows exist than one read serves. A decision's author is `null`\nbeside `entscheidung.von_gesperrt` where the ban list holds that address, as no barred address is\nserved in plain.",
         "operationId": "get_registrierungen_api_v0_registrierungen_get",
         "security": [
           {
@@ -2683,8 +2767,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2694,7 +2784,7 @@
       },
       "post": {
         "summary": "Register through a team's link",
-        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`).",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since\n(`REQ-REGISTRIERUNG-009`), before any link is minted.",
         "operationId": "post_registrierung_api_v0_registrierungen_post",
         "security": [
           {
@@ -2925,8 +3015,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2983,8 +3079,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3035,8 +3137,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3087,7 +3195,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3120,8 +3231,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3345,8 +3462,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3404,7 +3527,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3472,7 +3598,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3549,7 +3678,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3561,7 +3693,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrefusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A `past`\nseason's contacts stay correctable. Each seat's `erfasst_von` and `bestaetigt_am` are the\nserver's: a seat the same address confirmed keeps both, and every other seat is stored as entered\nadministratively.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat\nis stored as entered administratively.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -3626,7 +3758,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3703,7 +3838,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3715,7 +3853,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung": {
       "post": {
         "summary": "Mint this team's registration link for a season",
-        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing it is a separate press.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended\n(`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\n**A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an\nadministrator is looking at, and a squad row and a contact correction are accepted for such a team too.",
+        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing it is a separate press.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended\n(`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\n**A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an\nadministrator is looking at, and a squad row and a contact correction are accepted for such a team too.\n\nA mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and\nwrites nothing; a team's first link is not.",
         "operationId": "post_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_post",
         "security": [
           {
@@ -3770,7 +3908,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3835,7 +3976,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3845,7 +3989,7 @@
       },
       "get": {
         "summary": "This team's live registration link for a season, and whether it opens anything",
-        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state\nrather than a delivery failure.\n\n`laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.",
+        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state\nrather than a delivery failure. The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred\naddress is served in plain.\n\n`laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.",
         "operationId": "get_einladung_api_v0_teams__team_id__saisons__saison_id__einladung_get",
         "security": [
           {
@@ -3893,8 +4037,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4019,8 +4169,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4071,8 +4227,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4100,8 +4262,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4156,8 +4324,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4212,7 +4386,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4267,7 +4444,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-PURGE-001"
@@ -4338,7 +4518,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4415,7 +4598,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4480,7 +4666,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4547,7 +4736,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4647,8 +4839,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4705,7 +4903,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4772,7 +4973,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4784,7 +4988,7 @@
     "/api/v0/saisons/{saison_id}/spielplan": {
       "post": {
         "summary": "Draw this Saison's Spielplan",
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, inside `REQ-SPIELPLAN-005`'s window.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, inside `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation\nolder than `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.",
         "operationId": "generate_spielplan_api_v0_saisons__saison_id__spielplan_post",
         "security": [
           {
@@ -4838,7 +5042,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4893,7 +5100,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4905,7 +5115,7 @@
     "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": {
       "get": {
         "summary": "Who the send would reach",
-        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own\nswitch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with\n`erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFour skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
+        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own\nswitch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with\n`erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a\ndelivery record and `erneut` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
         "operationId": "preview_einladungen_versand_api_v0_saisons__saison_id__einladungen_versand_vorschau_get",
         "security": [
           {
@@ -4953,8 +5163,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4966,7 +5182,7 @@
     "/api/v0/saisons/{saison_id}/einladungen/versand": {
       "post": {
         "summary": "Mint every admitted team a link",
-        "description": "Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.\n\n**Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in\nsomebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been\nmade; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFour skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. **The fourth is read off\nthe delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and\nnever sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is\npassed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.\n\nThe answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);\n404 where no season holds that id; a season holding no team answers an empty list.",
+        "description": "Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.\n\n**Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in\nsomebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been\nmade; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery\nrecord and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off\nthe delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and\nnever sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is\npassed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.\n\nThe answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);\n404 where no season holds that id; a season holding no team answers an empty list.",
         "operationId": "post_einladungen_versand_api_v0_saisons__saison_id__einladungen_versand_post",
         "security": [
           {
@@ -5021,7 +5237,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5079,7 +5298,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5091,7 +5313,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Schiedsrichter back",
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is minted a fresh link**, answered once for the caller\nto mail: a retired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`REQ-SCHIEDSRICHTER-007` and the row stays retired.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is minted a fresh link**, answered once for the caller\nto mail: a retired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
         "operationId": "reactivate_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__reactivate_post",
         "security": [
           {
@@ -5137,7 +5359,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5195,7 +5420,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5253,7 +5481,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5265,7 +5496,7 @@
     "/api/v0/aktionen": {
       "get": {
         "summary": "List recorded admin actions",
-        "description": "List what administrators changed, newest first; `vollstaendig` is false on a cut answer.\n\nAdmin-tier twice over: every recorded write across every collection is here, public or not,\nand each row names the administrator behind it.\n\n`collection`, `operation` and `herkunft` each take a comma-joined selection, or the parameter\nrepeated, and all three narrow this read. `herkunft` names no stored field: it is the category the\nactor's kind is filed under, `person` covering every kind that authenticates somebody.\n\n`anzahl_je_collection`, `anzahl_je_operation` and `anzahl_je_herkunft` count every row `trace_id`\nand `document_id` leave, with the other two facets applied and their own ignored, so a caller\nnarrowed to one area still knows what asking for another would fetch; a value nothing was recorded\nunder is absent rather than zero. While either of those two terms is in force the counts are that\ntrace's or that document's and not the log's.\n\n`trace_id` selects one request's whole fan-out, which this read serves under the same cap as any\nother; a write made outside a request carries the sentinel `SYSTEM` there, which gathers every\nsuch write rather than one (`docs/glossary.md :: Vorgangsnummer`).",
+        "description": "List what administrators changed, newest first; `vollstaendig` is false on a cut answer.\n\nAdmin-tier twice over: every recorded write across every collection is here, public or not,\nand each row names the administrator behind it — `null` beside `actor.email_gesperrt` where the\nban list holds that address, as no barred address is served in plain.\n\n`collection`, `operation` and `herkunft` each take a comma-joined selection, or the parameter\nrepeated, and all three narrow this read. `herkunft` names no stored field: it is the category the\nactor's kind is filed under, `person` covering every kind that authenticates somebody.\n\n`anzahl_je_collection`, `anzahl_je_operation` and `anzahl_je_herkunft` count every row `trace_id`\nand `document_id` leave, with the other two facets applied and their own ignored, so a caller\nnarrowed to one area still knows what asking for another would fetch; a value nothing was recorded\nunder is absent rather than zero. While either of those two terms is in force the counts are that\ntrace's or that document's and not the log's.\n\n`trace_id` selects one request's whole fan-out, which this read serves under the same cap as any\nother; a write made outside a request carries the sentinel `SYSTEM` there, which gathers every\nsuch write rather than one (`docs/glossary.md :: Vorgangsnummer`).",
         "operationId": "get_aktionen_api_v0_aktionen_get",
         "security": [
           {
@@ -5376,8 +5607,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5389,7 +5626,7 @@
     "/api/v0/aktionen/{aktion_id}": {
       "get": {
         "summary": "One recorded admin action",
-        "description": "One row with the document its write replaced, which the list withholds.\n\nThe read a restore of one write would start from.",
+        "description": "One row with the document its write replaced, which the list withholds.\n\nThe read a restore of one write would start from, so the image is served as recorded, every\naddress in it included; the actor is withheld as the list withholds it.",
         "operationId": "get_aktion_by_id_api_v0_aktionen__aktion_id__get",
         "security": [
           {
@@ -5428,8 +5665,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5497,7 +5740,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5565,7 +5811,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5577,7 +5826,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut": {
       "post": {
         "summary": "Re-send one seat's confirmation link",
-        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.",
+        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.",
         "operationId": "erneut_einwilligung_api_v0_bewerbungen__bewerbung_id__einwilligung__seat__erneut_post",
         "security": [
           {
@@ -5620,7 +5869,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-019"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -5632,7 +5881,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5644,7 +5896,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
       "post": {
         "summary": "Correct one contact person's email address and re-send their link",
-        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.",
+        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
         "operationId": "korrigiere_kontakt_email_api_v0_bewerbungen__bewerbung_id__kontakte__seat__email_post",
         "security": [
           {
@@ -5697,7 +5949,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -5709,7 +5961,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5721,7 +5976,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
         "summary": "Seat another person where a contact person stepped out",
-        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored\nbefore the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.",
+        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored\nbefore the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds\n(`REQ-BEWERBUNG-019`). A path naming no seat is a 404.",
         "operationId": "besetze_kontakt_sitz_api_v0_bewerbungen__bewerbung_id__kontakte__seat__post",
         "security": [
           {
@@ -5774,7 +6029,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -5786,7 +6041,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5831,7 +6089,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5888,7 +6149,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5905,7 +6169,7 @@
     "/api/v0/sperrliste": {
       "get": {
         "summary": "List the banned addresses",
-        "description": "List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.\n\nNo address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed\nhash of it and the read projects that away. `erstellt_von` is the administrator who entered the\nrow, and is an address. **The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**,\nso where `anzahl_gesamt` exceeds the rows served, bans are enforced that this answer does not\nshow — and a ban nobody can see is one nobody can lift.",
+        "description": "List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.\n\nNo address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed\nhash of it and the read projects that away. `erstellt_von` is the administrator who entered the\nrow, and is an address — `null` beside `erstellt_von_gesperrt` where the ban list holds that\nadministrator's address too, as no barred address is served in plain. **The rows are capped at\n`LIST_LIMIT_DEFAULT` and there is no paging control**, so where `anzahl_gesamt` exceeds the rows\nserved, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.",
         "operationId": "get_sperrliste_api_v0_sperrliste_get",
         "responses": {
           "200": {
@@ -5921,8 +6185,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5937,7 +6207,7 @@
       },
       "post": {
         "summary": "Ban an email address",
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), and while no season is\nrunning, there being nothing to count the ban's five seasons from\n(`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one\nit covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`), and where the administrator\nentering it holds no grant by the time it is judged (`REQ-BERECHTIGUNG-006`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued\nfor the address loses the address in the same transaction.",
         "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
         "requestBody": {
           "content": {
@@ -5961,7 +6231,7 @@
             }
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPERRLISTE-001.REQ-SPERRLISTE-002"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPERRLISTE-001.REQ-SPERRLISTE-002.REQ-SPERRLISTE-003"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -5973,7 +6243,10 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6033,7 +6306,234 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/berechtigungen": {
+      "get": {
+        "summary": "List who may enter the administration",
+        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.",
+        "operationId": "get_berechtigungen_api_v0_berechtigungen_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungenListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      },
+      "post": {
+        "summary": "Grant access to the administration",
+        "description": "Grant an address access to the administration, as `administration`. No request grants `owner`; any administrator may grant.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list\nholds it (`REQ-BERECHTIGUNG-003`), and where the acting administrator's own grant has gone by the time the write is judged\n(`REQ-BERECHTIGUNG-006`). The grant takes effect on the next request, for a session signed in after it alone -- an older one is\nrefused `REQ-AUTH-007` on every admin-tier route -- and its announcement is queued in the same transaction for\n`POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier change, it takes a passkey sign-in or confirmation no older than\n`ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused `REQ-AUTH-009` otherwise.",
+        "operationId": "post_berechtigung_api_v0_berechtigungen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostBerechtigungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostBerechtigungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/berechtigungen/{berechtigung_id}": {
+      "delete": {
+        "summary": "Revoke access to the administration",
+        "description": "Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.\n\nOnly an `owner` revokes (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before anything\nabout the target is answered; an owner's sign-in older than the moment they became one is refused the same. 404 where no grant\nhas the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is made an\nadministrator first, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's\nannouncement is queued in the same transaction, after any change to the row made in the database and not yet announced. A sign-in\nor confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.",
+        "operationId": "delete_berechtigung_api_v0_berechtigungen__berechtigung_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "berechtigung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Berechtigung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungWriteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-005"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "patch": {
+        "summary": "Change a grant between administrator and owner",
+        "description": "Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.\n\nOnly an `owner` changes a tier (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before\nanything about the target is answered; an owner's sign-in older than the moment they became one is refused the same. A promotion\nholds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's step until\nthey sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A promotion of an\naddress on the ban list is refused (`REQ-BERECHTIGUNG-003`), and so is a demotion leaving no live, unbarred owner\n(`REQ-BERECHTIGUNG-007`). Naming the tier the grant holds changes nothing and answers 200. The change reaches the next request; its\nannouncement is queued in the same\ntransaction, after any change to the row made in the database and not yet announced, and a grant found that way is stamped\n`gefunden_am` as `POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.",
+        "operationId": "patch_berechtigung_api_v0_berechtigungen__berechtigung_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "berechtigung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Berechtigung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchBerechtigungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungWriteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-005"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6274,7 +6774,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list\nholds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred\nperson nothing to press.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -6328,7 +6828,7 @@
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
         "summary": "Confirm or decline one seat of a Bewerbung",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the span the seats this\nperson holds ask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year\nspends nothing.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), a consent from an address the ban list holds\nnow, whenever the link was minted (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds\nask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing. A\ndecline is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -6368,6 +6868,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-BEWERBUNG-020"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-BEWERBUNG-010"
@@ -6441,7 +6944,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: a mailbox a family shares stands behind more than one\npupil, so an address alone would show one of them another's birthdate. All three are null wherever that match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: an address is taken for one person but enforced as one nowhere,\nand matched on the address alone a mailbox shared anyway would show one pupil another's birthdate. All three are null wherever\nthat match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -6495,7 +6998,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), an age\nbelow the floor (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged\nbefore anything is written, so a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), a link mailed to\nan address the ban list holds now, whenever the link was minted (`-012`), an age below the floor (`-007`), and a\nmedia consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged before\nanything is written, so a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -6536,6 +7039,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-REGISTRIERUNG-012"
+          },
           "410": {
             "$ref": "#/components/responses/410.REQ-REGISTRIERUNG-005"
           },
@@ -6554,7 +7060,7 @@
     "/api/v0/schiedsrichter/bestaetigung/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter confirmation link opens",
-        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it.",
+        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),\nso the page offers a barred referee nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -6608,7 +7114,7 @@
     "/api/v0/schiedsrichter/bestaetigung": {
       "post": {
         "summary": "Confirm one Schiedsrichter's entry and consent",
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`\n(`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), a link mailed to an address\nthe ban list holds now, whenever the link was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`\n(`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
         "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -6648,6 +7154,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-SCHIEDSRICHTER-009"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-SCHIEDSRICHTER-003"
@@ -6701,7 +7210,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step\nof the same call can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that finds nothing\nleft to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step\nof the same call can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -6998,7 +7507,7 @@
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's registration retention clocks",
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same\ncall can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that finds\nnothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose\naddress the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again\nuntil its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same\ncall can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes\nnothing, though it logs the count of withheld registrations again.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
         "operationId": "sweep_registrierungen_api_v0_registrierungen_sweep__saison_id__post",
         "security": [
           {
@@ -7220,7 +7729,7 @@
     "/api/v0/identitaet/subjekt": {
       "post": {
         "summary": "Say which league records one mailbox holds",
-        "description": "Answer which contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists rather than a 404.",
+        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\n`verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the\nfolded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an\nadministrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it. A\npromotion to `owner` made in the database is answered `administration` until `POST /berechtigungen/abgleich` finds it.\n\n`berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`\nfirst found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one\nmade in the database that no call to that endpoint has read yet, its `erteilt_am` or the moment its id was generated, whichever is\nlater. A row changed in the database after that endpoint read it -- an address changed in place, a spelling no request matched\nmade one that does, a row put back after its removal was found -- is no grant, `verwaltung` null, until that endpoint finds the\nchange. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.\n\n`inhaber_seit` is when the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: the moment the tier change\nmade the grant an owner's, or that endpoint found a promotion made in the database, and never earlier than `berechtigt_seit`. A\nsign-in older than it administers and holds no owner's power, so the revoke and the tier change it asks for are refused. A\ndemotion takes the tier at once.\n\nEach list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil\nrecord per address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
         "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
         "requestBody": {
           "content": {
@@ -7266,6 +7775,144 @@
         ],
         "x-fl-tier": "system",
         "x-fl-stores-nothing": true
+      }
+    },
+    "/api/v0/identitaet/gesperrt": {
+      "post": {
+        "summary": "Say whether a ban stands on an address about to be mailed",
+        "description": "Answer whether a standing ban holds the one address the frontend's mailer is about to send to.\n\nStores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the address travels in the body, so no path or query carries it\ninto an access line.\n\nThe address is judged as a stored one is: every spelling that folds to the same mailbox -- its letters in any case, its domain in\nUnicode or in punycode -- answers alike, and a ban holds only while the running season is within its bound, every ban holding\nwhile no season runs. An address today's address rule refuses is answered `false` rather than refused, no ban being keyable\nunder it: the mailer sends to the addresses records hold, some of them stored under older rules.\n\nThe flag is the whole answer. No record the address holds and no part of the ban reaches the caller, which needs neither.",
+        "operationId": "get_gesperrt_api_v0_identitaet_gesperrt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLGesperrtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLGesperrtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system",
+        "x-fl-stores-nothing": true
+      }
+    },
+    "/api/v0/berechtigungen/abgleich": {
+      "post": {
+        "summary": "Claim the grant changes still to be announced",
+        "description": "Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.\n\nEvery grant and revoke made through the application queued its own notice when it was made, naming the administrator who made\nit. What was changed in the database directly is found here, by comparing the grants with the record of what is already\naccounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any\ncall to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`\ncounts those rows. A grant found here -- a new row, or an address changed in place -- is stamped `gefunden_am` with this call's\ntime, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing. Every\nrow a call reads for the first time, one no request can match included, is stamped `gesehen_am`, and a row carrying it beside no\nrecord of its own was changed in the database since a call read it: it is no grant until a call finds it.\n\nThe call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten\nminutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it\nmailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call\nclaims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.\n\n`urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit\nfound here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,\n`empfaenger` -- it is `null` or left out, and the change carries `gesperrt`; a withheld `geaendert_von` carries\n`geaendert_von_gesperrt` as well. An address changed in place is two changes, its removal and the new address's grant.\n`empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.",
+        "operationId": "post_berechtigungen_abgleich_api_v0_berechtigungen_abgleich_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungAbgleichResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/berechtigungen/abgleich/angekuendigt": {
+      "post": {
+        "summary": "Remove the announced changes a claim holds",
+        "description": "Remove each named change from the queue, where the named claim still holds it, and nothing else.\n\nA change the claim does not hold -- unknown, removed already, or claimed since by another call after this claim lapsed -- is\nleft alone and counted in `ignoriert`, so a caller can mark as told only what the server itself holds as queued under its own\nclaim. A repeated id counts once. One transaction, recorded under the system actor.",
+        "operationId": "post_berechtigungen_angekuendigt_api_v0_berechtigungen_abgleich_angekuendigt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBerechtigungAngekuendigtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungAngekuendigtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/": {
@@ -7489,7 +8136,24 @@
             "title": "At"
           },
           "actor": {
-            "$ref": "#/components/schemas/FLAktor"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLAktorMitAdresseZeile"
+              },
+              {
+                "$ref": "#/components/schemas/FLAktorPerson"
+              }
+            ],
+            "title": "Actor",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "admin_session": "#/components/schemas/FLAktorMitAdresseZeile",
+                "person_session": "#/components/schemas/FLAktorPerson",
+                "public": "#/components/schemas/FLAktorMitAdresseZeile",
+                "system": "#/components/schemas/FLAktorMitAdresseZeile"
+              }
+            }
           },
           "trace_id": {
             "type": "string",
@@ -7602,7 +8266,24 @@
             "title": "At"
           },
           "actor": {
-            "$ref": "#/components/schemas/FLAktor"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLAktorMitAdresseZeile"
+              },
+              {
+                "$ref": "#/components/schemas/FLAktorPerson"
+              }
+            ],
+            "title": "Actor",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "admin_session": "#/components/schemas/FLAktorMitAdresseZeile",
+                "person_session": "#/components/schemas/FLAktorPerson",
+                "public": "#/components/schemas/FLAktorMitAdresseZeile",
+                "system": "#/components/schemas/FLAktorMitAdresseZeile"
+              }
+            }
           },
           "trace_id": {
             "type": "string",
@@ -7817,7 +8498,7 @@
         ],
         "title": "FLAktionenListResponse"
       },
-      "FLAktor": {
+      "FLAktorMitAdresseZeile": {
         "properties": {
           "kind": {
             "type": "string",
@@ -7829,17 +8510,59 @@
             "title": "Kind"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
+          },
+          "email_gesperrt": {
+            "type": "boolean",
+            "title": "Email Gesperrt"
           }
         },
         "type": "object",
         "required": [
           "kind",
-          "email"
+          "email",
+          "email_gesperrt"
         ],
-        "title": "FLAktor",
-        "description": "Who a write was attributed to. Mirrors `app/core/recording.py :: Actor`."
+        "title": "FLAktorMitAdresseZeile",
+        "description": "An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it."
+      },
+      "FLAktorPerson": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "person_session",
+            "title": "Kind"
+          },
+          "pseudonym": {
+            "type": "string",
+            "title": "Pseudonym"
+          },
+          "funktion": {
+            "type": "string",
+            "enum": [
+              "kontakt",
+              "spieler",
+              "schiedsrichter"
+            ],
+            "title": "Funktion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "pseudonym",
+          "funktion"
+        ],
+        "title": "FLAktorPerson",
+        "description": "A signed-in person, named by a pseudonym and the Funktion the write was authorised under.\n\nMirrors `app/core/recording.py :: PersonActor`, and carries no address."
       },
       "FLAnnehmenBewerbungPayload": {
         "properties": {
@@ -8024,6 +8747,372 @@
         "title": "FLAustritt",
         "description": "How a team came to be out of one season, why, and from when.\n\n`grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite."
       },
+      "FLBerechtigungAbgleichResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "beanspruchung": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beanspruchung"
+          },
+          "beansprucht_bis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beansprucht Bis"
+          },
+          "aenderungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBerechtigungAenderung"
+            },
+            "type": "array",
+            "title": "Aenderungen"
+          },
+          "empfaenger": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Empfaenger"
+          },
+          "uebersprungen": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Uebersprungen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "beanspruchung",
+          "beansprucht_bis",
+          "aenderungen",
+          "empfaenger",
+          "uebersprungen"
+        ],
+        "title": "FLBerechtigungAbgleichResponse"
+      },
+      "FLBerechtigungAenderung": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "berechtigung_id": {
+            "type": "string",
+            "title": "Berechtigung Id"
+          },
+          "art": {
+            "type": "string",
+            "enum": [
+              "erteilt",
+              "entzogen",
+              "geaendert"
+            ],
+            "title": "Art"
+          },
+          "urheber": {
+            "type": "string",
+            "enum": [
+              "anwendung",
+              "datenbank"
+            ],
+            "title": "Urheber"
+          },
+          "jetzt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBerechtigungStand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vorher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBerechtigungStand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geaendert_von": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geaendert Von"
+          },
+          "geaendert_von_gesperrt": {
+            "type": "boolean",
+            "title": "Geaendert Von Gesperrt"
+          },
+          "geaendert_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geaendert Am"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
+          },
+          "aufgegeben": {
+            "type": "boolean",
+            "title": "Aufgegeben"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "berechtigung_id",
+          "art",
+          "urheber",
+          "jetzt",
+          "vorher",
+          "geaendert_von",
+          "geaendert_von_gesperrt",
+          "geaendert_am",
+          "gesperrt",
+          "aufgegeben"
+        ],
+        "title": "FLBerechtigungAenderung",
+        "description": "One claimed change to announce: what the grant is now, what everyone was last told, and who made it."
+      },
+      "FLBerechtigungAngekuendigtPayload": {
+        "properties": {
+          "beanspruchung": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Beanspruchung"
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "beanspruchung",
+          "ids"
+        ],
+        "title": "FLBerechtigungAngekuendigtPayload"
+      },
+      "FLBerechtigungAngekuendigtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "angekuendigt": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Angekuendigt"
+          },
+          "ignoriert": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Ignoriert"
+          }
+        },
+        "type": "object",
+        "required": [
+          "angekuendigt",
+          "ignoriert"
+        ],
+        "title": "FLBerechtigungAngekuendigtResponse"
+      },
+      "FLBerechtigungStand": {
+        "properties": {
+          "adresse": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adresse"
+          },
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "adresse",
+          "verwaltung"
+        ],
+        "title": "FLBerechtigungStand",
+        "description": "One grant's address and tier at one moment."
+      },
+      "FLBerechtigungWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "berechtigung_id": {
+            "type": "string",
+            "title": "Berechtigung Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "berechtigung_id"
+        ],
+        "title": "FLBerechtigungWriteResponse",
+        "description": "The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with."
+      },
+      "FLBerechtigungZeile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "adresse": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adresse"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
+          },
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          },
+          "erteilt_von": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erteilt Von"
+          },
+          "erteilt_von_gesperrt": {
+            "type": "boolean",
+            "title": "Erteilt Von Gesperrt"
+          },
+          "erteilt_am": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Erteilt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "adresse",
+          "gesperrt",
+          "verwaltung",
+          "erteilt_von",
+          "erteilt_von_gesperrt",
+          "erteilt_am"
+        ],
+        "title": "FLBerechtigungZeile",
+        "description": "One grant as the list serves it."
+      },
+      "FLBerechtigungenListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "berechtigungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBerechtigungZeile"
+            },
+            "type": "array",
+            "title": "Berechtigungen"
+          },
+          "uebersprungen": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Uebersprungen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "berechtigungen",
+          "uebersprungen"
+        ],
+        "title": "FLBerechtigungenListResponse",
+        "description": "Every live grant, uncapped: a list the floor of two is judged over is never served in part."
+      },
       "FLBewerbung": {
         "properties": {
           "id": {
@@ -8103,7 +9192,7 @@
           "entscheidung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLBewerbungEntscheidung"
+                "$ref": "#/components/schemas/FLBewerbungEntscheidungZeile"
               },
               {
                 "type": "null"
@@ -8147,7 +9236,7 @@
           "entscheidung"
         ],
         "title": "FLBewerbung",
-        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`."
+        "description": "One school's application to play one season, as stored, its decision as served.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`."
       },
       "FLBewerbungAddressPayload": {
         "properties": {
@@ -8344,7 +9433,8 @@
               "gueltig",
               "bestaetigt",
               "abgelehnt",
-              "abgelaufen"
+              "abgelaufen",
+              "gesperrt"
             ],
             "title": "Zustand"
           },
@@ -8667,7 +9757,7 @@
         "title": "FLBewerbungEinwilligungPayload",
         "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang`, `erfasst_von` and `datum` are the SERVER's: a client offered them could claim an\nadministrative transcription, or backdate a record."
       },
-      "FLBewerbungEntscheidung": {
+      "FLBewerbungEntscheidungZeile": {
         "properties": {
           "getroffen_am": {
             "type": "string",
@@ -8675,7 +9765,14 @@
             "title": "Getroffen Am"
           },
           "von": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Von"
           },
           "grund": {
@@ -8688,16 +9785,21 @@
               }
             ],
             "title": "Grund"
+          },
+          "von_gesperrt": {
+            "type": "boolean",
+            "title": "Von Gesperrt"
           }
         },
         "type": "object",
         "required": [
           "getroffen_am",
           "von",
-          "grund"
+          "grund",
+          "von_gesperrt"
         ],
-        "title": "FLBewerbungEntscheidung",
-        "description": "Who decided this application, when, and -- on a decline -- why.\n\n`von` is the administrator the request was attributed to, so a decision and the `aktionen` row\nrecording it can never name two different people."
+        "title": "FLBewerbungEntscheidungZeile",
+        "description": "A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address."
       },
       "FLBewerbungFensterResponse": {
         "properties": {
@@ -10487,66 +11589,6 @@
         "title": "FLBracketFaultSpieltag",
         "description": "A club standing more than once on one Spieltag.\n\nOne entry per APPEARANCE, the granularity `fl_backend/app/core/constraints.py :: report_relations`\ncounts in -- never deduplicated, because which to correct is a competition decision."
       },
-      "FLEinladung": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "saison_id": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Saison Id"
-          },
-          "team_id": {
-            "type": "string",
-            "title": "Team Id"
-          },
-          "erstellt_am": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Erstellt Am"
-          },
-          "erstellt_von": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Erstellt Von"
-          },
-          "widerrufen_am": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Widerrufen Am"
-          },
-          "versand": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinladungVersand"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "saison_id",
-          "team_id",
-          "erstellt_am",
-          "erstellt_von",
-          "widerrufen_am"
-        ],
-        "title": "FLEinladung",
-        "description": "One minted link as it is served -- and NO `token_hash`.\n\nA model declaring the hash would put every live link of the season on an admin read\n(`docs/backend/spec.md :: I275`)."
-      },
       "FLEinladungAnsichtPayload": {
         "properties": {
           "token": {
@@ -10751,7 +11793,7 @@
           "einladung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLEinladung"
+                "$ref": "#/components/schemas/FLEinladungZeile"
               },
               {
                 "type": "null"
@@ -10894,6 +11936,7 @@
                   "erzeugung_ungewiss",
                   "kein_kontaktblock",
                   "keine_bestaetigte_kontaktperson",
+                  "kontakte_gesperrt",
                   "bereits_gesendet"
                 ]
               },
@@ -10947,6 +11990,7 @@
                   "erzeugung_ungewiss",
                   "kein_kontaktblock",
                   "keine_bestaetigte_kontaktperson",
+                  "kontakte_gesperrt",
                   "bereits_gesendet"
                 ]
               },
@@ -11041,6 +12085,78 @@
         ],
         "title": "FLEinladungWriteResponse",
         "description": "The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere."
+      },
+      "FLEinladungZeile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "erstellt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Erstellt Am"
+          },
+          "erstellt_von": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erstellt Von"
+          },
+          "widerrufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widerrufen Am"
+          },
+          "versand": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLEinladungVersand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "erstellt_von_gesperrt": {
+            "type": "boolean",
+            "title": "Erstellt Von Gesperrt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "saison_id",
+          "team_id",
+          "erstellt_am",
+          "erstellt_von",
+          "widerrufen_am",
+          "erstellt_von_gesperrt"
+        ],
+        "title": "FLEinladungZeile",
+        "description": "One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address."
       },
       "FLEinwilligung": {
         "properties": {
@@ -11207,6 +12323,46 @@
         ],
         "title": "FLGenerateSpielplanResponse",
         "description": "What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.\n\nAn admin reads the written counts without a second request, and they are the same numbers the\nseason's own watermark keeps, so the two can be compared by eye."
+      },
+      "FLGesperrtPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "@",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLGesperrtPayload",
+        "description": "The one address a message is about to go to."
+      },
+      "FLGesperrtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gesperrt"
+        ],
+        "title": "FLGesperrtResponse",
+        "description": "Whether a standing ban holds that address, and nothing of any record: the mailer needs none."
       },
       "FLGruppen": {
         "additionalProperties": {
@@ -11556,7 +12712,7 @@
           "nachname"
         ],
         "title": "FLKontaktSitz",
-        "description": "One seat the address holds.\n\nPer seat and not per person: colleagues share a school inbox, and one row seats one person twice\nwhere `trainer_ist_zugleich` says so, so a list keyed on the name hides both cases."
+        "description": "One seat the address holds.\n\nPer seat and not per person: one person holds seats in several seasons, and one row seats them\ntwice where `trainer_ist_zugleich` says so, so a list keyed on the name hides both cases."
       },
       "FLKontaktperson": {
         "properties": {
@@ -11646,6 +12802,24 @@
           "einwilligung"
         ],
         "title": "FLKontaktpersonPayload"
+      },
+      "FLPatchBerechtigungPayload": {
+        "properties": {
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verwaltung"
+        ],
+        "title": "FLPatchBerechtigungPayload"
       },
       "FLPatchSaisonPayload": {
         "properties": {
@@ -12683,6 +13857,44 @@
         ],
         "title": "FLPatchTeamResponse"
       },
+      "FLPostBerechtigungPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLPostBerechtigungPayload"
+      },
+      "FLPostBerechtigungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id"
+        ],
+        "title": "FLPostBerechtigungResponse"
+      },
       "FLPostBewerbungPayload": {
         "properties": {
           "saison_id": {
@@ -13617,7 +14829,7 @@
           "entscheidung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLRegistrierungEntscheidung"
+                "$ref": "#/components/schemas/FLRegistrierungEntscheidungZeile"
               },
               {
                 "type": "null"
@@ -13650,7 +14862,7 @@
           "bestaetigt"
         ],
         "title": "FLRegistrierung",
-        "description": "One pupil's registration for one team's season, as it is stored.\n\nThe submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and\n`einwilligung`, and a decline writes `status` and `entscheidung`."
+        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nThe submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and\n`einwilligung`, and a decline writes `status` and `entscheidung`."
       },
       "FLRegistrierungBestaetigung": {
         "properties": {
@@ -13729,7 +14941,8 @@
             "enum": [
               "gueltig",
               "bestaetigt",
-              "abgelaufen"
+              "abgelaufen",
+              "gesperrt"
             ],
             "title": "Zustand"
           },
@@ -13915,7 +15128,7 @@
         "title": "FLRegistrierungBestaetigungResponse",
         "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time."
       },
-      "FLRegistrierungEntscheidung": {
+      "FLRegistrierungEntscheidungZeile": {
         "properties": {
           "getroffen_am": {
             "type": "string",
@@ -13923,8 +15136,15 @@
             "title": "Getroffen Am"
           },
           "von": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Von"
           },
           "grund": {
@@ -13937,16 +15157,21 @@
               }
             ],
             "title": "Grund"
+          },
+          "von_gesperrt": {
+            "type": "boolean",
+            "title": "Von Gesperrt"
           }
         },
         "type": "object",
         "required": [
           "getroffen_am",
           "von",
-          "grund"
+          "grund",
+          "von_gesperrt"
         ],
-        "title": "FLRegistrierungEntscheidung",
-        "description": "Who declined this registration, when, and why.\n\nIts own model beside the application's: one shape over both would let a field either flow adds\nreach the other, where a pupil's record and a school's are decided by different surfaces."
+        "title": "FLRegistrierungEntscheidungZeile",
+        "description": "A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address."
       },
       "FLRegistrierungSweepBenachrichtigung": {
         "properties": {
@@ -15116,7 +16341,8 @@
             "enum": [
               "gueltig",
               "bestaetigt",
-              "abgelaufen"
+              "abgelaufen",
+              "gesperrt"
             ],
             "title": "Zustand"
           },
@@ -15411,45 +16637,6 @@
         "title": "FLSchiedsrichterWriteResponse",
         "description": "Shared by delete and anonymisieren.\n\nThe retirement answers with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
       },
-      "FLSperrlisteEintrag": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "grund": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Grund"
-          },
-          "erstellt_von": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Erstellt Von"
-          },
-          "erstellt_am": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Erstellt Am"
-          },
-          "gesperrt_bis_saison_id": {
-            "type": "string",
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Gesperrt Bis Saison Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "grund",
-          "erstellt_von",
-          "erstellt_am",
-          "gesperrt_bis_saison_id"
-        ],
-        "title": "FLSperrlisteEintrag",
-        "description": "One ban as it is served. `adresse_hash` is on no model, so no read can recover the lookup key."
-      },
       "FLSperrlisteListResponse": {
         "properties": {
           "acknowledged": {
@@ -15463,7 +16650,7 @@
           },
           "sperrliste": {
             "items": {
-              "$ref": "#/components/schemas/FLSperrlisteEintrag"
+              "$ref": "#/components/schemas/FLSperrlisteZeile"
             },
             "type": "array",
             "title": "Sperrliste"
@@ -15504,6 +16691,57 @@
         ],
         "title": "FLSperrlisteWriteResponse",
         "description": "The removal is hard, so the id is all there is to answer with: no document survives to echo."
+      },
+      "FLSperrlisteZeile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "grund": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Grund"
+          },
+          "erstellt_von": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erstellt Von"
+          },
+          "erstellt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Erstellt Am"
+          },
+          "gesperrt_bis_saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Gesperrt Bis Saison Id"
+          },
+          "erstellt_von_gesperrt": {
+            "type": "boolean",
+            "title": "Erstellt Von Gesperrt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "grund",
+          "erstellt_von",
+          "erstellt_am",
+          "gesperrt_bis_saison_id",
+          "erstellt_von_gesperrt"
+        ],
+        "title": "FLSperrlisteZeile",
+        "description": "One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too."
       },
       "FLSpielAdvancement": {
         "properties": {
@@ -17655,16 +18893,68 @@
             },
             "type": "array",
             "title": "Schiedsrichter"
+          },
+          "unbestaetigt": {
+            "type": "boolean",
+            "title": "Unbestaetigt"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
+          },
+          "verwaltung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "administration"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verwaltung"
+          },
+          "berechtigt_seit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Berechtigt Seit"
+          },
+          "inhaber_seit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inhaber Seit"
           }
         },
         "type": "object",
         "required": [
           "sitze",
           "spieler",
-          "schiedsrichter"
+          "schiedsrichter",
+          "unbestaetigt",
+          "gesperrt",
+          "verwaltung",
+          "berechtigt_seit",
+          "inhaber_seit"
         ],
         "title": "FLSubjektResponse",
-        "description": "Which league records one mailbox matches, as three lists rather than three optional records.\n\nA list under each because one inbox holds seats at two clubs and two pupils share an address\n(`docs/datenschutz.md :: \"Colleagues sharing a school inbox\"`)."
+        "description": "Which confirmed, live records one mailbox matches, and whether the address is on the ban list.\n\nThe ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide."
       },
       "FLSubjektSchiedsrichter": {
         "properties": {
@@ -18802,7 +20092,7 @@
           }
         }
       },
-      "401.REQ-AUTH-001.REQ-AUTH-004": {
+      "401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007": {
         "description": "Unauthorized",
         "content": {
           "application/json": {
@@ -18816,7 +20106,151 @@
                     "error_code": {
                       "enum": [
                         "REQ-AUTH-001",
-                        "REQ-AUTH-004"
+                        "REQ-AUTH-004",
+                        "REQ-AUTH-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-001",
+                        "REQ-AUTH-004",
+                        "REQ-AUTH-007",
+                        "REQ-AUTH-009"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-AUTH-006": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-AUTH-006.REQ-BERECHTIGUNG-005": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-006",
+                        "REQ-BERECHTIGUNG-005"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-AUTH-006.REQ-BERECHTIGUNG-006": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-006",
+                        "REQ-BERECHTIGUNG-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-BEWERBUNG-018": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-018"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-BEWERBUNG-020": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-020"
                       ]
                     }
                   }
@@ -18840,6 +20274,52 @@
                     "error_code": {
                       "enum": [
                         "REQ-REGISTRIERUNG-009"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-REGISTRIERUNG-012": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-REGISTRIERUNG-012"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-SCHIEDSRICHTER-009": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-009"
                       ]
                     }
                   }
@@ -19089,6 +20569,81 @@
           }
         }
       },
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERECHTIGUNG-001",
+                        "REQ-BERECHTIGUNG-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERECHTIGUNG-002",
+                        "REQ-BERECHTIGUNG-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERECHTIGUNG-003",
+                        "REQ-BERECHTIGUNG-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.DB-COMMON-002.REQ-BEWERBUNG-001": {
         "description": "Conflict",
         "content": {
@@ -19144,32 +20699,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BEWERBUNG-001",
-                        "REQ-BEWERBUNG-011"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014": {
+      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -19185,7 +20715,34 @@
                         "DB-COMMON-002",
                         "REQ-BEWERBUNG-001",
                         "REQ-BEWERBUNG-011",
-                        "REQ-BEWERBUNG-014"
+                        "REQ-BEWERBUNG-014",
+                        "REQ-BEWERBUNG-019"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-019": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BEWERBUNG-001",
+                        "REQ-BEWERBUNG-011",
+                        "REQ-BEWERBUNG-019"
                       ]
                     }
                   }
@@ -19700,7 +21257,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-SPERRLISTE-001.REQ-SPERRLISTE-002": {
+      "409.DB-COMMON-002.REQ-SPERRLISTE-001.REQ-SPERRLISTE-002.REQ-SPERRLISTE-003": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -19715,7 +21272,8 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-SPERRLISTE-001",
-                        "REQ-SPERRLISTE-002"
+                        "REQ-SPERRLISTE-002",
+                        "REQ-SPERRLISTE-003"
                       ]
                     }
                   }

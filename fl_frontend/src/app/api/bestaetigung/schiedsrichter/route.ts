@@ -11,8 +11,8 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { NextRequest } from "next/server";
 
-// Never resolved in front of the mapper: this read answers no floor for the three states that ARE
-// the answer, so a caller asking first gives up on them.
+// Never resolved in front of the mapper: this read answers no floor for the states that ARE the
+// answer, so a caller asking first gives up on them.
 /**
  * The floor this link's own read answered, for the one refusal that names a number. A failed read
  * leaves that refusal unworded rather than guessing a floor.
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      // Judged BEFORE the parse, by the check all three confirmation handlers share: a page opened
+      // Judged BEFORE the parse, by the check every confirmation handler shares: a page opened
       // before a deploy moved the label posts the words its reader saw, and only the mail's link
       // reopens the page on the running ones.
       if (!nenntLaufendeFassung(body, SCHIEDSRICHTER_EINWILLIGUNG.textVersion)) return { success: false as const, error: ANTWORT_NEU_OEFFNEN };

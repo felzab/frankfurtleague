@@ -72,6 +72,8 @@ export function AdminCreateSchiedsrichterForm({
         return res;
       }}
       marksRequired
+      // The create mails the new referee their confirmation link.
+      stepUp
       successMessage="Schiedsrichter angelegt"
       onClose={onClose}
     />

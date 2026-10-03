@@ -1,6 +1,7 @@
 import inspect
 from typing import Any
 
+import pytest
 from pydantic import BaseModel
 
 from app.api.einladungen import schemas as einladungen_schemas
@@ -220,10 +221,12 @@ AUSTRITT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-03-
 CONFIRMED_BLOCK = kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=CONFIRMED_ON))
 
 
-def plan(*, austritt: Any = None, block: Any = None, einladung_raw: Any = None, erneut: bool = False) -> Any:
+def plan(
+    *, austritt: Any = None, block: Any = None, einladung_raw: Any = None, erneut: bool = False, gesperrt: frozenset[str] = frozenset()
+) -> Any:
     """Every case below names only what it is about, so a default that moved fails them all rather than one."""
 
-    return plan_einladung_versand(austritt=austritt, kontakte=block, einladung_raw=einladung_raw, erneut=erneut)
+    return plan_einladung_versand(austritt=austritt, kontakte=block, einladung_raw=einladung_raw, erneut=erneut, gesperrt=gesperrt)
 
 
 class TestWhatDecidesASkip:
@@ -254,8 +257,11 @@ class TestWhatDecidesASkip:
     def test_a_team_with_no_contact_block_is_skipped(self):
         assert plan(block=None) == ([], "kein_kontaktblock", False)
 
-    def test_a_block_with_no_confirmed_seat_is_skipped(self):
-        block = kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=None))
+    @pytest.mark.parametrize("bestaetigt_am", [None, ""], ids=["null stamp", "empty stamp"])
+    def test_a_block_with_no_confirmed_seat_is_skipped(self, bestaetigt_am: str | None):
+        """An address nobody has proven gets no credential, a stamp of `""` being none (`docs/backend/spec.md :: I387`)."""
+
+        block = kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=bestaetigt_am))
 
         assert plan(block=block) == ([], "keine_bestaetigte_kontaktperson", False)
 
@@ -282,6 +288,40 @@ class TestWhatDecidesASkip:
 
     def test_a_re_send_still_skips_a_team_that_has_left(self):
         assert plan(austritt=AUSTRITT, block=CONFIRMED_BLOCK, erneut=True).uebersprungen == "austritt_eingetragen"
+
+
+class TestATeamTheBanListKeepsTheLinkFrom:
+    """`docs/backend/spec.md :: I544`: the mailer sends a barred address nothing and records nothing, so the plan reads the ban itself."""
+
+    def test_a_team_whose_every_confirmed_address_is_barred_keeps_the_link_it_holds(self):
+        """A link nobody sent stands behind it, which every other team's plan would mint over: this one is left exactly as it was."""
+
+        decided = plan(block=CONFIRMED_BLOCK, einladung_raw=einladung(versand={}), gesperrt=frozenset({"bramblewick@example.com"}))
+
+        assert decided == ([], "kontakte_gesperrt", False)
+
+    def test_a_re_send_does_not_reach_past_the_ban(self):
+        decided = plan(
+            block=CONFIRMED_BLOCK,
+            einladung_raw=einladung(versand={"zustellung": ZUSTELLUNG}),
+            erneut=True,
+            gesperrt=frozenset({"bramblewick@example.com"}),
+        )
+
+        assert decided.uebersprungen == "kontakte_gesperrt"
+
+    def test_a_team_with_one_unbarred_confirmed_address_is_mailed_to_every_seat(self):
+        """The control: one reachable person is a team the press exists to reach, and the mailer itself keeps the barred one out."""
+
+        block = kontakte(
+            trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=CONFIRMED_ON),
+            ansprechperson=kontaktperson("Quillon", "quillon@example.com", bestaetigt_am=CONFIRMED_ON),
+        )
+
+        decided = plan(block=block, gesperrt=frozenset({"bramblewick@example.com"}))
+
+        assert decided.uebersprungen is None
+        assert sorted(entry.email for entry in decided.empfaenger) == ["bramblewick@example.com", "quillon@example.com"]
 
 
 class TestWhichTeamsLoseTheLinkTheyHold:

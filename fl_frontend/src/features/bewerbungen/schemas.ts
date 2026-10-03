@@ -90,14 +90,16 @@ export const FLBewerbungKaderSchema = z.object({
 });
 export type FLBewerbungKader = z.infer<typeof FLBewerbungKaderSchema>;
 
-/** Mirrors `FLBewerbungEntscheidung` — who decided, when, and on a decline why. */
-export const FLBewerbungEntscheidungSchema = z.object({
+/** Mirrors `FLBewerbungEntscheidungZeile` — who decided, when, and on a decline why. */
+export const FLBewerbungEntscheidungZeileSchema = z.object({
   getroffen_am: CustomDateStringSchema,
-  von: z.string(),
+  // Null exactly where `von_gesperrt` holds, as the grants list withholds a barred actor.
+  von: z.string().nullable(),
+  von_gesperrt: z.boolean(),
   // Null on an acceptance: what an acceptance did is the club and the junction row it wrote.
   grund: z.string().nullable(),
 });
-export type FLBewerbungEntscheidung = z.infer<typeof FLBewerbungEntscheidungSchema>;
+export type FLBewerbungEntscheidungZeile = z.infer<typeof FLBewerbungEntscheidungZeileSchema>;
 
 /**
  * Mirrors `FLBewerbungZustellstand`. **Orthogonal to `Stand`**, which is what the PERSON did: a seat
@@ -145,8 +147,8 @@ export type FLBewerbungBestaetigungen = z.infer<typeof FLBewerbungBestaetigungen
 
 /**
  * Mirrors `FLBewerbung` — one school's application to play one season, as it is stored. What the
- * school typed stands, bar four fields: `status`, `entscheidung` and `team_id` through the triage,
- * and a contact seat's `email` through the correction beside the re-send.
+ * school typed stands, bar the triage's `status`, `entscheidung` and `team_id`, the correction's seat
+ * `email`, and a seat its holder emptied, which a replacement fills.
  */
 export const FLBewerbungSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -168,7 +170,7 @@ export const FLBewerbungSchema = z.object({
   // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
   // so nothing here resolves against the roster.
   wunschgegner: z.string().nullable(),
-  entscheidung: FLBewerbungEntscheidungSchema.nullable(),
+  entscheidung: FLBewerbungEntscheidungZeileSchema.nullable(),
   // Null on an application stored before the confirmation flow shipped, which is what keeps such an
   // application acceptable: an absent block is "nothing to confirm" rather than three open seats.
   bestaetigungen: FLBewerbungBestaetigungenSchema.nullable(),
@@ -718,7 +720,7 @@ export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEi
 export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
   // unknown token has nothing to answer with and reaches the page as a 409.
-  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen"]),
+  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]),
   saison_id: z.string(),
   schule: z.string(),
   rolle: FLKontaktRolleSchema,
@@ -798,9 +800,9 @@ export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchem
   ausstehend: z.array(FLKontaktRolleSchema),
   geburtsdatum: CustomDateStringSchema.nullable(),
   whatsapp: z.boolean(),
-  // The seven below are the route handler's alone:
+  // Every field below is the route handler's alone:
   // `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` composes the two outbound messages from
-  // them and answers the browser the four above, so no contact person is handed another one's address.
+  // them and answers the browser those above, so no contact person is handed another one's address.
   bewerbung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   rolle: FLKontaktRolleSchema,
@@ -985,7 +987,7 @@ export const FLBewerbungSweepLoeschungSchema = z.object({
 });
 export type FLBewerbungSweepLoeschung = z.infer<typeof FLBewerbungSweepLoeschungSchema>;
 
-/** One season's pass: the reminders already stamped, the deletions still to notify, and the four silent clocks' counts. */
+/** One season's pass: the reminders already stamped, the deletions still to notify, and each silent clock's count. */
 export const FLBewerbungSweepResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   erinnerungen: z.array(FLBewerbungSweepErinnerungSchema),

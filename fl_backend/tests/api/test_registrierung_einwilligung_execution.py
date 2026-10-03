@@ -12,15 +12,19 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPa
 from app.api.registrierungen.services import (
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
+    REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
     REGISTRIERUNG_MEDIEN_ALTER,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     compose_bestaetigung,
 )
+from app.api.saisons.cache import invalidate_saison_cache
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -157,6 +161,7 @@ async def ansicht(database: AsyncDatabase, token: str) -> Any:
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
+        sperrliste=ban_list(database),
         today=TODAY,
     )
 
@@ -175,6 +180,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     return await post_bestaetigung(
         antwort_data=FLRegistrierungBestaetigungPayload.model_validate(body),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        sperrliste=ban_list(database),
         db=client,
         today=TODAY,
     )
@@ -257,28 +263,30 @@ class TestWhatALinkOpens:
         """The other half: the narrowing must not cost a returning sibling the answers they themselves gave."""
 
         twin = spieler_document(TWIN_OID, vorname="Bramblewick", geburtsdatum=A_TWINS_BIRTHDATE)
-        household = [spieler_document(SPIELER_OID), twin]
+        at_the_mailbox = [spieler_document(SPIELER_OID), twin]
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=household)
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=at_the_mailbox)
 
         assert response.geburtsdatum == A_RETURNING_PUPILS_BIRTHDATE
 
-    def test_the_later_seeded_pupil_of_a_household_is_shown_their_own_record(self, mongo_replica_set_url: str):
+    def test_the_later_seeded_of_two_pupils_at_one_mailbox_is_shown_their_own_record(self, mongo_replica_set_url: str):
         """The case above names the pupil seeded FIRST, so a read carrying one row would still find them.
 
         What this one drives is `app/api/registrierungen/einwilligung_router.py :: _PERSONS_READ`
-        bounding the household the narrowing can reach.
+        bounding the rows at one mailbox the narrowing can reach.
         """
 
         twin = spieler_document(TWIN_OID, vorname="Bramblewick", geburtsdatum=A_TWINS_BIRTHDATE)
-        household = [spieler_document(SPIELER_OID), twin]
+        at_the_mailbox = [spieler_document(SPIELER_OID), twin]
         theirs = registrierung_document(vorname="Bramblewick")
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[theirs], spieler=household)
+        response = on_a_league(
+            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[theirs], spieler=at_the_mailbox
+        )
 
         assert response.geburtsdatum == A_TWINS_BIRTHDATE
 
-    def test_a_household_past_the_bound_shows_nobody_even_where_one_namesake_is_inside_it(self, mongo_replica_set_url: str):
+    def test_a_mailbox_shared_past_the_bound_shows_nobody_even_where_one_namesake_is_inside_it(self, mongo_replica_set_url: str):
         """Nine rows at one mailbox, the pupil's two namesakes seeded last: a read capped at eight reaches one of them and shows it as sole."""
 
         others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796003{n}"), vorname=f"Geschwister{n}") for n in range(7)]
@@ -288,7 +296,7 @@ class TestWhatALinkOpens:
 
         assert (response.geburtsdatum, response.umfang, response.medien) == (None, None, None)
 
-    def test_a_household_past_the_bound_shows_nobody_even_where_the_pupil_is_sole_inside_it(self, mongo_replica_set_url: str):
+    def test_a_mailbox_shared_past_the_bound_shows_nobody_even_where_the_pupil_is_sole_inside_it(self, mongo_replica_set_url: str):
         """The bound's own rule: nine rows holding ONE namesake, whom the narrowing alone would show as sole."""
 
         others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796004{n}"), vorname=f"Geschwister{n}") for n in range(8)]
@@ -556,3 +564,152 @@ class TestTheMediaAge:
         assert code == REGISTRIERUNG_MEDIEN_ALTER
         assert document == registrierung_document()
         assert rows == []
+
+
+# Composed by the production helper rather than spelled: a hand-written bound that drifted from it
+# would leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+
+
+async def ban(database: AsyncDatabase, address: str, *, bis: str = STANDING) -> None:
+    await database[Collection.SPERRLISTE].insert_one(documents.ban_document(address, bis=bis))
+
+
+class TestALinkToABarredAddress:
+    """`REQ-REGISTRIERUNG-012`: a ban reaches a link already in somebody's inbox, the seeded one minted before it."""
+
+    def test_the_press_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """Barred in the folded spelling while the row stores the typed one, so the check keys the stored address as a ban does."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, FOLDED_EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW)
+
+            return refused.value.error_code, refused.value.status_code, await stored(database), await log_rows(database)
+
+        code, status, document, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert (code, status) == (REGISTRIERUNG_BESTAETIGUNG_GESPERRT, 403)
+        assert document == registrierung_document()
+        assert rows == []
+
+    def test_a_ban_on_another_address_leaves_the_link_answering(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a check refusing every press."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, "somebody-else@example.com")
+
+            return await answer(database, client, RAW)
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_the_link_answers_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        """Nothing of the ban is written on the registration, so lifting it is all a mistaken ban needs undone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, FOLDED_EMAIL)
+            with pytest.raises(WriteRefusalException):
+                await answer(database, client, RAW)
+            await database[Collection.SPERRLISTE].delete_many({})
+
+            return await answer(database, client, RAW)
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_a_ban_past_its_last_season_bars_nothing(self, mongo_replica_set_url: str):
+        """The running season is what the bound is read against: asked without it, the lapsed row would still bar."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+            invalidate_saison_cache()
+            await ban(database, FOLDED_EMAIL, bis=f"{int(SAISON_ID) - 1}")
+
+            return await answer(database, client, RAW)
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_a_confirmed_registration_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
+        """The order: a pupil's answer given before the ban stands until an administrator acts, so a second press is refused as confirmed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await answer(database, client, RAW)
+            await ban(database, FOLDED_EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW)
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_ALREADY_CONFIRMED
+
+    def test_a_barred_press_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
+        """The other half of the order: a corrected date buys a barred address nothing, so it is not what the pupil is asked for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await ban(database, FOLDED_EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_BESTAETIGUNG_GESPERRT
+
+
+class TestTheViewOfALinkToABarredAddress:
+    """`docs/backend/spec.md :: I515`: the page reads the ban off the view, so it never offers a barred pupil the form."""
+
+    def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
+        """Barred in the folded spelling while the row stores the typed one, as the press's own case bars it."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
+            await ban(database, FOLDED_EMAIL)
+
+            return (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gesperrt"
+
+    def test_a_ban_on_another_address_leaves_the_view_open(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a view answering `gesperrt` to everyone."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
+            await ban(database, "somebody-else@example.com")
+
+            return (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gueltig"
+
+    def test_the_view_opens_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[str, str]:
+            await ban(database, FOLDED_EMAIL)
+            barred = (await ansicht(database, RAW)).zustand
+            await database[Collection.SPERRLISTE].delete_many({})
+
+            return barred, (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == ("gesperrt", "gueltig")
+
+    def test_a_ban_past_its_last_season_leaves_the_view_open(self, mongo_replica_set_url: str):
+        """Read against the running season as the press reads it: asked without it, the lapsed row would bar the view alone."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
+            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+            invalidate_saison_cache()
+            await ban(database, FOLDED_EMAIL, bis=f"{int(SAISON_ID) - 1}")
+
+            return (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gueltig"
+
+    def test_a_confirmed_registration_reopened_after_the_ban_shows_the_ban(self, mongo_replica_set_url: str):
+        """The ban outranks the stamp here, where the press ranks it below: the page shows a barred pupil nothing else."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await answer(database, client, RAW)
+            await ban(database, FOLDED_EMAIL)
+
+            return (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gesperrt"

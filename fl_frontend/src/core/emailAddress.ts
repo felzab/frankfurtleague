@@ -1,16 +1,16 @@
 import { z } from "zod";
 
 /**
- * `core` rather than beside `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which is its
- * other caller: `fl_frontend/src/core/config.ts` judges the administrator allowlist, and
+ * `core` rather than beside `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, its other
+ * caller: the sign-in fold and the mailer read these rules, and
  * `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` an import from `shared`. A second spelling
  * over there is what disagrees with this one.
  */
 
 /**
  * The whole-address ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Declared here rather than beside
- * `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which re-exports it, because the
- * administrator allowlist holds entries to the same ceiling and `core` may not import from `shared`.
+ * `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which re-exports it, because
+ * `isDeliverableAddress` below holds the same ceiling and `core` may not import from `shared`.
  */
 export const KONTAKT_EMAIL_MAX_LENGTH = 254;
 
@@ -55,6 +55,23 @@ function asAsciiHost(host: string): string | undefined {
 
 /** A host already inside ASCII, which `withAsciiDomain` hands back rather than rebuilding. */
 const ASCII_HOST_REGEX = /^\p{ASCII}+$/u;
+
+/**
+ * One run of characters no mailbox syntax gives a meaning: whitespace, controls, and RFC 5322's
+ * specials, which open a display name, a group, a list, a comment, a quoted string or a literal.
+ */
+const MAILBOX_ATOM = String.raw`[^\p{Z}\p{C}\s"(),:;<>@[\]\\.]+`;
+
+/** Dot-separated runs on both sides of one at sign, a dot never leading, trailing or doubled, the domain dotted. */
+const ONE_BARE_MAILBOX_REGEX = new RegExp(`^${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM})*@${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM})+$`, "u");
+
+/**
+ * Read before the ban list is asked: a provider reads a display name, a list or a trailing dot as the mailbox inside it, where the list's
+ * keying refuses the spelling and answers it unbarred (`docs/frontend/spec.md :: I541`).
+ */
+export function isOneBareMailbox(value: string): boolean {
+  return ONE_BARE_MAILBOX_REGEX.test(value);
+}
 
 /** The address with its domain in the ASCII form every mail system carries, or `undefined` where the domain has none. */
 export function withAsciiDomain(address: string): string | undefined {
@@ -107,9 +124,9 @@ export function hasAsciiLocalPart(value: string): boolean {
 }
 
 /**
- * The sign-in library's own primitive rather than a copy of its pattern: `better-auth` parses the
- * magic-link body with `z.email()`. What holds the two together is the table in
- * `fl_frontend/src/core/config.test.ts :: "the sign-in library's own rule"` and nothing else.
+ * The sign-in library's own primitive rather than a copy of its pattern: `better-auth` checks a
+ * code's address with `z.email()`, and only the table in
+ * `fl_frontend/src/core/config.test.ts :: "the sign-in library's own rule"` holds the two together.
  */
 const SIGN_IN_LIBRARY_EMAIL = z.email();
 
@@ -130,9 +147,9 @@ function foldedDomain(domain: string): string {
 }
 
 /**
- * The one folded form `fl_frontend/src/core/auth.ts :: isUserAdmin` compares an allowlist entry
- * against, and the form each entry is stored in: the sign-in library lower-cases only the row it
- * stores, and normalises nothing on either lane.
+ * The one folded form `fl_frontend/src/core/verwaltung.ts :: verwaltungOf` asks about a grant in,
+ * and the form every grant is stored in: the sign-in library lower-cases only the row it stores, and
+ * normalises nothing on either lane.
  */
 export function asSignInIdentifier(value: string): string {
   const trimmed = value.trim();

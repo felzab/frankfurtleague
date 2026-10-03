@@ -17,6 +17,7 @@ from app.api.einladungen.schemas import (
 )
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
+    bestaetigte_empfaenger,
     build_live_team_filter,
     compose_einladung,
     compose_widerruf_update,
@@ -55,6 +56,7 @@ from app.api.saisons.services import (
     with_schedule,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import (
@@ -93,12 +95,21 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DATABASE_FAILED, DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.logging import fl_logger
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import (
+    StepUpCheck,
+    bind_actor,
+    get_actor_email,
+    get_step_up_check,
+    verify_access_admin,
+    verify_actor_is_admin,
+    verify_step_up,
+)
+from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 # No `tore`: goals belong to whoever scored them, and `has_taken_place` leaves none to move.
@@ -227,7 +238,14 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
     return FLSaisonsListResponse(saisons=FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw]))
 
 
-@router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison", responses={409: DUPLICATE_KEY_RESPONSE})
+@router.post(
+    "",
+    response_model=FLPostSaisonResponse,
+    status_code=201,
+    summary="Create a Saison",
+    responses={409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
+)
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
@@ -459,7 +477,7 @@ async def patch_saison(
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
     # season as that rival left it (I53).
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             patched = await session.with_transaction(judge_and_write_the_rules)
 
     return patched
@@ -470,6 +488,7 @@ async def patch_saison(
     response_model=FLActivateSaisonResponse,
     summary="Make this the active Saison",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def activate_saison(
     saison_id: str,
@@ -599,7 +618,7 @@ async def activate_saison(
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
 
     return rolled_over
@@ -752,7 +771,7 @@ async def swap_gruppen(
 
     # `with_transaction`, not a bare `start_transaction`: two admins on one season can write-conflict,
     # and a retry judges these rows as the rival left them.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(exchange_the_two_gruppen)
 
 
@@ -770,6 +789,7 @@ async def generate_spielplan(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     db: DBClient,
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
@@ -779,8 +799,12 @@ async def generate_spielplan(
     Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
     `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
-    deletes both lists first, inside `REQ-SPIELPLAN-005`'s window.
+    deletes both lists first, inside `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation
+    older than `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.
     """
+
+    if spielplan_data.replace:
+        refuse_unconfirmed()
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -959,7 +983,7 @@ async def generate_spielplan(
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the draw
     # generates its own ids and wires by `spiel_nr`, never by one.
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             drawn_response = await session.with_transaction(draw_the_whole_season)
 
     return drawn_response
@@ -970,6 +994,7 @@ async def generate_spielplan(
     response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def undraw_spielplan(
     saison_id: str,
@@ -1045,7 +1070,7 @@ async def undraw_spielplan(
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             undrawn = await session.with_transaction(undraw_the_whole_season)
 
     return undrawn
@@ -1073,6 +1098,14 @@ async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id:
     return entered
 
 
+async def _gesperrte_empfaenger(sperrliste: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
+    """Every stored address of the season's confirmed seats a standing ban holds, one read for all its teams."""
+
+    adressen = [person.email for team in entered for person in bestaetigte_empfaenger(kontakte=team.get("kontakte"))]
+
+    return await adressen_gesperrt(sperrliste, adressen) if adressen else set()
+
+
 async def _mail_one_team(
     *,
     einladungen_collection: AsyncCollection,
@@ -1080,6 +1113,7 @@ async def _mail_one_team(
     saison_id: str,
     team: Mapping[str, Any],
     erneut: bool,
+    gesperrt: set[str],
     erstellt_von: str,
     today: str,
 ) -> FLEinladungVersandZeile:
@@ -1117,7 +1151,11 @@ async def _mail_one_team(
             session=session,
         )
         plan = plan_einladung_versand(
-            austritt=team.get("austritt"), kontakte=team.get("kontakte"), einladung_raw=live[0] if live else None, erneut=erneut
+            austritt=team.get("austritt"),
+            kontakte=team.get("kontakte"),
+            einladung_raw=live[0] if live else None,
+            erneut=erneut,
+            gesperrt=gesperrt,
         )
         ersetzt_link, hatte_link = plan.ersetzt_link, bool(live)
 
@@ -1166,32 +1204,34 @@ async def _mail_one_team(
             hatte_link=bool(live),
         )
 
-    async with db.start_session() as session:
-        try:
+    # Caught outside the session: a failure the session never sees leaves the transaction open on the
+    # server (`docs/backend/spec.md :: I539`).
+    try:
+        async with transaction_session(db) as session:
             return await session.with_transaction(mint_where_the_team_qualifies)
-        except PyMongoError as failure:
-            # Per TEAM: every team already done holds a fresh link whose raw value exists only in this
-            # list. A commit sent and never answered may have revoked this team's link too, so its
-            # row says unknown rather than failed.
-            ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
-            fl_logger.error(
-                f"The registration link for team {team['team_id']} in season {saison_id} was "
-                f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
-                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
-            )
+    except PyMongoError as failure:
+        # Per TEAM: every team already done holds a fresh link whose raw value exists only in this
+        # list. A commit sent and never answered may have revoked this team's link too, so its
+        # row says unknown rather than failed.
+        ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
+        fl_logger.error(
+            f"The registration link for team {team['team_id']} in season {saison_id} was "
+            f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
+            extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+        )
 
-            return FLEinladungVersandZeile(
-                team_id=team["team_id"],
-                team_name=team["name"],
-                einladung_id=None,
-                token=None,
-                empfaenger=[],
-                uebersprungen="erzeugung_ungewiss" if ungewiss else "erzeugung_fehlgeschlagen",
-                # A failed commit replaced nothing; an unanswered one may have replaced the link the
-                # plan found, and a team that held none must not read about one.
-                ersetzt_link=ungewiss and ersetzt_link,
-                hatte_link=hatte_link,
-            )
+        return FLEinladungVersandZeile(
+            team_id=team["team_id"],
+            team_name=team["name"],
+            einladung_id=None,
+            token=None,
+            empfaenger=[],
+            uebersprungen="erzeugung_ungewiss" if ungewiss else "erzeugung_fehlgeschlagen",
+            # A failed commit replaced nothing; an unanswered one may have replaced the link the
+            # plan found, and a team that held none must not read about one.
+            ersetzt_link=ungewiss and ersetzt_link,
+            hatte_link=hatte_link,
+        )
 
 
 @router.get(
@@ -1205,6 +1245,7 @@ async def preview_einladungen_versand(
     saison_teams_collection: SaisonTeamsCollection,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     erneut: bool = False,
 ) -> FLEinladungVersandVorschauResponse:
     """
@@ -1218,8 +1259,9 @@ async def preview_einladungen_versand(
     link REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,
     so a page offering the press reads that fact here or nowhere.
 
-    Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
-    block has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. A season holding
+    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
+    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a
+    delivery record and `erneut` is false. A season holding
     no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
     """
 
@@ -1237,11 +1279,16 @@ async def preview_einladungen_versand(
         projection=dict(WITHOUT_TOKEN_HASH),
     )
     by_team = {row["team_id"]: row for row in live}
+    gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
     zeilen: list[FLEinladungVersandVorschauZeile] = []
     for team in entered:
         plan = plan_einladung_versand(
-            austritt=team.get("austritt"), kontakte=team.get("kontakte"), einladung_raw=by_team.get(team["team_id"]), erneut=erneut
+            austritt=team.get("austritt"),
+            kontakte=team.get("kontakte"),
+            einladung_raw=by_team.get(team["team_id"]),
+            erneut=erneut,
+            gesperrt=gesperrt,
         )
         zeilen.append(
             FLEinladungVersandVorschauZeile(
@@ -1261,6 +1308,7 @@ async def preview_einladungen_versand(
     response_model=FLEinladungVersandResponse,
     summary="Mint every admitted team a link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def post_einladungen_versand(
     saison_id: str,
@@ -1268,6 +1316,7 @@ async def post_einladungen_versand(
     saison_teams_collection: SaisonTeamsCollection,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
@@ -1280,8 +1329,10 @@ async def post_einladungen_versand(
     made; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
     press. A team this skips is left exactly as it was.
 
-    Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. **The fourth is read off
+    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
+    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery
+    record and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
+    holds rather than losing it to a press that mails nobody. **The fifth is read off
     the delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and
     never sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is
     passed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.
@@ -1294,6 +1345,8 @@ async def post_einladungen_versand(
     refuse(find_saison_vorbei_refusal(saison_status=str(saison_raw["status"])))
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
+    # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
+    gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
@@ -1304,6 +1357,7 @@ async def post_einladungen_versand(
             saison_id=saison_id,
             team=team,
             erneut=versand_data.erneut,
+            gesperrt=gesperrt,
             erstellt_von=erstellt_von,
             today=today,
         )

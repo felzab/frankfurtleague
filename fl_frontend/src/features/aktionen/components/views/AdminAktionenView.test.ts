@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -21,7 +22,7 @@ type ViewProps = Parameters<typeof AdminAktionenView>[0];
 const ROW: AdminAktionRow = {
   id: "68c1f0a2b3c4d5e6f7a8b9c0",
   at: "2026-08-20T14:23:05+00:00",
-  actor: { kind: "admin_session", email: "eine.person@beispiel.de" },
+  actor: { kind: "admin_session", email: "eine.person@beispiel.de", email_gesperrt: false },
   trace_id: "8f14e45fceea167a",
   request: { method: "PATCH", path: "/api/v1/teams/68c1f0a2b3c4d5e6f7a8b9c0" },
   collection: "teams",
@@ -157,10 +158,10 @@ describe("the notices a narrowing raises", () => {
      fall back to the default the moment a reader leaves the narrowing. */
   it("carries the shell's season out of the narrowing, and writes no season where the URL names none", () => {
     const withSeason = anchor(notice(view({ dokumentId: ROW.document_id }), HEADING.dokument).body);
-    assert.equal(withSeason.href, "/admin/aktionen?saison_id=2526");
+    assert.equal(withSeason.href, "/bereich/admin/aktionen?saison_id=2526");
     assert.equal(withSeason.name, "Alle Änderungen anzeigen");
 
-    assert.equal(anchor(notice(view({ vorgangId: ROW.trace_id }, ""), HEADING.vorgang).body).href, "/admin/aktionen");
+    assert.equal(anchor(notice(view({ vorgangId: ROW.trace_id }, ""), HEADING.vorgang).body).href, "/bereich/admin/aktionen");
   });
 
   it("raises neither notice while the URL narrows to nothing", () => {
@@ -213,5 +214,30 @@ describe("what an empty log says about itself", () => {
 
     assert.ok(html.includes(AKTIONEN_CRUD_COPY.emptyForFilters), "the empty area is not the filter's");
     assert.ok(!html.includes(AKTIONEN_CRUD_COPY.emptyOverall), "the log claims it recorded nothing");
+  });
+});
+
+describe("who a row names", () => {
+  /* A signed-in person carries no address, and the row prints none: the Funktion and the pseudonym the
+     read serves, already cut to its start, are the whole of what names them. */
+  it("names a signed-in person by the Funktion and the served pseudonym", () => {
+    const person: AdminAktionRow = {
+      ...ROW,
+      actor: { kind: "person_session", pseudonym: "3f9a07c2", funktion: "spieler" },
+    };
+
+    assert.match(textOf(view({ aktionen: [person] })), /Spieler · 3f9a07c2/);
+  });
+
+  it("names an administrator by the address", () => {
+    assert.match(textOf(view()), /eine\.person@beispiel\.de/);
+  });
+
+  /* The read serves a barred administrator as `null` beside the flag, so the row names that state in the
+     grants list's words rather than an empty line (`docs/frontend/spec.md :: I492`). */
+  it("names an administrator the ban list holds by that state", () => {
+    const gesperrt: AdminAktionRow = { ...ROW, actor: { kind: "admin_session", email: null, email_gesperrt: true } };
+
+    assert.match(textOf(view({ aktionen: [gesperrt] })), new RegExp(GESPERRTE_ADRESSE));
   });
 });

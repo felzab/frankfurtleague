@@ -93,7 +93,7 @@ export const FORM_SECTION_HEADING_CLASSES = "fluid-xxs font-bold tracking-widest
  */
 export const FIELD_PAIR_CLASSES = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2";
 
-/** `FIELD_PAIR_CLASSES`'s three-up sibling, and spelled beside it for the same reason: three panels render this grid. */
+/** `FIELD_PAIR_CLASSES`'s three-up sibling, and spelled beside it for the same reason: more than one panel renders this grid. */
 export const FIELD_TRIO_CLASSES = "grid w-full grid-cols-1 gap-4 sm:grid-cols-3";
 
 /**

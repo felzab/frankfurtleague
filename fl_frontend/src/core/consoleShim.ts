@@ -3,6 +3,7 @@ import { Writable } from "node:stream";
 import util from "node:util";
 
 import { frontend_config } from "./config";
+import { withoutStoredValues } from "./logFormat";
 import { logger } from "./logging";
 
 import type { LogLevel } from "./logFormat";
@@ -58,7 +59,8 @@ function sink(level: "INFO" | "ERROR"): Writable {
 }
 
 function delegate<K extends keyof Console>(method: K, inner: Console): void {
-  console[method] = inner[method];
+  const write = inner[method] as (...args: unknown[]) => unknown;
+  console[method] = ((...args: unknown[]) => write(...args.map(withoutStoredValues))) as Console[K];
 }
 
 export function installConsoleShim() {
@@ -73,7 +75,8 @@ export function installConsoleShim() {
         return;
       }
 
-      WRITERS[level](util.format(...args));
+      // An error Next hands its `⨯` dump is printed with every field it carries.
+      WRITERS[level](util.format(...args.map(withoutStoredValues)));
     };
   }
 

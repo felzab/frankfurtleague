@@ -7,6 +7,7 @@ import { describe, it, mock } from "node:test";
 import { createElement as h, useState } from "react";
 
 import { fireEvent, render } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 
@@ -90,6 +91,34 @@ describe("a picker whose parent holds no pick yet", () => {
         [],
         `${name} changed its kind`,
       );
+    }
+  });
+});
+
+/* A team's name is whatever somebody typed. The trigger is one line at the field's height, and HeroUI floors the
+   open list at the trigger's width and caps it nowhere, so a long name would widen either past the screen. */
+describe("a picker holding a name somebody typed", () => {
+  it("truncates the picked name inside the trigger", () => {
+    const { container, unmount } = render(
+      h(TeamSelect, { value: "t1", onChange: () => undefined, teams: [{ teamId: "t1", name: "SG Alpha", shorthand: "SGA" }] }),
+    );
+    const worte = [...container.querySelectorAll("button span")].find((span) => span.textContent === "SG Alpha")?.classList;
+    unmount();
+
+    assert.ok(worte?.contains("min-w-0") === true, "the trigger's words keep their longest word as their floor");
+    assert.ok(worte.contains("truncate"), "the trigger's words run past the trigger rather than end in an ellipsis");
+  });
+
+  it("caps every picker's open list at the screen's width", async () => {
+    for (const [name, host] of PICKERS) {
+      const user = userEvent.setup();
+      const { container, unmount } = render(host);
+      await user.click(container.querySelector('button[aria-haspopup="listbox"]') ?? assert.fail(`${name} renders no trigger`));
+      const liste = document.querySelector('[data-slot="select-popover"]') ?? assert.fail(`${name} opens no list`);
+      const capped = liste.classList.contains("max-w-[calc(100vw-2rem)]");
+      unmount();
+
+      assert.ok(capped, `${name}'s open list widens past the screen for a long row`);
     }
   });
 });

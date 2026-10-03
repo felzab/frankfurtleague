@@ -15,6 +15,12 @@ import { fixtures } from "../shared/testing/fixtures.ts"; // expect: test-only
 import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-shared
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "@/core/brand"; // expect: site-origin
+import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
+import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import { after } from "next/server"; // expect: next-after
+import { auth } from "@/core/auth"; // expect: auth-instance
+import { signInStore } from "@/core/db?probe"; // expect: sign-in-store
+export { sendSperreNotice } from "@/core/mail?probe"; // expect: sperre-notice
 
 export const USED = [TEAM_FACETS, HeroForm, DatePicker, Bars, AppRouterContext, HintPanel, captureStdout, TEAMS_RELATIVE];
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-shared-load
@@ -27,3 +33,11 @@ export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
 export const TEXT_FIELD_USED = HeroTextField;
+export const SIGNING_USED = mintRequestActor;
+export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret];
+export const AFTER_USED = after;
+export const HOLDERS_USED = [auth, signInStore];
+// A layer boundary through a query suffix, which the bundler resolves to the module itself.
+import { TEAM_FACETS as QUERIED_FACETS } from "@/features/teams/facets?probe"; // expect: layer-shared
+export const QUERIED_SLICE = import("@/features/teams/facets?probe"); // expect: layer-shared-load
+export const QUERIED_USED = QUERIED_FACETS;

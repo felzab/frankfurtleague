@@ -1,8 +1,9 @@
 import Link from "next/link";
 
-import { LINK_VALIDITY_MINUTES } from "@/core/authEmail";
+import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
-import { ADMIN_WINDOW_HOURS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
+import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
+import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
   BEWERBUNG_ERINNERUNG_TAGE,
@@ -17,6 +18,7 @@ import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { textLink } from "@/shared/components/ui/textLink";
 
+import { DATENSCHUTZ_STAND } from "../../constants";
 import { LegalSection } from "../ui/LegalSection";
 
 import type { ReactNode } from "react";
@@ -24,17 +26,22 @@ import type { ReactNode } from "react";
 /** One legal paragraph. Spelled once because the page is nothing but paragraphs, and a copy per section drifts. */
 const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
-/**
- * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
- * is a dynamic read, which would take this page off the static shell.
- */
-const STAND = "24. September 2026";
+// Midday UTC holds the same calendar day in every zone Berlin's day could differ from.
+const STAND = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "numeric", month: "long", year: "numeric" }).format(
+  new Date(`${DATENSCHUTZ_STAND}T12:00:00Z`),
+);
 
 /**
  * German writes a count from one to twelve in words, and a fortnight as „vierzehn Tage“; a larger count
  * stays in digits. Indexed by a constant's literal type: a constant moved to a count with no word here fails `tsc`.
  */
 const ZAHLWORT = { 3: "drei", 7: "sieben", 10: "zehn", 14: "vierzehn" } as const;
+
+/** One hour, the one count a sentence here pairs with a feminine singular: a window moved off it fails `tsc` rather than reading „eine Stunden“. */
+const EINE_STUNDE = { 1: "eine Stunde" } as const;
+
+const TAG_MS = 24 * 60 * 60 * 1000;
+const PERSON_LEERLAUF_TAGE = PERSON_LIFETIME.idle / TAG_MS;
 
 const amSatzanfang = (wort: string): string => `${wort.charAt(0).toUpperCase()}${wort.slice(1)}`;
 
@@ -175,10 +182,14 @@ const FRISTEN = [
       "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Saisonaktivierung von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
   },
   {
-    daten: "Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey",
+    daten: "Zugang zur Verwaltung: E-Mail-Adresse, Stufe, Datum und die Person aus der Verwaltung, die ihn erteilt hat",
+    frist: "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
+  },
+  {
+    daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.
-    frist: `Ein Anmeldelink gilt ${ZAHLWORT[LINK_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Zugang in das Anmeldeformular einträgt. Eine Sitzung läuft ab, wenn sie ${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt wurde; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Adresse und Passkey einer Administratorin oder eines Administrators bleiben, solange der Zugang besteht, und werden auf Wunsch gelöscht`,
+    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht, und werden auf Wunsch gelöscht`,
   },
   {
     daten: "Änderungsprotokoll der Verwaltung",
@@ -552,17 +563,21 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>Diese Website legt in Deinem Browser nur ab, was für ihren Betrieb notwendig ist:</p>
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ_CLASSES}>
-              Ein Sitzungs-Cookie für angemeldete Administratorinnen und Administratoren. Es entsteht erst bei der Anmeldung und hält die
-              Sitzung. Das Cookie selbst läuft ab, wenn die Sitzung {SESSION_EXPIRES_IN_DAYS} Tage lang nicht genutzt wurde; für den Zugang zur
-              Verwaltung prüfen wir bei jedem Aufruf zusätzlich, ob die Anmeldung nicht länger als {ADMIN_WINDOW_HOURS} Stunden her ist, und
-              verlangen danach eine neue Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung zur Verwaltung
-              ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, dass nur berechtigte Personen die Verwaltung erreichen.
+              Ein Sitzungs-Cookie für angemeldete Personen. Es entsteht erst bei der Anmeldung und hält die Sitzung. Das Cookie selbst läuft ab,
+              wenn die Sitzung {SESSION_EXPIRES_IN_DAYS} Tage lang nicht genutzt wurde; bei jedem Aufruf prüfen wir zusätzlich, ob die Anmeldung
+              nicht länger als {PERSON_WINDOW_DAYS} Tage her ist, für den Zugang zur Verwaltung nicht länger als {ADMIN_WINDOW_HOURS} Stunden,
+              und verlangen danach eine neue Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung ist Art. 6
+              Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, dass nur Du Deinen Bereich und nur berechtigte Personen die Verwaltung
+              erreichen.
             </li>
             {/* Typed: `@better-auth/passkey` (1.7.5, read 2026-09-24) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
                 300, which it neither exports nor takes as an option, and moves it without us. */}
             <li className={ABSATZ_CLASSES}>
-              Während eine Administratorin oder ein Administrator einen Passkey einrichtet oder sich damit anmeldet, ein zweites Cookie, das
-              diesen einen Vorgang zusammenhält. Es läuft nach fünf Minuten ab.
+              Auf der Anmeldeseite und während jemand einen Passkey einrichtet oder sich damit anmeldet, ein zweites Cookie, das diesen einen
+              Vorgang zusammenhält. Die Anmeldeseite setzt es schon beim Aufruf, damit Dein Browser Dir einen gespeicherten Passkey im
+              Adressfeld anbieten kann. Zu jedem Vorgang speichern wir dafür einen Eintrag; bist Du dabei schon angemeldet, etwa wenn Du einen
+              Passkey einrichtest oder Dich vor einer Änderung erneut bestätigst, steht darin die Kennung Deines Kontos, sonst nichts über Dich.
+              Cookie und Eintrag laufen nach fünf Minuten ab.
             </li>
             <li className={ABSATZ_CLASSES}>
               Eine Freigabe von Cloudflare, wenn Du die Anmeldeseite oder das Bewerbungsformular aufrufst. Cloudflare prüft dort mit einer
@@ -666,21 +681,23 @@ export function DatenschutzView() {
             selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Wenn mehrere Personen ein Postfach teilen: Löschen wir anhand einer E-Mail-Adresse, kann diese Adresse zu mehreren Personen gehören,
-            etwa bei einem gemeinsamen Postfach einer Schule. In diesem Fall zeigen wir Dir vorher, welche Einträge betroffen wären, und löschen
-            erst nach Deiner Bestätigung.
+            Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.
           </p>
           <p className={ABSATZ_CLASSES}>
             Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des
             Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
             wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. Außerdem bleibt ihre
             E-Mail-Adresse bei jedem Registrierungslink eines Teams stehen, den sie angelegt haben; dieser Eintrag wird nicht gelöscht
-            (Abschnitt 13).
+            (Abschnitt 13). Wer einer Person Zugang zur Verwaltung erteilt hat, bleibt mit seiner E-Mail-Adresse an diesem Zugang vermerkt, auch
+            nachdem der eigene Zugang entzogen oder die eigenen Daten gelöscht wurden; alle Personen mit Zugang zur Verwaltung sehen diesen
+            Vermerk, solange der erteilte Zugang besteht.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: Von der gesperrten Adresse selbst speichern wir nichts, sondern nur
-            einen unlesbaren Schlüssel. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre
-            eingetragen hat. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
+            Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: In der Sperrliste steht von der gesperrten Adresse nur ein unlesbarer
+            Prüfwert. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre eingetragen hat.
+            Ein bestehendes Konto mit dieser Adresse bleibt gespeichert und gesperrt, bis die Sperre endet. Eine Kopie Deiner Daten oder ihre
+            Löschung erhältst Du auch während einer Sperre über eine E-Mail an <MailLink />; wir bestätigen die Anfrage mit einer E-Mail an die
+            gesperrte Adresse. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
             nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern
             diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1
             lit. f DSGVO).

@@ -1,47 +1,132 @@
 import "server-only";
 
+import { readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
-import { asSignInIdentifier, isDeliverableAddress, isSignInLibraryAddress, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
 // Read off `createEnv` rather than imported: the package declaring the Standard Schema issue is a
 // transitive dependency, and pnpm puts none of those on this module's resolution path.
 type ValidationIssues = Parameters<NonNullable<Parameters<typeof createEnv>[0]["onValidationError"]>>[0];
 
-// Printable ASCII with no space, the class `fl_backend/app/core/config.py :: InternalAPIKey` pins:
-// what `secrets.compare_digest` there accepts, which raises for a non-ASCII key
-// (`docs/ops/spec.md :: I11`).
+// The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII,
+// which `secrets.compare_digest` there reads, without the six characters some env-file reader
+// alters (`docs/ops/spec.md :: I11`).
 export const INTERNAL_API_KEY = z
   .string()
   .length(64)
-  .regex(/^[\x21-\x7e]+$/, "every character must be printable ASCII, and none may be a space");
+  .regex(/^[\x21\x25\x26\x28-\x5b\x5d-\x5f\x61-\x7e]+$/, "printable ASCII only, with no space and none of \" # $ ' \\ or a backtick");
 
+// Where Compose mounts a file secret, which is where a container finds it with nothing set.
+const DEFAULT_SECRETS_DIR = "/run/secrets";
+
+// One `KEY: "file",` a line, which `scripts/checks/check_compose_model.py :: frontend_schema_files`
+// holds the compose files to, as it does `PRODUCTION_ONLY_REQUIRED` below.
 /**
- * An entry the sign-in library refuses is an administrator no link ever reaches: the send is
- * answered neutrally and refused behind it (`docs/frontend/spec.md :: I316`). Tightening this
- * further needs `fl_frontend/src/features/auth/schemas.ts :: SignInPayloadSchema` to keep taking
- * every entry it takes.
+ * Each value read from a file rather than the environment, by the schema's key. One file name serves the
+ * host, the container and development, so the database login carries this service's prefix: the backend
+ * holds another.
  */
-export const ADMIN_EMAIL_ALLOWLIST = z
-  .string()
-  .transform((str) => str.split(",").map(asSignInIdentifier))
-  // A refused entry fails the whole variable, so a separator nothing split on is met at boot rather
-  // than at a sign-in that answers every address alike.
-  .pipe(z.array(z.string().max(KONTAKT_EMAIL_MAX_LENGTH).refine(isDeliverableAddress).refine(isSignInLibraryAddress)));
+const SECRET_FILES = {
+  MONGODB_URI: "frontend_mongodb_uri",
+  AUTH_SECRET: "auth_secret",
+  AUTH_RESEND_KEY: "auth_resend_key",
+  RESEND_WEBHOOK_SECRET: "resend_webhook_secret",
+  INTERNAL_API_KEY_BASE: "internal_api_key_base",
+  INTERNAL_API_KEY_SYSTEM: "internal_api_key_system",
+  INTERNAL_API_KEY_ADMIN: "internal_api_key_admin",
+} as const;
 
-export function refuseInvalidEnvironment(names: readonly string[]): never {
+type SecretKey = keyof typeof SECRET_FILES;
+
+const isSecretKey = (name: string): name is SecretKey => Object.hasOwn(SECRET_FILES, name);
+
+// Fatal, as the backend's read is: a lenient decode turns a byte that is not UTF-8 into U+FFFD and
+// hands the schema a value nobody wrote.
+const UTF8 = new TextDecoder("utf-8", { fatal: true });
+
+/** An error's errno name where it has one, its class otherwise: the one part of a read's failure that quotes nothing. */
+function failureName(error: unknown): string {
+  if (error instanceof Error && "code" in error && typeof error.code === "string") return error.code;
+
+  return error instanceof Error ? error.constructor.name : "unknown failure";
+}
+
+// Never exported: it hands back every secret's value, so a suite drives it through the boot alone.
+/**
+ * What the secrets directory holds for each key, and each read that failed as `<path> (<errno>)`. A file
+ * that does not exist is left out rather than failed, so the schema decides whether it was required.
+ */
+function readSecretFiles(directory: string): { values: Partial<Record<SecretKey, string>>; unreadable: string[] } {
+  const values: Partial<Record<SecretKey, string>> = {};
+
+  // The directory's own shape first, as the backend names it: missing, it would otherwise read as
+  // every file missing, naming each of them where one directory is at fault.
+  try {
+    if (!statSync(directory).isDirectory()) return { values, unreadable: [`${directory} (ENOTDIR)`] };
+  } catch (error) {
+    return { values, unreadable: [`${directory} (${failureName(error)})`] };
+  }
+
+  const unreadable: string[] = [];
+  for (const [key, file] of Object.entries(SECRET_FILES) as [SecretKey, string][]) {
+    const path = join(directory, file);
+    try {
+      // `trim()`, and the backend Python's `strip()`: the two part at U+FEFF, U+001C-U+001F and
+      // U+0085, and a shared key's alphabet refuses each on the side keeping it, so the services
+      // never hold two keys in silence (`docs/frontend/spec.md :: I504`).
+      values[key] = UTF8.decode(readFileSync(path)).trim();
+    } catch (error) {
+      if (failureName(error) !== "ENOENT") unreadable.push(`${path} (${failureName(error)})`);
+    }
+  }
+
+  return { values, unreadable };
+}
+
+/** One refusal's line, the sentence the backend prints for the same refusal and its log line's `error_code`. */
+interface Refusal {
+  sentence: string;
+  error_code: string;
+  field: "variables" | "files";
+  names: readonly string[];
+}
+
+/** Each refusal's CRITICAL line, in the stream's own format, and then the one error that ends the boot. */
+function refuse(refusals: readonly Refusal[]): never {
   // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
   // to the console shape.
   const format = process.env.LOG_FORMAT?.toLowerCase() === "json" ? "json" : "console";
-  // The class the backend's boot refusals take (`docs/logging/error-codes.md` §3).
-  const meta = { error_code: "FE-BOOT-001", variables: names.join(", ") };
-  // The formatter rather than the logger: `logging.ts` imports this module, and importing it back
-  // would close the cycle.
-  process.stdout.write(formatLogLine(format, "CRITICAL", "Invalid environment variables", meta) + "\n");
+  for (const { sentence, error_code, field, names } of refusals) {
+    // The formatter rather than the logger: `logging.ts` imports this module, and importing it back
+    // would close the cycle.
+    process.stdout.write(formatLogLine(format, "CRITICAL", sentence, { error_code, [field]: names.join(", ") }) + "\n");
+  }
 
-  throw new Error(`Invalid environment variables: ${names.join(", ")}`);
+  throw new Error(refusals.map(({ sentence, names }) => `${sentence}: ${names.join(", ")}`).join("; "));
+}
+
+export function refuseInvalidEnvironment(names: readonly string[]): never {
+  const variables = names.filter((name) => !isSecretKey(name));
+  // By the file's name, the one an operator goes and fixes.
+  const files = names.filter(isSecretKey).map((name) => SECRET_FILES[name]);
+
+  // The class the backend's boot refusals take, and its sentences (`docs/logging/error-codes.md` §3).
+  refuse([
+    ...(variables.length > 0
+      ? [{ sentence: "Invalid environment variables", error_code: "FE-BOOT-001", field: "variables", names: variables } as const]
+      : []),
+    ...(files.length > 0
+      ? [{ sentence: "Invalid secret files", error_code: "FE-BOOT-004", field: "files", names: files.sort() } as const]
+      : []),
+  ]);
+}
+
+function refuseUnreadableSecretFiles(unreadable: readonly string[]): never {
+  refuse([{ sentence: "Unreadable secret files", error_code: "FE-BOOT-004", field: "files", names: unreadable }]);
 }
 
 type IssuePathSegment = NonNullable<ValidationIssues[number]["path"]>[number];
@@ -64,13 +149,14 @@ export function failingVariableNames(issues: ValidationIssues): string[] {
 // A third member would name a stack nothing here deploys.
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
-// The credentials `production` demands and no other deployment holds. A name added here is refused
-// at boot on the production host alone.
-const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY"] as const;
+// The credentials `production` demands and no other deployment holds, refused at boot on the
+// production host alone. Files only: the deploy asks production for them by file, and for no
+// variable beyond `REQUIRED_ENVIRONMENT_NAMES`.
+const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY", "RESEND_WEBHOOK_SECRET"] as const satisfies readonly SecretKey[];
 
-// Bound to a name rather than written inside the call, so `DECLARED_ENVIRONMENT_NAMES` can be read
-// off the schema itself: a hand-kept copy of those names would be a second artefact to keep current.
-const server = {
+// Bound to names rather than written inside the call, so the preflight's sets can be read off the
+// schema itself: a hand-kept copy of those names would be a second artefact to keep current.
+const environment = {
   // Declared, never inferred: `AUTH_URL`'s refinement below records that the local stack sets a
   // production host too, and an origin test would call a staging box production. `mail.ts` sends on
   // this value alone.
@@ -85,34 +171,19 @@ const server = {
   }, "API_URL must reach the backend directly, not through the public origin AUTH_URL names"),
   API_VERSION: z.coerce.number().int(),
 
-  MONGODB_URI: z.string().regex(/^(mongodb(?:\+srv)?):\/\/.+/, "MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'"),
-
-  // A stray http:// here ships an admin cookie in plaintext: the library reads this value's SCHEME
-  // and gives the session cookie the `__Secure-` name prefix and the `secure` attribute together or
-  // neither (`docs/frontend/spec.md` §1.7).
+  // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth.ts` reads this
+  // value's SCHEME and gives the cookie the `__Host-` name prefix and the `secure` attribute together
+  // or neither (`docs/frontend/spec.md` §1.7).
 
   // Gated on the host, not NODE_ENV: the local stack sets it to production too.
   AUTH_URL: z.url().refine((raw) => {
     const { protocol, hostname } = new URL(raw);
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
-  // The library's own floor, which it only warns below, so a short value signs every admin session
-  // behind a deploy nothing turned red (`docs/frontend/spec.md :: I317`).
-  AUTH_SECRET: z.string().min(32),
-  // Optional here and demanded below under `production` alone. What keeps a send off a deployment
-  // that is not production is `APP_ENV` and never this being absent: a development machine's own
-  // environment may carry a real key.
-  AUTH_RESEND_KEY: z.string().optional(),
 
-  // Stricter than `svix`, which verifies with the prefix or without it: refusing at boot beats a 400
-  // the provider retries for thirty-two hours before disabling the endpoint.
-  RESEND_WEBHOOK_SECRET: z.string().startsWith("whsec_", "the signing secret Resend shows on the webhook's detail page starts with whsec_"),
-
-  INTERNAL_API_KEY_BASE: INTERNAL_API_KEY,
-  INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
-  INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
-
-  ALLOWED_ADMIN_EMAILS: ADMIN_EMAIL_ALLOWLIST,
+  // A path, never the key: an environment value shows in `docker inspect`, and a mounted secret file
+  // in neither that nor this schema's refusals. Defaulted to where the compose secret mounts.
+  ACTOR_SIGNING_KEY_FILE: z.string().min(1).default("/run/secrets/fl_actor_signing_key"),
 
   // An enum over a normalised value, not a bare string: the json branch is selected by exact
   // comparison, so a capitalised one would fall through to colourised output in production.
@@ -139,13 +210,46 @@ const server = {
     .default("on"),
 };
 
+const fromFiles = {
+  MONGODB_URI: z.string().regex(/^(mongodb(?:\+srv)?):\/\/.+/, "MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'"),
+
+  // The library's own floor, which it only warns below, so a short value signs every admin session
+  // behind a deploy nothing turned red (`docs/frontend/spec.md :: I317`).
+  AUTH_SECRET: z.string().min(32),
+  // Optional here and demanded below under `production` alone: what keeps a send off another
+  // deployment is `APP_ENV`, never this being absent, a development machine possibly holding a real
+  // key. Never empty, the demand testing for absence alone.
+  AUTH_RESEND_KEY: z.string().min(1).optional(),
+
+  // Stricter than `svix`, which verifies with the prefix or without it: refusing at boot beats a 400
+  // the provider retries for thirty-two hours before disabling the endpoint. Demanded of production
+  // alone, the one deployment the provider sends its events to.
+  RESEND_WEBHOOK_SECRET: z
+    .string()
+    .startsWith("whsec_", "the signing secret Resend shows on the webhook's detail page starts with whsec_")
+    .optional(),
+
+  INTERNAL_API_KEY_BASE: INTERNAL_API_KEY,
+  INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
+  INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
+} satisfies Record<SecretKey, z.ZodType>;
+
 const client = {};
 
-export const frontend_config = createEnv({
-  server,
+const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
+
+// Read before the schema is, so a boot refusing an unreadable file names it rather than the
+// values it left missing. A skipped validation refuses nothing: the builder holds none of these files.
+const secrets = readSecretFiles(process.env.SECRETS_DIR ?? DEFAULT_SECRETS_DIR);
+if (!skipValidation && secrets.unreadable.length > 0) refuseUnreadableSecretFiles(secrets.unreadable);
+
+// One validation over the settings and the secrets together: the production demand reads `APP_ENV`
+// beside the files, and a boot refusing both kinds prints both lines before it throws.
+const validated = createEnv({
+  server: { ...environment, ...fromFiles },
   client,
 
-  skipValidation: process.env.SKIP_ENV_VALIDATION === "true",
+  skipValidation,
 
   onValidationError: (issues) => refuseInvalidEnvironment(failingVariableNames(issues)),
 
@@ -156,7 +260,7 @@ export const frontend_config = createEnv({
       if (values.APP_ENV !== "production") return;
 
       for (const name of PRODUCTION_ONLY_REQUIRED) {
-        // Carries a `path`, so the refusal names the variable to go and set: `failingVariableNames`
+        // Carries a `path`, so the refusal names the file to go and write: `failingVariableNames`
         // reduces an issue without one to `<unknown>`.
         if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
       }
@@ -167,49 +271,84 @@ export const frontend_config = createEnv({
     API_URL: process.env.API_URL,
     API_VERSION: process.env.API_VERSION,
 
-    MONGODB_URI: process.env.MONGODB_URI,
-
     AUTH_URL: process.env.AUTH_URL,
-    AUTH_SECRET: process.env.AUTH_SECRET,
-    AUTH_RESEND_KEY: process.env.AUTH_RESEND_KEY,
-    RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
 
-    INTERNAL_API_KEY_BASE: process.env.INTERNAL_API_KEY_BASE,
-    INTERNAL_API_KEY_SYSTEM: process.env.INTERNAL_API_KEY_SYSTEM,
-    INTERNAL_API_KEY_ADMIN: process.env.INTERNAL_API_KEY_ADMIN,
-
-    ALLOWED_ADMIN_EMAILS: process.env.ALLOWED_ADMIN_EMAILS,
+    ACTOR_SIGNING_KEY_FILE: process.env.ACTOR_SIGNING_KEY_FILE,
 
     LOG_FORMAT: process.env.LOG_FORMAT,
     LOG_LEVEL: process.env.LOG_LEVEL,
     BEWERBUNG_SWEEP: process.env.BEWERBUNG_SWEEP,
+
+    // Off the files alone: a variable of the same name is a retired line, and standing in for a
+    // missing file it would hand a credential `docker inspect` prints to a boot that should refuse.
+    MONGODB_URI: secrets.values.MONGODB_URI,
+    AUTH_SECRET: secrets.values.AUTH_SECRET,
+    AUTH_RESEND_KEY: secrets.values.AUTH_RESEND_KEY,
+    RESEND_WEBHOOK_SECRET: secrets.values.RESEND_WEBHOOK_SECRET,
+    INTERNAL_API_KEY_BASE: secrets.values.INTERNAL_API_KEY_BASE,
+    INTERNAL_API_KEY_SYSTEM: secrets.values.INTERNAL_API_KEY_SYSTEM,
+    INTERNAL_API_KEY_ADMIN: secrets.values.INTERNAL_API_KEY_ADMIN,
   },
 });
 
-const DECLARATIONS: Record<string, z.ZodType> = { ...server, ...client };
+type Settings = Readonly<Pick<typeof validated, keyof typeof environment>>;
+
+// Off the validated object less the secrets rather than off `environment`'s keys: under a skipped
+// validation that object is `runtimeEnv` itself, which `fl_frontend/scripts/check-environment-names.test.mjs`
+// holds the emitted names to.
+/**
+ * The settings, and no secret: any server module may import this, so each secret is handed out by its
+ * own reader below, which `fl_frontend/eslint.config.mjs :: SECRET_READERS` lets its owner alone import.
+ */
+export const frontend_config = Object.fromEntries(Object.entries(validated).filter(([name]) => !isSecretKey(name))) as Settings;
+
+export const mongodbUri = (): string => validated.MONGODB_URI;
+export const authSecret = (): string => validated.AUTH_SECRET;
+export const authResendKey = (): string | undefined => validated.AUTH_RESEND_KEY;
+export const resendWebhookSecret = (): string | undefined => validated.RESEND_WEBHOOK_SECRET;
+export const internalApiKeyBase = (): string => validated.INTERNAL_API_KEY_BASE;
+export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYSTEM;
+export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
+
+/**
+ * Retired, read by nothing: each secret's name before it became a file, and the administrator list the
+ * grant replaced. Declared so the preflight passes a rolled-back image's files; a boot finding one warns
+ * (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
+ */
+export const RETIRED_ENVIRONMENT_NAMES: readonly string[] = ["ALLOWED_ADMIN_EMAILS", ...Object.keys(SECRET_FILES)].sort();
+
+/** The retired names this process's environment carries, and never a value. */
+export const retiredVariablesSet = (): string[] => RETIRED_ENVIRONMENT_NAMES.filter((name) => process.env[name] !== undefined);
 
 /**
  * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
  * outside this set: nothing in this schema reads one, so it reads as omitted and the shipped default
  * serves production.
  */
-export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = Object.keys(DECLARATIONS).sort();
+export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = [...Object.keys(environment), ...RETIRED_ENVIRONMENT_NAMES].sort();
+
+// Asked of the schema rather than read off its shape: `.optional()` and `.default()` are two
+// spellings of one answer, and Zod publishes no introspection that gives it.
+const required = (declarations: Record<string, z.ZodType>): string[] =>
+  Object.entries(declarations)
+    .filter(([, declaration]) => !declaration.safeParse(undefined).success)
+    .map(([name]) => name);
 
 /**
  * The same preflight refuses a file that omits one of these. A name the file never declares reaches
  * `createEnv` as `undefined`, so the container is recreated and then refuses to boot behind an edge
  * already answering 502.
  */
-export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = Object.entries(DECLARATIONS)
-  // Asked of the schema rather than read off its shape: `.optional()` and `.default()` are two
-  // spellings of one answer, and Zod publishes no introspection that gives it.
-  .filter(([, declaration]) => !declaration.safeParse(undefined).success)
-  .map(([name]) => name)
+export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = required(environment).sort();
+
+/** The secret files every deployment's frontend must be handed, which the preflight's reader checks in the container. */
+export const REQUIRED_SECRET_FILES: readonly string[] = required(fromFiles)
+  .map((name) => SECRET_FILES[name as SecretKey])
   .sort();
 
 /**
- * Demanded of a production host besides, which the derivation above cannot reach:
- * `createFinalSchema` conditions these on a VALUE the preflight's reader never opens, so the deploy
- * asks for them by name instead (`scripts/ops/deploy.sh :: check_frontend_env_names`).
+ * Demanded of a production host besides, which the derivation above cannot reach: `createFinalSchema`
+ * conditions these on a VALUE the reader never opens, so the deploy names its deployment instead
+ * (`scripts/lib/_lib.sh :: check_frontend_secret_files`).
  */
-export const PRODUCTION_REQUIRED_ENVIRONMENT_NAMES: readonly string[] = [...PRODUCTION_ONLY_REQUIRED].sort();
+export const PRODUCTION_REQUIRED_SECRET_FILES: readonly string[] = PRODUCTION_ONLY_REQUIRED.map((name) => SECRET_FILES[name]).sort();

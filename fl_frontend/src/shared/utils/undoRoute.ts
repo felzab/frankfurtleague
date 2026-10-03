@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { getSignInDestination } from "@/core/auth";
+import { isFreshlySignedIn } from "@/core/auth";
 import { logger } from "@/core/logging";
 
 import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
-import { ADMIN_FORBIDDEN, runAdminRouteWrite } from "./adminMutation";
+import { FORBIDDEN_BY_REFUSAL, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
+import type { AdminRefusal } from "@/core/auth";
 import type { NextRequest } from "next/server";
 import type { ZodType } from "zod";
 
@@ -18,7 +19,14 @@ import type { ZodType } from "zod";
 const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück. ${AENDERUNG_STEHT_WEITERHIN}`;
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
+
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
+
+/**
+ * The sentence an action turned away for the same reason is answered, and that the change stands: one
+ * table, so the save and its undo never word one condition two ways.
+ */
+const undoTurnedAway = (reason: AdminRefusal): string => `${FORBIDDEN_BY_REFUSAL[reason]} ${AENDERUNG_STEHT_WEITERHIN}`;
 
 /**
  * What one slice's replay answers: why it did not commit, that nobody can tell whether it did, or
@@ -51,6 +59,11 @@ type UndoRoute<TPayload> = {
    * `{ expire: 0 }` belong (`docs/frontend/spec.md` I14 and I55).
    */
   invalidate: (payload: TPayload) => void;
+  /**
+   * Whether this replay is a step-up write (`docs/frontend/spec.md :: I432`), per replay so a route's
+   * other replays stay unasked. Asked of a stale session alone, so it may read the stored row.
+   */
+  stepUp?: (payload: TPayload) => boolean | Promise<boolean>;
 };
 
 /**
@@ -84,12 +97,15 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });
   }
 
-  const guarded = await runAdminRouteWrite(route.mutationName, async () => {
+  const guarded = await runAdminRouteWrite(route.mutationName, async (session) => {
     const body: unknown = await request.json().catch(() => null);
     const parsed = route.schema.safeParse(body);
     if (!parsed.success) {
       return { success: false as const, error: UNDO_UNREADABLE };
     }
+
+    // No refresh beside it, which a route handler cannot call: the dispatch asks again at its next press.
+    if (route.stepUp !== undefined && !isFreshlySignedIn(session) && (await route.stepUp(parsed.data))) return stepUpRequired();
 
     // In a `finally` rather than under the refusal below: a replay committing in parts leaves rows
     // written behind a refusal and behind a throw alike, and a cached read still serves what the undo
@@ -112,11 +128,14 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   // 200 for every answer but a turned-away caller's, the body carrying it: the dispatch reads any other
   // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3).
   if (guarded.forbidden) {
-    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live
-    // session is 403, and an administrator past a lifetime or short of the factor is 401, which sends them
-    // somewhere they can get back in.
-    const status = (await getSignInDestination()) === "/" ? 403 : 401;
-    return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status });
+    // Answered as a refusal rather than turned away: sent to sign in, an administrator would sign in
+    // again into the same unread grant.
+    if (guarded.refused === "unread") return NextResponse.json({ success: false, error: undoTurnedAway(guarded.refused) });
+
+    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: a session a
+    // sign-in repairs is 401, and one whose address holds no grant 403, since no sign-in grants one.
+    const error = undoTurnedAway(guarded.refused);
+    return NextResponse.json({ success: false, error: error }, { status: guarded.refused === "signIn" ? 401 : 403 });
   }
 
   const result = guarded.answer;

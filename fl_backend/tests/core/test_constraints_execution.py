@@ -59,6 +59,7 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
 SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
 EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f60720000b")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f60720000c")
+BERECHTIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000d")
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
 IDEMPOTENZ_SCHLUESSEL = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
@@ -295,6 +296,36 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
             "entscheidung": None,
         },
+        # As the Playground paste writes one: a BSON date, and the sentinel where no administrator granted it.
+        "berechtigungen": {
+            "_id": BERECHTIGUNG_OID,
+            "adresse": "inhaberin@example.invalid",
+            "verwaltung": "owner",
+            "erteilt_von": "PLAYGROUND",
+            "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC),
+        },
+        "berechtigungen_angekuendigt": {
+            "_id": BERECHTIGUNG_OID,
+            "adresse": "inhaberin@example.invalid",
+            "verwaltung": "owner",
+            "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
+        },
+        # A removal a pass holds claimed: the one shape carrying every nullable key both ways.
+        "berechtigungen_postausgang": {
+            "_id": BERECHTIGUNG_OID,
+            "berechtigung_id": TEAM_OID,
+            "art": "entzogen",
+            "urheber": "anwendung",
+            "jetzt": None,
+            "vorher": {"adresse": None, "verwaltung": "administration"},
+            "geaendert_von": "inhaberin@example.invalid",
+            "geaendert_am": datetime(2026, 1, 1, tzinfo=UTC),
+            "vorenthalten": "gesperrt",
+            "erfasst_am": datetime(2026, 1, 1, tzinfo=UTC),
+            "beansprucht_bis": datetime(2026, 1, 1, 0, 10, tzinfo=UTC),
+            "beanspruchung": "a-claim",
+            "versuche": 1,
+        },
     }
 
 
@@ -447,6 +478,10 @@ def test_a_conforming_document_is_accepted(mongo_url: str, collection: str):
         # The block is nullable on the junction and NOT here: an application IS the form those three
         # people filled in, so a null one is the asymmetry this case stands under.
         ("bewerbungen", valid_document("bewerbungen", kontakte=None), "an application naming nobody"),
+        # What a paste typing the English word would store: every check reading the tier would then read none.
+        ("berechtigungen", valid_document("berechtigungen", verwaltung="admin"), "a tier outside the closed set"),
+        # A string where the paste forgot `new Date()`, which sorts and compares as nothing the list reads.
+        ("berechtigungen", valid_document("berechtigungen", erteilt_am="2026-01-01"), "a grant's day stored as a string"),
         # Nested inside a NULLABLE object, where `required` lapses entirely when the value is null:
         # this is what says the enum still binds once the object is really there.
         (
@@ -521,6 +556,12 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_registrierung_idempotenz_schluessel": (
         valid_document("registrierungen", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
         valid_document("registrierungen", _id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64),
+    ),
+    # The second row differs in its tier and its author: the index refuses on the address alone, which
+    # is what refuses a paste granting an address a route already granted.
+    "uniq_berechtigung_adresse": (
+        valid_documents()["berechtigungen"],
+        valid_document("berechtigungen", _id=TEAM_OID, verwaltung="administration", erteilt_von="zweite@example.invalid"),
     ),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),

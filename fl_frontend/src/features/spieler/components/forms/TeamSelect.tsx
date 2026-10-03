@@ -65,7 +65,9 @@ export function TeamSelect({
       className="w-full">
       {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>Team</Label>}
       <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
-        <span className={value ? "" : "text-foreground-muted"}>
+        {/* Truncated as each row below is: a team's name is typed by somebody, and the trigger is one
+            line at the field's height. */}
+        <span className={`min-w-0 truncate ${value ? "" : "text-foreground-muted"}`}>
           {value === null ? "Team wählen" : (selected?.name ?? "Team außerhalb dieser Saison")}
         </span>
         <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />

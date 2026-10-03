@@ -7,7 +7,17 @@ import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
 import type { AdminTeamRow } from "@/features/teams/types";
 
-export function AdminDeleteTeamModal({ teamData, isOpen, onClose }: { teamData: AdminTeamRow | null; isOpen: boolean; onClose: () => void }) {
+export function AdminDeleteTeamModal({
+  teamData,
+  isOpen,
+  onClose,
+  onRetired,
+}: {
+  teamData: AdminTeamRow | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onRetired: () => void;
+}) {
   const team = useRetainedValue(teamData);
 
   if (!team) return null;
@@ -16,6 +26,7 @@ export function AdminDeleteTeamModal({ teamData, isOpen, onClose }: { teamData: 
     <ConfirmDeleteModal
       isOpen={isOpen}
       onClose={onClose}
+      onRetired={onRetired}
       heading="Team stilllegen"
       entityLabel="das Team"
       entityName={team.name}

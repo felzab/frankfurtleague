@@ -147,6 +147,9 @@ is unverified: say so in the same answer.
 | **Ruff**                | [ruff/llms.txt](https://docs.astral.sh/ruff/llms.txt)                               | — (index only)                                                             |
 | **uv**                  | [uv/llms.txt](https://docs.astral.sh/uv/llms.txt)                                   | — (index only)                                                             |
 
+- **Next.js ships its docs inside the installed package**, at
+  `fl_frontend/node_modules/next/dist/docs/`, matched to the version that runs: grep them first, and
+  the `llms.txt` above only where they are silent, since it tracks the newest release.
 - A reference is authoritative only while it is official and current — the project's own domain,
   with the installed version in it as a documented release. Where either fails, use the prose docs
   plus the installed typings in `node_modules`, and say which you used. For HeroUI use the `react/`
@@ -194,6 +197,9 @@ Each fails silently. The rest load from `.claude/rules/` with the surface that c
 - **Never hand a native program an argument opening with `/` from Git Bash without
   `MSYS_NO_PATHCONV=1`**: MSYS rewrites it as a Windows path, so `git grep -F '/src/core/api.ts'`
   answers a confident zero with no error. A regex or a URL path is the same argument.
+- **Never take the Grep tool's zero over a directory inside `fl_backend/.venv`**: it honours
+  `fl_backend/.gitignore`, so it answers "No matches found" where the installed package holds the
+  match. Search the virtualenv with `grep -r` in Git Bash, or point Grep at one named file.
 
 ## 7. Ratified decisions — never "fix" one
 

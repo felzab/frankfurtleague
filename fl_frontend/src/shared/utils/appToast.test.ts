@@ -32,6 +32,16 @@ describe("appToast.failure", () => {
     assert.deepEqual(raisedDescriptions(), [error]);
   });
 
+  /* A press whose first write stands and whose second was refused saved something, so the site's
+     „nicht gespeichert“ is false there too: the partly-saved title stands in. */
+  it("raises the partly-saved title where part of the press landed", () => {
+    const error = "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden.";
+    appToast.failure("Änderung nicht gespeichert", { error, outcome: "partial" });
+
+    assert.deepEqual(raisedTitles(), ["Nur teilweise gespeichert"]);
+    assert.deepEqual(raisedDescriptions(), [error]);
+  });
+
   /* A toast marks nothing, so „Überprüfe Deine Eingaben.“ would point at marks nobody can see on
      every control that raises one over a refused payload. */
   it("speaks a refused payload's sentence for a map no control shows", () => {

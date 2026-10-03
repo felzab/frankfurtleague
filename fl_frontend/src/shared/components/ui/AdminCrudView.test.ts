@@ -12,7 +12,7 @@ import { createElement as h } from "react";
 import tailwind from "@tailwindcss/postcss";
 import postcss from "postcss";
 
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { asRenderedPage, isNavigation, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -22,6 +22,10 @@ import type { Facet } from "@/shared/utils/facets";
 import type { Rule as CssRule } from "postcss";
 import type { ReactElement, ReactNode } from "react";
 import type { AdminCrudShape } from "./AdminCrudFallback";
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 // The admin pages below mount create modals, whose real actions reach the sign-in store.
 doubleEveryAction();
@@ -274,7 +278,7 @@ const regionOf = ({ shape, hasFacets, commits = true }: Mounted): ReactNode =>
     renderTable: ({ filteredItems }) => (commits ? slotFor(shape, filteredItems) : null),
   });
 
-const underRoute = (tree: ReactNode): ReactNode => underNext(tree, { pathname: "/admin/spieler" });
+const underRoute = (tree: ReactNode): ReactNode => underNext(tree, { pathname: "/bereich/admin/spieler" });
 
 const render = (mounted: Mounted): string => renderTree(underRoute(regionOf(mounted)));
 
@@ -681,7 +685,7 @@ describe("the arithmetic behind the box claims", () => {
   });
 });
 
-const ADMIN = path.join(SRC, "app", "admin");
+const ADMIN = path.join(SRC, "app", "bereich", "admin");
 
 const PROPS: PageProps = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
 
@@ -701,7 +705,7 @@ const fallbacksIn = (html: string): string[] => FALLBACKS.filter(({ markup }) =>
 const fallbacksInPage = (html: string): string[] =>
   FALLBACKS.filter(({ markup }) => html.includes(asRenderedPage(markup))).map(({ drawn }) => drawn);
 
-const atRoute = (route: string, tree: ReactNode): ReactNode => underNext(tree, { pathname: `/admin/${route}` });
+const atRoute = (route: string, tree: ReactNode): ReactNode => underNext(tree, { pathname: `/bereich/admin/${route}` });
 
 /* Selected on the placeholder each route's loading boundary draws, which is none of the properties the
    cases below assert: a route that stops satisfying one stays in the roster and fails inside it. */

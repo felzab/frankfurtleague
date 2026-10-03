@@ -14,8 +14,10 @@ from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
+from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -73,36 +75,24 @@ def entry_rows(saison_id: str) -> list[dict[str, Any]]:
     ]
 
 
-class SeasonsRunningAHookBeforeTheRollover:
-    """A `saisons` stand-in running one hook just before the demotion, so the interleaving is a fact rather than a race.
+class SeasonsRunningAHookBeforeTheRollover(InterleavedCollection):
+    """A `saisons` stand-in running one hook just before the demotion, so the interleaving is a fact rather than a race."""
 
-    Not a subclass: the driver builds a collection off a database handle, so it has to answer every
-    other call by delegating.
-    """
-
-    def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:
-        self._inner = inner
-        self._hook: Callable[[], Awaitable[Any]] | None = hook
+    def __init__(self, collection: Any, hook: Rival) -> None:
+        super().__init__(collection, hook)
         # Every `find_one`. A REFUSED rollover reads no echo back, so there the count is one per
         # entry into the endpoint's callback and a second one is the retry.
         self.season_reads = 0
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
         self.season_reads += 1
 
-        return await self._inner.find_one(*args, **kwargs)
+        return await self._collection.find_one(*args, **kwargs)
 
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        # ONE-SHOT: the retry has to re-judge against what landed rather than run the interference
-        # again, and a second draw or rollover would be refused on its own account and mask this one.
-        if self._hook is not None:
-            hook, self._hook = self._hook, None
-            await hook()
+        await self.run_the_rival()
 
-        return await self._inner.update_many(*args, **kwargs)
+        return await self._collection.update_many(*args, **kwargs)
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -157,6 +147,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -257,7 +248,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
         # first judged, so only a second judgement can refuse. The statuses ride along, naming the
         # `past` season a landed rollover left unplayed.
         assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {OUTGOING: "active", TARGET: "future"})
-        assert season_reads == 2, "the callback judged once, so the write conflicted without being re-judged"
+        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         assert unplayed > 0, "the interfering draw left the outgoing season nothing to play, so the rule above had nothing to refuse"
 
@@ -287,7 +278,7 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
 
         # Paired as above: a rollover that lands names the league it left going live with nothing to play.
         assert (outcome, statuses) == (ACTIVATE_TARGET_UNDRAWN, {TARGET: "future"})
-        assert season_reads == 2, "the callback judged once, so the write conflicted without being re-judged"
+        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         assert fixtures == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
 
@@ -301,11 +292,11 @@ class TestTwoFirstActivationsRacing:
                 # Permitted: nothing is running, so the rival's rollover has no incumbent to refuse on.
                 await call_activate(database, client, RIVAL)
 
-            outcome, _ = await rollover_under(database, client, promote_the_rival)
+            outcome, season_reads = await rollover_under(database, client, promote_the_rival)
 
-            return outcome, await statuses_now(database)
+            return outcome, season_reads, await statuses_now(database)
 
-        outcome, statuses = on_a_league(
+        outcome, season_reads, statuses = on_a_league(
             mongo_replica_set_url,
             body,
             saisons=[seeded_saison(TARGET, "future"), seeded_saison(RIVAL, "future")],
@@ -316,6 +307,10 @@ class TestTwoFirstActivationsRacing:
         # The index answers the promotion with a write conflict, and the retry finds the rival
         # running with its whole Spielplan still to play. Unindexed, both commit.
         assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {TARGET: "future", RIVAL: "active"})
+        # A rival promoted before this rollover began refuses it at its first judgement, index or none.
+        assert season_reads == 2, (
+            f"{season_reads} judgements: one is a rival promoted before this rollover began, a third a retry that conflicted again"
+        )
 
 
 class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
@@ -354,7 +349,10 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
 
         # The judgement, the promotion's echo, and the re-judgement: one entry into the callback, so
         # what refused is the read outside the session rather than a retry.
-        assert season_reads == 3, "the rollover was re-judged by a retry, which is not what this case proves"
+        assert season_reads == 3, (
+            f"{season_reads} season reads where the judgement, the promotion's echo and the re-read outside the session make three: "
+            "fewer is a rival that landed outside the rollover or a re-read that is gone, more a retry this case does not prove"
+        )
 
 
 class TestTheRolloverStillCommitsWithNothingInterfering:

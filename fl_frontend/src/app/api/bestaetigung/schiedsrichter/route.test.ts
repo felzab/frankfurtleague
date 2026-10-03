@@ -1,45 +1,26 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
-const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flRefTags.push([tag, profile]); };
-export const updateTag = (tag) => { globalThis.__flRefTags.push(["updateTag", tag]); throw new Error("updateTag in a route handler"); };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+const tags: [string, unknown][] = [];
+const NEXT_CACHE = {
+  revalidateTag: (tag: string, profile: unknown) => void tags.push([tag, profile]),
+  updateTag: (tag: string): never => {
+    tags.push(["updateTag", tag]);
+    throw new Error("updateTag in a route handler");
+  },
+};
+// Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
-const recorders = globalThis as unknown as Record<string, unknown>;
-const tags: [string, unknown][] = [];
-recorders.__flRefTags = tags;
-
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package the route reaches that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/server": NEXT_SERVER,
-  "next/cache": NEXT_CACHE,
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
@@ -212,6 +193,17 @@ describe("the referee's confirmation handler", () => {
     assert.equal(gelesen, 1);
   });
 
+  /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
+     form behind. */
+  it("answers a barred address with the barred panel, in place of the form", async () => {
+    schreibAntwort = () => aRefusal(403, "REQ-SCHIEDSRICHTER-009");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "gesperrt" });
+    assert.equal(gelesen, 0);
+  });
+
   it("leaves the age refusal unworded where the floor cannot be read", async () => {
     schreibAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-005");
     leseAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-002");
@@ -231,14 +223,6 @@ describe("the referee's confirmation handler", () => {
     // Beside the boxes it names, the sentence for any this page does not render: only an older page
     // sends such a body, and only the mail's link reopens this one.
     assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
-    assert.deepEqual(calls, []);
-  });
-
-  /* The one CSRF-shaped defence a route with no session can have
-     (`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`). */
-  it("writes nothing for a cross-site caller", async () => {
-    await bodyOf(aRequest(gueltigerKoerper, { "sec-fetch-site": "cross-site" }));
-
     assert.deepEqual(calls, []);
   });
 

@@ -19,7 +19,12 @@ in.
 sessions, and the agents caught every one. If a premise does not survive contact with the tree, stop
 and report it instead of building on it. Naming a wrong premise is worth more than finishing the
 task. A premise that names its source -- "an audit reported X" -- is a claim: verify it in one
-command before you build on it, and ask for the evidence behind one that names no source at all. A
+command before you build on it, and ask for the evidence behind one that names no source at all.
+**A finding you are sent to fix is such a claim, whoever reported it**: establish at your base that
+it is a real problem -- the premise holds, the behaviour is wrong or risky rather than merely
+different from its reporter's taste, and the fix is the mature practice -- before you change
+anything. One that is not is reported as NOT A DEFECT with its evidence and left unchanged; a change
+made only to close a finding is the symptom `.claude/CLAUDE.md` §3 forbids. A
 figure the brief does not vouch for, you measure yourself before you act on it -- cutting to meet a
 description rather than the rule is how a report comes back successful against a number nobody held.
 

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import {
   answer,
   answerReadsWith,
@@ -24,17 +24,17 @@ import type { ReactElement } from "react";
 import type { FLBewerbungFensterResponse } from "./schemas";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
-const ROUTE_DIR = path.join(SRC_DIR, "app", "admin", "bewerbungen");
+const ROUTE_DIR = path.join(SRC_DIR, "app", "bereich", "admin", "bewerbungen");
 
 describe("the route the sidemenu names", () => {
   /* The id IS the route segment: the nav builds its href from it and `AppTopBar` reads the page's
      one `<h1>` off the entry it matches. Renamed, both break and nothing else in the suite sees it. */
-  it("names a segment that exists under /admin", () => {
+  it("names a segment that exists under /bereich/admin", () => {
     const entry = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options).find((option) => option.label === "Bewerbungen");
 
     assert.ok(entry, "no sidemenu entry is labelled Bewerbungen");
     assert.equal(entry.id, "bewerbungen", "the entry's id moved off this slice's route segment");
-    assert.ok(existsSync(path.join(SRC_DIR, "app", "admin", entry.id, "page.tsx")), `/admin/${entry.id} has no page`);
+    assert.ok(existsSync(path.join(SRC_DIR, "app", "bereich", "admin", entry.id, "page.tsx")), `/bereich/admin/${entry.id} has no page`);
   });
 
   /* Both segments draw a skeleton while their data resolves; without one the shell holds an empty
@@ -45,28 +45,14 @@ describe("the route the sidemenu names", () => {
   });
 });
 
-const RENDERS_NOTHING = `export const BewerbungView = () => null;
-export const ContentLoader = () => null;`;
-
-/* The public page's view and loader render nothing, so a case reads the props the page hands them;
-   every read answers through the harness's client double. */
-const DOUBLED: [string, string][] = [
-  ["/src/features/bewerbungen/components/views/BewerbungView.tsx", RENDERS_NOTHING],
-  ["/src/shared/components/ui/ContentLoader.tsx", RENDERS_NOTHING],
-];
-
-registerHooks({
-  load(url, context, nextLoad) {
-    const doubled = DOUBLED.find(([ending]) => url.endsWith(ending));
-    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 const PUBLIC_PAGE = "@/app/(public)/bewerbung/[saison_id]/page.tsx";
 const { default: BewerbungPage, generateMetadata } = await import(PUBLIC_PAGE);
-const { default: AdminBewerbungenPage } = await import("@/app/admin/bewerbungen/page.tsx");
-const { default: AdminBewerbungPage } = await import("@/app/admin/bewerbungen/[bewerbung_id]/page.tsx");
+const { default: AdminBewerbungenPage } = await import("@/app/bereich/admin/bewerbungen/page.tsx");
+const { default: AdminBewerbungPage } = await import("@/app/bereich/admin/bewerbungen/[bewerbung_id]/page.tsx");
 const { FLBewerbungSchema } = await import("./schemas.ts");
 
 /** The public page's one dynamic segment, named as its directory names it, which is the key Next hands it under. */
@@ -167,7 +153,7 @@ describe("where each page opts out of prerendering", () => {
     });
   }
 
-  /* The admin pages are held to the same order by the walk in `fl_frontend/src/app/admin/omittedSaison.test.ts`,
+  /* The admin pages are held to the same order by the walk in `fl_frontend/src/app/bereich/admin/omittedSaison.test.ts`,
      which reaches no public page. */
   it("the public application page awaits connection() before its first read", async () => {
     answerPublic({ fenster: LAEUFT });

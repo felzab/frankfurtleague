@@ -35,22 +35,22 @@ describe("the router a test mounts", () => {
     // each member closes over the log rather than over `this`.
     const { push, replace, back, refresh } = router;
 
-    push("/admin/spieler");
-    replace("/admin/teams");
+    push("/bereich/admin/spieler");
+    replace("/bereich/admin/teams");
     back();
     refresh();
 
-    assert.deepEqual(seen, { pushed: ["/admin/spieler"], replaced: ["/admin/teams"], back: 1, refresh: 1 });
+    assert.deepEqual(seen, { pushed: ["/bereich/admin/spieler"], replaced: ["/bereich/admin/teams"], back: 1, refresh: 1 });
   });
 });
 
 describe("the tree a test mounts under Next", () => {
   it("carries the router, the search parameters and the path to what it wraps", () => {
     const markup = renderTree(
-      underNext(h(Probe), { router: nextRouter({ bfcacheId: "gesetzt" }), search: "saison_id=2026", pathname: "/admin/spieler" }),
+      underNext(h(Probe), { router: nextRouter({ bfcacheId: "gesetzt" }), search: "saison_id=2026", pathname: "/bereich/admin/spieler" }),
     );
 
-    assert.match(markup, /gesetzt \| 2026 \| \/admin\/spieler/);
+    assert.match(markup, /gesetzt \| 2026 \| \/bereich\/admin\/spieler/);
   });
 
   /* A caller naming no path is one whose component does not read one: the default has to be what the

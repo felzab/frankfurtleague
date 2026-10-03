@@ -10,3 +10,9 @@ export const USER_VERIFICATION_REFUSED = "USER_VERIFICATION_REQUIRED";
  * enrolment or a removal (`docs/frontend/spec.md :: I341`).
  */
 export const ENROLMENT_CONFLICT = "PASSKEY_ENROLMENT_CONFLICT";
+
+/** A sign-in the gate turned away as the session was minted: the address is barred (`docs/frontend/spec.md :: I403`). */
+export const SIGN_IN_BARRED = "SIGN_IN_BARRED";
+
+/** The same, for an address that holds nothing in the league. */
+export const SIGN_IN_HOLDS_NOTHING = "SIGN_IN_HOLDS_NOTHING";

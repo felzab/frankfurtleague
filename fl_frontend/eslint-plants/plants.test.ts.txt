@@ -7,14 +7,20 @@ import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
 import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
 import { Calendar as Days } from "@heroui/react/calendar"; // expect: date-alias
+import assert from "node:assert/strict";
+import { screen, within } from "@testing-library/react";
+import { equal as same, strictEqual } from "node:assert";
+import * as strict from "node:assert/strict";
+import type { TestContext } from "node:test";
 
 declare const router: { back: () => void };
 
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
 export const STALE = "/bestaetigung?token=x"; // expect: stale-path
+export const STALE_ADMIN = "/admin/teams"; // expect: stale-admin
 // A test fixture may spell a class the product may not: the class bans reach production alone.
 export const FIXTURE = "hover:opacity-80 gap-5";
-export const ADMIN_FIXTURE = "/admin/teams";
+export const ADMIN_FIXTURE = "/bereich/admin/teams";
 export const CONTEXT = AppRouterContext;
 export const FORM = HeroForm;
 export const NUMBER_FIELD = HeroNumberField;
@@ -42,18 +48,49 @@ export const { HintPanel: LoadedPanel } = await import("@/shared/components/ui/I
 export const LOADED_POPOVER = (await import(`@/shared/components/ui/InfoHint`)).HintPopover; // expect: hint-internals-load
 export const { InfoHint: LoadedHint } = await import("@/shared/components/ui/InfoHint.tsx");
 
-declare const assert: { equal: (a: unknown, b: unknown) => void };
-declare const screen: { queryByText: (text: string) => unknown; findByText: (text: string) => Promise<unknown> };
-declare const queryByText: (text: string) => unknown;
-declare const findByText: (text: string) => Promise<unknown>;
-assert.equal(screen.queryByText("Titel"), null); // expect: query-in-equality
-assert.equal(await screen.findByText("Titel"), null); // expect: query-in-equality
-assert.equal(queryByText("Titel"), null); // expect: query-in-equality
-assert.equal(await findByText("Titel"), null); // expect: query-in-equality
-assert.equal(null, screen.queryByText("Titel")); // expect: query-in-equality
-assert.equal(null, await screen.findByText("Titel")); // expect: query-in-equality
-assert.equal(null, queryByText("Titel")); // expect: query-in-equality
-assert.equal(null, await findByText("Titel")); // expect: query-in-equality
+declare const container: HTMLElement;
+declare const ref: { current: HTMLDivElement | null };
+declare const link: { current: boolean } | undefined;
+// Read by type: a query in place, a node held in a plain name, a cast, a fallback, and a shape holding one.
+const field = screen.getByRole<HTMLInputElement>("textbox");
+assert.equal(screen.queryByText("Titel"), null); // expect: node-in-equality
+assert.equal(null, await screen.findByText("Titel")); // expect: node-in-equality
+assert.equal(within(container).queryByRole("alert"), null); // expect: node-in-equality
+const held = screen.getByRole("button");
+assert.equal(held, null); // expect: node-in-equality
+assert.strictEqual(document.activeElement, container); // expect: node-in-equality
+assert.notEqual(container.querySelector("p"), null); // expect: node-in-equality
+assert.notStrictEqual(container, container.closest("section")); // expect: node-in-equality
+assert.deepEqual(ref.current, null); // expect: node-in-equality
+assert.deepStrictEqual(field.parentElement!, container); // expect: node-in-equality
+assert.notDeepEqual(document.activeElement as Element, field); // expect: node-in-equality
+assert.notDeepStrictEqual(document.body, field); // expect: node-in-equality
+assert.partialDeepStrictEqual(field.labels?.[0], {}); // expect: node-in-equality
+assert.equal(document.activeElement ?? field, null); // expect: node-in-equality
+assert.equal(container satisfies Element, null); // expect: node-in-equality
+assert.deepEqual(container.querySelectorAll("p"), []); // expect: node-in-equality
+assert.deepEqual([field], []); // expect: node-in-equality
+assert.deepEqual({ field, role: "textbox" }, {}); // expect: node-in-equality
+// The identity form, a value read off a node, and a record's optional flag are what the ban leaves alone.
+assert.ok(document.activeElement === container, "the focus left the box");
+assert.equal(container.getAttribute("role"), "group");
+assert.equal(container.querySelectorAll("p").length, 0);
+assert.equal(field.textContent, "Titel");
+assert.equal(link?.current, false);
+// Found by the assertion's symbol, however the call reaches `node:assert`.
+declare const t: TestContext;
+declare const records: MutationRecord[];
+declare const events: Event[];
+t.assert.strictEqual(screen.getByRole("button"), null); // expect: node-in-equality
+strictEqual(screen.getByRole("button"), null); // expect: node-in-equality
+same(screen.getByRole("button"), null); // expect: node-in-equality
+strict.equal(screen.getByRole("button"), null); // expect: node-in-equality
+assert.strict.equal(screen.getByRole("button"), null); // expect: node-in-equality
+assert.deepEqual(records, []); // expect: node-in-equality
+assert.deepEqual(events, []); // expect: node-in-equality
+// A function of the suite's own named as an assertion is none.
+const equal = (actual: unknown, expected: unknown): boolean => actual === expected;
+equal(screen.getByRole("button"), null);
 // A test calls the plugin's deletion to hold it closed, so the passkey ban stays out of tests.
 export const HOLDS_IT_CLOSED = "deletePasskey";
 

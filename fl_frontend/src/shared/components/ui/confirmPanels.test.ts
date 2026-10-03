@@ -3,21 +3,22 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h, useState } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
+import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
 import type { ReactNode } from "react";
 
@@ -26,21 +27,15 @@ const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 /* Every row a panel renders is wrapped in a marked box, so a second row counts whether or not its
    press is the armed one: an unarmed row renders nothing else a reader could count. */
 const ROW_URL = pathToFileURL(path.join(import.meta.dirname, "ConfirmActionRow.tsx")).href;
-const REACT_URL = pathToFileURL(createRequire(import.meta.filename).resolve("react")).href;
-const COUNTED_ROW = `data:text/javascript,${encodeURIComponent(
-  `import { createElement } from ${JSON.stringify(REACT_URL)};
-   import { ConfirmActionRow as Row } from ${JSON.stringify(ROW_URL)};
-   export function ConfirmActionRow(props) { return createElement("div", { "data-confirm-row": "" }, createElement(Row, props)); }`,
-)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "@/shared/components/ui/ConfirmActionRow") return { url: COUNTED_ROW, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
+const COUNTED_ROW = overridingModule(ROW_URL, {
+  ConfirmActionRow: (row) => (props: object) =>
+    h("div", { "data-confirm-row": "" }, h(row.ConfirmActionRow as (props: object) => ReactNode, props)),
 });
 
-const { answerWith } = doubleEveryAction();
+// By the specifier the panels import it under, so the real row the double wraps loads by its own url.
+registerDoubles({ specifiers: { "@/shared/components/ui/ConfirmActionRow": COUNTED_ROW } });
+
+const { answerWith, calls } = doubleEveryAction();
 doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -51,11 +46,20 @@ const el = (C: Component, props: object): ReactNode => h(C as (props: object) =>
 
 const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+const { StepUpContext, STEP_UP_LABEL } = await import("@/shared/components/ui/stepUp.ts");
+const { DOUBLE_PRESS_MS } = await import("@/shared/hooks/useTwoPressConfirm.ts");
 
 type User = ReturnType<typeof userEvent.setup>;
 
 /** One operation a panel offers: the panel before it, the picks it needs, the read it arms on, and the press that arms it. */
-type Arming = { render: () => ReactNode; reach?: (user: User) => Promise<void>; answer?: () => Promise<unknown>; resting: string };
+type Arming = {
+  render: () => ReactNode;
+  reach?: (user: User) => Promise<void>;
+  answer?: () => Promise<unknown>;
+  resting: string;
+  /** `false` where the armed write is one a reversal undoes, which asks nothing past the step-up window. */
+  stepUp?: false;
+};
 
 const pick = async (user: User, box: RegExp, option: RegExp) => {
   await user.click(screen.getByRole("button", { name: box }));
@@ -123,6 +127,7 @@ const LIVE_EINLADUNG = {
   team_id: TEAM_ID,
   erstellt_am: "2026-09-01",
   erstellt_von: "vorstand@beispiel.de",
+  erstellt_von_gesperrt: false,
   widerrufen_am: null,
   versand: { zustellung: null },
 };
@@ -133,7 +138,8 @@ const M = {
   bestaetigung: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
   kontakteLoeschen: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx",
   kontaktErasure: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx",
-  passkey: "features/passkeys/components/modals/PasskeyEintragRow.tsx",
+  passkey: "features/passkeys/components/ui/PasskeyKarteView.tsx",
+  andereAbmelden: "features/konto/components/ui/AndereAbmelden.tsx",
   einladungVersand: "features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx",
   gruppenSwap: "features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx",
   rollover: "features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx",
@@ -141,6 +147,8 @@ const M = {
   teamErsatz: "features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
   anonymisieren: "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx",
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
+  zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
+  zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
   spielerLoeschen: "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
@@ -152,7 +160,8 @@ const C = {
   bestaetigung: await component(M.bestaetigung, "BestaetigungFormPanel"),
   kontakteLoeschen: await component(M.kontakteLoeschen, "FormKontakteLoeschenSection"),
   kontaktErasure: await component(M.kontaktErasure, "FormKontaktErasure"),
-  passkey: await component(M.passkey, "PasskeyEintragRow"),
+  passkey: await component(M.passkey, "PasskeyKarteView"),
+  andereAbmelden: await component(M.andereAbmelden, "AndereAbmelden"),
   einladungVersand: await component(M.einladungVersand, "FormEinladungVersandSection"),
   gruppenSwap: await component(M.gruppenSwap, "FormGruppenSwapSection"),
   rollover: await component(M.rollover, "FormRolloverSection"),
@@ -160,6 +169,8 @@ const C = {
   teamErsatz: await component(M.teamErsatz, "FormTeamErsatzSection"),
   anonymisieren: await component(M.anonymisieren, "FormAnonymisierenSection"),
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
+  zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
+  zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
   spielerLoeschen: await component(M.spielerLoeschen, "FormLoeschenSection"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
@@ -243,6 +254,8 @@ const PANELS: Record<string, Arming[]> = {
   [M.kontaktErasure]: [
     {
       render: () => underNext(el(C.kontaktErasure, { email: "ada@example.org", fullName: "Ada Byron", isDirty: false })),
+      // The read the arming makes, answered: unanswered, it closes the armed control on its refusal.
+      answer: () => Promise.resolve({ success: true, message: "Gelöscht.", ansicht: { saison_teams: [], bewerbungen: [] } }),
       resting: "Kontaktperson löschen",
     },
   ],
@@ -253,12 +266,28 @@ const PANELS: Record<string, Arming[]> = {
           "ul",
           null,
           el(C.passkey, {
-            eintrag: { id: "p1", createdAt: "2026-09-01T10:00:00.000Z", label: "YubiKey 5" },
+            karte: {
+              id: "p1",
+              name: null,
+              anbieter: "YubiKey 5",
+              eingerichtetAm: "2026-09-01T10:00:00.000Z",
+              zuletztVerwendetAm: null,
+              diesesGeraet: false,
+            },
             reason: null,
+            istLetzter: false,
             onRemove: () => Promise.resolve(),
+            onRename: () => Promise.resolve(),
           }),
         ),
-      resting: "Löschen",
+      // Its name, which carries the visible „Löschen“ and names the card.
+      resting: "Passkey „YubiKey 5“ löschen",
+    },
+  ],
+  [M.andereAbmelden]: [
+    {
+      render: () => el(C.andereAbmelden, { onEnd: () => Promise.resolve() }),
+      resting: "Alle anderen abmelden",
     },
   ],
   [M.einladungVersand]: [
@@ -274,8 +303,14 @@ const PANELS: Record<string, Arming[]> = {
               empfaenger: [{ rolle: "ansprechperson", vorname: "Erika", email: "erika@beispiel.de" }],
               uebersprungen: null,
               ersetzt_link: false,
+              // The send's own row beside the preview's, one answer serving the arming read and the write.
+              hatte_link: false,
+              zugestellt: ["erika@beispiel.de"],
+              unerreichbar: [],
+              zurueckgehalten: [],
             },
           ],
+          message: "Gesendet.",
         }),
       resting: "Links an alle Teams senden",
     },
@@ -288,6 +323,7 @@ const PANELS: Record<string, Arming[]> = {
         await pick(user, /^Tauscht Gruppen mit/, /^TSV Beta/);
       },
       resting: "Gruppen tauschen",
+      stepUp: false,
     },
   ],
   [M.rollover]: [
@@ -307,7 +343,12 @@ const PANELS: Record<string, Arming[]> = {
     },
   ],
   [M.spielplan]: [
-    { render: () => underNext(h(HeldSpielplan, UNDRAWN)), resting: "Spielplan anlegen" },
+    { render: () => underNext(h(HeldSpielplan, UNDRAWN)), resting: "Spielplan anlegen", stepUp: false },
+    {
+      render: () => underNext(h(HeldSpielplan, DRAWN)),
+      reach: (user) => user.click(screen.getByRole("radio", { name: "Neu anlegen" })),
+      resting: "Spielplan neu anlegen",
+    },
     {
       render: () => underNext(h(HeldSpielplan, DRAWN)),
       reach: (user) => user.click(screen.getByRole("radio", { name: "Zurücknehmen" })),
@@ -353,6 +394,48 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () => underNext(el(C.sperre, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" })),
       resting: "Sperre vom 12.03.2026 aufheben",
+    },
+  ],
+  [M.zugangEntziehen]: [
+    {
+      render: () =>
+        underNext(
+          el(C.zugangEntziehen, {
+            berechtigungId: "6890a1b2c3d4e5f607190002",
+            adresse: "vorstand@schule.de",
+            erteiltAm: "27.09.2026",
+            darfEntziehen: true,
+          }),
+        ),
+      resting: "Zugang entziehen: vorstand@schule.de",
+    },
+  ],
+  [M.zugangStufe]: [
+    {
+      render: () =>
+        underNext(
+          el(C.zugangStufe, {
+            berechtigungId: "6890a1b2c3d4e5f607190002",
+            adresse: "vorstand@schule.de",
+            erteiltAm: "27.09.2026",
+            verwaltung: "administration",
+            eigene: false,
+          }),
+        ),
+      resting: "Zum Inhaber ernennen: vorstand@schule.de",
+    },
+    {
+      render: () =>
+        underNext(
+          el(C.zugangStufe, {
+            berechtigungId: "6890a1b2c3d4e5f607190001",
+            adresse: "inhaber@schule.de",
+            erteiltAm: "27.09.2026",
+            verwaltung: "owner",
+            eigene: true,
+          }),
+        ),
+      resting: "Mich zur Verwaltung herabstufen",
     },
   ],
   [M.spielerLoeschen]: [
@@ -401,6 +484,7 @@ const PANELS: Record<string, Arming[]> = {
         ),
       reach: (user) => pick(user, /Tauschen mit/, /^TSV Beta/),
       resting: "Gruppen tauschen",
+      stepUp: false,
     },
   ],
 };
@@ -454,4 +538,155 @@ describe("one reveal and one action row per panel, whatever it offers", () => {
       });
     }
   }
+});
+
+/* Arming can hide the control it was pressed from, and the cancel is the armed state's alone: each
+   unmounts from under the caret, and neither may hand the focus to the page. */
+describe("where arming and cancelling leave the focus, on every panel", () => {
+  for (const [module, armings] of Object.entries(PANELS)) {
+    for (const arming of armings) {
+      it(`${module}, armed on „${arming.resting}“`, async () => {
+        const user = userEvent.setup();
+        if (arming.answer !== undefined) answerWith(arming.answer);
+        const { unmount } = render(arming.render());
+        await arming.reach?.(user);
+        await user.click(screen.getByRole("button", { name: arming.resting }));
+        const abbrechen = await screen.findByRole("button", { name: "Abbrechen" });
+
+        // Booleans rather than nodes: a failing assertion's report inspects a jsdom node's whole window.
+        const behalten = document.activeElement !== document.body;
+        await user.click(abbrechen);
+        const zurueck = document.activeElement === screen.getByRole("button", { name: arming.resting });
+        unmount();
+
+        assert.ok(behalten, "arming hid the pressed control and the focus fell to the page");
+        assert.ok(zurueck, "the cancel unmounted under the caret and the focus fell to the page");
+      });
+    }
+  }
+
+  /* A panel's own disarm — a pick elsewhere in it, a blur, an outside press — runs `cancel` from a
+     control the reader moved to on purpose; only the row's own cancel hands the focus back. */
+  it("leaves the focus on the control a disarm elsewhere moved it to", async () => {
+    const user = userEvent.setup();
+    const { ConfirmActionRow } = await import("@/shared/components/ui/ConfirmActionRow");
+    const { ConfirmPressButton } = await import("./ConfirmPressButton.tsx");
+    const { useTwoPressConfirm } = await import("@/shared/hooks/useTwoPressConfirm.ts");
+    function Panel() {
+      const confirm = useTwoPressConfirm();
+      const primary = h(ConfirmPressButton, {
+        confirm,
+        reason: null,
+        resting: "Löschen",
+        armed: "Ja, löschen",
+        running: "Löscht...",
+        icon: null,
+        onPress: () => confirm.press(() => Promise.resolve()),
+      });
+
+      return h(
+        "div",
+        null,
+        h(ConfirmActionRow, { confirm, children: primary }),
+        h("button", { type: "button", onFocus: confirm.cancel }, "Woanders"),
+      );
+    }
+    const { unmount } = render(h(Panel));
+
+    await user.click(screen.getByRole("button", { name: "Löschen" }));
+    await screen.findByRole("button", { name: "Abbrechen" });
+    const woanders = screen.getByRole("button", { name: "Woanders" });
+    await user.click(woanders);
+    // A boolean rather than the node: a failing assertion's report inspects a jsdom node's whole window.
+    const geblieben = document.activeElement === woanders && screen.queryByRole("button", { name: "Abbrechen" }) === null;
+    unmount();
+
+    assert.ok(geblieben, "a disarm from elsewhere pulled the focus back to the control the reader left");
+  });
+});
+
+/** The panels whose armed press is not an administrator's write, and why each is not. */
+const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
+  [M.bestaetigung]: "the public confirmation page, a person's own answer to their own link",
+  [M.passkey]: "the passkey list, which asks through the account page's own confirmation",
+  [M.andereAbmelden]: "the account page's sign-out of other devices, which asks through that page's own confirmation",
+};
+
+/** Every step-up write each administrator panel's armed presses have sent, filled by the cases below. */
+const sentAsking = new Map<string, Set<string>>();
+
+/* `docs/frontend/spec.md :: I431`, over every administrator panel the sweep above arms: an arming
+   declaring no step-up sends no write the server always holds to the window, and one declaring it
+   asks and sends nothing unlisted. */
+describe("every administrator panel past the step-up window", () => {
+  it("exempts only panels the sweep above arms", () => {
+    for (const exempted of Object.keys(NOT_ADMINISTRATORS)) assert.ok(exempted in PANELS, `${exempted} is exempted and armed nowhere`);
+  });
+
+  for (const [module, armings] of Object.entries(PANELS).filter(([each]) => !(each in NOT_ADMINISTRATORS))) {
+    for (const arming of armings) {
+      const asks = arming.stepUp !== false;
+      it(`${module}, armed on „${arming.resting}“, ${asks ? "asks for the passkey and then sends only a step-up write" : "asks nothing and sends no step-up write"}`, async (t) => {
+        const user = userEvent.setup();
+        let prompts = 0;
+        const stale = {
+          isStale: () => true,
+          confirm: () => {
+            prompts += 1;
+            return Promise.resolve(true);
+          },
+        };
+        if (arming.answer !== undefined) answerWith(arming.answer);
+        const { unmount } = render(h(StepUpContext.Provider, { value: stale }, arming.render()));
+        await arming.reach?.(user);
+
+        t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+        await user.click(screen.getByRole("button", { name: arming.resting }));
+        // Found rather than got: a panel that arms once a read it started has answered is armed after the click returns.
+        await screen.findByRole("button", { name: "Abbrechen" });
+        const armed = screen.queryByRole("button", { name: STEP_UP_LABEL });
+        assert.equal(
+          armed !== null,
+          asks,
+          asks ? "a stale session armed without asking for the passkey" : "a reversible write asked for the passkey",
+        );
+        const control = armed ?? screen.getAllByRole("button").find((button) => button.textContent.startsWith("Ja,"));
+        const sent = calls.length;
+        t.mock.timers.tick(DOUBLE_PRESS_MS);
+        await user.click(control ?? assert.fail("the armed panel offers no control to confirm with"));
+        await waitFor(() => assert.ok(calls.length > sent, "the confirmed press sent nothing"));
+        unmount();
+
+        const actions = calls.slice(sent).map((call) => call.action);
+        assert.equal(prompts, asks ? 1 : 0, asks ? "the armed press sent its write without the prompt" : "a reversible write ran the prompt");
+        if (asks) {
+          assert.deepEqual(
+            actions.filter((action) => !(action in STEP_UP_WRITES)),
+            [],
+            "the press sent an action the server does not hold to the step-up window",
+          );
+          for (const action of actions) sentAsking.set(module, (sentAsking.get(module) ?? new Set()).add(action));
+        } else {
+          assert.deepEqual(
+            actions.filter((action) => action in STEP_UP_WRITES && !CONDITIONALLY_STEPPED_UP.has(action)),
+            [],
+            "an arming that asks nothing sent a write the server refuses a stale session",
+          );
+        }
+      });
+    }
+  }
+
+  /* The registry's other half: a two-press caller whose asking arming is missing above holds its
+     write to the window on the server alone, which answers every stale press with a refusal. */
+  it("sends every two-press step-up write of the registry from an arming that asks", () => {
+    const registered = Object.entries(STEP_UP_CALLERS).flatMap(([module, writes]) =>
+      Object.entries(writes)
+        .filter(([, press]) => press === "two-press")
+        .map(([action]) => `${module} :: ${action}`),
+    );
+    const driven = [...sentAsking].flatMap(([module, actions]) => [...actions].map((action) => `${module} :: ${action}`));
+
+    assert.deepEqual(registered.filter((pair) => !driven.includes(pair)).sort(), []);
+  });
 });

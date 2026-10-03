@@ -1,10 +1,15 @@
 "use client";
 
-import Bars from "@gravity-ui/icons/Bars";
+import Link from "next/link";
 
+import Bars from "@gravity-ui/icons/Bars";
+import PersonGear from "@gravity-ui/icons/PersonGear";
+
+import { FOCUS_HEADING } from "../../../utils/focusAfterWrite";
 import { BrandLink } from "../../ui/BrandLink";
 import { InfoHint } from "../../ui/InfoHint";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
+import { KONTO_SECTION } from "./kontoSection";
 import { RAIL_WIDTH_LG_CLASSES } from "./railWidth";
 import { SignOutButton } from "./SignOutButton";
 
@@ -20,6 +25,8 @@ export function AppTopBar({
   isMobileOpen,
   onToggleMobileMenu,
   isDesktopCollapsed,
+  kontoHref,
+  isOnKonto,
   onSignOut,
 }: {
   title: string;
@@ -29,7 +36,11 @@ export function AppTopBar({
   onToggleMobileMenu: () => void;
   /** Only to size the brand block to the rail beneath it — the bar has no collapse control of its own. */
   isDesktopCollapsed: boolean;
-  /** Forwarded to the options menu; only the admin shell supplies one. */
+  /** The person's account page, `null` in a shell no session stands behind. */
+  kontoHref: string | null;
+  /** Whether the page under the bar is that account page, which the link then marks as the current one. */
+  isOnKonto: boolean;
+  /** Forwarded to the options menu; a shell for the public dashboard supplies none. */
   onSignOut?: () => Promise<FormState>;
 }) {
   // Hoisted out of the class template because the Tailwind lint cannot read a class string through an
@@ -79,7 +90,11 @@ export function AppTopBar({
         <div className="min-w-0 truncate fluid-base">
           {/* The glyph beside the h1 and not inside it, or a screen reader names the page with the hint's label. Both
               inline in one block, whose size reaches `InfoHint`'s 1em icon on the title's line box (`docs/frontend/spec.md` I81). */}
-          <h1 className="inline font-semibold tracking-wide text-foreground">{title}</h1>
+          <h1
+            {...FOCUS_HEADING}
+            className="inline font-semibold tracking-wide text-foreground">
+            {title}
+          </h1>
           {/* `InfoHint` rather than `IconTooltip`: react-aria's tooltip never opens on tap, so a phone could not reach it. */}
           {hint && (
             <InfoHint label={`Was auf „${title}“ zu finden ist`}>
@@ -109,6 +124,22 @@ export function AppTopBar({
           <span className="hidden lg:flex">
             <ThemeSwitch />
           </span>
+          {/* From `lg` only, for the theme switch's reason: below it the drawer's options menu carries the
+              same address. */}
+          {kontoHref !== null && (
+            <span className="hidden lg:flex">
+              <Link
+                href={kontoHref}
+                aria-current={isOnKonto ? "page" : undefined}
+                className="flex h-9 shrink-0 items-center gap-x-2 rounded-md px-2 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
+                <PersonGear
+                  aria-hidden="true"
+                  className="size-4.5 shrink-0"
+                />
+                {KONTO_SECTION.label}
+              </Link>
+            </span>
+          )}
           {onSignOut && <SignOutButton onSignOut={onSignOut} />}
         </div>
       </div>

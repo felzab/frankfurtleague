@@ -51,7 +51,7 @@ deliverable.
 
 **The recording exists and the restore over it does not.** Every write funnels through
 `fl_backend/app/core/crud.py` and is recorded with the actor, the request, the collection, the
-document and the image the write replaced (`fl_backend/app/core/recording.py`); `/admin/aktionen`
+document and the image the write replaced (`fl_backend/app/core/recording.py`); `/bereich/admin/aktionen`
 lists the rows and narrows to one document's history. A row therefore holds what a replay needs, and
 replaying one is a small change over the undo spine the entity editors already share
 (`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`). What is missing is the control that
@@ -442,8 +442,8 @@ product; major and minor versions, since any change of words is a new label here
 
 - A page places its sections by key (`fl_frontend/src/core/einwilligung.ts :: SPIELER_EINWILLIGUNG`'s
   `absaetzeNachSchluessel`) while a label freezes them by position, and a reader's own facts fill
-  `{slots}` (`:: fuelleFassung`). What the backend serves carries both, or the keyed words stay in a
-  second place.
+  `{slots}` (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+  What the backend serves carries both, or the keyed words stay in a second place.
 - The administrative contact edit admits a seat's own stored label beside the running one
   (`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`); the backend's check
   keeps that admission.
@@ -476,7 +476,7 @@ returning player recognised rather than duplicated, a number clash raised rather
 Saison page and its editor change with it.
 
 **The representatives' page, the link and the page it opens are built; nothing admits what that page
-collects.** `/admin/kontakte` lists the representatives a season holds. An accepted application tells
+collects.** `/bereich/admin/kontakte` lists the representatives a season holds. An accepted application tells
 its own contacts (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`); what
 is still owed is that message for a team entered by hand. How a link is minted, mailed, replaced and
 shut is the contract of [`docs/backend/spec.md`](../backend/spec.md) I277 to I282 and I336. A link names the team
@@ -537,7 +537,7 @@ destroys the whole schedule rather than the part that was wrong, and nothing wri
 a replace reaches is the qualifier count**, the group shape being fixed by the clubs already
 entered; `DELETE /saisons/{saison_id}/spielplan` undraws the season instead, which is the way back
 from a group shape guessed wrong, and [`docs/domain.md`](../domain.md) carries the sequence. Today it
-is a panel an admin presses on `/admin/saisons/[saison_id]` once the clubs are in
+is a panel an admin presses on `/bereich/admin/saisons/[saison_id]` once the clubs are in
 (`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx`),
 which is the hand-run sequence this entry is about rather than a flow.
 
@@ -547,13 +547,13 @@ created season is always `future`, and creating and activating are two steps **o
 single "create it and make it live" call turns a typo in a four-character season id into a silent
 rollover of the running season, produced by a form field. A guided workflow that finishes by making
 the season current is exactly that call with a wizard in front of it. The flow ends at a season that
-is ready and `future`; the rollover stays the panel on `/admin/saisons/[saison_id]`, where the
+is ready and `future`; the rollover stays the panel on `/bereich/admin/saisons/[saison_id]`, where the
 outgoing season's unfinished fixtures are listed rather than counted.
 
 **A matchday follows from the rules rather than from a person, which is what makes generating a
 season a consequence rather than a feature.** A phase takes exactly the matchdays its rules imply —
 one per round, so a knockout round is one matchday and not several — and `position` and
-`saison_phase` are the draw's, on no payload afterwards. `/admin/spieltage` lists what the draw
+`saison_phase` are the draw's, on no payload afterwards. `/bereich/admin/spieltage` lists what the draw
 wrote, and a matchday's own editor sets the span the draw leaves null. What remains of the
 structural half is therefore the flow that collects the rules, not a second writer of anything:
 `spiele.spieltag_id` still has no fixture-level create or delete, and nothing needs one — both
@@ -604,7 +604,7 @@ when a form outgrows one is already fixed: it becomes a page at its own route, w
 section, a field judged when it is left, one save bar, a discard guard and an undo route handler. A
 flow that also picks clubs and creates them passes that threshold by a distance, so the guided
 workflow is a page rather than a larger modal, and the pattern to copy is on
-`/admin/saisons/[saison_id]` —
+`/bereich/admin/saisons/[saison_id]` —
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx` and
 the panels beside it, the Spielplan draw among them. The editor is where a wrong answer from the
 flow is corrected, so every field the flow collects has to be editable afterwards, and the narrowing
@@ -615,7 +615,7 @@ chosen, and building this flow before that offer means building the offer twice.
 it.** The block is embedded rather than given a collection of its own: on the `saison_teams`
 junction (`fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte`) and on an application row,
 both validated through one sub-schema (`fl_backend/app/core/constraints.py :: _KONTAKTE_PROPERTIES`),
-so a role added to the block reaches both collections in the commit that adds it. `/admin/kontakte`
+so a role added to the block reaches both collections in the commit that adds it. `/bereich/admin/kontakte`
 reads the junction's copy, and `fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`
 is the one route that removes a person from either.
 
@@ -770,7 +770,7 @@ guarding it goes:
 
 - every admin page reads the season the header shows, awaits `connection()` before its first read,
   throws nothing but a redirect or a not-found, and sends the admin to the season list where the
-  league holds none (`fl_frontend/src/app/admin/omittedSaison.test.ts`)
+  league holds none (`fl_frontend/src/app/bereich/admin/omittedSaison.test.ts`)
 - a list route's loading fallback draws the search row and trigger box its page draws
   (`fl_frontend/src/features/admin/crudLoadingTriggers.test.ts`,
   `fl_frontend/src/shared/components/ui/AdminCrudView.test.ts`)
@@ -798,8 +798,11 @@ with it.
   `.github/gate-wall-clock.tsv`.
 - **Its data is its own.** `./scripts/ops/local.sh --seed` restores a copy of production, which a CI
   runner never holds.
-- **The admin pages sit behind the mailed sign-in link**, and `.claude/CLAUDE.md` §3 refuses a
-  testing-only way past it in production code.
+- **The admin pages sit behind a stored grant and a passkey**: only a session a passkey made, for
+  an address holding a grant in `berechtigungen`, reaches them
+  (`fl_frontend/src/core/auth.ts :: isAdminSession`), and a session a mailed code made never does.
+  So the run seeds the grant and signs in with a passkey the browser under test holds, and
+  `.claude/CLAUDE.md` §3 refuses a testing-only way past either in production code.
 - **The `connection()` order's symptom is a failed image build**, the builder reaching no backend
   (`docs/frontend/spec.md :: I6`), and never anything a browser shows. Which run replaces the walk's
   is settled before that case goes.
@@ -811,6 +814,32 @@ end-to-end testing, and the option needing no dependency is the harness this ent
 **Done when** Playwright runs the pages above against the local stack in CI, every behaviour listed
 asserted there, and the harness and every page case calling it are deleted —
 `git grep -l pageHarness -- fl_frontend` printing nothing.
+
+### `h7h5-rzy4` · Every landing is an „Übersicht“ that shows what comes next, the administrator's included
+
+| Status  | Depends on |
+| ------- | ---------- |
+| Skipped | —          |
+
+**A person's and a team's landing are named „Übersicht“ and hold only a way on.** The person landing
+`/bereich` lists the places a person's Funktionen lead to
+(`fl_frontend/src/features/funktionen/components/views/FunktionenView.tsx`), and a team's landing names
+the team and the person's seats there (`TeamStartView.tsx` beside it). Neither shows what the person
+acts on next: the coming fixture, an answer awaited, a registration waiting for approval. An
+administrator signs in to `/bereich` as well, „Verwaltung“ one click away; the administration's own
+landing, the triage page, keeps its name and view.
+
+Ordered on 2026-09-26: "maybe the Übersicht should be an actual overview or like a custom dashboard?
+If the custom dashboard and admins also havin a Übersicht page is too much to do right now, please
+file a roadmap entry and just make sure all other user types land on Übersicht".
+
+**Done when** each Funktion's landing shows the few things that Funktion acts on next, read through
+reads its own pages already make, and I have ruled whether the administrator gets an
+„Übersicht“ beside the triage page or instead of it.
+
+**The trap:** the sidemenu's Funktion switcher lists the same places as the person landing, through one
+builder (`fl_frontend/src/features/funktionen/utils.ts :: funktionOrteOf` and `zeilenOf`); a dashboard
+keeps that list rather than growing a second one.
 
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
@@ -958,7 +987,7 @@ entity — and which of those it is decides whether this is a page change or a c
 already says what it needs through its required fields and the rail's Hinweise. What it waits on is
 a product ruling per entity, and that cost does not grow while it waits.
 
-### `qw6j-scru` · `style-src 'self'` waits on two swatches, a library attribute and a library stylesheet, and its Report-Only rollout narrows `script-src-attr` and `img-src` beside it
+### `qw6j-scru` · `style-src 'self'` waits on two swatches, a library attribute and two library stylesheets, and its Report-Only rollout narrows `script-src-attr` and `img-src` beside it
 
 | Status | Depends on |
 | ------ | ---------- |
@@ -984,8 +1013,8 @@ same prop through the CSSOM on the client, so
 `fl_frontend/src/core/providers/AppToaster.tsx`'s timer duration, and every overlay position
 react-aria resolves are outside the policy once hydration has run.
 
-**Inside it are two attributes this repository writes, one the library writes, and one stylesheet
-the library injects.** Both swatches render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
+**Inside it are two attributes this repository writes, one the library writes, and two stylesheets
+libraries inject.** Both swatches render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
 `fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx` for the wish and
 `fl_frontend/src/features/teams/components/forms/TrikotFarbeSelect.tsx` for the assignment — and
 `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS` closes the colour set with its
@@ -996,12 +1025,11 @@ attribute at all. The library's attribute is `--scroll-shadow-size`, which `@her
 **`ScrollShadow` is reached two ways, and the second is why the prerender's count understates the
 work.** `fl_frontend/src/shared/components/ui/FilterLeiste.tsx` renders it directly, and HeroUI's
 `Tabs` renders one internally, which puts it under
-`fl_frontend/src/features/auth/components/forms/SignInForm.tsx`,
 `fl_frontend/src/features/spieltage/components/views/SpielplanView.tsx` and
 `fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx` besides. A
-2026-09-07 build's forty prerendered pages carry exactly one inline style attribute outside
-`_global-error`, and it is the sign-in page's — but a prerender is not the population: every page
-that streams one of those five components server-renders the attribute too, and a `"use client"`
+2026-09-07 build's forty prerendered pages carried exactly one inline style attribute outside
+`_global-error`, on a page rendering `Tabs` — but a prerender is not the population: every page
+that streams one of those four components server-renders the attribute too, and a `"use client"`
 directive does not keep a component off the server render. So this is a restyle of one component
 rather than of one page, and the count to trust is the source's rather than the build's.
 
@@ -1016,6 +1044,14 @@ nineteen elements on the home page, measured on the local stack 2026-08-31. A ha
 invalidated by the library's next release and `style-src-attr` cannot reach an element, so neither
 repairs it; how the rule reaches every pressable once the element is refused is what the fix answers
 before `style-src 'self'` is served at all.
+
+**`input-otp`'s stylesheet is the second, and refusing it shows the code field's own input.**
+`@heroui/react`'s `InputOTP`, which `fl_frontend/src/features/auth/components/forms/CodeStep.tsx`
+renders, sits on `input-otp` 1.5.0, which creates a `<style>` element and fills it through
+`insertRule`, reading a nonce only where one is passed in (the installed `input-otp`'s
+`dist/index.mjs`, read 2026-09-26). Its rules make the real input's text and selection transparent
+under the six slots, so refused, the typed digits show a second time behind them, and nothing goes
+red.
 
 **Two residues stay, and each is accepted rather than covered.** Next's own `_global-error` carries
 both an attribute and a `<style>` element, and renders unstyled under the strict policy — on a page
@@ -1049,8 +1085,9 @@ criteria, and the one CSP fact it carries is Mantine's, stated there. (Read 2026
 from react-dom's `setValueForStyle` and from each project's own documentation; all of that moves
 without us.)
 
-**Done when** the swatches and the `ScrollShadow` attribute are gone and the `usePress` rule reaches
-every pressable element with the injected element refused; a `Content-Security-Policy-Report-Only`
+**Done when** the swatches and the `ScrollShadow` attribute are gone, the `usePress` rule reaches
+every pressable element with the injected element refused, and `input-otp`'s rules hide the code
+field's own input with its injected element refused; a `Content-Security-Policy-Report-Only`
 header carrying `style-src 'self'`, `script-src-attr 'none'` and `img-src 'self'` has been served
 from `nginx/shared/security_headers.conf` beside the enforcing header, its `report-to` and its
 `report-uri` both naming an ingest route of this application that writes each violation report as
@@ -1083,7 +1120,7 @@ paragraphs and that sentence move in the same commit (CUR-2), the code being the
 here establishes that an SSR'd attribute the parser refused stays unapplied after hydration, that
 every overlay still positions under the strict policy, or that nothing sets an inline handler or
 loads a `data:` image at runtime; the first two are read off the react-dom and react-aria sources,
-the `usePress` element off the installed module. The five `ScrollShadow` call sites and the image
+the `usePress` element off the installed module. The four `ScrollShadow` call sites and the image
 consumers are a source search rather than a measurement of what each page actually streams.
 
 ### `scfh-f6gw` · Every privacy decision the sign-up programme took is reviewed once, and a German brief puts the open questions to a Datenschutzexperte

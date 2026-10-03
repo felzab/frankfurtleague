@@ -28,12 +28,13 @@ from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, SaisonTeamsCollection, get_germany_now
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
-from app.core.security import bind_actor, verify_access_admin
+from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/kontakte",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 
@@ -108,6 +109,7 @@ async def get_kontakt_erasure_ansicht(
     response_model=FLKontaktErasureResponse,
     summary="Erase a Kontaktperson's records",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def erase_kontaktperson(
     erasure_data: Annotated[FLKontaktErasurePayload, Body()],
@@ -191,5 +193,5 @@ async def erase_kontaktperson(
     # ONE transaction over all of it (`docs/backend/spec.md :: I42`): rows cleared while the log
     # still holds the block reports an erasure that did not happen, and clearing one collection
     # without the other answers the request in name only.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(clear_the_person_and_their_record)

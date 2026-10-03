@@ -252,7 +252,7 @@ async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<v
   });
 }
 
-/** Whether this application may now be erased: the notice reached somebody, or there was nobody to reach. */
+/** Whether this application may now be erased: the notice reached somebody, was filed off production or kept from a barred address, or had nobody to reach. */
 async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<boolean> {
   // An emptied Ansprechperson slot leaves the message no reader. Erased anyway: the alternative
   // keeps an application nobody can complete and nobody can be told about, for ever.
@@ -271,7 +271,7 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
     rollenText: rollenText(loeschung.ansprechperson_rollen),
   };
 
-  const { delivered } = await sendBewerbungMail({
+  const { delivered, withheld, gesperrt } = await sendBewerbungMail({
     operation: SWEEP_OPERATION,
     // The one send here that may legitimately repeat: a pass that mailed and then failed to stamp
     // composes the identical notice an hour later. This body carries no token, which is what makes
@@ -287,7 +287,15 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
       }),
   });
 
-  return delivered.length > 0;
+  return (
+    delivered.length > 0 ||
+    // A barred mailbox is as told as the league may make it, anywhere: waiting on it would keep the
+    // application for as long as the ban stands (`docs/frontend/spec.md :: I538`).
+    gesperrt > 0 ||
+    // Off production a filed notice is as told as anyone there is; waiting on a send that never comes
+    // would re-file it hourly. Production waits for a real send: withheld there means a missing key.
+    (withheld.length > 0 && frontend_config.APP_ENV !== "production")
+  );
 }
 
 /** The half, the season and the error's name, never a person: this line is written for a season nobody swept. */

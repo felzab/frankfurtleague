@@ -1,3 +1,5 @@
+import { FOCUS_HEADING } from "@/shared/utils/focusAfterWrite";
+
 import type { ReactNode } from "react";
 
 /**
@@ -11,7 +13,12 @@ export function PanelHeading({ className, title, children }: { className: string
     // Inline `<h2>` in a plain block, never a flex row: the glyph aligns on the title's own line box.
     // Why that is not a detail (`docs/frontend/spec.md` I81).
     <div>
-      <h2 className={`${className} inline`}>{title}</h2>
+      {/* The panel's landing where a write empties it or takes its control away (`docs/frontend/spec.md :: I536`). */}
+      <h2
+        className={`${className} inline`}
+        {...FOCUS_HEADING}>
+        {title}
+      </h2>
       {children}
     </div>
   );

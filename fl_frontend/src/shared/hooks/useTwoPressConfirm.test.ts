@@ -3,11 +3,12 @@ import { registerHooks } from "node:module";
 import { after, before, beforeEach, describe, it } from "node:test";
 
 // Type-only, so nothing is imported at load: the hook module is pulled in from `before`, below.
+import type { StepUp } from "@/shared/components/ui/stepUp.ts";
 import type { useTwoPressConfirm } from "./useTwoPressConfirm.ts";
 
-/** The one `useState` cell, held across the presses of a test the way a mounted component holds it. */
-let cell: unknown;
-let cellFilled = false;
+/** The `useState` cells, by call order, held across the presses of a test the way a mounted component holds them. */
+let cells: { value: unknown }[] = [];
+let stateCalls = 0;
 let inFlight = false;
 /** The `useRef` boxes, by call order, held across renders the same way. */
 let refBoxes: { current: unknown }[] = [];
@@ -20,19 +21,24 @@ let refreshHeld: Promise<void> | undefined;
  * source-order assertion is satisfied by an arming branch that no longer exits.
  */
 export function useState<T>(initial: T | (() => T)): [T, (next: T) => void] {
-  if (!cellFilled) {
-    cell = typeof initial === "function" ? (initial as () => T)() : initial;
-    cellFilled = true;
-  }
+  const cell = (cells[stateCalls] ??= { value: typeof initial === "function" ? (initial as () => T)() : initial });
+  stateCalls += 1;
   // The setter writes the cell and re-renders nothing: a later `render()` reads it back, which is
   // React's own sequence and what makes two presses two separate reads of the armed state.
-  return [cell as T, (next: T) => void (cell = next)];
+  return [cell.value as T, (next: T) => void (cell.value = next)];
 }
 
 export function useRef<T>(initial: T): { current: T } {
   const box = (refBoxes[refCalls] ??= { current: initial });
   refCalls += 1;
   return box as { current: T };
+}
+
+/** What the page's step-up provider hands the hook, `undefined` standing for a page without one. */
+let stepUpContext: StepUp | undefined;
+
+export function useContext(): StepUp | undefined {
+  return stepUpContext;
 }
 
 export function useTransition(): [boolean, (scope: () => void) => void] {
@@ -49,8 +55,8 @@ export function useTransition(): [boolean, (scope: () => void) => void] {
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    // Narrowed to the file under test, so nothing else loaded in this process loses React.
-    if (specifier === "react" && context.parentURL !== undefined && context.parentURL.endsWith("/useTwoPressConfirm.ts")) {
+    // Narrowed to the file under test and the gate it renders, so nothing else loaded in this process loses React.
+    if (specifier === "react" && context.parentURL !== undefined && /\/(useTwoPressConfirm|useStepUp)\.ts$/.test(context.parentURL)) {
       return { url: import.meta.url, shortCircuit: true };
     }
     return nextResolve(specifier, context);
@@ -78,9 +84,10 @@ after(() => {
 });
 
 /** One render pass. React reads the cell fresh on each, and so does the stub above. */
-const render = (guard?: () => boolean): Control => {
+const render = (guard?: () => boolean, stepUp?: boolean): Control => {
   refCalls = 0;
-  return twoPressConfirm(guard);
+  stateCalls = 0;
+  return twoPressConfirm({ guard, stepUp });
 };
 
 /** One turn of the loop — long enough for a settled write's continuation to have run. */
@@ -112,11 +119,12 @@ function gated(): { write: () => Promise<void>; finish: () => void; calls: () =>
 
 describe("the two-press confirm", () => {
   beforeEach(() => {
-    cellFilled = false;
+    cells = [];
     inFlight = false;
     refBoxes = [];
     refreshHeld = undefined;
     now = 0;
+    stepUpContext = undefined;
   });
 
   /* Drop the arming branch's `return` and the FIRST press writes — the whole confirmation gone from
@@ -290,5 +298,135 @@ describe("the two-press confirm", () => {
 
     assert.equal(render().isConfirming, false, "cancel left the control armed");
     assert.equal(gate.calls(), 0, "cancel wrote");
+  });
+});
+
+/** The page's step-up, stale until `until` on the test's clock, its prompt answering `outcome` and counting each run. */
+function stepUpUntil(until: number, outcome = true): { prompts: () => number } {
+  let prompts = 0;
+  stepUpContext = {
+    isStale: (at) => at >= until,
+    confirm: () => {
+      prompts += 1;
+      return Promise.resolve(outcome);
+    },
+  };
+  return { prompts: () => prompts };
+}
+
+describe("the two-press confirm of a step-up write", () => {
+  beforeEach(() => {
+    cells = [];
+    inFlight = false;
+    refBoxes = [];
+    refreshHeld = undefined;
+    now = 0;
+    stepUpContext = undefined;
+  });
+
+  /* The label the armed press wears is the page's promise about that press; drop the arming's read of
+     the window and every step-up write arms on its own words with the prompt still to come. */
+  it("arms asking for the passkey past the window, and on its own words inside it", () => {
+    stepUpUntil(0);
+    render(undefined, true).press(() => Promise.resolve());
+    assert.equal(render(undefined, true).asksPasskey, true, "a stale session armed without asking for the passkey");
+
+    cells = [];
+    stepUpUntil(1);
+    render(undefined, true).press(() => Promise.resolve());
+    assert.equal(render(undefined, true).asksPasskey, false, "a confirmed session was asked for the passkey");
+  });
+
+  /* The prompt comes before the write, inside the press: a write sent first is refused by the server,
+     and a prompt started anywhere else has lost the press's user activation. */
+  it("runs the prompt on the armed press and then sends the write once", async () => {
+    const stepUp = stepUpUntil(0);
+    const gate = gated();
+
+    render(undefined, true).press(gate.write);
+    wait(DOUBLE_PRESS_MS);
+    render(undefined, true).press(gate.write);
+    await settled();
+    gate.finish();
+    await settled();
+
+    assert.equal(stepUp.prompts(), 1, "the armed press sent the write without the prompt");
+    assert.equal(gate.calls(), 1, "a confirmed prompt did not send exactly one write");
+    assert.equal(render(undefined, true).isConfirming, false, "the answered write left the control armed");
+  });
+
+  /* A refused prompt sends nothing, says so beside the control, and leaves it armed on the prompt's
+     label, so the next press asks again rather than arming afresh. */
+  it("sends nothing on a refused prompt and stays armed to ask again", async () => {
+    const stepUp = stepUpUntil(0, false);
+    const gate = gated();
+
+    render(undefined, true).press(gate.write);
+    wait(DOUBLE_PRESS_MS);
+    render(undefined, true).press(gate.write);
+    await settled();
+
+    const refused = render(undefined, true);
+    assert.equal(gate.calls(), 0, "a refused prompt sent the write");
+    assert.equal(stepUp.prompts(), 1);
+    assert.deepEqual(
+      [refused.isConfirming, refused.asksPasskey, refused.passkeyRefused],
+      [true, true, true],
+      "a refused prompt left the control anywhere but armed on the prompt, saying it was refused",
+    );
+
+    refused.press(gate.write);
+    await settled();
+    assert.equal(stepUp.prompts(), 2, "the press after a refusal did not ask again");
+  });
+
+  /* The window can close while the alert stands. The label then still says the write's own words, and
+     the press runs the prompt anyway rather than sending what the server refuses. */
+  it("asks at the armed press when the window closed after arming", async () => {
+    const stepUp = stepUpUntil(DOUBLE_PRESS_MS);
+    const gate = gated();
+
+    render(undefined, true).press(gate.write);
+    assert.equal(render(undefined, true).asksPasskey, false);
+    wait(DOUBLE_PRESS_MS);
+    render(undefined, true).press(gate.write);
+    await settled();
+    gate.finish();
+    await settled();
+
+    assert.equal(stepUp.prompts(), 1, "a press after the window closed sent the write unconfirmed");
+    assert.equal(gate.calls(), 1);
+  });
+
+  /* The declaration is the site's: a reversible two-press write, and the sign-out, never ask, whatever
+     the page's window says. */
+  it("never asks for a control that does not declare the step-up", async () => {
+    const stepUp = stepUpUntil(0);
+    const gate = gated();
+
+    render().press(gate.write);
+    assert.equal(render().asksPasskey, false, "an undeclared control armed on the prompt");
+    wait(DOUBLE_PRESS_MS);
+    render().press(gate.write);
+    gate.finish();
+    await settled();
+
+    assert.equal(stepUp.prompts(), 0, "an undeclared control ran the prompt");
+    assert.equal(gate.calls(), 1);
+  });
+
+  /* Outside the administrator's shell there is no figure to ask on; the write goes, and the server's
+     refusal is the whole of the step-up there. */
+  it("sends without asking where no page provides a step-up", async () => {
+    const gate = gated();
+
+    render(undefined, true).press(gate.write);
+    assert.equal(render(undefined, true).asksPasskey, false);
+    wait(DOUBLE_PRESS_MS);
+    render(undefined, true).press(gate.write);
+    gate.finish();
+    await settled();
+
+    assert.equal(gate.calls(), 1);
   });
 });

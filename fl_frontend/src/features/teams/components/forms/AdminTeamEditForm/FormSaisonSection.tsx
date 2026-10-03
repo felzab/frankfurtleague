@@ -19,6 +19,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -26,10 +27,13 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
@@ -70,7 +74,7 @@ function GruppenTauschControl({
   isDirty: boolean;
 }) {
   const router = useRouter();
-  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
+  const twoPress = useTwoPressConfirm({ guard: () => guardAgainstDraft(isDirty, DRAFT_DISCARDED) });
   const { isConfirming, isPending: isSwapping, press, cancel } = twoPress;
   const [partner, setPartner] = useState<SaisonSwapTeam | null>(null);
 
@@ -99,6 +103,8 @@ function GruppenTauschControl({
     // is what carries the narrowing into the closure below.
     if (partner === null) return;
 
+    // The page re-keys on the swapped membership, drawing this control anew.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id }).catch(rejectedWrite(router));
@@ -114,6 +120,7 @@ function GruppenTauschControl({
         return;
       }
 
+      landing.landed();
       appToast.success("Gruppen getauscht", { description: res.message });
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.
@@ -198,20 +205,22 @@ function GruppenTauschControl({
           <ConfirmActionRow confirm={twoPress}>
             {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                 §1.14). */}
-            <ConfirmPressButton
-              confirm={twoPress}
-              reason={partner === null ? "Wähle zuerst ein Team." : null}
-              resting="Gruppen tauschen"
-              armed="Ja, Gruppen tauschen"
-              running="Tauscht..."
-              icon={
-                <ArrowRightArrowLeft
-                  className="size-4.5"
-                  aria-hidden="true"
-                />
-              }
-              onPress={handleSwap}
-            />
+            <FocusSlot name="tausch">
+              <ConfirmPressButton
+                confirm={twoPress}
+                reason={partner === null ? "Wähle zuerst ein Team." : null}
+                resting="Gruppen tauschen"
+                armed="Ja, Gruppen tauschen"
+                running="Tauscht..."
+                icon={
+                  <ArrowRightArrowLeft
+                    className="size-4.5"
+                    aria-hidden="true"
+                  />
+                }
+                onPress={handleSwap}
+              />
+            </FocusSlot>
           </ConfirmActionRow>
         </>
       )}
@@ -266,6 +275,7 @@ export function FormSaisonSection({
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
+  const entryStepUp = useStepUp();
   const router = useRouter();
 
   /**
@@ -283,32 +293,40 @@ export function FormSaisonSection({
   const handleEnterSaison = () => {
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
-    startEntering(async () => {
-      // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(rejectedWrite(router));
+    // `saison_teams` has no DELETE, so an entry is a step-up write (`docs/frontend/spec.md :: I432`).
+    // The entry draws the membership's own fields where its control stood, so the panel's heading takes the focus.
+    const landing = focusAfterWrite();
+    entryStepUp.confirmThen(true, () =>
+      startEntering(async () => {
+        // A rejected action may still have saved, and uncaught here it takes the page down with it.
+        const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(rejectedWrite(router));
 
-      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
-      // so bare it commits before the pending state lifts.
-      startEntering(() => {
-        if (res.success) {
-          setEntryGruppeError(null);
-          appToast.success("Team aufgenommen", { description: res.message });
-          return;
-        }
+        // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+        // so bare it commits before the pending state lifts.
+        startEntering(() => {
+          if (res.success) {
+            setEntryGruppeError(null);
+            landing.landed();
+            appToast.success("Team aufgenommen", { description: res.message });
+            return;
+          }
 
-        const gruppeError = res.fieldErrors?.gruppe ?? null;
-        setEntryGruppeError(gruppeError);
-        // Suppressed where the picker carries the message, so a refusal about the chosen group is not
-        // also said in a toast that names no field.
-        if (gruppeError === null) {
-          appToast.failure("Team nicht aufgenommen", res);
-        }
-      });
-    });
+          const gruppeError = res.fieldErrors?.gruppe ?? null;
+          setEntryGruppeError(gruppeError);
+          // Suppressed where the picker carries the message, so a refusal about the chosen group is not
+          // also said in a toast that names no field.
+          if (gruppeError === null) {
+            appToast.failure("Team nicht aufgenommen", res);
+          }
+        });
+      }),
+    );
   };
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("saison")}>
       {/* `relative` + an absolutely placed badge, so the h2 keeps every other panel heading's flow;
           a flex row would push the info glyph off the text's baseline. */}
       <div className={`${panel.header()} relative`}>
@@ -417,13 +435,14 @@ export function FormSaisonSection({
                 <Button
                   type="button"
                   variant="primary"
-                  isPending={isEntering}
+                  isPending={isEntering || entryStepUp.isPrompting}
                   isDisabled={!isEntering && gruppe === null}
                   onPress={handleEnterSaison}
                   className={`${formButton({ intent: "submit" })} w-full`}>
-                  {isEntering ? "Nimmt auf..." : `In Saison ${saison.saisonId} aufnehmen`}
+                  {isEntering || entryStepUp.isPrompting ? entryStepUp.running("Nimmt auf...") : `In Saison ${saison.saisonId} aufnehmen`}
                 </Button>
               </Hint>
+              <StepUpRefused refused={entryStepUp.refused} />
             </div>
           </div>
         ) : (

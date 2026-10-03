@@ -128,7 +128,10 @@ function leerSatz(stand: Stand): string {
   return stand.art === "geloescht" ? "Auf eigenen Wunsch gelöscht" : "Niemand mehr in der Bewerbung";
 }
 
-/** One seat's state as a sentence. A reminded seat names the reminder: that is the day the person last heard from the league. */
+/**
+ * One seat's state as a sentence. A reminded seat names the reminder: that is the day the person last
+ * heard from the league. A reminder a ban keeps back leaves nothing on the seat, so it reads as sent.
+ */
 function standSatz(stand: Stand): string {
   if (stand.art === "bestaetigt") return `Bestätigt am ${formatSpielDatum(stand.am)}`;
   // The queue's badge word in its participle: „Abgelehnt“ is the APPLICATION's own status, and one

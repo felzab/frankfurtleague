@@ -46,11 +46,11 @@ jobs:
           # a letter; at depth 1 there is only the merge commit, and its form is that by chance.
           fetch-depth: 20
       # The venv carries the repository's own ruff, pyright and pytest for the python under scripts/,
-      # and the markdown-it-py the documentation gate reads with. The dev group alone: no checker
-      # and no case imports the application.
+      # and the markdown-it-py the documentation gate reads with. The application too: the deploy's
+      # preflight snippets run for real in `scripts/tests/test_deploy_streams.py`, and one imports it.
       - uses: ./.github/actions/backend-toolchain
         with:
-          application: false
+          application: true
       - name: Install the shellcheck the gate pins
         # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
         # the image it pins -- so without this CI lints the branch against a different rule set from
@@ -96,9 +96,9 @@ jobs:
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
-          # The uv cache's one writer, on every event: of the jobs installing the application, this
-          # one runs furthest under its budget in `.github/gate-wall-clock.tsv`, and the save is
-          # setup-uv's post step, inside the span that budget holds.
+          # The uv cache's one writer, on every event: the save is setup-uv's post step, inside the
+          # span this job's budget in `.github/gate-wall-clock.tsv` holds, and its widest run leaves
+          # that budget room for the save.
           save-cache: true
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
@@ -259,12 +259,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # CI runs `pnpm build` on the runner host, never inside the image, so none of the Dockerfile's
-    # ENV lines apply. These reproduce them across its base and builder stages;
-    # `fl_frontend/Dockerfile` is the authority, and the two move together.
+    # Every `next` command a step runs, the build's own variables set on its command alone
+    # (`scripts/gate/verify.sh :: do_next_build`).
     env:
-      SKIP_ENV_VALIDATION: "true"
-      MONGODB_URI: mongodb://localhost:27017/placeholder
       NEXT_TELEMETRY_DISABLED: "1"
 
     steps:

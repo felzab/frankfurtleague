@@ -6,14 +6,16 @@ import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.
 /* The trace seed, the refresh, the session and the framework's control-flow rethrow are the
    framework's, and the spine between them and the action is what is driven. */
 const ADMIN = { user: { email: "vorstand@example.org" } };
-const { setSession } = doubleActionRequest({ session: ADMIN });
+const { setSession, setRefusal } = doubleActionRequest({ session: ADMIN });
 
 /** How many times the spine asked Next to refresh the page since the case began. */
 const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
 
-const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite } = await import("./adminMutation.ts");
+const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite, stepUpRequired } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
+const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
 
 /** A body that sends a write before it answers, as a call through the API client records one. */
 const writing =
@@ -40,6 +42,45 @@ describe("the session guard every admin write runs behind", () => {
     assert.equal(refreshes(), 0, "a refused caller's page was refreshed");
   });
 
+  /* A session the guard would pass but for its grant: „Melde Dich neu an“ would send the administrator to a
+     sign-in that restores nothing. */
+  it("tells a caller whose grant is gone so, rather than to sign in again", async () => {
+    setSession(null);
+    setRefusal("grantGone");
+
+    const answer = await runAdminMutation("probeAction", () => Promise.resolve({ success: true }));
+
+    assert.deepEqual(answer, { success: false, error: "Dein Zugang zur Verwaltung besteht nicht mehr." });
+  });
+
+  /* The backend did not answer the grant lookup: a sign-in would meet the same unread grant, and the
+     session holds whatever administration it held, so the remedy is the retry and never the sign-in. */
+  it("tells a caller whose grant the backend left unread to try again, rather than to sign in", async () => {
+    setSession(null);
+    setRefusal("unread");
+    let ran = 0;
+
+    const answer = await runAdminMutation("probeAction", () => {
+      ran += 1;
+      return Promise.resolve({ success: true });
+    });
+
+    assert.deepEqual(answer, { success: false, error: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuche es erneut." });
+    assert.equal(ran, 0, "the body ran behind a grant nobody read");
+  });
+
+  /* A signed-in address holding no grant: no sign-in grants one, so it is told what a revoked grant is
+     told, and never „Melde Dich neu an“. */
+  it("tells a caller whose address holds no grant that its access is gone, rather than to sign in again", async () => {
+    setSession(null);
+    setRefusal("noGrant");
+
+    assert.deepEqual(await runAdminMutation("probeAction", () => Promise.resolve({ success: true })), {
+      success: false,
+      error: "Dein Zugang zur Verwaltung besteht nicht mehr.",
+    });
+  });
+
   it("turns one away from a route handler's write too", async () => {
     setSession(null);
     let ran = 0;
@@ -50,8 +91,12 @@ describe("the session guard every admin write runs behind", () => {
     });
 
     // Typed rather than worded, so the route chooses its 401 or 403 on the guard's refusal and no other.
-    assert.deepEqual(answer, { forbidden: true });
+    assert.deepEqual(answer, { forbidden: true, refused: "signIn" });
     assert.equal(ran, 0, "the route's body ran for a caller nobody authorized");
+
+    // The reason is the guard's own, read off the call that refused rather than a second read.
+    setSession(null, "/bereich");
+    assert.deepEqual(await runAdminRouteWrite("probeRoute", () => Promise.resolve({ success: true })), { forbidden: true, refused: "noGrant" });
   });
 
   /* The body never ran, so nothing was written: an unclear answer would send the admin to check for a
@@ -78,7 +123,27 @@ describe("the session guard every admin write runs behind", () => {
       return Promise.resolve({ success: true });
     });
 
-    assert.equal(seen, ADMIN);
+    assert.equal(seen, await getAdminSession(), "the body was handed a session other than the one the guard resolved");
+  });
+});
+
+describe("the enrolment window a grant's write is held to", () => {
+  afterEach(() => mock.timers.reset());
+
+  /* Inside the step-up window and past the enrolment one: a write declaring either window is held to
+     its own, and the narrow one refuses what the wide one lets through. */
+  it("refuses a session confirmed six minutes ago, where the step-up window alone admits it", async () => {
+    mock.timers.enable({ apis: ["Date"], now: Date.now() });
+    mock.timers.tick(ENROLMENT_WINDOW_MS + 60_000);
+    let ran = 0;
+    const body = () => {
+      ran += 1;
+      return Promise.resolve({ success: true });
+    };
+
+    assert.equal(Reflect.get(await runAdminMutation("probeAction", { stepUp: "enrolment" }, body), "stepUp"), true);
+    assert.equal(ran, 0, "a session past the enrolment window reached the body");
+    assert.deepEqual(await runAdminMutation("probeAction", { stepUp: true }, body), { success: true });
   });
 });
 
@@ -127,6 +192,29 @@ describe("the refresh an admin write owes the page", () => {
 
     assert.deepEqual(answer, { forbidden: false, answer: { success: true } });
     assert.equal(refreshes(), 0);
+  });
+
+  /* An undo replaying a step-up write meets the backend's own window as an action does: answered in other
+     words, the admin is sent to a retry the same window refuses (`docs/frontend/spec.md :: I493`). */
+  it("answers the backend's refusal for want of a confirmation as the step-up refusal, refreshing nothing", async () => {
+    const refused = new APIBadStatusError({
+      url: "http://api/x",
+      endpoint: "/x",
+      traceId: "a".repeat(32),
+      message: "refused",
+      statusCode: 403,
+      serverErrorCode: "REQ-AUTH-009",
+      method: "PATCH",
+      readOnly: false,
+    });
+
+    const answer = await runAdminRouteWrite(
+      "probeRoute",
+      writing(() => Promise.reject(refused)),
+    );
+
+    assert.deepEqual(answer, { forbidden: false, answer: stepUpRequired() });
+    assert.equal(refreshes(), 0, "a route handler's write called the refresh Next refuses it");
   });
 });
 

@@ -4,12 +4,10 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { asDataUrl, registerDoubles, replacingModule } from "./exportingModule.ts";
 import { assertEveryTokenIsRead, schemeTokens } from "./schemeReader.ts";
 
 import type * as EmailShell from "./emailShell.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** The query that separates the hostile instance of the shell below from the one every other case renders through. */
 const POISON_BRAND = "gift-marke";
@@ -22,17 +20,18 @@ const POISON_RESPONSIBLE_HTML = "Verein &amp; Co., c/o &lt;Haus&gt; &quot;Süd&q
 
 /* The controller line reaches the card from a module constant, so a hostile one arrives only by
    replacing the brand module — the route that leaves production code with no test-only opening. */
-const BRAND_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(
-  [
-    `export const KONTAKT_EMAIL = "kontakt@beispiel.de";`,
-    `export const VEREIN_NAME = ${JSON.stringify(POISON_CLUB)};`,
-    `export const VEREIN_ANSCHRIFT = ${JSON.stringify(POISON_ADDRESS)};`,
-  ].join("\n"),
-)}`;
+const BRAND_DOUBLE_URL = asDataUrl(
+  replacingModule(import.meta.resolve("./brand.ts"), "the brand", {
+    KONTAKT_EMAIL: "kontakt@beispiel.de",
+    VEREIN_NAME: POISON_CLUB,
+    VEREIN_ANSCHRIFT: POISON_ADDRESS,
+  }),
+);
+
+registerDoubles();
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
     // The parent decides, so the double reaches the hostile instance alone and every other case
     // still renders against the real brand.
     if (specifier === "./brand" && (context.parentURL ?? "").includes(POISON_BRAND)) return { url: BRAND_DOUBLE_URL, shortCircuit: true };
@@ -50,7 +49,7 @@ const {
   buildBewerbungWiderspruchEmail,
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
-const { buildMagicLinkEmail } = await import("./authEmail.ts");
+const { buildCodeEmail } = await import("./authEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
 const { buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } =
@@ -177,9 +176,11 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       origin: origin,
       link: `${ORIGIN}/registrierung?token=beispiel-fuenf`,
     }),
-  buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
-  buildPasskeyHinzugefuegtEmail: (origin) => buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin }),
-  buildPasskeyGeloeschtEmail: (origin) => buildPasskeyGeloeschtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin }),
+  buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
+  buildPasskeyHinzugefuegtEmail: (origin) =>
+    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
+  buildPasskeyGeloeschtEmail: (origin) =>
+    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
   buildRegistrierungBestaetigungEmail: (origin) =>
     buildRegistrierungBestaetigungEmail({
       vorname: "Mira",
@@ -215,14 +216,14 @@ describe("the shared email shell", () => {
   /* Both directions, so neither side can be satisfied by the other shrinking: a builder with no
      fixture fails here rather than dropping out of every sweep, and a stale fixture fails too. */
   it("sweeps every message builder the mail modules export", () => {
-    // The sign-in link, the two decisions and the confirmation workflow's six. A walk finding fewer
-    // has stopped reading the modules, and every sweep below then runs over nothing.
+    // A floor under what the modules export: a walk finding fewer has stopped reading them, and every
+    // sweep below then runs over nothing.
     assert.ok(BUILT_MESSAGES.length >= 9, `expected at least 9 message builders, found ${String(BUILT_MESSAGES.length)}`);
     assert.deepEqual(BUILT_MESSAGES, Object.keys(FIXTURES).sort(), "a message builder has no fixture, or a fixture names no builder");
   });
 
   /* The one origin every close is built on. Read over the walked register rather than per builder:
-     a tenth message added tomorrow reaches this on the edit that adds it. */
+     a message added tomorrow reaches this on the edit that adds it. */
   it("builds every message's close on the origin the builder was handed", () => {
     const foreign = "https://beispiel.test";
 
@@ -441,8 +442,8 @@ describe("the shared email shell", () => {
     const classes = (intent: "primary" | "outline") => new Set(ctaButton({ intent, hover: "css" }).split(/\s+/));
 
     for (const [intent, expected] of [
-      ["primary", ["h-12", "px-6", "rounded-xl", "font-bold", "bg-brand-solid", "text-brand-solid-foreground", "shadow-md"]],
-      ["outline", ["h-12", "px-6", "rounded-xl", "font-bold", "border-border", "bg-transparent", "text-foreground"]],
+      ["primary", ["min-h-12", "px-6", "rounded-xl", "font-bold", "bg-brand-solid", "text-brand-solid-foreground", "shadow-md"]],
+      ["outline", ["min-h-12", "px-6", "rounded-xl", "font-bold", "border-border", "bg-transparent", "text-foreground"]],
     ] as const) {
       const worn = classes(intent);
       for (const className of expected) {
@@ -451,15 +452,18 @@ describe("the shared email shell", () => {
     }
   });
 
-  /* `h-12` is 48px and no `<td>` honours a utility class, so the height is padding either side of one
+  /* `min-h-12` is 48px and no `<td>` honours a utility class, so the height is padding either side of one
      line box. The border counts into the same box, which is why the outline control's padding is 1px
      short of the filled one's on both axes. */
   it("gives every control the 48px box, the 12px radius and the 700 weight ctaButton gives it", () => {
-    for (const { name, mail } of MESSAGES) {
-      const all = buttons(mail.html);
+    // The sign-in code's message carries none by design, so the floor is over the whole population.
+    assert.ok(
+      MESSAGES.filter(({ mail }) => buttons(mail.html).length > 0).length >= 8,
+      "fewer messages render a control, so this test proves little",
+    );
 
-      assert.ok(all.length >= 1, `${name} renders no control at all, so this test proves nothing`);
-      for (const { cell, anchor } of all) {
+    for (const { name, mail } of MESSAGES) {
+      for (const { cell, anchor } of buttons(mail.html)) {
         const outlined = cell.includes("border:1px solid");
         const height = number(anchor, /padding:(\d+)px/);
         const width = number(anchor, /padding:\d+px (\d+)px/);
@@ -489,9 +493,9 @@ describe("the shared email shell", () => {
     assert.ok(pair[1]?.anchor.includes(`color:${token(LIGHT, "--fg-base")};`), "the outline control's label is not text-foreground");
   });
 
-  /* `Aktion.href` and `Aktion.label` are interface fields. Today's two callers hand them module
-     constants, so no rendered message reaches this guard -- and no fixture reaches it either,
-     which is exactly where a third caller would lean on it. */
+  /* `Aktion.href` and `Aktion.label` are interface fields. Today's callers hand them constants and
+     origin-built links, so no rendered message reaches this guard -- and no fixture reaches it either,
+     which is exactly where a new caller would lean on it. */
   it("escapes a control's own destination and label", () => {
     const card = renderKarte({
       titel: "Anmeldung",

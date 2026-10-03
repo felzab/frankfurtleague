@@ -41,8 +41,13 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
 /** A club the application names, so a case about seats is not answered by the club rule ahead of them. */
 const TEAM = "Lessing-Kolleg";
 
-const OFFEN: FLBewerbungBestaetigung = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
-const ABGELEHNT: FLBewerbungBestaetigung = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: "2026-09-04", zustellung: null };
+const OFFEN: FLBewerbungBestaetigung = {
+  verschickt_am: "2026-09-01",
+  erinnert_am: null,
+  abgelehnt_am: null,
+  zustellung: null,
+};
+const ABGELEHNT: FLBewerbungBestaetigung = { ...OFFEN, abgelehnt_am: "2026-09-04" };
 
 /** What the last message to a seat reached, as the provider's events leave it. */
 const zugestellt = (stand: FLBewerbungZustellstand): FLBewerbungBestaetigung => ({

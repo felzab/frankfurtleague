@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { createRequire, registerHooks } from "node:module";
+import { createRequire, registerHooks, setSourceMapsSupport } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,6 +8,9 @@ import { createElement } from "react";
 
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { replacingPackage } from "@/core/exportingModule.ts";
+
+import type * as NextError from "next/error";
 import type { ComponentType, ReactNode } from "react";
 import type * as TypeScript from "typescript";
 
@@ -83,6 +86,17 @@ const INERT_FONTS = `data:text/javascript,${encodeURIComponent(`const face = () 
 export { face as Anton, face as Inter, face as Raleway };`)}`;
 
 /*
+ `next/error` is CommonJS whose exports Node's static reader cannot see, so an ESM import of
+ `catchError` fails at link. The real function is handed on.
+*/
+const NEXT_ERROR = `data:text/javascript,${encodeURIComponent(replacingPackage("next/error", { catchError: (requireHere("next/error") as typeof NextError).catchError }))}`;
+
+// Here, not in every test process: the hook below compiles the only code carrying maps, and Node maps
+// only modules loaded after the call. `node_modules` stays unmapped for its CPU cost
+// (`.github/gate-wall-clock.tsv`).
+setSourceMapsSupport(true, { nodeModules: false });
+
+/*
  Registered as this module evaluates, which is why a component under test is reached with
  `await import` and never a static import beside this one (`docs/frontend/spec.md` §1.9).
 */
@@ -98,6 +112,11 @@ registerHooks({
     // Next's font loader runs only inside its own build, so each face loads as an inert one, as a
     // stylesheet does below: nothing a render here asserts is decided by a font.
     if (specifier === "next/font/google") return { url: INERT_FONTS, shortCircuit: true };
+    // The application's imports alone: these hooks answer a `require` too, and a package's own one
+    // of `next/error` takes more than `catchError`.
+    if (specifier === "next/error" && !(context.parentURL ?? "/node_modules/").includes("/node_modules/")) {
+      return { url: NEXT_ERROR, shortCircuit: true };
+    }
 
     return nextResolve(specifier, context);
   },
@@ -154,6 +173,25 @@ export type RefusalWrapper = {
 };
 
 const attributeOf = (tag: string, name: string): string | null => new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1] ?? null;
+
+/** The words speech input matches on: case and punctuation ignored, as WCAG 2.5.3's Understanding document states. */
+const spokenWords = (text: string): string[] =>
+  text
+    .toLocaleLowerCase("de")
+    .replace(/[\p{P}\p{S}]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+/**
+ * Whether `name` holds `label`'s words as one run, in order: the rule axe-core's `label-content-name-mismatch` reads,
+ * stricter than the criterion's text, which names words interspersed or reordered only as a potential future failure.
+ */
+function holdsLabelInName(name: string, label: string): boolean {
+  const wanted = spokenWords(label);
+  const held = spokenWords(name);
+
+  return held.some((_, from) => wanted.every((word, offset) => held[from + offset] === word)) || wanted.length === 0;
+}
 
 function closingDiv(html: string, from: number): number {
   const tags = /<div\b|<\/div>/g;
@@ -216,7 +254,7 @@ export function refusalWrappers(html: string): RefusalWrapper[] {
 
     // Refused here rather than left to each panel test: speech input finds the one tab stop by the words on screen
     // (WCAG 2.5.3), and every panel test reads its refusals through this reader. An icon-only control has no words.
-    if (!name.includes(words))
+    if (!holdsLabelInName(name, words))
       throw new Error(`a refusal named „${name}“ covers a control reading „${words}“, which its name does not contain`);
 
     return [

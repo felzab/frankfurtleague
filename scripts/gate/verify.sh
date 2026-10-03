@@ -316,6 +316,7 @@ do_cache_backend()  { export_image_cache backend fl_backend/Dockerfile fl_backen
 # later step assumes.
 do_prettier()   { ( cd fl_frontend && pnpm format:check ); }
 do_lockfile()   { ( cd fl_frontend && pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ); }
+do_peers()      { ( cd fl_frontend && pnpm peers check ); }
 do_typegen()    { ( cd fl_frontend && pnpm typegen ); }
 do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # Threads on a runner alone: it restores no eslint cache, so it pays the cold fill threads divide,
@@ -329,11 +330,10 @@ do_knip()       { ( cd fl_frontend && pnpm knip ); }
 do_unit_tests() {
   ( cd fl_frontend && NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }${VERIFY_TEST_SHARD:+--test-shard=$VERIFY_TEST_SHARD}" pnpm test )
 }
-# The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone. The type
-# pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
+# The builder's skipped validation, for `fl_frontend/Dockerfile`'s reason; on this command alone. The
+# type pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
 do_next_build() {
-  ( cd fl_frontend && SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder \
-      NEXT_TELEMETRY_DISABLED=1 SKIP_BUILD_TYPE_CHECK=true pnpm build )
+  ( cd fl_frontend && SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 SKIP_BUILD_TYPE_CHECK=true pnpm build )
 }
 
 # The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it
@@ -1048,6 +1048,26 @@ output is above." ;;
   fi
   ok "manifest and lockfile agree"
 
+  # `strictPeerDependencies` refuses an out-of-range peer only while an install resolves, and that
+  # failed install still writes the lockfile every frozen install accepts. This reads the installed
+  # tree, which the start-up dependency check holds to the committed lockfile.
+  step "frontend · pnpm  (every peer in range)"
+  PEERS_RC=0
+  quietly do_peers || PEERS_RC=$?
+  if (( PEERS_RC )); then
+    case "$QUIETLY_OUTPUT" in
+      *"Issues with peer dependencies found"*)
+        die "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it
+above. Move the app's own range of that package into the wanted one, then:  cd fl_frontend && pnpm install
+-- and commit the lockfile." ;;
+      # `refuse`, not `die`: naming no peer, the step cannot say the change needs work.
+      *)
+        refuse "pnpm stopped checking fl_frontend's peers for a reason this step does not read — its own
+output is above." ;;
+    esac
+  fi
+  ok "every peer in range"
+
   # A `FRONTEND_WRITERS` entry, for that list's reason.
   step "frontend · next typegen  (the ambient types tsc checks against)"
   run_writer typegen || die "next typegen failed — its own output is above."
@@ -1141,23 +1161,12 @@ written at the rule, never suppressed at this call site." \
   fi
 
   step "ops · compose files parse"
-  # Compose refuses to parse a file whose env_file is missing, so each stack is parsed from a
-  # scratch copy beside stand-in .envs -- never the real trees, which the backend, db and
-  # frontend scopes read while they run. The EXIT trap removes the scratch.
+  # A scratch copy, never the real trees, which the backend, db and frontend scopes read while they
+  # run. The EXIT trap removes the scratch.
   OPS_SCRATCH="$(mktemp -d)"
-  mkdir -p "${OPS_SCRATCH}/fl_backend" "${OPS_SCRATCH}/fl_frontend"
-  cp docker-compose.yml docker-compose.local.yml "${OPS_SCRATCH}/"
-  : > "${OPS_SCRATCH}/fl_backend/.env"
-  : > "${OPS_SCRATCH}/fl_frontend/.env"
-  # The local stack is the merge `scripts/ops/local.sh` runs, never docker-compose.local.yml alone,
-  # which is an override and no stack at all. `--output` rather than a redirect, so no text-mode
-  # stream writes the model; `--no-env-resolution` keeps every env_file's values out of it.
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --format json --no-env-resolution \
-    --output "${OPS_SCRATCH}/production.json" \
-    || die "docker-compose.yml does not parse."
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" -f "${OPS_SCRATCH}/docker-compose.local.yml" \
-    config --format json --no-env-resolution --output "${OPS_SCRATCH}/local.json" \
-    || die "docker-compose.local.yml does not merge over docker-compose.yml."
+  stage_compose_models "$OPS_SCRATCH"
+  render_compose_model "$OPS_SCRATCH" production || die "docker-compose.yml does not parse."
+  render_compose_model "$OPS_SCRATCH" local || die "docker-compose.local.yml does not merge over docker-compose.yml."
   ok "both stacks parse"
 
   # A parse accepts a published port and a database alike, so nothing else holds
@@ -1173,10 +1182,14 @@ written at the rule, never suppressed at this call site." \
     skip "this python is below the checkers' floor, so neither stack's exposure was judged"
   else
     run_checker stop "scripts/checks/check_compose_model.py" "A stack exposes more than its edge, mounts or starts the edge other
-than the deploy reads it, or trusts an address that is not the connector's. The findings above name
-the service and the rule: docs/ops/spec.md I1, I174, I355 or I18." \
+than the deploy reads it, trusts an address that is not the connector's, hands a service other
+environment files than the deploy judges, puts a service on another network than its own, hands a
+secret to a service that does not read it or from another file than its own, hands an application
+service other secret files than its schema reads, names a credential in a service's environment, or leaves a service
+a capability or a privilege it was not shown to need. The findings above name the service and the
+rule: docs/ops/spec.md I1, I174, I355, I18, I429, I430, I471, I472, I507, I508 or I509." \
       "$OPS_PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json"
-    ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it; production's edge trusts the connector alone"
+    ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it; either edge trusts the connector alone; each application service reads its package's environment file alone; only nginx shares a network with the connector or the application pair; each secret is held by the services that read it alone, from its own file, and no environment names one; each application service is handed every file its schema requires there and none it never reads; every service drops every capability, nginx adding back its master's four"
   fi
 
   step "ops · nginx accepts prod.conf"

@@ -770,6 +770,261 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
+# Each environment file reaches a service through compose and a dev server through that package's own
+# reader, which read four spellings differently (`docs/ops/spec.md :: I487`). Read as text before any
+# compose call; prints names and line numbers, never a value.
+check_env_spellings() { # $1 the file
+  local line number=0 name value IFS=' '
+  local -a wrong=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    number=$(( number + 1 ))
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    # A line no reader takes as NAME=value is compose's to refuse, which it does by name.
+    [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+    name="${BASH_REMATCH[2]}"; value="${BASH_REMATCH[3]}"
+    if [[ "$value" == *'$'* ]]; then
+      wrong+=("line ${number}: ${name} holds a \$, which each reader substitutes its own way")
+    elif [[ "$value" == '`'* ]]; then
+      wrong+=("line ${number}: ${name} opens with a backtick, which only Next's reader takes as a quote")
+    elif [[ "$value" == [\"\']* && "$value" == *\\* ]]; then
+      wrong+=("line ${number}: ${name} holds a backslash inside quotes, which each reader decodes its own way")
+    elif [[ "$value" != [\"\']* && ( "$value" == '#'* || "$value" =~ [^[:space:]]# ) ]]; then
+      wrong+=("line ${number}: ${name} holds a # with no space before it, where Next's reader alone ends the value")
+    fi
+  done < "$1"
+  if (( ${#wrong[@]} )); then
+    refuse "$1 holds a value its readers would not agree on, so the service and its dev server would
+each be handed a different one:
+$(printf '  %s\n' "${wrong[@]}")
+In a URL, a retired MONGODB_URI line among them, write the character percent-encoded (\$ as %24, # as
+%23); any other value, generate again without it. A trailing comment counts too: move it to a line of
+its own.
+NOTHING was asked of compose or of either service."
+  fi
+}
+
+# The actor token's signing key: where the host holds it, and where compose mounts it for the frontend
+# (`docs/ops/spec.md :: I472`). The file is read by the scripts that source this one.
+# shellcheck disable=SC2034
+SIGNING_KEY_FILE="secrets/fl_actor_signing_key"
+SIGNING_KEY_MOUNT="/run/secrets/fl_actor_signing_key"
+
+# The frontend's own reading of the key, by its own user (uid 1001, mode 400): `ACTOR_SIGNING_KEY_FILE`
+# over the default `$1`, as `fl_frontend/src/core/config.ts` reads it. Exit 3 names the fault, never
+# a value.
+# shellcheck disable=SC2016  # node's template literals
+ACTOR_KEY_CHECK='
+process.on("uncaughtException", (error) => { console.error(error.name); process.exit(4); });
+const { readFileSync } = require("node:fs");
+const { createPrivateKey, createPublicKey } = require("node:crypto");
+const { parseEnv } = require("node:util");
+const refuse = (line) => { console.error(line); process.exit(3); };
+const named = process.env.ACTOR_SIGNING_KEY_FILE;
+let pem;
+try { pem = readFileSync(named ?? process.argv[1]); } catch (error) {
+  if (named === undefined) refuse(`the signing key could not be read by the frontend user (${error.code})`);
+  refuse(`the frontend reads its signing key at ${JSON.stringify(named)}, which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there (${error.code}); the stack mounts the key at ${process.argv[1]}`);
+}
+let key;
+try { key = createPrivateKey(pem); } catch { refuse("the signing key file holds no private key in PEM"); }
+if (key.asymmetricKeyType !== "ed25519") refuse(`the signing key is ${key.asymmetricKeyType}, not Ed25519`);
+const published = parseEnv(readFileSync(0, "utf8")).ACTOR_TOKEN_PUBLIC_KEY;
+if (published === undefined) refuse("ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env");
+if (!/^[A-Za-z0-9_-]{43}$/.test(published) || Buffer.from(published, "base64url").length !== 32) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the base64url of 32 bytes");
+if (createPublicKey(key).export({ format: "jwk" }).x !== published) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key");
+'
+
+# The lines of `fl_backend/.env` the pair check is handed, as `node:util :: parseEnv` finds the name.
+PUBLIC_KEY_LINE_RE='^[[:space:]]*(export[[:space:]]+)?ACTOR_TOKEN_PUBLIC_KEY[[:space:]]*='
+
+# Before any container is replaced: a failing pair starts a build whose every admin and person call
+# the backend refuses. `$1` is what stands at the refusal; the rest runs the frontend service's
+# container as the stack starts it.
+check_actor_key() {
+  local standing="$1" rc=0 said="" lines=""; shift
+  # The public half alone: the rest of the file is the backend's database login and keys, which a
+  # frontend container never holds. grep's 1 is "no such line", the check's own finding below.
+  lines="$(grep -E "$PUBLIC_KEY_LINE_RE" fl_backend/.env)" || (( $? == 1 )) \
+    || refuse "fl_backend/.env could not be read for its ACTOR_TOKEN_PUBLIC_KEY line. grep's own reason is above.
+${standing}"
+  # MSYS_NO_PATHCONV: Git Bash rewrites the `/run/...` argument into a Windows path the container
+  # has never heard of, and the key reads as missing.
+  said="$(MSYS_NO_PATHCONV=1 "$@" node -e "$ACTOR_KEY_CHECK" "$SIGNING_KEY_MOUNT" <<<"$lines" 2>&1)" || rc=$?
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  if (( rc == 3 )); then
+    refuse "the actor token's key pair would not work, and the line above says why. Where it names
+ACTOR_SIGNING_KEY_FILE, delete that line from fl_frontend/.env; otherwise generate the pair again and
+put each half where docs/ops/runbooks.md §16 says.
+${standing}"
+  elif (( rc )); then
+    # An advisory, as each environment reader's is: the running stack never runs this check.
+    warn "the frontend image could not be asked to judge the actor token's key pair (exit ${rc}), so
+nothing here says whether the frontend can sign with it or the backend verify it. Its own answer is above."
+  else
+    ok "the frontend can read the actor token's signing key, and fl_backend/.env's ACTOR_TOKEN_PUBLIC_KEY is its public half"
+  fi
+}
+
+# --- The secret files ---------------------------------------------------------------------------------
+
+# The files under `secrets/` each stack mounts per service, held to the compose files by
+# `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; each image judges whether it can use
+# them. The signing key and the tunnel token are checked apart.
+# shellcheck disable=SC2034  # read by the scripts that source this file
+FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
+# shellcheck disable=SC2034  # read by the scripts that source this file
+BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+
+# The local stack sends no mail and is sent no provider event, so its frontend is handed no key to
+# the provider, and each login is an inline config naming the stack's own database
+# (`docker-compose.local.yml`).
+# shellcheck disable=SC2034  # read by the scripts that source this file
+LOCAL_FRONTEND_SECRETS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
+# shellcheck disable=SC2034  # read by the scripts that source this file
+LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+
+# The environment names those files replace. An image from before the files still reads them, so a
+# host keeps them until the release after the files runs healthy (`docs/ops/runbooks.md` §16).
+MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
+
+# By the list the image's own schema emitted, so a file a release starts requiring is asked for by
+# the build requiring it (`fl_frontend/scripts/check-environment-names.mjs`'s `--secret-files`). The
+# backend's files are its boot check's.
+check_frontend_secret_files() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
+  local standing="$1" rc=0 said=""
+  local -a flags=(--secret-files)
+  # Local sends no mail, so the schema demands its provider key of production alone.
+  if [[ "$2" == production ]]; then flags+=(--production); fi
+  shift 2
+  said="$("$@" frontend node check-environment-names.mjs "${flags[@]}" 2>&1)" || rc=$?
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  if (( rc == 3 )); then
+    refuse "the frontend container cannot use the secret files named above. Each is secrets/<name> on this
+host, owned and moded as docs/ops/runbooks.md §16 says: a missing one is written there, an unreadable
+one given that owner and mode, a blank one written again.
+${standing}"
+  elif (( rc )); then
+    # An advisory, as `check_actor_key`'s is: the running stack never runs this check, and an image
+    # older than the mode answers here.
+    warn "the frontend image could not be asked to read its secret files (exit ${rc}), so nothing here says
+whether it can. Its own answer is above."
+  else
+    ok "the frontend container reads every secret file its schema requires, and none is blank"
+  fi
+}
+
+# The backend's settings as its boot builds them: no other reader sees the files' values before the
+# recreate, and this is the backend's only check of its files. `get_config`, never the class, whose
+# refusal quotes the value.
+BACKEND_BOOT_CHECK='
+import sys
+
+try:
+    from app.core.config import EnvironmentValidationError, get_config
+except Exception as unavailable:
+    print(type(unavailable).__name__, file=sys.stderr)
+    raise SystemExit(4)
+
+try:
+    get_config()
+except EnvironmentValidationError as refusal:
+    print(refusal, file=sys.stderr)
+    raise SystemExit(3)
+except Exception as unexpected:
+    print(type(unexpected).__name__, file=sys.stderr)
+    raise SystemExit(4)
+'
+
+# `check_frontend_secret_files`' shape, the backend's program in place of the frontend's.
+check_backend_boot_config() { # $1 what stands at the refusal, the rest runs the backend's container
+  local standing="$1" rc=0 said=""
+  shift
+  said="$("$@" backend python -c "$BACKEND_BOOT_CHECK" 2>&1)" || rc=$?
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  if (( rc == 3 )); then
+    refuse "the backend refuses the settings its container would boot with, and the line above names what:
+a variable to correct in fl_backend/.env, or a file to write again under secrets/. No value is printed.
+${standing}"
+  elif (( rc )); then
+    warn "the backend image could not be asked to build its settings (exit ${rc}), so nothing here says
+whether it would boot. Its own answer is above."
+  else
+    ok "the backend builds its settings from its container's variables and secret files"
+  fi
+}
+
+# A moved name still in an environment file is read by nothing this release runs. The deploy warns,
+# a rollback's image reading the line; the local stack, restoring nothing, refuses. Names only, case
+# folded as the backend folds them.
+check_moved_names() { # $1 warn or refuse, $2.. the environment files
+  local verb="$1" file line name moved
+  local -a held found=()
+  shift
+  for file in "$@"; do
+    held=()
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*= ]] || continue
+      name="${BASH_REMATCH[2]}"
+      for moved in "${MOVED_ENV_NAMES[@]}"; do
+        if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
+      done
+    done < "$file"
+    if (( ${#held[@]} )); then found+=("${file}: ${held[*]}"); fi
+  done
+  (( ${#found[@]} )) || return 0
+  if [[ "$verb" == refuse ]]; then
+    refuse "these lines name a value this stack reads from secrets/ instead, and nothing reads them here:
+$(printf '  %s\n' "${found[@]}")
+Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
+  fi
+  warn "these lines name a value this release reads from secrets/ instead:
+$(printf '  %s\n' "${found[@]}")
+Keep them until this release runs healthy, for the image a rollback restores; then delete them
+(docs/ops/runbooks.md §16)."
+}
+
+# Compose loads a `.env` here unasked, for its `COMPOSE_*` settings and a bare `NAME` line's value:
+# a project name there aims every command, `down -v` included, at another stack. Named and never
+# read: one may hold credentials.
+refuse_compose_dotenv() {
+  [[ -e .env || -L .env ]] || return 0
+  refuse "a .env stands beside the compose files: ${PWD}/.env
+Compose loads it unasked, for its own settings and for any bare name in an environment file, and
+nothing in this repository writes or reads one. A line there can rename the compose project, which
+points every compose command at another stack's containers. Move it out of the checkout.
+NOTHING was asked of compose."
+}
+
+# --- The rendered compose models ----------------------------------------------------------------------
+
+# Every environment file the compose files name. Compose refuses to parse a stack whose file is
+# missing, and the real ones are never copied: each is replaced by a stand-in naming itself
+# (`scripts/checks/check_compose_model.py :: STAND_IN_READ`).
+COMPOSE_STAND_INS=(fl_backend/.env fl_frontend/.env)
+
+# One staging for the gate's ops scope and `nginx/edge_test.sh`, so a change to the files compose reads
+# reaches both. `$1` is an empty scratch directory.
+stage_compose_models() {
+  local directory="$1" env_file number=0
+  mkdir -p "${directory}/fl_backend" "${directory}/fl_frontend"
+  cp docker-compose.yml docker-compose.local.yml "${directory}/"
+  for env_file in "${COMPOSE_STAND_INS[@]}"; do
+    number=$(( number + 1 ))
+    printf 'FL_STAND_IN_READ_%s=%s\n' "$number" "$env_file" > "${directory}/${env_file}"
+  done
+}
+
+# `$2` is `production` or `local`, written to `$1/$2.json`. The local stack is the merge `local.sh` runs,
+# the override being no stack alone. `--output` keeps a text-mode stream off the model.
+render_compose_model() {
+  local -a files=(-f "$1/docker-compose.yml")
+  if [[ "$2" == local ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
+  # Never `--no-env-resolution`: Compose 2.38 ignores it and later releases honour it, so it would
+  # make the rendered environment depend on the release.
+  quietly docker compose "${files[@]}" config --format json --output "$1/$2.json"
+}
+
 # --- Redaction -------------------------------------------------------------------------------------
 
 # A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws

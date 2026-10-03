@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import mint_token
-from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse
+from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
     build_live_team_filter,
@@ -20,6 +20,8 @@ from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.services import withheld_actor
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.schemas import (
@@ -82,12 +84,22 @@ from app.core.dependencies import (
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import (
+    StepUpCheck,
+    bind_actor,
+    get_actor_email,
+    get_step_up_check,
+    verify_access_admin,
+    verify_actor_is_admin,
+    verify_step_up,
+)
+from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 
@@ -273,7 +285,7 @@ async def patch_team(
 
     # One transaction over every write here: a rename reaching some and not the rest leaves a season
     # disagreeing with itself. `with_transaction` is safe to retry, every write deriving from the payload.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(rename_and_fan_out)
 
 
@@ -322,7 +334,7 @@ async def delete_team(
 
     # The stamp inside the judgement's transaction: an entry writes nothing read here, so the club it
     # anchors (`app/api/teams/crud.py :: pull_a_club_to_enter`) is the one document the two conflict on.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(retire_the_club)
 
     return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
@@ -351,6 +363,7 @@ async def reactivate_team(
     status_code=201,
     summary="Enter a team into a season",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def post_saison_team(
     team_id: CustomRouteObjectId,
@@ -418,7 +431,7 @@ async def post_saison_team(
         # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
         # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
         # everything it judges.
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             entered = await session.with_transaction(enter_the_club)
 
     return FLSaisonTeamResponse(
@@ -504,7 +517,7 @@ async def patch_saison_team(
     with dropping_the_saison_cache():
         # One transaction, because a group change makes two writes: this row and the season the group's
         # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             existing_raw, updated_raw = await session.with_transaction(move_the_club)
 
     # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
@@ -539,18 +552,23 @@ async def patch_saison_team_kontakte(
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
 ) -> FLPatchSaisonTeamKontakteResponse:
     """
     Rewrite the three people this team is reached through for one season. Null clears the block.
 
     Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
-    refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served
+    rule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served
     beside the block, and a row whose block answers to another token is refused rather than
-    overwritten, an erasure between the caller's read and this write being what moves it. A `past`
-    season's contacts stay correctable. Each seat's `erfasst_von` and `bestaetigt_am` are the
-    server's: a seat the same address confirmed keeps both, and every other seat is stored as entered
-    administratively.
+    overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
+    which nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than
+    `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and
+    `bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat
+    is stored as entered administratively.
     """
+
+    if kontakte_data.kontakte is None:
+        refuse_unconfirmed()
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
     payload = kontakte_data.model_dump(mode="json")
@@ -586,7 +604,7 @@ async def patch_saison_team_kontakte(
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,
     # so a retry after a write conflict refuses on what the winner left rather than on a stale read.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(rewrite_the_block)
 
 
@@ -595,6 +613,7 @@ async def patch_saison_team_kontakte(
     response_model=FLReplaceSaisonTeamResponse,
     summary="Replace a club in a season, keeping its schedule",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def replace_saison_team(
     team_id: CustomRouteObjectId,
@@ -724,7 +743,7 @@ async def replace_saison_team(
     # One transaction over every write: a row handed over while its fixtures are not leaves the
     # season fielding a club that holds no place in it. `with_transaction` is safe to retry, the
     # callback re-reading everything it judges on.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(hand_the_row_over)
 
 
@@ -742,6 +761,7 @@ async def post_einladung(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungMintResponse:
@@ -760,6 +780,9 @@ async def post_einladung(
 
     **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
     administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
+
+    A mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
+    writes nothing; a team's first link is not.
     """
 
     # Outside the callback: `with_transaction` may run it again, and a fresh value per attempt would
@@ -780,12 +803,16 @@ async def post_einladung(
 
         # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
         # every team starts in, and the single-document helper answers that with a 404.
-        await patch_many_in_db(
+        widerrufen = await patch_many_in_db(
             collection=einladungen_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
             update=compose_widerruf_update(today=today),
             session=session,
         )
+        # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
+        # holds makes the mint a step-up write.
+        if widerrufen.modified_count:
+            refuse_unconfirmed()
 
         document = compose_einladung(
             saison_id=saison_id,
@@ -800,7 +827,7 @@ async def post_einladung(
 
     # One transaction over the revoke and the mint: `uniq_einladung_live` refuses the second live row
     # outright, so the two landing apart would leave the mint failing against the team's own old link.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         einladung_id = await session.with_transaction(mint_the_link)
 
     return FLEinladungMintResponse(
@@ -818,6 +845,7 @@ async def post_einladung(
     response_model=FLEinladungWriteResponse,
     summary="Revoke this team's live registration link for a season",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def delete_einladung(
     team_id: CustomRouteObjectId,
@@ -855,6 +883,7 @@ async def get_einladung(
     saison_id: str,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungResponse:
     """
@@ -862,7 +891,8 @@ async def get_einladung(
 
     **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
     of the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state
-    rather than a delivery failure.
+    rather than a delivery failure. The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred
+    address is served in plain.
 
     `laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
     the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
@@ -879,9 +909,17 @@ async def get_einladung(
         projection=WITHOUT_TOKEN_HASH,
     )
 
+    einladung = None
+    if live:
+        # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
+        erstellt_von = FLEinladung.model_validate(live[0]).erstellt_von
+        barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(erstellt_von)])
+        withheld = withheld_actor(erstellt_von, barred)
+        einladung = FLEinladungZeile.model_validate({**live[0], "erstellt_von": withheld, "erstellt_von_gesperrt": withheld is None})
+
     return FLEinladungResponse(
         saison_id=saison_id,
         team_id=team_id,
-        einladung=FLEinladung.model_validate(live[0]) if live else None,
+        einladung=einladung,
         laeuft=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
     )

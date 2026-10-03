@@ -111,7 +111,7 @@ const query = (href: string): URLSearchParams => new URLSearchParams(href.slice(
 
 describe("the contacts link the club list offers", () => {
   it("builds a link into the contacts list at all", () => {
-    assert.ok(HREF.startsWith("/admin/kontakte?"), `the menu links the contacts to ${HREF}`);
+    assert.ok(HREF.startsWith("/bereich/admin/kontakte?"), `the menu links the contacts to ${HREF}`);
     assert.equal(ROWS.length, 2, "the fixture no longer holds two clubs, so filtering proves nothing");
   });
 

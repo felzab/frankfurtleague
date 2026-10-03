@@ -38,10 +38,10 @@ PUBLIC_ACTOR_EMAIL = "PUBLIC"
 
 @dataclass(frozen=True)
 class Actor:
-    """Who a write is attributed to.
+    """Who a write is attributed to: `kind` names the binder, the backend authenticating a tier and never a person.
 
-    A sub-document, not a bare address: the backend authenticates a tier and never a person, so
-    `kind` records how strongly the identity is held. A stronger scheme later writes a different one.
+    `email` is an administrator's mailbox or a sentinel. A signed-in person is a `PersonActor`,
+    carrying no address.
     """
 
     kind: Literal["admin_session", "system", "public"]
@@ -49,6 +49,27 @@ class Actor:
 
     def as_document(self) -> dict[str, str]:
         return {"kind": self.kind, "email": self.email}
+
+
+# The Funktion a signed-in person's write was authorised under: a contact seat, a squad row or a
+# referee row, re-derived by the handler rather than taken from the request.
+AktorFunktion = Literal["kontakt", "spieler", "schiedsrichter"]
+
+
+@dataclass(frozen=True)
+class PersonActor:
+    """A signed-in person, recorded under a pseudonym and the Funktion the write was authorised under.
+
+    Never an address, not even in a field of another name: the log outlives the person's erasure in
+    every row they wrote (`app/core/security.py :: akteur_pseudonym`).
+    """
+
+    pseudonym: str
+    funktion: AktorFunktion
+    kind: Literal["person_session"] = "person_session"
+
+    def as_document(self) -> dict[str, str]:
+        return {"kind": self.kind, "pseudonym": self.pseudonym, "funktion": self.funktion}
 
 
 SYSTEM_ACTOR = Actor(kind="system", email=SYSTEM_ACTOR_EMAIL)
@@ -61,7 +82,7 @@ PUBLIC_ACTOR = Actor(kind="public", email=PUBLIC_ACTOR_EMAIL)
 # Set by `app/core/security.py :: bind_actor`, which every admin router depends on. The default is
 # the system actor rather than `None`, so a write outside a request records honestly instead of
 # needing a branch at each recording site.
-actor_var: ContextVar[Actor] = ContextVar("actor", default=SYSTEM_ACTOR)
+actor_var: ContextVar[Actor | PersonActor] = ContextVar("actor", default=SYSTEM_ACTOR)
 
 # Set by the same dependency. The route's METHOD and PATH are what let the page say "a team was
 # renamed" rather than "an update ran on `teams`", which the collection alone cannot distinguish.

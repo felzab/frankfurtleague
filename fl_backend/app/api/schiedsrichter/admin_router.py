@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import mint_token
-from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
@@ -41,11 +40,11 @@ from app.api.schiedsrichter.services import (
     find_retired_refusal,
     first_stamped,
     owes_reactivation_mint,
+    save_moves_the_link,
 )
-from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import (
     erase_many_from_db,
     insert_live,
@@ -60,9 +59,7 @@ from app.core.crud import (
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
-    SaisonsCollection,
     SchiedsrichterCollection,
-    SperrlisteCollection,
     SpieleCollection,
     get_german_date_str,
     get_germany_now,
@@ -70,13 +67,21 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
+from app.core.security import (
+    StepUpCheck,
+    bind_actor,
+    get_step_up_check,
+    verify_access_admin,
+    verify_actor_is_admin,
+    verify_step_up,
+)
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 
@@ -86,14 +91,13 @@ router = APIRouter(
     status_code=201,
     summary="Create a Schiedsrichter",
     responses={409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLPostSchiedsrichterResponse:
     """
@@ -111,20 +115,15 @@ async def post_schiedsrichter(
     raw_token, token_hash = mint_token()
     # Outside the transaction, whose callback may run again: the hash reads nothing, and the season
     # may be read before it (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    gehasht = adresse_hash(email, schluessel=config.sperrliste_schluessel)
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+    gehasht = sperrliste.hash_of(email)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def judge_and_create(session: AsyncClientSession) -> Any:
         """Ask the ban list, then write. The check is handed the transaction's session, so a retry re-asks it."""
 
         # The season stays `None` while no season is running, and the ban list is asked on the
         # hash alone, as the correction and the re-send ask it (`REQ-SCHIEDSRICHTER-007`).
-        gesperrt = await address_is_gesperrt(
-            sperrliste_collection=sperrliste_collection,
-            adresse_hash=gehasht,
-            massgebliche_saison_id=massgebliche_saison_id,
-            session=session,
-        )
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
         # Spelled at the call site rather than assembled above it, so
@@ -141,7 +140,7 @@ async def post_schiedsrichter(
 
     # ONE transaction over the judgement and the insert: a row written outside it would stand with a
     # live link an administrator was then told had been refused.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         post_operation = await session.with_transaction(judge_and_create)
 
     return FLPostSchiedsrichterResponse(
@@ -164,10 +163,9 @@ async def patch_schiedsrichter(
     schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
 ) -> FLPatchSchiedsrichterResponse:
     """
@@ -183,7 +181,8 @@ async def patch_schiedsrichter(
 
     **A RETIRED referee's corrected address is stored and mails nothing**: no consent is collected for
     a role nobody gives them. Their old link is retired all the same, and the reactivation mints the
-    fresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`.
+    fresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`. A save retiring or
+    replacing a link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
 
     The ghost answers 404 here as it does to every read: a name written onto it would appear on the
     fixtures of every referee already erased.
@@ -194,10 +193,10 @@ async def patch_schiedsrichter(
     # Minted before the judgement and discarded where none is owed: the raw half must never sit in
     # the same structure as the document, and random bytes cost nothing unused.
     raw_token, token_hash = mint_token()
-    gehasht = adresse_hash(email, schluessel=config.sperrliste_schluessel)
+    gehasht = sperrliste.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and read on every
     # save: whether a mint is owed is decided in-session below.
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def rename_and_fan_out(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
         # In-session, so the judgement below reads the address and the record this save replaces
@@ -208,17 +207,14 @@ async def patch_schiedsrichter(
             projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
             session=session,
         )
+        if save_moves_the_link(stored=stored, payload_email=email):
+            refuse_unconfirmed()
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, token_hash=token_hash, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
         # ban list is asked on the hash alone then (`REQ-SCHIEDSRICHTER-007`).
         if minted:
-            gesperrt = await address_is_gesperrt(
-                sperrliste_collection=sperrliste_collection,
-                adresse_hash=gehasht,
-                massgebliche_saison_id=massgebliche_saison_id,
-                session=session,
-            )
+            gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
             refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
         updated_document_raw = await patch_one_in_db(
@@ -244,7 +240,7 @@ async def patch_schiedsrichter(
     # One transaction: a rename landing on the referee and not on their fixtures is the stale copy
     # the fan-out exists to prevent. Every write derives from the payload and an in-session read,
     # so a `with_transaction` retry is safe.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         answer, re_minted = await session.with_transaction(rename_and_fan_out)
 
     if re_minted:
@@ -302,7 +298,7 @@ async def delete_schiedsrichter(
     # The stamp inside the judgement's transaction, so a booking committing after the read of the
     # fixtures conflicts on the referee it anchors rather than landing unseen
     # (`app/api/spiele/crud.py :: anchor_a_booked_referee`).
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         updated_document_raw = await session.with_transaction(retire_the_referee)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
@@ -317,10 +313,9 @@ async def delete_schiedsrichter(
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterReactivateResponse:
     """Clear `inactive_since`, putting the referee back into the picker and every default read.
@@ -329,7 +324,8 @@ async def reactivate_schiedsrichter(
     to mail: a retired referee's save stores a new address and mails nothing, so coming back is what
     asks them. A row holding no address a link can go to comes back unasked, and so does one whose
     person has answered. Where a link is minted, an address on the ban list is refused
-    `REQ-SCHIEDSRICHTER-007` and the row stays retired.
+    `REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than
+    `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
 
     The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
     person behind it.
@@ -337,7 +333,7 @@ async def reactivate_schiedsrichter(
 
     raw_token, token_hash = mint_token()
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def reactivate_and_ask(session: AsyncClientSession) -> tuple[Mapping[str, Any], str | None]:
         """Judged on the row as the transaction reads it, so a retry re-judges it."""
@@ -351,11 +347,9 @@ async def reactivate_schiedsrichter(
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
 
         if email is not None:
-            gesperrt = await address_is_gesperrt(
-                sperrliste_collection=sperrliste_collection,
-                adresse_hash=adresse_hash(email, schluessel=config.sperrliste_schluessel),
-                massgebliche_saison_id=massgebliche_saison_id,
-                session=session,
+            refuse_unconfirmed()
+            gesperrt = await hash_gesperrt(
+                sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session
             )
             refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
@@ -373,7 +367,7 @@ async def reactivate_schiedsrichter(
         return updated, email
 
     # One transaction, so a row never comes back with the link it was owed unminted.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         updated_document_raw, gemintet_fuer = await session.with_transaction(reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
@@ -389,14 +383,13 @@ async def reactivate_schiedsrichter(
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def einladen_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterMintResponse:
     """
@@ -420,7 +413,7 @@ async def einladen_schiedsrichter(
 
     raw_token, token_hash = mint_token()
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def judge_and_mint(session: AsyncClientSession) -> str:
         """Judge, then replace the block, and answer the address the link was minted for.
@@ -444,13 +437,8 @@ async def einladen_schiedsrichter(
 
         # Hashed inside the callback, where the ban endpoint hoists its own: the address is not known
         # until the read above, and the hash reads no document a retry could see differently.
-        gehasht = adresse_hash(str(email), schluessel=config.sperrliste_schluessel)
-        gesperrt = await address_is_gesperrt(
-            sperrliste_collection=sperrliste_collection,
-            adresse_hash=gehasht,
-            massgebliche_saison_id=massgebliche_saison_id,
-            session=session,
-        )
+        gehasht = sperrliste.hash_of(str(email))
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
         await patch_one_in_db(
@@ -465,7 +453,7 @@ async def einladen_schiedsrichter(
 
     # The address ANSWERED is the one read in-session above, never one the caller read before this
     # request: a save moving it in between would otherwise send the link to the previous mailbox.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         gemintet_fuer = await session.with_transaction(judge_and_mint)
 
     return FLSchiedsrichterMintResponse(
@@ -478,6 +466,7 @@ async def einladen_schiedsrichter(
     response_model=FLSchiedsrichterWriteResponse,
     summary="Anonymise a Schiedsrichter",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def anonymise_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -567,7 +556,7 @@ async def anonymise_schiedsrichter(
     # ONE transaction over all of it (`docs/backend/spec.md :: I42`): a referee deleted while a
     # fixture still names them strands that fixture, and one deleted while the log still holds their
     # details reports an erasure that did not happen.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         # `with_transaction` over a bare one -- the callback derives every write from the path id,
         # so a retry is safe.
         return await session.with_transaction(erase_the_referee)

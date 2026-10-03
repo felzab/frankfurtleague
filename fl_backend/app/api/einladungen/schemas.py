@@ -40,6 +40,15 @@ class FLEinladung(BaseModel):
     versand: FLEinladungVersand | None = None
 
 
+class FLEinladungZeile(FLEinladung):
+    """One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address."""
+
+    # Null exactly where `erstellt_von_gesperrt` is set, as the grants list withholds its actors
+    # (`docs/backend/spec.md :: I452`).
+    erstellt_von: CustomNonEmptyString | None
+    erstellt_von_gesperrt: bool
+
+
 class FLEinladungMintResponse(BaseAPIResponse):
     """A freshly minted registration link, and the only answer that ever carries its raw value.
 
@@ -74,7 +83,7 @@ class FLEinladungResponse(BaseAPIResponse):
     team_id: CustomObjectId
     # Null where the team holds none: a link is minted on a press, so holding none is the state
     # every team starts in.
-    einladung: FLEinladung | None
+    einladung: FLEinladungZeile | None
     # Composed here rather than derived by the reader, as `FLBewerbungFensterResponse` composes its
     # own: a link is live and opens nothing the moment the registration window shuts.
     laeuft: bool
@@ -88,7 +97,7 @@ class FLEinladungEmpfaenger(BaseModel):
     email: CustomNonEmptyString
 
 
-# Four ordinary states, a failure and an unknown: `erzeugung_fehlgeschlagen` says the league failed
+# Five ordinary states, a failure and an unknown: `erzeugung_fehlgeschlagen` says the league failed
 # that team and `erzeugung_ungewiss` that it cannot tell, and a surface words both apart from the
 # rest (`docs/backend/spec.md :: I282`).
 FLEinladungVersandGrund = Literal[
@@ -97,6 +106,7 @@ FLEinladungVersandGrund = Literal[
     "erzeugung_ungewiss",
     "kein_kontaktblock",
     "keine_bestaetigte_kontaktperson",
+    "kontakte_gesperrt",
     "bereits_gesendet",
 ]
 

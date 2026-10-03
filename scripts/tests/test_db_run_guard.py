@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 from typing import Final
 
-from conftest import BASH, base_env, lift_function, run_shell, write_shell
+from conftest import BASH, base_env, lift_assignment, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
@@ -78,16 +78,6 @@ A_COMPLETED_TAKEOVER: Final = "\n".join(
 )
 
 
-def _declaration(name: str) -> str:
-    """One `NAME="value"` line as verify.sh spells it, for a fixture that must not respell it.
-
-    A path derived here instead would agree with the gate only until one of the two moved.
-    """
-    found = re.search(rf'^{name}="[^"]*"$', VERIFY.read_text(encoding="utf-8"), re.MULTILINE)
-    assert found is not None, f"scripts/gate/verify.sh declares no {name} as one quoted value"
-    return found.group(0)
-
-
 def _run(body: str, marker: Path, *, lifted: tuple[str, ...] = CLAIM, trap: bool = False) -> tuple[int, str]:
     """One fixture shell: `_lib.sh`, the lifted claim, and the two variables it reads."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
@@ -99,7 +89,7 @@ def _run(body: str, marker: Path, *, lifted: tuple[str, ...] = CLAIM, trap: bool
             f'DB_RUN_DIR="{marker.as_posix()}"',
             # Read out of verify.sh and never spelled here: it is derived from the line above, so a
             # fixture naming its own would leave the gate's lock untested under a passing suite.
-            _declaration("DB_RUN_LOCK"),
+            lift_assignment(VERIFY, "DB_RUN_LOCK"),
             'DB_RUN_MARKER=""',
             "POOL_DIRS=()",
             'STEP_UNIT=""',
@@ -288,10 +278,8 @@ def test_the_claim_directory_sits_outside_every_checkout() -> None:
     clones on one machine.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    source = VERIFY.read_text(encoding="utf-8")
-    found = re.search(r'^DB_RUN_DIR="(?P<value>[^"]+)"$', source, re.MULTILINE)
-    assert found is not None, "scripts/gate/verify.sh must declare DB_RUN_DIR as one quoted value"
-    declared = found.group("value")
+    declared = lift_assignment(VERIFY, "DB_RUN_DIR").split("=", 1)[1].removeprefix('"').removesuffix('"')
+    assert declared, "scripts/gate/verify.sh declares DB_RUN_DIR empty"
     # The name as well as the directory: a claim keyed on the checkout's path is per checkout
     # wherever it is written.
     assert "REPO_ROOT" not in declared, declared

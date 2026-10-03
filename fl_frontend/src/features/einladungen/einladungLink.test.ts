@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { SITE_URL } from "@/core/brand.ts";
 import { redactedParameterNames } from "@/core/edgeRedaction.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
@@ -15,13 +15,9 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) {
-      return { format: "module", source: `export const frontend_config = { AUTH_URL: "${ORIGIN}" };`, shortCircuit: true };
-    }
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/config.ts": { frontend_config: { AUTH_URL: ORIGIN } },
   },
 });
 

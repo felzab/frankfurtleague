@@ -42,17 +42,16 @@ from app.api.teams.services import CLUB_RETIRED, RETIRE_BLOCKED
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests import documents
-from tests.config import build_test_config
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.isolation import COMMITTED, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_reference_isolation_test")
-
-CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
 
@@ -402,11 +401,10 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         ),
         schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
         spiele_collection=handles[Collection.SPIELE],
-        sperrliste_collection=handles[Collection.SPERRLISTE],
-        saisons_collection=handles[Collection.SAISONS],
+        sperrliste=ban_list(handles),
         db=client,
-        config=CONFIG,
         today=TODAY,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -562,30 +560,17 @@ REFUSING_RACES = [
 ERASURE_RACES = races(REFEREE_ROW, ERASE_THE_REFEREE, REFEREE_BOOKINGS)
 
 
-class RunningARivalMidWrite:
+class RunningARivalMidWrite(InterleavedCollection):
     """Never after this request writes here: a rival landing on a document it holds waits on its lock, while this request awaits the rival.
 
     After a read, once the request has judged it; before a write.
     """
 
-    def __init__(self, inner: Any, rival: Callable[[], Awaitable[None]]) -> None:
-        self._inner = inner
-        self._rival: Callable[[], Awaitable[None]] | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
-    async def run_the_rival(self) -> None:
-        # ONE-SHOT: the retry has to judge what the rival committed rather than run it again.
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            await rival()
-
     def find(self, *args: Any, **kwargs: Any) -> CursorRunningARivalAfterItsRead:
-        return CursorRunningARivalAfterItsRead(self._inner.find(*args, **kwargs), self)
+        return CursorRunningARivalAfterItsRead(self._collection.find(*args, **kwargs), self)
 
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._inner.find_one(*args, **kwargs)
+        found = await self._collection.find_one(*args, **kwargs)
         await self.run_the_rival()
 
         return found
@@ -593,7 +578,7 @@ class RunningARivalMidWrite:
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
         await self.run_the_rival()
 
-        return await self._inner.update_many(*args, **kwargs)
+        return await self._collection.update_many(*args, **kwargs)
 
 
 class CursorRunningARivalAfterItsRead:
@@ -634,8 +619,14 @@ def interleaved[Standing](
     rival: Write,
     standing: Callable[[AsyncDatabase], Awaitable[Standing]],
     spiele: list[dict[str, Any]] | None = None,
+    *,
+    serially: int | None,
 ) -> tuple[str, str | None, Standing]:
-    """What `under_test` and `rival` each answered, `rival` running to completion inside it at `hooked`: `None` for one that never ran."""
+    """What `under_test` and `rival` each answered, `rival` running to completion inside it at `hooked`: `None` for one that never ran.
+
+    `serially` is `tests/isolation.py :: InterleavedCollection.assert_landed_inside`'s, or `None` for two
+    writes that never conflict, whose arrivals no order changes.
+    """
 
     async def body() -> tuple[str, str | None, Standing]:
         async with a_clean_database(url, DATABASE_NAME) as (client, database):
@@ -647,6 +638,8 @@ def interleaved[Standing](
 
             hook = RunningARivalMidWrite(database[hooked], the_rival_lands)
             outcome = await outcome_of(under_test(client, {**handles, hooked: hook}))
+            if serially is not None:
+                hook.assert_landed_inside(serially=serially)
 
             return outcome, next(iter(rival_outcomes), None), await standing(database)
 
@@ -659,12 +652,16 @@ class RowsAnnouncingTheirAnchor:
     def __init__(self, inner: Any, reached: asyncio.Event) -> None:
         self._inner = inner
         self._reached = reached
+        # A second is the booking's retry once the rename let the row go, which a booking committing
+        # before the rename never makes.
+        self.anchors = 0
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
 
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
         self._reached.set()
+        self.anchors += 1
 
         return await self._inner.update_many(*args, **kwargs)
 
@@ -680,9 +677,11 @@ def booked_inside_the_rename(url: str, reference: Reference, booking: Write) -> 
             handles = await a_seeded_league(database, None)
             reached = asyncio.Event()
             bookings: list[asyncio.Task[str]] = []
+            rows: list[RowsAnnouncingTheirAnchor] = []
 
             async def start_the_booking() -> None:
-                announcing = {**handles, reference.collection: RowsAnnouncingTheirAnchor(database[reference.collection], reached)}
+                rows.append(RowsAnnouncingTheirAnchor(database[reference.collection], reached))
+                announcing = {**handles, reference.collection: rows[0]}
                 started = asyncio.create_task(outcome_of(booking(client, announcing)))
                 bookings.append(started)
                 anchor = asyncio.create_task(reached.wait())
@@ -692,8 +691,15 @@ def booked_inside_the_rename(url: str, reference: Reference, booking: Write) -> 
 
             hook = RunningARivalMidWrite(database[reference.copied_into], start_the_booking)
             rename_outcome = await outcome_of(reference.rename(client, {**handles, reference.copied_into: hook}))
+            booked = await bookings[0] if bookings else None
+            anchors = rows[0].anchors if rows else 0
+            if anchors < 2:
+                pytest.fail(
+                    f"the booking reached its anchor {anchors} times, as with the rename committed first: "
+                    "it never met the rename holding the row"
+                )
 
-            return rename_outcome, await bookings[0] if bookings else None, await reference.copies(database)
+            return rename_outcome, booked, await reference.copies(database)
 
     return on_the_seed_loop(body())
 
@@ -705,7 +711,9 @@ class TestARetirementLandingMidBookingIsJudgedAgain:
     def test_the_booking_is_refused_on_the_date_the_retirement_stamped(
         self, mongo_replica_set_url: str, reference: Reference, retirement: Retirement, booking: Booking
     ):
-        raced = interleaved(mongo_replica_set_url, booking.write, reference.collection, retirement.write, reference.standing, booking.spiele)
+        raced = interleaved(
+            mongo_replica_set_url, booking.write, reference.collection, retirement.write, reference.standing, booking.spiele, serially=2
+        )
 
         assert raced == (reference.refused_with, COMMITTED, (RETIRED_ON, False))
 
@@ -715,7 +723,9 @@ class TestARetirementLandingMidBookingIsJudgedAgain:
     ):
         """The other order of the erasure's race: the booking retries, finds no row at all, and is refused as any unknown id is."""
 
-        raced = interleaved(mongo_replica_set_url, booking.write, reference.collection, retirement.write, nothing_names_them, booking.spiele)
+        raced = interleaved(
+            mongo_replica_set_url, booking.write, reference.collection, retirement.write, nothing_names_them, booking.spiele, serially=1
+        )
 
         assert raced == (reference.refused_with, COMMITTED, (False, 0))
 
@@ -727,7 +737,9 @@ class TestABookingLandingMidRetirementIsJudgedAgain:
     def test_the_retirement_is_refused_on_the_booking_it_missed(
         self, mongo_replica_set_url: str, reference: Reference, retirement: Retirement, booking: Booking
     ):
-        raced = interleaved(mongo_replica_set_url, retirement.write, retirement.judged, booking.write, reference.standing, booking.spiele)
+        raced = interleaved(
+            mongo_replica_set_url, retirement.write, retirement.judged, booking.write, reference.standing, booking.spiele, serially=1
+        )
 
         assert raced == (retirement.refused_with, COMMITTED, (None, True))
 
@@ -737,7 +749,9 @@ class TestABookingLandingMidRetirementIsJudgedAgain:
     ):
         """The erasure refuses nothing: a booking landing inside it is repointed by the retry rather than left on a row that is gone."""
 
-        raced = interleaved(mongo_replica_set_url, retirement.write, retirement.judged, booking.write, erased_standing, booking.spiele)
+        raced = interleaved(
+            mongo_replica_set_url, retirement.write, retirement.judged, booking.write, erased_standing, booking.spiele, serially=2
+        )
 
         assert raced == (COMMITTED, COMMITTED, (False, GHOST_SCHIEDSRICHTER_ID))
 
@@ -779,7 +793,7 @@ class TestARenameLandingMidBookingIsCopiedAfterAll:
 
     @pytest.mark.parametrize(("reference", "booking"), RENAME_RACES)
     def test_the_booking_copies_the_name_the_rename_stored(self, mongo_replica_set_url: str, reference: Reference, booking: Write):
-        raced = interleaved(mongo_replica_set_url, booking, reference.collection, reference.rename, reference.copies)
+        raced = interleaved(mongo_replica_set_url, booking, reference.collection, reference.rename, reference.copies, serially=2)
 
         assert raced == (COMMITTED, COMMITTED, (reference.renamed, [reference.renamed]))
 
@@ -948,7 +962,13 @@ class TestAReopeningAndARetirementLandingInsideEachOther:
         """Landed after the reopening's first read of `hooked`, so the retirement judged the fixture still played."""
 
         raced = interleaved(
-            mongo_replica_set_url, reopening.write, hooked, retirement.write, reopening_of(slot, reopening.reopened), reopening.spiele(slot)
+            mongo_replica_set_url,
+            reopening.write,
+            hooked,
+            retirement.write,
+            reopening_of(slot, reopening.reopened),
+            reopening.spiele(slot),
+            serially=3,
         )
 
         assert raced == (COMMITTED, COMMITTED, standing)
@@ -973,6 +993,7 @@ class TestAReopeningAndARetirementLandingInsideEachOther:
             reopening.write,
             reopening_of(slot, reopening.reopened),
             reopening.spiele(slot),
+            serially=1,
         )
 
         assert raced == (retirement.refused_with, COMMITTED, standing)
@@ -1007,6 +1028,7 @@ class TestAReopeningAndARetirementLandingInsideEachOther:
             rival,
             erased_reopening_of(reopening.reopened),
             reopening.spiele(SCHIEDSRICHTER),
+            serially=3,
         )
 
         assert raced == (COMMITTED, COMMITTED, (False, GHOST_SCHIEDSRICHTER_ID, None))
@@ -1141,7 +1163,13 @@ class TestTwoSavesBookingOneRowAtOneHourAreJudgedAgainstEachOther:
         """Landed after the save's first read, which opens its snapshot: every read the clash is judged on comes after it."""
 
         raced = interleaved(
-            mongo_replica_set_url, under_test(slot), Collection.SPIELE, rival(slot), booked_hours_of(slot), clash_fixtures(slot)
+            mongo_replica_set_url,
+            under_test(slot),
+            Collection.SPIELE,
+            rival(slot),
+            booked_hours_of(slot),
+            clash_fixtures(slot),
+            serially=3,
         )
 
         assert raced == (FIXTURE_DOUBLE_BOOKED, COMMITTED, left_booked)
@@ -1176,7 +1204,9 @@ class TestALiftedNoShowAndABookingAtItsHourAreJudgedAgainstEachOther:
     @pytest.mark.parametrize("slot", SLOTS)
     def test_the_booking_judged_before_the_reopening_committed_is_refused_on_it(self, mongo_replica_set_url: str, slot: Slot):
         booking, standing = booked_an_hour_after_the_no_show(slot), booked_hours_beside(slot, SEMI_FINAL, "sonderereignis")
-        raced = interleaved(mongo_replica_set_url, booking, Collection.SPIELE, REOPENED_BY_AN_OVERTURN, standing, a_no_show_bracket(slot))
+        raced = interleaved(
+            mongo_replica_set_url, booking, Collection.SPIELE, REOPENED_BY_AN_OVERTURN, standing, a_no_show_bracket(slot), serially=3
+        )
 
         # The reopening's anchor alone: the refused booking's is rolled back with it.
         assert raced == (FIXTURE_DOUBLE_BOOKED, COMMITTED, ([(SEMI_FINAL_NR, "18:00:00")], None, 2))
@@ -1186,7 +1216,9 @@ class TestALiftedNoShowAndABookingAtItsHourAreJudgedAgainstEachOther:
         """The reopening refuses nothing, so the retry commits into the clash, which the queue then names (`docs/backend/spec.md :: I257`)."""
 
         booking, standing = booked_an_hour_after_the_no_show(slot), booked_hours_beside(slot, SEMI_FINAL, "sonderereignis")
-        raced = interleaved(mongo_replica_set_url, REOPENED_BY_AN_OVERTURN, Collection.SPIELE, booking, standing, a_no_show_bracket(slot))
+        raced = interleaved(
+            mongo_replica_set_url, REOPENED_BY_AN_OVERTURN, Collection.SPIELE, booking, standing, a_no_show_bracket(slot), serially=3
+        )
 
         # The booking's anchor, and the reopening's on the retry it forced.
         assert raced == (COMMITTED, COMMITTED, ([(SEMI_FINAL_NR, "18:00:00"), (LATER_SEMI_FINAL_NR, "19:00:00")], None, 3))
@@ -1230,6 +1262,7 @@ class TestASaveKeepingAClashingSlotAndANewClaimBesideItAreJudgedApart:
             booked_onto_the_third(slot),
             standing,
             a_clash_a_reopening_left(slot),
+            serially=None,
         )
 
         assert raced == (COMMITTED, FIXTURE_DOUBLE_BOOKED, NOTED_BESIDE_THE_CLASH)
@@ -1244,6 +1277,7 @@ class TestASaveKeepingAClashingSlotAndANewClaimBesideItAreJudgedApart:
             noted_on_the_first(slot),
             standing,
             a_clash_a_reopening_left(slot),
+            serially=None,
         )
 
         assert raced == (FIXTURE_DOUBLE_BOOKED, COMMITTED, NOTED_BESIDE_THE_CLASH)

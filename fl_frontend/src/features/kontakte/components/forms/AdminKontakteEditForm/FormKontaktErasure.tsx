@@ -16,6 +16,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 import { FormKontaktReveal } from "./FormKontaktReveal";
 
@@ -60,7 +61,7 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
  * and both collections. Confirmed in place, so the reader sees whose data it is.
  */
 export function FormKontaktErasure({ email, fullName, isDirty }: { email: string; fullName: string; isDirty: boolean }) {
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, isPending, press } = twoPress;
   const [gelesen, setGelesen] = useState<ErasureAnsicht | null>(null);
@@ -85,6 +86,8 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
     // somebody asks whom the address holds rather than on every render of the panel.
     if (!isConfirming) void readAnsicht();
 
+    // The seat goes empty with the person, so the seat's heading takes the focus.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await eraseKontaktpersonAction({ email }).catch(rejectedWrite(router));
@@ -96,6 +99,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
 
       /* The endpoint refuses nothing, so an address matching nobody succeeds and clears zero, and
          reporting that as „gelöscht“ would be a lie of the quiet kind. */
+      landing.landed();
       if (res.cleared === 0) appToast.warning("Nichts gefunden", { description: res.message });
       else appToast.success("Kontaktperson gelöscht", { description: res.message });
     });

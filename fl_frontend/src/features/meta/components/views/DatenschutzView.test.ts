@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
-import { ADMIN_WINDOW_HOURS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
+import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
+import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode.ts";
+import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
   BEWERBUNG_ERINNERUNG_TAGE,
@@ -17,7 +20,7 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 const { DatenschutzView } = await import("./DatenschutzView.tsx");
 // After the harness, as the view is: the module is `server-only`, which the harness stands in for.
-const { LINK_VALIDITY_MINUTES } = await import("@/core/authEmail.ts");
+const { CODE_VALIDITY_MINUTES } = await import("@/core/authEmail.ts");
 
 const MARKUP = renderMarkup(DatenschutzView, {});
 
@@ -40,6 +43,18 @@ const rendert = (absatz: string): void => assert.ok(ABSAETZE.includes(absatz), `
 const SEITE = worte(MARKUP);
 
 const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
+
+/**
+ * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
+ * has been misled by any edit that left the date standing.
+ */
+const FASSUNG = { stand: "28. September 2026", digest: "2784bca1be01df33b0053b28c3520778311c9c9b1d818cf94fcf2cf6c21dd0a1" } as const;
+
+/** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
+const wortlautDigest = (): string =>
+  createHash("sha256")
+    .update(SEITE.replace(/Stand: \d{1,2}\. \p{L}+ \d{4}/u, ""), "utf8")
+    .digest("hex");
 
 /* German writes a small count in words, so the notice states its clocks in words. This table is the
    case's own, never the view's, so a wrong word in the view's table fails rather than agreeing with itself. */
@@ -70,7 +85,12 @@ describe("the privacy notice's account of the association", () => {
   /* The „Stand“ is what a reader compares against the version they last read, so it moves with any
      change to this page and a stale one tells them there was none. */
   it("dates the notice to the day this wording landed", () => {
-    rendert("Stand: 24. September 2026");
+    rendert(`Stand: ${FASSUNG.stand}`);
+    assert.equal(
+      wortlautDigest(),
+      FASSUNG.digest,
+      "the notice's words changed: move constants.ts :: DATENSCHUTZ_STAND to the day they land, then FASSUNG to that day and this digest",
+    );
   });
 });
 
@@ -180,10 +200,28 @@ describe("the privacy notice's retention table", () => {
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
   });
 
-  it("gives a sign-in link its lifetime in words, at the constant the sign-in enforces", () => {
+  it("gives a sign-in code its lifetime in words, at the constant the sign-in enforces", () => {
     assert.ok(
-      ANGABEN.get("Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey")?.startsWith(
-        `Ein Anmeldelink gilt ${inWorten(LINK_VALIDITY_MINUTES)} Minuten und wird danach gelöscht;`,
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.startsWith(
+        `Ein Anmeldecode gilt ${inWorten(CODE_VALIDITY_MINUTES)} Minuten und wird danach gelöscht;`,
+      ),
+    );
+  });
+
+  it("names what it keeps of each passkey beyond the key itself", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
+        "Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst.",
+      ),
+    );
+  });
+
+  /* The rows counting an address's failed codes outlive the code by a day, and are told apart from
+     the address itself only by being keyed. */
+  it("says how long an address's failed codes are counted, at the constant the count keeps", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
+        `Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes eine Stunde lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse;`,
       ),
     );
   });
@@ -205,15 +243,22 @@ describe("the privacy notice states the sign-in's session figures at the constan
   const LEERLAUF = `${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt`;
   const VERWALTUNG = `${String(ADMIN_WINDOW_HOURS)} Stunden`;
 
+  // A person's two figures, never the library's one: the longest of all four is nobody's idle window.
   it("in the retention table", () => {
-    const zeile = ANGABEN.get("Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey") ?? "";
+    const zeile = ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey") ?? "";
+    const tage = (ms: number): string => String(ms / (24 * 60 * 60 * 1000));
 
-    assert.ok(zeile.includes(`Eine Sitzung läuft ab, wenn sie ${LEERLAUF} wurde; für die Verwaltung gilt sie höchstens ${VERWALTUNG}.`));
+    assert.ok(
+      zeile.includes(
+        `Eine Sitzung endet, wenn sie ${tage(PERSON_LIFETIME.idle)} Tage lang nicht genutzt wurde, spätestens aber ` +
+          `${tage(PERSON_LIFETIME.absolute)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${VERWALTUNG}.`,
+      ),
+    );
   });
 
   it("in the cookie section", () => {
     assert.ok(SEITE.includes(`Das Cookie selbst läuft ab, wenn die Sitzung ${LEERLAUF} wurde`));
-    assert.ok(SEITE.includes(`ob die Anmeldung nicht länger als ${VERWALTUNG} her ist`));
+    assert.ok(SEITE.includes(`für den Zugang zur Verwaltung nicht länger als ${VERWALTUNG}, und verlangen danach eine neue Anmeldung`));
   });
 });
 
@@ -268,7 +313,16 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
     statt: "Diese Website legt in Deinem Browser nur ab, was für ihren Betrieb notwendig ist:",
   },
   { weg: "Darüber hinaus speichern wir nichts in Deinem Browser", statt: "Darüber hinaus wird nichts in Deinem Browser abgelegt" },
-  { weg: "nach höchstens 90 Tagen", statt: `Eine Sitzung läuft ab, wenn sie ${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt wurde` },
+  {
+    weg: "nach höchstens 90 Tagen",
+    statt: `Das Cookie selbst läuft ab, wenn die Sitzung ${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt wurde`,
+  },
+  { weg: "Anmeldelink", statt: "Ein Anmeldecode gilt zehn Minuten und wird danach gelöscht" },
+  { weg: "Ein Sitzungs-Cookie für angemeldete Administratorinnen und Administratoren", statt: "Ein Sitzungs-Cookie für angemeldete Personen." },
+  {
+    weg: "Während eine Administratorin oder ein Administrator einen Passkey einrichtet",
+    statt: "Die Anmeldeseite setzt es schon beim Aufruf, damit Dein Browser Dir einen gespeicherten Passkey im Adressfeld anbieten kann",
+  },
   { weg: "Es findet keine automatisierte Entscheidungsfindung" },
   // The media-consent and Stufe refusals exist too, reachable only by a request no page sends.
   { weg: "Ohne einen Menschen weist die Website nur zweierlei zurück" },
@@ -286,6 +340,11 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   },
   { weg: "Aufwandsentschädigung", statt: "die Schule und das Honorar einer Schiedsrichterin oder eines Schiedsrichters" },
   { weg: "ohne eingetragene Adresse" },
+  // The per-address rows are written ahead of the send gate, so they count what was asked for, a stranger's asking included.
+  { weg: "versandte Codes", statt: "angeforderte Codes eine Stunde lang" },
+  // The passkey ceremony's row holds the account's id when the visitor is already signed in.
+  { weg: "einen Eintrag ohne Angaben zu Deiner Person", statt: "steht darin die Kennung Deines Kontos, sonst nichts über Dich" },
+  { weg: "solange der Zugang besteht", statt: "Adresse und Passkeys bleiben, solange das Konto besteht" },
   { weg: "Der Eintrag dazu nennt keine Person" },
   { weg: "Das gilt nicht, wenn Dein Eintrag als Schiedsrichterin oder Schiedsrichter schon gelöscht war" },
   { weg: "Alles davon ist unbedingt erforderlich", statt: "Was wir selbst ablegen, ist unbedingt erforderlich" },
@@ -349,10 +408,22 @@ describe("the privacy notice states the registration, referee-link and ban clock
     assert.ok(SEITE.includes(`bis die Sperre nach ${saisons} vollen Saisons endet`));
   });
 
-  // Held here because this file owns the count words: the create form's hint states the same
-  // length in a word too, and nothing else ties that word to the number.
-  it("gives the ban list's create form the same seasons, in the same word", () => {
+  /* A grant names a person of the administration twice, its holder and its granter, and the notice of a
+     change is a second record of both; each is kept only as long as it does its job. */
+  it("keeps a grant until it is revoked, and the notice of a change only until it is sent", () => {
+    assert.equal(
+      ANGABEN.get("Zugang zur Verwaltung: E-Mail-Adresse, Stufe, Datum und die Person aus der Verwaltung, die ihn erteilt hat"),
+      "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
+    );
+  });
+
+  // Held here because this file owns the count words: the create form's hint and the ban list's
+  // sidemenu note state the same length in a word too, and nothing else ties that word to the number.
+  it("gives the ban list's create form and its sidemenu note the same seasons, in the same word", () => {
     assert.ok(SPERRE_DAUER_HINWEIS.startsWith(`Die Sperre endet nach ${inWorten(SPERRE_DAUER_SAISONS)} vollen Saisons von selbst.`));
+
+    const sperrliste = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options).find((option) => option.id === "sperrliste");
+    assert.ok(sperrliste?.hint.note?.startsWith(`Eine Sperre endet nach ${inWorten(SPERRE_DAUER_SAISONS)} vollen Saisons von selbst`));
   });
 });
 
@@ -453,6 +524,26 @@ describe("the privacy notice's publication and retention rows keep their ruled b
         "Verwaltung nach der Prüfung aufheben. Ist der Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist " +
         "eine Grenze des Kaders und keine Entscheidung über Dich. Profiling findet nicht statt.",
     );
+  });
+
+  /* The granter's address on each grant outlives their own revoke and erasure (docs/datenschutz.md,
+     section 5), so the notice names it where it names what else an administrator's erasure leaves. */
+  it("keeps the granter's address on a grant past their own revoke and erasure, among the administrators' limits", () => {
+    rendert(
+      "Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des " +
+        "Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann " +
+        "einen Sinn, wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. " +
+        "Außerdem bleibt ihre E-Mail-Adresse bei jedem Registrierungslink eines Teams stehen, den sie angelegt haben; dieser Eintrag " +
+        "wird nicht gelöscht (Abschnitt 13). Wer einer Person Zugang zur Verwaltung erteilt hat, bleibt mit seiner E-Mail-Adresse an " +
+        "diesem Zugang vermerkt, auch nachdem der eigene Zugang entzogen oder die eigenen Daten gelöscht wurden; alle Personen mit " +
+        "Zugang zur Verwaltung sehen diesen Vermerk, solange der erteilte Zugang besteht.",
+    );
+  });
+
+  /* No write enforces it (`docs/datenschutz.md :: "One address is one person"`), so this sentence and
+     the forms' hints are all that make the assumption known to the person it binds. */
+  it("tells a person that their address stands for them alone and everything under it is their account's", () => {
+    rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
   });
 
   it("promises every erasure asked for an emptied action log", () => {

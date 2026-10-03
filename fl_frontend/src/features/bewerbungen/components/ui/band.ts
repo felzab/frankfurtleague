@@ -2,7 +2,7 @@ import { tv } from "tailwind-variants";
 
 /**
  * The shell every band in the slot wears — the application band, the landing page's contact band and
- * the Instagram invitation. Its own module, importing no query, so a client component can read it.
+ * the Instagram invitation.
  */
 export const band = tv({
   slots: {

@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
 
@@ -29,7 +29,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
 export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
-  runWithIncomingTrace(() => apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" })),
+  runAdminRead(() => apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" })),
 );
 
 /**

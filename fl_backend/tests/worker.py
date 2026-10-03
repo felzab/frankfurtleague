@@ -6,9 +6,9 @@ import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
 
-# `xdist/remote.py` sets this in every worker process; it is absent on a serial run and on the xdist
-# controller, where a bare name is already this process's alone.
-WORKER = os.environ.get("PYTEST_XDIST_WORKER", "")
+# xdist's own variable, never a setting: `xdist/remote.py` sets it in every worker process; it is
+# absent on a serial run and on the xdist controller, where a bare name is already this process's alone.
+WORKER = os.environ.get("PYTEST_XDIST_WORKER", "")  # noqa: TID251
 
 # Mongo's own, opened by the driver's handshake and by the fixtures' `ping`, `hello` and
 # `replSetInitiate`. No suite seeds through it, so exempting it costs the guard nothing.

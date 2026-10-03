@@ -4,9 +4,10 @@ import { mailboxKey } from "@/core/emailAddress";
 import { APINetworkError } from "@/core/errors";
 import { joinUnd } from "@/core/joinUnd";
 import { logger } from "@/core/logging";
-import { sendMail } from "@/core/mail";
+import { MailBarredError, MailWithheldError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { markOutcomeUnknown } from "@/core/requestScope";
+import { gesperrtSatz, ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 
 import { BEWERBUNG_SEATS } from "./constants";
 import { meldeZustellungAngenommen } from "./mutations";
@@ -56,11 +57,22 @@ export type BewerbungMailOutcome = {
   delivered: readonly string[];
   unreachable: readonly string[];
   /**
+   * The subset of `unreachable` this deployment filed rather than sent, as
+   * `fl_frontend/src/features/zustellung/notifications.ts :: ZielMailOutcome` carries it: outside
+   * production every address, and no address anybody could chase by hand.
+   */
+  withheld: readonly string[];
+  /**
    * The addresses whose send broke off unanswered, which the provider may have accepted: in neither
    * list above. The fan-out marks the request, and its spine answers it as of unknown outcome
    * (`docs/frontend/spec.md :: I366`).
    */
   ungewiss: readonly string[];
+  /**
+   * How many addresses the ban list kept the message from: in no list above, and a count rather than
+   * addresses, so nothing a caller reports can name one (`docs/frontend/spec.md :: I542`).
+   */
+  gesperrt: number;
 };
 
 /**
@@ -317,9 +329,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
 
       return sendMail({
         to: recipient.address,
-        subject: mail.subject,
-        html: mail.html,
-        text: mail.text,
+        ...mail,
         tags: sendung === undefined ? undefined : zustellungTags(sendung),
         idempotencyKey:
           sendung === undefined || auftrag?.idempotenzTag === undefined
@@ -331,7 +341,9 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
 
   const delivered: string[] = [];
   const unreachable: string[] = [];
+  const withheld: string[] = [];
   const ungewiss: string[] = [];
+  let gesperrt = 0;
   const gemeldet: Promise<void>[] = [];
 
   settled.forEach((result, index) => {
@@ -346,10 +358,22 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
       return;
     }
 
+    // Counted and nothing more: no failure line, the gate's own being the record, and no delivery
+    // state, which would store on the seat that its address is barred (`docs/frontend/spec.md :: I542`).
+    if (result.reason instanceof MailBarredError) {
+      gesperrt += 1;
+      return;
+    }
+
     if (result.reason instanceof APINetworkError) {
       ungewiss.push(address);
       markOutcomeUnknown();
     } else unreachable.push(address);
+    if (result.reason instanceof MailWithheldError) {
+      withheld.push(address);
+      // No failure line: the mailer's own records a filed message, and a deployment that mails nothing failed nothing.
+      return;
+    }
     // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
     // message and a stack, and the address stays off the stream (`docs/logging/spec.md :: L9`).
     logger.error("bewerbung.mail_failed", undefined, {
@@ -363,7 +387,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
   // visitor waits on, and each is independent of the others.
   await Promise.all(gemeldet);
 
-  return { delivered: delivered, unreachable: unreachable, ungewiss: ungewiss };
+  return { delivered: delivered, unreachable: unreachable, withheld: withheld, ungewiss: ungewiss, gesperrt: gesperrt };
 }
 
 /**
@@ -374,22 +398,34 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
  */
 export function describeBewerbungMail(
   betreff: BewerbungBetreff,
-  { delivered, unreachable }: Pick<BewerbungMailOutcome, "delivered" | "unreachable">,
+  { delivered, unreachable, withheld, gesperrt }: Pick<BewerbungMailOutcome, "delivered" | "unreachable" | "withheld" | "gesperrt">,
 ): string {
-  if (delivered.length === 0 && unreachable.length === 0) {
-    return `Die Bewerbung nennt keine E-Mail-Adresse, deshalb ging die ${betreff} an niemanden raus.`;
+  // A filed message is this deployment's, and no address an administrator could write to instead.
+  const verfehlt = unreachable.filter((address) => !withheld.includes(address));
+
+  if (delivered.length === 0 && verfehlt.length === 0 && withheld.length === 0) {
+    // Ahead of the empty application's sentence, which would send the reader looking for an address
+    // the application does hold.
+    return gesperrt > 0
+      ? `Die ${betreff} ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht.`
+      : `Die Bewerbung nennt keine E-Mail-Adresse, deshalb ging die ${betreff} an niemanden raus.`;
   }
+
+  // Beside whatever went: the shortfall is no failure for the reader to chase.
+  const nachSperre = gesperrt === 0 ? "" : ` ${gesperrtSatz(gesperrt)}`;
+
+  if (delivered.length === 0 && verfehlt.length === 0) return `${ZURUECKGEHALTEN}${nachSperre}`;
 
   // German counts nothing and one with words, never with a figure.
-  if (unreachable.length === 0) {
+  if (verfehlt.length === 0) {
     return delivered.length === 1
-      ? `Die ${betreff} ging an eine Kontaktperson.`
-      : `Die ${betreff} ging an ${String(delivered.length)} Kontaktpersonen.`;
+      ? `Die ${betreff} ging an eine Kontaktperson.${nachSperre}`
+      : `Die ${betreff} ging an ${String(delivered.length)} Kontaktpersonen.${nachSperre}`;
   }
 
-  const nichtErreicht = `Nicht erreicht wurden: ${unreachable.join(", ")}. Melde Dich selbst bei ihnen.`;
+  const nichtErreicht = `Nicht erreicht wurden: ${verfehlt.join(", ")}. Melde Dich selbst bei ihnen.`;
 
   return delivered.length === 0
-    ? `Die ${betreff} konnte niemandem zugestellt werden. ${nichtErreicht}`
-    : `Die ${betreff} ging raus. ${nichtErreicht}`;
+    ? `Die ${betreff} konnte niemandem zugestellt werden. ${nichtErreicht}${nachSperre}`
+    : `Die ${betreff} ging raus. ${nichtErreicht}${nachSperre}`;
 }

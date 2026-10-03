@@ -8,7 +8,7 @@
 
 # Matched by shape rather than inventory: a rule holds whether or not anything matches it now,
 # because a credential inside an image is a failure nobody sees until it ships. The containers
-# take their environment from compose's env_file at run time.
+# take their variables and secrets from compose when run.
 **/.env
 **/.env.*
 **/*.pem
@@ -19,7 +19,7 @@
 # a registry token in a shipped image is found too late.
 **/.npmrc
 # The mail sink a deployment that is not production writes into. Each file names a real
-# person and carries a live sign-in link, and `pnpm dev` writes it inside this context.
+# person and carries a live sign-in code, and `pnpm dev` writes it inside this context.
 **/.tmp-*
 
 # Reinstalled by the deps stage from the lockfile, and the host tree is built for another platform,

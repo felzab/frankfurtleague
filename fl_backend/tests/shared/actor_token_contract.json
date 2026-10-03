@@ -1,0 +1,12 @@
+{
+  "alg": "EdDSA",
+  "typ": "fl-actor+jwt",
+  "header": ["alg", "typ", "kid"],
+  "iss": "fl-frontend",
+  "aud": "fl-backend",
+  "lifetime_s": 60,
+  "claims": ["iss", "aud", "iat", "exp", "jti", "sub", "email", "sid", "amr", "auth_time", "lane"],
+  "lanes": ["admin", "person"],
+  "factors": ["passkey", "code"],
+  "admin_factor": "passkey"
+}

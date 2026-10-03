@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 
@@ -22,20 +21,6 @@ import type { ActionResult } from "@/shared/types/types.ts";
 
 /** Every write held unanswered: each case below asserts that none was sent at all. */
 const { calls } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
-
-/* `next/error` is CommonJS whose exports Node's static reader cannot see, so the sign-in card's ESM import
-   of `catchError` fails at link. The shim hands on the real function rather than a stand-in. */
-const NEXT_ERROR_INTEROP = `import { createRequire } from "node:module";
-export const { catchError } = createRequire(${JSON.stringify(import.meta.filename)})("next/error");`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    // Narrowed to the card: the shim's own `require` has to reach the real module.
-    if (specifier === "next/error" && (context.parentURL ?? "").endsWith("/SignInForm.tsx"))
-      return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
 
 doubleToasts();
 
@@ -126,13 +111,13 @@ const kontakt = (vorname: string, email: string) => ({
    skips the shared block posts whatever it holds and learns the rules from the server. Each form below is
    pressed nowhere else. */
 describe("a public or single-purpose form's press over a draft its schema refuses", () => {
-  it("the sign-in card sends no link for an empty address", async () => {
+  it("the sign-in card sends no code for an empty address", async () => {
     const user = userEvent.setup();
     const { SignInForm } = await import("@/features/auth/components/forms/SignInForm.tsx");
-    render(h(SignInForm));
+    render(h(SignInForm, { next: "/signin/weiter" }));
     calls.length = 0;
 
-    await user.click(screen.getByRole("button", { name: "Link senden" }));
+    await user.click(screen.getByRole("button", { name: "Code senden" }));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
     assert.deepEqual(
@@ -140,6 +125,39 @@ describe("a public or single-purpose form's press over a draft its schema refuse
       [],
       "the empty address was sent",
     );
+  });
+
+  it("a passkey card's rename sends no name for an emptied box", async () => {
+    const user = userEvent.setup();
+    const { PasskeyKarteView } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
+    const RENAME = mock.fn(async (_id: string, _name: string, _gelandet: () => void) => {});
+    render(
+      h(
+        "ul",
+        null,
+        h(PasskeyKarteView, {
+          karte: {
+            id: "p1",
+            name: null,
+            anbieter: null,
+            eingerichtetAm: "2026-09-01T08:00:00.000Z",
+            zuletztVerwendetAm: null,
+            diesesGeraet: false,
+          },
+          reason: null,
+          istLetzter: false,
+          onRemove: () => Promise.resolve(),
+          onRename: RENAME,
+        }),
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Passkey vom 1. September 2026 umbenennen" }));
+    await user.clear(screen.getByRole("textbox", { name: "Name" }));
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    assert.equal(RENAME.mock.callCount(), 0, "the emptied name was sent");
   });
 
   it("the contact's confirmation panel sends no confirmation without a birth date", async () => {
@@ -264,6 +282,7 @@ const OTHER_FORMS = [
   "features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
   "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
   "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx",
+  "features/passkeys/components/ui/PasskeyKarteView.tsx",
   "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
   "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
   "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",

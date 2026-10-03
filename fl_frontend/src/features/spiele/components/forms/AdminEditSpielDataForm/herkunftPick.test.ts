@@ -313,7 +313,7 @@ describe("the editor's section pickers", () => {
 
     for (const name of ["team1.team_id", "team2.team_id", "ort.spielort_id", "schiedsrichter.schiedsrichter_id"]) {
       const control = host.querySelector(`[name="${name}"]`) ?? assert.fail(`the editor renders no ${name} picker`);
-      assert.equal(control.closest('[data-required="true"]'), null, `the ${name} picker is marked required`);
+      assert.ok(control.closest('[data-required="true"]') === null, `the ${name} picker is marked required`);
     }
   });
 });

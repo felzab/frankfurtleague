@@ -14,7 +14,7 @@ import type { Metadata } from "next";
  */
 export const metadata: Metadata = {
   title: "Anmeldung",
-  description: "Anmeldung zur Verwaltung der Frankfurt League.",
+  description: "Anmeldung bei der Frankfurt League.",
   robots: { index: false, follow: false },
   openGraph: openGraphFor("/signin/weiter"),
   alternates: { canonical: "/signin/weiter" },
@@ -36,6 +36,6 @@ async function AnmeldungWeiterInhalt() {
   await connection();
 
   // The one decision this page renders, and it decides none of it: the passkey requirement and the
-  // three lifetimes are judged per request in the guard `getSignInDestination` asks.
+  // session lifetimes are judged per request in the guard `getSignInDestination` asks.
   return redirect(await getSignInDestination());
 }

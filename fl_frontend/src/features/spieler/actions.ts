@@ -126,7 +126,7 @@ export async function reactivateSpielerAction(
  * deliberately keeps no image of them.
  */
 export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Promise<ActionResult<{ erasure?: FLSpielerErasureResponse }>> {
-  return runAdminMutation("eraseSpielerAction", async () => {
+  return runAdminMutation("eraseSpielerAction", { stepUp: true }, async () => {
     const validated = FLEraseSpielerPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

@@ -30,14 +30,14 @@ from app.core.constraints import UNIQUE_INDEXES
 from app.core.dependencies import DB
 from app.core.exception_handlers import duplicate_key_exception_handler, refused_codes
 from app.core.exceptions import DUPLICATE_KEY
-from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, build_test_config
+from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
     COLLECTION_ARGUMENT_SUFFIX,
+    DRIVER_WRITES,
     WRITE_HELPERS,
     Declaration,
     api_routes,
@@ -53,23 +53,6 @@ from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
 CRUD = APP_ROOT / "core" / "crud.py"
-
-# The driver's own writes, on a collection a module holds rather than through `app/core/crud.py`.
-DRIVER_WRITES = frozenset(
-    {
-        "bulk_write",
-        "delete_many",
-        "delete_one",
-        "find_one_and_delete",
-        "find_one_and_replace",
-        "find_one_and_update",
-        "insert_many",
-        "insert_one",
-        "replace_one",
-        "update_many",
-        "update_one",
-    }
-)
 
 BULK_INSERT = "post_many_to_db"
 KEY_WRITES = WRITE_HELPERS | {
@@ -415,7 +398,7 @@ def _posted_twice(uri: str, payload: Mapping[str, Any]) -> tuple[Response, Respo
     async def _both() -> tuple[Response, Response]:
         config = build_test_config().model_copy(update={"db_base_name": DUPLICATE_SEASON_DATABASE})
         async with app_client(uri, config=config) as http:
-            headers = {**ADMIN_AUTH, ACTOR_HEADER: "admin@example.com"}
+            headers = ADMIN_AUTH
             first = await http.post(SAISONS, json=dict(payload), headers=headers)
             second = await http.post(SAISONS, json=dict(payload), headers=headers)
             return first, second
@@ -424,12 +407,14 @@ def _posted_twice(uri: str, payload: Mapping[str, Any]) -> tuple[Response, Respo
 
 
 @pytest.mark.db
-def test_a_season_created_twice_answers_the_published_duplicate_key(mongo_url: str, saison):
+def test_a_season_created_twice_answers_the_published_duplicate_key(mongo_replica_set_url: str, saison):
     """The `_id` index refuses the second create, which no index `UNIQUE_INDEXES` lists would."""
 
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_replica_set_url)
     try:
-        a_clean_database_sync(client, mongo_url, DUPLICATE_SEASON_DATABASE)
+        a_clean_database_sync(client, mongo_replica_set_url, DUPLICATE_SEASON_DATABASE)[Collection.BERECHTIGUNGEN].insert_many(
+            grants_for_the_suite()
+        )
     finally:
         client.close()
 
@@ -442,7 +427,7 @@ def test_a_season_created_twice_answers_the_published_duplicate_key(mongo_url: s
         "bewerbung": {"offen": True, "von": "2025-11-01", "bis": "2025-12-15"},
         "registrierung": {"offen": False, "von": "2026-01-05", "bis": "2026-02-05"},
     }
-    first, second = _posted_twice(mongo_url, payload)
+    first, second = _posted_twice(mongo_replica_set_url, payload)
 
     assert first.status_code == 201, first.json()
     assert (second.status_code, second.json()["error_code"]) == (int(CONFLICT), DUPLICATE_KEY)

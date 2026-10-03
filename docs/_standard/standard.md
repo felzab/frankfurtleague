@@ -285,7 +285,8 @@ every file this Scope names.
   bound: a header still over it once every surviving sentence has an answer is holding a fact that
   belongs at a lower rung, and that fact moves (COR-14).
   `scripts/checks/docs_gate/kernel.py :: comment_runs` skips a leading run of comment lines, and it
-  finds one only where the file's first non-blank line below any shebang begins with a marker.
+  finds one only where the file's first non-blank line below any shebang and any tool directive
+  begins with a marker; a directive line ends that run as it ends any block (INC-9).
   **Whether it does is a property of the file and never of its tree**, so what carries a header is
   named by that test rather than listed (COR-4): a hook, a `.githooks/` file, a Dockerfile, a
   `.dockerignore`, an nginx configuration, a compose file, a workflow and a manifest each open
@@ -319,8 +320,10 @@ every file this Scope names.
   an unmarked path is how a dead one survives a green gate. A roadmap id, a review reference and an
   issue number are narrower:
   `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added comments
-  in `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so none of the three is caught
-  in a Dockerfile, a workflow, an nginx configuration or a manifest. Naming the issue-number shape
+  alone, though in every kind those two registers select, a Dockerfile, a workflow and a manifest
+  among them, and it takes an issue number spelled with a hash, or of three digits or more after a
+  tracker's word, "issue" or "pull request" or "PR" in any case, spaced, hyphened or followed by a
+  colon, "no." or "number". Naming the issue-number shape
   to ban it is a mention rather than a use, and is written in double quotes — straight or curly —
   which that reader spares; backticks spare nothing there, a number marked up as code reading as a
   citation of it. A hex colour named in a comment takes those quotes too, the punctuation that makes
@@ -352,12 +355,16 @@ every file this Scope names.
   comment, symbol doc and test docstring alike, so it cannot be avoided by moving a paragraph from
   beside a symbol to above it; an opening block is skipped here as a module header and keeps INC-2's
   bound instead exactly where INC-2's scope admits the kind, and is an ordinary block under this rule
-  in every other kind. **The bound does not reach a docstring the API publishes** (INC-4), which is a
+  in every other kind; a comment above the header, such as one over a Python module's docstring, is
+  no part of the header and an ordinary block too. **The bound does not reach a docstring the API publishes** (INC-4), which is a
   contract read by someone with no code open and so not this rung at all (COR-14); every other
   docstring is a block like any other. **A blank line separates two runs of line comments, or the
   checker reads them as one block**: a bare `#` between them joins the run rather than ending it,
   and a formatter can delete the blank line inside an argument list, so a two-paragraph comment
-  moves above the statement, where the break survives. **A docstring is one block whatever blank
+  moves above the statement, where the break survives. **A tool's directive on a line of its own is
+  a block alone**, in the forms `scripts/checks/docs_gate/kernel.py :: TOOL_DIRECTIVES` names: its
+  reason is held to the bound by itself and never charged to the prose above it, so no blank line
+  parts that prose from the line it describes. **A docstring is one block whatever blank
   lines it holds**, its paragraphs joined before the count, and so is a TypeScript `/** … */` doc
   comment, which a blank line cannot part either: the blank would detach it from the declaration
   beneath it, which is the whole of what a doc comment is. Two independent constraints inside either
@@ -413,7 +420,8 @@ README and every template.
   `3. Violation → remedy`; and `4. Known-open`. The invariant table is three columns — the number,
   the invariant, and what enforces it. Numbers are `I<n>` on a surface sheet and `L<n>` on the
   logging sheet, permanent and
-  never reused; **the `I<n>` band is one namespace across every sheet at `docs/*/spec.md`** — OUT-8's
+  never reused once on `main`: a number a branch retires before merging was never issued, and the
+  branch reuses it, since its allocation runs without a gap; **the `I<n>` band is one namespace across every sheet at `docs/*/spec.md`** — OUT-8's
   three surfaces, the pipeline sheet and the logging sheet, which is the set
   `scripts/checks/docs_gate/branch.py :: _spec_sheet` reads — so a new row takes one past the highest
   number any sheet defines and a citation crossing sheets still names its

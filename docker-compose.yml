@@ -5,8 +5,8 @@
 # that, because a server that builds is a server that can fail a build with the site down.
 #
 # Invariants:
-# - The host publishes NOTHING. Every service is reachable only from inside `frankfurtleague-net`,
-#   the connector included, so anything nginx does not route does not exist for the internet. A
+# - The host publishes NOTHING. Every service is reachable only over the stack's own networks, the
+#   connector included, so anything nginx does not route does not exist for the internet. A
 #   `ports:` entry anywhere removes that silently (`docs/ops/spec.md :: I1`).
 # - One package per service; the two images are never merged into one (`.claude/CLAUDE.md` §7, images).
 # - The base of the local stack too: `./scripts/ops/local.sh` merges docker-compose.local.yml over
@@ -25,14 +25,36 @@ x-logging: &default-logging
 
 services:
   frontend:
+    # The package's file alone, the one the deploy's readers judge as the container is handed it
+    # (`scripts/checks/check_compose_model.py :: env_files`).
     env_file: ./fl_frontend/.env
     # A moving tag, on each package's image below: `publish.yml` re-points it at every publish, so
     # `deploy.sh` with no argument means the newest published image. A rollback pins the immutable
     # `:sha-<commit>` instead. Both packages are public, so neither pull needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
+    # Past a request's bound and the work behind its answer, both of which Next's server waits out on a
+    # stop: killed sooner, a write or a mail already sent answers as a dropped connection
+    # (`docs/ops/spec.md :: I547`).
+    stop_grace_period: 61s
+    # The signing key is this service's alone: a holder of it mints any actor the backend trusts
+    # (`docs/ops/spec.md :: I472`).
+    secrets:
+      - fl_actor_signing_key
+      - frontend_mongodb_uri
+      - auth_secret
+      - auth_resend_key
+      - resend_webhook_secret
+      - internal_api_key_base
+      - internal_api_key_system
+      - internal_api_key_admin
+    # The group owning the three internal keys, which the backend's user reads too: compose hands a
+    # file secret over with the host file's owner and mode and ignores `uid`, `gid` and `mode`
+    # (`docs/ops/spec.md` §1.2).
+    group_add:
+      - "1003"
     networks:
-      - frankfurtleague-net
+      - frankfurtleague-app
     logging: *default-logging
     # The container needs no elevated capability at any point: it serves HTTP as a non-root user.
     security_opt:
@@ -40,9 +62,10 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      # A static asset, not a page: it proves the server is answering without rendering a route or
-      # touching the backend. `--spider` issues a HEAD, so nothing is downloaded.
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/favicon.ico"]
+      # A static asset, not a page: the server answers without rendering a route or touching the
+      # backend. The image's own Node sends the HEAD, because Debian slim ships no wget or curl.
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/favicon.ico',{method:'HEAD'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -66,11 +89,25 @@ services:
           memory: "512M"
 
   backend:
+    # The frontend's reason.
     env_file: ./fl_backend/.env
     image: ghcr.io/felzab/frankfurtleague-backend:latest
     restart: unless-stopped
+    # Past uvicorn's own graceful wait (`fl_backend/Dockerfile :: CMD`), which the engine's 10 s
+    # default falls short of: killed sooner, a request still inside its bound sends no abort
+    # (`docs/ops/spec.md :: I540`).
+    stop_grace_period: 12s
+    # The frontend's reason, and its group for the three internal keys.
+    secrets:
+      - backend_mongodb_uri
+      - sperrliste_schluessel
+      - internal_api_key_base
+      - internal_api_key_system
+      - internal_api_key_admin
+    group_add:
+      - "1003"
     networks:
-      - frankfurtleague-net
+      - frankfurtleague-app
     logging: *default-logging
     security_opt:
       - no-new-privileges:true
@@ -127,9 +164,26 @@ services:
       - ./nginx/shared:/etc/nginx/shared:ro
       - ./certs:/etc/nginx/certs:ro
       - /var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx
+    # The one service on both: it takes the connector's requests on the first and proxies them on
+    # the second.
     networks:
       - frankfurtleague-net
+      - frankfurtleague-app
     logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    # Each one added back is one the master, starting as root, fails to start without
+    # (`docs/ops/spec.md` §1.1). No NET_BIND_SERVICE: Docker lets every user bind below 1024.
+    cap_drop:
+      - ALL
+    cap_add:
+      # Handing the workers its temp directories.
+      - CHOWN
+      # Becoming the workers' user.
+      - SETUID
+      - SETGID
+      # Opening its logs: the deploying user owns their directory, and root is no owner there.
+      - DAC_OVERRIDE
     # `service_healthy`, not just `service_started`: an nginx starting from nothing must not accept
     # traffic before both upstreams answer. A deploy does not pass through here, recreating the
     # application pair alone, so this governs a cold start.
@@ -179,21 +233,48 @@ services:
     depends_on:
       - nginx
 
-# The connector's credential as a file the host provides, never a value in this document.
-# `.gitignore` already keeps `secrets/` uncommittable, and `deploy.sh`'s preflight refuses the
-# deploy by name where the file is missing.
+# Each a file the host provides, never a variable: `docker inspect` prints an environment and never a
+# mount's contents. One name on the host, at `/run/secrets/` and in development, so the two database
+# logins take two (`docs/ops/spec.md :: I508`).
 secrets:
   tunnel_token:
     file: ./secrets/tunnel_token
+  fl_actor_signing_key:
+    file: ./secrets/fl_actor_signing_key
+  frontend_mongodb_uri:
+    file: ./secrets/frontend_mongodb_uri
+  backend_mongodb_uri:
+    file: ./secrets/backend_mongodb_uri
+  auth_secret:
+    file: ./secrets/auth_secret
+  auth_resend_key:
+    file: ./secrets/auth_resend_key
+  resend_webhook_secret:
+    file: ./secrets/resend_webhook_secret
+  sperrliste_schluessel:
+    file: ./secrets/sperrliste_schluessel
+  internal_api_key_base:
+    file: ./secrets/internal_api_key_base
+  internal_api_key_system:
+    file: ./secrets/internal_api_key_system
+  internal_api_key_admin:
+    file: ./secrets/internal_api_key_admin
 
-# A single user-defined bridge. Containers resolve each other by service name -- `http://backend:8000`
-# and `http://frontend:3000` in nginx/prod/prod.conf are these names, not hosts.
+# Two user-defined bridges, joined by nginx alone (`docs/ops/spec.md :: I471`). Containers resolve each
+# other by service name on a network they share -- `http://backend:8000` and `http://frontend:3000` in
+# nginx/shared/site.conf are these names, not hosts.
 networks:
+  # The connector's and nginx's. Its name is the one a running stack already has: a network renamed
+  # under the same subnet fails the deploy's `up` with `Pool overlaps` while the old one holds it.
   frankfurtleague-net:
     driver: bridge
-    # Declared rather than left to the daemon: `nginx/prod/prod.conf :: set_real_ip_from` trusts the
+    # Declared rather than left to the daemon: `nginx/shared/http.conf :: set_real_ip_from` trusts the
     # connector by address, and a bridge subnet the daemon picks differs per host, silently
     # returning every request to the fail-open path.
     ipam:
       config:
         - subnet: 172.30.0.0/24
+  # nginx's and the application pair's. Its subnet is the daemon's to pick: nothing trusts an address
+  # on it.
+  frankfurtleague-app:
+    driver: bridge

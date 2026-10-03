@@ -43,6 +43,15 @@ class FLSperrlisteEintrag(BaseModel):
     gesperrt_bis_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
+class FLSperrlisteZeile(FLSperrlisteEintrag):
+    """One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too."""
+
+    # Null exactly where `erstellt_von_gesperrt` is set, as the grants list withholds its actors
+    # (`docs/backend/spec.md :: I452`).
+    erstellt_von: CustomNonEmptyString | None
+    erstellt_von_gesperrt: bool
+
+
 class FLPostSperrlistePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -65,7 +74,7 @@ class FLSperrlisteListResponse(BaseAPIResponse):
     person barred by a row nobody can reach.
     """
 
-    sperrliste: list[FLSperrlisteEintrag]
+    sperrliste: list[FLSperrlisteZeile]
     # German, unlike the envelope field beside it, for the reason
     # `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse` gives `vollstaendig`.
     anzahl_gesamt: int = Field(ge=0)

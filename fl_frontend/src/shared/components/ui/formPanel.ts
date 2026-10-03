@@ -10,7 +10,9 @@ export const formPanel = tv({
     header: "flex flex-col gap-y-0.5 rounded-t-2xl border-b border-border p-4 sm:p-5",
     /** Carries the panel's `InfoHint` inline, so the explanation lives on the title rather than as a standing sentence. */
     heading: "fluid-base font-extrabold tracking-tight text-foreground",
-    body: "flex w-full flex-col gap-y-6 p-4 sm:p-5",
+    // `wrap-break-word`, inherited by every sentence in the panel: one may carry a name somebody typed,
+    // a word wider than the panel on a phone.
+    body: "flex w-full flex-col gap-y-6 p-4 wrap-break-word sm:p-5",
     /**
      * A `Switch.Content` row and its `Switch.Control` track, tinted from the tone rather than at the
      * call site: a colour retyped per switch is one that drifts from the panel around it.

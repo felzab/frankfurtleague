@@ -10,6 +10,7 @@ import { Table } from "@heroui/react/table";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_CRUD_COPY, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
+import { returnMayMint } from "@/features/schiedsrichter/linkMint";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE_CLASSES,
@@ -32,6 +33,7 @@ import { useReactivation } from "@/shared/hooks/useReactivation";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatEuro } from "@/shared/utils/format";
 
 import { hatAdresse } from "../../schemas";
@@ -54,7 +56,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   filteredSchiedsrichter: FLSchiedsrichter[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
-  setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
+  setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter, pressed: Element) => void;
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateSchiedsrichterAction, noun: "Schiedsrichter" });
 
@@ -135,11 +137,11 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     const hasKontakt = Boolean(email) || Boolean(schiedsrichter.kontakt.telefon);
 
     return (
-      <RowActions>
+      <RowActions row={schiedsrichter.id}>
         {/* On the row's OWN id: this list serves no erased person and never the ghost, so no row here
             stands for more fixtures than its own. Inline, and admin-only. */}
         <RowActionLink
-          href={saisonHref(`/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
+          href={saisonHref(`/bereich/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
           label="Einsätze anzeigen"
           ariaLabel={einsatzLabel}>
           <Magnifier
@@ -158,7 +160,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         )}
         {/* A link and not a press: the referee form edits on a page of its own. */}
         <RowActionLink
-          href={saisonHref(`/admin/schiedsrichter/${schiedsrichter.id}`)}
+          href={saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter.id}`)}
           label="Bearbeiten"
           ariaLabel={`${rowSubject} bearbeiten`}>
           <Pencil
@@ -171,14 +173,15 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             label="Reaktivieren"
             ariaLabel={`${rowSubject} reaktivieren`}
             isPending={isReactivating}
-            onPress={() => reactivate({ id: schiedsrichter.id })}
+            // A return that mints the referee a link is a step-up write.
+            onPress={(pressed) => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter), pressed })}
           />
         )}
         {!isRetired && (
           <RowActionDelete
             label="Stilllegen"
             ariaLabel={`${rowSubject} stilllegen`}
-            onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
+            onPress={(pressed) => setDeletingSchiedsrichter(schiedsrichter, pressed)}
           />
         )}
       </RowActions>
@@ -188,7 +191,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   return (
     <>
       {/* One card per referee, so nothing scrolls horizontally. */}
-      <div className="flex w-full flex-col gap-3 md:hidden">
+      <div
+        className="flex w-full flex-col gap-3 md:hidden"
+        {...focusSection("schiedsrichter-karten")}>
         {filteredSchiedsrichter.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSchiedsrichter.map((schiedsrichter) => (
           <div
@@ -203,7 +208,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div
+        className="hidden w-full md:block"
+        {...focusSection("schiedsrichter-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
           {/* Never scrolled at a width this table renders at
               (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform

@@ -36,7 +36,7 @@ const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
 // The three sentences a visitor can be shown, spelled here rather than imported: what this file
 // holds is the wording, and a test reading the module's own constant would agree with any rewording.
 const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann noch einmal.";
-const KEINE_ANTWORT_VON_UNS = "Die Antwort auf Deine Anfrage kam nicht von uns. Warte einen Moment und versuche es dann noch einmal.";
+const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte einen Moment und versuche es dann noch einmal.";
 const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
 
 const ENVELOPE = { "content-type": "application/json" };

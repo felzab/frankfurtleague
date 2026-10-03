@@ -10,6 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
+from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
 from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS
 
 # Handled rather than re-raised: creating the collection with the validator attached reaches the
@@ -81,11 +82,14 @@ _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
 _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
 
-# Mirrors `app/core/recording.py :: Operation` and `:: Actor.kind`, hand-copied.
-# `tests/core/test_constraints.py` pins each against the recording literal too, so a member added to
-# one alone fails rather than reaching a stored row.
+# Mirrors `app/core/recording.py :: Operation`, `:: Actor.kind`, `:: PersonActor.kind` and
+# `:: AktorFunktion`, hand-copied. `tests/core/test_constraints.py` pins each against the recording
+# literal too, so a member added to one alone fails rather than reaching a stored row.
 _AKTION_OPERATIONS = ["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
-_AKTOR_KINDS = ["admin_session", "system", "public"]
+_AKTOR_KINDS_MIT_ADRESSE = ["admin_session", "system", "public"]
+_AKTOR_KINDS_PERSON = ["person_session"]
+_AKTOR_KINDS = [*_AKTOR_KINDS_MIT_ADRESSE, *_AKTOR_KINDS_PERSON]
+_AKTOR_FUNKTIONEN = ["kontakt", "spieler", "schiedsrichter"]
 
 
 def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
@@ -117,13 +121,24 @@ _KONTAKT = _object(
     properties={"telefon": {"bsonType": _STRING_OR_NULL}, "email": {"bsonType": _STRING_OR_NULL}},
 )
 
-_AKTOR = _object(
-    required=("kind", "email"),
-    properties={
-        "kind": {"bsonType": "string", "enum": _AKTOR_KINDS},
-        "email": {"bsonType": "string"},
-    },
-)
+_AKTOR = {
+    **_object(
+        required=("kind",),
+        properties={
+            "kind": {"bsonType": "string", "enum": _AKTOR_KINDS},
+            "email": {"bsonType": "string"},
+            "pseudonym": {"bsonType": "string"},
+            "funktion": {"bsonType": "string", "enum": _AKTOR_FUNKTIONEN},
+        },
+    ),
+    # Required keys by `kind`, where `_SPIEL_QUELLE` requires its discriminator alone: an actor is
+    # stored from `app/core/recording.py :: PersonActor` with no model between, and an address on a
+    # person's row would outlive their erasure, so the database refuses it.
+    "oneOf": [
+        {"properties": {"kind": {"enum": _AKTOR_KINDS_MIT_ADRESSE}}, "required": ["email"]},
+        {"properties": {"kind": {"enum": _AKTOR_KINDS_PERSON}}, "required": ["pseudonym", "funktion"], "not": {"required": ["email"]}},
+    ],
+}
 
 _AKTION_REQUEST = _object(
     nullable=True,
@@ -353,6 +368,20 @@ _BEWERBUNG_ENTSCHEIDUNG = _object(
 # A pupil's registration states one of two, and an admitted one states neither: the transaction that
 # admits it deletes the row.
 _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
+
+# Closed here as well as on the model: a grant is typed in by hand in the Playground, and the
+# validator is the one check that paste meets.
+_VERWALTUNG = ["owner", "administration"]
+_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
+_BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
+_BERECHTIGUNG_VORENTHALTEN = ["gesperrt"]
+
+# One grant's state in an outbox row; the address null where it was barred when queued.
+_BERECHTIGUNG_STAND = _object(
+    nullable=True,
+    required=("adresse", "verwaltung"),
+    properties={"adresse": {"bsonType": _STRING_OR_NULL}, "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG}},
+)
 
 # The key a public submission is replayed by, and the digest of the payload it first carried
 # (`docs/backend/spec.md :: I346`). Out of `required` in both collections: every row stored
@@ -922,6 +951,80 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.BERECHTIGUNGEN: {
+        "$jsonSchema": _object(
+            required=("_id", "adresse", "verwaltung", "erteilt_von", "erteilt_am"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                # The folded sign-in identifier, which nothing here can check without a pattern
+                # (`docs/backend/spec.md :: I16`): a row typed unfolded matches no request, and the
+                # boot names it (`app/core/db.py :: warn_about_the_grants`).
+                "adresse": {"bsonType": "string"},
+                "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG},
+                "erteilt_von": {"bsonType": "string"},
+                # A date and not the German day string the ban list stores: the Playground writes
+                # `new Date()`, which is one spelling nobody can mistype.
+                "erteilt_am": {"bsonType": "date"},
+                # Out of `required`: a paste writes no such key, and the comparison stamps it on the
+                # row it finds (`docs/backend/spec.md :: I525`).
+                "gefunden_am": {"bsonType": ["date", "null"]},
+                # Out of `required` for `gefunden_am`'s reason: a paste writes no such key.
+                "gesehen_am": {"bsonType": ["date", "null"]},
+                # Out of `required` too: a pasted `owner` row holds the tier from its grant's own date.
+                "ernannt_am": {"bsonType": ["date", "null"]},
+            },
+        )
+    },
+    Collection.BERECHTIGUNGEN_ANGEKUENDIGT: {
+        "$jsonSchema": _object(
+            required=("_id", "adresse", "verwaltung", "angekuendigt_am"),
+            properties={
+                # The grant's own `_id`, so a revoke and a re-grant of one address are two changes
+                # rather than none.
+                "_id": {"bsonType": "objectId"},
+                "adresse": {"bsonType": "string"},
+                "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG},
+                "angekuendigt_am": {"bsonType": "date"},
+            },
+        )
+    },
+    Collection.BERECHTIGUNGEN_POSTAUSGANG: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "berechtigung_id",
+                "art",
+                "urheber",
+                "jetzt",
+                "vorher",
+                "geaendert_von",
+                "geaendert_am",
+                "vorenthalten",
+                "erfasst_am",
+                "beansprucht_bis",
+                "beanspruchung",
+                "versuche",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "berechtigung_id": {"bsonType": "objectId"},
+                "art": {"bsonType": "string", "enum": _BERECHTIGUNG_AENDERUNGEN},
+                "urheber": {"bsonType": "string", "enum": _BERECHTIGUNG_URHEBER},
+                "jetzt": _BERECHTIGUNG_STAND,
+                "vorher": _BERECHTIGUNG_STAND,
+                "geaendert_von": {"bsonType": _STRING_OR_NULL},
+                "geaendert_am": {"bsonType": ["date", "null"]},
+                # Why the row's addresses are withheld; a null address never says it by itself.
+                "vorenthalten": {"bsonType": _STRING_OR_NULL, "enum": [*_BERECHTIGUNG_VORENTHALTEN, None]},
+                "erfasst_am": {"bsonType": "date"},
+                # Required as keys and null until a pass claims the row: the claim asks for a null
+                # lease, which a missing key would satisfy too and a mistyped one would hide.
+                "beansprucht_bis": {"bsonType": ["date", "null"]},
+                "beanspruchung": {"bsonType": _STRING_OR_NULL},
+                "versuche": {"bsonType": "int"},
+            },
+        )
+    },
 }
 
 
@@ -994,6 +1097,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
+    # Also the READ path of every admin-tier request (`app/core/security.py :: verify_actor_is_admin`),
+    # and what refuses a second grant a Playground paste adds for an address already holding one.
+    UniqueIndex(Collection.BERECHTIGUNGEN, "uniq_berechtigung_adresse", ("adresse",), "one grant per address"),
 )
 
 
@@ -1090,8 +1196,9 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bestaetigung.token_hash", ASCENDING),),
         "the referee confirmation page's lookup, driven by strangers",
     ),
-    # A support index and never a unique one: one family mailbox really is shared by two pupils, so
-    # this read answers a list rather than refusing the second person who registers under it.
+    # A support index and not a unique one: an address is taken for one person without being enforced
+    # (`docs/datenschutz.md :: "One address is one person"`), so this read answers a list rather than
+    # refusing a second.
     SupportIndex(
         Collection.SPIELER,
         "spieler_email",
@@ -1506,8 +1613,8 @@ def classify_failure(failure: OperationFailure) -> str:
 def diagnose_failure(failure: OperationFailure) -> str:
     """Turn a driver exception into the sentence an operator can act on.
 
-    Names the FILE and the VARIABLE, never the connection string: the value is a secret, and a
-    diagnostic that prints one cannot be pasted into a bug report.
+    Names the FILE, never the connection string: the value is a secret, and a diagnostic that prints
+    one cannot be pasted into a bug report.
     """
     message = failure_message(failure)
     kind = classify_failure(failure)
@@ -1516,7 +1623,7 @@ def diagnose_failure(failure: OperationFailure) -> str:
         return (
             "  The database REJECTED THE CREDENTIALS. This is not a permissions problem, and no role\n"
             "  change will fix it.\n\n"
-            "  MONGODB_URI in fl_backend/.env carries a username and password the cluster does not\n"
+            f"  The secret file {MONGODB_URI_FILE} carries a username and password the cluster does not\n"
             "  accept. Deleting and recreating a database user changes its password even when the name\n"
             "  is unchanged, so a URI that worked yesterday can stop working with no visible edit.\n\n"
             "  The server's own copy of that file is SEPARATE and was not touched by anything you did\n"
@@ -1544,10 +1651,6 @@ def diagnose_failure(failure: OperationFailure) -> str:
 # An operator tool, never inside a request, which is why it prints where the service logs
 # (`app/core/logging.py`).
 async def _run(check: bool) -> int:
-    # Imported here, not at module scope: `app.core.config` refuses on import without a complete
-    # environment, and the tests import this module with none.
-    from app.core.config import get_config  # noqa: TID251
-
     client = AsyncMongoClient(
         host=get_config().mongodb_uri.get_secret_value(),
         serverSelectionTimeoutMS=get_config().db_server_selection_timeout,

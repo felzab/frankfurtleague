@@ -30,7 +30,7 @@ from app.api.teams.services import ENTRY_GRUPPE_FULL
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.isolation import COMMITTED, outcome_of
+from tests.isolation import COMMITTED, MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -138,36 +138,24 @@ def bewerbung_document(index: int) -> dict[str, Any]:
     }
 
 
-class SeasonsRunningAHookBeforeTheAnchor:
-    """A `saisons` stand-in running one hook just before the write that anchors a bounded judgement.
+class SeasonsRunningAHookBeforeTheAnchor(InterleavedCollection):
+    """A `saisons` stand-in running one hook just before the write that anchors a bounded judgement."""
 
-    Not a subclass: the driver builds a collection off a database handle, so it has to answer every
-    other call by delegating.
-    """
-
-    def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:
-        self._inner = inner
-        self._hook: Callable[[], Awaitable[Any]] | None = hook
+    def __init__(self, collection: Any, hook: Rival) -> None:
+        super().__init__(collection, hook)
         # Every `find_one`. Each pass through a callback reads this season exactly once, so a second
         # read is the retry and no read at all would mean the anchor was never reached.
         self.season_reads = 0
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
         self.season_reads += 1
 
-        return await self._inner.find_one(*args, **kwargs)
+        return await self._collection.find_one(*args, **kwargs)
 
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        # ONE-SHOT: the retry has to re-judge against what landed rather than run the interference
-        # again, and a second rival would be refused on its own account and mask this one.
-        if self._hook is not None:
-            hook, self._hook = self._hook, None
-            await hook()
+        await self.run_the_rival()
 
-        return await self._inner.update_many(*args, **kwargs)
+        return await self._collection.update_many(*args, **kwargs)
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -243,7 +231,7 @@ class TestASecondEntryLandingMidEntryIsJudgedAgain:
         )
 
         assert (outcome, occupied) == (ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
-        assert season_reads == 2, "the callback judged once, so the entry wrote without being re-judged"
+        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         # The rival's take alone: the refused entry's abort took its own back with it, so the token
         # counts the writes that COMMITTED rather than the callbacks that ran.
@@ -313,7 +301,9 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
         )
 
         assert (outcome, squad) == (SQUAD_FULL, MAX_KADERGROESSE)
-        assert (season_reads, anchor) == (2, 1), "the callback judged once, so the add wrote without being re-judged"
+        assert (season_reads, anchor) == (2, 1), (
+            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
+        )
 
     def test_a_transfer_is_refused_on_the_place_a_rival_add_took(self, mongo_replica_set_url: str):
         async def transfer(database: AsyncDatabase, client: AsyncMongoClient, saisons: Any) -> Any:
@@ -330,7 +320,9 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
         outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, transfer)
 
         assert (outcome, squad) == (SQUAD_FULL, MAX_KADERGROESSE)
-        assert (season_reads, anchor) == (2, 1), "the callback judged once, so the transfer wrote without being re-judged"
+        assert (season_reads, anchor) == (2, 1), (
+            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
+        )
 
     def test_a_return_is_refused_on_the_place_a_rival_add_took(self, mongo_replica_set_url: str):
         async def bring_back(database: AsyncDatabase, client: AsyncMongoClient, saisons: Any) -> Any:
@@ -346,7 +338,9 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
         outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, bring_back)
 
         assert (outcome, squad) == (SQUAD_FULL, MAX_KADERGROESSE)
-        assert (season_reads, anchor) == (2, 1), "the callback judged once, so the return wrote without being re-judged"
+        assert (season_reads, anchor) == (2, 1), (
+            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
+        )
 
 
 class TestASecondDatingLandingMidDatingIsJudgedAgain:
@@ -375,7 +369,9 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
 
         # The rival's advance stands and the postponement does not, so the phase reads forwards.
         assert (outcome, beginns) == (SPIELTAG_BEGINN_OUT_OF_ORDER, [STANDING_FIRST, ADVANCED_SECOND])
-        assert (season_reads, anchor) == (2, 1), "the callback judged once, so the re-dating wrote without being re-judged"
+        assert (season_reads, anchor) == (2, 1), (
+            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
+        )
 
     def test_two_matchdays_of_one_phase_still_reach_one_day_together(self, mongo_replica_set_url: str):
         """The control: the comparison is strict, so the anchor may not turn a lawful pair into a refusal."""
@@ -401,7 +397,7 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
         )
 
         assert (outcome, beginns) == (COMMITTED, [POSTPONED_FIRST, POSTPONED_FIRST])
-        assert season_reads == 2, "the callback judged once, so the pair was never re-judged against the rival's day"
+        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
 
 class TestAGroupMoveLandingMidEntryIsJudgedAgain:
@@ -442,7 +438,7 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
         )
 
         assert (outcome, occupied) == (ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
-        assert season_reads == 2, "the callback judged once, so the move wrote without being re-judged"
+        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
 
 # The decision block is written from these two, and this case reads neither back.
@@ -491,7 +487,7 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
         )
 
         assert (outcome, occupied) == (ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
-        assert season_reads == 2, "the callback judged once, so the acceptance wrote without being re-judged"
+        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         # The whole transaction goes back, so the application is still open for a group that has room:
         # accepting is irreversible, and a half-applied acceptance has no repair.

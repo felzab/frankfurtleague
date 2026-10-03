@@ -41,7 +41,12 @@ const UNZUSTELLBAR: FLBewerbungBestaetigung = {
   zustellung: { nachricht_id: "msg-1", stand: "unzustellbar", grund: "NoEmail", am: "2026-05-01T09:00:00Z" },
 };
 
-const VERSCHICKT: FLBewerbungBestaetigung = { verschickt_am: "2026-05-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
+const VERSCHICKT: FLBewerbungBestaetigung = {
+  verschickt_am: "2026-05-01",
+  erinnert_am: null,
+  abgelehnt_am: null,
+  zustellung: null,
+};
 
 const ANSPRECHPERSON = person("Erika", "Mustermann", "erika.mustermann@musterschule.example", "2026-05-03");
 const STELLVERTRETUNG = person("Max", "Mustermann", "max.mustermann@musterschule.example", "2026-05-04");

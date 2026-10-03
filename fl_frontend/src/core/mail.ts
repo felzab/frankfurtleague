@@ -3,11 +3,13 @@ import "server-only";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { frontend_config } from "./config";
-import { withAsciiDomain } from "./emailAddress";
+import { authResendKey, frontend_config } from "./config";
+import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
+import { mayReceiveMail } from "./mailGate";
 import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
+import { buildSperreEmail } from "./sperrlisteEmail";
 import { mintTraceId } from "./trace";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
@@ -29,7 +31,7 @@ const MAIL_ATTEMPTS = 3;
 const MAIL_RETRY_DELAY_MS = 400;
 
 // `.gitignore` and `.prettierignore` both hold `.tmp-*/`, and a name outside that pattern is one git
-// offers to commit -- with a magic link, a bearer credential, inside it.
+// offers to commit -- with a sign-in code, a bearer credential, inside it.
 const MAIL_SINK_DIR = ".tmp-mail";
 
 /** Long enough for the biggest fan-out this application draws, short enough to end rather than spin. */
@@ -75,24 +77,37 @@ export class MailWithheldError extends Error {
 }
 
 /**
- * Raised where the recipient's domain has no ASCII form. Beside `MailWithheldError` rather than in
- * `errors.ts` for its reason, and carrying no address for the same one.
+ * Never merged with `MailWithheldError`: a withheld message is this deployment's to explain, a barred
+ * one the address's, which no caller names (`docs/frontend/spec.md :: I542`).
+ */
+export class MailBarredError extends Error {
+  constructor() {
+    super("The recipient is on the ban list.");
+
+    this.name = "MailBarredError";
+  }
+}
+
+/**
+ * Raised where the recipient is not one bare mailbox, or its domain has no ASCII form. Beside
+ * `MailWithheldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
  */
 export class MailRecipientError extends Error {
   constructor() {
-    super("The recipient's domain cannot be written in ASCII.");
+    super("The recipient is not one mailbox with an ASCII domain.");
 
     this.name = "MailRecipientError";
   }
 }
 
 /**
- * Raised where the request's deadline was spent before the send left. Not an `APINetworkError`, which
- * a fan-out reads as a message that may have gone: nothing reached the provider.
+ * Nothing reached the provider: the request's deadline ran out first, or the ban list went unread,
+ * each writing a line of its own. Not an `APINetworkError`, which a fan-out reads as a message that
+ * may have gone.
  */
 export class MailUnsentError extends Error {
   constructor() {
-    super("The request's deadline had passed before the message was sent.");
+    super("Nothing reached the provider, so the message was not sent.");
 
     this.name = "MailUnsentError";
   }
@@ -199,20 +214,60 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
- * The one call against the mail provider. **A refusal never carries the provider's message**,
- * which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError` takes the
- * stable `name` field instead.
+ * Converted before the gate is asked: about the typed spelling the API answers by its own Unicode
+ * tables while the provider is handed this runtime's conversion, and where the two disagree a barred
+ * mailbox goes unbarred.
  */
-export async function sendMail({ to, subject, html, text, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
+function recipientOf(to: string): string {
+  // A domain IDNA cannot convert, and any spelling around a mailbox, which the gate would answer
+  // unbarred while the provider still reached the mailbox inside it.
+  const converted = withAsciiDomain(to);
+  if (converted === undefined || !isOneBareMailbox(converted)) throw new MailRecipientError();
+
+  return converted;
+}
+
+/** Every message the league sends but the ban's own notice, each asked of the ban list first (`docs/frontend/spec.md :: I541`). */
+export async function sendMail(mail: OutboundMail): Promise<MailAccepted> {
+  const to = recipientOf(mail.to);
+
+  // Ahead of the sink, so a stack that does not mail files only what production would send and the
+  // ban can be checked there.
+  const verdict = await mayReceiveMail(to);
+  if (verdict === "barred") throw new MailBarredError();
+  if (verdict === "failed") throw new MailUnsentError();
+
+  return deliver({ ...mail, to: to });
+}
+
+/**
+ * The one message an address the ban list holds is sent: composed here from the ban's own facts, so
+ * nothing a caller hands over can travel past the ban list under it.
+ */
+export async function sendSperreNotice({
+  to,
+  grund,
+  gesperrtBisSaisonId,
+  origin,
+}: { to: string } & Parameters<typeof buildSperreEmail>[0]): Promise<MailAccepted> {
+  return deliver({ to: recipientOf(to), ...buildSperreEmail({ grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: origin }) });
+}
+
+/**
+ * The one call against the mail provider, whichever entry asked for it. **A refusal never carries the
+ * provider's message**, which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError`
+ * takes the stable `name` field instead.
+ */
+async function deliver({ to, subject, html, text, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
   const traceId = getRequestTraceId() ?? mintTraceId();
 
   // Both halves fail closed: the deployment says it is not the one that mails, and outside
   // `production` no key is demanded to authorise one. A local stack's database is a production
   // dump, so its addresses are real people.
-  const apiKey = frontend_config.AUTH_RESEND_KEY;
+  const apiKey = authResendKey();
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
-    // requirement down: a file there would leave a live sign-in token on the host's disk.
+    // requirement down: a file there would leave a live sign-in code on the host's disk.
     const sinkFile = frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, tags }, traceId);
 
     // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message
@@ -228,13 +283,6 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
     throw new MailWithheldError();
   }
-
-  // At the send as well as at entry, so no caller has to have converted: every recipient leaves with
-  // its domain in the punycode form a payload stores (`docs/backend/spec.md :: I332`).
-  const recipient = withAsciiDomain(to);
-
-  // Above the timer below, which a throw from here would leave running for the whole budget.
-  if (recipient === undefined) throw new MailRecipientError();
 
   const bound = boundCall(MAIL_TIMEOUT_MS);
 
@@ -270,7 +318,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
   const body = JSON.stringify({
     from: MAIL_FROM,
-    to: recipient,
+    to: to,
     subject,
     html,
     text,

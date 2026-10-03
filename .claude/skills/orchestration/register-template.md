@@ -262,6 +262,18 @@ batch longer than one call holds goes as several calls, never as prose.>
 <Agent A writes X to the scratch path; agent B owns the file it lands in; I route it. Both briefs
 name the path.>
 
+## Findings ledger
+
+| # | Source report | Finding (file :: anchor) | Status | Owner, or the evidence that closed it |
+|---|---|---|---|---|
+
+<One row per out-of-scope, handoff or not-verified-defect item of every banked report, written in the
+edit that banks the report, before its next dispatch. Status is one of OPEN, ROUTED (named agent),
+FIXED (commit), RULED (ruling or determination), HANDOFF, NOT A DEFECT, MOOT. A finding routed to a
+fixer is a claim until the fixer has judged it real: every fix brief says so, and one found not to be
+a defect closes as NOT A DEFECT with its evidence rather than as a change. The ending closes every
+row; OPEN is never a status the handoff inherits.>
+
 ## Findings banked, and handoff material
 
 <Per completed agent: the condensed verdict. What the next session's handoff will need is written

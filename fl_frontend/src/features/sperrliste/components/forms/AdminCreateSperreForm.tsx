@@ -50,7 +50,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
             />
             <FieldError className={FIELD_ERROR_CLASSES} />
             {/* Both halves of what pressing save does to the person at this address: it lapses by
-                itself, and they are told at once. Neither is undoable from the list afterwards. */}
+                itself, and an account's holder is told at once. Neither is undoable from the list afterwards. */}
             <Hint
               mode="field"
               text={SPERRE_DAUER_HINWEIS}

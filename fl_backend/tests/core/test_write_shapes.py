@@ -69,6 +69,7 @@ COMPOSED_KEY = "<composed at run time>"
 SERVICE_PACKAGES: frozenset[str] = frozenset(
     {
         "aktionen",
+        "berechtigungen",
         "bewerbungen",
         "einladungen",
         "identitaet",

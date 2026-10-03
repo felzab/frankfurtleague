@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Envelope from "@gravity-ui/icons/Envelope";
 
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
-import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
+import { gesperrtSatz, ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -15,6 +15,7 @@ import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { Switch } from "@/shared/components/ui/Switch";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -43,6 +44,7 @@ const UEBERSPRUNGEN_SATZ: Record<FLEinladungVersandGrund, string> = {
   erzeugung_ungewiss: "Unklar, ob ein neuer Registrierungslink angelegt wurde",
   kein_kontaktblock: "Keine Kontaktdaten hinterlegt",
   keine_bestaetigte_kontaktperson: "Niemand hat die Kontaktdaten bisher selbst bestätigt",
+  kontakte_gesperrt: "Jede bestätigte Adresse steht auf der Sperrliste",
   bereits_gesendet: "Hat den Link schon bekommen",
 };
 
@@ -64,7 +66,7 @@ const UNGEWISS_FOLGE = "Ein neuer Versand schickt dem Team einen Link, wenn sein
 /** Only beside a link the press found: a team that held none must not read about one. */
 const UNGEWISS_BISHERIGER = "Der bisherige Link dieses Teams gilt vielleicht nicht mehr.";
 
-/** The two states where the league, not the team, is why nothing reached the team, and what each leaves standing. */
+/** A mint that failed or may have, where the league's own write and not the team is why nothing reached it, and what each leaves standing. */
 const folgeSaetze = (zeile: EinladungVersandErgebnis): readonly string[] => {
   // `true` alone: a null says the press failed before it read the team's link, which is no evidence of one.
   if (zeile.uebersprungen === "erzeugung_fehlgeschlagen")
@@ -88,11 +90,13 @@ const nichtErreicht = (zeile: EinladungVersandErgebnis): readonly string[] =>
  * sentence produces (`docs/frontend/spec.md :: 1.12`).
  */
 function zustellSatz(zeile: EinladungVersandErgebnis): string {
-  const gesamt = zeile.zugestellt.length + zeile.unerreichbar.length;
+  const versucht = zeile.zugestellt.length + zeile.unerreichbar.length;
+  // A barred address is one of the team's, counted against the whole: its own line says why it got nothing.
+  const gesamt = versucht + zeile.gesperrt;
 
   // Ahead of the count, because outside production it is EVERY row: a deployment that sends nothing
   // is not a team the league failed to reach, and grading it as one teaches a reader to ignore red.
-  if (gesamt > 0 && zeile.zurueckgehalten.length === gesamt) return ZURUECKGEHALTEN;
+  if (versucht > 0 && zeile.zurueckgehalten.length === versucht) return ZURUECKGEHALTEN;
   if (zeile.zugestellt.length === 0) return "Nicht zugestellt";
   if (zeile.zugestellt.length < gesamt) return `Gesendet: ${String(zeile.zugestellt.length)} von ${String(gesamt)}`;
 
@@ -125,7 +129,7 @@ export function FormEinladungVersandSection({
   const [erneut, setErneut] = useState(false);
   const [isLoadingVorschau, startLoadingVorschau] = useTransition();
 
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, press, cancel } = twoPress;
 
   const panel = formPanel();
@@ -266,7 +270,9 @@ export function FormEinladungVersandSection({
                     <li
                       key={zeile.team_id}
                       className="flex flex-row items-baseline justify-between gap-x-3 fluid-xxs leading-normal font-medium text-foreground">
-                      <span className="font-bold">{zeile.team_name}</span>
+                      {/* A team's name is whatever somebody typed: as a flex item it keeps its longest
+                          word as its floor, pushing the recipients past the panel, unless it may break it. */}
+                      <span className={`min-w-0 font-bold ${NAME_WRAP_CLASSES}`}>{zeile.team_name}</span>
                       <span className="min-w-0 text-right text-foreground-muted">
                         {zeile.uebersprungen === null ? (
                           <>
@@ -291,7 +297,7 @@ export function FormEinladungVersandSection({
                     <li
                       key={zeile.team_id}
                       className="flex flex-row items-baseline justify-between gap-x-3 fluid-xxs leading-normal font-medium text-foreground">
-                      <span className="font-bold">{zeile.team_name}</span>
+                      <span className={`min-w-0 font-bold ${NAME_WRAP_CLASSES}`}>{zeile.team_name}</span>
                       <span className="min-w-0 text-right text-foreground-muted">
                         {/* Graded apart from the other skips: there the league failed the team
                             rather than passing it over. */}
@@ -311,6 +317,9 @@ export function FormEinladungVersandSection({
                             {nichtErreicht(zeile).length > 0 && (
                               <span className="block font-bold text-danger-strong">Nicht erreicht: {nichtErreicht(zeile).join(", ")}</span>
                             )}
+                            {/* Ungraded and unnamed: a ban is no failure to chase, and the row names no
+                                barred address (`docs/frontend/spec.md :: I542`). */}
+                            {zeile.gesperrt > 0 && <span className="block">{gesperrtSatz(zeile.gesperrt)}</span>}
                             {zeile.ersetzt_link && <span className="block font-bold text-warning-strong">{ERSETZT_VERGANGEN}</span>}
                           </>
                         )}

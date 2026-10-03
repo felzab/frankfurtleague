@@ -15,12 +15,24 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.api.bewerbungen.services import BEWERBUNG_LAUFENDE_FASSUNG
-from app.api.saisons.schemas import TeamsPerGroup
+from app.api.identitaet.services import grants_a_panel
+from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.zustellung import schemas as zustellung_schemas
+from app.core.actor_token import (
+    ACTOR_TOKEN_ALGORITHM,
+    ACTOR_TOKEN_AUDIENCE,
+    ACTOR_TOKEN_ISSUER,
+    ACTOR_TOKEN_LIFETIME_S,
+    ACTOR_TOKEN_TYPE,
+    PASSKEY_FACTOR,
+    PROTECTED_HEADER,
+    REQUIRED_CLAIMS,
+    Lane,
+)
 from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
@@ -36,6 +48,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomTimeString,
 )
+from tests.actor_tokens import ACTOR_TOKEN_CONTRACT
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 FRONTEND_SRC: Final = REPO_ROOT / "fl_frontend" / "src"
@@ -54,6 +67,9 @@ class Mirror(NamedTuple):
     module: str
     typescript: str
     python: str
+    # How many of the frontend's units one of the backend's is: a window the backend counts in minutes
+    # and the frontend's clock in milliseconds is one decision all the same.
+    scale: int = 1
 
 
 # Declared rather than matched by name: several of these pairs are spelled one way on the frontend and
@@ -84,6 +100,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/teams/constants.ts", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "PAARUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
+    Mirror("features/berechtigungen/constants.ts", "ANKUENDIGUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
@@ -98,6 +115,16 @@ MIRRORED_BOUNDS: Final = (
     # The notice states the ban's length in a word, which its render test holds to this constant; no
     # payload carries a length at all.
     Mirror("features/sperrliste/constants.ts", "SPERRE_DAUER_SAISONS", "SPERRE_DAUER_SAISONS"),
+    # The frontend expires an administrator's session at this age and the backend refuses an actor
+    # token older than it: a looser backend honours a session the frontend believes gone.
+    Mirror("core/sessionLifetimes.ts", "ADMIN_WINDOW_HOURS", "ADMIN_WINDOW_HOURS"),
+    # The same pair for a person's session, whose cap runs from its sign-in however recently it was used.
+    Mirror("core/sessionLifetimes.ts", "PERSON_WINDOW_DAYS", "PERSON_WINDOW_DAYS"),
+    # The window a grant, a revoke and a tier change are asked for, which the backend refuses a sign-in
+    # older than: a tighter backend refuses a write its own page admitted.
+    Mirror("core/sessionLifetimes.ts", "ENROLMENT_WINDOW_MS", "ENROLMENT_WINDOW_MINUTES", scale=60 * 1000),
+    # The same for every other step-up write, which the backend refuses from a sign-in older than it.
+    Mirror("core/sessionLifetimes.ts", "STEP_UP_WINDOW_MS", "STEP_UP_WINDOW_HOURS", scale=60 * 60 * 1000),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
@@ -108,6 +135,7 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
         "the log index's own `expireAfterSeconds`; the privacy notice states it by hand in months, which no count of seconds is exactly"
     ),
     "REGISTRIERUNG_ERINNERUNG_TAGE": "the day the sweep reminds a pupil, which no frontend page or mail states",
+    "AKTEUR_PSEUDONYM_SHOWN": "the log read serves the pseudonym already cut to it, and the page shows what it is served",
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
@@ -288,14 +316,61 @@ def test_every_declared_pair_names_a_bound_this_package_still_declares(mirror: M
     assert mirror.python in _declared_bounds(), f"{mirror.python} is declared nowhere in bounds.py, so its mirror is compared to nothing"
 
 
+# A product of factors at most, the one arithmetic a unit conversion writes, each an integer or a
+# constant the same module declares the same way.
+_FACTOR = r"(?:\d+|[A-Z][A-Z0-9_]*)"
+_PRODUCT = rf"{_FACTOR}(?: \* {_FACTOR})*"
+
+
+def _integer_constant(source: str, name: str, *, exported: bool, reading: frozenset[str] = frozenset()) -> int | None:
+    """The value `source` declares `name` as, its named factors resolved in the same module; `None` for any other shape."""
+
+    if name in reading:
+        return None
+
+    prefix = "export " if exported else "(?:export )?"
+    found = re.search(rf"^{prefix}const {name} = ({_PRODUCT});$", source, re.MULTILINE)
+    if found is None:
+        return None
+
+    value = 1
+    for factor in found[1].split(" * "):
+        resolved = int(factor) if factor.isdigit() else _integer_constant(source, factor, exported=False, reading=reading | {name})
+        if resolved is None:
+            return None
+        value *= resolved
+
+    return value
+
+
+def test_the_number_reader_resolves_a_named_factor_and_refuses_what_it_cannot_read():
+    """The reader against a sample, so a resolver that read every name as one, or followed a cycle, fails here rather than passing the tree."""
+
+    sample = "\n".join(
+        (
+            "const HOUR_MS = 60 * 60 * 1000;",
+            "export const WINDOW_MS = 2 * HOUR_MS;",
+            "export const UNKNOWN_MS = 2 * NOWHERE_MS;",
+            "const LOOP_MS = 2 * LOOP_MS;",
+            "export const CYCLE_MS = 2 * LOOP_MS;",
+            "export const COMPUTED_MS = Math.max(1, 2);",
+        )
+    )
+
+    assert _integer_constant(sample, "WINDOW_MS", exported=True) == 2 * 60 * 60 * 1000
+    assert _integer_constant(sample, "HOUR_MS", exported=True) is None, "an unexported constant read as the module's export"
+    for name in ("UNKNOWN_MS", "CYCLE_MS", "COMPUTED_MS"):
+        assert _integer_constant(sample, name, exported=True) is None, name
+
+
 @pytest.mark.parametrize("mirror", MIRRORED_BOUNDS, ids=lambda mirror: f"{mirror.python}->{mirror.typescript}")
 def test_every_declared_pair_agrees_on_the_number(mirror: Mirror):
     """Past the backend's ceiling a `REQ-VAL-001` marks the box with a generic sentence, so a looser mirror loses the bound's German."""
 
-    found = re.search(rf"^export const {mirror.typescript} = (\d+);$", _source(mirror.module), re.MULTILINE)
+    value = _integer_constant(_source(mirror.module), mirror.typescript, exported=True)
 
-    assert found is not None, f"{mirror.module} no longer exports {mirror.typescript} as a bare integer"
-    assert int(found[1]) == _declared_bounds()[mirror.python], f"{mirror.typescript} disagrees with {mirror.python}"
+    assert value is not None, f"{mirror.module} no longer exports {mirror.typescript} as a product of integers and of its own such constants"
+    assert value == _declared_bounds()[mirror.python] * mirror.scale, f"{mirror.typescript} disagrees with {mirror.python}"
 
 
 def test_every_bound_this_package_declares_is_paired_or_named_unmirrored():
@@ -1310,9 +1385,10 @@ def test_the_two_ends_pin_an_internal_key_to_the_same_alphabet():
     assert found is not None, f"{record.module} no longer states {record.typescript}'s alphabet as one regular-expression literal"
     assert found["flags"] == "", f"{record.typescript} carries the flags '{found['flags']}', which this comparison does not model"
 
-    # A legal key, then a space, a tab, DEL just past the range's top, an umlaut, and the empty
-    # string the `+` refuses.
-    probes = ["Kf7", "Kf 7", "Kf\t7", "Kf\x7f7", "Kfö7", ""]
+    # Legal keys, one at each edge of the class's ranges; then a space, a tab, DEL, an umlaut, the
+    # empty string the `+` refuses, and each character an env-file reader alters.
+    legal = ["Kf7", "!%&(", "[]^_", "a{|}~", "+/=-."]
+    probes = [*legal, "Kf 7", "Kf\t7", "Kf\x7f7", "Kfö7", "", *(f"Kf{c}7" for c in "\"#$'\\`")]
     taken = {probe for probe in probes if INTERNAL_API_KEY_CHARACTERS.fullmatch(probe) is not None}
 
     assert taken, f"{record.python} takes none of {len(probes)} probes, so agreeing with it proves nothing"
@@ -1345,7 +1421,8 @@ UNMIRRORED_PATTERNS: Final[dict[str, str]] = {
     "app/shared/schemas/custom.py :: DOMAIN_REGEX": "byte-for-byte `z.regexes.domain`, which the frontend reads off zod rather than retyping",
     "app/core/config.py :: HOSTNAME": "the shape `TrustedHostMiddleware` reads an allowlist entry in, which no request carries",
     "app/core/config.py :: ORIGIN": "the shape `CORSMiddleware` reads an allowlist entry in; the browser composes what it grades",
-    "app/core/security.py :: WELL_FORMED_ACTOR": "a loose shape check on a composed header, the frontend mirroring the address rule instead",
+    "app/core/actor_token.py :: COMPACT_JWS_PATTERN": "the shape a signed token arrives in, which the frontend's `jose` writes and never reads",
+    "app/core/actor_token.py :: ED25519_PUBLIC_KEY_PATTERN": "a variable only the backend reads: the frontend holds the private half",
 }
 
 
@@ -1509,3 +1586,50 @@ def test_the_shared_table_blanks_each_optional_part_alone_together_and_as_spaces
     assert any(line.address.stadtteil and not line.address.stadtteil.strip() for line in lines), (
         "no row holds a district of spaces alone, which only a join that strips reads as blank"
     )
+
+
+# The season narrowing is spelled once per tier -- a person endpoint's and the frontend's panel
+# resolver's -- and both run this one table, so a status admitted at one tier alone fails that tier.
+GRANTS_A_PANEL: Final = Path(__file__).resolve().parent / "grants_a_panel.json"
+
+
+def _panel_grants() -> list[tuple[FLSaisonStatus, bool]]:
+    """Each status through the backend's own Literal, so a row naming a status nothing stores fails here rather than comparing nothing."""
+
+    rows = json.loads(GRANTS_A_PANEL.read_bytes().decode("utf-8"))
+
+    return [(TypeAdapter(FLSaisonStatus).validate_python(row["saison_status"]), row["grants_a_panel"]) for row in rows]
+
+
+def test_the_panel_table_names_every_season_status_once():
+    """A status added to the Literal and to neither table would be judged by two predicates nobody compared."""
+
+    assert sorted(status for status, _ in _panel_grants()) == sorted(get_args(FLSaisonStatus))
+
+
+@pytest.mark.parametrize(("saison_status", "grants"), _panel_grants(), ids=lambda value: str(value))
+def test_a_seat_s_season_grants_the_panel_the_shared_table_says(saison_status: FLSaisonStatus, grants: bool):
+    assert grants_a_panel(saison_status) is grants
+
+
+def test_the_actor_token_verifier_reads_the_contract_the_frontend_mints_to():
+    """The verifier's constants against the table the frontend mints to.
+
+    The signer reads the table, so a verifier refusing its tokens fails every signed case; this catches
+    a verifier that moved yet still admits them, such as a longer lifetime.
+    """
+
+    contract = ACTOR_TOKEN_CONTRACT
+
+    assert (ACTOR_TOKEN_ALGORITHM, ACTOR_TOKEN_TYPE, ACTOR_TOKEN_ISSUER, ACTOR_TOKEN_AUDIENCE, ACTOR_TOKEN_LIFETIME_S) == (
+        contract["alg"],
+        contract["typ"],
+        contract["iss"],
+        contract["aud"],
+        contract["lifetime_s"],
+    )
+    assert sorted(PROTECTED_HEADER) == sorted(contract["header"])
+    assert sorted(REQUIRED_CLAIMS) == sorted(contract["claims"])
+    assert sorted(get_args(Lane)) == sorted(contract["lanes"])
+    assert PASSKEY_FACTOR == contract["admin_factor"]
+    assert contract["admin_factor"] in contract["factors"]

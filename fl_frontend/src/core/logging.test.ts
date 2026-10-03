@@ -1,33 +1,32 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
+import { registerDoubles } from "./exportingModule.ts";
 import { documentsWrittenBy } from "./stdoutCapture.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 // Getters, not values: one process holds one module registry, and the threshold and the format are
 // exactly the two switches every case below has to flip.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  get LOG_FORMAT() { return globalThis.__flLogFormat; },
-  get LOG_LEVEL() { return globalThis.__flLogLevel; },
-};`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
+const CONFIG_DOUBLE = {
+  frontend_config: {
+    get LOG_FORMAT() {
+      return settings.format;
+    },
+    get LOG_LEVEL() {
+      return settings.level;
+    },
   },
-  load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+};
+
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG_DOUBLE,
   },
 });
 
-const settings = globalThis as { __flLogFormat?: string; __flLogLevel?: string };
-settings.__flLogFormat = "json";
-settings.__flLogLevel = "INFO";
+/** What the doubled config answers, which each case sets. */
+const settings: { format?: string; level?: string } = {};
+settings.format = "json";
+settings.level = "INFO";
 
 const { logger } = await import("./logging.ts");
 const { runWithRequestScope } = await import("./requestScope.ts");
@@ -38,8 +37,8 @@ const SPAN = "b".repeat(16);
 const CONSOLE_OPENING = /^\x1b\[\d+m(DEBUG|INFO|WARNING|ERROR)\x1b\[0m {1,5}\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} fl_frontend - /;
 
 afterEach(() => {
-  settings.__flLogFormat = "json";
-  settings.__flLogLevel = "INFO";
+  settings.format = "json";
+  settings.level = "INFO";
 });
 
 describe("the LOG_LEVEL threshold", () => {
@@ -51,7 +50,7 @@ describe("the LOG_LEVEL threshold", () => {
   });
 
   it("writes a DEBUG line once the threshold is DEBUG", () => {
-    settings.__flLogLevel = "DEBUG";
+    settings.level = "DEBUG";
 
     const [document] = documentsWrittenBy(() => logger.debug("fill"));
 
@@ -61,7 +60,7 @@ describe("the LOG_LEVEL threshold", () => {
 
   // The backend's numbering: a threshold set once on the server means the same thing to both.
   it("keeps every level at or above the threshold and nothing below it", () => {
-    settings.__flLogLevel = "WARNING";
+    settings.level = "WARNING";
 
     const written = documentsWrittenBy(() => {
       logger.debug("d");
@@ -80,7 +79,7 @@ describe("the LOG_LEVEL threshold", () => {
   // log goes empty and the stream reads as a quiet service rather than as a silenced one.
   it("leaves a writer above every threshold the environment may name", () => {
     for (const threshold of LOG_THRESHOLDS) {
-      settings.__flLogLevel = threshold;
+      settings.level = threshold;
 
       const written = documentsWrittenBy(() => {
         logger.debug("d");
@@ -152,8 +151,8 @@ describe("the json format", () => {
 
 describe("the console format", () => {
   it("writes the one console shape through console.*, each level to its own method", () => {
-    settings.__flLogFormat = "console";
-    settings.__flLogLevel = "DEBUG";
+    settings.format = "console";
+    settings.level = "DEBUG";
     const original = { debug: console.debug, log: console.log, warn: console.warn, error: console.error };
     const calls: [string, string][] = [];
     console.debug = (line: string) => calls.push(["debug", line]);

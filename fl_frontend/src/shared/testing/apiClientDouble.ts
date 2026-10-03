@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, beforeEach } from "node:test";
 
+import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
+import { judging } from "@/core/verdicts.ts";
+
 /** One request a module handed the backend client: the path, and what it went with. */
 export type ApiCall = {
   endpoint: string;
@@ -15,7 +19,8 @@ export type ApiCall = {
 /** The response schema the caller handed the client, which an answer is parsed through where the case wants its shape held. */
 export type ApiSchema = { parse: (value: unknown) => unknown };
 
-let registered = 0;
+/** What a caller hands the client beside the endpoint and the schema. */
+type ApiOptions = { method?: string; body?: string; params?: unknown; headers?: HeadersInit; readOnly?: boolean };
 
 /**
  * Replaces `fl_frontend/src/core/api.ts` at the module boundary, recording every call and answering
@@ -24,25 +29,29 @@ let registered = 0;
  */
 export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => unknown): ApiCall[] {
   const calls: ApiCall[] = [];
-  // Through a global: the replaced module is compiled from source and shares nothing with this scope.
-  const bus = `__flApiClientDouble${String((registered += 1))}`;
-  Reflect.set(globalThis, bus, { calls, answer });
 
   // Sent through the real client's own dispatch, so the write the admin spine judges its answer by is
   // recorded here exactly as the real client records it.
-  const source = `import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch";
-export const apiClient = async (endpoint, schema, options = {}) => {
-  const call = { endpoint, method: options.method, body: options.body, params: options.params, headers: new Headers(options.headers), readOnly: options.readOnly };
-  return dispatchRequest(sentRequestOf(options.method, options.readOnly), async () => {
-    globalThis.${bus}.calls.push(call);
-    return globalThis.${bus}.answer(call, schema);
-  });
-};`;
-
+  const apiClient = async (endpoint: string, schema: ApiSchema, options: ApiOptions = {}): Promise<unknown> => {
+    const call: ApiCall = {
+      endpoint,
+      method: options.method,
+      body: options.body,
+      params: options.params,
+      headers: new Headers(options.headers),
+      readOnly: options.readOnly,
+    };
+    return dispatchRequest(sentRequestOf(options.method, options.readOnly), async () => {
+      calls.push(call);
+      return answer(call, schema);
+    });
+  };
   registerHooks({
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-      return url.endsWith("/src/core/api.ts") ? { format: "module", source, shortCircuit: true } : nextLoad(url, context);
+      if (!url.endsWith("/src/core/api.ts")) return nextLoad(url, context);
+
+      return { format: "module", source: replacingModule(url, "the backend client", { apiClient }), shortCircuit: true };
     },
   });
 
@@ -97,8 +106,10 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
   });
   // Judged after the case, not at the call: the action catches the parse's throw and may answer just
   // as the case expects of a real failure. A fixture error, never the client's malformed-data error.
-  afterEach(() => {
-    assert.deepEqual(malformed, [], "the case answered these calls with a body the real client refuses as malformed");
+  afterEach((t) => {
+    judging(t.fullName, () =>
+      assert.deepEqual(malformed, [], "the case answered these calls with a body the real client refuses as malformed"),
+    );
   });
 
   return { calls, answerWith: (next) => void (answering = next) };

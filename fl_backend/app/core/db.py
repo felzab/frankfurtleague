@@ -8,10 +8,11 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConfigurationError, OperationFailure
 
 from app.core.collections import Collection
-from app.core.config import BackendConfig, get_app_config
+from app.core.config import MONGODB_URI_FILE, BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
 from app.core.logging import fl_logger
+from app.shared.folding import is_stored_identifier
 
 
 class Refusal(NamedTuple):
@@ -24,18 +25,18 @@ class Refusal(NamedTuple):
     error_code: str
 
 
-# The variable's NAME and the fact, in one sentence each, used by the log line and the error alike.
+# The secret file's NAME and the fact, in one sentence each, used by the log line and the error alike.
 # The three share their opening, so an operator who found one of them reads which by its continuation.
-UNREACHABLE = Refusal("MONGODB_URI: the MongoDB server could not be reached, so the application will not start.", "SRV-BOOT-001")
-NO_SERVER = Refusal("MONGODB_URI: the value did not yield a server to connect to, so the application will not start.", "SRV-BOOT-002")
-REJECTED = Refusal("MONGODB_URI: the server refused to authenticate this value, so the application will not start.", "SRV-BOOT-003")
+UNREACHABLE = Refusal(f"{MONGODB_URI_FILE}: the MongoDB server could not be reached, so the application will not start.", "SRV-BOOT-001")
+NO_SERVER = Refusal(f"{MONGODB_URI_FILE}: the value did not yield a server to connect to, so the application will not start.", "SRV-BOOT-002")
+REJECTED = Refusal(f"{MONGODB_URI_FILE}: the server refused to authenticate this value, so the application will not start.", "SRV-BOOT-003")
 
 
 class DatabaseUnreachableError(Exception):
-    """The boot's database refusal, named by the variable that configures it and nothing else.
+    """The boot's database refusal, named by the secret file that configures it and nothing else.
 
-    Its own type rather than the driver's: pymongo quotes what it parsed out of `MONGODB_URI`, which
-    is how a mistyped value reaches a log.
+    Its own type rather than the driver's: pymongo quotes what it parsed out of the URI, which is how
+    a mistyped value reaches a log.
     """
 
 
@@ -45,7 +46,7 @@ def _refusal_for(error: BaseException) -> Refusal:
     `str(error)` quotes what the driver parsed or resolved, so nothing derived from it is read here.
     """
     # The server answered and refused: a password restored from a manager that does not match lands
-    # here, and it sends an operator to the environment file rather than to the network.
+    # here, and it sends an operator to the secret file rather than to the network.
     if isinstance(error, OperationFailure):
         return REJECTED
     # `AsyncMongoClient.__init__` parses the URI, so these arrive from the construction as well as
@@ -57,11 +58,60 @@ def _refusal_for(error: BaseException) -> Refusal:
     return UNREACHABLE
 
 
+class BootWarning(NamedTuple):
+    """`Refusal`'s pair for a line the boot goes on past.
+
+    Warnings rather than refusals: the public site needs no administrator, and a boot refused over the
+    grants would take it down to repair a state only a Playground paste repairs.
+    """
+
+    sentence: str
+    error_code: str
+
+
+NO_GRANT = BootWarning("berechtigungen holds no live grant, so nobody can enter the administration.", "SRV-BOOT-005")
+NO_OWNER = BootWarning("berechtigungen holds no live owner row, so no grant is out of an administrator's reach.", "SRV-BOOT-006")
+DEAD_GRANT = BootWarning(
+    "berechtigungen holds {count} grant(s) whose address is empty, unfolded or refused by the address rule, which admit nobody.",
+    "SRV-BOOT-007",
+)
+# The names alone, never a value: one of them held addresses, and the rest credentials.
+RETIRED_VARIABLES = BootWarning(
+    "These variables are retired and read by nothing: {names}. Delete them from this service's environment.", "SRV-BOOT-008"
+)
+
+
+async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
+    """Name at boot a list that admits nobody, protects nobody, or holds a row no request matches.
+
+    Counts alone reach the line and never an address: the log outlives the grants it describes.
+    """
+
+    grants = await berechtigungen_collection.find({}, projection={"adresse": 1, "verwaltung": 1}).to_list(length=None)
+    # The one reading every reader of a grant takes (`docs/backend/spec.md :: I453`): the validator
+    # refuses no spelling (`:: I16`), so a hand-typed row may be stored that no request matches.
+    live = [grant for grant in grants if is_stored_identifier(grant.get("adresse"))]
+
+    if len(live) < len(grants):
+        fl_logger.warning(DEAD_GRANT.sentence.format(count=len(grants) - len(live)), extra={"error_code": DEAD_GRANT.error_code})
+
+    if not live:
+        fl_logger.warning(NO_GRANT.sentence, extra={"error_code": NO_GRANT.error_code})
+        return
+
+    if all(grant.get("verwaltung") != "owner" for grant in live):
+        fl_logger.warning(NO_OWNER.sentence, extra={"error_code": NO_OWNER.error_code})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # The settings the application was built with (`app/main.py :: create_app`), which its requests read too.
     config: BackendConfig = app.state.config
     client: AsyncMongoClient | None = None
+
+    if config.retired_variables:
+        names = ", ".join(sorted(config.retired_variables))
+        fl_logger.warning(RETIRED_VARIABLES.sentence.format(names=names), extra={"error_code": RETIRED_VARIABLES.error_code})
 
     try:
         try:
@@ -100,6 +150,8 @@ async def lifespan(app: FastAPI):
             f"{constraints.unique_indexes} unique, {constraints.support_indexes} support "
             f"and {constraints.ttl_indexes} TTL indexes."
         )
+
+        await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.BERECHTIGUNGEN])
 
         yield
 
@@ -211,3 +263,21 @@ async def get_registrierungen_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.REGISTRIERUNGEN]
+
+
+async def get_berechtigungen_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.BERECHTIGUNGEN]
+
+
+async def get_berechtigungen_angekuendigt_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.BERECHTIGUNGEN_ANGEKUENDIGT]
+
+
+async def get_berechtigungen_postausgang_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.BERECHTIGUNGEN_POSTAUSGANG]

@@ -17,14 +17,14 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.admin_router import get_sperrliste, post_sperrliste_eintrag
+from app.api.sperrliste.admin_router import get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
-from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, adresse_hash
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
-from tests.config import build_test_config
+from tests.bans import ban_list, ban_through_the_route
+from tests.config import build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -87,6 +87,8 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             if seasons:
                 await database[Collection.SAISONS].insert_many(seasons)
 
@@ -95,29 +97,17 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
-    return await post_sperrliste_eintrag(
-        sperrliste_data=FLPostSperrlistePayload(email=email, grund=GRUND),
+async def listed(database: AsyncDatabase) -> Any:
+    """The list read with its two dependencies: the season the ban list compares against, and the key."""
+
+    return await get_sperrliste(
         sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
-        db=client,
-        config=CONFIG,
-        erstellt_von=ADMIN,
-        today=TODAY,
+        sperrliste=ban_list(database),
     )
 
 
-def a_raw_row(email: str) -> dict[str, Any]:
-    """One conforming entry written straight to the collection, which is what a case varying a single key needs."""
-
-    return {
-        "adresse_hash": adresse_hash(email, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": GRUND,
-        "erstellt_von": ADMIN,
-        "erstellt_am": TODAY,
-        "gesperrt_bis_saison_id": LAST_COVERED,
-    }
+async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
+    return await ban_through_the_route(database, client, email=email, grund=GRUND, von=ADMIN, today=TODAY)
 
 
 async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
@@ -158,7 +148,7 @@ class TestWhatTheWriteRecords:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client)
 
-            return await get_sperrliste(sperrliste_collection=database[Collection.SPERRLISTE])
+            return await listed(database)
 
         served = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
 
@@ -299,13 +289,13 @@ class TestTheBoundaryTheCheckReads:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, int]:
             await ban(database, client)
-            keyless = a_raw_row(OTHER)
+            keyless = documents.ban_document(OTHER, bis=LAST_COVERED)
             del keyless["gesperrt_bis_saison_id"]
 
             with pytest.raises(OperationFailure) as refused:
                 await database[Collection.SPERRLISTE].insert_one(keyless)
 
-            await database[Collection.SPERRLISTE].insert_one(a_raw_row(OTHER))
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(OTHER, bis=LAST_COVERED))
 
             return refused.value.code, await database[Collection.SPERRLISTE].count_documents({})
 

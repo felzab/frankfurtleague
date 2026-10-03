@@ -1,6 +1,6 @@
 import { apiClient } from "@/core/api";
+import { runAdminRead } from "@/shared/utils/adminRead";
 import { parseLeserichtung } from "@/shared/utils/leserichtung";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { aktionenLogFacetTerms } from "./facets";
 import { FLAktionenListResponseSchema } from "./schemas";
@@ -30,7 +30,7 @@ export const getAktionen = async (
     order?: Leserichtung;
   } = {},
 ): Promise<FLAktionenListResponse> => {
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     apiClient<FLAktionenListResponse>("/aktionen", FLAktionenListResponseSchema, {
       authType: "admin",
       params: filters,

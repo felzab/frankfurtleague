@@ -128,9 +128,8 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
-// A THUNK and never a resolved number: three of the four codes below are link states, and a
-// caller reading the floor in front of the switch spends a second backend read on every one of
-// them.
+// A THUNK and never a resolved number: every code below but the age refusal is a link state, and a
+// caller reading the floor in front of the switch spends a second backend read on each of them.
 /**
  * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
@@ -158,6 +157,9 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
       return { zustand: "abgelaufen" };
     case "REQ-REGISTRIERUNG-006":
       return { zustand: "bestaetigt" };
+    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
+    case "REQ-REGISTRIERUNG-012":
+      return { zustand: "gesperrt" };
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-REGISTRIERUNG-007": {

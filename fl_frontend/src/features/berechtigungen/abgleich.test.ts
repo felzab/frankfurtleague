@@ -1,0 +1,462 @@
+import assert from "node:assert/strict";
+import { beforeEach, describe, it } from "node:test";
+
+import { registerDoubles } from "@/core/exportingModule.ts";
+import { doubleSendMail } from "@/core/mailDouble.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+
+import type { MailOutcome } from "@/core/mailDouble.ts";
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+
+/** One line the pass wrote, as the logger was handed it. */
+type Line = { level: string; event: string; fields: unknown };
+
+const lines: Line[] = [];
+
+const record =
+  (level: string) =>
+  (event: string, ...rest: unknown[]): void =>
+    void lines.push({ level, event, fields: rest.at(-1) });
+const LOGGING_DOUBLE = { logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") } };
+const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_FORMAT: "console" } };
+
+registerDoubles({ modules: { "core/logging.ts": LOGGING_DOUBLE, "core/config.ts": CONFIG_DOUBLE } });
+
+const OUTBOX_A = "6890a1b2c3d4e5f6071a0001";
+const OUTBOX_B = "6890a1b2c3d4e5f6071a0002";
+const GRANT_A = "6890a1b2c3d4e5f6071b0001";
+const GRANT_B = "6890a1b2c3d4e5f6071b0002";
+
+const HOLDERS = ["inhaber@schule.de", "vorstand@schule.de"];
+
+/** One change as a claim answers it; each case names what it differs in. */
+const aenderung = (fields: Record<string, unknown> = {}) => ({
+  id: OUTBOX_A,
+  berechtigung_id: GRANT_A,
+  art: "erteilt",
+  urheber: "anwendung",
+  jetzt: { adresse: "neu@schule.de", verwaltung: "administration" },
+  vorher: null,
+  geaendert_von: "vorstand@schule.de",
+  geaendert_von_gesperrt: false,
+  geaendert_am: "2026-09-27T01:00:00Z",
+  gesperrt: false,
+  aufgegeben: false,
+  ...fields,
+});
+
+const claimOf = (aenderungen: unknown[], extra: Record<string, unknown> = {}) => ({
+  acknowledged: 1,
+  beanspruchung: aenderungen.length === 0 ? null : "claim-1",
+  beansprucht_bis: aenderungen.length === 0 ? null : "2026-09-27T01:10:00Z",
+  aenderungen: aenderungen,
+  empfaenger: HOLDERS,
+  uebersprungen: 0,
+  ...extra,
+});
+
+/** What the next claim answers, or a throw where a case says the backend is down. */
+let claim: unknown = claimOf([]);
+
+/** Resolves the claim a case holds open, so a second pass can start beside the first. */
+let holdClaim: Promise<void> | null = null;
+
+/** What the stamp throws, where a case says the backend refused it. */
+let stampFails: Error | null = null;
+
+const calls = doubleApiClient((call: ApiCall, schema) => {
+  if (call.endpoint === "/berechtigungen/abgleich") {
+    return (holdClaim ?? Promise.resolve()).then(() => {
+      if (claim instanceof Error) throw claim;
+      return schema.parse(claim);
+    });
+  }
+
+  if (stampFails !== null) return Promise.reject(stampFails);
+  const ids = (JSON.parse(call.body ?? "{}") as { ids: string[] }).ids;
+  return schema.parse({ acknowledged: 1, angekuendigt: ids.length, ignoriert: 0 });
+});
+
+const mail = doubleSendMail();
+
+const { runBerechtigungenAbgleich } = await import("./abgleich.ts");
+
+/** The ids each stamp named, in order. */
+const stamps = (): { beanspruchung: string; ids: string[] }[] =>
+  calls
+    .filter((call) => call.endpoint === "/berechtigungen/abgleich/angekuendigt")
+    .map((call) => JSON.parse(call.body ?? "{}") as { beanspruchung: string; ids: string[] });
+
+const claims = (): number => calls.filter((call) => call.endpoint === "/berechtigungen/abgleich").length;
+
+beforeEach(() => {
+  calls.length = 0;
+  lines.length = 0;
+  claim = claimOf([]);
+  holdClaim = null;
+  stampFails = null;
+});
+
+describe("one pass over the claimed changes", () => {
+  /* Mail, then stamp: stamping first would mark as told a change nobody was told of. */
+  it("mails every holder and the address granted once each, then stamps the row under the claim", async () => {
+    claim = claimOf([aenderung({ jetzt: { adresse: "vorstand@schule.de", verwaltung: "administration" } })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort(), "a holder named twice was mailed twice");
+    // The tag the delivery report reads, or a holder the notice missed would be recorded nowhere.
+    assert.ok(mail.sent.every((sent) => sent.tags?.["berechtigung"] === "hinweis"));
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  /* A removed address is in no grant, so it is on no holder list: it is mailed off its own change. */
+  it("mails the address a revoke removed beside the holders", async () => {
+    claim = claimOf([aenderung({ art: "entzogen", jetzt: null, vorher: { adresse: "alt@schule.de", verwaltung: "administration" } })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), ["alt@schule.de", ...HOLDERS].sort());
+    assert.ok(mail.sent.every((sent) => sent.text.includes("alt@schule.de hat keinen Zugang zur Verwaltung mehr.")));
+  });
+
+  /* A barred address leaves the ban list on no route: the answer withholds it, and the pass mails
+     only the holders, telling them a barred address was granted. */
+  it("mails a barred address nothing, and names it to nobody", async () => {
+    claim = claimOf([
+      aenderung({
+        jetzt: { adresse: null, verwaltung: "administration" },
+        gesperrt: true,
+        urheber: "datenbank",
+        geaendert_von: null,
+        geaendert_am: null,
+      }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    assert.ok(mail.sent.every((sent) => sent.text.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung.")));
+    assert.ok(mail.sent.every((sent) => sent.text.includes("direkt in der Datenbank")));
+    // Told in full: a send attempted to the withheld address fails, and leaves the row for every later pass.
+    assert.deepEqual(lines, []);
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  it("mails the holders alone for a revoke of a barred address, and names it to nobody", async () => {
+    claim = claimOf([aenderung({ art: "entzogen", jetzt: null, vorher: { adresse: null, verwaltung: "administration" }, gesperrt: true })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    assert.ok(mail.sent.every((sent) => sent.text.includes("Eine gesperrte Adresse hat keinen Zugang zur Verwaltung mehr.")));
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  /* The takeover a holder of the database's credentials would make: one grant's address edited from A
+     to B, answered as A's removal and B's grant. Every holder, B among them, is told both; A its own loss. */
+  it("tells an address repointed in the database as the old address's loss and the new one's grant", async () => {
+    const DATENBANK = { urheber: "datenbank", geaendert_von: null, geaendert_am: null };
+    claim = claimOf(
+      [
+        aenderung({ art: "entzogen", jetzt: null, vorher: { adresse: "opfer@schule.de", verwaltung: "administration" }, ...DATENBANK }),
+        aenderung({ id: OUTBOX_B, jetzt: { adresse: "angreifer@schule.de", verwaltung: "administration" }, ...DATENBANK }),
+      ],
+      { empfaenger: [...HOLDERS, "angreifer@schule.de"] },
+    );
+
+    await runBerechtigungenAbgleich();
+
+    const texte = (an: string): string[] => mail.sent.filter((sent) => sent.to === an).map((sent) => sent.text);
+    const VERLUST = "opfer@schule.de hat keinen Zugang zur Verwaltung mehr.";
+    const ZUGANG = "angreifer@schule.de hat jetzt Zugang zur Verwaltung.";
+    for (const an of ["angreifer@schule.de", ...HOLDERS]) {
+      const [verlust, zugang] = texte(an);
+      assert.ok(verlust?.includes(VERLUST), `${an} was not told who lost access`);
+      assert.ok(zugang?.includes(ZUGANG), `${an} was not told who gained it`);
+    }
+    assert.deepEqual(
+      texte("opfer@schule.de").map((text) => text.includes(VERLUST)),
+      [true],
+    );
+    assert.ok(
+      mail.sent.every((sent) => !sent.text.includes("Inhaber")),
+      "a repoint was told as a change of tier",
+    );
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A, OUTBOX_B] }]);
+  });
+
+  it("tells an `owner` grant made in the database as the owner's", async () => {
+    claim = claimOf([
+      aenderung({ jetzt: { adresse: "neu@schule.de", verwaltung: "owner" }, urheber: "datenbank", geaendert_von: null, geaendert_am: null }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.ok(mail.sent.length > 0);
+    assert.ok(mail.sent.every((sent) => sent.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaber.")));
+  });
+
+  it("tells a change of tier as the tier the address now holds", async () => {
+    claim = claimOf([
+      aenderung({
+        art: "geaendert",
+        jetzt: { adresse: "vorstand@schule.de", verwaltung: "owner" },
+        vorher: { adresse: "vorstand@schule.de", verwaltung: "administration" },
+        urheber: "datenbank",
+        geaendert_von: null,
+        geaendert_am: null,
+      }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaber der Verwaltung.")));
+  });
+
+  /* An owner's tier change made on the grants page: the address keeps its access, and the acting owner who made
+     the change is named, never „direkt in der Datenbank“. */
+  it("tells a demotion made in the application as the tier the address leaves, naming the owner who made it", async () => {
+    claim = claimOf([
+      aenderung({
+        art: "geaendert",
+        jetzt: { adresse: "vorstand@schule.de", verwaltung: "administration" },
+        vorher: { adresse: "vorstand@schule.de", verwaltung: "owner" },
+        geaendert_von: "inhaber@schule.de",
+      }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    for (const { text } of mail.sent) {
+      assert.ok(text.includes("vorstand@schule.de ist nicht mehr Inhaber der Verwaltung und behält den Zugang."));
+      assert.ok(text.includes("Geändert von inhaber@schule.de"));
+      assert.ok(!text.includes("direkt in der Datenbank"));
+    }
+  });
+
+  /* The case round 3 split out: a null actor on a change made in the application is a barred administrator. */
+  it("tells a barred administrator's change as theirs, never as a database edit", async () => {
+    claim = claimOf([aenderung({ geaendert_von: null, geaendert_von_gesperrt: true, gesperrt: true })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.ok(mail.sent.length > 0);
+    assert.ok(mail.sent.every((sent) => sent.text.includes("Geändert von einer gesperrten Adresse")));
+    assert.ok(mail.sent.every((sent) => !sent.text.includes("direkt in der Datenbank")));
+  });
+
+  /* One key per row and recipient: a lapsed claim mailing a row again reaches nobody twice inside
+     the provider's day, and two recipients never share one. */
+  it("keys each send on its outbox row and its recipient", async () => {
+    claim = claimOf([aenderung()]);
+
+    await runBerechtigungenAbgleich();
+    const first = mail.sent.map((sent) => sent.idempotencyKey);
+    mail.sent.length = 0;
+    await runBerechtigungenAbgleich();
+    const second = mail.sent.map((sent) => sent.idempotencyKey);
+
+    assert.equal(new Set(first).size, first.length, "two recipients share one key");
+    assert.deepEqual(second, first, "the same row mailed again carries other keys");
+    assert.ok(
+      first.every((key) => key?.startsWith(`berechtigung_${OUTBOX_A}_`)),
+      "a key is not the row's",
+    );
+  });
+});
+
+describe("what a pass leaves for the next", () => {
+  /* A send that may yet land keeps its row: the next claim, once this one lapses, mails it again under
+     the same keys, where stamping it would lose a notice for good. */
+  it("stamps a change whose every send settled, and leaves one whose send may yet land", async () => {
+    claim = claimOf([
+      aenderung(),
+      aenderung({ id: OUTBOX_B, berechtigung_id: GRANT_B, jetzt: { adresse: "zwei@schule.de", verwaltung: "administration" } }),
+    ]);
+    const lost: MailOutcome = "lost";
+    mail.answerWith((sent) => (sent.text.includes("zwei@schule.de") && sent.to === "vorstand@schule.de" ? lost : "accepted"));
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    assert.ok(
+      lines.some(
+        (line) =>
+          line.event === "berechtigung.notice_failed" &&
+          JSON.stringify(line.fields) === JSON.stringify({ error_code: "FE-MAIL-009", name: "APINetworkError" }),
+      ),
+      "the lost send left no line, or one carrying more than its name",
+    );
+  });
+
+  /* The next claim mails the row again, and only to whom the last pass missed: past the provider's day
+     its keys collapse nothing, and a holder told twice learns nothing but noise. */
+  it("mails a later pass's row only to the recipients an earlier pass missed", async () => {
+    claim = claimOf([aenderung()]);
+    const lost: MailOutcome = "lost";
+    mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
+    await runBerechtigungenAbgleich();
+    assert.deepEqual(stamps(), [], "a row with a send that may yet land was stamped");
+
+    mail.sent.length = 0;
+    mail.answerWith(() => "accepted");
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      mail.sent.map((sent) => sent.to),
+      ["vorstand@schule.de"],
+    );
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  /* The backend counts a row's claims, so no count of this process's own gives a row up: one that did
+     would restart at every deploy, and a second instance would give up on its own schedule. */
+  it("keeps a row the claim has not given up, however many passes this process spent on it", async () => {
+    claim = claimOf([aenderung()]);
+    const lost: MailOutcome = "lost";
+    mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
+
+    for (let pass = 1; pass <= 30; pass += 1) await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), [], "the pass gave a row up the backend still hands out");
+    assert.equal(mail.sent.filter((sent) => sent.to === "inhaber@schule.de").length, 1, "a recipient told once was mailed again");
+  });
+
+  /* A row no pass can finish is claimed every lease for ever: once the claim gives it up it is stamped out
+     of the outbox unmailed, and the line says, by count alone, how many were never told. */
+  it("stamps a row the claim gives up unmailed, under a louder line counting who was never told", async () => {
+    const AUFGEGEBEN = "6890a1b2c3d4e5f6071a00ff";
+    claim = claimOf([aenderung({ id: AUFGEGEBEN })]);
+    const lost: MailOutcome = "lost";
+    mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
+    await runBerechtigungenAbgleich();
+    assert.deepEqual(stamps(), [], "a row with a send that may yet land was stamped");
+
+    mail.sent.length = 0;
+    claim = claimOf([aenderung({ id: AUFGEGEBEN, aufgegeben: true })]);
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent, [], "a given-up row was mailed");
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [AUFGEGEBEN] }]);
+    assert.deepEqual(
+      lines.filter((line) => line.event === "berechtigung.notice_abandoned").map((line) => [line.level, line.fields]),
+      [["ERROR", { error_code: "FE-MAIL-011", art: "erteilt", nicht_erreicht: 1 }]],
+    );
+  });
+
+  /* A stack that mails nothing counts the change as told, or it would claim the same rows forever; the
+     mailer has logged it, so the pass adds no line. A domain with no ASCII form fails that address alone. */
+  it("counts a withheld send and an address no send can reach as told", async () => {
+    claim = claimOf([aenderung()]);
+    mail.answerWith((sent) => (sent.to === "inhaber@schule.de" ? "withheld" : sent.to === "neu@schule.de" ? "recipient" : "accepted"));
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    assert.deepEqual(
+      lines.map((line) => [line.level, line.event, line.fields]),
+      [["ERROR", "berechtigung.notice_failed", { error_code: "FE-MAIL-009", name: "MailRecipientError" }]],
+    );
+  });
+
+  /* A barred address is as told as the league may make it: held for it, the change would be claimed
+     for as long as the ban stands. The gate's own line records it, so the pass adds none. */
+  it("counts a send the ban list kept as told, and adds no line", async () => {
+    claim = claimOf([aenderung()]);
+    mail.answerWith((sent) => (sent.to === "inhaber@schule.de" ? "barred" : "accepted"));
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    assert.deepEqual(lines, []);
+  });
+
+  /* A refusal of the key, the domain, the sender or the request refuses every send alike, and the
+     provider names none that concerns one address: stamped, the change would be told to nobody. */
+  it("leaves a change the provider refused for good, and logs each refusal", async () => {
+    claim = claimOf([aenderung()]);
+    mail.answerWith(() => ({ refused: 403, providerErrorName: "validation_error" }));
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), []);
+    assert.ok(lines.length > 0 && lines.every((line) => line.level === "ERROR" && line.event === "berechtigung.notice_failed"));
+  });
+
+  it("stamps nothing and mails nothing where the claim holds no change", async () => {
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent, []);
+    assert.deepEqual(stamps(), []);
+  });
+
+  /* Nothing awaits a pass, so a throw would surface as an unhandled rejection with no line to read. */
+  it("settles where the claim fails, logging the name alone", async () => {
+    claim = new Error("the backend answered nothing");
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      lines.map((line) => [line.event, line.fields]),
+      [["berechtigung.abgleich_failed", { error_code: "FE-SWEEP-002", name: "Error" }]],
+    );
+  });
+
+  /* The rows stay held until the lease lapses and are mailed again under the same keys: the pass says so
+     and settles, since nothing awaits it to catch a throw. */
+  it("settles where the stamp fails, logging the name alone", async () => {
+    claim = claimOf([aenderung()]);
+    stampFails = new TypeError("fetch failed");
+
+    await runBerechtigungenAbgleich();
+
+    assert.ok(mail.sent.length > 0, "nothing was mailed, so no stamp was asked for");
+    assert.deepEqual(
+      lines.map((line) => [line.event, line.fields]),
+      [["berechtigung.stempel_failed", { error_code: "FE-SWEEP-002", name: "TypeError" }]],
+    );
+  });
+
+  /* Once for a count that stands, not every five minutes while nobody repairs the row; again once it rises. */
+  it("warns of rows no request can match once per count, counting them", async () => {
+    for (const uebersprungen of [0, 2, 2, 3, 3]) {
+      claim = claimOf([], { uebersprungen });
+      await runBerechtigungenAbgleich();
+    }
+
+    assert.deepEqual(
+      lines.map((line) => [line.level, line.event, line.fields]),
+      [
+        ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 2 }],
+        ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 3 }],
+      ],
+    );
+  });
+});
+
+describe("two passes asked for at once", () => {
+  /* A change written after a running pass claimed would wait for the next tick if the second ask were
+     dropped, and would be claimed twice if it ran beside the first. */
+  it("runs the second after the first rather than beside it or not at all", async () => {
+    let release = (): void => undefined;
+    holdClaim = new Promise((resolve) => {
+      release = resolve;
+    });
+
+    const first = runBerechtigungenAbgleich();
+    const second = runBerechtigungenAbgleich();
+    const third = runBerechtigungenAbgleich();
+    await second;
+    await third;
+    assert.equal(claims(), 1, "a second pass claimed beside the first");
+
+    holdClaim = null;
+    release();
+    await first;
+
+    assert.equal(claims(), 2, "the asks made while the first ran were dropped, or each ran a pass of its own");
+  });
+});

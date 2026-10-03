@@ -22,3 +22,7 @@ export const REQUIRE_HERE = createRequire(import.meta.url);
 export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
 export const TEXT_FIELD_USED = HeroTextField;
+// A test may take a secret's reader, and load the config whole, to drive its owner under a double.
+import { authResendKey, internalApiKeySystem } from "./config";
+export const SECRETS_USED = [authResendKey, internalApiKeySystem];
+export const CONFIG_LOADED = import("./config.ts");

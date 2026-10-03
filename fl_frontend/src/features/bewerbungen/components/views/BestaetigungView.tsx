@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { joinUnd } from "@/core/joinUnd";
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
@@ -11,7 +12,17 @@ import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
-import { ABSATZ_CLASSES, BestaetigungErgebnis, FaktenBanner, FrageStellen, GespeicherteAngaben, Wert, ZurLiga } from "./BestaetigungPanels";
+import {
+  ABSATZ_CLASSES,
+  AdresseGesperrt,
+  BestaetigungErgebnis,
+  FaktenBanner,
+  FrageStellen,
+  GespeicherteAngaben,
+  useLinkSeite,
+  Wert,
+  ZurLiga,
+} from "./BestaetigungPanels";
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
@@ -27,8 +38,8 @@ type Stand =
   | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean }
   | { zustand: "widersprochen-neu"; ansicht: EinwilligungGeoeffnet };
 
-/** One heading per state, uppercased by the page rather than typed so, as the application page does it. */
-const TITEL: Record<Stand["zustand"], string> = {
+/** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
+const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
   "widersprochen-neu": "Widerspruch gespeichert",
@@ -38,9 +49,6 @@ const TITEL: Record<Stand["zustand"], string> = {
   ungueltig: "Link ungültig",
   unlesbar: "Link nicht geprüft",
 };
-
-/** The application page's own column, so the two ends of the workflow are one page wide. */
-const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
 /**
  * Every seat one answer on this link writes, as one phrase: in the table's order and joined as
@@ -69,21 +77,9 @@ function saisonVon(stand: Stand): string | null {
  */
 export function BestaetigungView({ start }: { start: BestaetigungStart }) {
   const [stand, setStand] = useState<Stand>(start);
-  const [hatGeantwortet, setHatGeantwortet] = useState(false);
-  const ergebnisRef = useRef<HTMLElement>(null);
+  const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
-  useEffect(() => {
-    // The bare path after hydration, so the address bar, a screenshot and a bookmark carry no
-    // token. Not while the read failed: a reload is the way back, and it needs the token in the URL.
-    if (stand.zustand === "unlesbar" || window.location.search === "") return;
-    window.history.replaceState(null, "", window.location.pathname);
-  }, [stand.zustand]);
-
-  // The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
-  // announced; the panel takes it, and `role="status"` reads it out.
-  useEffect(() => {
-    if (hatGeantwortet) ergebnisRef.current?.focus();
-  }, [hatGeantwortet]);
+  if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   const saison = saisonVon(stand);
 
@@ -121,7 +117,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           rolle={rollenLangform(stand.ansicht)}
           mindestalter={stand.ansicht.mindestalter}
           onAbschluss={(abschluss) => {
-            setHatGeantwortet(true);
+            beantwortet();
             setStand(nachAntwort(abschluss, stand.ansicht));
           }}
         />

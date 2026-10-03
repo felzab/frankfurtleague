@@ -291,10 +291,7 @@ describe("what the fallback toast says", () => {
   // Literal copy, pinned literally — but each clause below names the constraint it holds, so a rewrite that
   // breaks one fails with the reason rather than with a diff.
   it("says what the save cost, and that the work survived it", () => {
-    assert.equal(
-      UNHANDLED_FIELD_REFUSAL,
-      "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. Versuche es noch einmal.",
-    );
+    assert.equal(UNHANDLED_FIELD_REFUSAL, "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. Versuche es erneut.");
   });
 
   it("borrows no word the triage owns", () => {

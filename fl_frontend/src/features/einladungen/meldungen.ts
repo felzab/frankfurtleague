@@ -1,5 +1,5 @@
 /**
- * The two sentences the invite's presses report, in their own module rather than inside
+ * The sentences the invite's presses report, in their own module rather than inside
  * `fl_frontend/src/features/einladungen/actions.ts`: every export of an `actions.ts` is a
  * `runAdminMutation` callback, and a sentence per count is what a case has to reach.
  */
@@ -8,10 +8,21 @@
 export const KEINE_TEAMS = "Diese Saison hat noch kein Team aufgenommen.";
 
 /**
- * What an administrator is told where the whole fan-out was withheld, which is every stack but
+ * What an administrator is told wherever a send of theirs was withheld, which is every stack but
  * production: a refusal would offer a retry no repeat of it can reach.
  */
 export const ZURUECKGEHALTEN = "Diese Umgebung sendet keine E-Mails. Die Nachricht wurde nur abgelegt.";
+
+/**
+ * What an administrator is told of the addresses the ban list kept a send of theirs from: a count and
+ * never an address, beside whatever did go (`docs/frontend/spec.md :: I542`). One sentence per count,
+ * for `versandSatz`'s reason.
+ */
+export function gesperrtSatz(gesperrt: number): string {
+  return gesperrt === 1
+    ? "An eine Adresse ging nichts, weil sie auf der Sperrliste steht."
+    : `An ${String(gesperrt)} Adressen ging nichts, weil sie auf der Sperrliste stehen.`;
+}
 
 /**
  * What the whole press reports. **A sentence per count**: a season of one team is the ordinary

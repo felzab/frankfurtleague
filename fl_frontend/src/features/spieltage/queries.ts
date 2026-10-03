@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLSpieltageListResponseSchema, FLSpieltageSingleResponseSchema } from "./schemas";
 
@@ -37,7 +37,7 @@ export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promis
   const held = adminSpieltageInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runWithIncomingTrace(() =>
+  const started = runAdminRead(() =>
     apiClient<FLSpieltageListResponse>("/spieltage/list/admin", FLSpieltageListResponseSchema, { authType: "admin", params: filters }),
   );
   adminSpieltageInFlight().set(key, started);
@@ -50,7 +50,7 @@ export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promis
  * which the editor turns into `notFound()`. **Uncached**: `docs/frontend/spec.md` §1.2.
  */
 export const getAdminSpieltagById = cache(async (spieltagId: string): Promise<FLSpieltageSingleResponse | null> =>
-  runWithIncomingTrace(() =>
+  runAdminRead(() =>
     apiClient<FLSpieltageSingleResponse>(`/spieltage/${spieltagId}/admin`, FLSpieltageSingleResponseSchema, { authType: "admin" }).catch(
       (error: unknown) => {
         if (isRecordMissing(error)) return null;

@@ -4,8 +4,15 @@ import z from "zod";
 
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
-import { frontend_config } from "./config";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, mayHaveWritten } from "./errors";
+import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
+import {
+  APIBadStatusError,
+  APIMalformedDataError,
+  APINetworkError,
+  ApiUnsentError,
+  mayHaveWritten,
+  UnattributedAdminCallError,
+} from "./errors";
 import { logger } from "./logging";
 import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
@@ -43,14 +50,14 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
     case "none":
       break;
     case "system":
-      headers["Authorization"] = `Bearer ${frontend_config.INTERNAL_API_KEY_SYSTEM}`;
+      headers["Authorization"] = `Bearer ${internalApiKeySystem()}`;
       break;
     case "admin":
-      headers["Authorization"] = `Bearer ${frontend_config.INTERNAL_API_KEY_ADMIN}`;
+      headers["Authorization"] = `Bearer ${internalApiKeyAdmin()}`;
       break;
     case "base":
     default:
-      headers["Authorization"] = `Bearer ${frontend_config.INTERNAL_API_KEY_BASE}`;
+      headers["Authorization"] = `Bearer ${internalApiKeyBase()}`;
       break;
   }
 
@@ -143,7 +150,12 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
   // reads as one everywhere it is inspected.
   const actor = authType === "admin" ? getRequestActor() : undefined;
-  if (actor) headers.set(ACTOR_HEADER, actor);
+  // Refused before it leaves: an admin-tier call opens under `runAdminRead` or an admin action's guard,
+  // which record the actor first.
+  if (authType === "admin" && !actor) throw new UnattributedAdminCallError(endpoint);
+  // The signed token alone, never the address: the backend believes no actor it cannot verify
+  // (`fl_frontend/src/core/actorToken.ts :: mintActorToken`).
+  if (actor) headers.set(ACTOR_HEADER, actor.token);
   else headers.delete(ACTOR_HEADER);
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { MongoServerError } from "mongodb";
+
 import { formatLogLine } from "./logFormat.ts";
 
 const TIMESTAMP_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
@@ -14,6 +16,16 @@ const SPAN = "b7ad6b7169203331";
 /** The level word is coloured, so every shape assertion below reads the line without the codes. */
 function plain(line: string): string {
   return line.replaceAll(/\x1b\[[0-9;]*m/g, "");
+}
+
+/** A duplicate-key refusal as the server words it: the address it met twice is in the message and in `keyValue`. */
+function duplicateAddress(): MongoServerError {
+  return new MongoServerError({
+    message: 'E11000 duplicate key error collection: auth.user index: user_email_uidx dup key: { email: "vorstand@example.org" }',
+    code: 11000,
+    codeName: "DuplicateKey",
+    keyValue: { email: "vorstand@example.org" },
+  });
 }
 
 describe("formatLogLine json", () => {
@@ -81,6 +93,16 @@ describe("formatLogLine json", () => {
     assert.equal(document.error.name, "Error");
     assert.equal(document.error.message, "boom");
     assert.equal(typeof document.error.stack, "string");
+  });
+
+  // Every spine that attaches what it caught reaches this writer, a store error included.
+  it("writes a store error as its class and the server's code, and nothing the server quoted", () => {
+    const document = JSON.parse(formatLogLine("json", "ERROR", "crash", { error: duplicateAddress() }));
+
+    assert.equal(document.error.name, "MongoServerError");
+    assert.equal(document.error.message, "code 11000 (DuplicateKey)");
+    assert.match(document.error.stack, /^MongoServerError: code 11000 \(DuplicateKey\)\n {4}at /);
+    assert.ok(!JSON.stringify(document).includes("@"), "the line quoted the address the refusal named");
   });
 
   it("passes structured extras through as fields", () => {
@@ -194,6 +216,14 @@ describe("formatLogLine console", () => {
     const rendered = plain(formatLogLine("console", "ERROR", "crash", { error: stackless })).split("\n");
 
     assert.deepEqual(rendered.slice(1), ["    Error: boom"]);
+  });
+
+  it("renders a store error's frames under its class and code, and nothing the server quoted", () => {
+    const rendered = plain(formatLogLine("console", "ERROR", "crash", { error: duplicateAddress() })).split("\n");
+
+    assert.equal(rendered[1], "    MongoServerError: code 11000 (DuplicateKey)");
+    assert.ok(rendered.length > 2, "the frames went with the message");
+    assert.ok(!rendered.join("\n").includes("@"), "the line quoted the address the refusal named");
   });
 
   it("keeps the error off the key=value tail", () => {

@@ -15,6 +15,8 @@ from pydantic.json_schema import models_json_schema
 from starlette.convertors import Convertor
 
 from app.api.aktionen.admin_router import router as aktionen_admin_router
+from app.api.berechtigungen.admin_router import router as berechtigungen_admin_router
+from app.api.berechtigungen.sweep_router import router as berechtigungen_sweep_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.einwilligung_router import router as bewerbungen_einwilligung_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
@@ -45,6 +47,7 @@ from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
+from app.core.actor_token import ActorTokenKey
 from app.core.config import API_VERSION, BackendConfig
 from app.core.db import get_database, get_db_client, lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
@@ -61,26 +64,36 @@ from app.core.exception_handlers import (
 )
 from app.core.exceptions import NO_DATABASE_CLIENT
 from app.core.logging import setup_custom_logger
-from app.core.middlewares import TraceContextMiddleware
+from app.core.middlewares import TracedApp
 from app.core.routing import ObjectIdConvertor
 from app.core.security import (
+    ACTOR_NOT_ADMIN,
+    ACTOR_TOKEN_REFUSED,
+    CONFIRMATION_REQUIRED,
     MISSING_ACTOR,
     MISSING_TOKEN,
-    SAFE_METHODS,
+    PERSON_BARRED,
     WRONG_ADMIN_KEY,
     WRONG_BASE_KEY,
     WRONG_SYSTEM_KEY,
-    bind_actor,
+    get_actor_token,
+    get_step_up_check,
     get_token,
     verify_access_admin,
     verify_access_base,
     verify_access_system,
+    verify_actor_is_admin,
+    verify_admin_actor,
+    verify_person_actor,
+    verify_person_is_unbarred,
+    verify_recent_confirmation,
+    verify_step_up,
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
-# Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter` and the ADMIN
-# `bewerbungen` router read under `verify_access_admin`, the rest under `verify_access_base`. Order
-# carries nothing here (`app/core/routing.py`).
+# Split by whether a router writes, never by method: `spielorte`, `schiedsrichter`, `registrierungen`
+# and the ADMIN `bewerbungen` router read under `verify_access_admin`, the rest under
+# `verify_access_base`. Order carries nothing here (`app/core/routing.py`).
 READ_ROUTERS = (
     spiele_router,
     teams_router,
@@ -104,6 +117,7 @@ WRITE_ROUTERS = (
     bewerbungen_admin_router,
     kontakte_admin_router,
     sperrliste_admin_router,
+    berechtigungen_admin_router,
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
@@ -123,6 +137,7 @@ SYSTEM_ROUTERS = (
     registrierungen_sweep_router,
     zustellung_router,
     identitaet_router,
+    berechtigungen_sweep_router,
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
@@ -137,12 +152,27 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     verify_access_base: (HTTPStatus.UNAUTHORIZED, WRONG_BASE_KEY),
     verify_access_admin: (HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
     verify_access_system: (HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
-    bind_actor: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
+    # The actor's three, each raised by the dependency it is keyed on; a binder declaring them raises
+    # none of its own, and an operation meets them through it (`dependency_refusals` walks sub-dependencies).
+    get_actor_token: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
+    verify_admin_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
+    verify_person_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
+    # A session older than its grant is refused here under `verify_admin_actor`'s code, which this
+    # check's own dependency on it publishes on every operation running both.
+    verify_actor_is_admin: (HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
+    verify_person_is_unbarred: (HTTPStatus.FORBIDDEN, PERSON_BARRED),
+    verify_recent_confirmation: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
+    verify_step_up: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
 }
-# Refusing on a write alone, a read passing whatever it carries (`app/core/security.py :: bind_actor`).
-WRITE_ONLY_DEPENDENCIES = frozenset({bind_actor})
+
+# Dependencies handing their handler a check it calls on the calls it judges, and what that check
+# answers: published as the table above is, but met only past the database, so
+# `fl_backend/tests/api/test_step_up_execution.py` drives them.
+HANDLER_JUDGED_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
+    get_step_up_check: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
+}
 UNGUARDED_TIER = "none"
 
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
@@ -352,17 +382,18 @@ def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
         yield from _dependency_calls(dependency)
 
 
-def dependency_refusals(app: FastAPI) -> dict[Operation, Refusals]:
-    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them."""
+def dependency_refusals(
+    app: FastAPI, tables: Sequence[Mapping[Callable[..., Any], tuple[HTTPStatus, str]]] = (DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS)
+) -> dict[Operation, Refusals]:
+    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them; both tables unless named."""
 
+    table = {call: refusal for named in tables for call, refusal in named.items()}
     found: dict[Operation, Refusals] = {}
     for route in document_routes(app):
-        refusing = set(_dependency_calls(route.dependant)) & DEPENDENCY_REFUSALS.keys()
+        refusing = set(_dependency_calls(route.dependant)) & table.keys()
         for operation in route.operations:
             for call in refusing:
-                if call in WRITE_ONLY_DEPENDENCIES and operation[1].upper() in SAFE_METHODS:
-                    continue
-                status, code = DEPENDENCY_REFUSALS[call]
+                status, code = table[call]
                 found.setdefault(operation, {}).setdefault(status, set()).add(code)
 
     return found
@@ -438,8 +469,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
     A FUNCTION, so the composition root is a choice rather than an import side effect. `config` is
-    what every request reads (`app/core/config.py :: get_app_config`), the environment's where none
-    is passed.
+    what every request reads (`app/core/config.py :: get_app_config`), the environment's and the
+    secret files' where none is passed.
     """
     # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import;
     # the ruff ban names that path too, since ruff matches the path an import spells.
@@ -450,8 +481,10 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     # Before the app exists, so a failure while constructing it is logged in the right format.
     setup_custom_logger(config)
 
-    app = FastAPI(lifespan=lifespan)
+    app = TracedApp(lifespan=lifespan)
     app.state.config = config
+    # Once, here: the `kid` a token must name is this key's thumbprint, and no request recomputes it.
+    app.state.actor_token_key = ActorTokenKey.from_public_key(config.actor_token_public_key)
 
     register_exception_handlers(app)
 
@@ -464,7 +497,6 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)
-    app.add_middleware(TraceContextMiddleware)
 
     app.include_router(system_router)
     for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_ROUTERS):

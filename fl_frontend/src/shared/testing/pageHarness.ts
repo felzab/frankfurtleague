@@ -9,13 +9,17 @@ import ts from "typescript";
 import z from "zod";
 
 import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
+import { exportingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { ReactElement, ReactNode } from "react";
 
 /** One step a page took against the backend or the request, in the order it took them. */
-export type PageStep = { kind: "connection" } | { kind: "read"; endpoint: string; params: Record<string, unknown> };
+export type PageStep =
+  | { kind: "connection" }
+  // `body` parsed, for a read sent as a POST: what it asks about rides there rather than in `params`.
+  | { kind: "read"; endpoint: string; params: Record<string, unknown>; body: unknown };
 
 /** A schema as the doubled client is handed it: enough of Zod's surface to build the emptiest answer. */
 export type AnswerSchema = {
@@ -33,17 +37,18 @@ export type ReadAnswer = (endpoint: string, schema: AnswerSchema, params: Record
 /** What a page is handed of an answer its schema took, given the parse the client hands on. */
 export type HandOver = (endpoint: string, parsed: unknown) => unknown;
 
-// Through a global: a doubled module is compiled from source and shares nothing with this scope.
-const STEPS = "__flPageSteps";
-
-// `connection()` is where a page opts out of prerendering, so its place among the reads is recorded.
-// The package is replaced whole: a module importing anything else from it fails to link here.
-const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
-  // Never `server-only`: this module's `data:` answer is an ES module, which Next's own CommonJS
-  // `require` of it reads as a path. `renderTest.ts` resolves it to the package's empty build instead.
-  ...Object.fromEntries(Object.entries(REQUEST_PACKAGES).filter(([specifier]) => specifier !== "server-only")),
-  "next/server": `export const connection = async () => void globalThis.${STEPS}.push({ kind: "connection" });`,
-};
+// The request every page renders in, each page reaching what its own reads and guard call; every page
+// reaches `next/server`, which is held.
+registerDoubles(
+  {
+    specifiers: {
+      ...REQUEST_PACKAGES,
+      // `connection()` is where a page opts out of prerendering, so its place among the reads is recorded.
+      "next/server": { connection: () => Promise.resolve(void steps.push({ kind: "connection" })) },
+    },
+  },
+  { mayGoUnserved: Object.keys(REQUEST_PACKAGES) },
+);
 
 const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -51,9 +56,17 @@ const asModule = (source: string): string => `data:text/javascript,${encodeURICo
  * Every value a `"use client"` module exports: what a bundler hands a server tree as a client
  * reference, which React's server renderer never calls (react.dev, `'use client'`).
  */
-const CLIENT_COMPONENTS = "__flClientComponents";
 const clientComponents = new WeakSet<object>();
-Reflect.set(globalThis, CLIENT_COMPONENTS, clientComponents);
+
+/** The specifier a client module imports its registration by, answered with the module below. */
+const REGISTER = "fl-page-harness:register";
+const REGISTER_MODULE = asModule(
+  exportingModule({
+    registerClientExports: (exported: Readonly<Record<string, unknown>>) => {
+      for (const value of Object.values(exported)) if (typeof value === "function") clientComponents.add(value);
+    },
+  }),
+);
 
 /**
  * Whether a module's directive prologue, the string statements before any other, holds `"use client"`.
@@ -76,9 +89,14 @@ export function isClientModule(source: string): boolean {
   return false;
 }
 
+/**
+ * The specifier a client module imports itself by, which the resolve hook answers with the importer's
+ * own URL: spelled into the source, a URL is code wherever an escape it passed through fails.
+ */
+const SELF = "fl-page-harness:self";
+
 /** Appended to a client module, so each export is registered once the module has defined it. */
-const registering = (url: string): string =>
-  `\nimport * as __flSelf from ${JSON.stringify(url)};\nfor (const value of Object.values(__flSelf)) if (typeof value === "function") globalThis.${CLIENT_COMPONENTS}.add(value);\n`;
+const REGISTERING = `\nimport * as __flSelf from "${SELF}";\nimport { registerClientExports as __flRegister } from "${REGISTER}";\n__flRegister(__flSelf);\n`;
 
 /**
  * ES modules alone: an `import` appended to a CommonJS one makes Node read it as an ES module. A
@@ -88,22 +106,20 @@ const ES_MODULE = new Set(["module", "module-typescript"]);
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
+    if (specifier === SELF && context.parentURL !== undefined) return { url: context.parentURL, shortCircuit: true };
+    if (specifier === REGISTER) return { url: REGISTER_MODULE, shortCircuit: true };
+    return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context);
     if (loaded.source === undefined || loaded.source === null || !ES_MODULE.has(loaded.format ?? "")) return loaded;
     const source = typeof loaded.source === "string" ? loaded.source : new TextDecoder().decode(loaded.source);
-    return isClientModule(source) ? { ...loaded, source: source + registering(url) } : loaded;
+    return isClientModule(source) ? { ...loaded, source: source + REGISTERING } : loaded;
   },
 });
 
-const globals = globalThis as unknown as Record<string, unknown>;
-
 /** Every step since the last `clearSteps`, across every page the process renders or calls. */
 export const steps: PageStep[] = [];
-globals[STEPS] = steps;
 
 export function clearSteps(): void {
   steps.length = 0;
@@ -209,10 +225,10 @@ export function answerReadsWith(respond: ReadAnswer, handingOver: HandOver = asP
   handOver = handingOver;
 }
 
-doubleApiClient(async ({ endpoint, method, params, readOnly }, handedSchema) => {
+doubleApiClient(async ({ endpoint, method, params, body: sent, readOnly }, handedSchema) => {
   const schema = handedSchema as z.ZodType & AnswerSchema;
   const asked = (params ?? {}) as Record<string, unknown>;
-  steps.push({ kind: "read", endpoint, params: asked });
+  steps.push({ kind: "read", endpoint, params: asked, body: sent === undefined ? undefined : (JSON.parse(sent) as unknown) });
   const body = await answerRead(endpoint, schema, asked);
 
   // The client's own check (`fl_frontend/src/core/api.ts :: apiClient`): a body its schema refuses

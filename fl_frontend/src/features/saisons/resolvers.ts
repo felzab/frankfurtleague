@@ -75,7 +75,7 @@ export async function resolveAdminSaison(searchParamsPromise: NextPageProps["sea
 /** For a page whose reads name a season: a league holding none is sent to the page that creates one (`docs/frontend/spec.md :: I363`). */
 export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison> {
   // eslint-disable-next-line local/admin-link -- an empty league has no season to carry
-  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/admin/saisons");
+  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/bereich/admin/saisons");
 }
 
 /**

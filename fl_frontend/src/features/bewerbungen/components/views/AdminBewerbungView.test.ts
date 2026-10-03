@@ -110,7 +110,11 @@ describe("the Zusage where the write would be refused", () => {
   });
 
   it("offers neither decision once the application is decided", () => {
-    renderPage({ ...OFFEN, status: "abgelehnt", entscheidung: { getroffen_am: "2026-09-10", von: "Admin", grund: "Kein Platz." } });
+    renderPage({
+      ...OFFEN,
+      status: "abgelehnt",
+      entscheidung: { getroffen_am: "2026-09-10", von: "Admin", von_gesperrt: false, grund: "Kein Platz." },
+    });
 
     // First: a page that rendered nothing holds neither panel either.
     assert.ok(screen.getByRole("heading", { name: TEAM_NAME }), "the decided application's page did not render");

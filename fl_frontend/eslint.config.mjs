@@ -9,6 +9,7 @@ import { getDefaultSelectors } from "eslint-plugin-better-tailwindcss/defaults";
 import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/types";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
+import ts from "typescript";
 
 const HERE = import.meta.dirname;
 
@@ -62,6 +63,8 @@ const HASHED_CONTENTS = [
   "pnpm-lock.yaml",
   // For `LOCAL_RULES`, whose selectors live in the functions `stringify` drops, as the third input's do.
   "eslint.config.mjs",
+  // For `SECRET_NAMES` and `SECRET_FILE_NAMES`, read off its `SECRET_FILES`.
+  "src/core/config.ts",
   ...filesUnder("src").filter((file) => file.endsWith(".css")),
 ];
 
@@ -106,6 +109,27 @@ const LAYER_BOUNDARY = {
   },
 };
 
+/**
+ * Any query a specifier may carry: Next's bundler resolves `<specifier>?<anything>` to the module itself,
+ * a package's as much as a local one's, which a pattern ending at the name never reads.
+ */
+const QUERY = String.raw`(?:\?.*)?`;
+
+/** One of the local modules `names`, by any path, bare or with its extension, and with any query. */
+const moduleNamed = (...names) => String.raw`(?:^|\x2F)(?:${names.join("|")})(?:\.tsx?)?${QUERY}$`;
+
+/** A specifier inside the directory `name`, by any path: a query cannot reach past the directory. */
+const directoryNamed = (name) => String.raw`(?:^|\x2F)${name}\x2F`;
+
+const escaped = (specifiers) =>
+  specifiers.map((specifier) => specifier.replaceAll("/", String.raw`\x2F`).replaceAll(".", String.raw`\.`)).join("|");
+
+/** One of the package specifiers `specifiers` exactly, and with any query. */
+const packageNamed = (...specifiers) => String.raw`^(?:${escaped(specifiers)})${QUERY}$`;
+
+/** One of the packages `specifiers` or a subpath under it, as a `no-restricted-imports` group reads a package, and with any query. */
+const packageUnder = (...specifiers) => String.raw`^(?:${escaped(specifiers)})(?:\x2F.*)?${QUERY}$`;
+
 /** Modules belonging to the suite alone, each message saying why; nothing else in the toolchain would say so. */
 const TEST_ONLY = [
   {
@@ -121,6 +145,39 @@ const TEST_ONLY = [
     // In core rather than `src/shared/testing`, so a core suite can import it past the layer boundary.
     group: ["**/mailDouble.ts", "**/mailDouble"],
     message: "mailDouble replaces the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    // In core for `mailDouble.ts`'s reason: `authDoubles.ts` builds its modules with it too.
+    group: ["**/exportingModule.ts", "**/exportingModule"],
+    message: "exportingModule builds a module double's source: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    // In core for `mailDouble.ts`'s reason: the passkey suites beside `auth.ts` post as it.
+    group: ["**/testAuthenticator.ts", "**/testAuthenticator"],
+    message:
+      "testAuthenticator holds a key pair minted at import and signs passkey ceremonies with it: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    // In core for `mailDouble.ts`'s reason: a core guard's memo is proven by a core suite.
+    group: ["**/cacheScope.ts", "**/cacheScope"],
+    message:
+      "cacheScope installs a render pass's memo table on the server React for the process: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    // In core for `mailDouble.ts`'s reason: the core suites judge with them, and the harness under `src/shared/testing` too.
+    group: ["**/verdicts.ts", "**/verdicts", "**/expiredTransactions.ts", "**/expiredTransactions"],
+    message:
+      "This module judges a suite's hooks and its database's transactions as the process ends: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    // In core for `mailDouble.ts`'s reason: the core suites build their subjects with it too.
+    group: ["**/subjectFixtures.ts", "**/subjectFixtures"],
+    message: "subjectFixtures builds the subjects a suite's doubles answer with: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
+    // In core for `mailDouble.ts`'s reason: the core suites judging a hook run their fixtures with it too.
+    group: ["**/childTestRun.ts", "**/childTestRun"],
+    message: "childTestRun spawns a child test run of a fixture: a *.test.ts(x) file may import it, production code may not.",
   },
   {
     // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
@@ -161,6 +218,102 @@ const TEST_ONLY = [
   },
 ];
 
+/**
+ * The actor's signing key, loaded by the two session guards and the boot alone: a module reaching it
+ * from anywhere else could mint an actor no guard judged, and a client module would put the key
+ * reader in a bundle.
+ */
+const ACTOR_SIGNING = {
+  regex: moduleNamed("actorToken"),
+  message:
+    "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation-node.ts load it, and a *.test.ts(x) file may; nothing else may.",
+};
+
+/**
+ * Next's `after`, scheduled through the one helper giving its callback the deadline a stopping container waits
+ * out: a callback scheduled bare keeps what is left of the request's deadline, or none, and a stop waits on it.
+ */
+const NEXT_AFTER = {
+  regex: packageUnder("next/server"),
+  importNames: ["after"],
+  message:
+    "Schedule work behind the response through fl_frontend/src/core/afterResponse.ts :: afterTheResponse, which bounds it by the deadline a stopping container waits out (docs/ops/spec.md :: I547).",
+};
+
+const ACTOR_SIGNING_BOOT = "src/instrumentation-node.ts";
+
+/** The settings module, which every server module imports and whose secret readers lint deals out one owner each. */
+const CONFIG_MODULE = moduleNamed("config");
+
+/**
+ * Each secret's reader in `fl_frontend/src/core/config.ts`, keyed by the one module that may import it:
+ * a reader anywhere else hands its secret to a module nothing reviewed as its holder.
+ */
+const SECRET_READERS = Object.fromEntries(
+  [
+    ["src/core/db.ts", ["mongodbUri"], "the sign-in store's credential"],
+    ["src/core/auth.ts", ["authSecret"], "the key every session is signed with"],
+    // The key lets a send leave without `sendMail`, and so without the ban list's gate.
+    ["src/core/mail.ts", ["authResendKey"], "the provider's key (docs/frontend/spec.md :: I541)"],
+    ["src/app/api/mail/zustellung/route.ts", ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
+    // The system's key calls the backend as the system, past every guard on an admin's session.
+    ["src/core/api.ts", ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
+  ].map(([owner, importNames, secret]) => [
+    owner,
+    {
+      regex: CONFIG_MODULE,
+      importNames,
+      message: `${importNames.join(", ")} ${importNames.length === 1 ? "hands" : "hand"} out ${secret}: fl_frontend/${owner} imports ${importNames.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`,
+    },
+  ]),
+);
+
+/**
+ * The sign-in library's instance, whose options and context both carry the session key: its own route
+ * handler needs it whole, and every other module calls a narrow function `fl_frontend/src/core/auth.ts`
+ * exports instead.
+ */
+const AUTH_INSTANCE = {
+  regex: moduleNamed("auth"),
+  importNames: ["auth"],
+  message:
+    "auth carries the session key in its options and its context: fl_frontend/src/app/api/auth/[...all]/route.ts imports it, and a *.test.ts(x) file may; nothing else may. Call a narrow function fl_frontend/src/core/auth.ts exports.",
+};
+// Brackets in a class of their own, which a `files` glob otherwise reads as one.
+const AUTH_ROUTE = "src/app/api/auth/[[]...all[]]/route.ts";
+
+/** The store's client, whose driver keeps the store's login for its re-authentication, so nothing scrubs it off. */
+const SIGN_IN_STORE = {
+  regex: moduleNamed("db"),
+  importNames: ["signInStore"],
+  message:
+    "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
+};
+
+/** The ban's own notice skips the ban list's gate, so only the ban action, which checks the reason it carries, sends it. */
+const SPERRE_NOTICE = {
+  regex: moduleNamed("mail"),
+  importNames: ["sendSperreNotice"],
+  message:
+    "sendSperreNotice sends past the ban list's gate: fl_frontend/src/features/sperrliste/actions.ts imports it, and a *.test.ts(x) file may; nothing else may (docs/frontend/spec.md :: I541).",
+};
+
+const SPERRE_NOTICE_OWNER = "src/features/sperrliste/actions.ts";
+
+/** Each secret's name and file, as `fl_frontend/src/core/config.ts :: SECRET_FILES` pairs them. */
+const SECRET_FILE_ENTRIES = (() => {
+  const files = /^const SECRET_FILES = \{\n([^}]*)\} as const;$/m.exec(readFileSync(path.join(HERE, "src", "core", "config.ts"), "utf8"));
+  const entries = [...(files?.[1] ?? "").matchAll(/^ {2}([A-Z][A-Z0-9_]*): "([^"]+)",$/gm)].map((match) => [match[1], match[2]]);
+  if (entries.length === 0) throw new Error("src/core/config.ts declares no SECRET_FILES to ban the names of");
+  return entries;
+})();
+
+/** Each secret's own name: a host may still carry the retired variable of one, a live value no file check judges. */
+const SECRET_NAMES = SECRET_FILE_ENTRIES.map(([name]) => name);
+
+/** Each secret's file: read off disk by its name, a secret skips the one reader its holder may import. */
+const SECRET_FILE_NAMES = SECRET_FILE_ENTRIES.map(([, file]) => file);
+
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
 /**
@@ -174,11 +327,26 @@ const TEST_SUPPORT = [
     .map((glob) => `src/${glob}`),
 ];
 
+/**
+ * A `TEST_ONLY` glob as the pattern its import and load bans read: `**` then a module, or a directory
+ * between two `**`. Any other shape throws rather than leave a ban reading less than its glob.
+ */
+function specifierOf(glob) {
+  const [, name, directory] = /^\*\*\/([\w.-]+)(\/\*\*)?$/.exec(glob) ?? [];
+  if (name === undefined) throw new Error(`${glob} is a glob shape no ban reads`);
+  return directory === undefined ? moduleNamed(name.replace(/\.tsx?$/, "")) : directoryNamed(name);
+}
+
+/** Each test-only entry as its import ban reads it. */
+const TEST_ONLY_IMPORTS = TEST_ONLY.map(({ group, message }) => ({ regex: `(?:${[...new Set(group.map(specifierOf))].join("|")})`, message }));
+
+const NODE_MODULE = String.raw`^(?:node:)?module${QUERY}$`;
+
 /** What only the suite and its harness import: its own modules, and the loader's hooks. */
 const SUITE_IMPORTS = [
-  ...TEST_ONLY,
+  ...TEST_ONLY_IMPORTS,
   {
-    regex: "^(?:node:)?module$",
+    regex: NODE_MODULE,
     message:
       "node:module rewrites how modules load, and a `createRequire` function held in a name loads past every load ban: a *.test.ts(x) file may import it, production code may not.",
   },
@@ -205,11 +373,11 @@ const CLASS_LIST_SITES = [
  */
 const VENDOR_ROOTS = [
   {
-    regex: "^@heroui/react$",
+    regex: packageNamed("@heroui/react"),
     allowImportNames: ["useOverlayState"],
     message: "Import a HeroUI component from its own subpath, `@heroui/react/<component>`.",
   },
-  { regex: "^@gravity-ui/icons$", message: 'Import an icon from its own subpath, `import Name from "@gravity-ui/icons/Name"`.' },
+  { regex: packageNamed("@gravity-ui/icons"), message: 'Import an icon from its own subpath, `import Name from "@gravity-ui/icons/Name"`.' },
 ];
 
 /**
@@ -229,20 +397,25 @@ const NEXT_PRIVATE_CONTEXTS = {
 
 /** The segmented date and time controls, composed in one file so every field reads as the dates the app prints. */
 const SEGMENTED_DATE_CONTROLS = {
-  group: ["@heroui/react"],
+  regex: packageUnder("@heroui/react"),
   importNames: ["DatePicker", "DateField", "TimeField", "DateRangePicker"],
   message: "Compose a date or time field through fl_frontend/src/shared/components/ui/DateTimeFields.tsx.",
 };
 
+/** The segmented controls' own subpaths, each loaded through the composing file alone. */
+const SEGMENTED_DATE_PACKAGES = ["date-picker", "date-field", "time-field", "date-range-picker"].map((name) => `@heroui/react/${name}`);
+
 /** HeroUI's number field, rendered through the wrapper that records an emptied box as `null` rather than `NaN`. */
 const HEROUI_NUMBER_FIELD = {
-  group: ["@heroui/react/number-field"],
+  regex: packageUnder("@heroui/react/number-field"),
   message: "Render a number field through fl_frontend/src/shared/components/ui/NumberField.tsx, which records an emptied box as null.",
 };
 
+const MARKED_FIELD_PACKAGES = ["textfield", "select", "switch", "autocomplete", "combo-box"].map((name) => `@heroui/react/${name}`);
+
 /** HeroUI's fields that carry a required mark, each rendered through the wrapper reading it off the form's schema. */
 const HEROUI_MARKED_FIELDS = {
-  group: ["@heroui/react/textfield", "@heroui/react/select", "@heroui/react/switch", "@heroui/react/autocomplete", "@heroui/react/combo-box"],
+  regex: packageUnder(...MARKED_FIELD_PACKAGES),
   message:
     "Render a text field, select, switch, autocomplete or combo box through its wrapper in fl_frontend/src/shared/components/ui/, which reads the required mark off the form's schema (docs/frontend/spec.md :: I368).",
 };
@@ -261,7 +434,7 @@ const MARKED_FIELD_WRAPPERS = [
 
 /** HeroUI's form, rendered through the wrapper that fixes its validation mode. */
 const HEROUI_FORM = {
-  group: ["@heroui/react"],
+  regex: packageUnder("@heroui/react"),
   importNames: ["Form"],
   message: 'Render a form through fl_frontend/src/shared/components/ui/Form.tsx, which sets validationBehavior="aria".',
 };
@@ -271,7 +444,7 @@ const HEROUI_FORM = {
  * stack to production (`docs/frontend/spec.md :: I186`).
  */
 const SITE_ORIGIN = {
-  group: ["**/brand", "**/brand.ts"],
+  regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
   message:
     "SITE_URL is the published origin, for the metadata base, robots.txt and the sitemap alone: a link a message carries stands on frontend_config.AUTH_URL (docs/frontend/spec.md :: I186).",
@@ -282,7 +455,7 @@ const SITE_ORIGIN = {
  * formats a subtree's dates by whatever it pins (`docs/frontend/spec.md :: I75`). Tests mount their own.
  */
 const LOCALE_PROVIDER = {
-  group: ["@heroui/react/rac"],
+  regex: packageUnder("@heroui/react/rac"),
   importNames: ["I18nProvider"],
   message: "The locale is pinned once, in fl_frontend/src/core/providers/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
 };
@@ -292,7 +465,7 @@ const LOCALE_PROVIDER = {
  * `Hint.tsx`, which the block exempting it below allows, a hint's panel looks like no other hint's.
  */
 const HINT_INTERNALS = {
-  group: ["**/InfoHint", "**/InfoHint.tsx"],
+  regex: moduleNamed("InfoHint"),
   importNames: ["HintPopover", "HintPanel"],
   message: "Render a hint through Hint or InfoHint, which dress the panel every hint shares.",
 };
@@ -351,19 +524,6 @@ const PASSKEY_DELETION = {
     "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts (docs/frontend/spec.md :: I312).",
 };
 
-const ASSERT_EQUALITY = 'CallExpression[callee.object.name="assert"][callee.property.name=/^(equal|strictEqual|deepEqual|deepStrictEqual)$/]';
-const QUERY_NAME = "/^(query|get|find)(All)?By/";
-
-const queryOperand = (index) =>
-  ["callee.property.name", "callee.name"].flatMap((path) => [
-    `[arguments.${index}.type="CallExpression"][arguments.${index}.${path}=${QUERY_NAME}]`,
-    `[arguments.${index}.type="AwaitExpression"][arguments.${index}.argument.type="CallExpression"][arguments.${index}.argument.${path}=${QUERY_NAME}]`,
-  ]);
-
-/**
- * A failed equality serialises both operands, and a query's DOM node reaches the whole React tree: one
- * failing case exhausted the machine's memory. Literal shapes only: a node held in a variable passes.
- */
 /** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
 const handedOnError = (object) =>
   [
@@ -383,12 +543,6 @@ const FAILURE_BY_HAND = {
   ].join(", "),
   message:
     "Hand an action's failure to `appToast.failure`, never to a danger titled here: a write of unknown outcome is titled neutrally there (docs/frontend/spec.md :: I325).",
-};
-
-const QUERY_IN_EQUALITY = {
-  selector: [...queryOperand(0), ...queryOperand(1)].map((operand) => `${ASSERT_EQUALITY}${operand}`).join(", "),
-  message:
-    "A failing equality serialises the whole rendered tree. Assert a boolean or a count instead: `assert.ok(<query> === null)`, or `<queryAll…>.length`.",
 };
 
 /**
@@ -462,37 +616,25 @@ const MODULE_SOURCES = [
   ...LOAD_SITES.flatMap(([loader, slot]) => [`${loader} > ${slot}`, `${loader} > ${slot} > TemplateElement`]),
 ].join(", ");
 
-/**
- * A `no-restricted-imports` glob as the pattern a load's specifier is read against: `**` then a
- * file, or a directory between two `**`. Any other shape throws rather than leave a load ban reading
- * less than its import ban.
- */
-function specifierOf(glob) {
-  const [, name, directory] = /^\*\*\/([\w.-]+)(\/\*\*)?$/.exec(glob) ?? [];
-  if (name === undefined) throw new Error(`${glob} is a glob shape no load ban reads`);
-  return String.raw`(?:^|\x2F)${name.replaceAll(".", String.raw`\.`)}${directory === undefined ? "$" : String.raw`\x2F`}`;
-}
-const specifiersOf = (globs) => `(?:${globs.map(specifierOf).join("|")})`;
-
 /** An import ban's `regex` as a selector's pattern, where a slash would close the expression. */
 const selectorPattern = (regex) => regex.replaceAll("/", String.raw`\x2F`);
 
 /** The import bans no module has a reason to escape by loading at run time, restated for `import()`. */
 const DYNAMIC_LOADS = [
   {
-    selector: loadOf(String.raw`^(?:@heroui\x2Freact|@gravity-ui\x2Ficons)$`),
+    selector: loadOf(packageNamed("@heroui/react", "@gravity-ui/icons")),
     message: "An `import()` of a package root loads it whole as well: take a HeroUI component or an icon from its own subpath.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fform$`),
+    selector: loadOf(packageNamed("@heroui/react/form")),
     message: "Load HeroUI's form through fl_frontend/src/shared/components/ui/Form.tsx, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fnumber-field$`),
+    selector: loadOf(packageNamed("@heroui/react/number-field")),
     message: "Load HeroUI's number field through fl_frontend/src/shared/components/ui/NumberField.tsx, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2F(?:textfield|select|switch|autocomplete|combo-box)$`),
+    selector: loadOf(packageNamed(...MARKED_FIELD_PACKAGES)),
     message: "Load a text field, select, switch, autocomplete or combo box through its wrapper, by `import()` as much as by `import`.",
   },
   {
@@ -500,18 +642,18 @@ const DYNAMIC_LOADS = [
     message: "Load Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts, by `import()` as much as by `import`.",
   },
   {
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2F(?:date-picker|date-field|time-field|date-range-picker)$`),
+    selector: loadOf(packageNamed(...SEGMENTED_DATE_PACKAGES)),
     message:
       "Load a segmented date control through fl_frontend/src/shared/components/ui/DateTimeFields.tsx, by `import()` as much as by `import`.",
   },
   {
     // A loaded module's I18nProvider reaches a tag the locale ban never reads.
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2Frac$`),
+    selector: loadOf(packageNamed("@heroui/react/rac")),
     message: "Import react-aria's primitives statically: the locale provider's one-mount ban reads the import.",
   },
   {
     // A loaded module's Calendar reaches a tag under whatever name it is destructured to.
-    selector: loadOf(String.raw`^@heroui\x2Freact\x2Fcalendar$`),
+    selector: loadOf(packageNamed("@heroui/react/calendar")),
     message: "Import the Calendar statically, under its own name: the spread ban reads the tag.",
   },
 ];
@@ -529,13 +671,75 @@ const RELATIVE_TEXT = String.raw`:matches(Literal[value=/^(?!\x2F|[a-z]+:)/], Te
 /** Where a target keeps the text it opens on: a `+`'s left, a type assertion's operand, a `concat`'s receiver. */
 const LEADING_SLOT = String.raw`:matches(BinaryExpression[operator="+"] > .left, :matches(TSAsExpression, TSSatisfiesExpression, TSNonNullExpression) > .expression, MemberExpression[property.name="concat"] > .object, CallExpression > MemberExpression.callee[property.name="concat"])`;
 
+/** The panel's old prefix as a whole segment, so `/adminTable` and `/administration` stay free. */
+const STALE_ADMIN = String.raw`/^\x2Fadmin(?![A-Za-z0-9_-])/`;
+
+/** The same prefix behind an origin, anywhere in the text: a mailed or logged address spells one. */
+const STALE_ADMIN_URL = String.raw`/[a-z]+:\x2F\x2F[^\x2F\s]+\x2Fadmin(?![A-Za-z0-9_-])/`;
+
+/**
+ * Where a literal or a template opens, as `UNSEASONED_ADMIN_LINKS` reads one, or any text naming an
+ * origin: a backend path ending in `/admin` and a route handler under `/api/admin` open on neither.
+ */
+const STALE_ADMIN_BAN = {
+  // Misses a mail's `${LABEL}: ${origin}/admin`: read after a hole, the prefix also ends `/spiele/${id}/admin`.
+  selector: `:matches(Literal[value=${STALE_ADMIN}], TemplateLiteral:matches([quasis.0.value.raw=${STALE_ADMIN}], [quasis.0.value.raw=""][quasis.1.value.raw=${STALE_ADMIN}]), Literal[value=${STALE_ADMIN_URL}], TemplateElement[value.raw=${STALE_ADMIN_URL}])`,
+  message: "The admin panel moved off /admin, which answers 404: its pages are under /bereich/admin.",
+  tests: true,
+};
+
 // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
-// handed to `ShellNotFound` is carried by that component, which `fl_frontend/src/app/notFound.test.ts`
-// renders under a season.
+// handed to `ShellNotFound` takes the season from the shell around it, which the admin shell keeps in
+// the query (`fl_frontend/src/features/admin/components/ui/AdminShell.test.ts`).
 const UNSEASONED_ADMIN_LINKS = [
-  String.raw`Literal[value=/^\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
-  String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
+  String.raw`Literal[value=/^\x2Fbereich\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
+  String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fbereich\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fbereich\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
 ];
+
+/** Every comparison whose failure prints both operands, the negated and the partial forms among them. */
+const PRINTING_EQUALITIES = new Set([
+  "equal",
+  "strictEqual",
+  "notEqual",
+  "notStrictEqual",
+  "deepEqual",
+  "deepStrictEqual",
+  "notDeepEqual",
+  "notDeepStrictEqual",
+  "partialDeepStrictEqual",
+]);
+
+/** The declarations of Node's own assertion module, whichever import or test context reaches them. */
+const NODE_ASSERT = /[\\/]@types[\\/]node[\\/]assert(?:[\\/]strict)?\.d\.ts$/;
+
+/** By type, which no selector reads: a node held in a name, cast or fallen back to is still a node. */
+function holdsNode(dom, type, depth) {
+  if (depth > 3) return false;
+  if (type.isUnion() || type.isIntersection()) return type.types.some((member) => holdsNode(dom, member, depth + 1));
+  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never | ts.TypeFlags.Null | ts.TypeFlags.Undefined)) return false;
+  // An event's `target` is typed as the bare EventTarget, and on a page it is a node.
+  if (type === dom.eventTarget || dom.checker.isTypeAssignableTo(type, dom.node)) return true;
+  const element = dom.checker.getIndexTypeOfType(type, ts.IndexKind.Number);
+  if (element !== undefined && holdsNode(dom, element, depth + 1)) return true;
+  if ((type.flags & ts.TypeFlags.Object) === 0) return false;
+  return dom.checker.getPropertiesOfType(type).some((property) => {
+    const declaration = property.valueDeclaration;
+    const file = declaration?.getSourceFile();
+    // The suite's own shapes and the DOM's, an event or a mutation record among them, but no library's, so a
+    // response double or a mock is never read as one.
+    if (file === undefined || (file.isDeclarationFile && !dom.program.isSourceFileDefaultLibrary(file))) return false;
+    return holdsNode(dom, dom.checker.getTypeOfSymbolAtLocation(property, declaration), depth + 1);
+  });
+}
+
+/** The assertion a call reaches, by its symbol: a method of `node:assert`, imported, namespaced or a test's own. */
+function assertionCalled(checker, callee) {
+  const name = ts.isPropertyAccessExpression(callee) ? callee.name : callee;
+  let symbol = checker.getSymbolAtLocation(name);
+  if (symbol !== undefined && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+  if (symbol === undefined || !PRINTING_EQUALITIES.has(symbol.getName())) return false;
+  return (symbol.declarations ?? []).some((declaration) => NODE_ASSERT.test(declaration.getSourceFile().fileName));
+}
 
 /**
  * The admin-link ban is a rule of its own because its sites are excused one by one, and a disable
@@ -553,7 +757,38 @@ const LOCAL_RULES = {
     create: (context) =>
       Object.fromEntries(UNSEASONED_ADMIN_LINKS.map((selector) => [selector, (node) => context.report({ node, messageId: "unseasoned" })])),
   },
+  // A failing equality builds its diff when it throws, with custom inspection off, and a rendered node's
+  // React fibres reach the whole tree: one failing focus case grew its process to 12 GB.
+  "node-in-equality": {
+    meta: {
+      type: "problem",
+      messages: {
+        printed:
+          "A failing equality over a DOM node serialises the whole rendered tree, React's fibres with it. Compare by identity or reduce to a value instead: `assert.ok(<node> === <other>, <message>)`, `<queryAll…>.length`, or `<node>.getAttribute(…)`.",
+      },
+      schema: [],
+    },
+    create: (context) => {
+      const { program, esTreeNodeToTSNodeMap } = context.sourceCode.parserServices ?? {};
+      if (program == null) throw new Error(`local/node-in-equality reads types, and ${context.filename} was parsed without them.`);
+      const checker = program.getTypeChecker();
+      const declared = (name) => checker.getDeclaredTypeOfSymbol(checker.resolveName(name, undefined, ts.SymbolFlags.Type, false));
+      const dom = { checker, program, node: declared("Node"), eventTarget: declared("EventTarget") };
+      return {
+        CallExpression: (call) => {
+          // Named first, so the checker resolves only a call that can reach an equality.
+          const named =
+            call.callee.type === "Identifier" ||
+            (call.callee.type === "MemberExpression" && PRINTING_EQUALITIES.has(call.callee.property.name));
+          if (!named || !assertionCalled(checker, esTreeNodeToTSNodeMap.get(call.callee))) return;
+          const operands = call.arguments.slice(0, 2).map((operand) => checker.getTypeAtLocation(esTreeNodeToTSNodeMap.get(operand)));
+          if (operands.some((type) => holdsNode(dom, type, 0))) context.report({ node: call, messageId: "printed" });
+        },
+      };
+    },
+  },
 };
+const LOCAL_PLUGIN = { rules: LOCAL_RULES };
 
 /** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
@@ -566,15 +801,50 @@ const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
  */
 const DATE_CONTROLS = [...JUDGING_DATE_CONTROLS, "DateRangePicker", "Calendar"];
 const tagsOf = (controls) => controls.flatMap((name) => [name, `${name}.Root`]);
-const DATE_MODULES = String.raw`/^@heroui\x2Freact(?:\x2F(?:date-picker|date-field|time-field|date-range-picker|calendar))?$/`;
+const DATE_MODULES = `/${packageNamed("@heroui/react", ...SEGMENTED_DATE_PACKAGES, "@heroui/react/calendar")}/`;
 
-const HINT_MODULE = specifiersOf(HINT_INTERNALS.group);
+const HINT_MODULE = HINT_INTERNALS.regex;
 const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
 const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HEROUI_MARKED_FIELDS, HINT_INTERNALS];
 
-const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER];
+const PRODUCTION_IMPORTS = [
+  ...HOMED_IMPORTS,
+  ...SUITE_IMPORTS,
+  SITE_ORIGIN,
+  LOCALE_PROVIDER,
+  ACTOR_SIGNING,
+  NEXT_AFTER,
+  ...Object.values(SECRET_READERS),
+  AUTH_INSTANCE,
+  SIGN_IN_STORE,
+  SPERRE_NOTICE,
+];
+
+/**
+ * A load of the module `pattern` names that is held whole, or taken apart into one of `names`: a loaded
+ * namespace hands on every name it holds, and no import ban reads a load.
+ */
+function takenFromLoad(pattern, names) {
+  const named = `/^(?:${names.join("|")})$/`;
+  const sources = (at) => [`[${at}.value=/${pattern}/]`, `[${at}.expressions.length=0][${at}.quasis.0.value.cooked=/${pattern}/]`];
+  // An `import()` is taken apart once awaited: a member of its promise is a `.then`, whose callback
+  // holds the namespace whole. A `createRequire` load is the module itself.
+  const awaitedApart = [
+    'VariableDeclarator[id.type="ObjectPattern"] > AwaitExpression.init > .argument',
+    "MemberExpression > AwaitExpression.object > .argument",
+  ].join(", ");
+  const requiredApart = ['VariableDeclarator[id.type="ObjectPattern"] > .init', "MemberExpression > .object"].join(", ");
+  return [
+    ...["init", "init.argument"].flatMap((at) =>
+      loadAt(at, pattern).map((load) => `VariableDeclarator${load} > ObjectPattern.id > :matches(Property[key.name=${named}], RestElement)`),
+    ),
+    ...["object", "object.argument"].flatMap((at) => loadAt(at, pattern).map((load) => `MemberExpression${load}[property.name=${named}]`)),
+    ...sources("source").map((source) => `ImportExpression${source}:not(${awaitedApart})`),
+    ...sources("arguments.0").map((source) => `CallExpression[callee.callee.name="createRequire"]${source}:not(${requiredApart})`),
+  ].join(", ");
+}
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -591,7 +861,6 @@ const SOURCE_BANS = [
   },
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
-  { ...QUERY_IN_EQUALITY, tests: true, production: false },
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
     // A module double's source text, or a specifier held in a name for a later load. A path assembled
@@ -601,7 +870,60 @@ const SOURCE_BANS = [
     tests: true,
   },
   {
-    selector: loadOf(String.raw`(?:${specifiersOf(TEST_ONLY.flatMap((entry) => entry.group))}|^(?:node:)?module$)`),
+    selector: loadOf(ACTOR_SIGNING.regex),
+    message: `${ACTOR_SIGNING.message} The boot alone loads it by \`import()\`.`,
+    exempt: [ACTOR_SIGNING_BOOT],
+  },
+  {
+    // A loaded module's namespace carries every reader, which no import ban reads.
+    selector: loadOf(CONFIG_MODULE),
+    message: "fl_frontend/src/core/config.ts loaded at run time hands over every secret's reader: the boot alone loads it by `import()`.",
+    exempt: [ACTOR_SIGNING_BOOT],
+  },
+  {
+    // The boot's own load included, which the ban above leaves it.
+    selector: takenFromLoad(
+      CONFIG_MODULE,
+      Object.values(SECRET_READERS).flatMap((reader) => reader.importNames),
+    ),
+    message: "A loaded fl_frontend/src/core/config.ts is taken apart where it is loaded, and never into a secret's reader.",
+  },
+  {
+    selector: takenFromLoad(AUTH_INSTANCE.regex, AUTH_INSTANCE.importNames),
+    message: "A loaded fl_frontend/src/core/auth.ts is taken apart where it is loaded, and never into `auth`, which carries the session key.",
+  },
+  {
+    selector: takenFromLoad(SIGN_IN_STORE.regex, SIGN_IN_STORE.importNames),
+    message:
+      "A loaded fl_frontend/src/core/db.ts is taken apart where it is loaded, and never into `signInStore`, whose client holds the store's login.",
+  },
+  {
+    selector: takenFromLoad(SPERRE_NOTICE.regex, SPERRE_NOTICE.importNames),
+    message:
+      "A loaded fl_frontend/src/core/mail.ts is taken apart where it is loaded, and never into `sendSperreNotice`, which sends past the ban list's gate.",
+  },
+  {
+    // `process.env.<name>` and every other spelling of one: the retired variable is a host's live value.
+    selector: [
+      "MemberExpression[property.name=NAMES]",
+      "ObjectPattern > Property[key.name=NAMES]",
+      "Literal[value=NAMES]",
+      "TemplateElement[value.cooked=NAMES]",
+    ]
+      .map((site) => site.replace("NAMES", `/^(?:${SECRET_NAMES.join("|")})$/`))
+      .join(", "),
+    message:
+      "A secret is read through its reader in fl_frontend/src/core/config.ts alone: a host may still carry its retired variable, a live value no file check judges (docs/frontend/spec.md :: I545).",
+    exempt: ["src/core/config.ts"],
+  },
+  {
+    // Bare or ending a path: a module reading the file itself holds the secret past its reader.
+    selector: inLiteral(String.raw`(?:^|\x2F|\x5C)(?:${SECRET_FILE_NAMES.join("|")})$`),
+    message: "A secret's file is named in fl_frontend/src/core/config.ts alone, whose readers hand each secret to its one holder.",
+    exempt: ["src/core/config.ts"],
+  },
+  {
+    selector: loadOf(`(?:${[...TEST_ONLY_IMPORTS.map((entry) => entry.regex), NODE_MODULE].join("|")})`),
     message:
       "A test-only module, or node:module, loaded at run time stays the suite's: a *.test.ts(x) file may load it, production code may not.",
   },
@@ -665,7 +987,7 @@ const SOURCE_BANS = [
     exempt: ["src/features/saisons/components/ui/laufendDot.ts"],
   },
   {
-    selector: `Program:has(ImportDeclaration[source.value=/badges(\\.ts)?$/] > ImportSpecifier[imported.name="PILL_RADIUS_CLASSES"]) ${classList({ all: ["bg-muted", "text-foreground-muted"] })}`,
+    selector: `Program:has(ImportDeclaration[source.value=/${moduleNamed("badges")}/] > ImportSpecifier[imported.name="PILL_RADIUS_CLASSES"]) ${classList({ all: ["bg-muted", "text-foreground-muted"] })}`,
     message: "A pill takes its colour from a `PillTone`, never the neutral pair (docs/frontend/spec.md :: I170).",
   },
   {
@@ -695,11 +1017,11 @@ const SOURCE_BANS = [
   {
     ...FAILURE_BY_HAND,
     exempt: [
-      // Failures no FastAPI write words, so none carries an unknown outcome: the passkey list reads
-      // the sign-in store, and Better Auth answers the sign-out and mints the sign-in link.
-      "src/features/passkeys/components/modals/PasskeyModal.tsx",
+      // Failures no FastAPI write words, so none carries an unknown outcome: Better Auth answers the
+      // sign-out and sends and checks the sign-in code.
       "src/shared/hooks/useSignOut.ts",
       "src/features/auth/components/forms/SignInForm.tsx",
+      "src/features/auth/components/forms/CodeStep.tsx",
       // An undo of unknown outcome, under the undo's own unclear title: `appToast.failure`'s speaks of a save.
       "src/shared/utils/undoDispatch.ts",
     ],
@@ -715,6 +1037,7 @@ const SOURCE_BANS = [
     message: "The confirmation moved off /bestaetigung: mint the link through `bestaetigungsLink`.",
     tests: true,
   },
+  STALE_ADMIN_BAN,
   {
     // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
     // a call's argument or a ternary's branch, takes the text out of the lead.
@@ -725,7 +1048,7 @@ const SOURCE_BANS = [
     message: "A navigation names an absolute path: a relative one resolves against whatever page it fires from.",
   },
   {
-    selector: `:matches(ImportDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier, ExportNamedDeclaration[source.value=/^@heroui\\x2Freact(?:\\x2F|$)/] > ExportSpecifier[local.name=/^(?:${DATE_CONTROLS.join("|")})(?:Root)?$/], ExportAllDeclaration[source.value=${DATE_MODULES}])`,
+    selector: `:matches(ImportDeclaration[source.value=/${packageUnder("@heroui/react")}/] > :matches(${DATE_CONTROLS.map((name) => `ImportSpecifier[imported.name="${name}"]:not([local.name="${name}"])`).join(", ")}, ImportSpecifier[imported.name=/^(?:${DATE_CONTROLS.join("|")})Root$/]), ImportDeclaration[source.value=${DATE_MODULES}] > ImportNamespaceSpecifier, ExportNamedDeclaration[source.value=/${packageUnder("@heroui/react")}/] > ExportSpecifier[local.name=/^(?:${DATE_CONTROLS.join("|")})(?:Root)?$/], ExportAllDeclaration[source.value=${DATE_MODULES}])`,
     message: "Import a date control under its own name, and re-export none: the bound and spread bans read the tag.",
     tests: true,
   },
@@ -750,8 +1073,6 @@ const SOURCE_BANS = [
     selector: 'JSXOpeningElement[name.name="form"]',
     message:
       "A form is the shared Form, never a native <form>: fl_frontend/src/shared/components/ui/Form.tsx owns the submit and takes no function action (docs/frontend/spec.md :: I32).",
-    // It posts with no script of the page's own, so it runs before, and without, the app's JavaScript.
-    exempt: ["src/app/(public)/signin/bestaetigen/page.tsx"],
   },
   {
     // Read off the element, so a hint handed down to a field through a prop or a child component passes unread.
@@ -799,8 +1120,7 @@ const SCOPED_BANS = [
     {
       files: ["src/app/**/*.{ts,tsx}"],
       // The directive is the module's own prologue alone: one inside a function makes no client module.
-      selector:
-        'Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/facets(\\.tsx?)?$/]',
+      selector: `Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("facets")}/]`,
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
     {
@@ -818,7 +1138,10 @@ const SCOPED_BANS = [
       selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
     },
-    { files: ["src/core/auth.ts", "src/core/mail.ts"], ...LOGGED_ERROR },
+    {
+      files: ["src/core/auth.ts", "src/core/authIndexes.ts", "src/core/mail.ts", "src/core/mailGate.ts", "src/core/signInGate.ts"],
+      ...LOGGED_ERROR,
+    },
   ],
   [
     {
@@ -923,7 +1246,17 @@ const eslintConfig = defineConfig([
   // Syntax rules rather than test sweeps: a comment naming a spelling is no literal, so prose never
   // trips one.
   ...SOURCE_BAN_BLOCKS,
-  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, plugins: { local: { rules: LOCAL_RULES } }, rules: { "local/admin-link": "error" } },
+  // The one file outside `src` naming page paths: a redirect to the old prefix ships a 404 unseen.
+  { files: ["next.config.ts"], rules: syntaxBans([STALE_ADMIN_BAN]) },
+  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, plugins: { local: LOCAL_PLUGIN }, rules: { "local/admin-link": "error" } },
+  // Types for the tests alone, which the one typed rule reads. `--cache` keys a file on its own text, so
+  // a local run may keep a verdict whose types moved in an import; CI lints cold.
+  {
+    files: TEST_FILES,
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: HERE } },
+    plugins: { local: LOCAL_PLUGIN },
+    rules: { "local/node-in-equality": "error" },
+  },
 
   // A dedicated rule wherever one states the ban. `useEditorExit.ts` is exempt from the history ban
   // because it IS the guard.
@@ -986,21 +1319,37 @@ const eslintConfig = defineConfig([
   // Each ban's importers, last among the blocks reaching them for `restrictImports`'s reason, and left
   // out of that ban alone: a disable comment would excuse every import ban on its line.
   ...[
-    [["src/shared/components/ui/Hint.tsx"], HINT_INTERNALS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [["src/shared/components/ui/NumberField.tsx"], HEROUI_NUMBER_FIELD, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [MARKED_FIELD_HOMES, HEROUI_MARKED_FIELDS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
-    [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/Hint.tsx"], [HINT_INTERNALS], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/Form.tsx"], [HEROUI_FORM], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/NumberField.tsx"], [HEROUI_NUMBER_FIELD], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [MARKED_FIELD_HOMES, [HEROUI_MARKED_FIELDS], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [["src/shared/components/ui/DateTimeFields.tsx"], [SEGMENTED_DATE_CONTROLS], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     // What a crawler reads, which stands on the published origin.
-    [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], SITE_ORIGIN, PRODUCTION_IMPORTS],
-    [["src/core/providers/RootProviders.tsx"], LOCALE_PROVIDER, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], [SITE_ORIGIN], PRODUCTION_IMPORTS],
+    [["src/core/providers/RootProviders.tsx"], [LOCALE_PROVIDER], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    // The two session guards, which import the actor's signing module statically; the boot loads it by `import()`.
+    [["src/core/subject.ts"], [ACTOR_SIGNING], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    // The guard building the sign-in library also holds the key every session is signed with, and the
+    // store's client it builds the library over.
+    [["src/core/auth.ts"], [ACTOR_SIGNING, SECRET_READERS["src/core/auth.ts"], SIGN_IN_STORE], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    [["src/core/authIndexes.ts"], [SIGN_IN_STORE], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    [[AUTH_ROUTE], [AUTH_INSTANCE], PRODUCTION_IMPORTS],
+    [[SPERRE_NOTICE_OWNER], [SPERRE_NOTICE], PRODUCTION_IMPORTS],
+    ...Object.entries(SECRET_READERS)
+      .filter(([owner]) => owner !== "src/core/auth.ts")
+      .map(([owner, reader]) => [
+        [owner],
+        [reader],
+        owner.startsWith("src/core/") ? [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core] : PRODUCTION_IMPORTS,
+      ]),
+    [["src/core/afterResponse.ts"], [NEXT_AFTER], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
     // The harness and its own test, which the production bans leave out.
     [
       ["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"],
-      NEXT_PRIVATE_CONTEXTS,
+      [NEXT_PRIVATE_CONTEXTS],
       [...HOMED_IMPORTS, LAYER_BOUNDARY.shared],
     ],
-  ].map(([files, allowed, bans]) => ({ files, rules: restrictImports(...bans.filter((ban) => ban !== allowed)) })),
+  ].map(([files, allowed, bans]) => ({ files, rules: restrictImports(...bans.filter((ban) => !allowed.includes(ban))) })),
 
   {
     files: ["src/**/*.{ts,tsx}"],

@@ -1,33 +1,34 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
-import { writtenBy } from "./stdoutCapture.ts";
+import { MongoServerError } from "mongodb";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import { registerDoubles } from "./exportingModule.ts";
+import { writtenBy } from "./stdoutCapture.ts";
 
 // Getters, not values: the format decides whether the shim installs at all, and the threshold
 // whether a shimmed `console.debug` reaches the stream.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  get LOG_FORMAT() { return globalThis.__flLogFormat; },
-  get LOG_LEVEL() { return globalThis.__flLogLevel; },
-};`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
+const CONFIG_DOUBLE = {
+  frontend_config: {
+    get LOG_FORMAT() {
+      return settings.format;
+    },
+    get LOG_LEVEL() {
+      return settings.level;
+    },
   },
-  load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+};
+
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG_DOUBLE,
   },
 });
 
-const settings = globalThis as { __flLogFormat?: string; __flLogLevel?: string };
-settings.__flLogFormat = "json";
-settings.__flLogLevel = "DEBUG";
+/** What the doubled config answers, which each case sets. */
+const settings: { format?: string; level?: string } = {};
+settings.format = "json";
+settings.level = "DEBUG";
 
 const { installConsoleShim } = await import("./consoleShim.ts");
 const { runWithRequestScope } = await import("./requestScope.ts");
@@ -40,15 +41,15 @@ const SPAN = "b".repeat(16);
 
 afterEach(() => {
   Object.assign(console, ORIGINAL_CONSOLE);
-  settings.__flLogFormat = "json";
-  settings.__flLogLevel = "DEBUG";
+  settings.format = "json";
+  settings.level = "DEBUG";
 });
 
 describe("installConsoleShim", () => {
   // The logger's console line leaves through `console.*`; a shim under that format would wrap the
   // writer it forwards to and recurse.
   it("installs nothing under the console format", () => {
-    settings.__flLogFormat = "console";
+    settings.format = "console";
 
     installConsoleShim();
 
@@ -130,11 +131,11 @@ describe("installConsoleShim", () => {
 
   it("holds a shimmed console.debug to the same threshold as the logger", () => {
     installConsoleShim();
-    settings.__flLogLevel = "INFO";
+    settings.level = "INFO";
 
     assert.deepEqual(writtenBy(() => console.debug("dropped")).documents, []);
 
-    settings.__flLogLevel = "DEBUG";
+    settings.level = "DEBUG";
 
     assert.equal(writtenBy(() => console.debug("kept")).documents.length, 1);
   });
@@ -145,6 +146,33 @@ describe("installConsoleShim", () => {
     const { raw } = writtenBy(() => console.log('{"already":"json"}'));
 
     assert.deepEqual(raw, ['{"already":"json"}\n']);
+  });
+
+  /* Next hands the thrown value itself to `console.error`, and Node's inspection prints every field the
+     driver copied onto it, a cause's included. */
+  it("prints a store error, alone or as a cause, by its class and code and never by what the server quoted", () => {
+    installConsoleShim();
+    const duplicate = () =>
+      new MongoServerError({
+        message: 'E11000 duplicate key error collection: auth.user index: user_email_uidx dup key: { email: "vorstand@example.org" }',
+        code: 11000,
+        codeName: "DuplicateKey",
+        keyValue: { email: "vorstand@example.org" },
+      });
+
+    const calls: [string, () => void][] = [
+      ["error", () => console.error("⨯", duplicate())],
+      ["cause", () => console.error(new Error("the sign-in failed", { cause: duplicate() }))],
+      ["dir", () => console.dir(duplicate())],
+    ];
+
+    for (const [method, call] of calls) {
+      const { documents } = writtenBy(call);
+      assert.equal(documents.length, 1, method);
+      // Node's inspection writes the class beside the constructor it was built with: `Error [MongoServerError]: …`.
+      assert.match(String(documents[0]?.message), /MongoServerError\]?: code 11000 \(DuplicateKey\)/, method);
+      assert.ok(!JSON.stringify(documents).includes("@"), `${method} quoted the address the refusal named`);
+    }
   });
 
   // Next's own `⨯ Error` dump is several lines through one `console.error`.

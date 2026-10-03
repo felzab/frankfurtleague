@@ -1,89 +1,95 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { ADMIN_EMAIL, asDataUrl, cookieHeader, MEMORY_ADAPTER_URL, ORIGIN, registerAuthDoubles, seedLink } from "@/core/authDoubles.ts";
+import {
+  ADMIN_EMAIL,
+  asDataUrl,
+  configDouble,
+  GATE_BACKEND_CONFIG,
+  insertOrderedAdapter,
+  memoryStore,
+  ORIGIN,
+  registerAuthDoubles,
+  seatEveryAddress,
+  sessionByCode,
+} from "@/core/authDoubles.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
-const STORE = "__flPasskeyStore";
-const REQUEST_HEADERS = "__flPasskeyRequestHeaders";
-const PASS_THROUGH = "__flPasskeyPassThrough";
+import type { SessionRow } from "@/core/authDoubles.ts";
+import type { MemoryDB } from "better-auth/adapters/memory";
 
-/** Allowlisted by nothing, so every guard below has an arm that is refused for the address alone. */
+/** Granted nothing: the person lane of every guard below. */
 const PERSON_EMAIL = "spielerin@example.org";
 
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+/** A second person, whose rows no call made with the first one's session may reach. */
+const OTHER_EMAIL = "schiedsrichter@example.org";
 
-const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
+/** The person's one account page, which every passkey notice links. */
+const KONTO = "/bereich/konto";
+
+/** What the request a case arrives as carries, which `arriveAs` sets. */
+let requestHeaders: Headers | undefined;
+
+/** Whether the adapter's `transaction` hands the adapter itself back rather than opening one. */
+let passThrough = false;
+
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
+
+const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
 
 /* Where the flag is set, `transaction` hands the adapter itself back, which is what the Mongo adapter
    does when it is given no client: the shape the removal must refuse rather than trust. */
-const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
-export const mongodbAdapter = () => (options) => {
-  const adapter = memoryAdapter(globalThis.${STORE})(options);
-  const served = { ...adapter, transaction: (callback) => (globalThis.${PASS_THROUGH} ? callback(served) : adapter.transaction(callback)) };
-  return served;
-};`;
+const ADAPTER_DOUBLE = {
+  mongodbAdapter: () => (options: Parameters<ReturnType<typeof insertOrderedAdapter>>[0]) => {
+    const adapter = insertOrderedAdapter(store as unknown as MemoryDB)(options);
+    const served: typeof adapter = {
+      ...adapter,
+      transaction: (callback) => (passThrough ? callback(served) : adapter.transaction(callback)),
+    };
+    return served;
+  },
+};
+
+// Every address this file signs in is seated: the gate at session creation is not its subject.
+seatEveryAddress();
 
 const mail = registerAuthDoubles({
-  core: { logging: LOGGING_DOUBLE },
+  core: { logging: LOGGING_DOUBLE, config: configDouble(GATE_BACKEND_CONFIG) },
   specifiers: {
-    "next/headers": asDataUrl(HEADERS_DOUBLE),
+    "next/headers": HEADERS_DOUBLE,
     "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
-    "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE),
+    "@better-auth/mongo-adapter": ADAPTER_DOUBLE,
   },
 });
 
-type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };
-
-type Store = {
-  user: { id: string; email: string }[];
-  session: SessionRow[];
-  account: unknown[];
-  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
-  passkey: Record<string, unknown>[];
-};
-
-const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
+const store = memoryStore("__flPasskeysStore");
 const sent = mail.sent;
-
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[STORE] = store;
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so none of the doubles would be in place yet.
-const { auth, getAdminSession, PASSKEY_LIMIT } = await import("@/core/auth");
-const { readPasskeysAction, removePasskeyAction } = await import("./actions.ts");
-const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation");
+const { auth, getAdminSession } = await import("@/core/auth");
+const { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } = await import("./actions.ts");
+const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
+const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation");
+const { PASSKEY_NAME_MAX } = await import("./schemas.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
 
 beforeEach(() => {
-  globals[PASS_THROUGH] = false;
+  passThrough = false;
   store.passkey.length = 0;
   store.session.length = 0;
   cacheCalls.length = 0;
 });
 
-/** Mints a session the way a followed link does, and hands back its cookie and its stored row. */
-async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const verified = await auth.api.magicLinkVerify({
-    query: { token: seedLink(store.verification, email) },
-    headers: new Headers(ORIGIN),
-    returnHeaders: true,
-  });
-  const cookie = cookieHeader(verified);
+const signIn = (email: string) => sessionByCode(auth, store, email);
 
-  const row = store.session.at(-1);
-  assert.ok(row !== undefined, "the verification wrote no session row");
-
-  return { cookie, row };
-}
-
-/** The administrator the dialog acts as: the passkey made the session, and made it just now. */
-async function steppedUpAdmin(): Promise<{ cookie: string; row: SessionRow }> {
-  const session = await signIn(ADMIN_EMAIL);
+/** A session the named passkey made `ageMs` ago: the stamp its assertion writes, set on the stored row. */
+async function signedInWith(email: string, credentialID: string, ageMs = 0): Promise<{ cookie: string; row: SessionRow }> {
+  const session = await signIn(email);
   session.row.authFactor = "passkey";
-  session.row.createdAt = new Date();
+  session.row.passkeyCredentialId = credentialID;
+  session.row.createdAt = new Date(Date.now() - ageMs);
   session.row.updatedAt = new Date();
 
   return session;
@@ -91,11 +97,11 @@ async function steppedUpAdmin(): Promise<{ cookie: string; row: SessionRow }> {
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */
 function arriveAs(cookie: string): void {
-  globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie });
+  requestHeaders = new Headers({ ...ORIGIN, cookie });
 }
 
 /** A stored passkey as the plugin's own routes read one, so an admitted call would really act. */
-function seedPasskey(userId: string, label: string): Record<string, unknown> {
+function seedPasskey(userId: string, label: string): Record<string, unknown> & { id: string; credentialID: string } {
   const row = {
     id: `ein-passkey-${label}`,
     userId: userId,
@@ -105,11 +111,6 @@ function seedPasskey(userId: string, label: string): Record<string, unknown> {
     deviceType: "singleDevice",
     backedUp: false,
     transports: "internal",
-    // A name the enrolling caller chose, which the projection drops and the refusal above keeps
-    // out in the first place.
-    name: "Windows Hello",
-    // The AAGUID every privacy-preserving platform reports, which `getAuthenticatorName` answers
-    // `undefined` for: the row that proves `label` is its own field rather than a fallback.
     aaguid: "00000000-0000-0000-0000-000000000000",
     createdAt: new Date(),
   };
@@ -118,221 +119,298 @@ function seedPasskey(userId: string, label: string): Record<string, unknown> {
   return row;
 }
 
-describe("the session each passkey action opens on", () => {
-  /* The proxy turns an unauthenticated `/admin` POST away, and this is what holds whatever reaches
-     the action anyway — a session the mailed link alone made included. */
-  it("refuses the list to a session the passkey did not make, and reads no rows for it", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    seedPasskey(row.userId, "eins");
-    arriveAs(cookie);
+const sessionIds = (): string[] => store.session.map((row) => row.id).sort();
 
-    const answer = await readPasskeysAction();
-
-    assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN });
-  });
-
-  it("refuses the removal to that same session, leaving every row standing", async () => {
+describe("the session a passkey action opens on", () => {
+  /* The administrator's lane is the passkey's: a session the mailbox alone made may not manage the
+     authenticator that guards the administration. */
+  it("refuses an administrator's session the passkey did not make, leaving every row standing", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const held = seedPasskey(row.userId, "eins");
     seedPasskey(row.userId, "zwei");
     arriveAs(cookie);
 
-    const answer = await removePasskeyAction(String(held.id));
-
-    assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN });
+    assert.deepEqual(await removePasskeyAction(held.id), { success: false, error: KONTO_FORBIDDEN });
+    assert.deepEqual(await renamePasskeyAction(held.id, "Mein Schlüssel"), { success: false, error: KONTO_FORBIDDEN });
     assert.equal(store.passkey.length, 2);
+    assert.equal(Reflect.get(held, "name"), undefined);
   });
 
-  /* The allowlist arm of the same guard: `getAdminSession` judges the address as well as the factor,
-     and a person's session reaching this action would list and remove somebody's credentials. */
-  it("refuses both to an address the allowlist does not carry", async () => {
-    const person = await signIn(PERSON_EMAIL);
-    person.row.authFactor = "passkey";
-    const held = seedPasskey(person.row.userId, "eins");
-    seedPasskey(person.row.userId, "zwei");
-    arriveAs(person.cookie);
+  /* A person's lane admits either factor: a person signed in by code manages their own passkeys too. */
+  it("admits a person's session whichever factor made it", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    const held = seedPasskey(row.userId, "eins");
+    arriveAs(cookie);
 
-    assert.deepEqual(await readPasskeysAction(), { success: false, error: ADMIN_FORBIDDEN });
-    assert.deepEqual(await removePasskeyAction(String(held.id)), { success: false, error: ADMIN_FORBIDDEN });
-    assert.equal(store.passkey.length, 2);
+    assert.equal((await renamePasskeyAction(held.id, "Mein Schlüssel")).success, true);
   });
 });
 
-describe("what the list hands the dialog", () => {
-  /* `listPasskeys` answers the WHOLE row, the public key and the credential id among its fields.
-     Neither is drawn anywhere, and I198's argument is that what a script cannot read it cannot leak. */
-  it("projects each row to what the dialog draws and nothing else", async () => {
-    const { cookie, row } = await steppedUpAdmin();
-    seedPasskey(row.userId, "eins");
+describe("the confirmation every change waits for", () => {
+  /* Two hours, measured from the sign-in or the last confirmation, which is a sign-in itself: past it
+     a cookie alone could otherwise swap the holder's authenticator for its own. */
+  it("refuses a removal and a rename from a session signed in three hours ago, and asks for a confirmation", async () => {
+    const { cookie, row } = await signedInWith(PERSON_EMAIL, "fabricated-credential-eins", 3 * HOUR_MS);
+    const held = seedPasskey(row.userId, "eins");
+    seedPasskey(row.userId, "zwei");
     arriveAs(cookie);
 
-    const answer = await readPasskeysAction();
+    const removal = await removePasskeyAction(held.id);
+    const rename = await renamePasskeyAction(held.id, "Mein Schlüssel");
 
-    assert.ok(answer.success);
-    assert.deepEqual(Object.keys(answer.passkeys[0] ?? {}).sort(), ["createdAt", "id", "label"]);
-    // The AAGUID every platform authenticator reports resolves to no make at all, so the field is
-    // null rather than silently taking the caller's own `name`.
-    assert.equal(answer.passkeys[0]?.label, null);
-    assert.ok(!JSON.stringify(answer).includes("Windows Hello"), "the name its own enroller chose reached the page");
-    assert.ok(!JSON.stringify(answer).includes("fabricated-public-key"), "the public key reached the page");
-    assert.ok(!JSON.stringify(answer).includes("fabricated-credential-eins"), "the credential id reached the page");
+    assert.equal(removal.success, false);
+    assert.equal(Reflect.get(removal, "stepUp"), true, "the page is not told to ask for a confirmation");
+    assert.equal(Reflect.get(rename, "stepUp"), true, "the page is not told to ask for a confirmation");
+    assert.equal(store.passkey.length, 2, "a session past the window removed a row");
+    assert.equal(Reflect.get(held, "name"), undefined, "a session past the window renamed a row");
   });
 
-  /* The cap's own half of the answer, which is what closes the add control: judged again at the
-     enrolment itself, so this decides what the reader meets rather than what the server allows. */
-  it("closes the add control at the cap and leaves it open below one", async () => {
-    const { cookie, row } = await steppedUpAdmin();
-    for (let index = 0; index < PASSKEY_LIMIT - 1; index += 1) seedPasskey(row.userId, String(index));
+  /* The window is hours, not the minutes an earlier rule gave: an hour-old sign-in still counts. */
+  it("admits a removal from a session signed in an hour ago", async () => {
+    const { cookie, row } = await signedInWith(PERSON_EMAIL, "fabricated-credential-zwei", HOUR_MS);
+    const held = seedPasskey(row.userId, "eins");
+    seedPasskey(row.userId, "zwei");
     arriveAs(cookie);
 
-    const below = await readPasskeysAction();
-    assert.ok(below.success);
-    assert.equal(below.kannHinzufuegen, true);
-
-    seedPasskey(row.userId, "letzter");
-    const atTheCap = await readPasskeysAction();
-
-    assert.ok(atTheCap.success);
-    assert.equal(atTheCap.kannHinzufuegen, false);
+    assert.equal((await removePasskeyAction(held.id)).success, true);
   });
 });
 
 describe("what a removal costs, and what it refuses", () => {
-  /* The last ROW is what this protects; what protects this administrator's own authenticator is the
-     step-up. At zero rows the mailed link enrols again, so the refusal is about the page rather
-     than about lockout. */
-  it("refuses the only row an administrator holds", async () => {
-    const { cookie, row } = await steppedUpAdmin();
+  /* The last ROW an administrator holds is their way into the administration. */
+  it("refuses an administrator's only passkey", async () => {
+    const admin = await signIn(ADMIN_EMAIL);
+    const held = seedPasskey(admin.row.userId, "eins");
+    const { cookie } = await signedInWith(ADMIN_EMAIL, held.credentialID);
+    arriveAs(cookie);
+
+    const answer = await removePasskeyAction(held.id);
+
+    assert.equal(answer.success, false);
+    assert.equal(store.passkey.length, 1, "the administrator's only passkey was removed");
+  });
+
+  /* A person holding none signs in by code again, so their last one is theirs to remove. */
+  it("removes a person's only passkey", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
     const held = seedPasskey(row.userId, "eins");
     arriveAs(cookie);
 
-    const answer = await removePasskeyAction(String(held.id));
-
-    assert.equal(answer.success, false);
-    assert.equal(store.passkey.length, 1, "the only passkey was removed");
+    assert.equal((await removePasskeyAction(held.id)).success, true);
+    assert.deepEqual(store.passkey, []);
   });
 
-  /* The step-up, which is the whole of what a stolen cookie cannot do: the dialog re-runs the
-     assertion ceremony before it calls this, and an hour-old session has not. */
-  it("refuses a removal from a session whose assertion is an hour old", async () => {
-    const { cookie, row } = await steppedUpAdmin();
-    row.createdAt = new Date(Date.now() - HOUR_MS);
+  it("deletes the row asked for, mails that it happened with a link to the account page, and refreshes the page", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
     const held = seedPasskey(row.userId, "eins");
     seedPasskey(row.userId, "zwei");
     arriveAs(cookie);
 
-    const answer = await removePasskeyAction(String(held.id));
+    const answer = await removePasskeyAction(held.id);
 
-    assert.equal(answer.success, false);
-    assert.equal(store.passkey.length, 2, "a session that did not assert removed a row");
-  });
-
-  it("deletes the row a stepped-up administrator asks for, and mails that it happened", async () => {
-    const { cookie, row } = await steppedUpAdmin();
-    const held = seedPasskey(row.userId, "eins");
-    seedPasskey(row.userId, "zwei");
-    arriveAs(cookie);
-
-    const answer = await removePasskeyAction(String(held.id));
-
-    assert.equal(answer.success, true);
+    assert.deepEqual(answer, { success: true, message: "Passkey gelöscht", diesesGeraet: false });
     assert.deepEqual(
       store.passkey.map((entry) => entry.id),
       ["ein-passkey-zwei"],
     );
-    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the administrator's page was left standing");
-    assert.equal(sent.at(-1)?.to, ADMIN_EMAIL);
-    // The event and the time, and nothing off the row: a name the caller chose would otherwise
-    // reach the mailbox as though this league had written it.
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the page was left standing");
+    assert.equal(sent.at(-1)?.to, PERSON_EMAIL);
+    assert.ok(sent.at(-1)?.text.includes(KONTO), "the notice does not link the account page");
+    // The event and the time, and nothing off the row: its identifiers stay in the store.
     const written = JSON.stringify(sent.at(-1));
-    for (const secret of [String(held.id), String(held.credentialID), row.token]) {
+    for (const secret of [held.id, held.credentialID, row.token]) {
       assert.ok(!written.includes(secret), "the notice carries material from the row it reports");
     }
   });
 
-  /* The sign-in store is written past the API client, and a notice withheld before it leaves records no
-     write either: the removal's own record is all that refreshes the page. */
-  it("refreshes the page after a removal whose notice never left", async () => {
-    const { cookie, row } = await steppedUpAdmin();
+  /* A mail that went out records a write of its own, so only a withheld one leaves the removal's own
+     record as the page's reason to refresh: the sign-in store's writes are recorded by no client. */
+  it("refreshes the page after a removal whose notice was withheld", async () => {
+    mail.answerWith(() => "withheld");
+    const { cookie, row } = await signIn(PERSON_EMAIL);
     const held = seedPasskey(row.userId, "eins");
     seedPasskey(row.userId, "zwei");
     arriveAs(cookie);
-    mail.answerWith(() => "withheld");
 
-    assert.equal((await removePasskeyAction(String(held.id))).success, true);
-    assert.deepEqual(
-      sent.map(({ to }) => to),
-      [ADMIN_EMAIL],
-      "the notice never reached the mailer to be withheld",
-    );
-    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the administrator's page was left standing");
+    const answer = await removePasskeyAction(held.id);
+
+    assert.equal(answer.success, true);
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the page kept a list the removal changed");
   });
 
-  /* A removal ends the administrator's other sessions at the same moment: a device signed in with
-     the removed authenticator would otherwise keep the window it already has. */
-  it("ends this administrator's other sessions, so their cookie stops opening the admin surface", async () => {
-    const first = await steppedUpAdmin();
-    const second = await steppedUpAdmin();
-    assert.equal(first.row.userId, second.row.userId, "the two sessions belong to different people");
+  /* The removal ends the devices THAT passkey signed in and no other: a device a second passkey or a
+     code signed in keeps its session (`docs/frontend/spec.md :: I313`). */
+  it("ends the sessions the removed passkey made, and none another passkey or a code made", async () => {
+    const { row: first } = await signIn(PERSON_EMAIL);
+    const removed = seedPasskey(first.userId, "eins");
+    const kept = seedPasskey(first.userId, "zwei");
 
-    const held = seedPasskey(first.row.userId, "eins");
-    seedPasskey(first.row.userId, "zwei");
+    const byRemoved = await signedInWith(PERSON_EMAIL, removed.credentialID);
+    const byKept = await signedInWith(PERSON_EMAIL, kept.credentialID);
+    const byCode = await signIn(PERSON_EMAIL);
+    const acting = await signIn(PERSON_EMAIL);
+    arriveAs(acting.cookie);
 
-    arriveAs(second.cookie);
-    assert.ok(await getAdminSession(), "the second session does not open the admin surface to begin with");
+    const answer = await removePasskeyAction(removed.id);
 
-    arriveAs(first.cookie);
-    assert.equal((await removePasskeyAction(String(held.id))).success, true);
+    assert.equal(answer.success, true);
+    assert.ok(!store.session.some((row) => row.id === byRemoved.row.id), "a device the removed passkey signed in kept its session");
+    for (const survivor of [byKept.row, byCode.row, acting.row, first]) {
+      assert.ok(
+        store.session.some((row) => row.id === survivor.id),
+        "a device the removed passkey never signed in was signed out",
+      );
+    }
+  });
 
-    arriveAs(second.cookie);
-    assert.equal(await getAdminSession(), null, "the other device kept the window the removal was supposed to close");
+  /* The page's own session is among those the passkey made where the holder confirmed with it: the
+     action says so, and the page sends the holder to the sign-in page. */
+  it("ends this device's session too where the removed passkey made it, and says so", async () => {
+    const { row: first } = await signIn(PERSON_EMAIL);
+    const held = seedPasskey(first.userId, "eins");
+    seedPasskey(first.userId, "zwei");
+    const acting = await signedInWith(PERSON_EMAIL, held.credentialID);
+    arriveAs(acting.cookie);
 
-    arriveAs(first.cookie);
-    assert.ok(await getAdminSession(), "the removal ended the session that made it");
+    const answer = await removePasskeyAction(held.id);
+
+    assert.deepEqual(answer, { success: true, message: "Passkey gelöscht", diesesGeraet: true });
+    assert.ok(!store.session.some((row) => row.id === acting.row.id), "the session the removed passkey made survived");
+  });
+
+  /* The rows are read off the caller's own account, so another person's identifier is absent rather than taken. */
+  it("refuses another person's passkey, leaving it and their sessions standing", async () => {
+    const other = await signIn(OTHER_EMAIL);
+    const theirs = seedPasskey(other.row.userId, "fremd");
+    const theirSession = await signedInWith(OTHER_EMAIL, theirs.credentialID);
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    seedPasskey(row.userId, "eins");
+    arriveAs(cookie);
+
+    const answer = await removePasskeyAction(theirs.id);
+
+    assert.equal(answer.success, false);
+    assert.ok(
+      store.passkey.some((entry) => entry.id === theirs.id),
+      "another person's passkey was removed",
+    );
+    assert.ok(
+      store.session.some((entry) => entry.id === theirSession.row.id),
+      "another person's session was ended",
+    );
   });
 
   /* Without a real transaction the claim conflicts with nothing, and two removals at once would leave
      no row (`docs/frontend/spec.md :: I312`). */
   it("refuses a removal that reaches no real transaction, deleting nothing", async () => {
-    const { cookie, row } = await steppedUpAdmin();
-    const held = seedPasskey(row.userId, "eins");
-    seedPasskey(row.userId, "zwei");
+    const admin = await signIn(ADMIN_EMAIL);
+    const held = seedPasskey(admin.row.userId, "eins");
+    seedPasskey(admin.row.userId, "zwei");
+    const { cookie } = await signedInWith(ADMIN_EMAIL, held.credentialID);
     arriveAs(cookie);
-    globals[PASS_THROUGH] = true;
+    passThrough = true;
+    const mails = sent.length;
 
-    const answer = await removePasskeyAction(String(held.id));
+    const answer = await removePasskeyAction(held.id);
 
-    assert.deepEqual({ success: answer.success, rows: store.passkey.length, notices: sent.length }, { success: false, rows: 2, notices: 0 });
+    assert.deepEqual(
+      { success: answer.success, rows: store.passkey.length, notices: sent.length - mails },
+      { success: false, rows: 2, notices: 0 },
+    );
   });
 
-  /* A server action's argument is whatever a caller posted, and this one reaches a store query. */
-  it("refuses an identifier that is not a row's at all", async () => {
-    const { cookie, row } = await steppedUpAdmin();
+  it("refuses an identifier that is not a row's at all, and signs nobody out", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
     seedPasskey(row.userId, "eins");
-    seedPasskey(row.userId, "zwei");
+    const other = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
+    const before = sessionIds();
 
     assert.equal((await removePasskeyAction("")).success, false);
     assert.equal((await removePasskeyAction("kein-solcher-eintrag")).success, false);
-    assert.equal(store.passkey.length, 2);
+    assert.equal(store.passkey.length, 1);
+    assert.deepEqual(sessionIds(), before, "a refused removal signed a device out");
+    assert.ok(store.session.some((entry) => entry.id === other.row.id));
   });
 
-  /* The removal is judged before anyone is signed out: signed out first, every other device would
-     lose its window over a passkey that still stands. That the sign-out rolls back with a refused
-     transaction is `fl_frontend/src/features/passkeys/actions.db.test.ts`'s to show. */
-  it("leaves the other sessions standing where the removal is refused", async () => {
-    const first = await steppedUpAdmin();
-    const second = await steppedUpAdmin();
-    seedPasskey(first.row.userId, "eins");
-    seedPasskey(first.row.userId, "zwei");
+  /* An administrator's removal still ends the admin surface for the devices that passkey signed in. */
+  it("ends the administration for a device the removed passkey signed in", async () => {
+    const admin = await signIn(ADMIN_EMAIL);
+    const removed = seedPasskey(admin.row.userId, "eins");
+    const kept = seedPasskey(admin.row.userId, "zwei");
+    const elsewhere = await signedInWith(ADMIN_EMAIL, removed.credentialID);
+    const here = await signedInWith(ADMIN_EMAIL, kept.credentialID);
 
-    arriveAs(first.cookie);
-    const answer = await removePasskeyAction("kein-solcher-eintrag");
+    arriveAs(elsewhere.cookie);
+    assert.ok(await getAdminSession(), "the other device does not open the admin surface to begin with");
+
+    arriveAs(here.cookie);
+    assert.equal((await removePasskeyAction(removed.id)).success, true);
+
+    arriveAs(elsewhere.cookie);
+    assert.equal(await getAdminSession(), null, "the device the removed passkey signed in kept the administration");
+    arriveAs(here.cookie);
+    assert.ok(await getAdminSession(), "the removal ended a device another passkey signed in");
+  });
+});
+
+describe("what a rename writes", () => {
+  it("stores the trimmed name on the holder's own row", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    const held = seedPasskey(row.userId, "eins");
+    arriveAs(cookie);
+
+    assert.deepEqual(await renamePasskeyAction(held.id, "  Mein iPhone  "), { success: true, message: "Passkey umbenannt" });
+    assert.equal(Reflect.get(held, "name"), "Mein iPhone");
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the page was left standing");
+  });
+
+  /* The bound nothing else sets: the plugin takes any length, and the card and the list draw the name. */
+  it("refuses a name past the limit and an empty one, leaving the row as it stood", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    const held = seedPasskey(row.userId, "eins");
+    arriveAs(cookie);
+
+    assert.equal((await renamePasskeyAction(held.id, "x".repeat(PASSKEY_NAME_MAX + 1))).success, false);
+    assert.equal((await renamePasskeyAction(held.id, "   ")).success, false);
+    assert.equal((await renamePasskeyAction(held.id, "x".repeat(PASSKEY_NAME_MAX))).success, true);
+  });
+
+  it("refuses another person's row, leaving its name as it stood", async () => {
+    const other = await signIn(OTHER_EMAIL);
+    const theirs = seedPasskey(other.row.userId, "fremd");
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+
+    assert.equal((await renamePasskeyAction(theirs.id, "Übernommen")).success, false);
+    assert.equal(Reflect.get(theirs, "name"), undefined);
+  });
+});
+
+/* The page reads this after the enrolment guard answered 404, which it answers alike for the cap, a
+   closed window and an authenticator already held (`docs/frontend/spec.md :: I427`). */
+describe("what the page reads after a refused enrolment", () => {
+  /* Judged by the enrolment's own window, narrower than every other change's: inside the two hours
+     and past the five minutes, the guard refused the enrolment for the window. */
+  it("answers the step-up refusal past the enrolment window, inside every other change's", async () => {
+    const { cookie, row } = await signedInWith(PERSON_EMAIL, "fabricated-credential-eins", ENROLMENT_WINDOW_MS + 60_000);
+    seedPasskey(row.userId, "eins");
+    arriveAs(cookie);
+
+    const answer = await readPasskeyStandAction();
 
     assert.equal(answer.success, false);
-    assert.equal(store.passkey.length, 2, "a failed deletion took a row with it");
+    assert.equal(Reflect.get(answer, "stepUp"), true, "a closed enrolment window read as the cap or a held authenticator");
+  });
 
-    arriveAs(second.cookie);
-    assert.ok(await getAdminSession(), "a refused removal signed the other device out");
+  it("answers whether the cap is reached inside the window", async () => {
+    const { cookie, row } = await signedInWith(PERSON_EMAIL, "fabricated-credential-eins");
+    for (const label of ["eins", "zwei", "drei", "vier"]) seedPasskey(row.userId, label);
+    arriveAs(cookie);
+
+    assert.deepEqual(await readPasskeyStandAction(), { success: true, kannHinzufuegen: true });
+
+    seedPasskey(row.userId, "fuenf");
+    assert.deepEqual(await readPasskeyStandAction(), { success: true, kannHinzufuegen: false });
   });
 });

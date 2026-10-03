@@ -91,6 +91,7 @@ function fieldAccepts(component: string, field: string, value: unknown): boolean
  */
 const UNMIRRORED: Record<string, string> = {
   "FLSubjektPayload.email": "`fl_frontend/src/core/schemas.ts :: FLSubjektPayloadSchema` restates no length or alphabet",
+  "FLGesperrtPayload.email": "`fl_frontend/src/core/schemas.ts :: FLGesperrtPayloadSchema` restates no length or alphabet",
 };
 
 // Item-agnostic on purpose: an item's own refusal lands on a path below the field's, which `fieldAccepts` ignores.

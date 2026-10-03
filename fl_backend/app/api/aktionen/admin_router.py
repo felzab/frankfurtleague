@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, Final
 
@@ -13,18 +12,20 @@ from app.api.aktionen.schemas import (
     FLAktionMitStand,
     FLAktionSingleResponse,
 )
-from app.api.aktionen.services import build_aktionen_sort, document_id_term
+from app.api.aktionen.services import akteur_adressen, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import AktionenCollection
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
+from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/aktionen",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 # `Query()` and never `Depends()`: on a `Depends()` model a `list` field is read as a BODY field, so
@@ -113,15 +114,23 @@ def _tally(cells: Sequence[Mapping[str, Any]], *, counted: str, held: Mapping[st
     return totals
 
 
+async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) -> list[dict[str, Any]]:
+    barred = await adressen_gesperrt(sperrliste, akteur_adressen(rows))
+
+    return [mit_vorenthaltenem_akteur(row, barred) for row in rows]
+
+
 @router.get("", response_model=FLAktionenListResponse, summary="List recorded admin actions")
 async def get_aktionen(
     aktionen_collection: AktionenCollection,
+    sperrliste: SperrlisteLookup,
     filters: FLAktionenFilters,
 ) -> FLAktionenListResponse:
     """List what administrators changed, newest first; `vollstaendig` is false on a cut answer.
 
     Admin-tier twice over: every recorded write across every collection is here, public or not,
-    and each row names the administrator behind it.
+    and each row names the administrator behind it — `null` beside `actor.email_gesperrt` where the
+    ban list holds that address, as no barred address is served in plain.
 
     `collection`, `operation` and `herkunft` each take a comma-joined selection, or the parameter
     repeated, and all three narrow this read. `herkunft` names no stored field: it is the category the
@@ -142,7 +151,7 @@ async def get_aktionen(
     beyond_the_facets = build_query(filters, terms={"trace_id"}, compiled=document_id_term(filters.document_id))
 
     # Gathered, so the tally costs no round trip of its own.
-    grouped, read = await asyncio.gather(
+    grouped, read = await gather_cancelling(
         # Counted per option instead, this is a read per option, and `aktionen_target` indexes the
         # area alone: every operation's own count would scan the log.
         aggregate_many_from_db(
@@ -170,7 +179,7 @@ async def get_aktionen(
     cells = _facet_cells(grouped)
 
     return FLAktionenListResponse(
-        aktionen=FLAktionenListAdapter.validate_python(served),
+        aktionen=FLAktionenListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
         vollstaendig=len(read) <= filters.limit,
         anzahl_je_collection=_tally(cells, counted="collection", held={"operation": filters.operation, "herkunft": filters.herkunft}),
         anzahl_je_operation=_tally(cells, counted="operation", held={"collection": filters.collection, "herkunft": filters.herkunft}),
@@ -184,12 +193,15 @@ async def get_aktionen(
 async def get_aktion_by_id(
     aktion_id: CustomRouteObjectId,
     aktionen_collection: AktionenCollection,
+    sperrliste: SperrlisteLookup,
 ) -> FLAktionSingleResponse:
     """One row with the document its write replaced, which the list withholds.
 
-    The read a restore of one write would start from.
+    The read a restore of one write would start from, so the image is served as recorded, every
+    address in it included; the actor is withheld as the list withholds it.
     """
 
     aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": aktion_id})
+    [served] = await _as_served([aktion_raw], sperrliste=sperrliste)
 
-    return FLAktionSingleResponse(aktion=FLAktionMitStand(**aktion_raw))
+    return FLAktionSingleResponse(aktion=FLAktionMitStand(**served))

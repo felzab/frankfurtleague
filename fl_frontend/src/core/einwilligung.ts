@@ -1,6 +1,6 @@
 /**
- * The words a contact person is shown, and the label a record stamps to name them. In `core` because
- * the two public forms render them and the admin editor stamps the label: a copy per surface can drift.
+ * The words a person is shown, and the label a record stamps to name them. In `core` because the
+ * public pages render them and the admin surfaces stamp and read the label: a copy per surface can drift.
  */
 export type EinwilligungFassung = {
   readonly absaetze: readonly string[];
@@ -240,6 +240,45 @@ const SCHIEDSRICHTERSEITE_ABSAETZE_2026_09 = [
   "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
 ] as const;
 
+// Spelled out for the reason above: these are the words the second pupil label's records cite,
+// whatever `SPIELER_ABSAETZE` holds.
+const SPIELERSEITE_ABSAETZE_2026_09_2 = [
+  "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
+  "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
+  "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir schließen den Zugang, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
+  "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
+  "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen.",
+  "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen.",
+  "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
+  "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Deine Angaben behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist. Registrierst Du Dich dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine Wahl bestätigen; andernfalls löschen wir sie dann vollständig.",
+  "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
+  "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
+  "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
+  "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
+  "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
+  "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
+] as const;
+
+// Spelled out for the reason above: these are the words the second referee label's records cite,
+// whatever `SCHIEDSRICHTER_ABSAETZE` holds.
+const SCHIEDSRICHTERSEITE_ABSAETZE_2026_09_2 = [
+  "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und Dir dafür diesen Link geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
+  "Gespeichert sind Dein Name, Deine E-Mail-Adresse und, falls angegeben, Deine Schule und Deine Telefonnummer, das für Dich hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, reichst Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben.",
+  "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben.",
+  "Deine Schule, Deine Kontaktdaten, das Honorar und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht und nicht an Teams, Schulen oder Dritte weitergegeben.",
+  "Du entscheidest, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste Teil Deines Namens und vom nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da. Wählst Du „intern“, steht dort an der Stelle Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen.",
+  "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen.",
+  "Rechtsgrundlage für die Veröffentlichung Deines Namens im Spielplan und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um Dich anzusetzen und das Honorar auszuzahlen, sind Name, Kontaktdaten, Betrag und Geburtsdatum, dazu Deine Schule, falls Du sie angibst. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
+  "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung schickt Dir auf Wunsch einen neuen. Dein Eintrag ist an keine Saison gebunden und bleibt bestehen, bis er endgültig gelöscht wird: von Dir selbst, von der Verwaltung oder auf Deinen Wunsch. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt er bestehen.",
+  "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
+  "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
+  "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
+  "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
+  "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
+  "dass Du in die Veröffentlichung Deines Namens im Spielplan so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
+  "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
+] as const;
+
 /**
  * The pupil's confirmation page. Its paragraphs differ from the contact seat's in KIND rather than
  * in nouns: a pupil's record is an Einwilligung, so „Eine Einwilligung ist das nicht“ has no
@@ -252,11 +291,11 @@ const SPIELER_ABSAETZE = {
     "Dich in seinen Kader aufnehmen.",
   gespeichert:
     "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie " +
-    "das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich " +
-    "damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
+    "das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du " +
+    "meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
   geburtsdatum:
     "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; " +
-    "niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir schließen den Zugang, und mit " +
+    "niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit " +
     "dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
   wer:
     "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, " +
@@ -267,13 +306,13 @@ const SPIELER_ABSAETZE = {
     "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste " +
     "Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller " +
     "Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am " +
-    "Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen.",
+    "Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto umstellen.",
   medien:
     "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga " +
     "von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich " +
     "das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. " +
     "Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du " +
-    "jederzeit in Deinem Zugang zurücknehmen.",
+    "jederzeit in Deinem Konto zurücknehmen.",
   rechtsgrundlage:
     "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos " +
     "und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des " +
@@ -287,7 +326,7 @@ const SPIELER_ABSAETZE = {
     "Wahl bestätigen; andernfalls löschen wir sie dann vollständig.",
   widerruf:
     "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. " +
-    "Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über " +
+    "Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über " +
     "„{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der " +
     "{datenschutz}.",
   // Its own paragraph and never a clause of the one above: Art. 21(4) DSGVO asks the objection to
@@ -318,8 +357,8 @@ export const SCHIEDSRICHTER_ABSAETZE = {
     "geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
   gespeichert:
     "Gespeichert sind Dein Name, Deine E-Mail-Adresse und, falls angegeben, Deine Schule und Deine Telefonnummer, das für Dich " +
-    "hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist " +
-    "zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, " +
+    "hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du " +
+    "zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, " +
     "reichst Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben.",
   geburtsdatum:
     "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; " +
@@ -330,14 +369,14 @@ export const SCHIEDSRICHTER_ABSAETZE = {
   veroeffentlichung:
     "Du entscheidest, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste Teil Deines Namens und vom " +
     "nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da. Wählst Du „intern“, steht dort an der " +
-    "Stelle Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang " +
+    "Stelle Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto " +
     "umstellen.",
   medien:
     "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga " +
     "von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich " +
     "das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. " +
     "Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du " +
-    "jederzeit in Deinem Zugang zurücknehmen.",
+    "jederzeit in Deinem Konto zurücknehmen.",
   rechtsgrundlage:
     "Rechtsgrundlage für die Veröffentlichung Deines Namens im Spielplan und für Fotos, Videos " +
     "und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um Dich " +
@@ -350,7 +389,7 @@ export const SCHIEDSRICHTER_ABSAETZE = {
     "der Verwaltung oder auf Deinen Wunsch. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt er bestehen.",
   widerruf:
     "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. " +
-    "Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über " +
+    "Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über " +
     "„{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der " +
     "{datenschutz}.",
   // Its own paragraph and never a clause of the one above: Art. 21(4) DSGVO asks the objection to
@@ -522,11 +561,19 @@ export const LIGA_KENNTNISNAHMEN = {
     },
   },
   "2026-09-schiedsrichterseite-2": {
-    absaetze: Object.values(SCHIEDSRICHTER_ABSAETZE),
+    absaetze: SCHIEDSRICHTERSEITE_ABSAETZE_2026_09_2,
     schalter: SCHIEDSRICHTER_MEDIEN_SCHALTER,
     bedienelemente: {
       // A referee's name is one field, so the chip names its parts rather than a forename and a
       // surname the stored row may not hold.
+      kader_oeffentlich: "Erster Namensteil und Anfangsbuchstabe des nächsten",
+      intern: "Intern: dort steht „anonym“",
+    },
+  },
+  "2026-09-schiedsrichterseite-3": {
+    absaetze: Object.values(SCHIEDSRICHTER_ABSAETZE),
+    schalter: SCHIEDSRICHTER_MEDIEN_SCHALTER,
+    bedienelemente: {
       kader_oeffentlich: "Erster Namensteil und Anfangsbuchstabe des nächsten",
       intern: "Intern: dort steht „anonym“",
     },
@@ -542,6 +589,14 @@ export const LIGA_KENNTNISNAHMEN = {
     },
   },
   "2026-09-spielerseite-2": {
+    absaetze: SPIELERSEITE_ABSAETZE_2026_09_2,
+    schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+    bedienelemente: {
+      kader_oeffentlich: "Vorname und erster Buchstabe des Nachnamens",
+      intern: "Intern: nur Nummer und Position, ohne Namen",
+    },
+  },
+  "2026-09-spielerseite-3": {
     absaetze: Object.values(SPIELER_ABSAETZE),
     schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
     bedienelemente: {
@@ -553,8 +608,8 @@ export const LIGA_KENNTNISNAHMEN = {
 
 const AKTUELLE_FASSUNG = "2026-09-bestaetigung-5";
 const AKTUELLE_BESTAETIGUNG = "2026-09-bestaetigungsseite-6";
-const AKTUELLE_SPIELERSEITE = "2026-09-spielerseite-2";
-const AKTUELLE_SCHIEDSRICHTERSEITE = "2026-09-schiedsrichterseite-2";
+const AKTUELLE_SPIELERSEITE = "2026-09-spielerseite-3";
+const AKTUELLE_SCHIEDSRICHTERSEITE = "2026-09-schiedsrichterseite-3";
 
 // Read off the record rather than spelled again, so a new wording and the bump that names it cannot
 // land in separate edits.
@@ -596,14 +651,4 @@ export function einwilligungFassung(textVersion: string): EinwilligungFassung | 
   // `hasOwn` before the index: a record read answers `Object.prototype`'s own members, so a label
   // spelling `toString` would resolve to a function rather than to nothing.
   return Object.hasOwn(fassungen, textVersion) ? (fassungen[textVersion] ?? null) : null;
-}
-
-/**
- * A stored wording with this reader's own facts in its slots.
- *
- * An unfilled slot is left standing rather than blanked: a sentence quietly missing its subject
- * reads as finished, and one still spelling `{rolle}` says which fact never arrived.
- */
-export function fuelleFassung(text: string, werte: Readonly<Record<string, string>>): string {
-  return text.replace(/\{(\w+)\}/g, (slot, name: string) => werte[name] ?? slot);
 }

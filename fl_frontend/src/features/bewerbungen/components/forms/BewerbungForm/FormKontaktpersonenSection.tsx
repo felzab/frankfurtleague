@@ -181,7 +181,7 @@ export function FormKontaktpersonenSection({
                 <FieldError className={FIELD_ERROR_CLASSES} />
                 <Hint
                   mode="field"
-                  text="An diese Adresse schicken wir den Link zur Bestätigung. Dort trägt die Person auch ihr Geburtsdatum ein."
+                  text="An diese Adresse schicken wir den Link zur Bestätigung. Dort trägt die Person auch ihr Geburtsdatum ein. Nimm die eigene Adresse der Person, kein gemeinsames Postfach."
                 />
               </TextField>
 
@@ -245,7 +245,7 @@ export function FormEinwilligungSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        {/* The heading level follows the frame: this is a section of the form like the five around
+        {/* The heading level follows the frame: this is a section of the form like the others around
             it, so it is announced at the level they are rather than as a group inside one of them. */}
         <PanelHeading
           className={panel.heading()}

@@ -1,52 +1,26 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
-const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const LOGGING = `const line = (...args) => void globalThis.__flSeatLogs.push(JSON.stringify(args));
-export const logger = { info: line, warn: line, error: line };`;
+/** Every line the handler's logger was handed, serialised whole. */
+const logs: string[] = [];
+const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
+const LOGGING = { logger: { info: line, warn: line, error: line } };
 /* The serving origin every link in a message is minted on. */
 const ORIGIN = "http://localhost:3000";
-const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
 /* The provider rather than the fan-out, which is what composes the message a case reads. */
 const { sent: mails } = doubleSendMail();
 const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));
 
-const recorders = globalThis as unknown as Record<string, unknown>;
-/** Every line the handler's logger was handed, serialised whole. */
-const logs: string[] = [];
-recorders.__flSeatLogs = logs;
-
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package the route reaches that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/server": NEXT_SERVER,
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG } });
 
 const { POST } = await import("./route.ts");
 const { BESTAETIGUNG_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
@@ -162,6 +136,16 @@ describe("the contact seat's confirmation handler", () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
     assert.deepEqual(answer.body, { success: false, fieldErrors: { geburtsdatum: alterAusserhalb(18) } });
+  });
+
+  /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
+     form and no Widerspruch button behind. */
+  it("answers a barred address with the barred panel, in place of the form", async () => {
+    schreibAntwort = () => aRefusal("REQ-BEWERBUNG-020");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "gesperrt" });
   });
 
   /* A body the running API refuses on a box the page renders is marked there, and one it renders

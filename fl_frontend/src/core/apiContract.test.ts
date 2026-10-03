@@ -41,7 +41,7 @@ const BACKEND_ONLY: Record<string, string> = {
   FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
   FLRegistrierung: "the row of that read, which no page consumes",
   FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
-  FLRegistrierungEntscheidung: "that row's decision block, which no page consumes",
+  FLRegistrierungEntscheidungZeile: "that row's decision block, which no page consumes",
 };
 
 /**
@@ -51,8 +51,10 @@ const BACKEND_ONLY: Record<string, string> = {
 const FRONTEND_ONLY: Record<string, string> = {
   BaseAPIResponse: "the envelope is inlined into every response rather than published as a component",
 
-  // The sign-in address never reaches FastAPI: `handleSignIn` hands it to the sign-in library, which mails the link.
+  // The sign-in address never reaches FastAPI: `handleSignIn` hands it to the sign-in library, which mails the code.
   SignInPayload: "the sign-in action posts to the sign-in library rather than to the API, so no component describes it",
+  // The rename goes to the sign-in library's `updatePasskey` in process, never to FastAPI.
+  PasskeyNamePayload: "the passkey rename posts to the sign-in library rather than to the API, so no component describes it",
 
   CustomDateString: "a Pydantic Annotated alias, inlined at each use site",
   CustomTimeString: "a Pydantic Annotated alias, inlined at each use site",
@@ -95,6 +97,8 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
+  FLAktor: "the discriminated union is published inline on the actor of FLAktion and FLAktionMitStand; both variants are paired",
+
   FLSpielRestorableField: "a Pydantic Literal alias, inlined as an enum on the restore report's `replaced` and on no component of its own",
 
   FLBracketFault: "the discriminated union is published inline on each bracket_faults; all six variants are paired",
@@ -115,6 +119,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
+  FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
+  FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
   // One form creates the row and its junction: without one the club is invisible (backend spec I11).
@@ -133,6 +139,7 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLAnnehmenBewerbungPayload: ["id"],
   FLAblehnenBewerbungPayload: ["id"],
   FLPatchSpielortPayload: ["id"],
+  FLPatchBerechtigungPayload: ["id"],
   FLPatchSpielDataPayload: ["spiel_id"],
   FLPatchTeamPayload: ["id"],
   FLPatchSpielerPayload: ["id"],
@@ -331,7 +338,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 233;
+const EXPECTED_PAIRS = 247;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

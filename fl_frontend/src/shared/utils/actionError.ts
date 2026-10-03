@@ -17,6 +17,12 @@ import type { ZodError } from "zod";
 import type { FieldErrors } from "./validation";
 
 /**
+ * What an administrator whose grant is gone is told, by the guard, by the backend's actor check and by the
+ * grant's own refusal: neither a retry nor a new sign-in restores it.
+ */
+export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
+
+/**
  * Under a box whose value only the API refused. Never the form's own message for that box: the form's
  * rules passed the value, so each of those describes a rule it already met.
  */
@@ -238,6 +244,9 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
   }
 
   if (error instanceof APIBadStatusError) {
+    // The actor check before any handler, so nothing was written: the grant went between the guard and this call.
+    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
+
     if (error.statusCode === 500 && error.serverErrorCode === "DB-FAIL-002") {
       // A commit went unanswered, or the deadline cut a write, so the write may stand: "try again"
       // would repeat it, and the retry then meets its own "already exists".

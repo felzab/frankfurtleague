@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -10,6 +9,7 @@ import { createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -27,30 +27,18 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
    request that then failed, and no render shows it (`docs/frontend/spec.md` §1.9). Each double
    appends to one list, read instead of the source. */
 const events: string[] = [];
-const EVENTS = "__flSperreEvents";
-(globalThis as unknown as Record<string, unknown>)[EVENTS] = events;
 
 /* `refresh()` throws outside a request Next itself is rendering, and what a case here asks of it is
    that the action reached it at all. */
-const CACHE_DOUBLE = `export const refresh = () => { globalThis.${EVENTS}.push("refresh"); };`;
-const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`;
+const CACHE_DOUBLE = { refresh: () => void events.push("refresh") };
+const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } };
 
 /* The real actions, their mutations and the mailer's callers, called: the request they run in, the
    backend client and the mailer are the doubles. */
-doubleActionRequest();
+const request = doubleActionRequest();
 
 // Registered after the request's doubles, so its `next/cache` answers before theirs.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/cache") return { url: `data:text/javascript,${encodeURIComponent(CACHE_DOUBLE)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/config.ts": CONFIG_DOUBLE }, specifiers: { "next/cache": CACHE_DOUBLE } });
 
 /** The bound the WRITE answers. Deliberately not the five-season arithmetic's, so a mail stating it could have come from nowhere else. */
 const ANSWERED_BOUND = "2044";
@@ -94,6 +82,7 @@ const CREATE_OPERATION = "POST /sperrliste";
 
 const { deleteSperreAction, postSperreAction } = await import("./actions.ts");
 const { SPERRE_ERFOLG } = await import("./constants.ts");
+const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
 const BARRED = "zorbanax@beispielschule.de";
@@ -151,6 +140,15 @@ describe("the message the barred person is sent", () => {
     assert.match(String(mail.sent[0]?.text), new RegExp(GRUND));
   });
 
+  /* Through the notice's own sender, the one past the ban list, which holds the address it has just
+     barred: through `sendMail` the notice would be kept from its own reader (`docs/frontend/spec.md :: I541`). */
+  it("hands the notice to its own sender, the one the ban list lets through", async () => {
+    await anAddressIsBanned();
+
+    assert.equal(mail.notices.length, 1);
+    assert.equal(mail.notices[0], mail.sent[0]);
+  });
+
   /* The ban is already written and no address survives to re-send to, so a failure is reported
      rather than repaired -- and an administrator told nothing would assume the person knows. */
   it("leaves the ban standing on a failed send and says the person was not told", async () => {
@@ -164,6 +162,17 @@ describe("the message the barred person is sent", () => {
     assert.deepEqual(events, ["post", "mail", "refresh"]);
     assert.notEqual("message" in result ? result.message : undefined, SPERRE_ERFOLG);
     assert.match(String("message" in result ? result.message : ""), /nicht zugestellt/);
+  });
+
+  /* Outside production every send is withheld, and a ban reporting that as a failed notice shows a
+     failure on every local ban of an address an account holds. */
+  it("answers a notice this deployment withheld in the deployment's words rather than as a failure", async () => {
+    sendWith("withheld");
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, true);
+    assert.equal("message" in result ? result.message : undefined, `Die Sperre steht. ${ZURUECKGEHALTEN}`);
   });
 
   /* A connection broken after the send left may be a message the provider accepted: saying the person
@@ -227,6 +236,78 @@ describe("the message the barred person is sent", () => {
       toasts.map(({ variant, title, description }) => [variant, title, description]),
       [["success", SPERRE_ERFOLG, undefined]],
       "the form raises a title the action never answers, so a clean save shows it twice",
+    );
+  });
+});
+
+describe("the barred address's live sign-ins", () => {
+  /* The refusal of every next sign-in reaches no session already open, so the ban ends those itself,
+     and before the notice that says so. */
+  it("signs the address that was typed out after the write is acknowledged, and before it is told", async () => {
+    let signedOutWhenMailed: readonly string[] = [];
+    mail.answerWith(() => {
+      events.push("mail");
+      signedOutWhenMailed = request.signedOut();
+      return "accepted";
+    });
+
+    const result = await anAddressIsBanned();
+
+    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+    assert.deepEqual(request.signedOut(), [BARRED]);
+    assert.deepEqual(signedOutWhenMailed, [BARRED], "the notice left before the sign-out it reports");
+  });
+
+  it("signs nobody out where the write was refused or not acknowledged", async () => {
+    answerWith(() => Promise.resolve(banned(0)));
+    await anAddressIsBanned();
+
+    answerWith(() => Promise.reject(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001", 409)));
+    await anAddressIsBanned().catch(() => undefined);
+
+    assert.deepEqual(request.signedOut(), []);
+  });
+
+  /* The ban is written and the address survives nowhere to retry with, so a failure is reported; a store
+     that did not answer did not say whether an account holds the address either, so nobody is mailed. */
+  it("leaves the ban standing, mails nobody and says both where the sessions could not be ended", async () => {
+    request.failSignOut(new Error("the store answered nothing"));
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, true);
+    assert.equal(
+      "message" in result ? result.message : undefined,
+      "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.",
+    );
+    assert.deepEqual(events, ["post", "refresh"], "a failed sign-out stopped the refresh, or a notice went on a guess");
+  });
+});
+
+describe("which barred addresses the notice goes to (`docs/frontend/spec.md :: I517`)", () => {
+  it("mails nothing to an address no account holds, and tells its administrator so", async () => {
+    request.holdNoAccount();
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, true);
+    assert.equal(
+      "message" in result ? result.message : undefined,
+      "Die Sperre steht. Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt.",
+    );
+    assert.deepEqual(mail.sent, [], "an address holding no account was mailed");
+    assert.deepEqual(events, ["post", "refresh"]);
+    assert.deepEqual(request.signedOut(), [BARRED], "the store was not asked, so the case proves nothing");
+  });
+
+  // The control: the same ban on an address an account holds.
+  it("mails an address an account holds", async () => {
+    const result = await anAddressIsBanned();
+
+    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+    assert.deepEqual(
+      mail.sent.map(({ to }) => to),
+      [BARRED],
     );
   });
 });

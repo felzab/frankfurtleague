@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -24,8 +24,10 @@ import {
 } from "@/features/schiedsrichter/constants.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
+import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SchiedsrichterBestaetigungStart } from "./SchiedsrichterBestaetigungView.tsx";
 
@@ -34,6 +36,7 @@ const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SchiedsrichterBestaetigungView } = await import("./SchiedsrichterBestaetigungView.tsx");
+const { AdresseGesperrt } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
 
 const TOKEN = "abc123";
@@ -74,18 +77,15 @@ async function tippeGeburtsdatum(user: ReturnType<typeof userEvent.setup>, datum
   await user.keyboard(getippt(datum));
 }
 
-/**
- * Every slot the page fills, so a paragraph is compared as a reader meets it. `{loeschung}` is left
- * standing on both sides, the account page it names being Programme 2's.
- */
-const gefuellt = (absatz: string): string =>
-  absatz
-    .replaceAll("{minAlter}", String(MINDESTALTER))
-    .replaceAll("{medienMinAlter}", String(MEDIEN_ALTER))
-    .replaceAll("{vorname}", "Anna")
-    .replaceAll("{kontakt}", KONTAKT_EMAIL)
-    .replaceAll("{loeschung}", "Konto löschen")
-    .replaceAll("{datenschutz}", "Datenschutzerklärung");
+/** Every slot the page fills, so a paragraph is compared as a reader meets it. */
+const SLOTS = {
+  minAlter: String(MINDESTALTER),
+  medienMinAlter: String(MEDIEN_ALTER),
+  vorname: "Anna",
+  kontakt: KONTAKT_EMAIL,
+  loeschung: "Konto löschen",
+  datenschutz: "Datenschutzerklärung",
+};
 
 /**
  * The words on screen. Read across element boundaries so a marked name does not fuse with its
@@ -126,7 +126,7 @@ describe("the referee's confirmation page", () => {
     const elemente = [...markup(OFFEN).matchAll(/<(p|li)\b[^>]*>(.*?)<\/\1>/gs)].map((treffer) => words(treffer[2] ?? ""));
 
     for (const [schluessel, absatz] of Object.entries(SCHIEDSRICHTER_ABSAETZE)) {
-      assert.ok(elemente.includes(words(gefuellt(absatz))), `the page renders ${schluessel} inside another element's text`);
+      assert.ok(elemente.includes(words(filledSlots(absatz, SLOTS))), `the page renders ${schluessel} inside another element's text`);
     }
   });
 
@@ -140,7 +140,7 @@ describe("the referee's confirmation page", () => {
       // that differ can be compared.
       if (schluessel.startsWith("klick")) continue;
 
-      assert.ok(!shown.includes(words(gefuellt(absatz))), `the page renders the contact page's ${schluessel}`);
+      assert.ok(!shown.includes(words(filledSlots(absatz, SLOTS))), `the page renders the contact page's ${schluessel}`);
     }
   });
 
@@ -312,6 +312,58 @@ describe("what the press sends", () => {
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
     assert.deepEqual(sent, [{ token: TOKEN, geburtsdatum: "1990-01-01", umfang: "intern", medien: false, text_version: FASSUNG }]);
+  });
+});
+
+describe("what a link to a barred address opens on", () => {
+  it("is the shared barred page and nothing beside it", () => {
+    assert.equal(
+      markup({ zustand: "gesperrt" }),
+      renderTree(h(AdresseGesperrt, { panelRef: createRef<HTMLElement>() })),
+      "the page draws its own barred page, or something beside the shared one",
+    );
+  });
+
+  /* A ban entered while the form stood open: the refused press swaps the form for the same page
+     rather than raising the sentence as a toast over the form. */
+  it("swaps an open form for that page when the press is refused on the ban", async () => {
+    answerEveryFetch({ success: false, zustand: "gesperrt" });
+
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard("01011990");
+    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+    assert.ok(await screen.findByText(LINK_ADRESSE_GESPERRT), "the page kept the form the press cannot use again");
+    assert.equal(screen.queryAllByRole("button").length, 0, "a press stands beside the barred sentence");
+    assert.deepEqual(toasts, [], "the ban was raised as a toast over the form");
+  });
+});
+
+describe("the address the confirmation page opened under", () => {
+  it("loses the link's token once the page is open", () => {
+    window.history.replaceState(null, "", "/bestaetigung/schiedsrichter?token=kein-echtes-token");
+    render(h(SchiedsrichterBestaetigungView, { start: { zustand: "bestaetigt" } }));
+
+    assert.equal(
+      `${window.location.pathname}${window.location.search}`,
+      "/bestaetigung/schiedsrichter",
+      "the page leaves its token in the address bar",
+    );
+  });
+
+  it("keeps the token where the link could not be read, so a reload can retry it", () => {
+    window.history.replaceState(null, "", "/bestaetigung/schiedsrichter?token=kein-echtes-token");
+    render(h(SchiedsrichterBestaetigungView, { start: { zustand: "unlesbar" } }));
+
+    assert.equal(
+      `${window.location.pathname}${window.location.search}`,
+      "/bestaetigung/schiedsrichter?token=kein-echtes-token",
+      "the page stripped the token a reload needs",
+    );
   });
 });
 

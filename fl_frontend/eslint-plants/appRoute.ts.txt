@@ -8,3 +8,6 @@ export const FADE = "hover:opacity-50"; // expect: hover-opacity
 export function GET(): Response {
   return new Response(String(TEAM_FACETS.length));
 }
+// Through a query suffix, which the bundler resolves to the module itself.
+import { TEAM_FACETS as QUERIED_FACETS } from "@/features/teams/facets?probe"; // expect: facets-server
+export const QUERIED_USED = QUERIED_FACETS;

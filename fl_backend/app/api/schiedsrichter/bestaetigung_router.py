@@ -20,6 +20,7 @@ from app.api.schiedsrichter.services import (
     compose_confirmation_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
+    find_bestaetigung_gesperrt_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
@@ -27,11 +28,13 @@ from app.api.schiedsrichter.services import (
     vorname_of,
     zustand_of,
 )
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
+from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 # A THIRD router beside the admin one and the reference read, both guarded whole: the token is the
@@ -52,6 +55,7 @@ router = APIRouter(
 async def get_bestaetigung_ansicht(
     ansicht_data: Annotated[FLSchiedsrichterBestaetigungAnsichtPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
+    sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterBestaetigungAnsichtResponse:
     """
@@ -62,7 +66,9 @@ async def get_bestaetigung_ansicht(
     token travels in a body and never in a second URL.
 
     Refuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link
-    is SERVED in that state rather than refused, so a reopened link shows what became of it.
+    is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,
+    ahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),
+    so the page offers a barred referee nothing to press.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -79,8 +85,10 @@ async def get_bestaetigung_ansicht(
 
     einwilligung = raw.get(EINWILLIGUNG_FELD)
 
+    gesperrt = await adressen_gesperrt(sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")])
+
     return FLSchiedsrichterBestaetigungAnsichtResponse(
-        zustand=zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=today),
+        zustand=zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=today, gesperrt=bool(gesperrt)),
         vorname=vorname_of(raw.get("name")),
         text_version=None if not isinstance(einwilligung, dict) else einwilligung.get("text_version"),
         # Served rather than retyped on the page: the floor the write is judged by is the one the
@@ -100,6 +108,7 @@ async def get_bestaetigung_ansicht(
 async def post_bestaetigung(
     antwort_data: Annotated[FLSchiedsrichterBestaetigungPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterBestaetigungResponse:
@@ -111,7 +120,8 @@ async def post_bestaetigung(
     and the fixture list reads it there.
 
     Refuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed
-    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), an age outside what this
+    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), a link mailed to an address
+    the ban list holds now, whenever the link was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this
     consent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`
     (`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.
 
@@ -120,6 +130,8 @@ async def post_bestaetigung(
     """
 
     token_hash = hash_token(antwort_data.token)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterBestaetigungResponse:
         """Judge, then write, everything judged read in-session.
@@ -139,6 +151,12 @@ async def post_bestaetigung(
         # to ask for another.
         refuse(find_already_confirmed_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD)))
         refuse(find_expired_token_refusal(frist=frist_of(raw.get(BESTAETIGUNG_FELD)), today=today))
+        # Asked at the press rather than only at the mint: a ban entered after the link went out
+        # stops it here, and one lifted while it runs lets it answer again.
+        gesperrt = await adressen_gesperrt(
+            sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")], massgebliche_saison_id=massgebliche_saison_id, session=session
+        )
+        refuse(find_bestaetigung_gesperrt_refusal(gesperrt=bool(gesperrt)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
         refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
 
@@ -165,5 +183,5 @@ async def post_bestaetigung(
             bestaetigt_am=today,
         )
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(answer_for_the_person)

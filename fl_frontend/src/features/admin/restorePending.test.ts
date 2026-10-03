@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { before, describe, it } from "node:test";
 
@@ -23,16 +22,6 @@ import type { ReactNode } from "react";
 
 /** A reactivation nobody has answered: the list stays in the state its running write holds it in. */
 const { calls, answerPending } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
-
-const APP_TOAST = 'const raise = () => () => "0";\nexport const appToast = { success: raise(), danger: raise() };';
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/shared/utils/appToast.ts")) return { format: "module", source: APP_TOAST, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
 
 const STILLGELEGT_AM = "2026-09-09";
 const TEAM_ID = "6890a1b2c3d4e5f607910001";

@@ -79,7 +79,10 @@ def shared_client(url: str) -> AsyncMongoClient:
 
     client = _CLIENTS.get(url)
     if client is None:
-        client = AsyncMongoClient(url)
+        # `poll`, the mode the driver picks for a process frozen between calls: `_LOOP` stands still
+        # between seeds, and a streaming check outliving its timeout there clears the pool on resume,
+        # cancelling the next seed's operations.
+        client = AsyncMongoClient(url, serverMonitoringMode="poll")
         _CLIENTS[url] = client
 
     return client

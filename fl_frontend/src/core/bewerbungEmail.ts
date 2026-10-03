@@ -123,7 +123,7 @@ function neuBewerbenAktion(origin: string, saisonId: string): Aktion {
   return { href: `${origin}/bewerbung/${encodeURIComponent(saisonId)}`, label: "Neu bewerben", ton: "primary" };
 }
 
-// Spelled here as well as in `fl_frontend/src/core/authEmail.ts :: FALLBACK_SATZ`: one situation
+// Spelled here as well as in `fl_frontend/src/core/schiedsrichterEmail.ts :: FALLBACK_SATZ`: one situation
 // reads as one sentence to the person meeting it, so the two move together.
 const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 /** The singular sentence standing over two addresses tells its reader that one of them is theirs. */
@@ -388,7 +388,7 @@ export function buildBewerbungAbsageEmail({ teamName, saisonId, origin, rollenTe
       { label: "Entscheidung", value: "Absage" },
       { label: "Team", value: team },
       { label: "Saison", value: saisonId, akzent: true },
-      // In the same place as in the other two, and identification rather than a verdict: it says why
+      // Last of the facts, as on the acceptance, and identification rather than a verdict: it says why
       // the message reached this reader, and never what they were down for.
       { label: "Eingetragen als", value: rollenText },
       // Unabridged and last, where the panel can give it the full width: it is the one thing the

@@ -30,6 +30,10 @@ from typing import Any, Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
+# pytest's own, for the guard's test to run a session through it; and the refusal of a test module
+# that collects nothing.
+pytest_plugins = ("pytester", "collection")
+
 # So no case depends on the machine's git config.
 IDENTITY: Final[tuple[tuple[str, str], ...]] = (
     ("user.name", "fixture"),
@@ -217,6 +221,16 @@ def lift_function(script: Path, name: str, indent: str = "") -> str:
     end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
     assert end > start, f"{_cited(script)}'s {name} closes on neither its own opening line nor a line at that indent"
     return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
+
+
+def lift_assignment(script: Path, name: str) -> str:
+    """One top-level shell assignment: an array on one line, a double-quoted value on one, or a single-quoted one of any length.
+
+    Read rather than restated, for `lift_function`'s reason.
+    """
+    found = re.search(rf"""^{name}=(\(.*\)|"[^"\n]*"|'[^']*')$""", script.read_text(encoding="utf-8"), re.MULTILINE)
+    assert found is not None, f"{_cited(script)} assigns no {name}"
+    return found.group(0)
 
 
 def declared(source: Path, name: str) -> Any:

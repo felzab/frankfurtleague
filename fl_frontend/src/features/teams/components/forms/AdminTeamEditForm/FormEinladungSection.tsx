@@ -12,6 +12,7 @@ import { Button } from "@heroui/react/button";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
+import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
@@ -21,19 +22,23 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_TEXTAREA_CLASSES, FORM_SECTION_HEADING_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
-import type { FLEinladung } from "@/features/einladungen/schemas";
+import type { FLEinladungZeile } from "@/features/einladungen/schemas";
 import type { Key } from "@heroui/react/rac";
 
 /**
@@ -47,6 +52,12 @@ const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück 
 
 /** Where a reader goes when the browser refuses the clipboard, beside the box the value stands in. */
 const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn von Hand.";
+
+/**
+ * The place the first mint's control, the managing press and the new link's copy control share: whichever
+ * stands first takes the focus once a write takes another away.
+ */
+const EINLADUNG_PLACE = "einladung";
 
 /** Which of the two writes the armed press performs, picked before arming rather than raced between two controls. */
 type Operation = "ersetzen" | "zurueckziehen";
@@ -70,7 +81,7 @@ export function FormEinladungSection({
   isMember: boolean;
   /** `REQ-EINLADUNG-002`: a finished season hands out no further links, and the panel explains instead of offering. */
   isFinishedSaison: boolean;
-  einladung: FLEinladung | null;
+  einladung: FLEinladungZeile | null;
   /** Whether the registration window is open today, which is the link's only expiry. */
   laeuft: boolean;
 }) {
@@ -82,15 +93,18 @@ export function FormEinladungSection({
   // nothing, so escalating it would grade a create as a loss.
   const [isMinting, startMinting] = useTransition();
   const [isMailing, startMailing] = useTransition();
+  const mailStepUp = useStepUp();
 
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   const panel = formPanel();
   const busy = isMinting || isMailing || isWriting;
 
-  const mint = async () => {
+  // Each write's control gives way to the other's, the new link's copy control standing first in their
+  // shared place, so the landing is read at the press and handed in.
+  const mint = async (landing: ReturnType<typeof focusAfterWrite>) => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
     const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
@@ -99,6 +113,7 @@ export function FormEinladungSection({
       return;
     }
 
+    landing.landed();
     // Wrapped again: both callers run this inside a transition, and React leaves an update after an
     // `await` outside it.
     startTransition(() => {
@@ -107,7 +122,7 @@ export function FormEinladungSection({
     });
   };
 
-  const widerrufen = async () => {
+  const widerrufen = async (landing: ReturnType<typeof focusAfterWrite>) => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
     const res = await deleteEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
@@ -116,6 +131,7 @@ export function FormEinladungSection({
       return;
     }
 
+    landing.landed();
     // Wrapped again: the press runs this inside its transition, and React leaves an update after an
     // `await` outside it.
     startTransition(() => {
@@ -128,8 +144,9 @@ export function FormEinladungSection({
     // Ahead of `press`, so an unpicked operation neither arms nor writes.
     if (gewaehlt === null) return;
 
+    const landing = focusAfterWrite();
     press(async () => {
-      await (gewaehlt === "ersetzen" ? mint() : widerrufen());
+      await (gewaehlt === "ersetzen" ? mint(landing) : widerrufen(landing));
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.
       startTransition(() => {
@@ -141,22 +158,25 @@ export function FormEinladungSection({
   };
 
   const versenden = (offen: FrischeEinladung) => {
-    startMailing(async () => {
-      // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await mailEinladungAction({
-        team_id: teamId,
-        saison_id: saisonId,
-        einladung_id: offen.einladungId,
-        token: offen.token,
-      }).catch(rejectedWrite(router));
+    // It mails a bearer link to the club's seats (`docs/frontend/spec.md :: I432`).
+    mailStepUp.confirmThen(true, () =>
+      startMailing(async () => {
+        // A rejected action may still have saved, and uncaught here it takes the page down with it.
+        const res = await mailEinladungAction({
+          team_id: teamId,
+          saison_id: saisonId,
+          einladung_id: offen.einladungId,
+          token: offen.token,
+        }).catch(rejectedWrite(router));
 
-      if (!res.success) {
-        appToast.failure("Registrierungslink nicht gesendet", res);
-        return;
-      }
+        if (!res.success) {
+          appToast.failure("Registrierungslink nicht gesendet", res);
+          return;
+        }
 
-      appToast.success("Registrierungslink gesendet", { description: res.message });
-    });
+        appToast.success("Registrierungslink gesendet", { description: res.message });
+      }),
+    );
   };
 
   const kopieren = (offen: FrischeEinladung) => {
@@ -174,7 +194,9 @@ export function FormEinladungSection({
   const armedLabel = gewaehlt === "zurueckziehen" ? "Ja, Link zurückziehen" : "Ja, neuen Link anlegen";
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("einladung")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
@@ -228,7 +250,7 @@ export function FormEinladungSection({
                 {einladung !== null && (
                   <ConfirmReadoutRow
                     label="Angelegt von"
-                    value={einladung.erstellt_von}
+                    value={vonOderGesperrt(einladung.erstellt_von, einladung.erstellt_von_gesperrt)}
                   />
                 )}
                 {einladung !== null && (
@@ -263,6 +285,7 @@ export function FormEinladungSection({
                     type="button"
                     variant="secondary"
                     isDisabled={busy}
+                    {...focusSlot(EINLADUNG_PLACE)}
                     onPress={() => kopieren(frisch)}
                     className={`${formButton({ intent: "cancel", stacks: true })} gap-x-2`}>
                     <Copy
@@ -275,7 +298,7 @@ export function FormEinladungSection({
                   <Button
                     type="button"
                     variant="primary"
-                    isPending={isMailing}
+                    isPending={isMailing || mailStepUp.isPrompting}
                     isDisabled={!isMailing && busy}
                     onPress={() => versenden(frisch)}
                     className={`${formButton({ stacks: true })} gap-x-2`}>
@@ -283,9 +306,10 @@ export function FormEinladungSection({
                       className="size-4.5"
                       aria-hidden="true"
                     />
-                    {isMailing ? "Sendet..." : "Link per E-Mail senden"}
+                    {isMailing || mailStepUp.isPrompting ? mailStepUp.running("Sendet...") : "Link per E-Mail senden"}
                   </Button>
                 </div>
+                <StepUpRefused refused={mailStepUp.refused} />
               </div>
             )}
 
@@ -295,7 +319,11 @@ export function FormEinladungSection({
                 variant="primary"
                 isPending={isMinting}
                 isDisabled={!isMinting && (isFinishedSaison || busy)}
-                onPress={() => startMinting(mint)}
+                {...focusSlot(EINLADUNG_PLACE)}
+                onPress={() => {
+                  const landing = focusAfterWrite();
+                  startMinting(() => mint(landing));
+                }}
                 className={`${formButton({ stacks: true })} gap-x-2`}>
                 <Link
                   className="size-4.5"
@@ -350,33 +378,35 @@ export function FormEinladungSection({
                 )}
 
                 <ConfirmActionRow confirm={twoPress}>
-                  <ConfirmPressButton
-                    confirm={twoPress}
-                    reason={
-                      gewaehlt === null
-                        ? "Wähle, was mit dem offenen Link passieren soll."
-                        : gewaehlt === "ersetzen" && isFinishedSaison
-                          ? "Für eine abgeschlossene Saison wird kein Link mehr ausgegeben."
-                          : null
-                    }
-                    resting={restingLabel}
-                    armed={armedLabel}
-                    running={gewaehlt === "zurueckziehen" ? "Zieht zurück..." : "Legt an..."}
-                    icon={
-                      gewaehlt === "zurueckziehen" ? (
-                        <Ban
-                          className="size-4.5"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <Link
-                          className="size-4.5"
-                          aria-hidden="true"
-                        />
-                      )
-                    }
-                    onPress={handlePress}
-                  />
+                  <FocusSlot name={EINLADUNG_PLACE}>
+                    <ConfirmPressButton
+                      confirm={twoPress}
+                      reason={
+                        gewaehlt === null
+                          ? "Wähle, was mit dem offenen Link passieren soll."
+                          : gewaehlt === "ersetzen" && isFinishedSaison
+                            ? "Für eine abgeschlossene Saison wird kein Link mehr ausgegeben."
+                            : null
+                      }
+                      resting={restingLabel}
+                      armed={armedLabel}
+                      running={gewaehlt === "zurueckziehen" ? "Zieht zurück..." : "Legt an..."}
+                      icon={
+                        gewaehlt === "zurueckziehen" ? (
+                          <Ban
+                            className="size-4.5"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Link
+                            className="size-4.5"
+                            aria-hidden="true"
+                          />
+                        )
+                      }
+                      onPress={handlePress}
+                    />
+                  </FocusSlot>
                 </ConfirmActionRow>
               </>
             )}

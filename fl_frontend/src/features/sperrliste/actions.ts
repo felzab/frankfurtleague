@@ -1,11 +1,12 @@
 "use server";
 
+import { endSessionsOfAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { sendMail } from "@/core/mail";
+import { MailWithheldError, sendSperreNotice } from "@/core/mail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
-import { buildSperreEmail } from "@/core/sperrlisteEmail";
+import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -18,29 +19,56 @@ import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./s
 import type { ActionResult } from "@/shared/types/types";
 import type { FLPostSperrlistePayload, FLSperrlisteKeyPayload } from "./schemas";
 
-const NICHT_BENACHRICHTIGT = "Die Sperre steht. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.";
-const BENACHRICHTIGUNG_UNKLAR = "Die Sperre steht. Ob die Benachrichtigung angekommen ist, ist unklar.";
+const SPERRE_STEHT = "Die Sperre steht.";
+const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.";
+const BENACHRICHTIGUNG_UNKLAR = "Ob die Benachrichtigung angekommen ist, ist unklar.";
+// Said rather than left to a clean save, which an administrator reads as the barred person mailed.
+const KEIN_KONTO = "Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt.";
+
+const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nicht beendet werden.";
+
+/** What the sign-out found: whether an account holds the address, `null` where the store did not say, and the sentence a failure owes. */
+type Abmeldung = { readonly konto: boolean | null; readonly satz: string | null };
 
 /**
- * The typed address is on no row, in no log line and in no error message, so this send is the one
- * use it is ever put to.
+ * Ends the address's live sessions, which the refusal of every next sign-in does not reach
+ * (`docs/frontend/spec.md :: I402`). A failure leaves the ban standing, as a failed notice does.
+ */
+async function abmelden(email: string): Promise<Abmeldung> {
+  try {
+    return { konto: await endSessionsOfAddress(email), satz: null };
+  } catch (failed) {
+    // The NAME alone, as the notice's own failure is logged: the address must reach no line.
+    logger.error("sperrliste.sessions_not_ended", undefined, {
+      error_code: "FE-AUTH-006",
+      name: failed instanceof Error ? failed.name : "unknown",
+    });
+    return { konto: null, satz: ANMELDUNGEN_NICHT_BEENDET };
+  }
+}
+
+/**
+ * The typed address is on no row, in no log line and in no error message, so this send and the
+ * sign-out above are the only uses it is ever put to.
  */
 // A failure leaves the ban standing rather than undoing it: the write is acknowledged and no address
 // survives to re-send to, so the administrator is told instead.
-async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId: string): Promise<string> {
-  const { subject, html, text } = buildSperreEmail({
-    grund: grund,
-    gesperrtBisSaisonId: gesperrtBisSaisonId,
-    origin: frontend_config.AUTH_URL,
-  });
-
+async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId: string): Promise<string | null> {
+  // The notice's own sender, the one past the ban list: the address it goes to is now on it
+  // (`docs/frontend/spec.md :: I541`).
   try {
     // Unwrapped, a deadline cut here answers the whole press as of unknown outcome, sending the administrator to
     // check a ban written before this send (`docs/frontend/spec.md :: I372`).
-    await runAnsweringOwnCut(() => sendMail({ to: email, subject: subject, html: html, text: text }));
+    await runAnsweringOwnCut(() =>
+      sendSperreNotice({ to: email, grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: frontend_config.AUTH_URL }),
+    );
 
-    return SPERRE_ERFOLG;
+    return null;
   } catch (failed) {
+    // Filed by a deployment that mails nothing, which the mailer's own line records: no failure, and
+    // nobody to tell by hand.
+    if (failed instanceof MailWithheldError) return ZURUECKGEHALTEN;
+
     // The NAME alone: a failure on this path routinely carries the address, and
     // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and a stack in full.
     logger.error("sperrliste.notice_failed", undefined, {
@@ -79,9 +107,22 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
       return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht gesperrt", repair: "Versuche es erneut" }) };
     }
 
-    // AFTER the write is acknowledged, so nobody is told they are barred by a request that then
-    // failed, and on the response's own bound rather than a second read the sweep could beat.
-    const message = await benachrichtigen(validated.data.email, validated.data.grund, postOperation.gesperrt_bis_saison_id);
+    // AFTER the write is acknowledged, so nobody is signed out or told they are barred by a request
+    // that then failed; the sign-out first, so the notice's account of it is already true.
+    const abgemeldet = await abmelden(validated.data.email);
+
+    // Only an address an account holds is mailed (`docs/frontend/spec.md :: I517`). Where the store did
+    // not say, nobody is, the notice's account sentences being a guess; either way the administrator is told.
+    let benachrichtigt: string | null = abgemeldet.konto === null ? NICHT_BENACHRICHTIGT : KEIN_KONTO;
+    if (abgemeldet.konto === true) {
+      // On the response's own bound rather than a second read the sweep could beat.
+      benachrichtigt = await benachrichtigen(validated.data.email, validated.data.grund, postOperation.gesperrt_bis_saison_id);
+    }
+
+    // Each is told, and none undoes the ban: the write is acknowledged and no address survives to retry
+    // a failure with.
+    const told = [abgemeldet.satz, benachrichtigt].filter((sentence) => sentence !== null);
+    const message = told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" ");
 
     return { success: true, created_id: postOperation.created_id, message: message };
   });
@@ -93,7 +134,7 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
  * `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is.
  */
 export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteSperreAction", async () => {
+  return runAdminMutation("deleteSperreAction", { stepUp: true }, async () => {
     const validated = FLSperrlisteKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

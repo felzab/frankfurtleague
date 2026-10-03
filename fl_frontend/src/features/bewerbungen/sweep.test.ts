@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
-import { beforeEach, describe, it, mock } from "node:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { after, beforeEach, describe, it, mock } from "node:test";
 
+import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
@@ -17,21 +18,28 @@ type SweepEvent =
 const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
 const refused = new Set<string>();
+const withheld = new Set<string>();
 
 /** One failure line, as an operator reads it: which half stopped, and for which season. */
 type SweepLog = { event: string; saison_id: string | undefined };
 
 const logs: SweepLog[] = [];
 
-const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flSweepLogs = logs;
-recorders.__flSweepSwitch = "on";
+/** The sweep's switch as the doubled config answers it, which a case sets. */
+let sweepSwitch: string | undefined = "on";
+let appEnv = "production";
 
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
+
+/** The grants' claim with nothing to announce. */
+const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
 doubleApiClient(({ endpoint, method, params, body }, schema) => {
+  // The grants' pass is armed by the same boot and answers to its own suite
+  // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
+  if (endpoint.startsWith("/berechtigungen")) return schema.parse(NOTHING_CLAIMED);
   // Into the one ordered list the mail double appends to, so a read and a send stay in the order they ran.
   const call: ApiEvent = { kind: "api", endpoint, method: method ?? "GET", params: params as ApiEvent["params"], body };
   events.push(call);
@@ -44,30 +52,40 @@ const mail = doubleSendMail();
 
 // The error arm records: which EVENT a failure is filed under is what tells an operator which half
 // of a season's pass stopped, and that is a line rather than a call the transport shows.
-const LOGGING_DOUBLE = `export const logger = {
-  info: () => {},
-  warn: () => {},
-  error: (event, _message, fields) => globalThis.__flSweepLogs.push({ event, saison_id: fields?.saison_id }),
-};`;
+const LOGGING_DOUBLE = {
+  logger: {
+    info: () => undefined,
+    warn: () => undefined,
+    error: (event: string, _message: unknown, fields?: { saison_id?: string }) => void logs.push({ event, saison_id: fields?.saison_id }),
+  },
+};
 
 // A getter, not a value: one process holds one module registry, so a case that could not re-read the
 // switch could only ever prove one side of it.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  LOG_FORMAT: "console",
-  AUTH_URL: "http://localhost:3000",
-  get BEWERBUNG_SWEEP() { return globalThis.__flSweepSwitch; },
-};`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
+const CONFIG_DOUBLE = {
+  frontend_config: {
+    LOG_FORMAT: "console",
+    AUTH_URL: "http://localhost:3000",
+    // The boot reads the signing key before it arms anything.
+    ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
+    get BEWERBUNG_SWEEP() {
+      return sweepSwitch;
+    },
+    get APP_ENV() {
+      return appEnv;
+    },
   },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+  retiredVariablesSet: () => [],
+};
+
+const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
+
+registerDoubles({
+  modules: {
+    "core/logging.ts": LOGGING_DOUBLE,
+    "core/config.ts": CONFIG_DOUBLE,
+    // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
+    "core/authIndexes.ts": INDEXES_DOUBLE,
   },
 });
 
@@ -177,12 +195,14 @@ beforeEach(() => {
   events.length = 0;
   logs.length = 0;
   refused.clear();
+  withheld.clear();
   // Appended as the send happens, so a send and the calls around it stay in the order they ran.
   mail.answerWith((sent) => {
     events.push({ kind: "mail", ...sent });
-    return refused.has(sent.to) ? "refused" : "accepted";
+    return refused.has(sent.to) ? "refused" : withheld.has(sent.to) ? "withheld" : "accepted";
   });
-  recorders.__flSweepSwitch = "on";
+  sweepSwitch = "on";
+  appEnv = "production";
   sweepAnswers({});
 });
 
@@ -192,27 +212,34 @@ describe("the switch the retention sweep is armed by", () => {
     APP_ENV: "production",
     API_URL: "http://backend:8000",
     API_VERSION: "0",
-    MONGODB_URI: "mongodb://localhost:27017/probe",
     AUTH_URL: "http://localhost:3000",
-    // Long enough for the signing floor the parse applies: a shorter placeholder fails the whole
-    // environment, and every case here would then report the switch as unreadable.
-    AUTH_SECRET: "s".repeat(32),
-    AUTH_RESEND_KEY: "resend",
-    // The prefix is the whole of what the schema judges, so a placeholder carrying it is enough.
-    RESEND_WEBHOOK_SECRET: "whsec_probe",
-    INTERNAL_API_KEY_BASE: "b".repeat(64),
-    INTERNAL_API_KEY_SYSTEM: "s".repeat(64),
-    INTERNAL_API_KEY_ADMIN: "a".repeat(64),
-    ALLOWED_ADMIN_EMAILS: "admin@frankfurtleague.de",
     LOG_FORMAT: "console",
   };
+
+  /** And every secret file it reads, by the file's own name. */
+  const SECRETS_DIR = mkdtempSync(path.join(tmpdir(), "fl-sweep-secrets-"));
+  after(() => rmSync(SECRETS_DIR, { recursive: true, force: true }));
+  for (const [name, value] of Object.entries({
+    frontend_mongodb_uri: "mongodb://localhost:27017/probe",
+    // Long enough for the signing floor the parse applies: a shorter placeholder fails the whole
+    // environment, and every case here would then report the switch as unreadable.
+    auth_secret: "s".repeat(32),
+    auth_resend_key: "resend",
+    // The prefix is the whole of what the schema judges, so a placeholder carrying it is enough.
+    resend_webhook_secret: "whsec_probe",
+    internal_api_key_base: "b".repeat(64),
+    internal_api_key_system: "s".repeat(64),
+    internal_api_key_admin: "a".repeat(64),
+  })) {
+    writeFileSync(path.join(SECRETS_DIR, name), value);
+  }
 
   let probe = 0;
 
   /** The real module's own parse, with the gate the `test:base` script stands down put back up. */
   async function parseWith(value: string | undefined): Promise<{ BEWERBUNG_SWEEP: string }> {
     const before = { ...process.env };
-    Object.assign(process.env, COMPLETE_ENV);
+    Object.assign(process.env, COMPLETE_ENV, { SECRETS_DIR });
     delete process.env.SKIP_ENV_VALIDATION;
     if (value === undefined) delete process.env.BEWERBUNG_SWEEP;
     else process.env.BEWERBUNG_SWEEP = value;
@@ -265,7 +292,7 @@ describe("what register arms", () => {
   /** One arming and three hours of ticks: every case below asks only whether anything reached the backend at all. */
   async function armAndTick(nodeEnv: string, sweep: string | undefined): Promise<void> {
     const restore = underNodeEnv(nodeEnv);
-    recorders.__flSweepSwitch = sweep;
+    sweepSwitch = sweep;
     mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
 
     try {
@@ -426,6 +453,50 @@ describe("one pass of the sweep", () => {
     assert.deepEqual(JSON.parse(stamp?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
     assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
     assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
+  });
+
+  /* A deployment that mails nothing files the notice, and off production that is as told as anyone
+     there is; production waits for a real send, a withheld one there being a deployment missing its key. */
+  for (const [env, erased] of [
+    ["local", true],
+    ["production", false],
+  ] as const) {
+    it(`${erased ? "stamps and erases" : "keeps"} a candidate whose notice was filed on ${env}`, async () => {
+      appEnv = env;
+      withheld.add("erika@schule.de");
+      sweepAnswers({ saisonIds: ["2627"], loeschungen: { "2627": [deletion(ID_REACHED, "erika@schule.de")] } });
+
+      await runBewerbungSweep();
+
+      assert.equal(events.filter((event) => event.kind === "mail").length, 1, "the notice was never sent, so nothing was filed");
+      const stamp = callTo("/bewerbungen/sweep/2627/angekuendigt");
+      const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
+      assert.deepEqual(
+        [stamp, erasure].map((call) => (call === undefined ? null : JSON.parse(call.body ?? "{}"))),
+        erased ? [{ bewerbung_ids: [ID_REACHED] }, { bewerbung_ids: [ID_REACHED] }] : [null, null],
+      );
+    });
+  }
+
+  /* On production too: a barred mailbox is as told as the league may make it, and waiting on a send
+     the ban never lets out would keep the application for as long as the ban stands
+     (`docs/frontend/spec.md :: I538`). */
+  it("stamps and erases a candidate whose one mailbox the ban list holds, on production", async () => {
+    mail.answerWith((sent) => {
+      events.push({ kind: "mail", ...sent });
+      return "barred";
+    });
+    sweepAnswers({ saisonIds: ["2627"], loeschungen: { "2627": [deletion(ID_REACHED, "erika@schule.de")] } });
+
+    await runBewerbungSweep();
+
+    assert.equal(events.filter((event) => event.kind === "mail").length, 1, "the notice was never handed to the mailer");
+    const stamp = callTo("/bewerbungen/sweep/2627/angekuendigt");
+    const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
+    assert.deepEqual(
+      [stamp, erasure].map((call) => (call === undefined ? null : JSON.parse(call.body ?? "{}"))),
+      [{ bewerbung_ids: [ID_REACHED] }, { bewerbung_ids: [ID_REACHED] }],
+    );
   });
 
   /* The pass after an erasure that failed: the candidate is listed again, already announced. Mailing

@@ -17,7 +17,7 @@ import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import {
@@ -56,6 +56,10 @@ const { calls, answerWith } = doubleEveryAction();
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
 
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
+
 /** The undo's dispatch, which posts to a route handler with the browser's own `fetch`. */
 const fetchMock = doubleFetch();
 
@@ -78,7 +82,7 @@ const { AdminKontakteList } = await import("@/features/teams/components/collecti
 const { FormKontakteSection } = await import("./components/forms/AdminKontakteEditForm/FormKontakteSection.tsx");
 const { AdminKontakteEditView } = await import("./components/views/AdminKontakteEditView.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
-const { default: AdminKontakteEditPage } = await import("@/app/admin/kontakte/[team_id]/page.tsx");
+const { default: AdminKontakteEditPage } = await import("@/app/bereich/admin/kontakte/[team_id]/page.tsx");
 const { AdminTeamEditForm } = await import("@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx");
 const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
 
@@ -168,7 +172,7 @@ const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true):
   h(FormKontakteSection, {
     value: kontakte,
     isMember,
-    teamHref: "/admin/teams/t1?saison_id=2526",
+    teamHref: "/bereich/admin/teams/t1?saison_id=2526",
     banners: [],
     onChange: () => undefined,
     onFieldLeft: () => undefined,
@@ -285,14 +289,18 @@ const headings = (html: string, level: string): string[] =>
 const seatCards = (html: string): { header: string; body: string }[] => {
   const panel = formPanel();
 
-  return html
-    .split(`<section class="${panel.root()}">`)
-    .slice(1)
-    .map((card) => {
-      const [header = "", body = ""] = card.split(`<div class="${panel.body()}">`);
+  return (
+    html
+      .split(`<section class="${panel.root()}"`)
+      .slice(1)
+      // Past the rest of the opening tag, whose landing mark names the seat.
+      .map((card) => card.slice(card.indexOf(">") + 1))
+      .map((card) => {
+        const [header = "", body = ""] = card.split(`<div class="${panel.body()}">`);
 
-      return { header, body };
-    });
+        return { header, body };
+      })
+  );
 };
 
 const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
@@ -338,7 +346,10 @@ describe("the editor's shape", () => {
   /* The page's chrome may never wait on the row: rendered with no boundary awaited, its fallback
      stands, where an async page would suspend whole. */
   it("renders its fallback before the row resolves", () => {
-    assert.ok(renderTree(h(AdminKontakteEditPage, PAGE_PROPS)).includes('role="status"'), "the page waits on the row before it renders");
+    // Params that never resolve, so the body the render starts reads nothing into the next case's record.
+    const unresolved = { ...PAGE_PROPS, params: new Promise<{ team_id: string }>(() => undefined) };
+
+    assert.ok(renderTree(h(AdminKontakteEditPage, unresolved)).includes('role="status"'), "the page waits on the row before it renders");
   });
 
   /* The club is judged before the backend is asked: a malformed id reads nothing. */
@@ -758,7 +769,7 @@ describe("the way in and out of the editor", () => {
     assert.ok(!clubEditor.includes("Trainer hinterlegt"), "the club editor still renders the contacts block");
     assert.equal(
       /<a [^>]*href="([^"]*)"[^>]*>3 Kontakteinträge für Saison 2526 bearbeiten</.exec(clubEditor)?.[1],
-      `/admin/kontakte/${TEAM_ID}?saison_id=2526`,
+      `/bereich/admin/kontakte/${TEAM_ID}?saison_id=2526`,
       "the club editor's link does not open this editor on the season it shows",
     );
   });
@@ -773,7 +784,9 @@ describe("the way in and out of the editor", () => {
       trainer_ist_zugleich: null,
     });
     const linkText = (kontakte: FLSaisonTeamKontakte | null): string =>
-      /<a [^>]*>(.*?)<\/a>/s.exec(renderMarkup(FormKontakteLinkSection, { saisonId: "2526", kontakte, href: "/admin/kontakte/t1" }))?.[1] ?? "";
+      /<a [^>]*>(.*?)<\/a>/s.exec(
+        renderMarkup(FormKontakteLinkSection, { saisonId: "2526", kontakte, href: "/bereich/admin/kontakte/t1" }),
+      )?.[1] ?? "";
 
     /* An erasure leaves a block whose seats are empty, so an emptied block and an absent one read the
        same: a count off the block's presence would call the first of these three. */
@@ -828,11 +841,11 @@ describe("the way in and out of the editor", () => {
       ...new Set([...listMarkup(listRow([seat("trainer", "Trainer", ADA)]), query).matchAll(/href="([^"]*)"/g)].map((found) => found[1])),
     ];
 
-    assert.deepEqual(hrefs("saison_id=2526"), ["/admin/kontakte/t1?saison_id=2526"]);
+    assert.deepEqual(hrefs("saison_id=2526"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
     // The season the sidemenu holds is the whole of what rides along; every other filter stays behind.
-    assert.deepEqual(hrefs("saison_id=2526&q=alpha&besetzung=teilweise"), ["/admin/kontakte/t1?saison_id=2526"]);
+    assert.deepEqual(hrefs("saison_id=2526&q=alpha&besetzung=teilweise"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
     // Absent rather than empty: `?saison_id=` would read as a season nobody picked.
-    assert.deepEqual(hrefs("q=alpha"), ["/admin/kontakte/t1"]);
+    assert.deepEqual(hrefs("q=alpha"), ["/bereich/admin/kontakte/t1"]);
   });
 });
 
@@ -867,7 +880,7 @@ describe("how the editor clears a season's contact block", () => {
        and the title beside it, and each falls back to neutral on its own. */
     const danger = formPanel({ tone: "danger" });
 
-    assert.ok(editor.includes(`<section class="${danger.root()}">`), "the deletion's box is not graded as destructive");
+    assert.ok(editor.includes(`<section class="${danger.root()}"`), "the deletion's box is not graded as destructive");
     assert.ok(editor.includes(`<div class="${danger.header()}">`), "the deletion's header band is not graded as destructive");
     assert.ok(editor.includes(`<h2 class="${danger.heading()}`), "the deletion's title is not graded as destructive");
     // Nothing stored is nothing at stake, so the grade is spent nowhere.
@@ -887,12 +900,12 @@ describe("how the editor clears a season's contact block", () => {
        three switched-off seats and a red, open deletion. */
     assert.equal([...nobodyHeld.matchAll(/role="switch"[^>]*checked=""/g)].length, 3, "a row holding nobody opens with a seat switched off");
     assert.ok(
-      !nobodyHeld.includes(`<section class="${formPanel({ tone: "danger" }).root()}">`),
+      !nobodyHeld.includes(`<section class="${formPanel({ tone: "danger" }).root()}"`),
       "the deletion is graded as destructive over nobody",
     );
     assert.match(
       nobodyHeld,
-      /<button[^>]*\sdisabled=""[^>]*>(?:(?!<button)[\s\S])*?Kontakte löschen<\/button>/,
+      /<button[^>]*\sdisabled=""[^>]*>(?:(?!<button)[\s\S])*?Kontakte löschen(?:<\/span>)?<\/button>/,
       "the deletion is open over nobody",
     );
     assert.match(nobodyHeld, /<button[^>]*type="submit"[^>]*\sdisabled=""/, "a row holding nobody opens with a change to save");

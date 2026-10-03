@@ -50,15 +50,14 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
-from tests.config import build_test_config
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.bans import ban_list
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, spiel_document
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
-
-CONFIG = build_test_config()
 
 
 # Fixed rather than generated, so a failure names the same row every run.
@@ -380,11 +379,10 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         db=client,
-        config=CONFIG,
         today=TODAY,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -443,11 +441,10 @@ async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, s
     return await reactivate_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         db=client,
-        config=CONFIG,
         today=TODAY,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -703,11 +700,10 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spiele_collection=database[Collection.SPIELE],
-                    sperrliste_collection=database[Collection.SPERRLISTE],
-                    saisons_collection=database[Collection.SAISONS],
+                    sperrliste=ban_list(database),
                     db=client,
-                    config=CONFIG,
                     today=TODAY,
+                    refuse_unconfirmed=FRESH_STEP_UP_CHECK,
                 )
             elif press == "delete":
                 await delete_schiedsrichter(

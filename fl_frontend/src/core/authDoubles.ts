@@ -1,84 +1,125 @@
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
-import { registerHooks } from "node:module";
+import { generateKeyPairSync } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { after } from "node:test";
 
+import { memoryAdapter } from "better-auth/adapters/memory";
+import { ObjectId } from "mongodb";
+
+import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
+import { deepFrozen, NO_RECORDS, SITZ } from "./subjectFixtures.ts";
+
+import type { MemoryDB } from "better-auth/adapters/memory";
+import type { auth as AuthInstance } from "./auth.ts";
+import type { DoubledExports } from "./exportingModule.ts";
+
+export { asDataUrl } from "./exportingModule.ts";
 
 export const ADMIN_EMAIL = "vorstand@example.org";
+
+/**
+ * The pair the actor is signed with wherever a suite boots or runs a guard, made for the run: a key
+ * file kept in the tree would be a signing key anybody could read.
+ */
+export const ACTOR_KEY_PAIR = generateKeyPairSync("ed25519");
+
+const ACTOR_KEY_DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-actor-key-"));
+/** `ACTOR_KEY_PAIR`'s private half, as the compose secret holds one: "PKCS#8" PEM. */
+export const ACTOR_KEY_FILE = path.join(ACTOR_KEY_DIRECTORY, "signing-key.pem");
+writeFileSync(ACTOR_KEY_FILE, ACTOR_KEY_PAIR.privateKey.export({ type: "pkcs8", format: "pem" }));
+after(() => rmSync(ACTOR_KEY_DIRECTORY, { recursive: true, force: true }));
 
 /** What a request arriving at the served origin carries, matched to the config double's `AUTH_URL`. */
 export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as const;
 
-export const asDataUrl = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
+/** A secret's reader in `fl_frontend/src/core/config.ts`, by its exported name, as a double answers it. */
+type SecretReaders = Readonly<Record<string, () => string | undefined>>;
 
-/**
- * The config every sign-in suite runs `fl_frontend/src/core/auth.ts` under. The secret is fabricated
- * and reaches the library as its `secret` option, which it reads ahead of `BETTER_AUTH_SECRET` and
- * `AUTH_SECRET`, so neither environment name needs setting for a run.
- */
-export function configDouble(overrides: Readonly<Record<string, unknown>> = {}): string {
+const SECRET_DOUBLES: SecretReaders = {
+  // Reaches the library as its `secret` option, which it reads ahead of `BETTER_AUTH_SECRET` and
+  // `AUTH_SECRET`, so neither environment name needs setting for a run.
+  authSecret: () => "fabricated-test-secret-not-a-credential",
+  // The key the sign-in gate's one backend read is made with.
+  internalApiKeySystem: () => "fabricated-system-not-a-credential",
+};
+
+/** The config every sign-in suite runs `fl_frontend/src/core/auth.ts` under, `secrets` over the readers' defaults. */
+export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, secrets: SecretReaders = {}): DoubledExports {
   const config = {
-    ALLOWED_ADMIN_EMAILS: [ADMIN_EMAIL],
+    ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
-    AUTH_SECRET: "fabricated-test-secret-not-a-credential",
+    ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     LOG_LEVEL: "ERROR",
     LOG_FORMAT: "json",
     ...overrides,
   };
-  return `export const frontend_config = ${JSON.stringify(config)};`;
+  // An override of `undefined` takes the name out, as an unset variable is absent from the real config.
+  const frontend_config = Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined));
+  return { frontend_config, ...SECRET_DOUBLES, ...secrets };
 }
 
 /* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
    the config above omits, and with one a suite left on the real adapter would reach for a server
    rather than fail at once. */
-const DB_DOUBLE = `export const client = { db: () => ({}) };`;
+const DB_DOUBLE: DoubledExports = { signInStore: () => ({ db: () => ({}) }) };
 
-export const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
+/** What the library hands an adapter factory as it builds the adapter. */
+type AdapterOptions = Parameters<ReturnType<typeof memoryAdapter>>[0];
+
+/**
+ * The library's in-memory adapter over `store`, minting ids as the Mongo adapter does rather than at
+ * random: an `ObjectId` rising with each insert, which settles two sessions stamped in one millisecond
+ * (`fl_frontend/src/core/auth.ts :: mintedBefore`).
+ */
+export const insertOrderedAdapter =
+  (store: MemoryDB) =>
+  (options: AdapterOptions): ReturnType<ReturnType<typeof memoryAdapter>> =>
+    memoryAdapter(store)({
+      ...options,
+      advanced: { ...options.advanced, database: { ...options.advanced?.database, generateId: () => new ObjectId().toHexString() } },
+    });
 
 /**
  * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real
  * `auth.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.
  */
-export const memoryAdapterDouble = (store: string): string =>
-  asDataUrl(`import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
-export const mongodbAdapter = () => memoryAdapter(globalThis.${store});`);
+export const memoryAdapterDouble = (store: string): DoubledExports => ({
+  mongodbAdapter: () => insertOrderedAdapter(Reflect.get(globalThis, store) as MemoryDB),
+});
 
-const SERVER_ONLY_DOUBLE_URL = asDataUrl("export {};");
-
-type Doubles = {
-  /** Module sources by the `fl_frontend/src/core/<name>.ts` they replace, over the two defaults. */
-  readonly core?: Readonly<Record<string, string>>;
-  /** Module URLs by the bare specifier they replace. */
-  readonly specifiers?: Readonly<Record<string, string>>;
+type AuthDoubles = {
+  /**
+   * By the `fl_frontend/src/core/<name>.ts` each replaces, over the two defaults. A source is taken
+   * only as `overridingModule` builds one: a hand-listed one fails to link the day auth.ts imports one more name.
+   */
+  readonly core?: Readonly<Record<string, DoubledExports | string>>;
+  /** By the bare specifier each replaces: the package's doubled exports, or the URL of a module loaded in its place. */
+  readonly specifiers?: Readonly<Record<string, DoubledExports | string>>;
 };
 
 /**
- * Registers the doubles a suite then imports `fl_frontend/src/core/auth.ts` under, which it does
- * with a dynamic import: a static one resolves before the hooks exist. Test-only, which
- * `no-restricted-imports` in `fl_frontend/eslint.config.mjs` holds it to.
+ * `registerDoubles` under the config, the store client and the mailer `fl_frontend/src/core/auth.ts`
+ * builds on, and the lookup its grant is read over. Test-only, which `no-restricted-imports` in
+ * `fl_frontend/eslint.config.mjs` holds it to.
  */
-export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}): ReturnType<typeof doubleSendMail> {
+export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleSendMail> {
   // The mailer is always `doubleSendMail`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
   if ("mail" in core) throw new Error("The mailer is doubleSendMail's: read the record registerAuthDoubles answers.");
-  const sources = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core });
-  const replaced = new Map(Object.entries(specifiers));
+  const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core }).map(([name, double]) => [`core/${name}.ts`, double]);
 
-  registerHooks({
-    resolve(specifier, context, nextResolve) {
-      // Its real module throws outside a React server build.
-      if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-      const url = replaced.get(specifier);
-      if (url !== undefined) return { url: url, shortCircuit: true };
-      return nextResolve(specifier, context);
-    },
-    load(url, context, nextLoad) {
-      // Matched on the RESOLVED url's end, so this holds whichever order the alias hook and this one
-      // run in, and a query-suffixed url passes: both db-tier suites load the real `db.ts` that way.
-      const double = sources.find(([name]) => url.endsWith(`/src/core/${name}.ts`));
-      if (double !== undefined) return { format: "module", source: double[1], shortCircuit: true };
-      return nextLoad(url, context);
-    },
+  // The grant is read over the lookup, so without an answer no suite has an administrator at all. A
+  // suite answering the lookup itself, before this or after it, keeps its own answer.
+  if (!lookupAnswered) answerTheLookup((email) => (email === ADMIN_EMAIL ? GRANTED : null));
+
+  registerDoubles({
+    modules: Object.fromEntries(modules),
+    specifiers: Object.fromEntries(
+      Object.entries(specifiers).map(([specifier, double]) => [specifier, typeof double === "string" ? new URL(double) : double]),
+    ),
   });
 
   return doubleSendMail();
@@ -145,38 +186,139 @@ export const cookieHeader = (response: { headers: Headers }): string =>
     .map((line) => line.split(";")[0])
     .join("; ");
 
-type VerificationRow = { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date };
-
 /**
- * A link for `email` written straight into a memory store, at the shape the plugin stores one --
- * SHA-256, base64url, no padding. Verification gates on no allowlist, so this mints a session for an
- * address the send would mail nothing.
+ * A session minted the way a typed code mints one, off the plugin's own server-only mint, which
+ * passes no gate and sends nothing: it serves an address the send mails nothing, and never meets
+ * the mail cap.
  */
-export function seedLink(verification: VerificationRow[], email: string): string {
-  const token = `fabricated-link-${randomUUID()}`;
+export async function signInByCode(
+  auth: typeof AuthInstance,
+  email: string,
+  headers: HeadersInit = ORIGIN,
+): Promise<{ headers: Headers; response: unknown }> {
+  const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
 
-  verification.push({
-    id: randomUUID(),
-    identifier: createHash("sha256").update(token).digest("base64url"),
-    value: JSON.stringify({ email }),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    createdAt: new Date(),
-    updatedAt: new Date(),
+  return auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(headers), returnHeaders: true });
+}
+
+/** A session row as the library's in-memory store holds one. */
+export type SessionRow = {
+  id: string;
+  token: string;
+  userId: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  authFactor?: string;
+  passkeyCredentialId?: string;
+};
+
+/** The library's in-memory store, typed as far as a case reads it. */
+export type MemoryStore = {
+  user: ({ id: string; email: string } & Record<string, unknown>)[];
+  session: SessionRow[];
+  account: unknown[];
+  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
+  passkey: Record<string, unknown>[];
+};
+
+/** An empty store, held at `globalThis[name]`, where `memoryAdapterDouble(name)` serves it from. */
+export function memoryStore(name: string): MemoryStore {
+  const store: MemoryStore = { user: [], session: [], account: [], verification: [], passkey: [] };
+  Reflect.set(globalThis, name, store);
+
+  return store;
+}
+
+/** `signInByCode`'s session, as its cookie and the row `store` holds for it. */
+export async function sessionByCode(
+  auth: typeof AuthInstance,
+  store: MemoryStore,
+  email: string,
+): Promise<{ cookie: string; row: SessionRow }> {
+  const cookie = cookieHeader(await signInByCode(auth, email));
+
+  const row = store.session.at(-1);
+  assert.ok(row !== undefined, "the verification wrote no session row");
+
+  return { cookie, row };
+}
+
+/** Where the sign-in gate's one backend read goes, in every config double this file builds. */
+export const GATE_BACKEND_CONFIG = {
+  API_URL: "http://backend.test",
+  API_VERSION: 0,
+} as const;
+
+/** What the lookup answers an address holding nothing, which every answer below builds on. */
+export const HOLDS_NOTHING = deepFrozen({ acknowledged: 1 as const, ...NO_RECORDS });
+
+/** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
+const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" });
+
+/** Whether a suite's lookup answer is installed, which `registerAuthDoubles`' default must not replace. */
+let lookupAnswered = false;
+
+/** Answers the lookup by the address it posts; `null` fails the read as an unreachable backend does. */
+function answerTheLookup(answerFor: (email: string) => Record<string, unknown> | null): void {
+  lookupAnswered = true;
+  const original = globalThis.fetch;
+
+  globalThis.fetch = ((_input: string | URL | Request, init?: RequestInit) => {
+    const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
+    const answer = answerFor(email ?? "");
+    if (answer === null) return Promise.reject(new TypeError("fetch failed"));
+
+    return Promise.resolve(new Response(JSON.stringify(answer), { status: 200, headers: { "content-type": "application/json" } }));
+  }) as typeof globalThis.fetch;
+  after(() => {
+    globalThis.fetch = original;
   });
-
-  return token;
 }
 
 /**
- * The token out of the last message mailed to `email`, or `null` where none was. Read off the send
- * rather than the store: `storeToken: "hashed"` means the stored identifier is not the token.
+ * Answers the gate's backend read with a live seat for every address, and a grant beside it for each
+ * address `granted` names, so a suite minting a person's session gets past the gate at session creation
+ * (`docs/frontend/spec.md :: I403`).
  */
-export function lastMailedToken(sent: readonly { to: string; text: string }[], email: string): string | null {
+export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ] }));
+}
+
+/**
+ * Stamps a stored session a passkey's and seeds the passkey row its credential names: every guard
+ * reads a passkey session whose passkey no row holds as no session (`docs/frontend/spec.md :: I313`).
+ */
+export function madeByPasskey(store: { passkey: unknown[] }, row: { userId: string; authFactor?: string; passkeyCredentialId?: string }): void {
+  const credentialID = `fabricated-credential-of-${row.userId}`;
+  row.authFactor = "passkey";
+  row.passkeyCredentialId = credentialID;
+
+  if (store.passkey.some((held) => typeof held === "object" && held !== null && Reflect.get(held, "credentialID") === credentialID)) return;
+  store.passkey.push({
+    id: `ein-passkey-of-${row.userId}`,
+    userId: row.userId,
+    credentialID: credentialID,
+    publicKey: "fabricated-public-key",
+    counter: 0,
+    deviceType: "singleDevice",
+    backedUp: false,
+    transports: "internal",
+    createdAt: new Date(),
+  });
+}
+
+/**
+ * The code out of the last message mailed to `email`, or `null` where none was. Read off the send
+ * rather than the store: `storeOTP: "encrypted"` means the stored value is not the code.
+ */
+export function lastMailedCode(sent: readonly { to: string; text: string }[], email: string): string | null {
   const message = [...sent].reverse().find((entry) => entry.to === email);
   if (message === undefined) return null;
 
-  const found = /[?&]token=([^\s&]+)/.exec(message.text);
-  assert.ok(found?.[1], `the message to ${email} carries no token parameter`);
+  // The code stands on a line of its own in the text branch.
+  const found = /^(\d{6})$/m.exec(message.text);
+  assert.ok(found?.[1], `the message to ${email} carries no code`);
 
-  return decodeURIComponent(found[1]);
+  return found[1];
 }

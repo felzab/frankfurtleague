@@ -14,16 +14,13 @@ from app.api.spielorte.schemas import FLPatchSpielortPayload, FLPatchSpielortRes
 from app.api.teams.admin_router import patch_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
-from tests.config import build_test_config
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.bans import ban_list
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
-pytestmark = pytest.mark.db
-
 DATABASE_NAME = worker_database("fl_reference_fanout_test")
-
-CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
 
@@ -277,11 +274,10 @@ async def rename_the_referee(
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         db=client,
-        config=CONFIG,
         today=TODAY,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -380,6 +376,7 @@ def after_renaming_the_club(
     return on_a_database(url, body)
 
 
+@pytest.mark.db
 class TestAVenueRenameReachesTheFixturesThatEmbedIt:
     """`docs/backend/spec.md :: I13` against a real mongod: the fan-out is an `update_many` no response shape can prove."""
 
@@ -417,6 +414,7 @@ class TestAVenueRenameReachesTheFixturesThatEmbedIt:
         assert other["mietpreis"] == FIXTURES[ELSEWHERE][1]
 
 
+@pytest.mark.db
 class TestTheVenueFanOutReportsWhatItRewrote:
     def test_the_count_is_the_number_of_fixtures_rewritten(self, mongo_replica_set_url: str):
         response, _ = after_renaming_the_venue(mongo_replica_set_url)
@@ -444,6 +442,7 @@ class TestTheVenueFanOutReportsWhatItRewrote:
         assert on_a_database(mongo_replica_set_url, body) == 0
 
 
+@pytest.mark.db
 class TestARefereeRenameReachesTheFixturesThatEmbedThem:
     def test_the_name_is_rewritten_on_every_fixture_they_officiate(self, mongo_replica_set_url: str):
         _, fixtures = after_renaming_the_referee(mongo_replica_set_url)
@@ -475,6 +474,7 @@ class TestARefereeRenameReachesTheFixturesThatEmbedThem:
             assert fixtures[spiel_nr]["ort"]["name"] == VENUE_NAMES[FIXTURES[spiel_nr][0]]
 
 
+@pytest.mark.db
 class TestTheRefereeFanOutReportsWhatItRewrote:
     def test_the_count_is_the_number_of_fixtures_rewritten(self, mongo_replica_set_url: str):
         response, _ = after_renaming_the_referee(mongo_replica_set_url)
@@ -501,6 +501,7 @@ class TestTheRefereeFanOutReportsWhatItRewrote:
 
 
 class TestAClubRenameReachesBothSidesOfItsFixtures:
+    @pytest.mark.db
     def test_both_copies_are_rewritten_wherever_the_club_stands(self, mongo_replica_set_url: str):
         """One `update_many` per slot: a fan-out running only the first leaves every away side stale."""
 
@@ -517,6 +518,7 @@ class TestAClubRenameReachesBothSidesOfItsFixtures:
         assert set(RENAMED_SIDES) & set(ON_TEAM1)
         assert set(RENAMED_SIDES) & set(ON_TEAM2)
 
+    @pytest.mark.db
     def test_each_side_keeps_the_goals_it_scored(self, mongo_replica_set_url: str):
         """A result is not a display copy: one word more in the `$set` erases every score the club ever played to."""
 
@@ -526,6 +528,7 @@ class TestAClubRenameReachesBothSidesOfItsFixtures:
             home_tore, away_tore = SIDES[spiel_nr][1], SIDES[spiel_nr][3]
             assert (fixtures[spiel_nr]["team1"]["tore"], fixtures[spiel_nr]["team2"]["tore"]) == (home_tore, away_tore)
 
+    @pytest.mark.db
     def test_a_fixture_the_club_stands_in_on_neither_side_is_untouched(self, mongo_replica_set_url: str):
         """Without this the cases above pass for a pair of passes that ignore their filters."""
 
@@ -535,6 +538,7 @@ class TestAClubRenameReachesBothSidesOfItsFixtures:
         assert fixtures[WITHOUT_THE_CLUB]["team1"]["name"] == CLUB_NAMES[home][0]
         assert fixtures[WITHOUT_THE_CLUB]["team2"]["name"] == CLUB_NAMES[away][0]
 
+    @pytest.mark.db
     def test_a_fixture_of_a_closed_season_keeps_the_name_it_was_played_under(self, mongo_replica_set_url: str):
         """A `past` season is the record of what happened, so its fixtures are not a stale copy of today's club."""
 
@@ -544,6 +548,7 @@ class TestAClubRenameReachesBothSidesOfItsFixtures:
 
         assert (closed["name"], closed["shorthand"]) == (seeded_name, seeded_shorthand)
 
+    @pytest.mark.db
     def test_the_away_side_of_a_closed_season_keeps_it_too(self, mongo_replica_set_url: str):
         """The case above stands on `team1` alone, and the second pass carries its own filter: dropping that one would pass every test here."""
 
@@ -554,6 +559,7 @@ class TestAClubRenameReachesBothSidesOfItsFixtures:
         assert (closed["name"], closed["shorthand"]) == (seeded_name, seeded_shorthand)
 
 
+@pytest.mark.db
 class TestAClubRenameReachesTheJunctionRowsOfItsOpenSeasons:
     """The season's own copy of the identity: without this pass every table would read the name of a closed season."""
 
@@ -588,6 +594,7 @@ class TestAClubRenameReachesTheJunctionRowsOfItsOpenSeasons:
         assert (row["gruppe"], row["austritt"]) == ("A", None)
 
 
+@pytest.mark.db
 class TestTheClubFanOutReportsWhatItRewrote:
     def test_the_count_sums_both_passes(self, mongo_replica_set_url: str):
         """A club never plays itself, so no fixture is counted by both passes and the sum is a count of fixtures."""
@@ -615,6 +622,7 @@ class TestTheClubFanOutReportsWhatItRewrote:
         assert response.fanned_out_to_spiele > 0
 
 
+@pytest.mark.db
 class TestAMidFlightFailureTakesTheWholeRenameBack:
     """The entity write and its fan-out are one transaction, so a refusal in the later write takes the earlier one back."""
 

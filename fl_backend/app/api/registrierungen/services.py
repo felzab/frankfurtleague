@@ -6,12 +6,10 @@ so a refusal is judged against what the submission's own transaction can see
 (`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-# The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
-# month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.api.bewerbungen.services import (
     ZUSTELLUNG_ABGEWIESEN,
     days_after,
@@ -25,11 +23,16 @@ from app.api.bewerbungen.services import (
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand
+from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, FLRegistrierungEntscheidung
+
+# The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
+# month and read a provider's verdict the same way, and a second spelling would drift from it.
+from app.api.sperrliste.services import withheld_actor
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
-from app.shared.folding import person_name_key
+from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
+from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     LIST_LIMIT_MAX,
@@ -248,7 +251,7 @@ def build_wiederholung_filter(*, registrierung_raw: Mapping[str, Any], today: st
     return {
         "_id": registrierung_raw["_id"],
         "status": SUBMITTED,
-        "einwilligung.bestaetigt_am": None,
+        "einwilligung.bestaetigt_am": UNCONFIRMED_STAMP,
         # The deadline's own day still takes a link, as `link_is_over` reads it.
         "bestaetigung.frist": {"$gte": today},
         "bestaetigung.erinnert_am": None,
@@ -274,7 +277,7 @@ def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
     message went out rather than that anybody answered.
     """
 
-    return isinstance(einwilligung, Mapping) and bool(einwilligung.get("bestaetigt_am"))
+    return is_confirmed(einwilligung)
 
 
 # A reminder's fresh hash and the first mail's, both live, as an application's pair is: a pupil still
@@ -308,6 +311,7 @@ REGISTRIERUNG_TOKEN_EXPIRED = "REQ-REGISTRIERUNG-005"
 REGISTRIERUNG_ALREADY_CONFIRMED = "REQ-REGISTRIERUNG-006"
 REGISTRIERUNG_ALTER = "REQ-REGISTRIERUNG-007"
 REGISTRIERUNG_MEDIEN_ALTER = "REQ-REGISTRIERUNG-010"
+REGISTRIERUNG_BESTAETIGUNG_GESPERRT = "REQ-REGISTRIERUNG-012"
 
 # What a pupil's own press records. `volljaehrig` names who spoke and pins no age
 # (`docs/glossary.md :: Einwilligung`), so it is the member a sixteen-year-old's own answer takes.
@@ -336,7 +340,7 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "team_id": 1,
     "vorname": 1,
     # Both read for the join finding the person the league may already hold, and answered by
-    # neither read: the address is an inbox rather than an identity, so the name narrows it.
+    # neither read: the name narrows the address, for the reason `persons_named` gives.
     "nachname": 1,
     "email": 1,
     "geburtsdatum": 1,
@@ -345,11 +349,13 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "_id": 0,
 }
 
-# Narrower than the view's: the press judges the link and the stamp, and names no team and no person.
+# Narrower than the view's: the press judges the link, the stamp and the address the ban list is
+# asked of, and names no team and no person.
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     "bestaetigung.frist": 1,
     "status": 1,
     "einwilligung.bestaetigt_am": 1,
+    "email": 1,
 }
 
 
@@ -371,8 +377,14 @@ def link_is_over(*, bestaetigung: Any, status: Any, today: str) -> bool:
     return not isinstance(frist, str) or frist < today
 
 
-def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str) -> FLRegistrierungBestaetigungZustand:
-    """What a reopened link shows. A stamp outranks the deadline, so a pupil who answered on the last valid day is shown that they did."""
+def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str, gesperrt: bool) -> FLRegistrierungBestaetigungZustand:
+    """What a reopened link shows: the ban first (`docs/backend/spec.md :: I515`), then a stamp over the deadline.
+
+    A pupil who answered on the last valid day is shown that they did.
+    """
+
+    if gesperrt:
+        return "gesperrt"
 
     if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
         return "bestaetigt"
@@ -425,6 +437,21 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     )
 
 
+def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-REGISTRIERUNG-012`: the ban list holds the address this link was mailed to, however long ago it was minted."""
+
+    if not gesperrt:
+        return None
+
+    # 403 and named plainly, where the submission's `-009` is neutral: whoever holds the mailed token
+    # holds that mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
+        status=HTTPStatus.FORBIDDEN,
+        message="the email address this link was sent to is on the ban list, so it confirms nothing",
+    )
+
+
 def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing."""
 
@@ -459,13 +486,12 @@ PERSON_IDENTITY_FIELDS: tuple[str, ...] = ("vorname", "nachname")
 def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: Any) -> list[Mapping[str, Any]]:
     """Every row at this address whose stored name is the registration's own.
 
-    An address is NOT an identity: one family mailbox is shared by two pupils
-    (`app/core/constraints.py :: SUPPORT_INDEXES`), and joining on it alone shows one the other's
-    birthdate.
+    Nothing enforces one person per address (`docs/datenschutz.md :: "One address is one person"`),
+    and joined on a mailbox shared anyway, the address alone shows one pupil another's birthdate.
     """
 
     # The seat editor's fold (`app/api/teams/services.py :: _identity_of`), so „Weiß“ and „Weiss“ at
-    # one family mailbox are two pupils and neither is shown the other's record.
+    # one shared mailbox are two pupils and neither is shown the other's record.
     wanted = tuple(person_name_key(value) for value in (vorname, nachname))
 
     return [row for row in rows if tuple(person_name_key(row.get(field)) for field in PERSON_IDENTITY_FIELDS) == wanted]
@@ -570,9 +596,9 @@ def compose_sweep_stamp(*, today: str) -> Mapping[str, Any]:
 # (`docs/backend/spec.md :: I295`).
 SWEEP_PAGE: Final = LIST_LIMIT_MAX
 
-# The consent stamp, at the path a null `einwilligung` and a null stamp both answer: matched against
-# null, a missing path matches too, which is what makes one term cover both stored shapes.
-_UNBESTAETIGT: Final[Mapping[str, Any]] = {"einwilligung.bestaetigt_am": None}
+# The consent stamp, at the path a null `einwilligung` and a null stamp both answer: `$in` with null
+# matches a missing path too, so one term covers both stored shapes and the empty stamp beside them.
+_UNBESTAETIGT: Final[Mapping[str, Any]] = {"einwilligung.bestaetigt_am": UNCONFIRMED_STAMP}
 
 
 def build_undecided_filter(*, saison_id: str) -> Mapping[str, Any]:
@@ -716,3 +742,26 @@ def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str)
             "bestaetigung.erinnert_am": today,
         }
     }
+
+
+def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+    """Every decider these stored registrations name, folded as the ban list is asked."""
+
+    return [
+        sign_in_identifier(FLRegistrierungEntscheidung.model_validate(row["entscheidung"]).von)
+        for row in rows
+        if row.get("entscheidung") is not None
+    ]
+
+
+def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], gesperrt: Collection[str]) -> dict[str, Any]:
+    """A stored registration with its decision as the list serves it (`docs/backend/spec.md :: I452`)."""
+
+    if row.get("entscheidung") is None:
+        return dict(row)
+
+    # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
+    entscheidung = FLRegistrierungEntscheidung.model_validate(row["entscheidung"])
+    von = withheld_actor(entscheidung.von, gesperrt)
+
+    return {**row, "entscheidung": {**entscheidung.model_dump(), "von": von, "von_gesperrt": von is None}}

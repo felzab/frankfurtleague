@@ -22,28 +22,38 @@ services:
       context: ./fl_frontend
       dockerfile: Dockerfile
     environment:
-      # Overrides whatever .env holds, because inside the compose network the backend is not on
-      # localhost -- it is reachable by service name.
+      # Overrides whatever `fl_frontend/.env` holds, because inside the compose network the backend is
+      # not on localhost -- it is reachable by service name.
       - API_URL=http://backend:8000
-      # The stack's own declaration, overriding whatever .env holds -- and .env here is legitimately a
-      # copy of production's, which local.sh tells the developer to take from the password manager.
-      # Nothing else stops this stack mailing the league's real contact people.
+      # The stack's own declaration, overriding whatever `fl_frontend/.env` holds, which `pnpm dev`
+      # reads as well and may declare otherwise. Nothing else stops this stack mailing the league's
+      # real contact people.
       - APP_ENV=local
       # http:// and localhost specifically: `fl_frontend/src/core/config.ts` refuses a non-loopback
       # http URL, because the sign-in library derives the session cookie's Secure prefix from this
       # protocol. Loopback is the one exemption.
       - AUTH_URL=http://localhost:3000
-      # The point of this stack is the production behaviour, and the developer's .env legitimately
-      # holds `console` for `pnpm dev` -- overridden so the stack always writes the production
-      # stream (docs/logging/spec.md).
+      # The point of this stack is the production behaviour, and the developer's `fl_frontend/.env`
+      # legitimately holds `console` for `pnpm dev` -- overridden so the stack always writes the
+      # production stream (docs/logging/spec.md).
       - LOG_FORMAT=json
-      # The sign-in store sits in the same cluster, so leaving this one alone would sign the local
-      # stack in against production while every other read came from the container below.
-      - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
       # This stack runs the production build, so nothing but this line holds the sweep off. An armed
       # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
       # it raises.
       - BEWERBUNG_SWEEP=off
+    # Production's list without `auth_resend_key` and `resend_webhook_secret`: `APP_ENV=local` sends
+    # no mail and the provider sends this stack no event, so a machine holds no key to the provider.
+    # The login is the config below.
+    secrets: !override
+      - fl_actor_signing_key
+      - auth_secret
+      - internal_api_key_base
+      - internal_api_key_system
+      - internal_api_key_admin
+    # At the path the frontend reads its login from, which production fills with a secret.
+    configs:
+      - source: local_mongodb_uri
+        target: /run/secrets/frontend_mongodb_uri
     volumes:
       # The mail sink a withheld send writes into, in the checkout so the developer opens the file
       # rather than copying it out. Without it the sink has nowhere to write: `/app` is root-owned
@@ -60,12 +70,17 @@ services:
       dockerfile: Dockerfile
     environment:
       # Same reason as the frontend's override above: the stack shows the production stream even
-      # when the developer's .env selects the console format for `fastapi dev`.
+      # when the developer's `fl_backend/.env` selects the console format for `fastapi dev`.
       - LOG_FORMAT=json
-      # The whole point of the mongo service: `env_file` carries the production cluster, and
-      # compose's `environment` overrides it, so the local stack stops writing to the live database
-      # without fl_backend/.env being touched at all.
-      - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
+    # Production's list without the login, which the config below replaces as the frontend's does.
+    secrets: !override
+      - sperrliste_schluessel
+      - internal_api_key_base
+      - internal_api_key_system
+      - internal_api_key_admin
+    configs:
+      - source: local_mongodb_uri
+        target: /run/secrets/backend_mongodb_uri
     depends_on:
       # Healthy, not started: the lifespan applies every validator before it yields and refuses the
       # boot if it cannot, so a backend reaching an unelected node fails the whole start.
@@ -97,8 +112,9 @@ services:
       # What `./scripts/ops/local.sh --seed` restores from. Read-only: the restore reads this directory
       # and nothing inside the container writes it.
       - ./.local-db/dump:/dump:ro
+    # The application pair's network, which nginx shares and nothing reaching the edge does.
     networks:
-      - frankfurtleague-net
+      - frankfurtleague-app
     # docker-compose.yml's `x-logging`, spelled out: a YAML anchor does not reach across files.
     logging:
       driver: "json-file"
@@ -144,7 +160,27 @@ services:
     # resolve, and a service that never starts needs none.
     secrets: !reset []
 
-secrets: !reset {}
+# This machine's own files (`docs/ops/runbooks.md` §16), and none for the connector, which never
+# starts.
+secrets: !override
+  fl_actor_signing_key:
+    file: ./secrets/fl_actor_signing_key
+  auth_secret:
+    file: ./secrets/auth_secret
+  sperrliste_schluessel:
+    file: ./secrets/sperrliste_schluessel
+  internal_api_key_base:
+    file: ./secrets/internal_api_key_base
+  internal_api_key_system:
+    file: ./secrets/internal_api_key_system
+  internal_api_key_admin:
+    file: ./secrets/internal_api_key_admin
+
+# Both logins, inline: the `mongo` service above holds no credential, so this is no secret, and no
+# machine keeps a copy of production's login to aim the stack at (`docs/ops/spec.md :: I508`).
+configs:
+  local_mongodb_uri:
+    content: mongodb://mongo:27017/?directConnection=true
 
 # A named volume rather than a bind mount: mongod's storage engine wants POSIX file locking, which
 # a Windows host directory does not give it.

@@ -1,13 +1,18 @@
 # FRONTEND · the site image
 
-# The OS layer the build and the runtime share, so anything added here ships in the image. Tag and
-# digest, which Dependabot moves together (`docs/ops/spec.md` §1.1).
-FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS base
+# The OS layer the build and the runtime share, so anything added here ships in the image. Debian
+# rather than Alpine: Node's glibc builds are its Tier 1 platform, its musl builds experimental.
 
-# libc6-compat for Alpine's native C binaries (SWC while building, image optimization while
-# serving); tini for PID 1 signal routing -> a stop signal reaches node, which exits on it
-# without draining what is in flight (`docs/ops/spec.md`).
-RUN apk add --no-cache libc6-compat tini
+# The tag names the Node `package.json :: devEngines` pins (`docs/ops/spec.md :: I511`), and
+# Dependabot moves it together with the digest (`docs/ops/spec.md` §1.1).
+FROM node:26.10.0-trixie-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1 AS base
+
+# tini as PID 1, as Node's Docker guidance asks: node there ignores every signal it registered no
+# handler for and reaps no orphaned child
+# (https://github.com/nodejs/docker-node/blob/33161d6f1329b30670bd3259c8db7bbe7da072c8/docs/BestPractices.md#handling-kernel-signals).
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tini && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -15,9 +20,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 57 MB of installer no CMD invokes, and CI/PNPM_HOME are build-time answers that have no business
 # in a production process environment.
 FROM base AS toolchain
+# `package.json :: packageManager` names the same pnpm (`docs/ops/spec.md :: I512`).
 ARG PNPM_VERSION=11.27.1
 
-RUN npm install -g pnpm@${PNPM_VERSION}
+# npm's cache is a mount, so none of it is written into the layer.
+RUN --mount=type=cache,id=npm,target=/root/.npm npm install -g pnpm@${PNPM_VERSION}
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -36,7 +43,11 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml* ./
 COPY patches ./patches
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY package.json ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
+
+# `--no-runtime`: the image's own node is the runtime, so the Node `devEngines` pins for a checkout
+# is not linked ahead of it. `pnpm fetch` above still downloads that Node into the store cache, and
+# ignores the flag.
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline --no-runtime
 
 # FROM deps, never `COPY --from=deps` of node_modules: a second transfer on a cold build, and a
 # second copy in what `mode=max` exports.
@@ -45,9 +56,6 @@ FROM deps AS builder
 # This stage has no .env, so the startup gate would reject every variable and the build would die on
 # the first module that reads config. The schema is still enforced by local.sh and on every deploy.
 ENV SKIP_ENV_VALIDATION=true
-# Needed even with validation skipped: fl_frontend/src/core/db.ts constructs a MongoClient at module
-# scope, and `new MongoClient(undefined)` throws.
-ENV MONGODB_URI=mongodb://localhost:27017/placeholder
 
 # Everything but what `deps` installed from: pnpm's dependency check fails a patch written after the
 # install it validated, and a `deps` layer restored from the cache ran its install before this
@@ -69,8 +77,10 @@ ENV PORT=3000
 # Next's standalone server binds localhost otherwise, which no other container can reach.
 ENV HOSTNAME="0.0.0.0"
 
-RUN addgroup -S --gid 1001 nodejs && \
-    adduser -S --uid 1001 nextjs -G nodejs -s /sbin/nologin
+# Pinned rather than allocated: the host's secret files are owned by this uid and gid, Compose
+# giving a file secret no owner of its own (`docs/ops/spec.md` §1.2).
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --no-log-init --uid 1001 --gid nodejs --no-create-home --shell /usr/sbin/nologin nextjs
 
 # The prerender cache is written at run time, so .next must belong to the runtime user.
 RUN mkdir .next && chown nextjs:nodejs .next
@@ -80,15 +90,16 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Root-owned, as public/ is: the deploy's preflight is the only thing that reads these
-# (`scripts/ops/deploy.sh :: check_frontend_env_names`), and the running app has no business rewriting them.
+# Root-owned, as public/ is: only the preflights read these
+# (`scripts/ops/deploy.sh :: check_frontend_env_names`, `scripts/lib/_lib.sh :: check_frontend_secret_files`),
+# and the running app has no business rewriting them.
 
-# The mode is spelled rather than left to the builder's umask: the preflight reads them as the host's
-# own user, so a 0600 pair would answer the advisory on every deploy and never the refusal.
-COPY --from=builder --chmod=644 /app/environment-names.json /app/check-environment-names.mjs ./
+# The mode is spelled rather than left to the builder's umask: the two readers run as the host's user
+# and as the image's, neither root, so a 0600 pair would answer the advisory on every deploy, never
+# the refusal.
+COPY --from=builder --chmod=644 /app/environment-names.json /app/scripts/check-environment-names.mjs ./
 
 USER nextjs
 EXPOSE 3000
-
 
 CMD ["tini", "--", "node", "server.js"]

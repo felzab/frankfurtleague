@@ -30,6 +30,7 @@ const { raised } = doubleToasts();
 const { FormEinladungVersandSection } = await import("./FormEinladungVersandSection.tsx");
 const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { NAME_WRAP_CLASSES } = await import("@/shared/components/ui/nameWrap.ts");
 
 /** Four characters, the width every schema in the tree holds a season id to. */
 const SAISON_ID = "2627";
@@ -70,6 +71,7 @@ const VORSCHAU: readonly FLEinladungVersandVorschauZeile[] = [
   },
   { team_id: ID("d"), team_name: "Liebigschule", empfaenger: [], uebersprungen: "bereits_gesendet", ersetzt_link: false },
   { team_id: ID("e"), team_name: "Carl-von-Weinberg-Schule", empfaenger: [], uebersprungen: "austritt_eingetragen", ersetzt_link: false },
+  { team_id: ID("h"), team_name: "Elisabethenschule", empfaenger: [], uebersprungen: "kontakte_gesperrt", ersetzt_link: false },
 ];
 
 /** The same season with nothing standing to be replaced, which is what parts the two armed sentences. */
@@ -125,7 +127,7 @@ describe("the season's bulk invite send", () => {
         assert.equal(sent("postEinladungVersandAction").length, 0, "one press wrote");
         assert.equal(readout("Teams"), "2");
         assert.equal(readout("E-Mails"), "3");
-        assert.equal(readout("Übersprungen"), "4");
+        assert.equal(readout("Übersprungen"), "5");
         answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "1 von 4 Teams haben ihren Link bekommen." }));
       },
     });
@@ -170,7 +172,7 @@ describe("the season's bulk invite send", () => {
     const { error, outcome } = unansweredAction();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
-      [["danger", "Registrierungslinks nicht gesendet", error, outcome]],
+      [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
     );
     assert.ok(screen.queryByText(LISTE) === null, "the list read before the write still stands");
     assert.equal(seen.refresh, 1, "the page was not read again");
@@ -240,9 +242,9 @@ describe("the season's bulk invite send", () => {
     assert.equal(droppedWhileSending.includes(true), false, "a render dropped the armed send or its list while the write still held it");
   });
 
-  /* The four are ordinary states of a season being set up, so each is named as itself: one sentence
+  /* The five are ordinary states of a season being set up, so each is named as itself: one sentence
      for all of them would send somebody hunting for a fault in the teams that have none. */
-  it("names each of the four skips as its own state, beside the team it is about", async () => {
+  it("names each of the five skips as its own state, beside the team it is about", async () => {
     const user = userEvent.setup();
     answerWith(vorschauAntwort(VORSCHAU));
     render(panel());
@@ -254,7 +256,26 @@ describe("the season's bulk invite send", () => {
     assert.ok(isInTheFlow("Niemand hat die Kontaktdaten bisher selbst bestätigt"), "the team with no confirmed seat is not told apart");
     assert.ok(isInTheFlow("Hat den Link schon bekommen"), "the team already mailed is not told apart");
     assert.ok(isInTheFlow("Austritt eingetragen"), "the club that has left is not told apart");
+    assert.ok(isInTheFlow("Jede bestätigte Adresse steht auf der Sperrliste"), "the team the ban list keeps the link from is not told apart");
     assert.ok(isInTheFlow("erika@beispiel.de, jonas@beispiel.de"), "the addresses the press would write to are not listed");
+  });
+
+  /* A team's name is whatever somebody typed, and it shares its row with the recipients: kept at its
+     longest word, a long name pushes them past the panel on a phone. Both lists are held, sent and skipped. */
+  it("lets a team's name shrink and break inside its row, in both lists", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
+
+    for (const team of ["Ernst-Reuter-Schule", "Liebigschule"]) {
+      const name = screen.getByText(team);
+      for (const token of ["min-w-0", ...NAME_WRAP_CLASSES.split(" ")]) {
+        assert.ok(name.classList.contains(token), `${team}'s name is missing ${token}, so a long name runs past the panel`);
+      }
+    }
   });
 
   /* A stored link is a hash, so there is nothing to send twice: choosing the re-send mints, and the
@@ -405,6 +426,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: ["erika@beispiel.de"],
                 unerreichbar: [],
                 zurueckgehalten: [],
+                gesperrt: 0,
               },
               {
                 team_id: ID("f"),
@@ -414,6 +436,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: ["mila@beispiel.de", "til@beispiel.de"],
                 unerreichbar: ["gelöscht@beispiel.de"],
                 zurueckgehalten: [],
+                gesperrt: 0,
               },
               // The row every team carries on every stack but production: nobody was written to, and
               // nobody was refused either.
@@ -425,6 +448,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: [],
                 unerreichbar: ["holger@beispiel.de"],
                 zurueckgehalten: ["holger@beispiel.de"],
+                gesperrt: 0,
               },
               {
                 team_id: ID("b"),
@@ -434,6 +458,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: [],
                 unerreichbar: [],
                 zurueckgehalten: [],
+                gesperrt: 0,
               },
               // The one value that is a failure rather than a state: its transaction rolled back, so
               // this team was not written to AND keeps the link it already had.
@@ -446,6 +471,7 @@ describe("the season's bulk invite send", () => {
                 zugestellt: [],
                 unerreichbar: [],
                 zurueckgehalten: [],
+                gesperrt: 0,
               },
             ],
           }),
@@ -474,6 +500,54 @@ describe("the season's bulk invite send", () => {
     assert.equal(raised[0]?.variant, "success");
   });
 
+  /* Counted against the team's whole, so the shortfall shows, and said by count in the row's own
+     grade: a ban is no failure to chase, and the row names no barred address (`docs/frontend/spec.md :: I542`). */
+  it("says how many of a team's addresses the ban list kept the link from, naming none", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    await pressTwice(user, {
+      resting: RESTING,
+      armed: ARMED,
+      whileArmed: () => {
+        answerWith(() =>
+          Promise.resolve({
+            success: true,
+            message: "Registrierungslinks gesendet: 1 von 2 Teams.",
+            zeilen: [
+              {
+                team_id: ID("a"),
+                team_name: "Ernst-Reuter-Schule",
+                uebersprungen: null,
+                ersetzt_link: false,
+                zugestellt: ["erika@beispiel.de"],
+                unerreichbar: [],
+                zurueckgehalten: [],
+                gesperrt: 1,
+              },
+              {
+                team_id: ID("f"),
+                team_name: "Wöhlerschule",
+                uebersprungen: null,
+                ersetzt_link: false,
+                zugestellt: [],
+                unerreichbar: [],
+                zurueckgehalten: [],
+                gesperrt: 2,
+              },
+            ],
+          }),
+        );
+      },
+    });
+
+    await waitFor(() => assert.ok(isInTheFlow("Gesendet: 1 von 2"), "the barred address went uncounted, so the team reads as reached whole"));
+    assert.ok(isInTheFlow("An eine Adresse ging nichts, weil sie auf der Sperrliste steht."));
+    assert.ok(isInTheFlow("An 2 Adressen ging nichts, weil sie auf der Sperrliste stehen."));
+    assert.equal(isInTheFlow("Nicht erreicht:"), false, "a barred address was offered for writing to by hand");
+  });
+
   /* The commit went out and no answer came back, so the row is true of a link revoked and of one
      that still opens, and says nothing about a previous link to a team that held none. */
   it("words a mint of unknown outcome apart from a failed one, naming a previous link only where there was one", async () => {
@@ -489,6 +563,7 @@ describe("the season's bulk invite send", () => {
       zugestellt: [],
       unerreichbar: [],
       zurueckgehalten: [],
+      gesperrt: 0,
     });
 
     await pressTwice(user, {
@@ -537,6 +612,7 @@ describe("the season's bulk invite send", () => {
       zugestellt: [],
       unerreichbar: [],
       zurueckgehalten: [],
+      gesperrt: 0,
     });
 
     await pressTwice(user, {

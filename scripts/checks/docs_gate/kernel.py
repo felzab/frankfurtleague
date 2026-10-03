@@ -85,7 +85,7 @@ def has_name(path: str, names: tuple[str, ...]) -> bool:
     return path.rsplit("/", 1)[-1].lower() in _folded(names)
 
 
-# The roots an unprefixed path is written against, so `src/app/admin/admin.css` resolves.
+# The roots an unprefixed path is written against, so `src/app/bereich/admin/admin.css` resolves.
 PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
 
 
@@ -303,6 +303,7 @@ def claimed(*claims: str) -> frozenset[str]:
 # `enforced-by` holds the standard's claims and these to each other; `Finding` refuses a name
 # outside it.
 CHECKS: Final[dict[str, Check]] = {
+    "action-table": Check(FAIL, claimed("docs/frontend/spec.md :: I491")),
     "anchor": Check(FAIL, claimed("COR-6", "INC-6")),
     "bare-path": Check(FAIL, claimed("INC-6")),
     "binary-byte": Check(FAIL, claimed(".claude/CLAUDE.md :: 6. Repo-specific traps")),
@@ -882,10 +883,12 @@ def _module_header(raw: str, suffix: str) -> list[str] | None:
     lines = raw.split("\n")
     i = 0
     if suffix == ".sh":
-        while i < len(lines) and (not lines[i].strip() or lines[i].startswith("#!")):
+        # A tool's directive stands above the header as the shebang does, and ends it below as it
+        # ends any comment block (INC-9), so neither its words nor its line reach INC-2's shape.
+        while i < len(lines) and (not lines[i].strip() or lines[i].startswith("#!") or is_directive_line(lines[i])):
             i += 1
         start = i
-        while i < len(lines) and lines[i].lstrip().startswith("#"):
+        while i < len(lines) and lines[i].lstrip().startswith("#") and not is_directive_line(lines[i]):
             i += 1
         return lines[start:i] or None
     if suffix == ".py":
@@ -933,7 +936,35 @@ def unmarked_line(text: str) -> str:
     return stripped.lstrip("#").strip() if stripped.startswith("#") else _header_line(stripped, ".py")
 
 
-def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
+# A tool reads its directive, reason included, beside the line below it: joined to the prose above,
+# the reason is charged to that prose, and a blank line parting them detaches the prose. One entry
+# per tool the gate runs.
+TOOL_DIRECTIVES: Final[dict[str, str]] = {
+    "shellcheck": r"shellcheck\s+[a-z-]+=",
+    "eslint": r"eslint-(?:disable|enable)\b",
+    "typescript": r"@ts-(?:expect-error|ignore|nocheck|check)\b",
+    "prettier": r"prettier-ignore\b",
+    "ruff": r"ruff:\s*noqa\b",
+    "pyright": r"type:\s*ignore\b|pyright:\s*\w",
+    "zizmor": r"zizmor:\s*ignore\b",
+}
+TOOL_DIRECTIVE_RE: Final = re.compile("|".join(f"(?:{pattern})" for pattern in TOOL_DIRECTIVES.values()))
+
+
+def is_tool_directive(text: str) -> bool:
+    """Whether one comment line, its marker off, is an instruction to a tool rather than prose."""
+    return TOOL_DIRECTIVE_RE.match(text) is not None
+
+
+def is_directive_line(line: str) -> bool:
+    """Whether one raw source line is a comment holding a tool's directive, by either marker."""
+    text = line.strip()
+    if text.startswith("#"):
+        return is_tool_directive(text.lstrip("#").strip())
+    return text.startswith("//") and is_tool_directive(text[2:].strip())
+
+
+def _python_runs(raw: str, outside: frozenset[int]) -> list[tuple[int, list[str]]]:
     """Each run of consecutive comment lines in a Python module, read through its own tokenizer.
 
     A line scan cannot tell a docstring's opening quote from an ordinary string's closing one at
@@ -961,10 +992,10 @@ def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
             runs.append((first_line, current))
         current = []
 
-    for number in range(start_at + 1, len(lines) + 1):
+    for number in range(1, len(lines) + 1):
         text = lines[number - 1].strip()
         span = spans.get(number, 0)
-        if not span and number not in comments:
+        if number in outside or (not span and number not in comments):
             flush()
             opened_on = 0
             continue
@@ -973,30 +1004,37 @@ def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
         if span != opened_on:
             flush()
             opened_on = span
+        unmarked = unmarked_line(text)
+        if not span and is_tool_directive(unmarked):
+            flush()
+            runs.append((number, [unmarked]))
+            continue
         if not current:
             first_line = number
-        current.append(unmarked_line(text))
+        current.append(unmarked)
     flush()
     return runs
 
 
 def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
-    """Each run of consecutive comment lines below the module header, as (first line, text lines).
+    """Each run of consecutive comment lines outside the module header, as (first line, text lines).
 
     Markers come off, being what the bound does not measure. The header is skipped -- INC-2 caps
     it. A symbol doc is a run like any other (INC-9).
     """
     lines = raw.split("\n")
-    start_at = 0
+    # Only the shebang and the header's own lines: a comment above a Python docstring, or a
+    # directive a shell header stepped over, would otherwise sit under no bound at all.
+    outside = {1} if raw.startswith("#!") else set()
     if (header := _module_header(raw, suffix)) is not None:
         for index in range(len(lines)):
             if lines[index : index + len(header)] == header:
-                start_at = index + len(header)
+                outside.update(range(index + 1, index + len(header) + 1))
                 break
     # Python alone has a grammar here a line scan gets wrong; every other kind's comment opens on
     # a marker no literal of its own can carry at the margin.
     if suffix == ".py":
-        return _python_runs(raw, start_at)
+        return _python_runs(raw, frozenset(outside))
 
     runs: list[tuple[int, list[str]]] = []
     current: list[str] = []
@@ -1010,7 +1048,10 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
             runs.append((first_line, current))
         current = []
 
-    for number, line in enumerate(lines[start_at:], start=start_at + 1):
+    for number, line in enumerate(lines, start=1):
+        if number in outside:
+            flush()
+            continue
         text = line.strip()
         if closing is not None:  # inside a block comment or a docstring
             current.append(_header_line(text.removesuffix(closing), suffix))
@@ -1046,9 +1087,15 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
         # `//` beside `#`, as `_shell_comments` reads a hook.
         markers = ("#", "//") if hash_only else ("//",)
         if text.startswith(markers):
+            unmarked = text.lstrip("#").strip() if text.startswith("#") else text[2:].strip()
+            # A block of its own rather than none, so the bound still reaches what its reason says.
+            if is_tool_directive(unmarked):
+                flush()
+                runs.append((number, [unmarked]))
+                continue
             if not current:
                 first_line = number
-            current.append(text.lstrip("#").strip() if text.startswith("#") else text[2:].strip())
+            current.append(unmarked)
             continue
         flush()
 

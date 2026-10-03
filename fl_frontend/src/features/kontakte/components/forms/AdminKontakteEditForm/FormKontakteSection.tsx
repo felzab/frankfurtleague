@@ -28,6 +28,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { FormKontaktErasure } from "./FormKontaktErasure";
@@ -248,7 +249,9 @@ function KontaktpersonFields({
   const panel = formPanel();
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection(`kontakt-${rolle}`)}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}

@@ -19,7 +19,7 @@ export async function SaisonMetadataDisplay({ tier }: { tier: "base" | "admin" }
   await connection();
 
   // The admin branch carries no guard of its own, so a caller placing it outside `AdminAuthGuard`
-  // serves the planned seasons to whoever drew the render -- `fl_frontend/src/app/admin/layout.tsx`
+  // serves the planned seasons to whoever drew the render -- `fl_frontend/src/app/bereich/admin/layout.tsx`
   // places it under one.
   if (tier === "admin") {
     const { saisons } = await getAdminSaisons();

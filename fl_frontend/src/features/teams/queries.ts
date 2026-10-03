@@ -3,7 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLTeamsMembershipsResponseSchema, FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
 
@@ -69,7 +69,7 @@ export function getAdminTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeam
   const held = adminTeamsInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runWithIncomingTrace(() =>
+  const started = runAdminRead(() =>
     apiClient<FLTeamsResponse>("/teams/list/admin", FLTeamsResponseSchema, { authType: "admin", params: filters }),
   );
   adminTeamsInFlight().set(key, started);
@@ -84,7 +84,5 @@ export function getAdminTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeam
 // Never `"use cache"` here, which keys on the arguments rather than the caller
 // (`docs/frontend/spec.md` §1.2).
 export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> =>
-  runWithIncomingTrace(() =>
-    apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" }),
-  ),
+  runAdminRead(() => apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" })),
 );

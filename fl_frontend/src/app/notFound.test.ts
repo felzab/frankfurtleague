@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { registerRenderingNothing } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, callPage, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
@@ -17,20 +17,12 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvedMetadata } from "next";
 
 /* The views and forms are doubled whole: no case renders a page's body. */
-const VIEW = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.tsx$/;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    const view = VIEW.exec(url);
-    if (view !== null) return { format: "module", source: `export const ${view[1]!} = () => null;`, shortCircuit: true };
-
-    return nextLoad(url, context);
-  },
-});
+registerRenderingNothing(/\/src\/features\/[a-z]+\/components\/(?:views|forms)\/\w+\.tsx$/);
 
 /* Reached with `await import` and never a static import beside the harness
    (`docs/frontend/spec.md` §1.9). */
 const { StatusPanel } = await import("@/shared/components/ui/StatusPanel.tsx");
+const { ShellSaisonQueryProvider } = await import("@/shared/components/layout/shell/ShellSaisonQuery.tsx");
 /* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only
    `renderTest.ts`'s resolve hook answers with the package's empty build. */
 const { accumulateMetadata } = await import("next/dist/lib/metadata/resolve-metadata.js");
@@ -44,21 +36,29 @@ const LAYOUTS = filesUnder(APP_DIR, named("layout.tsx"), 4);
 const BOUNDARIES = filesUnder(APP_DIR, named("not-found.tsx"), 2);
 const PAGES = filesUnder(APP_DIR, named("page.tsx"), 30);
 
+const LAYOUT_DIRS = [...new Set(LAYOUTS.map((file) => path.dirname(file)))].filter((dir) => dir !== APP_DIR);
+
+// The outermost layout on its branch, at whatever depth: `bereich` holds none, so each word under it
+// is an area of its own.
 /**
  * Read off the layouts rather than off the boundaries: a population filtered on the thing this file
  * asserts could never fail, an area with no answer dropping out of the list instead
  * (`docs/_standard/standard.md` PRE-4).
  */
-const AREAS = [...new Set(LAYOUTS.map((file) => path.dirname(file)))].filter((dir) => path.dirname(dir) === APP_DIR).sort();
+const AREAS = LAYOUT_DIRS.filter((dir) => !LAYOUT_DIRS.some((outer) => dir.startsWith(outer + path.sep))).sort();
+
+const segmentsOf = (dir: string) => path.relative(APP_DIR, dir).split(path.sep);
 
 /**
  * A parenthesised name is a route group, so it contributes no url segment and its unmatched
  * addresses are still the root boundary's; a plain name owns a url prefix that nothing else answers.
  */
-const isRouteGroup = (dir: string) => path.basename(dir).startsWith("(");
+const isRouteGroup = (segment: string) => segment.startsWith("(");
 
-const PREFIXED = AREAS.filter((dir) => !isRouteGroup(dir));
-const ROOT_MOUNTED = AREAS.filter(isRouteGroup);
+const isRootMounted = (dir: string) => segmentsOf(dir).every(isRouteGroup);
+
+const PREFIXED = AREAS.filter((dir) => !isRootMounted(dir));
+const ROOT_MOUNTED = AREAS.filter(isRootMounted);
 
 /**
  * The boundaries a 404 meets under the public shell, which carries no `h1`: the root one, and each
@@ -66,8 +66,57 @@ const ROOT_MOUNTED = AREAS.filter(isRouteGroup);
  */
 const UNDER_PUBLIC_SHELL = [path.join(APP_DIR, "not-found.tsx"), ...ROOT_MOUNTED.map((dir) => path.join(dir, "not-found.tsx"))];
 
-/** The url prefix an area occupies, which its own boundary's way out has to stay inside. */
-const prefixOf = (dir: string) => `/${path.basename(dir)}`;
+/** A segment the address fills in: `[team_id]` takes whatever team the reader asked for. */
+const DYNAMIC = /^\[(\w+)\]$/;
+
+/** What a dynamic segment is served under, so an area's prefix and its boundary's params agree. */
+const probeOf = (name: string) => `probe-${name}`;
+
+const paramsOf = (dir: string): Record<string, string> =>
+  Object.fromEntries(segmentsOf(dir).flatMap((segment) => (DYNAMIC.exec(segment) ?? []).slice(1).map((name) => [name, probeOf(name)])));
+
+/** The url segments an area occupies, `[team_id]` standing for whatever one segment the address holds there. */
+const patternOf = (dir: string) => segmentsOf(dir).filter((segment) => !isRouteGroup(segment));
+
+/**
+ * The url prefix an area occupies, which its own boundary's way out has to stay inside: filled in, as
+ * the reader's address is, because a way out holding `[team_id]` literally links nowhere.
+ */
+const prefixOf = (dir: string) =>
+  `/${patternOf(dir)
+    .map((segment) => {
+      const name = DYNAMIC.exec(segment)?.[1];
+      return name === undefined ? segment : probeOf(name);
+    })
+    .join("/")}`;
+
+/**
+ * Where each prefixed area's 404 may send the reader, written out rather than matched as Next would:
+ * inside its own prefix as its boundary's params fill it in, and inside no area nested below it.
+ */
+const WAYS_OUT: Readonly<Record<string, { prefix: string; excluding: readonly string[] }>> = {
+  [path.join("bereich", "(persoenlich)")]: { prefix: "/bereich", excluding: ["/bereich/admin", "/bereich/team"] },
+  [path.join("bereich", "admin")]: { prefix: "/bereich/admin", excluding: [] },
+  [path.join("bereich", "team", "[team_id]", "[saison_id]")]: {
+    prefix: `/bereich/team/${probeOf("team_id")}/${probeOf("saison_id")}`,
+    excluding: [],
+  },
+  dashboard: { prefix: "/dashboard", excluding: [] },
+};
+
+/** Whether `href`'s path is `prefix` or lies below it, by whole segments, its query and fragment dropped. */
+function isUnder(href: string, prefix: string): boolean {
+  const pfad = href.split(/[?#]/)[0] ?? "";
+  return pfad === prefix || pfad.startsWith(`${prefix}/`);
+}
+
+/** The ways out of `dir`'s boundary that leave the addresses `WAYS_OUT` declares for it. */
+function strayWaysOut(dir: string, hrefs: readonly string[]): string[] {
+  const declared = WAYS_OUT[path.relative(APP_DIR, dir)];
+  if (declared === undefined) throw new Error(`${path.relative(APP_DIR, dir)} declares no ways out`);
+
+  return hrefs.filter((href) => !isUnder(href, declared.prefix) || declared.excluding.some((nested) => isUnder(href, nested)));
+}
 
 const inside = (dir: string) => (file: string) => file.startsWith(dir + path.sep);
 
@@ -84,17 +133,30 @@ const catchAllsIn = (dir: string) => CATCH_ALLS.filter((file) => path.dirname(pa
 
 const SAISON = "2526";
 
-// Under a season, which is the state a boundary inside a shell is served in: the way out is built
-// from the query the 404 was answered for.
-async function markupOf(boundary: string): Promise<string> {
+// Under a season, which is the state a boundary inside a shell is served in, and under either answer a
+// shell gives to whether that season rides the query: the way out is built from both.
+async function markupOf(boundary: string, keepsSaisonQuery: boolean): Promise<string> {
   const { default: Boundary } = (await import(pathToFileURL(boundary).href)) as { default: () => React.ReactNode };
 
-  return renderTree(underNext(h(Boundary, {}), { search: `saison_id=${SAISON}` }));
+  // Under the params its own area is served with: a boundary inside a dynamic segment builds its way
+  // out from them, and with none it has no address to stay inside.
+  return renderTree(
+    underNext(h(ShellSaisonQueryProvider, { keepsSaisonQuery, children: h(Boundary, {}) }), {
+      search: `saison_id=${SAISON}`,
+      params: paramsOf(path.dirname(boundary)),
+    }),
+  );
 }
 
-const MARKUP = new Map(await Promise.all(BOUNDARIES.map(async (file) => [file, await markupOf(file)] as const)));
+/** Each boundary under a shell keeping its season out of the query, which every case but one reads. */
+const MARKUP = new Map(await Promise.all(BOUNDARIES.map(async (file) => [file, await markupOf(file, false)] as const)));
+/** The same boundaries under a shell keeping it there. */
+const MARKUP_KEEPING = new Map(await Promise.all(BOUNDARIES.map(async (file) => [file, await markupOf(file, true)] as const)));
 
 const hrefsIn = (markup: string) => [...markup.matchAll(/href="([^"]*)"/g)].map((treffer) => treffer[1]!);
+
+/** The season a way out's query names, read off the query alone: a probe segment spells `saison_id` too. */
+const saisonQueryOf = (href: string) => new URL(href, "http://probe").searchParams.get("saison_id");
 
 /**
  * `StatusPanel`'s own badge and message markup, read off a reference render rather than spelled
@@ -117,9 +179,11 @@ describe("the areas a 404 can be met in", () => {
   /* First: a walk that stopped at the segment root would find every area's own layout, miss a
      boundary nested below one, and report that as proof. The two walks share `filesUnder`. */
   it("reaches the segments below the ones it is walking", () => {
+    // An area's own layout proves no descent however deep it sits: `bereich` holds none, so its
+    // areas' own layouts sit two segments down.
     assert.ok(
-      LAYOUTS.some((file) => path.dirname(path.dirname(file)) !== APP_DIR),
-      "every layout the walk found sits at an area root or above, so it never descended",
+      LAYOUT_DIRS.some((dir) => !AREAS.includes(dir)),
+      "every layout the walk found is an area's own, so it never descended below one",
     );
   });
 
@@ -188,6 +252,47 @@ describe("where each area's 404 lives", () => {
         (error: { digest?: string }) => error.digest === "NEXT_HTTP_ERROR_FALLBACK;404",
         `${prefixOf(dir)}'s catch-all renders rather than answering not-found`,
       );
+    }
+  });
+});
+
+/* Next's own router, installed: the order it tries dynamic routes in and the pattern each matches. */
+const { sortPages } = await import("next/dist/shared/lib/router/utils/sortable-routes.js");
+const { normalizeAppPath } = await import("next/dist/shared/lib/router/utils/app-paths.js");
+const { getRouteRegex } = await import("next/dist/shared/lib/router/utils/route-regex.js");
+const { isDynamicRoute } = await import("next/dist/shared/lib/router/utils/is-dynamic.js");
+
+/** Every file Next serves an address from, by the route it serves: its pages and its route handlers. */
+const SERVED = new Map(
+  [...PAGES, ...filesUnder(APP_DIR, named("route.ts"), 8)].map((file) => [
+    normalizeAppPath(`/${path.relative(APP_DIR, file).split(path.sep).join("/")}`.replace(/\.tsx?$/, "")),
+    file,
+  ]),
+);
+
+/** The file Next answers `address` from: a static route by its name, else the first dynamic one in Next's own order. */
+function servedBy(address: string): string | undefined {
+  const named = SERVED.get(address);
+  if (named !== undefined && !isDynamicRoute(address)) return named;
+
+  const route = sortPages([...SERVED.keys()]).find((candidate) => isDynamicRoute(candidate) && getRouteRegex(candidate).re.test(address));
+  return route === undefined ? undefined : SERVED.get(route);
+}
+
+describe("where an address short of a team's season lands", () => {
+  const TEAM_ID = "6780e194677bfbfb5ea8396c";
+  const PERSON_CATCH_ALL = path.join(APP_DIR, "bereich", "(persoenlich)", "[...unmatched]", "page.tsx");
+
+  /* The control: a matcher answering every address from one catch-all would pass the case below. */
+  it("serves a team's own address from the team area's page", () => {
+    assert.equal(servedBy(`/bereich/team/${TEAM_ID}/${SAISON}`), path.join(APP_DIR, "bereich", "team", "[team_id]", "[saison_id]", "page.tsx"));
+  });
+
+  /* No page stands at either address, so the person area's catch-all answers it under the person shell.
+     A page added at either takes the address from that 404 and should be meant. */
+  it("hands the team prefix, and a team named without a season, to the person area's catch-all", () => {
+    for (const address of ["/bereich/team", `/bereich/team/${TEAM_ID}`]) {
+      assert.equal(servedBy(address), PERSON_CATCH_ALL, `${address} is not answered by the person area's 404`);
     }
   });
 });
@@ -334,41 +439,74 @@ describe("what every 404 tells a crawler", () => {
 });
 
 describe("where each 404 sends the reader", () => {
-  /* The boundaries under the public shell are exempt from both cases below: that area owns no url
+  /* The boundaries under the public shell are exempt from the cases below: that area owns no url
      prefix for a way out to stay inside, and the public routes mount no season selector for a link
      to lose. */
   const SHELLED = PREFIXED.map((dir) => {
-    const markup = MARKUP.get(path.join(dir, "not-found.tsx"));
+    const file = path.join(dir, "not-found.tsx");
+    const markup = MARKUP.get(file);
+    const keeping = MARKUP_KEEPING.get(file);
     // Throw rather than answer undefined: an area whose boundary has moved would otherwise reach
-    // the two cases below as a crash rather than as the placement finding that explains it.
-    if (markup === undefined) throw new Error(`${prefixOf(dir)} has no boundary at its root to read a way out off`);
+    // the cases below as a crash rather than as the placement finding that explains it.
+    if (markup === undefined || keeping === undefined) throw new Error(`${prefixOf(dir)} has no boundary at its root to read a way out off`);
 
-    return [dir, markup] as const;
+    return { dir, markup, keeping };
   });
 
   /* The root boundary offers the visitor's start page, so a way out leaving the area hands a reader
      back through the front door of a section they were already inside. */
   it("keeps every way out inside its own area", () => {
-    for (const [dir, markup] of SHELLED) {
+    for (const { dir, markup } of SHELLED) {
       const hrefs = hrefsIn(markup);
 
       assert.ok(hrefs.length > 0, `${prefixOf(dir)}'s boundary renders no way out at all`);
+      assert.deepEqual(strayWaysOut(dir, hrefs), [], `these links leave ${prefixOf(dir)}`);
+    }
+  });
+
+  /* Declared by hand, so an area added without its ways out would pass the case above unread. */
+  it("declares where every prefixed area's 404 may send the reader", () => {
+    assert.deepEqual(Object.keys(WAYS_OUT).sort(), PREFIXED.map((dir) => path.relative(APP_DIR, dir)).sort());
+  });
+
+  /* The declarations above, held against addresses the tree need not hold: an outer area's prefix
+     holds every area nested in it, and the right team in another season still leaves the served address. */
+  it("tells an area from the one around it, and the served season from another", () => {
+    const person = path.join(APP_DIR, "bereich", "(persoenlich)");
+    const admin = path.join(APP_DIR, "bereich", "admin");
+    const team = path.join(APP_DIR, "bereich", "team", "[team_id]", "[saison_id]");
+    const served = prefixOf(team);
+
+    assert.deepEqual(strayWaysOut(person, ["/bereich", "/bereich/admin", "/bereich/adminbereich"]), ["/bereich/admin"]);
+    assert.deepEqual(strayWaysOut(admin, ["/bereich/admin/teams", "/bereich"]), ["/bereich"]);
+    assert.deepEqual(strayWaysOut(person, [`${served}/kader`]), [`${served}/kader`]);
+    assert.deepEqual(strayWaysOut(team, [served, `${served}/kader?x=1`, "/bereich/team/probe-team_id/2425", "/bereich"]), [
+      "/bereich/team/probe-team_id/2425",
+      "/bereich",
+    ]);
+  });
+
+  /* A shell keeping the season in the query reads it off the live url, so a way out dropping it
+     returns the whole shell to the default season on the way back
+     (`fl_frontend/src/shared/utils/saisonHref.ts`). */
+  it("carries the season the 404 was served under where the shell keeps it in the query", () => {
+    for (const { dir, keeping } of SHELLED) {
       assert.deepEqual(
-        hrefs.filter((href) => !href.startsWith(prefixOf(dir))),
+        hrefsIn(keeping).filter((href) => saisonQueryOf(href) !== SAISON),
         [],
-        `these links leave ${prefixOf(dir)}`,
+        `these links drop the season ${prefixOf(dir)}'s shell is showing`,
       );
     }
   });
 
-  /* Both shells read the season off the live url, so a way out dropping it returns the whole shell
-     to the default season on the way back (`fl_frontend/src/shared/utils/saisonHref.ts`). */
-  it("carries the season the 404 was served under", () => {
-    for (const [dir, markup] of SHELLED) {
+  /* A shell whose season is in the path, or which has none, would otherwise put a `?saison_id=` the
+     area never reads on every way out of its 404. */
+  it("carries no season where the shell keeps none in the query", () => {
+    for (const { dir, markup } of SHELLED) {
       assert.deepEqual(
-        hrefsIn(markup).filter((href) => !href.includes(`saison_id=${SAISON}`)),
+        hrefsIn(markup).filter((href) => saisonQueryOf(href) !== null),
         [],
-        `these links drop the season ${prefixOf(dir)}'s shell is showing`,
+        `these links carry a season ${prefixOf(dir)}'s shell keeps out of the query`,
       );
     }
   });

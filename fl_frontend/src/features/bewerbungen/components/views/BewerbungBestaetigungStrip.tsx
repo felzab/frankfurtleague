@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
@@ -28,6 +28,7 @@ import {
 } from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { labelBadge } from "@/shared/components/ui/badges";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -36,13 +37,16 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PANEL_REVEAL_CLASSES } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 
 import { Absatz } from "./BestaetigungHinweise";
 
@@ -134,6 +138,7 @@ export function BewerbungBestaetigungStrip({
   const router = useRouter();
   // Per seat rather than one flag: three buttons stand here, and one press must not hold the others.
   const [sendendeRollen, setSendendeRollen] = useState<ReadonlySet<KontaktRolle>>(() => new Set());
+  const stepUp = useStepUp();
 
   /**
    * One editor for the whole strip (`docs/frontend/spec.md :: I66` gives a panel one action row), so
@@ -156,7 +161,15 @@ export function BewerbungBestaetigungStrip({
   const sendeErneut = async (rolle: KontaktRolle) => {
     if (!guardAgainstDraft(isDirty || boxGetippt, DRAFT_DISCARDED)) return;
 
+    // The page re-keys on the sent link's record, drawing this seat's control anew.
+    const landing = focusAfterWrite();
     setSendendeRollen((vorher) => new Set(vorher).add(rolle));
+
+    // A new link voids the one the seat holds (`docs/frontend/spec.md :: I432`).
+    if (!(await stepUp.confirm(true))) {
+      setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
+      return;
+    }
 
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
     // „Sendet...“ standing for good and reports nothing.
@@ -172,11 +185,14 @@ export function BewerbungBestaetigungStrip({
       return;
     }
 
+    landing.landed();
     appToast.success("Link erneut gesendet", { description: res.message });
   };
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("bestaetigungen")}>
       <div className={panel.header()}>
         {/* The count beside the heading, in the shape `AdminBewerbungView`'s own header gives a
             status chip: `PanelHeading` has one slot and it belongs to the hint glyph. */}
@@ -205,6 +221,7 @@ export function BewerbungBestaetigungStrip({
               hatAngebot={isOpen && angebot.has(sitz.rolle)}
               istNeubesetzbar={isOpen && neubesetzbar.has(sitz.rolle)}
               sendet={sendendeRollen.has(sitz.rolle)}
+              sendetSatz={stepUp.running("Sendet...")}
               bearbeitet={editor?.rolle === sitz.rolle ? editor.art : null}
               isDirty={isDirty}
               onGetipptChange={meldeBox}
@@ -224,6 +241,8 @@ export function BewerbungBestaetigungStrip({
         {/* The deletion date stands here and nowhere else on the page: the reason under the closed
             Zusage says what is missing, and this says what happens if it stays missing. */}
         {loeschung !== null && <p className="muted-hint">{loeschung}</p>}
+
+        <StepUpRefused refused={stepUp.refused} />
       </div>
     </section>
   );
@@ -231,7 +250,7 @@ export function BewerbungBestaetigungStrip({
 
 /**
  * One seat: who stands in it and where the league writes to them, then what their link has reached
- * and the two things an administrator can do about it.
+ * and what an administrator can do about it.
  */
 function SitzZeile({
   bewerbungId,
@@ -240,6 +259,7 @@ function SitzZeile({
   hatAngebot,
   istNeubesetzbar,
   sendet,
+  sendetSatz,
   bearbeitet,
   isDirty,
   onGetipptChange,
@@ -255,6 +275,8 @@ function SitzZeile({
   /** Whether this seat's own person stepped out of it, which is the one state another person is written into. */
   istNeubesetzbar: boolean;
   sendet: boolean;
+  /** What the pending re-send says, the prompt's words while it is open. */
+  sendetSatz: string;
   bearbeitet: Bearbeitung | null;
   isDirty: boolean;
   onGetipptChange: (getippt: boolean) => void;
@@ -267,22 +289,12 @@ function SitzZeile({
   const erneutLabel = `Link erneut senden an ${sitz.label}`;
   const besetzenLabel = `${sitz.label} neu besetzen`;
 
-  const stiftRef = useRef<HTMLButtonElement>(null);
-  const besetzenRef = useRef<HTMLButtonElement>(null);
-  const warBearbeitet = useRef<Bearbeitung | null>(null);
-
-  // A keyboard user whose focused input has just unmounted would otherwise be dropped on the
-  // document body. An effect rather than the handler: the control exists only after the re-render.
-  useEffect(() => {
-    const geschlossen = warBearbeitet.current;
-    if (geschlossen !== null && bearbeitet === null) {
-      (geschlossen === "korrektur" ? stiftRef : besetzenRef).current?.focus();
-    }
-    warBearbeitet.current = bearbeitet;
-  }, [bearbeitet]);
-
   return (
-    <div className="flex w-full flex-col gap-y-2">
+    // Each editor stands in the place of the control that opened it, so its close lands there, or on the
+    // same control in the next seat where a reseat took this seat's away.
+    <div
+      className="flex w-full flex-col gap-y-2"
+      {...focusRow(sitz.rolle)}>
       <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1">
         <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP_CLASSES}`}>{sitz.label}</span>
         {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP_CLASSES}`}>Zugleich Trainer</span>}
@@ -302,22 +314,23 @@ function SitzZeile({
         {/* Beside the address rather than in the right-hand cluster, which is about the link: every
             control on this site stands where the value it edits is. */}
         {hatAngebot && bearbeitet === null && (
-          <IconTooltip label="Adresse korrigieren">
-            <Button
-              ref={stiftRef}
-              type="button"
-              isPending={sendet}
-              aria-label={`E-Mail-Adresse von ${sitz.nameSatz} korrigieren`}
-              onPress={() => {
-                onOeffne("korrektur");
-              }}
-              className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
-              <Pencil
-                className="size-3.5"
-                aria-hidden="true"
-              />
-            </Button>
-          </IconTooltip>
+          <FocusSlot name="korrektur">
+            <IconTooltip label="Adresse korrigieren">
+              <Button
+                type="button"
+                isPending={sendet}
+                aria-label={`E-Mail-Adresse von ${sitz.nameSatz} korrigieren`}
+                onPress={() => {
+                  onOeffne("korrektur");
+                }}
+                className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
+                <Pencil
+                  className="size-3.5"
+                  aria-hidden="true"
+                />
+              </Button>
+            </IconTooltip>
+          </FocusSlot>
         )}
 
         <span className={`${labelBadge(STAND_TINT[sitz.stand.art])} ${STRIP_CHIP_CLASSES} ml-auto gap-x-1`}>
@@ -336,7 +349,7 @@ function SitzZeile({
             is a fresh link for this seat, and the two are never offered at once. */}
         {istNeubesetzbar && bearbeitet === null && (
           <Button
-            ref={besetzenRef}
+            {...focusSlot("neubesetzung")}
             type="button"
             aria-label={besetzenLabel}
             onPress={() => {
@@ -354,50 +367,56 @@ function SitzZeile({
         {hatAngebot && bearbeitet === null && (
           // Closed rather than withheld where the seat has no address, so the refusal can name the
           // pencil beside it as the way out. `sendet` is left out of the reason: it ends by itself.
-          <Hint
-            mode="refusal"
-            reason={sitz.email === null ? ERNEUT_OHNE_ADRESSE : null}
-            label={erneutLabel}
-            className="shrink-0">
-            <Button
-              type="button"
-              isPending={sendet}
-              isDisabled={sitz.email === null}
-              aria-label={erneutLabel}
-              onPress={onSendeErneut}
-              className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
-              <PaperPlane
-                className="size-3.5"
-                aria-hidden="true"
-              />
-              <span>{sendet ? "Sendet..." : "Link erneut senden"}</span>
-            </Button>
-          </Hint>
+          <FocusSlot name="erneut">
+            <Hint
+              mode="refusal"
+              reason={sitz.email === null ? ERNEUT_OHNE_ADRESSE : null}
+              label={erneutLabel}
+              className="shrink-0">
+              <Button
+                type="button"
+                isPending={sendet}
+                isDisabled={sitz.email === null}
+                aria-label={erneutLabel}
+                onPress={onSendeErneut}
+                className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
+                <PaperPlane
+                  className="size-3.5"
+                  aria-hidden="true"
+                />
+                <span>{sendet ? sendetSatz : "Link erneut senden"}</span>
+              </Button>
+            </Hint>
+          </FocusSlot>
         )}
       </div>
 
       {bearbeitet === "korrektur" && (
-        <AdresseKorrigieren
-          bewerbungId={bewerbungId}
-          rolle={sitz.rolle}
-          gespeicherteAdresse={sitz.email}
-          belegteAdressen={belegteAdressen}
-          isDirty={isDirty}
-          onGetipptChange={onGetipptChange}
-          onFertig={onSchliessen}
-        />
+        <FocusSlot name="korrektur">
+          <AdresseKorrigieren
+            bewerbungId={bewerbungId}
+            rolle={sitz.rolle}
+            gespeicherteAdresse={sitz.email}
+            belegteAdressen={belegteAdressen}
+            isDirty={isDirty}
+            onGetipptChange={onGetipptChange}
+            onFertig={onSchliessen}
+          />
+        </FocusSlot>
       )}
 
       {bearbeitet === "neubesetzung" && (
-        <SitzNeuBesetzen
-          bewerbungId={bewerbungId}
-          rolle={sitz.rolle}
-          label={sitz.label}
-          belegteAdressen={belegteAdressen}
-          isDirty={isDirty}
-          onGetipptChange={onGetipptChange}
-          onFertig={onSchliessen}
-        />
+        <FocusSlot name="neubesetzung">
+          <SitzNeuBesetzen
+            bewerbungId={bewerbungId}
+            rolle={sitz.rolle}
+            label={sitz.label}
+            belegteAdressen={belegteAdressen}
+            isDirty={isDirty}
+            onGetipptChange={onGetipptChange}
+            onFertig={onSchliessen}
+          />
+        </FocusSlot>
       )}
     </div>
   );
@@ -428,10 +447,16 @@ function AdresseKorrigieren({
   onFertig: () => void;
 }) {
   const router = useRouter();
+  // The box and the control that opened it stand in one place: its close hands the focus back there.
+  const schliesse = (landing: ReturnType<typeof focusAfterWrite>) => {
+    landing.landed();
+    onFertig();
+  };
 
   // Prefilled, because the commonest correction is one wrong character.
   const [email, setEmail] = useState(gespeicherteAdresse ?? "");
   const [sendet, setSendet] = useState(false);
+  const stepUp = useStepUp();
 
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } = useDraftFieldErrors({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
@@ -452,6 +477,7 @@ function AdresseKorrigieren({
   const unveraendert = email.trim() === "" || gleichesPostfach(email, gespeicherteAdresse ?? "");
 
   const schreibe = async () => {
+    const landing = focusAfterWrite();
     // The submission's own rule, judged here so the administrator is told at the field rather than
     // by a round trip. The backend refuses it regardless.
     if (belegteAdressen.some((belegt) => gleicheAdresse(email, belegt))) {
@@ -460,6 +486,12 @@ function AdresseKorrigieren({
     }
 
     setSendet(true);
+    // The link it mails voids the seat's standing one (`docs/frontend/spec.md :: I432`).
+    if (!(await stepUp.confirm(true))) {
+      setSendet(false);
+      return;
+    }
+
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
     // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
     const res = await kontaktEmailKorrigierenAction(payload).catch(() => ({ ...unansweredAction(), error: KORREKTUR_OHNE_ANTWORT }));
@@ -481,13 +513,13 @@ function AdresseKorrigieren({
         // Every mapped refusal ends in „Lade die Seite neu“, so the refresh has already run by the
         // time the administrator reads it.
         router.refresh();
-        onFertig();
+        schliesse(landing);
       }
       reportSubmitFailure(res, { korrektur: payload }, { raise: nichtKorrigiert });
       return;
     }
 
-    onFertig();
+    schliesse(landing);
 
     if (res.verschickt === false) {
       appToast.warning("Link nicht gesendet", {
@@ -547,7 +579,7 @@ function AdresseKorrigieren({
             isPending={sendet}
             isDisabled={!sendet && unveraendert}
             className={formButton({ intent: "submit", stacks: true })}>
-            {sendet ? "Sendet..." : "Korrigieren und Link senden"}
+            {sendet ? stepUp.running("Sendet...") : "Korrigieren und Link senden"}
           </Button>
         </Hint>
         {/* Held while the write runs: a press that unmounts this box mid-transition drops the toast
@@ -556,10 +588,11 @@ function AdresseKorrigieren({
           type="button"
           variant="secondary"
           isPending={sendet}
-          onPress={onFertig}
+          onPress={() => schliesse(focusAfterWrite())}
           className={formButton({ intent: "cancel", stacks: true })}>
           Abbrechen
         </Button>
+        <StepUpRefused refused={stepUp.refused} />
       </div>
     </Form>
   );
@@ -602,9 +635,15 @@ function SitzNeuBesetzen({
   onFertig: () => void;
 }) {
   const router = useRouter();
+  // The box and the control that opened it stand in one place: its close hands the focus back there.
+  const schliesse = (landing: ReturnType<typeof focusAfterWrite>) => {
+    landing.landed();
+    onFertig();
+  };
 
   const [person, setPerson] = useState(LEERE_PERSON);
   const [sendet, setSendet] = useState(false);
+  const stepUp = useStepUp();
 
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } = useDraftFieldErrors({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
@@ -630,6 +669,7 @@ function SitzNeuBesetzen({
   };
 
   const schreibe = async () => {
+    const landing = focusAfterWrite();
     // The submission's own rule, judged here so the administrator is told at the field rather than
     // by a round trip. The backend refuses it regardless.
     if (belegteAdressen.some((belegt) => gleicheAdresse(person.email, belegt))) {
@@ -638,6 +678,12 @@ function SitzNeuBesetzen({
     }
 
     setSendet(true);
+    // The link it mails voids the seat's standing one (`docs/frontend/spec.md :: I432`).
+    if (!(await stepUp.confirm(true))) {
+      setSendet(false);
+      return;
+    }
+
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
     // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
     const res = await besetzeKontaktSitzAction(payload).catch(() => ({ ...unansweredAction(), error: BESETZUNG_OHNE_ANTWORT }));
@@ -659,13 +705,13 @@ function SitzNeuBesetzen({
         // Every mapped refusal ends in „Lade die Seite neu“, so the refresh has already run by the
         // time the administrator reads it.
         router.refresh();
-        onFertig();
+        schliesse(landing);
       }
       reportSubmitFailure(res, { neubesetzung: payload }, { raise: nichtBesetzt });
       return;
     }
 
-    onFertig();
+    schliesse(landing);
 
     if (res.verschickt === false) {
       // Its own title, never the correction's „Link nicht gesendet“: one title names one outcome,
@@ -785,17 +831,18 @@ function SitzNeuBesetzen({
             isPending={sendet}
             isDisabled={!sendet && unvollstaendig}
             className={formButton({ intent: "submit", stacks: true })}>
-            {sendet ? "Sendet..." : "Neu besetzen und Link senden"}
+            {sendet ? stepUp.running("Sendet...") : "Neu besetzen und Link senden"}
           </Button>
         </Hint>
         <Button
           type="button"
           variant="secondary"
           isPending={sendet}
-          onPress={onFertig}
+          onPress={() => schliesse(focusAfterWrite())}
           className={formButton({ intent: "cancel", stacks: true })}>
           Abbrechen
         </Button>
+        <StepUpRefused refused={stepUp.refused} />
       </div>
     </Form>
   );

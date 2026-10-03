@@ -41,38 +41,40 @@ export type FLEinladungMailPayload = z.infer<typeof FLEinladungMailPayloadSchema
  */
 export const FLEinladungVersandSchema = z.object({
   // Nullable and never optional: the mint writes the carrier EMPTY, but FastAPI serialises the
-  // default, so the key rides on every invitation with `null` in it. The three sibling mirrors of
-  // this same backend model spell it the same way.
+  // default, so the key rides on every invitation with `null` in it. Its sibling mirrors of this
+  // same backend model spell it the same way.
   zustellung: FLBewerbungZustellungSchema.nullable(),
 });
 export type FLEinladungVersand = z.infer<typeof FLEinladungVersandSchema>;
 
 /**
- * Mirrors `FLEinladung` — the live invite as an administrator is shown it. **No `token_hash`**: the
- * credential is written as a hash the store never yields, so no read model carries one and neither
- * may this (`docs/backend/spec.md :: I144`'s twin).
+ * Mirrors `FLEinladungZeile` — the live invite as an administrator is shown it. **No `token_hash`**:
+ * the credential is written as a hash the store never yields, so no read model carries one and
+ * neither may this (`docs/backend/spec.md :: I144`'s twin).
  */
-export const FLEinladungSchema = z.object({
+export const FLEinladungZeileSchema = z.object({
   // The row a delivery report is filed against (`ziel_id`), which is why a read model carries it at
   // all: the mail press is a second press, and by then the mint's own answer is gone.
   id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   team_id: CustomObjectIdStringSchema,
   erstellt_am: CustomDateStringSchema,
-  // The administrator's own address, as `bewerbungen.entscheidung.von` is read from the bound actor.
-  erstellt_von: z.string(),
+  // The administrator's own address, as `bewerbungen.entscheidung.von` is read from the bound actor;
+  // null exactly where `erstellt_von_gesperrt` holds, as the grants list withholds a barred actor.
+  erstellt_von: z.string().nullable(),
+  erstellt_von_gesperrt: z.boolean(),
   // Null on every row this read serves, the read finding the live one; the field is mirrored because
   // the stored row carries it and a reader of the model would otherwise think a revoke leaves none.
   widerrufen_am: CustomDateStringSchema.nullable(),
   versand: FLEinladungVersandSchema.nullable(),
 });
-export type FLEinladung = z.infer<typeof FLEinladungSchema>;
+export type FLEinladungZeile = z.infer<typeof FLEinladungZeileSchema>;
 
 /** `null` where the team holds no live invite for the season, which is every team before the first mint. */
 export const FLEinladungResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   team_id: CustomObjectIdStringSchema,
-  einladung: FLEinladungSchema.nullable(),
+  einladung: FLEinladungZeileSchema.nullable(),
   // The registration window's verdict, composed server-side as `FLBewerbungFensterResponse.laeuft`
   // is: a link expires with the window rather than on a date of its own.
   laeuft: z.boolean(),
@@ -128,6 +130,7 @@ export const FLEinladungVersandGrundSchema = z.enum(
     "erzeugung_ungewiss",
     "kein_kontaktblock",
     "keine_bestaetigte_kontaktperson",
+    "kontakte_gesperrt",
     "bereits_gesendet",
   ],
   { error: "Diesen Grund gibt es nicht." },

@@ -2,8 +2,13 @@ import { afterEach, beforeEach } from "node:test";
 
 import { JSDOM } from "jsdom";
 
-// Without `pretendToBeVisual` jsdom defines no `requestAnimationFrame`, which react-aria's focus scope calls as a dialog unmounts.
-const { window } = new JSDOM("<!doctype html><html><head></head><body></body></html>", { pretendToBeVisual: true });
+const { window } = new JSDOM("<!doctype html><html><head></head><body></body></html>", {
+  // Without `pretendToBeVisual` jsdom defines no `requestAnimationFrame`, which react-aria's focus scope calls as a dialog unmounts.
+  pretendToBeVisual: true,
+  // An address a page can read and rewrite: jsdom's default `about:blank` carries no query and refuses every `history` write, so
+  // a link page stripping its token from the address bar could not be driven at all.
+  url: "http://localhost/",
+});
 
 // Installed as this module evaluates, so it is the first import of every file using it: `react-dom/client`, Testing
 // Library's `screen` and react-aria each read whether a document exists once, as they load.
@@ -34,6 +39,9 @@ globalThis.ResizeObserver ??= class {
 window.Element.prototype.getAnimations ??= () => [];
 // An opened list scrolls its option into view.
 window.Element.prototype.scrollTo ??= () => undefined;
+// Nor does it hit-test a point: the sign-in code field asks what stands at its right edge, looking for a password
+// manager's badge to make room for, and here nothing ever does.
+window.Document.prototype.elementFromPoint ??= () => null;
 
 // Nor does it evaluate a media query, which the editors' rails read as they mount. Every query answers unmatched and
 // never changes, the narrow layout being the one a page without a viewport renders.

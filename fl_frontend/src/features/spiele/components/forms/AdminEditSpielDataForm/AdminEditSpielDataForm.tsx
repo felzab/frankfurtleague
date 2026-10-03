@@ -327,7 +327,7 @@ export function AdminEditSpielDataForm({
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/admin"),
+    fallbackHref: saisonHref("/bereich/admin"),
     isDirty,
     resetDraftToStored,
   });

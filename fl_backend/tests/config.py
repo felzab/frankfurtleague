@@ -1,7 +1,11 @@
+from datetime import UTC, datetime
+from typing import Any
+
+from bson import ObjectId
 from pydantic import SecretStr
-from pydantic_settings import SettingsConfigDict
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
+from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY, SignedActor
 from tests.worker import worker_database
 
 # The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
@@ -33,32 +37,29 @@ _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
 # address hashes differently under two keys builds its own second key rather than reading this one.
 _SPERRLISTE_SCHLUESSEL = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
+# Every actor a suite names on an admin-tier route, each a grant `grants_for_the_suite` seeds, or
+# `app/core/security.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
+# it is about. Folded, as a grant is stored.
+ADMINISTRATORS = ("admin@example.com", "admin@frankfurtleague.de", "spielorte.admin@example.com", "triage.quillhilde@example.com")
+
 # The header a request carries to reach each tier, built from the keys `build_test_config` configures
 # so that no suite spells one of its own: `compare_digest` answers a drifted key 401 and names no side.
 BASE_AUTH = {"Authorization": f"Bearer {_KEY_BASE}"}
 SYSTEM_AUTH = {"Authorization": f"Bearer {_KEY_SYSTEM}"}
-ADMIN_AUTH = {"Authorization": f"Bearer {_KEY_ADMIN}"}
-
-
-class ConfigReadingNoDotenvFile(BackendConfig):
-    """The suite's settings, reading no dotenv file: a machine's own `.env` is not a fixture.
-
-    An init argument outranks a source's value and never its extra keys, which `extra="forbid"`
-    makes fatal.
-    """
-
-    # Merged over the parent's rather than replacing it, so `extra="forbid"` and the encoding still
-    # bind: only the dotenv source is dropped.
-    model_config = SettingsConfigDict(env_file=None)
+# The admin key alone, for a case about a request naming no actor.
+ADMIN_KEY = {"Authorization": f"Bearer {_KEY_ADMIN}"}
+# What an administrator's request carries: the admin tier refuses one naming nobody on every method
+# (`app/core/security.py :: bind_actor`), so the key alone reaches no admin-tier handler.
+ADMIN_AUTH = SignedActor("admin@example.com", ADMIN_KEY)
 
 
 def build_test_config() -> BackendConfig:
-    """Every variable with no default supplied here, so any checkout runs the suite.
+    """Every field with no default supplied here, so any checkout runs the suite.
 
     Not in `conftest.py`: pytest loads that under its own module name, so importing it would
-    duplicate every fixture. No dotenv source, for the reason at `ConfigReadingNoDotenvFile`.
+    duplicate every fixture.
     """
-    return ConfigReadingNoDotenvFile(
+    return BackendConfig(
         api_trusted_hosts="testserver,localhost",
         api_cors_allowed_origins="http://localhost:3000",
         mongodb_uri=SecretStr("mongodb://localhost:27017/frankfurtleague_test"),
@@ -67,4 +68,28 @@ def build_test_config() -> BackendConfig:
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
         sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
+        actor_token_public_key=ACTOR_TOKEN_PUBLIC_KEY,
     )
+
+
+def grants_for_the_suite() -> list[dict[str, Any]]:
+    """`ADMINISTRATORS` as the `berechtigungen` rows a suite seeds before an admin-tier request, the first as an `owner`.
+
+    Written straight to the collection, as the Playground writes a grant: no route writes a first owner.
+    """
+
+    pasted = datetime(2026, 1, 1, tzinfo=UTC)
+
+    return [
+        {
+            # Generated as the paste ran, as the Playground generates one: a grant no reconciliation has
+            # found dates no earlier than its id (`docs/backend/spec.md :: I525`), so an id minted at the
+            # seed would postdate every session a case signs.
+            "_id": ObjectId(ObjectId.from_datetime(pasted).binary[:4] + index.to_bytes(8, "big")),
+            "adresse": adresse,
+            "verwaltung": "owner" if index == 0 else "administration",
+            "erteilt_von": "PLAYGROUND",
+            "erteilt_am": pasted,
+        }
+        for index, adresse in enumerate(ADMINISTRATORS)
+    ]

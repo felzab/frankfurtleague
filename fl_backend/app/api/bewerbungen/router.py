@@ -1,5 +1,5 @@
-import asyncio
-from typing import Annotated, get_args
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any, get_args
 
 from fastapi import APIRouter, Depends, Query
 
@@ -19,13 +19,17 @@ from app.api.bewerbungen.services import (
     build_bewerbungen_status_term,
     build_dubletten_pipeline,
     dubletten_schluessel_of,
+    entscheider_adressen,
+    mit_vorenthaltener_entscheidung,
 )
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base, as `schiedsrichter` is: an application carries three people's names,
@@ -35,7 +39,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # `public_router.py` shares this prefix at base tier and reads no stored application.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
-    dependencies=[Depends(verify_access_admin)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 # `Query()` and never `Depends()`: on a `Depends()` model a `list` field is read as a BODY field, so
@@ -43,16 +47,29 @@ router = APIRouter(
 FLBewerbungenFilters = Annotated[FLBewerbungenFilterParams, Query()]
 
 
+async def _as_served(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    sperrliste: BanList,
+) -> list[dict[str, Any]]:
+    barred = await adressen_gesperrt(sperrliste, entscheider_adressen(rows))
+
+    return [mit_vorenthaltener_entscheidung(row, barred) for row in rows]
+
+
 @router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
 async def get_bewerbungen(
     bewerbungen_collection: BewerbungenCollection,
+    sperrliste: SperrlisteLookup,
     filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
     """
     Every application, newest first, narrowable by season and by any number of the three statuses.
 
     Decided ones stay listed: what the league turned down, and why, is the record the decision was
-    taken against. `vollstaendig` is false where more rows exist than one read serves.
+    taken against. `vollstaendig` is false where more rows exist than one read serves. A decision's
+    administrator is `null` beside `entscheidung.von_gesperrt` where the ban list holds that
+    address, as no barred address is served in plain.
 
     `saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,
     `andere_saison` for every other one — and is ignored without a `saison_id` to stand against.
@@ -81,13 +98,13 @@ async def get_bewerbungen(
     saisonbezug_terms = build_bewerbungen_saisonbezug_terms(saison_id=filters.saison_id)
 
     # Concurrently, so five counts and the collision pass cost one round trip's latency rather than six.
-    counted, bezogen, cells = await asyncio.gather(
-        asyncio.gather(
+    counted, bezogen, cells = await gather_cancelling(
+        gather_cancelling(
             # `bewerbungen_saison_id_status_queue` carries both terms, so a count walks keys and
             # fetches nothing; measured, the complement loses the COUNT_SCAN and stays an IXSCAN.
             *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus))
         ),
-        asyncio.gather(*(bewerbungen_collection.count_documents({**beyond_saison, **term}) for term in saisonbezug_terms.values())),
+        gather_cancelling(*(bewerbungen_collection.count_documents({**beyond_saison, **term}) for term in saisonbezug_terms.values())),
         aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline(beyond_status)),
     )
 
@@ -111,7 +128,7 @@ async def get_bewerbungen(
     # would hand whoever writes them the power to 500 this page. Answering short leaves the
     # administrator a usable list, and `vollstaendig` reports the cut.
     return FLBewerbungenListResponse(
-        bewerbungen=FLBewerbungListAdapter.validate_python(served),
+        bewerbungen=FLBewerbungListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
         vollstaendig=len(read) <= filters.limit,
         anzahl_je_status=dict(zip(get_args(FLBewerbungStatus), counted, strict=True)),
         anzahl_je_saisonbezug=dict(zip(saisonbezug_terms, bezogen, strict=True)),
@@ -125,9 +142,11 @@ async def get_bewerbungen(
 async def get_bewerbung_by_id(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
+    sperrliste: SperrlisteLookup,
 ) -> FLBewerbungSingleResponse:
-    """One application in full, which is what the triage decides against."""
+    """One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it."""
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
+    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste)
 
-    return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**bewerbung_raw))
+    return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**served))

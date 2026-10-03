@@ -10,9 +10,9 @@ from pymongo import MongoClient
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DUPLICATE_KEY
-from app.core.security import ACTOR_HEADER
+from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH
+from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -79,7 +79,7 @@ def served(url: str, path: str, body: Mapping[str, Any], *, method: str = "POST"
 
     async def _served() -> Response:
         async with app_client(url, config=config_for(DATABASE_NAME)) as http:
-            return await http.request(method, path, json=dict(body), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
+            return await http.request(method, path, json=dict(body), headers=SignedActor(ACTOR, ADMIN_KEY))
 
     return asyncio.run(_served())
 
@@ -104,6 +104,7 @@ def seeded_url(mongo_replica_set_url: str) -> str:
     client = MongoClient(mongo_replica_set_url)
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)
+        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SPIELORTE].insert_many(
             [
                 venue_document(STANDING_OID, STANDING_NAME),

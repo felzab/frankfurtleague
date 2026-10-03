@@ -36,6 +36,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useReactivation } from "@/shared/hooks/useReactivation";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
@@ -74,7 +75,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   saisonTeams: readonly SpielerTeamOption[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
   selectedSaisonId: string;
-  setDeletingSpieler: (spieler: AdminSpielerRow) => void;
+  setDeletingSpieler: (spieler: AdminSpielerRow, pressed: Element) => void;
 }) {
   // Two of them: each control pends on its own write, so reactivating a person leaves the squad row's
   // control pressable and neither announcement can arrive under the other's title.
@@ -118,9 +119,9 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     const row = spieler.selected;
 
     return (
-      <RowActions>
+      <RowActions row={spieler.id}>
         <RowActionLink
-          href={withSaisonId(`/admin/spieler/${spieler.id}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/spieler/${spieler.id}`, selectedFromUrl)}
           label="Bearbeiten"
           ariaLabel={`Spieler ${spieler.fullName} bearbeiten`}>
           <Pencil
@@ -138,7 +139,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             // out of the season and leaves the squad rows still naming it.
             disabledReason={RETURN_REFUSAL[judgeRowReturn(row.team_id, saisonTeams)]}
             isPending={squadRow.isReactivating}
-            onPress={() => squadRow.reactivate({ spieler_id: spieler.id, saison_id: selectedSaisonId })}
+            place="kadereintrag"
+            onPress={(pressed) => squadRow.reactivate({ spieler_id: spieler.id, saison_id: selectedSaisonId }, { pressed })}
           />
         )}
 
@@ -149,13 +151,13 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             label="Spieler reaktivieren"
             ariaLabel={`Spieler ${spieler.fullName} reaktivieren`}
             isPending={person.isReactivating}
-            onPress={() => person.reactivate({ id: spieler.id })}
+            onPress={(pressed) => person.reactivate({ id: spieler.id }, { pressed })}
           />
         ) : (
           <RowActionDelete
             label="Stilllegen"
             ariaLabel={`Spieler ${spieler.fullName} stilllegen`}
-            onPress={() => setDeletingSpieler(spieler)}
+            onPress={(pressed) => setDeletingSpieler(spieler, pressed)}
           />
         )}
       </RowActions>
@@ -195,7 +197,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
     return (
       <Link
-        href={withSaisonId(`/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}`, selectedFromUrl)}
+        href={withSaisonId(`/bereich/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}`, selectedFromUrl)}
         className={`${textLink({ tone: "muted" })} max-w-full min-w-0 truncate fluid-xs`}>
         {row.teamName}
       </Link>
@@ -229,7 +231,9 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     <>
       {/* The table below `md` forced the whole grid sideways; a stacked card holds the same data and
           the same controls at reading width. */}
-      <div className="flex w-full flex-col gap-3 md:hidden">
+      <div
+        className="flex w-full flex-col gap-3 md:hidden"
+        {...focusSection("spieler-karten")}>
         {filteredSpieler.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSpieler.map((spieler) => (
           <div
@@ -242,7 +246,9 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div
+        className="hidden w-full md:block"
+        {...focusSection("spieler-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
           {/* Never scrolled at a width this table renders at
               (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform

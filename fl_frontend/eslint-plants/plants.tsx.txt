@@ -44,6 +44,29 @@ declare const extra: string;
 declare const bounds: object;
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "@/core/brand"; // expect: site-origin
+import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
+// Each secret's reader, imported where its owner is not; the settings beside one stay free.
+import { frontend_config, mongodbUri } from "@/core/config"; // expect: secret-store
+import { authSecret } from "@/core/config.ts"; // expect: secret-session
+import { authResendKey as heldKey } from "@/core/config"; // expect: secret-mail
+import { resendWebhookSecret } from "../../core/config"; // expect: secret-webhook
+import { internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "@/core/config"; // expect: secret-backend expect: secret-backend expect: secret-backend
+// The whole namespace, and a re-export, hand every reader on.
+import * as wholeConfig from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+export * from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+export { authResendKey } from "@/core/config"; // expect: secret-mail
+import { after } from "next/server"; // expect: next-after
+// The bundler resolves a query suffix to the module itself, so each confined module is read through one.
+import { mongodbUri as viaQuery } from "@/core/config?probe"; // expect: secret-store
+// Each holder's instance or client, which only its owners import.
+import { auth as heldAuth } from "@/core/auth"; // expect: auth-instance
+import { signInStore as heldStore } from "@/core/db"; // expect: sign-in-store
+export const HOLDERS_USED = [heldAuth, heldStore];
+// The ban's notice skips the gate, so a feature module takes the mailer's other exports and not it.
+import { MailBarredError, sendMail, sendSperreNotice as heldNotice } from "@/core/mail"; // expect: sperre-notice
+import * as wholeMailer from "@/core/mail.ts?probe"; // expect: sperre-notice
+export const MAILER_USED = [MailBarredError, sendMail, heldNotice, wholeMailer];
+import { mintRequestActor as signViaQuery } from "@/core/actorToken.ts?probe"; // expect: actor-signing
 
 export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
 export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
@@ -61,8 +84,41 @@ export const TONES_REVERSED = { alt: "text-foreground-muted bg-muted" }; // expe
 export const FIGURES = "fluid-xs tabular-nums"; // expect: numeric-pair
 export const TALL = "min-h-[100vh]"; // expect: vh
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
+export const SETTINGS_READ = frontend_config.APP_ENV;
+export const SECRETS_USED = [mongodbUri, authSecret, heldKey, resendWebhookSecret, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, wholeConfig];
+export const CONFIG_LOADED = import("@/core/config"); // expect: config-load expect: config-taken
+export const CONFIG_LOADED_TEMPLATE = import(`../../core/config.ts`); // expect: config-load expect: config-taken
+export const SIGNING_VIA_QUERY = import("@/core/actorToken?probe"); // expect: actor-signing-load
+export const QUERY_USED = [viaQuery, signViaQuery];
+// A secret's retired variable, in every spelling that reaches the value.
+export const RETIRED_READ = process.env.AUTH_RESEND_KEY; // expect: secret-name
+export const RETIRED_INDEXED = process.env["INTERNAL_API_KEY_SYSTEM"]; // expect: secret-name
+export const { MONGODB_URI: RETIRED_TAKEN } = process.env; // expect: secret-name
+export const RETIRED_TEMPLATE = Reflect.get(process.env, `AUTH_SECRET`); // expect: secret-name
+// A secret's file by its name, bare or ending a path, skips the reader its holder alone may import.
+export const SECRET_FILE = "/run/secrets/auth_resend_key"; // expect: secret-file
+export const SECRET_FILE_BARE = `internal_api_key_system`; // expect: secret-file
+export const NOT_A_SECRET_FILE = "auth_secret_rotation";
+// Taken apart where it is loaded, each holder is refused its secret and passes its other names.
+const { getAdminSession } = await import("@/core/auth");
+const { auth: loadedAuth } = await import("@/core/auth"); // expect: auth-taken
+const { ...wholeAuth } = await import("@/core/auth"); // expect: auth-taken
+export const AUTH_HELD = import("@/core/auth"); // expect: auth-taken
+export const AUTH_THEN = import("@/core/auth").then((loaded) => loaded.auth); // expect: auth-taken
+export const AUTH_MEMBER = (await import("@/core/auth")).auth; // expect: auth-taken
+export const AUTH_SAFE_MEMBER = (await import("@/core/auth")).getAdminSession;
+const { signInStore: loadedStore } = await import("@/core/db"); // expect: store-taken
+const { frontend_config: loadedSettings, mongodbUri: loadedReader } = await import("@/core/config"); // expect: config-load expect: config-taken
+const { sendMail: loadedSend } = await import("@/core/mail");
+const { sendSperreNotice: loadedNotice } = await import("@/core/mail"); // expect: sperre-notice-load
+export const MAILER_HELD = import(`../../core/mail.ts`); // expect: sperre-notice-load
+export const LOADED_USED = [getAdminSession, loadedAuth, wholeAuth, loadedStore, loadedSettings, loadedReader, loadedSend, loadedNotice];
 export const STALE = "/bestaetigung?token=x"; // expect: stale-path
 export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
+export const STALE_ADMIN = "/admin/teams"; // expect: stale-admin
+export const STALE_ADMIN_ROOT = "/admin"; // expect: stale-admin
+export const STALE_ADMIN_URL = "Weiter unter https://frankfurtleague.de/admin/teams."; // expect: stale-admin
+export const PANEL_URL = "https://frankfurtleague.de/bereich/admin/teams";
 export const RADIUS = PILL_RADIUS_CLASSES;
 export const CONTEXT = AppRouterContext;
 export const NAMESPACE = HeroUI;
@@ -88,6 +144,9 @@ export const TALL_TEMPLATE = `min-h-[100vh] ${extra}`; // expect: vh
 export const ENDPOINT_TEMPLATE = `https://api.resend.com/emails`; // expect: resend
 export const STALE_TEMPLATE = `/bestaetigung?token=${id}`; // expect: stale-path
 export const STALE_HANDLER_TEMPLATE = `/api/bestaetigung`; // expect: stale-path
+export const STALE_ADMIN_TEMPLATE = `/admin/teams/${id}`; // expect: stale-admin
+export const STALE_ADMIN_AFTER_A_HOLE = `${extra}/admin`; // expect: stale-admin
+export const STALE_ADMIN_URL_TEMPLATE = `${extra} http://localhost:3000/admin`; // expect: stale-admin
 export const DELETION_TEMPLATE = `deletePasskey`; // expect: passkey-deletion
 export const DELETION_MEMBER = auth.api.deletePasskey; // expect: passkey-deletion
 export const ROOT_LOADED = await import("@heroui/react"); // expect: vendor-root-load
@@ -168,3 +227,38 @@ export const LITERAL_UNMARK = <Select isRequired={false} name="gruppe" />; // ex
 // A mark worked out at a call site is set by hand as much as a literal is.
 export const DERIVED_MARK = <Select isRequired={owed} name="gruppe" />; // expect: hand-set-required
 export const COMPUTED_MARK = <Select isRequired={!false} name="gruppe" />; // expect: hand-set-required
+export const SIGNING_USED = mintRequestActor;
+export const SIGNING_LOADED = import("@/core/actorToken"); // expect: actor-signing-load
+export const AFTER_USED = after;
+// Each ban family through a query suffix, which the bundler resolves to the module itself.
+import { Button as QueriedButton } from "@heroui/react?probe"; // expect: vendor-root
+import { captureStdout as queriedCapture } from "@/core/stdoutCapture?probe"; // expect: test-only
+import { underNext as queriedHarness } from "@/shared/testing/nextContexts?probe"; // expect: test-only
+import { createRequire as queriedRequire } from "node:module?probe"; // expect: node-module
+import { AppRouterContext as QueriedContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js?probe"; // expect: next-private
+import { DatePicker as QueriedPicker } from "@heroui/react/date-picker?probe"; // expect: segmented-import expect: date-alias
+import { Form as QueriedForm } from "@heroui/react/form?probe"; // expect: heroui-form
+import { NumberField as QueriedNumber } from "@heroui/react/number-field?probe"; // expect: number-field
+import { TextField as QueriedText } from "@heroui/react/textfield?probe"; // expect: marked-field
+import { SITE_URL as QUERIED_ORIGIN } from "@/core/brand?probe"; // expect: site-origin
+import { I18nProvider as QueriedLocale } from "@heroui/react/rac?probe"; // expect: locale-provider
+import { HintPanel as QueriedPanel } from "@/shared/components/ui/InfoHint?probe"; // expect: hint-internals
+import { after as queriedAfter } from "next/server?probe"; // expect: next-after
+import { CalendarRoot as QueriedCalendar } from "@heroui/react/calendar?probe"; // expect: date-alias
+export const QUERIED_IMPORTS = [QueriedButton, queriedCapture, queriedHarness, queriedRequire, QueriedContext, QueriedPicker, QueriedForm];
+export const MORE_QUERIED_IMPORTS = [QueriedNumber, QueriedText, QUERIED_ORIGIN, QueriedLocale, QueriedPanel, queriedAfter, QueriedCalendar];
+export const ROOT_LOADED = import("@heroui/react?probe"); // expect: vendor-root-load
+export const FORM_LOADED = import("@heroui/react/form?probe"); // expect: heroui-form-load
+export const NUMBER_LOADED = import("@heroui/react/number-field?probe"); // expect: number-field-load
+export const FIELD_LOADED = import("@heroui/react/select?probe"); // expect: marked-field-load
+export const PICKER_LOADED = import("@heroui/react/date-picker?probe"); // expect: segmented-load
+export const RAC_QUERIED = import("@heroui/react/rac?probe"); // expect: locale-load
+export const CALENDAR_LOADED = import("@heroui/react/calendar?probe"); // expect: calendar-load
+export const CONTEXT_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js?probe"); // expect: next-private-load
+export const CAPTURE_LOADED = import("@/core/stdoutCapture?probe"); // expect: test-only-load
+export const LOADER_LOADED = import("node:module?probe"); // expect: test-only-load
+const { HintPopover: queriedPopover } = await import("@/shared/components/ui/InfoHint?probe"); // expect: hint-internals-load
+import { sendSperreNotice as queriedNotice } from "@/core/mail?probe"; // expect: sperre-notice
+const { sendSperreNotice: loadedQueriedNotice } = await import("@/core/mail.ts?probe"); // expect: sperre-notice-load
+export const NOTICE_USED = [queriedNotice, loadedQueriedNotice];
+export const POPOVER_USED = queriedPopover;

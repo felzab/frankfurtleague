@@ -7,14 +7,16 @@ spelling would file rows no check can match, and nothing would report it.
 
 import hashlib
 import hmac
+from collections.abc import Collection, Iterable
 from http import HTTPStatus
 from typing import Final
 
 from pydantic import SecretStr
 
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import canonical_address
+from app.shared.folding import canonical_address, sign_in_identifier
 from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DAUER_SAISONS
+from app.shared.sub_keys import derive_sub_key
 
 # One code over two readers: each slice words it for its own, an administrator being told plainly
 # what a visitor is told neutrally (`.claude/rules/cross-surface.md`).
@@ -22,15 +24,12 @@ SPERRLISTE_ADRESSE_GESPERRT = "REQ-SPERRLISTE-001"
 
 SPERRLISTE_KEINE_SAISON = "REQ-SPERRLISTE-002"
 
-# One label per purpose: the same master keys a second corpus in a later programme, and a mistake
-# in one must not read the other. Not a rotation scheme (`docs/backend/spec.md :: 1.5`).
+SPERRLISTE_VERWALTUNG = "REQ-SPERRLISTE-003"
+
+# One label per purpose: the same master keys the action log's pseudonyms
+# (`app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.
+# Not a rotation scheme (`docs/backend/spec.md :: 1.5`).
 SPERRLISTE_SCHLUESSEL_VERSION: Final = "sperrliste-v1"
-
-
-def _sub_key(master: SecretStr) -> bytes:
-    """Derived per call rather than memoised: a cache keyed on the master holds the secret in a module-level dict for the process's life."""
-
-    return hmac.new(master.get_secret_value().encode("utf-8"), SPERRLISTE_SCHLUESSEL_VERSION.encode("utf-8"), hashlib.sha256).digest()
 
 
 def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
@@ -42,7 +41,18 @@ def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
 
     # The rule every address payload runs too (`app/shared/schemas/kontakt.py :: CustomEmail`), so an
     # address a payload admitted keys a ban rather than answering 500.
-    return hmac.new(_sub_key(schluessel), canonical_address(address).encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(
+        derive_sub_key(schluessel, SPERRLISTE_SCHLUESSEL_VERSION), canonical_address(address).encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+
+def withheld_actor(actor: str | None, gesperrt: Collection[str]) -> str | None:
+    """An actor field with a barred address withheld, compared on the fold the barred set holds (`docs/backend/spec.md :: I452`)."""
+
+    if actor is None or sign_in_identifier(actor) in gesperrt:
+        return None
+
+    return actor
 
 
 def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
@@ -81,6 +91,43 @@ def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRef
         error_code=SPERRLISTE_KEINE_SAISON,
         status=HTTPStatus.CONFLICT,
         message="a ban lapses after five seasons and no season is running, so there is no season to count them from",
+    )
+
+
+def stored_adresse_hash(address: str, *, schluessel: SecretStr) -> str | None:
+    """The ban key of a stored address, or `None` where today's rule refuses it, as no ban can key one.
+
+    Never raising: a page of rows must not fail on the one a hand edit or an older rule left.
+    """
+
+    try:
+        return adresse_hash(address, schluessel=schluessel)
+    except ValueError:
+        return None
+
+
+def berechtigte_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -> set[str]:
+    """Each administrator's address as a ban is keyed, so a ban is compared in the form it bars by."""
+
+    hashes = (stored_adresse_hash(administrator, schluessel=schluessel) for administrator in administrators)
+
+    return {gehasht for gehasht in hashes if gehasht is not None}
+
+
+def find_verwaltung_refusal(*, gehasht: str, berechtigt: set[str]) -> WriteRefusal | None:
+    """`REQ-SPERRLISTE-003`: the address holds a grant in `berechtigungen`, which is revoked first.
+
+    The target's state, so 409: the ban is refused for what the address is, and revoking the grant
+    is what changes it.
+    """
+
+    if gehasht not in berechtigt:
+        return None
+
+    return WriteRefusal(
+        error_code=SPERRLISTE_VERWALTUNG,
+        status=HTTPStatus.CONFLICT,
+        message="this email address holds access to the administration; revoke that access before banning it",
     )
 
 

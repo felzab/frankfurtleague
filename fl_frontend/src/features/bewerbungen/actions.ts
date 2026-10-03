@@ -7,11 +7,12 @@ import { frontend_config } from "@/core/config";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
+import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { bestaetigungsLink } from "./bestaetigungLink";
@@ -130,7 +131,7 @@ async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<
 export async function annehmenBewerbungAction(
   rawPayload: FLAnnehmenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung; team_id?: string }>> {
-  return runAdminMutation("annehmenBewerbungAction", async () => {
+  return runAdminMutation("annehmenBewerbungAction", { stepUp: true }, async () => {
     const validated = FLAnnehmenBewerbungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -206,7 +207,7 @@ export async function annehmenBewerbungAction(
 export async function ablehnenBewerbungAction(
   rawPayload: FLAblehnenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung }>> {
-  return runAdminMutation("ablehnenBewerbungAction", async () => {
+  return runAdminMutation("ablehnenBewerbungAction", { stepUp: true }, async () => {
     const validated = FLAblehnenBewerbungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -269,7 +270,7 @@ const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repa
 /** What the press cost where no message went out: the mint voided the seat's previous link on its way. */
 const KEIN_LINK_VERSCHICKT = buildRefusal({
   reason: "Der alte Link gilt nicht mehr, und die E-Mail mit dem neuen ging nicht raus",
-  repair: "Versuche es noch einmal",
+  repair: VERSUCHE_ES_ERNEUT,
 });
 
 /**
@@ -340,6 +341,11 @@ async function sendeBestaetigungErneut({
       }),
   });
 
+  // Filed by a deployment that mails nothing, or kept from a barred address: a refusal would offer a
+  // retry no repeat can reach (`docs/frontend/spec.md :: I542`).
+  if (outcome.withheld.length > 0) return { verschickt: true, message: ZURUECKGEHALTEN };
+  if (outcome.gesperrt > 0) return { verschickt: true, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." };
+
   return outcome.unreachable.length === 0
     ? { verschickt: true, message: `Der neue Link ging an ${person.email}.` }
     : { verschickt: false, error: KEIN_LINK_VERSCHICKT };
@@ -350,7 +356,7 @@ async function sendeBestaetigungErneut({
  * the league acts on either way.
  */
 export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult> {
-  return runAdminMutation("einwilligungErneutSendenAction", async () => {
+  return runAdminMutation("einwilligungErneutSendenAction", { stepUp: true }, async () => {
     const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -420,7 +426,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
 export async function kontaktEmailKorrigierenAction(
   rawPayload: FLBewerbungKontaktEmailPayload,
 ): Promise<ActionResult<{ verschickt?: boolean }>> {
-  return runAdminMutation("kontaktEmailKorrigierenAction", async () => {
+  return runAdminMutation("kontaktEmailKorrigierenAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -494,7 +500,7 @@ export async function kontaktEmailKorrigierenAction(
  * send is a link to try again rather than a person who was never seated.
  */
 export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
-  return runAdminMutation("besetzeKontaktSitzAction", async () => {
+  return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
     // Judged before the parse, as the confirmation handlers judge theirs: a page opened before a deploy
     // moved the label would seat a person under words the build does not serve, and no key replays a reseat.
     if (!nenntLaufendeFassung(rawPayload, LIGA_KENNTNISNAHME.textVersion)) return { success: false, error: BEWERBUNG_VERALTET };

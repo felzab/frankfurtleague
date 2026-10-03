@@ -1,6 +1,7 @@
 import z from "zod";
 
-import { ANMELDUNG_LINK, ANMELDUNG_TAG } from "@/core/anmeldeTag";
+import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "@/core/anmeldeTag";
+import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema } from "@/features/zustellung/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
@@ -127,6 +128,8 @@ export type ZustellMeldung =
   // Carries no `meldung` because nothing stores this lane: an administrator locked out of their own
   // mailbox is a line for an operator, and a record here would be a second home for the `auth` store.
   | { ziel: "anmeldung"; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
+  // Nothing stores it for the same reason: the notice's outbox row is gone once stamped, so the line is the record.
+  | { ziel: "berechtigung"; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
   // Its own arm rather than `null`: read as nothing, a tag block this side cannot place is dropped
   // exactly as an untagged message is, and a slice's bounces go unrecorded in silence.
   | { ziel: "unplatzierbar"; grund: ZustellUnplatzierbarGrund; art: FLZustellungZiel | null };
@@ -174,8 +177,12 @@ export function leseZustellEreignis(raw: unknown): ZustellMeldung | null {
 
   // First, because this lane carries neither a `ziel` nor an application's id: read after them it
   // would fall through to the application flow and be reported against a record nobody has.
-  if (ereignis.data.tags?.[ANMELDUNG_TAG] === ANMELDUNG_LINK) {
+  if (ereignis.data.tags?.[ANMELDUNG_TAG] === ANMELDUNG_CODE) {
     return { ziel: "anmeldung", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
+  }
+
+  if (ereignis.data.tags?.[BERECHTIGUNG_TAG] === BERECHTIGUNG_HINWEIS) {
+    return { ziel: "berechtigung", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
   }
 
   const ziel = ereignis.data.tags?.["ziel"];

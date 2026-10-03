@@ -4,17 +4,21 @@ import logging
 import re
 import subprocess
 import sys
+from collections.abc import AsyncIterator
 from http import HTTPStatus
 from typing import Any
 
 import pytest
 from bson import ObjectId
 from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
+from httpx2 import Response
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import refuse
 from app.core.domain import OPERATION_SEPARATOR, RULES
@@ -37,19 +41,19 @@ from app.core.exception_handlers import (
     register_exception_handlers,
 )
 from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, BaseAPIException, RequestAuthorizationException, WriteRefusal
-from app.core.logging import JSONFormatter
-from app.core.middlewares import TraceContextMiddleware
+from app.core.logging import JSONFormatter, TraceContextFilter
+from app.core.middlewares import TracedApp
 from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
 from app.main import RESPONSE_REF, create_app, dependency_refusals, document_routes, publish_refusals, refusal_codes, with_refusals
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, app_calls, callee, parsed
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, app_calls, application, callee, parsed
 from tests.openapi_document import build_document
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
 # handler caplog attaches at setup.
-APP = create_app(build_test_config())
+APP = application()
 
 
 def client() -> TestClient:
@@ -76,9 +80,8 @@ class NamePayload(BaseModel):
 
 # A second app: `APP`'s routes all 503 on the database dependency before parsing can fail, so a
 # payload rejection needs a route that depends on nothing.
-VALIDATION_APP = FastAPI()
+VALIDATION_APP = TracedApp()
 register_exception_handlers(VALIDATION_APP)
-VALIDATION_APP.add_middleware(TraceContextMiddleware)
 
 
 @VALIDATION_APP.post("/name")
@@ -857,6 +860,21 @@ def database_crash_document(caplog, exc: PyMongoError) -> str:
     return logged_document(caplog)
 
 
+@VALIDATION_APP.get("/gathered-crash")
+async def crash_beside_a_refused_write() -> None:
+    """A crash and a refused write failing in one turn of a gather, the crash first."""
+
+    async def crashing() -> None:
+        await asyncio.sleep(0)
+        raise KeyError("verwaltung")
+
+    async def refused_write() -> None:
+        await asyncio.sleep(0)
+        raise WriteError("Document failed validation", 121, REFUSED_DOCUMENT_REPORT)
+
+    await gather_cancelling(crashing(), refused_write())
+
+
 class TestValidationLoggingWithholdsTheValue:
     """The refusal reaches the log naming its field, with the value gone (`docs/logging/spec.md :: L9`).
 
@@ -918,6 +936,17 @@ class TestValidationLoggingWithholdsTheValue:
         assert "nachname" in document
         assert "WriteError" in document and "code 121" in document
         assert DATABASE_FAILED in document
+
+    def test_a_crash_s_stack_withholds_the_refused_value_of_a_write_failing_beside_it(self, caplog):
+        """The crash handler logs the whole stack, which would render a chained sibling's message, the refused document in it."""
+
+        with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
+            response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get("/gathered-crash")
+
+        assert response.status_code == 500
+        document = logged_document(caplog)
+        assert REFUSED_CONSENT_SOURCE not in document
+        assert UNHANDLED_CRASH in document and "Failed beside it: WriteError" in document
 
     def test_the_walk_never_descends_into_the_refused_value(self, caplog):
         """Catches widening the report keys walked to the ones a refused value sits under."""
@@ -1019,3 +1048,59 @@ class TestAccessLine:
 
         paths = [record.path for record in caplog.records if getattr(record, "path", None)]
         assert "/api/v0/spiele?limit=5" in paths
+
+
+# The shipped stack around two routes that fail, built at module level for `APP`'s reason; an app of
+# its own, `APP` being every module's.
+CRASHING_APP = create_app(build_test_config())
+
+
+async def crash() -> None:
+    raise KeyError("verwaltung")
+
+
+async def break_after_the_status() -> StreamingResponse:
+    async def body() -> AsyncIterator[bytes]:
+        yield b"{"
+        raise RuntimeError("the body failed after its status was sent")
+
+    return StreamingResponse(body())
+
+
+CRASHING_APP.add_api_route("/crash", crash)
+CRASHING_APP.add_api_route("/broken-stream", break_after_the_status)
+
+CRASHES = [
+    pytest.param("/crash", 500, id="a crash no handler answers"),
+    pytest.param("/broken-stream", 200, id="a body failing after its status was sent"),
+]
+
+
+def _crashed(caplog: pytest.LogCaptureFixture, path: str) -> tuple[Response, list[Any]]:
+    # The filter the console handler stamps each line with, so a record carries the ids the sink would read.
+    caplog.handler.addFilter(TraceContextFilter())
+    with caplog.at_level(logging.INFO, logger="frankfurtleague"):
+        response = TestClient(CRASHING_APP, raise_server_exceptions=False).get(path, headers={"traceparent": TRACEPARENT})
+
+    return response, caplog.records
+
+
+class TestACrashIsAnsweredInsideItsRequest:
+    """`docs/logging/spec.md :: L4`: Starlette runs the catch-all handler in its outermost layer.
+
+    So the handler reads the request's ids only where they are bound around that layer.
+    """
+
+    def test_the_failure_body_quotes_the_request_s_trace_id(self, caplog):
+        response, _ = _crashed(caplog, "/crash")
+
+        assert (response.status_code, response.json()) == (500, {"error_code": UNHANDLED_CRASH, "trace_id": "c0ffee00" * 4})
+
+    @pytest.mark.parametrize(("path", "status"), CRASHES)
+    def test_the_crash_line_carries_the_access_line_s_ids(self, caplog, path: str, status: int):
+        _, records = _crashed(caplog, path)
+        access = [(record.status, record.trace_id, record.span_id) for record in records if getattr(record, "method", None) is not None]
+        crashes = [(record.trace_id, record.span_id) for record in records if getattr(record, "error_code", None) == UNHANDLED_CRASH]
+
+        assert [line[:2] for line in access] == [(status, "c0ffee00" * 4)]
+        assert crashes == [access[0][1:]]

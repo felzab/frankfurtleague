@@ -35,6 +35,7 @@ const OPEN: Record<string, ReactNode> = {
   "shared/components/ui/ConfirmDeleteModal.tsx": h(ConfirmDeleteModal, {
     isOpen: true,
     onClose: nothing,
+    onRetired: nothing,
     heading: "Spielort stilllegen",
     entityLabel: "den Spielort",
     entityName: "Sportplatz Nord",

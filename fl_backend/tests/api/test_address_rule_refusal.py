@@ -15,10 +15,10 @@ import app
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.core.config import API_VERSION
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
-from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
+from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
+from tests.config import ADMIN_KEY, ADMINISTRATORS, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
 # Built from code points rather than spelled: each renders like the ASCII character beside it, and a
 # reader fixing the "typo" would leave every case below comparing ASCII with ASCII.
@@ -51,7 +51,7 @@ UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
 # which one a cut write answers is `app/core/exception_handlers.py :: db_exception_handler`'s question.
 UNREACHED_DATABASE = {DATABASE_FAILED, UNKNOWN_OUTCOME}
 
-ADMIN_HEADERS = {**ADMIN_AUTH, ACTOR_HEADER: "admin@frankfurtleague.de"}
+ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
 
 REFEREE_ID = "6890a1b2c3d4e5f607830001"
 
@@ -82,10 +82,10 @@ def answered(route: str, email: str) -> Response:
 
 def requested(method: str, path: str, headers: Mapping[str, str], **sent: Any) -> Response:
     async def _answered() -> Response:
-        async with app_client(UNANSWERED_URI) as http:
-            # The app's request deadline would hold each control against this unanswered server,
-            # and nested inside this one it cannot extend it. A refused body touches no driver
-            # call, so no deadline turns a 422 into the control's answer.
+        async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
+            # The app's deadline would hold each control against this unanswered server; nested in
+            # this one it cannot extend it. With `admitting` answering the actor check, a refused
+            # body touches no driver, so no deadline turns a 422 into the control's.
             with pymongo.timeout(UNANSWERED_DEADLINE_S):
                 return await http.request(method, f"/api/v{API_VERSION}{path}", headers=headers, **sent)
 

@@ -1,30 +1,42 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
+import { runAsTestFile } from "@/core/childTestRun.ts";
+import { person } from "@/core/subjectFixtures.ts";
 
-const SRC = path.resolve(import.meta.dirname, "..", "..");
+import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
 
 const { raised } = doubleToasts();
 
 /* One slice's real module, replaced whole: what the double has to derive is that module's own export
    list, so a stub written here would prove nothing about the derivation. */
 const { calls, answerWith, answerPending, leavePending } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
-const { setSession } = doubleActionRequest();
+const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // A module a real action writes through, which the double refuses rather than stands in for.
 doubleActions({ modules: ["/src/features/spielorte/mutations.ts"] });
+// A module the case below writes, whose one export's name holds a dollar sign.
+doubleActions({ modules: ["/dollarNamed.mjs"] });
 
 /* `await import`, never a static import beside the doubles: each hook is registered as its call
    above evaluates, and a static import would have resolved the real module before then. */
 const { appToast, UNDO_TIMEOUT_MS } = await import("@/shared/utils/appToast.ts");
 const spieltage = await import("@/features/spieltage/actions.ts");
 const nextCache = await import("next/cache");
-const { getAdminSession, getSignInDestination } = await import("@/core/auth.ts");
+const { getAdminSession, getKontoSession, getSignInDestination } = await import("@/core/auth.ts");
+const { getSubjectSession } = await import("@/core/subject.ts");
+
+/** A module exporting `names`, beside a block comment holding a line shaped as one more export. */
+const moduleExporting = (...names: string[]): string =>
+  [...names.map((name) => `export const ${name} = async () => undefined;`), "/*", "export const nurImKommentar = 1;", "*/", ""].join("\n");
+
+type Served = { session: { createdAt: Date } };
+
+/** The session one case was served, which the case after it compares its own against. */
+let earlier: Served | undefined;
 
 describe("the actions double", () => {
   /* Stood in for, a module a real action writes through records no write, and the admin spine then
@@ -44,6 +56,22 @@ describe("the actions double", () => {
     await spieltage.patchSpieltagAction(payload);
 
     assert.deepEqual(calls, [{ action: "patchSpieltagAction", payload }]);
+  });
+
+  /* A name cut at its dollar sign or an umlaut, or read out of a comment, is an action the module
+     never had, and the import of the real name fails to link. */
+  it("carries every action under its whole name, and none a comment names", async () => {
+    const scratch = mkdtempSync(path.join(tmpdir(), "fl-dollar-"));
+    const file = path.join(scratch, "dollarNamed.mjs");
+    writeFileSync(file, moduleExporting("save$Entwurf", "prüfeEntwurf"));
+
+    try {
+      const doubled = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
+
+      assert.deepEqual(Object.keys(doubled).sort(), ["prüfeEntwurf", "save$Entwurf"]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
   });
 
   it("answers as landed until a case says otherwise, and then as that case says", async () => {
@@ -82,41 +110,20 @@ describe("the actions double", () => {
   /* The refusal is an `afterEach` failing the case that left the write, which no case in this file can
      observe of itself: a file that leaves one, run in a child, is where it shows. */
   it("fails a case that leaves a write running without naming why", () => {
-    const scratch = mkdtempSync(path.join(tmpdir(), "fl-pending-"));
-    const fixture = path.join(scratch, "leftPending.test.mjs");
-    const urlOf = (relative: string) => JSON.stringify(pathToFileURL(path.join(SRC, relative)).href);
-    writeFileSync(
-      fixture,
-      `import { it } from "node:test";
-import { doubleActions } from ${urlOf("shared/testing/actionDoubles.ts")};
+    const run = runAsTestFile(`import { it } from "node:test";
+import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 const { answerWith } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
-const spieltage = await import(${urlOf("features/spieltage/actions.ts")});
+const spieltage = await import("@/features/spieltage/actions.ts");
 it("leaves a write running", () => {
   answerWith(() => new Promise(() => undefined));
   void spieltage.patchSpieltagAction({ id: "s1" });
 });
-`,
-    );
+`);
 
-    // Without `NODE_TEST_CONTEXT`, which this runner sets and under which a child refuses to run a file;
-    // and without the gate's shard, which `NODE_OPTIONS` carries and which leaves a one-file child no file.
-    const env = { ...process.env, NODE_OPTIONS: (process.env.NODE_OPTIONS ?? "").replace(/--test-shard=\S+/g, "") };
-    Reflect.deleteProperty(env, "NODE_TEST_CONTEXT");
-
-    try {
-      const run = spawnSync(
-        process.execPath,
-        ["--import", pathToFileURL(path.join(SRC, "..", "tsconfig-alias-hook.mjs")).href, "--test", "--test-reporter=spec", fixture],
-        { encoding: "utf8", timeout: 120_000, env },
-      );
-
-      // First, so a child that ran nothing says so rather than passing or failing for another reason.
-      assert.ok(run.stdout.includes("leaves a write running"), `the child ran no case of the fixture:\n${run.stdout}${run.stderr}`);
-      assert.equal(run.status, 1, `the file left a write running and exited ${String(run.status)}:\n${run.stdout}${run.stderr}`);
-      assert.ok(run.stdout.includes("the case left these actions pending"), run.stdout);
-    } finally {
-      rmSync(scratch, { recursive: true, force: true });
-    }
+    // First, so a child that ran nothing says so rather than passing or failing for another reason.
+    assert.ok(run.output.includes("leaves a write running"), `the child ran no case of the fixture:\n${run.output}`);
+    assert.equal(run.status, 1, `the file left a write running and exited ${String(run.status)}:\n${run.output}`);
+    assert.ok(run.output.includes("the case left these actions pending"), run.output);
   });
 
   it("lets a case that names why leave a write running", () => {
@@ -128,6 +135,23 @@ it("leaves a write running", () => {
 });
 
 describe("the request double", () => {
+  /* The sign-in store's export names are read off its source as the actions module's are, so a name cut
+     at its dollar sign or at an umlaut is a store export no import can link. */
+  it("carries every sign-in store export under its whole name, and none a comment names", async () => {
+    const scratch = mkdtempSync(path.join(tmpdir(), "fl-dollar-store-"));
+    const file = path.join(scratch, "src", "core", "auth.ts");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, moduleExporting("sign$Out", "prüfeSitzung"));
+
+    try {
+      const doubled = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
+
+      assert.deepEqual(Object.keys(doubled).sort(), ["prüfeSitzung", "sign$Out"]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it("records each invalidation a write makes, in order, with what it was handed", () => {
     nextCache.updateTag("teams");
     nextCache.refresh();
@@ -149,15 +173,70 @@ describe("the request double", () => {
     assert.equal(await getAdminSession(), null);
     assert.equal(await getSignInDestination(), "/signin", "a caller with no session is sent somewhere other than to sign in");
 
-    setSession(null, "/");
+    setSession(null, "/signin/passkey");
 
-    assert.equal(await getSignInDestination(), "/", "the destination a case named went unanswered");
+    assert.equal(await getSignInDestination(), "/signin/passkey", "the destination a case named went unanswered");
   });
 
   /* After the case above, whose signed-out request would otherwise stand in for this case's caller. */
   it("signs the next case in as the request's own session again", async () => {
-    assert.deepEqual(await getAdminSession(), { user: { email: "vorstand@example.org" } });
-    assert.equal(await getSignInDestination(), "/admin", "the previous case's destination outlived its case");
+    const served = (await getAdminSession()) as { user: { email: string }; session: object };
+    assert.equal(served.user.email, "vorstand@example.org");
+    assert.ok("createdAt" in served.session, "the administrator is served without the row the step-up window is read off");
+    assert.equal(await getSignInDestination(), "/bereich", "the previous case's destination outlived its case");
+  });
+
+  it("hands every read of one case the same session", async () => {
+    earlier = (await getAdminSession()) as Served;
+    assert.equal(await getKontoSession(), earlier, "two reads of one case were handed two sessions");
+
+    // The next case starts on a later clock reading, so its session can be told apart by age.
+    const madeAt = earlier.session.createdAt.getTime();
+    while (Date.now() === madeAt) await new Promise((resolve) => setTimeout(resolve, 1));
+  });
+
+  /* After the case above, naming the same session: a window read off `createdAt` would otherwise run
+     from the file's first read, and a case late in a slow file meet a session it never aged. */
+  it("serves the next case a session made at that case's start", async () => {
+    const next = (await getAdminSession()) as Served;
+    assert.ok(earlier !== undefined, "the case above served nothing");
+    assert.ok(next.session.createdAt > earlier.session.createdAt, "the case was served the session an earlier case made");
+  });
+
+  /* The account spine reads the served session's own fields: a bare `{ user }` would answer every
+     one of them `undefined`, and a check comparing two of them would pass on two undefineds. */
+  it("answers the account guard in the shape the real guard serves, and nobody as nobody", async () => {
+    const served = (await getKontoSession()) as { user: Record<string, unknown>; session: Record<string, unknown> };
+
+    assert.deepEqual(Object.keys(served.user).sort(), ["email", "id"]);
+    assert.equal(served.user.email, "vorstand@example.org");
+    assert.deepEqual(Object.keys(served.session).sort(), ["authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
+    assert.ok(served.session.createdAt instanceof Date);
+
+    setSession(null);
+    assert.equal(await getKontoSession(), null);
+  });
+
+  /* The real lookup reads the sign-in store this double replaces, so a page reaching it would crash
+     on the doubled `auth` rather than answer. */
+  it("answers the subject a case names, and counts every read of it", async () => {
+    const subject = person({ spieler: [{ spieler_id: "6890a1b2c3d4e5f607250001" }] });
+    setSubject(subject);
+
+    assert.deepEqual(await getSubjectSession(), subject);
+    assert.deepEqual(await getSubjectSession(), subject);
+    assert.equal(subjectReads(), 2);
+
+    const refused = new Error("die Suche nach dem Subjekt schlug fehl");
+    setSubject(refused);
+
+    await assert.rejects(getSubjectSession(), refused);
+  });
+
+  /* After the case above: its subject and its count would otherwise stand in for this case's. */
+  it("starts the next case with no person signed in and no read counted", async () => {
+    assert.equal(subjectReads(), 0);
+    assert.equal(await getSubjectSession(), null);
   });
 });
 

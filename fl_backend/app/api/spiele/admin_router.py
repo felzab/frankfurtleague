@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query, Request
+from fastapi import APIRouter, Body, Depends, Query
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -73,16 +73,17 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing, stores_nothing_when
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing_when
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
+from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 
@@ -466,18 +467,14 @@ async def _write_spiel_data(
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
     # write-conflict on the same advanced fixture, and the callback is safe to retry, every pass
     # re-reading what it judges.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(write_and_resolve_the_bracket)
 
 
 @stores_nothing_when("dry_run")
 async def previewing(
-    request: Request,
     dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> bool:
-    # Declared before any database call, so a deadline cutting the preview answers a failed read.
-    if dry_run:
-        stores_nothing(request)
     return dry_run
 
 

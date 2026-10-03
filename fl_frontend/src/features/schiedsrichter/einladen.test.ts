@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -13,15 +13,7 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 doubleActionRequest();
 const mail = doubleSendMail();
 // The origin the link is minted on, which the real config reads from an environment this run has not got.
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) {
-      return { format: "module", source: `export const frontend_config = { AUTH_URL: "http://localhost:3000" };`, shortCircuit: true };
-    }
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
 
 /** What each endpoint answers in this case, returned or, where it is an `Error`, thrown. */
 type Answer = () => unknown;
@@ -49,8 +41,9 @@ const client = doubleApiAnswers(async (call) => {
 const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsrichterAction, reactivateSchiedsrichterAction } =
   await import("./actions.ts");
 const { describeLinkMail } = await import("./notifications.ts");
+const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
-const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
+const { FELD_ABGELEHNT, unansweredAction } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
@@ -149,6 +142,14 @@ describe("the re-send the editor's panel presses", () => {
     }
   });
 
+  it("answers a re-send whose link broke off in transit as of unknown outcome", async () => {
+    mail.answerWith(() => "lost");
+
+    const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(res, unansweredAction());
+  });
+
   /* Judged before the mint: a round trip to be told what the panel can already see is one nobody
      owes, and a mint whose message cannot leave stamps a send day for a message that never went. */
   it("refuses a row with no address without minting anything", async () => {
@@ -194,7 +195,7 @@ describe("the re-send the editor's panel presses", () => {
   }
 
   /* The one refusal here that no endpoint publishes, so `publishedRefusals` never reaches it and a verb
-     drifting back would stand unseen beside the four sentences that say „senden“. */
+     drifting back would stand unseen beside the sentences that say „senden“. */
   it("names the send in the league's own verb where the mint was not acknowledged", async () => {
     mint = () => ({ acknowledged: 0, bestaetigung: minted("anna@example.de") });
 
@@ -219,7 +220,15 @@ describe("what the create tells the administrator", () => {
   it("reports the message the mint sent rather than the title the toast already carries", async () => {
     const res = await postSchiedsrichterAction(ENTWURF);
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", true));
+    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "gesendet"));
+  });
+
+  it("answers a create whose link broke off in transit as of unknown outcome", async () => {
+    mail.answerWith(() => "lost");
+
+    const res = await postSchiedsrichterAction(ENTWURF);
+
+    assert.deepEqual(res, unansweredAction());
   });
 
   /* The cleared box submits `null`: refused on that box in German, before the endpoint is reached,
@@ -296,7 +305,7 @@ describe("what the save hands the editor about the message it sent", () => {
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
     assert.equal(res.success && res.message, "Schiedsrichter bearbeitet");
-    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", true));
+    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", "gesendet"));
     assert.equal(res.success && res.versandFehlgeschlagen, false);
   });
 
@@ -305,8 +314,29 @@ describe("what the save hands the editor about the message it sent", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", false));
+    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", "fehlgeschlagen"));
     assert.equal(res.success && res.versandFehlgeschlagen, true);
+  });
+
+  /* Outside production every send is withheld, and a warning there grades every local save as one
+     whose link failed to leave. */
+  it("marks no failure where this deployment withheld the send, and says so in the deployment's words", async () => {
+    mail.answerWith(() => "withheld");
+
+    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
+
+    assert.equal(res.success && res.versandSatz, ZURUECKGEHALTEN);
+    assert.equal(res.success && res.versandFehlgeschlagen, false);
+  });
+
+  /* A link whose connection broke off may have reached the provider: `mailSchiedsrichterLink`'s own
+     reading is a failure, and only the request's mark keeps the save from reporting one. */
+  it("answers a save whose link broke off in transit as of unknown outcome", async () => {
+    mail.answerWith(() => "lost");
+
+    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(res, unansweredAction());
   });
 
   it("hands over no sentence where the save minted nothing", async () => {
@@ -325,7 +355,7 @@ describe("the reactivation of an unanswered referee", () => {
   it("mails the link the reactivation minted, to the address the mint read, and says so", async () => {
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", true));
+    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "gesendet"));
     assert.deepEqual(
       mail.sent.map(({ to, tags }) => ({ to, zielId: tags?.ziel_id })),
       [{ to: "anna@example.de", zielId: SCHIEDSRICHTER_ID }],
@@ -338,8 +368,16 @@ describe("the reactivation of an unanswered referee", () => {
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", false));
+    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "fehlgeschlagen"));
     assert.equal(res.success && res.versandFehlgeschlagen, true);
+  });
+
+  it("answers a reactivation whose link broke off in transit as of unknown outcome", async () => {
+    mail.answerWith(() => "lost");
+
+    const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(res, unansweredAction());
   });
 
   it("mails nothing where the row came back unasked", async () => {

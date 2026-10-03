@@ -18,6 +18,7 @@ from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection, DBClient
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
+from app.core.transactions import transaction_session
 
 # Its own router rather than an endpoint on the sweep's: `.claude/rules/backend.md` **routing**
 # refuses a merge that moves a guard onto an endpoint. System tier and the system actor for the
@@ -75,7 +76,7 @@ async def _apply(
 
         return applying
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return FLBewerbungZustellungResponse(angewendet=await session.with_transaction(write_the_state))
 
 

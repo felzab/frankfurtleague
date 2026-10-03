@@ -22,25 +22,36 @@ from app.api.bewerbungen.services import (
     compose_decline_update,
     find_already_answered_refusal,
     find_alter_refusal,
+    find_einwilligung_gesperrt_refusal,
     find_expired_token_refusal,
     find_unknown_token_refusal,
     hash_token,
     mindestalter_for,
     paired_seat,
+    seat_adressen,
     seat_holding,
     seat_vorname,
     zustand_of,
 )
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, pull_one_from_db, refuse
-from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, TeamsCollection, get_german_date_str, get_germany_now
+from app.core.dependencies import (
+    AktionenCollection,
+    BewerbungenCollection,
+    DBClient,
+    TeamsCollection,
+    get_german_date_str,
+    get_germany_now,
+)
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
+from app.core.transactions import transaction_session
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
-# credential, as for a sign-in link, so both endpoints are base-tier and bound to the public actor
+# credential, as a sign-in code is, so both endpoints are base-tier and bound to the public actor
 # for `app/api/bewerbungen/public_router.py`'s reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen/einwilligung",
@@ -71,6 +82,7 @@ async def get_einwilligung_ansicht(
     ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
+    sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungAnsichtResponse:
     """
@@ -82,7 +94,9 @@ async def get_einwilligung_ansicht(
     exactly the dates the answer will take.
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     seat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,
-    so a reopened link shows what became of it.
+    so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list
+    holds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred
+    person nothing to press.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -100,16 +114,19 @@ async def get_einwilligung_ansicht(
     # The answer's own resolution, so the page names exactly the seats a press will write and states
     # the floor that press will be judged by.
     zugleich = paired_seat(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=seat)
+    seats = (seat,) if zugleich is None else (seat, zugleich)
+
+    gesperrt = await adressen_gesperrt(sperrliste, seat_adressen(kontakte=bewerbung_raw.get("kontakte"), seats=seats))
 
     return FLBewerbungEinwilligungAnsichtResponse(
-        zustand=zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today),
+        zustand=zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, gesperrt=bool(gesperrt)),
         saison_id=str(bewerbung_raw["saison_id"]),
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         rolle=seat,
         zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
-        mindestalter=mindestalter_for((seat,) if zugleich is None else (seat, zugleich)),
+        mindestalter=mindestalter_for(seats),
     )
 
 
@@ -123,6 +140,7 @@ async def post_einwilligung(
     antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     aktionen_collection: AktionenCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -133,9 +151,10 @@ async def post_einwilligung(
     A consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;
     a decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:
     a token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided
-    (`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the span the seats this
-    person holds ask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year
-    spends nothing.
+    (`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), a consent from an address the ban list holds
+    now, whenever the link was minted (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds
+    ask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing. A
+    decline is taken from a barred address too: it empties the seat.
 
     The answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own
     mailbox among it: this is a server-to-server response, and a caller putting it in front of a browser
@@ -143,6 +162,9 @@ async def post_einwilligung(
     """
 
     token_hash = hash_token(antwort_data.token)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only for the
+    # answer that asks the ban.
+    massgebliche_saison_id = await sperrliste_saison(sperrliste) if antwort_data.antwort == "erteilt" else None
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLBewerbungEinwilligungAntwortResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
@@ -182,6 +204,13 @@ async def post_einwilligung(
         if antwort_data.antwort == "erteilt":
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
+
+            # Asked at the press rather than only at the mint, so a ban entered after the link went out
+            # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
+            gesperrt = await adressen_gesperrt(
+                sperrliste, seat_adressen(kontakte=kontakte, seats=seats), massgebliche_saison_id=massgebliche_saison_id, session=session
+            )
+            refuse(find_einwilligung_gesperrt_refusal(gesperrt=bool(gesperrt)))
             # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
             refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter_for(seats)))
@@ -247,5 +276,5 @@ async def post_einwilligung(
             ansprechperson_rollen=abgelehnt_rollen,
         )
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(answer_for_the_person)

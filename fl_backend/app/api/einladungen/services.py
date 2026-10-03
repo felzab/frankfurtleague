@@ -5,13 +5,14 @@ One planner decides who a season's press mails, and the preview answers the same
 of one rule is how a preview starts telling an administrator something the press then contradicts.
 """
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import KONTAKT_SEATS, seat_named
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersandGrund
 from app.core.exceptions import WriteRefusal
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import mailbox_key
 
 EINLADUNG_TEAM_NICHT_EINGETRAGEN = "REQ-EINLADUNG-001"
@@ -166,10 +167,7 @@ def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
     if not isinstance(entry, Mapping):
         return None
 
-    einwilligung = entry.get("einwilligung")
-    bestaetigt = einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
-
-    return entry if bestaetigt else None
+    return entry if is_confirmed(entry.get("einwilligung")) else None
 
 
 def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLEinladungEmpfaenger]:
@@ -209,8 +207,13 @@ class EinladungVersandPlan(NamedTuple):
     ersetzt_link: bool
 
 
-def plan_einladung_versand(*, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, erneut: bool) -> EinladungVersandPlan:
-    """Who this team's link goes to, or why it is skipped. The preview and the press both read it."""
+def plan_einladung_versand(
+    *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, erneut: bool, gesperrt: Collection[str]
+) -> EinladungVersandPlan:
+    """Who this team's link goes to, or why it is skipped. The preview and the press both read it.
+
+    `gesperrt` holds the stored addresses a standing ban holds, as `app/api/sperrliste/lookup.py :: adressen_gesperrt` answers them.
+    """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
     # season by either route, and a skip naming the contact block would send somebody to repair it.
@@ -223,6 +226,12 @@ def plan_einladung_versand(*, austritt: Any, kontakte: Any, einladung_raw: Mappi
     empfaenger = bestaetigte_empfaenger(kontakte=kontakte)
     if not empfaenger:
         return EinladungVersandPlan([], "keine_bestaetigte_kontaktperson", False)
+
+    # Ahead of the delivery record, which the mailer never writes for a barred address: a team reached
+    # by nobody else would lose its link to a fresh mint at every press while the ban stands
+    # (`docs/backend/spec.md :: I544`).
+    if all(person.email in gesperrt for person in empfaenger):
+        return EinladungVersandPlan([], "kontakte_gesperrt", False)
 
     # The delivery record and never the row: a team holding a live link nobody sent is a team this
     # press exists to reach, and skipping on the row would leave sixteen links unsent for ever.

@@ -7,7 +7,7 @@ import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
-import type { FLSperrlisteEintrag } from "@/features/sperrliste/schemas.ts";
+import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas.ts";
 
 /** The removal each row offers: a real one needs a session and a backend. */
 doubleActions({ modules: ["/src/features/sperrliste/actions.ts"] });
@@ -16,11 +16,12 @@ doubleActions({ modules: ["/src/features/sperrliste/actions.ts"] });
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminSperrlisteView } = await import("./AdminSperrlisteView.tsx");
 
-const SPERREN: FLSperrlisteEintrag[] = [
+const SPERREN: FLSperrlisteZeile[] = [
   {
     id: "6890a1b2c3d4e5f607190001",
     grund: "Falsches Geburtsdatum angegeben",
     erstellt_von: "vorstand@example.org",
+    erstellt_von_gesperrt: false,
     erstellt_am: "2026-03-12",
     gesperrt_bis_saison_id: "2031",
   },
@@ -28,6 +29,7 @@ const SPERREN: FLSperrlisteEintrag[] = [
     id: "6890a1b2c3d4e5f607190002",
     grund: "Wiederholt fremde Namen eingetragen",
     erstellt_von: "turnier@example.org",
+    erstellt_von_gesperrt: false,
     erstellt_am: "2026-04-02",
     gesperrt_bis_saison_id: "2032",
   },
@@ -35,7 +37,9 @@ const SPERREN: FLSperrlisteEintrag[] = [
 
 const viewText = (anzahlGesamt: number): string =>
   textOf(
-    renderTree(underNext(h(AdminSperrlisteView, { sperrliste: SPERREN, anzahlGesamt: anzahlGesamt }), { pathname: "/admin/sperrliste" })),
+    renderTree(
+      underNext(h(AdminSperrlisteView, { sperrliste: SPERREN, anzahlGesamt: anzahlGesamt }), { pathname: "/bereich/admin/sperrliste" }),
+    ),
     " ",
   )
     .replace(/\s+/g, " ")

@@ -1,6 +1,7 @@
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { runAdminRead } from "@/shared/utils/adminRead";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
@@ -20,7 +21,7 @@ import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, Schiedsrichte
  */
 export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = {}): Promise<FLSchiedsrichterListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     apiClient<FLSchiedsrichterListResponse>("/schiedsrichter", FLSchiedsrichterListResponseSchema, {
       authType: "admin",
       params: filters,
@@ -35,7 +36,7 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
  * **Uncached** for the reason the list is.
  */
 export async function getSchiedsrichterById(schiedsrichterId: string): Promise<FLSchiedsrichterSingleResponse | null> {
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
     // status still throws.
     apiClient<FLSchiedsrichterSingleResponse>(`/schiedsrichter/${schiedsrichterId}`, FLSchiedsrichterSingleResponseSchema, {
@@ -71,7 +72,7 @@ export type SchiedsrichterBestaetigungRefusal = {
 };
 
 // A thunk, never a number: the floor is read for the age arm alone, and a caller resolving it first
-// answers the three arms that SPEND the link out of a second read, which finds nothing to read.
+// answers every arm naming the link's state out of a second read, which finds nothing to read.
 /**
  * `null` where the code is none of these. The floor comes from the token's own read: a number of
  * this mapper's own would be a second copy of one the endpoint alone decides.
@@ -100,6 +101,9 @@ export async function mapSchiedsrichterBestaetigungRefusal(
       return { zustand: "abgelaufen" };
     case "REQ-SCHIEDSRICHTER-004":
       return { zustand: "bestaetigt" };
+    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
+    case "REQ-SCHIEDSRICHTER-009":
+      return { zustand: "gesperrt" };
     // The one refusal that spends nothing, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-SCHIEDSRICHTER-005": {

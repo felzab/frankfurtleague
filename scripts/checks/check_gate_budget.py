@@ -321,8 +321,9 @@ def _median(values: list[int]) -> int:
 
 def report_window(rows: dict[str, Row], spans: list[Span], size: int, reference: str) -> tuple[str, str]:
     """The run summary's markdown, and which of `clean`, `partial` or `regressed` it reached."""
-    # A `-` in the seconds column is a job budgeted with no reference cut from main runs, not a zero.
-    referenced = {job: (row.seconds, row.floor or 0) for job, row in rows.items() if row.seconds is not None}
+    # A reference and its floor are one pair, and a `-` in either is no pair rather than a zero: a
+    # floor read as zero would name every move of that job as a regression.
+    referenced = {job: (row.seconds, row.floor) for job, row in rows.items() if row.seconds is not None and row.floor is not None}
     seen: dict[str, list[int]] = {}
     unreferenced: list[str] = []
     skipped = dropped = 0
@@ -363,7 +364,10 @@ def report_window(rows: dict[str, Row], spans: list[Span], size: int, reference:
     lines = [line for _, line in sorted(loud, key=lambda entry: -entry[0])]
 
     whole = not gone
-    summed, summed_floor = referenced.get(TOTAL, (0, 0))
+    _, summed_floor = referenced.get(TOTAL, (0, 0))
+    # The references the medians sit beside, not the total row: that row also sums a reference whose
+    # `-` floor kept its job out of every median, and against it the gate would read as faster.
+    summed = sum(seconds for job, (seconds, _) in referenced.items() if job != TOTAL) if TOTAL in referenced else 0
     # Only where every referenced job was observed: a window missing one leaves a sum that is short
     # rather than one that is faster.
     if whole and summed > 0:

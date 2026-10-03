@@ -97,6 +97,15 @@ describe("what the picker says before anyone opens it", () => {
     assert.ok(!GEWAEHLT.includes("Gruppe wählen"), "the prompt still stands over a row already picked");
   });
 
+  /* A picked team's name is whatever somebody typed, and the trigger is one line at the field's height:
+     it truncates as each row of the list does, rather than widening the field past its panel. */
+  it("truncates the picked row's name inside the trigger", () => {
+    const worte = /<span class="([^"]*)">Gruppe A \(3 von 8\)<\/span>/.exec(GEWAEHLT)?.[1]?.split(" ") ?? [];
+
+    assert.ok(worte.includes("min-w-0"), "the trigger's words keep their longest word as their floor");
+    assert.ok(worte.includes("truncate"), "the trigger's words run past the trigger rather than end in an ellipsis");
+  });
+
   /* HeroUI's own `Label` rather than a bare span: it wires `for`/`id` onto the trigger, which an
      `aria-label` alone leaves unlabelled for anything reading the DOM rather than the a11y tree. */
   it("labels its trigger with an element rather than a string alone", () => {

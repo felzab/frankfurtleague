@@ -18,7 +18,9 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
   const button = (
     <button
       type="button"
-      disabled={confirm.isPending}
+      // Held rather than disabled while the sign-out runs: `disabled` drops the focus that pressed it to
+      // the page, and the blur disarms. The hook already takes no second press in flight.
+      aria-disabled={confirm.isPending}
       aria-label={confirm.isConfirming ? "Abmelden?" : "Abmelden"}
       data-signout-control="true"
       onClick={press}
@@ -29,7 +31,7 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       }}
       /* One red at rest and one when armed, with no hover step: a control that only looks destructive on
          approach says nothing to a reader scanning the bar. */
-      className={`flex h-9 shrink-0 items-center justify-center rounded-md font-semibold text-danger-strong transition-colors disabled:opacity-60 ${
+      className={`flex h-9 shrink-0 items-center justify-center rounded-md font-semibold text-danger-strong transition-colors aria-disabled:opacity-60 ${
         confirm.isConfirming ? "bg-danger/15 px-3" : "bg-danger/10 px-2"
       }`}>
       {/* Armed, the control is its question and nothing else; at rest it is the one glyph, so the bar stays quiet. */}

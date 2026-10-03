@@ -40,7 +40,7 @@ const UEBERSCHRIFT = "Dein Eintrag als Schiedsrichterin oder Schiedsrichter";
 const ignorierSatz = (kontakt: string): string =>
   `Du weißt nichts von einem Eintrag bei der ${BRAND_NAME}? Dann ignoriere diese E-Mail einfach: Ohne Deine Bestätigung erscheint Dein Name nirgends auf der Website. Sollen wir den Eintrag löschen, schreib uns an ${kontakt}.`;
 
-// Spelled here as well as in `fl_frontend/src/core/authEmail.ts :: FALLBACK_SATZ`: one situation
+// Spelled here as well as in `fl_frontend/src/core/bewerbungEmail.ts :: FALLBACK_SATZ`: one situation
 // reads as one sentence to the person meeting it, so the two move together.
 const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 

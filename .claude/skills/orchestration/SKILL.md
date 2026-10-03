@@ -97,8 +97,8 @@ The ending, in order:
 
 1. Assemble the last wave (§5). **The audit its last commit dispatches, and the fix the cycle ends
    on (§6), are a whole round the ending still holds: count both in the floor above.**
-2. **Run §2's enumeration again here**, against the branch this time: a slice nobody dispatched and
-   a slice deliberately deferred are indistinguishable until someone asks. Then run
+2. **Run §2's enumeration again here, and close every findings-ledger row**: a slice or finding
+   nobody owns and one deliberately deferred are indistinguishable until someone asks. Then run
    `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. **The branch is
    stable only here** — the last fix committed, the gate green, no live agent still able to return a
    finding, and every worktree row closed ([register-template.md](register-template.md)).
@@ -185,8 +185,8 @@ Run it for every agent, the fifteenth as much as the first.
   that way. Route one agent's conclusion to another as a claim with its source named, never as a
   premise; your own inference, stated one notch wider than its evidence, reaches an agent as fact.
   When two agents disagree about one file, drive the difference — never pick a side, never average.
-- **Route every out-of-scope finding in the turn you read it**, from the report's separately headed
-  list: a fixer in this wave where it is a fix, the owner where its place in this session is unsure,
+- **Route every out-of-scope finding in the turn you read it, as a findings-ledger row**
+  ([register-template.md](register-template.md)): a fixer where it is a fix, the owner where unsure,
   or a check where the class is mechanically detectable — never a roadmap entry the owner has not
   been asked about (CLAUDE.md §3) — and say which each got. Reports rank findings by their author's
   scope, so the one that matters is rarely first. **Route at the class, never at the instance reported** — protecting the one file reported

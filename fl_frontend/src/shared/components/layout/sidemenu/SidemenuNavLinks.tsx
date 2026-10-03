@@ -30,9 +30,14 @@ export function SidemenuNavLinks<TIcon extends string>({
   onMobileClose,
   queryString,
 }: SidemenuNavLinksProps<TIcon> & { queryString: string }) {
+  // An empty id is the area's own landing, at the prefix itself rather than a trailing slash below it.
+  const targetPathOf = (itemId: string) => (itemId === "" ? linkPrefix : `${linkPrefix}/${itemId}`);
+
+  // Every other entry's address sits beneath the landing's, so the landing is active on its own address
+  // alone, or it would light beside whichever entry the reader is on.
   const checkIsActive = (itemId: string) => {
-    const targetPath = `${linkPrefix}/${itemId}`;
-    return pathname === targetPath || pathname.startsWith(`${targetPath}/`);
+    const targetPath = targetPathOf(itemId);
+    return pathname === targetPath || (itemId !== "" && pathname.startsWith(`${targetPath}/`));
   };
 
   return (
@@ -56,7 +61,7 @@ export function SidemenuNavLinks<TIcon extends string>({
               reads as two columns of different widths. */}
           <div className={`flex flex-col gap-0.5 ${isDesktopCollapsed ? "items-center" : ""}`}>
             {group.sub_options.map((sub_option) => {
-              const targetPath = `${linkPrefix}/${sub_option.id}`;
+              const targetPath = targetPathOf(sub_option.id);
               const finalHref = queryString ? `${targetPath}?${queryString}` : targetPath;
 
               return (

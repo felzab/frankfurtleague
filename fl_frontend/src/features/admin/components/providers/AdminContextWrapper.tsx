@@ -9,9 +9,9 @@ import { getAdminTeams } from "@/features/teams/queries";
 import { AdminProvider } from "./AdminContextProvider";
 
 /**
- * `saison_id` is the season the caller is showing: `/admin/spielsuche` can list a past season's
+ * `saison_id` is the season the caller is showing: `/bereich/admin/spielsuche` can list a past season's
  * matches, and without it the pickers would offer the current season's teams. Mounted by
- * the routes that open the editor, never by `admin/layout.tsx`.
+ * the routes that open the editor, never by `bereich/admin/layout.tsx`.
  */
 export async function AdminContextWrapper({ children, saison_id }: { children: React.ReactNode; saison_id?: string }) {
   await connection();

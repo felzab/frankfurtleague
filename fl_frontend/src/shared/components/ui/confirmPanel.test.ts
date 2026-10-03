@@ -7,6 +7,8 @@ import { refusalWrappers, renderMarkup, textOf } from "@/shared/testing/renderTe
 
 import { confirmButton, formButton } from "./formButtons";
 import { PANEL_REVEAL_CLASSES } from "./motion";
+import { NAME_WRAP_CLASSES } from "./nameWrap";
+import { STEP_UP_LABEL, STEP_UP_REFUSED, STEP_UP_RUNNING } from "./stepUp";
 
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 
@@ -26,9 +28,24 @@ const REVEAL = renderMarkup(ConfirmReveal, { children: createElement("p", { id: 
 const PRIMARY = createElement("button", { type: "button" }, "Ja, löschen");
 
 /** The hook's value in the state a case names, its handlers inert: a static render presses nothing. */
-const twoPress = ({ isConfirming = false, isPending = false }: { isConfirming?: boolean; isPending?: boolean }): TwoPressConfirm => ({
+const twoPress = ({
+  isConfirming = false,
+  isPending = false,
+  asksPasskey = false,
+  isPrompting = false,
+  passkeyRefused = false,
+}: {
+  isConfirming?: boolean;
+  isPending?: boolean;
+  asksPasskey?: boolean;
+  isPrompting?: boolean;
+  passkeyRefused?: boolean;
+}): TwoPressConfirm => ({
   isConfirming,
   isPending,
+  asksPasskey,
+  isPrompting,
+  passkeyRefused,
   press: () => undefined,
   cancel: () => undefined,
 });
@@ -92,6 +109,18 @@ describe("the armed action row", () => {
     assert.doesNotMatch(cancelIn(ARMED), /\sdata-pending=|\sdisabled=""/, "the cancel is held before there is anything in flight");
   });
 
+  /* A refused prompt leaves the control armed, so the sentence stands beside it and is announced, and
+     nowhere else: a toast would be gone before the next press. */
+  it("says a refused prompt under the armed control, as an alert, and only then", () => {
+    const refused = renderMarkup(ConfirmActionRow, {
+      confirm: twoPress({ isConfirming: true, asksPasskey: true, passkeyRefused: true }),
+      children: PRIMARY,
+    });
+
+    assert.match(refused, new RegExp(`<p role="alert"[^>]*>${STEP_UP_REFUSED}</p>`), "a refused prompt is not said beside the control");
+    assert.ok(!ARMED.includes(STEP_UP_REFUSED), "an armed row says a refusal nobody met");
+  });
+
   /* The app's one cancel treatment, at the width a column asks for. */
   it("takes the cancel's fill and its column width from the shared intent", () => {
     const worn = (cancelIn(ARMED).match(/\sclass="([^"]*)"/)?.[1] ?? "").split(" ");
@@ -121,16 +150,21 @@ describe("the armed action row", () => {
 const pressButton = ({
   isConfirming,
   isPending,
+  asksPasskey,
+  isPrompting,
   ...rest
 }: {
   isConfirming?: boolean;
   isPending?: boolean;
+  asksPasskey?: boolean;
+  isPrompting?: boolean;
   held?: boolean;
   submitting?: boolean;
   reason?: string | null;
+  restingName?: string;
 }): string =>
   renderMarkup(ConfirmPressButton, {
-    confirm: twoPress({ isConfirming, isPending }),
+    confirm: twoPress({ isConfirming, isPending, asksPasskey, isPrompting }),
     reason: null,
     resting: "Spielplan löschen",
     armed: "Ja, Spielplan löschen",
@@ -180,6 +214,16 @@ describe("the shared confirm control", () => {
     assert.deepEqual(refusalWrappers(AT_REST), [], "a control nothing refuses announces a closure");
   });
 
+  /* A list of closed controls with one label each is told apart only by the row's name, and closed the
+     overlay is the one stop a screen reader meets, so the row's name has to reach it. */
+  it("lays the refusal over a row's closed control under the row's name", () => {
+    const refused = pressButton({ reason: "Diese Saison hat noch keinen Spielplan.", restingName: "Den Spielplan löschen" });
+
+    assert.deepEqual(refusalWrappers(refused), [
+      { name: "Den Spielplan löschen", label: "Den Spielplan löschen", reason: "Diese Saison hat noch keinen Spielplan." },
+    ]);
+  });
+
   /* A panel reading before it writes holds the press on the READ, which is not the write: the label
      has to stay put, or the control reports a deletion nobody has started. */
   it("holds the press on a read without saying the write is running", () => {
@@ -209,6 +253,32 @@ describe("the shared confirm control", () => {
     assert.doesNotMatch(controlTag(writingAndRefused), /\sdisabled=""/, "a reason standing during the write closes the control");
   });
 
+  /* The armed press of an irreversible write the page must confirm first opens the browser's passkey
+     prompt, so its label names that prompt and not the write; running, it still says the write. */
+  it("names the passkey prompt on the armed press of a write the page must confirm first", () => {
+    assert.equal(controlWords(pressButton({ isConfirming: true, asksPasskey: true })), STEP_UP_LABEL);
+    assert.equal(controlWords(pressButton({ isConfirming: true, isPending: true, asksPasskey: true })), "Löscht...");
+    assert.equal(
+      controlWords(pressButton({ isConfirming: true, isPending: true, asksPasskey: true, isPrompting: true })),
+      STEP_UP_RUNNING,
+      "the open prompt says the write is running, where nothing has been sent",
+    );
+    assert.equal(controlWords(pressButton({ asksPasskey: false })), "Spielplan löschen", "the resting control names the prompt");
+  });
+
+  /* A label may carry a word the page does not write, an address among them, wider than the control on
+     a phone. Each box between that word and the card must give way, so each is asserted. */
+  it("lets a word wider than the control break inside it rather than widen the card", () => {
+    const classesOf = (tag: string): string[] => (/\sclass="([^"]*)"/.exec(tag)?.[1] ?? "").split(" ");
+    const labelTag = /<button\b[^>]*>[\s\S]*?(<span\b[^>]*>)/.exec(AT_REST)?.[1] ?? "";
+
+    assert.ok(rootClasses(AT_REST).includes("min-w-0"), "the wrapper keeps the label's longest word as its floor in the `sm` row");
+    assert.ok(classesOf(controlTag(AT_REST)).includes("max-w-full"), "the control grows past its wrapper to seat the longest word");
+    for (const token of ["min-w-0", ...NAME_WRAP_CLASSES.split(" ")]) {
+      assert.ok(classesOf(labelTag).includes(token), `the label is missing ${token}, so a long word leaves the control`);
+    }
+  });
+
   /* The one thing that looks different once the reveal is open, so the armed fill is what says the
      next press commits. */
   it("wears the shared armed fill, and the resting one at rest", () => {
@@ -230,5 +300,26 @@ describe("the readout row", () => {
      rather than two strings sharing a line. */
   it("renders its label and value as a description pair", () => {
     assert.match(READOUT, /<dt[^>]*>Saison<\/dt><dd[^>]*>2026\/27<\/dd>/, "the readout is two strings sharing a line");
+  });
+
+  /* Either side may hold a name somebody typed, a team's in „Austritt von {Team}“, a person's as a value:
+     each is a flex item that keeps its longest word as its floor unless it may shrink and break it. */
+  it("lets either side break a word wider than the reveal", () => {
+    const classesOf = (tag: string): string[] => (/\sclass="([^"]*)"/.exec(tag)?.[1] ?? "").split(" ");
+
+    for (const side of ["dt", "dd"]) {
+      const worn = classesOf(new RegExp(`<${side}\\b[^>]*>`).exec(READOUT)?.[0] ?? "");
+      for (const token of ["min-w-0", ...NAME_WRAP_CLASSES.split(" ")]) {
+        assert.ok(worn.includes(token), `the readout's ${side} is missing ${token}, so a long name runs past the reveal`);
+      }
+    }
+  });
+});
+
+describe("the danger box both escalations stand in", () => {
+  /* Inherited by every sentence the box holds, the panel's own and the delete dialog's: a sentence may
+     name an address or a team, one word wider than the box on a phone. */
+  it("breaks a word wider than the box inside it", () => {
+    assert.ok(rootClasses(REVEAL).includes("wrap-break-word"), "a sentence in the reveal runs a long word past its edge");
   });
 });

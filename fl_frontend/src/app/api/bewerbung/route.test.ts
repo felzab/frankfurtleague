@@ -1,20 +1,20 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
-const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const LOGGING = `const line = (...args) => void globalThis.__flBewLogs.push(JSON.stringify(args));
-export const logger = { info: line, warn: line, error: line };`;
+/** Every line the handler's logger was handed, serialised whole. */
+const logs: string[] = [];
+const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
+const LOGGING = { logger: { info: line, warn: line, error: line } };
 const ORIGIN = "http://localhost:3000";
-const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
 const calls = doubleApiClient(({ endpoint }, schema) =>
   // The accepted-send record every mail reports back; its answer is read by nothing here.
   schema.parse(endpoint === "/bewerbungen" ? schreibAntwort() : { acknowledged: 1, angewendet: [] }),
@@ -22,36 +22,9 @@ const calls = doubleApiClient(({ endpoint }, schema) =>
 /* The provider rather than the fan-out: what this handler is judged on is whether a message is
    composed at all, and the real fan-out is what composes it. */
 const { sent: mails } = doubleSendMail();
-const QUERIES = `export const getBewerbungSchulen = async () => ({ acknowledged: 1, schulen: [] });`;
+const QUERIES = { getBewerbungSchulen: async () => ({ acknowledged: 1, schulen: [] }) };
 
-const recorders = globalThis as unknown as Record<string, unknown>;
-/** Every line the handler's logger was handed, serialised whole. */
-const logs: string[] = [];
-recorders.__flBewLogs = logs;
-
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-/** Every package the route reaches that this process cannot load, doubled at resolve time. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/server": NEXT_SERVER,
-  "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
-};
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/features/bewerbungen/queries.ts")) return { format: "module", source: QUERIES, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG, "features/bewerbungen/queries.ts": QUERIES } });
 
 const { POST } = await import("./route.ts");
 const { BEWERBUNG_VERALTET, bewerbungPayload, buildEmptyBewerbungDraft } = await import("@/features/bewerbungen/utils.ts");
@@ -369,16 +342,6 @@ describe("what the submission's messages say about themselves", () => {
 });
 
 describe("what the application handler answers", () => {
-  /* Nothing here authorizes anything, so the public spine's same-origin check is the one defence the
-     route has: a spine that checks a session would skip it, and its name would read as authorization. */
-  it("refuses a request from another site before it writes or mails anything", async () => {
-    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY, "sec-fetch-site": "cross-site" }));
-
-    assert.equal((answer.body as { success: boolean }).success, false, "a request from another site is answered as this page's own");
-    assert.deepEqual(writes(), []);
-    assert.deepEqual(mails, []);
-  });
-
   /* POST alone: a mail scanner fetches every link in a message, and a second method would be one it
      reaches with a fetch nobody made. */
   it("answers one method, POST", () => {
