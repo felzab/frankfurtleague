@@ -14,9 +14,6 @@ type Line = { level: string; event: string; fields: unknown };
 
 const lines: Line[] = [];
 
-/** The retired names the doubled config answers as carried, which a case sets. */
-let retired: string[] = [];
-
 /** Where a refused boot's own files go, removed after the run. */
 const KEY_DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-boot-key-"));
 after(() => rmSync(KEY_DIRECTORY, { recursive: true, force: true }));
@@ -24,7 +21,7 @@ after(() => rmSync(KEY_DIRECTORY, { recursive: true, force: true }));
 /** The key file the doubled config names, which a case sets; every other boot reads the run's own key. */
 let keyFile = ACTOR_KEY_FILE;
 
-// Every level records: which level the retired variable's line takes is part of what is asserted.
+// Every level records, so a case counting a line never rests on the level its writer chose.
 const record =
   (level: string) =>
   (event: string, ...rest: unknown[]): void =>
@@ -33,7 +30,7 @@ const LOGGING_DOUBLE = {
   logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
 };
 
-// A getter and a function, so each case sets what the one registry entry reads.
+// A getter, so each case sets what the one registry entry reads.
 const CONFIG_DOUBLE = {
   frontend_config: {
     LOG_FORMAT: "console",
@@ -42,7 +39,6 @@ const CONFIG_DOUBLE = {
       return keyFile;
     },
   },
-  retiredVariablesSet: () => retired,
 };
 
 /** How often a boot asked for the sign-in store's indexes. */
@@ -68,35 +64,6 @@ const { register } = await import("./instrumentation.ts");
 
 beforeEach(() => {
   lines.length = 0;
-});
-
-describe("the boot finding a retired variable", () => {
-  /* One environment file serves this image and one a rollback returns to, so each variable is taken and
-     read by nothing; the line tells an operator the file still carries it. No value reaches the boot
-     to print. */
-  it("warns once, naming every one the environment carries", async () => {
-    retired = ["ALLOWED_ADMIN_EMAILS", "MONGODB_URI"];
-
-    try {
-      await register();
-    } finally {
-      retired = [];
-    }
-
-    assert.deepEqual(lines, [
-      {
-        level: "WARN",
-        event: "config.retired_variable",
-        fields: { error_code: "FE-BOOT-002", variables: "ALLOWED_ADMIN_EMAILS, MONGODB_URI" },
-      },
-    ]);
-  });
-
-  it("writes nothing where the file no longer carries it", async () => {
-    await register();
-
-    assert.deepEqual(lines, []);
-  });
 });
 
 describe("the pass announcing each change to who administers", () => {

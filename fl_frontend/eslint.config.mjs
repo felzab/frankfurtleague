@@ -308,7 +308,7 @@ const SECRET_FILE_ENTRIES = (() => {
   return entries;
 })();
 
-/** Each secret's own name: a host may still carry the retired variable of one, a live value no file check judges. */
+/** Each secret's own name: a process may carry a variable of one, a live value no file check judges. */
 const SECRET_NAMES = SECRET_FILE_ENTRIES.map(([name]) => name);
 
 /** Each secret's file: read off disk by its name, a secret skips the one reader its holder may import. */
@@ -903,7 +903,7 @@ const SOURCE_BANS = [
       "A loaded fl_frontend/src/core/mail.ts is taken apart where it is loaded, and never into `sendSperreNotice`, which sends past the ban list's gate.",
   },
   {
-    // `process.env.<name>` and every other spelling of one: the retired variable is a host's live value.
+    // `process.env.<name>` and every other spelling of one: a variable of a secret's name is a live value.
     selector: [
       "MemberExpression[property.name=NAMES]",
       "ObjectPattern > Property[key.name=NAMES]",
@@ -913,7 +913,7 @@ const SOURCE_BANS = [
       .map((site) => site.replace("NAMES", `/^(?:${SECRET_NAMES.join("|")})$/`))
       .join(", "),
     message:
-      "A secret is read through its reader in fl_frontend/src/core/config.ts alone: a host may still carry its retired variable, a live value no file check judges (docs/frontend/spec.md :: I545).",
+      "A secret is read through its reader in fl_frontend/src/core/config.ts alone: a process may carry a variable of its name, a live value no file check judges (docs/frontend/spec.md :: I545).",
     exempt: ["src/core/config.ts"],
   },
   {

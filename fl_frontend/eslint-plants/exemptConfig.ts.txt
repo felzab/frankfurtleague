@@ -1,6 +1,6 @@
 // Linted as src/core/config.ts.
 // The config names each secret it reads, and every other ban still reaches it, core's own included.
-export const RETIRED = process.env.AUTH_RESEND_KEY;
+export const VARIABLE = process.env.AUTH_RESEND_KEY;
 export const FILE_KEY = "MONGODB_URI";
 export const FILE = "auth_resend_key";
 export const GAP = "flex gap-5"; // expect: gap

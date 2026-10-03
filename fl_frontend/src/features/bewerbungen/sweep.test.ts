@@ -75,7 +75,6 @@ const CONFIG_DOUBLE = {
       return appEnv;
     },
   },
-  retiredVariablesSet: () => [],
 };
 
 const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };

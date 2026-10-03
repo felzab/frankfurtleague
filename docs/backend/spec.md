@@ -501,20 +501,19 @@ then one file per credential out of the directory `SECRETS_DIR` names
 `fl_backend/app/core/config.py :: BackendConfig`, which reads no source of its own. Fields without a
 default are required at boot and the process refuses to start without them.
 
-| Variable                                                                                                       | Constraint                                                                               | Default        |
-| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------- |
-| `API_TRUSTED_HOSTS`                                                                                            | comma-separated, each a hostname or a `*` wildcard                                       | — required     |
-| `API_CORS_ALLOWED_ORIGINS`                                                                                     | comma-separated, each a scheme, host and port only; no `*`                               | — required     |
-| `DB_BASE_NAME`                                                                                                 | the characters MongoDB accepts in a database name                                        | — required     |
-| `DB_SERVER_SELECTION_TIMEOUT`                                                                                  | int, ms, above zero and at most 60000                                                    | `15000`        |
-| `DB_MIN_CONNECTIONS`                                                                                           | int, not negative and not above `DB_MAX_CONNECTIONS`                                     | `5`            |
-| `DB_MAX_CONNECTIONS`                                                                                           | int, at least one                                                                        | `100`          |
-| `ACTOR_TOKEN_PUBLIC_KEY`                                                                                       | the unpadded base64url of a raw 32-byte Ed25519 public key, RFC 8037's `x`; not a secret | — required     |
-| `SECRETS_DIR`                                                                                                  | the directory each secret file below is read from; a path, never a secret                | `/run/secrets` |
-| `MONGODB_URI`, `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN`, `SPERRLISTE_SCHLUESSEL`, `ALLOWED_ADMIN_EMAILS` | **retired**: read by nothing; the boot warns `SRV-BOOT-008`, naming each one still set   | —              |
-| `LOG_LEVEL_APP`                                                                                                | `DEBUG`…`CRITICAL`, case-normalised                                                      | `INFO`         |
-| `LOG_LEVEL_DB`                                                                                                 | same vocabulary, for pymongo                                                             | `WARNING`      |
-| `LOG_FORMAT`                                                                                                   | `json` \| `console`, case-normalised                                                     | **`json`**     |
+| Variable                      | Constraint                                                                               | Default        |
+| ----------------------------- | ---------------------------------------------------------------------------------------- | -------------- |
+| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard                                       | — required     |
+| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only; no `*`                               | — required     |
+| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name                                        | — required     |
+| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000                                                    | `15000`        |
+| `DB_MIN_CONNECTIONS`          | int, not negative and not above `DB_MAX_CONNECTIONS`                                     | `5`            |
+| `DB_MAX_CONNECTIONS`          | int, at least one                                                                        | `100`          |
+| `ACTOR_TOKEN_PUBLIC_KEY`      | the unpadded base64url of a raw 32-byte Ed25519 public key, RFC 8037's `x`; not a secret | — required     |
+| `SECRETS_DIR`                 | the directory each secret file below is read from; a path, never a secret                | `/run/secrets` |
+| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                                                      | `INFO`         |
+| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                                                             | `WARNING`      |
+| `LOG_FORMAT`                  | `json` \| `console`, case-normalised                                                     | **`json`**     |
 
 | Secret file                                    | Constraint                                                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -533,11 +532,11 @@ every missing or blank one follows as `; Invalid secret files: <FILES>`
 part of a key. **The file names are the same on the host, in the container and in development**,
 which is why the database login carries its service's prefix: the frontend's is `frontend_mongodb_uri`.
 
-**The moved names are retired rather than undeclared**: the release before this one reads them, and
-the deploy's automatic rollback puts its image back under the environment files this release finds,
-so this one boots on those files and warns `SRV-BOOT-008` naming each moved line still present
-(`fl_backend/app/core/config.py :: BackendEnvironment`). Their values reach no field a consumer
-reads. **In development the files live in the checkout's `secrets/`**, and `fastapi dev` reaches them
+**A credential's old variable name is declared nowhere**, so a line of one in `fl_backend/.env`
+refuses the boot by name like any other undeclared name (below), its value printed nowhere, and the
+same variable in the process environment is read by nothing. Before a container holds such a line,
+the deploy's and the local stack's preflight refuse it in either package's file
+([`docs/ops/spec.md`](../ops/spec.md) §1.5). **In development the files live in the checkout's `secrets/`**, and `fastapi dev` reaches them
 as `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py`, run in Git Bash from `fl_backend/`.
 `SECRETS_DIR` never goes in `fl_backend/.env`: compose hands that file to the container, and a
 development path there turns the container away from its mounts.
@@ -569,20 +568,14 @@ every row records it. **The action log's pseudonym of a signed-in person is the 
 (`fl_backend/app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), so a replaced master also leaves
 one person's rows before and after it under two pseudonyms, and the older can never be recomputed.
 
-**`ALLOWED_ADMIN_EMAILS` belongs in `fl_frontend/.env` alone, never in `fl_backend/.env`**: the
-backend before this release never declared it and refuses to boot with it there, so a server file
-carrying it defeats a rollback. The backend declares it, ignored and warned `SRV-BOOT-008`, only so a
-development machine whose backend file still carries the line boots; nothing reads its value.
-
 **`ACTOR_TOKEN_PUBLIC_KEY` is the public half of the frontend's signing pair**, whose private half
 is a Compose secret only the frontend mounts: the admin key names nobody, and an actor is believed
 only as a token that key signed (I477). **The two halves move together**: one replaced alone
 answers every admin-tier request `REQ-AUTH-007`, its log line naming `unknown kid`, so a rotation
 replaces both and one deploy recreates both containers. A token lives a minute, so none outlives
-the deploy that retires its key. **It is also the variable a rollback past this release trips on**,
-as `ALLOWED_ADMIN_EMAILS` would be from the other side: an older backend image declares no such
-name and refuses to boot on a `fl_backend/.env` carrying it (`model_config`'s `extra="forbid"`,
-below), so that rollback takes the line out of the file first.
+the deploy that retires its key. **It is also the variable a rollback past this release trips on**:
+an older backend image declares no such name and refuses to boot on a `fl_backend/.env` carrying it
+(`model_config`'s `extra="forbid"`, below), so that rollback takes the line out of the file first.
 
 **Who may act on the admin tier is stored rather than configured**: a grant in `berechtigungen`,
 read on every request (I383), so a grant or a revoke needs no redeploy. The frontend reads the same
@@ -610,7 +603,9 @@ read at all from the process environment**
 (`fl_backend/app/core/config.py :: BackendEnvironment.model_config`): only the
 dotenv source hands the class an extra, and `extra="forbid"` is what stops a typo reading as an
 omission. **The one it does not catch carries an empty value** — the dotenv source drops such a name
-before the class judges it, so `LOG_FORMAT_=` boots on the shipped default in silence.
+before the class judges it, so `LOG_FORMAT_=` boots on the shipped default in silence, and so does an
+empty credential line such as `MONGODB_URI=`, which only the deploy's and the local stack's
+preflights refuse.
 
 ### 1.6 The test suite
 
@@ -1108,7 +1103,6 @@ rather than by the handler remembering to conceal one.
 | I488 | A person's route serves no verified person the ban list holds, read per request; else `REQ-AUTH-008`                                                                                                                                                                            | `fl_backend/app/core/security.py :: verify_person_is_unbarred`, which every binder in `:: PERSON_ACTOR_BINDERS` depends on; `fl_backend/tests/api/test_actor_binding.py :: TestThePersonBinderOverAServedRequest`, `fl_backend/tests/api/test_person_ban_execution.py`                                                                                                                                                                                                                                                         |
 | I489 | A grant, a revoke and a tier change take a sign-in `ENROLMENT_WINDOW_MINUTES` old at most when the token was minted; else `REQ-AUTH-009`                                                                                                                                        | `fl_backend/app/core/security.py :: verify_recent_confirmation`, declared on the three by `fl_backend/app/api/berechtigungen/admin_router.py`; `fl_backend/tests/api/test_actor_binding.py :: TestTheStepUpOverAServedRequest`, the window held to the frontend's by `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`                                                                                                                                                                                     |
 | I501 | A credential is read from its secret file alone: no variable stands in for a missing file, and none wins over a present one                                                                                                                                                     | `fl_backend/app/core/config.py :: BackendSecrets`; `fl_backend/tests/core/test_config.py :: TestTheSecretFiles`                                                                                                                                                                                                                                                                                                                                                                                                                |
-| I502 | The secrets' old variable names boot as retired, so a rollback's environment files do: warned `SRV-BOOT-008` by name, values reaching no consumer                                                                                                                               | `fl_backend/app/core/config.py :: BackendEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheRetiredVariables`, `fl_backend/tests/core/test_grant_warnings.py`                                                                                                                                                                                                                                                                                                                                                       |
 | I505 | A confirmation press asks the ban list for every address its link reaches, however old the link: a barred address confirms nothing                                                                                                                                              | `fl_backend/tests/api/test_bewerbung_einwilligung_execution.py :: TestALinkToABarredAddress`, `fl_backend/tests/api/test_registrierung_einwilligung_execution.py :: TestALinkToABarredAddress`, `fl_backend/tests/api/test_schiedsrichter_bestaetigung_execution.py :: TestALinkToABarredAddress`                                                                                                                                                                                                                              |
 | I506 | A barred address's `Widerspruch` is still taken and empties the seat: the ban never refuses a person asking to be removed                                                                                                                                                       | `fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`; `fl_backend/tests/api/test_bewerbung_einwilligung_execution.py :: TestALinkToABarredAddress`                                                                                                                                                                                                                                                                                                                                                     |
 | I490 | Nothing of a ban is written on a link's record, so lifting the ban lets a link still inside its deadline answer again                                                                                                                                                           | `fl_backend/tests/api/test_bewerbung_einwilligung_execution.py :: TestALinkToABarredAddress`, `fl_backend/tests/api/test_registrierung_einwilligung_execution.py :: TestALinkToABarredAddress`, `fl_backend/tests/api/test_schiedsrichter_bestaetigung_execution.py :: TestALinkToABarredAddress`                                                                                                                                                                                                                              |

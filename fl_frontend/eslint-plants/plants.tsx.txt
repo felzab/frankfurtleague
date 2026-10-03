@@ -90,11 +90,11 @@ export const CONFIG_LOADED = import("@/core/config"); // expect: config-load exp
 export const CONFIG_LOADED_TEMPLATE = import(`../../core/config.ts`); // expect: config-load expect: config-taken
 export const SIGNING_VIA_QUERY = import("@/core/actorToken?probe"); // expect: actor-signing-load
 export const QUERY_USED = [viaQuery, signViaQuery];
-// A secret's retired variable, in every spelling that reaches the value.
-export const RETIRED_READ = process.env.AUTH_RESEND_KEY; // expect: secret-name
-export const RETIRED_INDEXED = process.env["INTERNAL_API_KEY_SYSTEM"]; // expect: secret-name
-export const { MONGODB_URI: RETIRED_TAKEN } = process.env; // expect: secret-name
-export const RETIRED_TEMPLATE = Reflect.get(process.env, `AUTH_SECRET`); // expect: secret-name
+// A variable of a secret's name, in every spelling that reaches the value.
+export const VARIABLE_READ = process.env.AUTH_RESEND_KEY; // expect: secret-name
+export const VARIABLE_INDEXED = process.env["INTERNAL_API_KEY_SYSTEM"]; // expect: secret-name
+export const { MONGODB_URI: VARIABLE_TAKEN } = process.env; // expect: secret-name
+export const VARIABLE_TEMPLATE = Reflect.get(process.env, `AUTH_SECRET`); // expect: secret-name
 // A secret's file by its name, bare or ending a path, skips the reader its holder alone may import.
 export const SECRET_FILE = "/run/secrets/auth_resend_key"; // expect: secret-file
 export const SECRET_FILE_BARE = `internal_api_key_system`; // expect: secret-file

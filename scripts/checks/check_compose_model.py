@@ -106,8 +106,9 @@ CONFIG_HOLDERS: Final[dict[str, dict[str, frozenset[str]]]] = {
     "local": {"frontend_mongodb_uri": _FRONTEND, "backend_mongodb_uri": _BACKEND},
 }
 
-# The environment names those files replace (`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`): one in a
-# service's `environment:` is a second copy of a credential beside its file (I509).
+# The environment names those files replace: one in a service's `environment:` is a second copy of a
+# credential beside its file (I509). `scripts/lib/_lib.sh :: MOVED_ENV_NAMES` spells this set again
+# for the environment files' own check.
 MOVED_ENV_NAMES: Final = frozenset(
     {
         "MONGODB_URI",

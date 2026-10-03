@@ -373,14 +373,14 @@ export SECRETS_DIR=run-secrets
 """
 
 
-def test_the_snippet_names_a_retired_line_and_passes_the_file_holding_it() -> None:
-    """The image a rollback restores reads the line, so the release reading files says so and deploys."""
-    retired = KEY_OUTSIDE_THE_CLASS.split("mkdir -p", 1)[0] + "printf 'MONGODB_URI=a value no case reads\\n' >> fl_backend/.env\n"
-    code, output, _ = _run(retired + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
+def test_the_snippet_refuses_a_line_a_secret_file_replaced_naming_it_alone() -> None:
+    """The file is otherwise one the settings accept, so the line alone is what refuses, and its name alone what is printed."""
+    left_behind = KEY_OUTSIDE_THE_CLASS.split("mkdir -p", 1)[0] + "printf 'MONGODB_URI=a value no case reads\\n' >> fl_backend/.env\n"
+    code, output, _ = _run(left_behind + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
 
     assert code == 0, output
-    assert "snippet=0" in output, output
-    assert "Retired, and read by nothing: MONGODB_URI" in output, output
+    assert "snippet=3" in output, output
+    assert re.search(r"^Invalid environment variables: MONGODB_URI\r?$", output, re.MULTILINE), output
     assert "a value no case reads" not in output, output
 
 
@@ -1032,49 +1032,46 @@ def test_the_rollback_names_a_tag_only_for_a_build_this_checkout_deploys_by_one(
     assert "sha256:restored" in argv, argv
 
 
-# --- a line the secret files replace, still in an environment file ----------------------------------------
+# --- a credential's line in an environment file -------------------------------------------------------------
 
-MOVED: Final = """printf 'LOG_FORMAT=json\\nmongodb_uri=a value no case reads\\n' > fl_backend/.env
+CREDENTIAL_LINES: Final = """printf 'LOG_FORMAT=json\\nmongodb_uri=a value no case reads\\n' > fl_backend/.env
 mkdir -p fl_frontend
-printf 'INTERNAL_API_KEY_BASE=a value no case reads\\n' > fl_frontend/.env
-check_moved_names {verb} fl_backend/.env fl_frontend/.env
-echo moved-names-passed
+printf 'INTERNAL_API_KEY_BASE=a value no case reads\\nAUTH_SECRET\\n' > fl_frontend/.env
+refuse_credential_lines fl_backend/.env fl_frontend/.env
+echo credential-lines-passed
 """
 
 
-def test_the_deploy_warns_naming_every_moved_line_in_any_case_and_goes_on() -> None:
-    """The image a rollback restores reads these lines, so the release running the files keeps them."""
-    code, output, _ = _run(MOVED.format(verb="warn"))
-
-    assert code == 0, output
-    assert "moved-names-passed" in output, output
-    assert "fl_backend/.env: mongodb_uri" in output, output
-    assert "fl_frontend/.env: INTERNAL_API_KEY_BASE" in output, output
-    assert "LOG_FORMAT" not in output, output
-    assert "a value no case reads" not in output, output
-
-
-def test_the_local_stack_refuses_them_restoring_no_older_image() -> None:
-    code, output, _ = _run(MOVED.format(verb="refuse"))
+def test_every_credential_line_refuses_naming_each_in_any_case_and_no_value() -> None:
+    """Both files, a lower-cased name and compose's bare pass-through form among them, and nothing after the check runs."""
+    code, output, _ = _run(CREDENTIAL_LINES)
 
     assert code == 2, output
-    assert "moved-names-passed" not in output, output
+    assert "credential-lines-passed" not in output, output
+    assert "fl_backend/.env: mongodb_uri" in output, output
+    assert "fl_frontend/.env: INTERNAL_API_KEY_BASE AUTH_SECRET" in output, output
+    assert "LOG_FORMAT" not in output, output
+    assert "a value no case reads" not in output, output
     assert "Delete them" in output, output
 
 
-@pytest.mark.parametrize(("script", "verb"), [(DEPLOY, "warn"), (LOCAL, "refuse")], ids=["deploy", "local"])
-def test_each_script_calls_the_check_once_with_the_verb_its_rollback_needs(script: Path, verb: str) -> None:
-    """The deploy's refusal would delete the lines the image its rollback restores boots from; the cases above drive each verb alone."""
-    calls = re.findall(r"^[ \t]*check_moved_names (\S+) ", script.read_text(encoding="utf-8"), flags=re.MULTILINE)
+@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
+def test_each_script_runs_the_check_over_both_files_before_compose_reads_either(script: Path) -> None:
+    """The local stack runs neither image's name check, so there this is the one reader standing between a credential's line and a container."""
+    text = script.read_text(encoding="utf-8")
+    call = "\nrefuse_credential_lines fl_frontend/.env fl_backend/.env\n"
+    readers = ("\ncheck_compose_config\n", "docker compose build", "\ncheck_actor_key ")
 
-    assert calls == [verb], (script.name, calls)
+    assert text.count(call) == 1, script.name
+    assert text.index(call) < min(text.index(marker) for marker in readers if marker in text), script.name
 
 
-def test_a_file_holding_no_moved_line_passes_in_silence() -> None:
-    code, output, _ = _run(MOVED.format(verb="refuse").replace("mongodb_uri=", "DB_BASE_NAME=").replace("INTERNAL_API_KEY_BASE=", "# "))
+def test_a_file_holding_no_credential_line_passes_in_silence() -> None:
+    clean = CREDENTIAL_LINES.replace("mongodb_uri=", "DB_BASE_NAME=").replace("INTERNAL_API_KEY_BASE=", "# ")
+    code, output, _ = _run(clean.replace("AUTH_SECRET", "AUTH_URL"))
 
     assert code == 0, output
-    assert "moved-names-passed" in output, output
+    assert "credential-lines-passed" in output, output
     assert "!!" not in output, output
 
 

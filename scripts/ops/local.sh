@@ -266,8 +266,9 @@ docs/frontend/spec.md §1.7 lists; it holds no credential, each being a file und
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
 check_env_spellings "fl_frontend/.env"
 check_env_spellings "fl_backend/.env"
-# Nothing here restores an older image, so a line kept for a rollback is a line to delete.
-check_moved_names refuse fl_frontend/.env fl_backend/.env
+# The only reader of these files here before the containers hold their lines: neither image's name
+# check runs on this stack.
+refuse_credential_lines fl_frontend/.env fl_backend/.env
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
 for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."

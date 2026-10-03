@@ -463,11 +463,12 @@ to the checkout's `secrets/fl_actor_signing_key` and `SECRETS_DIR` to the checko
 because `fl_frontend/.env` also reaches the frontend container, where a path written there would
 turn the frontend away from the secret's mount (I472) and its boot refuses.
 
-**A line naming a value `secrets/` holds is kept for one release alone**
-(`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`). The deploy warns, naming each such line and never its
-value, because the image a rollback restores reads it; `local.sh` refuses it, restoring no image
-(`scripts/lib/_lib.sh :: check_moved_names`). The two images' own readers of the package files name
-such a line as well and pass it (`fl_backend/app/core/config.py :: read_environment`). Each machine holds its own files and keys: they
+**A line naming a value `secrets/` holds refuses the deploy and the local stack before compose reads
+either package file** (I548), at exit 2, naming each such line in any letter case — a bare
+pass-through name included — and never its value: compose would hand it to the container as a
+variable, which `docker inspect` prints (I508). On a deploy the pulled images' own readers of the
+package files refuse it again as an undeclared name, the backend's only where the line holds a
+value; the local stack runs neither, so there this is the only check. Each machine holds its own files and keys: they
 authenticate one machine's processes to each other, so a development machine generates fresh ones
 rather than copying production's ([`runbooks.md`](runbooks.md) §16).
 
@@ -487,9 +488,7 @@ being no value an alphabet could narrow: `deploy.sh` and `local.sh` refuse, befo
 reads the file, a `$` anywhere, which each reader substitutes its own way and Next's inside single
 quotes too; a `#` with no space before it in a bare value; a `\` inside quotes; and a leading
 backtick (`scripts/lib/_lib.sh :: check_env_spellings`). A matched pair of quotes is left alone,
-every reader stripping it alike. A URL writes `$` and `#` percent-encoded, and so does a retired
-`MONGODB_URI` line kept for a rollback's image, whose password MongoDB's own URI format asks it of
-already.
+every reader stripping it alike. A URL writes `$` and `#` percent-encoded.
 
 **The local stack points both application services at its own database through one inline
 config**, `docker-compose.local.yml :: local_mongodb_uri`, mounted where each reads its login: it
@@ -1310,6 +1309,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I533 | The deploy and the local stack refuse to start while a `.env` stands beside the compose file, printing none of it                                                             | `scripts/lib/_lib.sh :: refuse_compose_dotenv`, called by both scripts before any mode asks compose; `scripts/tests/test_deploy_streams.py`                                                                                                                                                             |
 | I540 | A stopped backend container lets every request it accepted end inside its bound, aborts included, before the engine kills it                                                  | `fl_backend/Dockerfile :: CMD` and `docker-compose.yml`'s `stop_grace_period`; `fl_backend/tests/core/test_request_deadline.py :: TestAStoppedContainerOutlastsEveryRequest`                                                                                                                            |
 | I547 | A stopped frontend container lets every request it accepted, and the work behind each answer, end inside its bound before the engine kills it                                 | `docker-compose.yml`'s `stop_grace_period` against `fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS` and `:: AFTER_RESPONSE_DEADLINE_MS`; `fl_frontend/src/core/requestScope.test.ts`                                                                                                       |
+| I548 | No package's `.env` the stack reads names a value a secret file holds, in any letter case, assigned or passed through                                                         | `scripts/lib/_lib.sh :: refuse_credential_lines`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh` before any compose call reads either file; `scripts/tests/test_deploy_streams.py`                                                                                                        |
 
 ## 3. Violation → remedy
 

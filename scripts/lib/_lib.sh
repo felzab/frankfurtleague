@@ -797,9 +797,8 @@ check_env_spellings() { # $1 the file
     refuse "$1 holds a value its readers would not agree on, so the service and its dev server would
 each be handed a different one:
 $(printf '  %s\n' "${wrong[@]}")
-In a URL, a retired MONGODB_URI line among them, write the character percent-encoded (\$ as %24, # as
-%23); any other value, generate again without it. A trailing comment counts too: move it to a line of
-its own.
+In a URL, write the character percent-encoded (\$ as %24, # as %23); any other value, generate
+again without it. A trailing comment counts too: move it to a line of its own.
 NOTHING was asked of compose or of either service."
   fi
 }
@@ -884,8 +883,9 @@ LOCAL_FRONTEND_SECRETS=(auth_secret internal_api_key_base internal_api_key_syste
 # shellcheck disable=SC2034  # read by the scripts that source this file
 LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
 
-# The environment names those files replace. An image from before the files still reads them, so a
-# host keeps them until the release after the files runs healthy (`docs/ops/runbooks.md` §16).
+# The environment names those files replace, `scripts/checks/check_compose_model.py :: MOVED_ENV_NAMES`
+# spelled again, since neither the deploy nor the local stack runs a Python of the host's own to read
+# it; `scripts/tests/test_check_compose_model.py` holds the two equal.
 MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
 
 # By the list the image's own schema emitted, so a file a release starts requiring is asked for by
@@ -954,17 +954,18 @@ whether it would boot. Its own answer is above."
   fi
 }
 
-# A moved name still in an environment file is read by nothing this release runs. The deploy warns,
-# a rollback's image reading the line; the local stack, restoring nothing, refuses. Names only, case
-# folded as the backend folds them.
-check_moved_names() { # $1 warn or refuse, $2.. the environment files
-  local verb="$1" file line name moved
+# Compose hands an environment file's every line to the container as a variable, which
+# `docker inspect` prints, so a credential's name is refused with any value or none
+# (`docs/ops/spec.md :: I508`). Names only, folded as the backend folds them.
+refuse_credential_lines() { # $@ the environment files
+  # A space, not this file's newline, joins one file's names onto its own line of the refusal.
+  local file line name moved IFS=' '
   local -a held found=()
-  shift
   for file in "$@"; do
     held=()
     while IFS= read -r line || [[ -n "$line" ]]; do
-      [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*= ]] || continue
+      # A bare name too: compose's pass-through form, which hands the container the shell's own value.
+      [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*(=|$) ]] || continue
       name="${BASH_REMATCH[2]}"
       for moved in "${MOVED_ENV_NAMES[@]}"; do
         if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
@@ -973,15 +974,11 @@ check_moved_names() { # $1 warn or refuse, $2.. the environment files
     if (( ${#held[@]} )); then found+=("${file}: ${held[*]}"); fi
   done
   (( ${#found[@]} )) || return 0
-  if [[ "$verb" == refuse ]]; then
-    refuse "these lines name a value this stack reads from secrets/ instead, and nothing reads them here:
+  refuse "these lines name a credential, which each service reads from its file under secrets/ and never
+from its environment:
 $(printf '  %s\n' "${found[@]}")
-Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
-  fi
-  warn "these lines name a value this release reads from secrets/ instead:
-$(printf '  %s\n' "${found[@]}")
-Keep them until this release runs healthy, for the image a rollback restores; then delete them
-(docs/ops/runbooks.md §16)."
+Delete them; the value is its file's (docs/ops/runbooks.md §16). NOTHING was asked of compose or of
+either service."
 }
 
 # Compose loads a `.env` here unasked, for its `COMPOSE_*` settings and a bare `NAME` line's value:

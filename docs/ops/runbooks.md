@@ -41,9 +41,9 @@ the machine is outside the repository. What it does tell you:
   `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
   checks each before anything is pulled. What each secret file holds, who owns it and how it is
   made, is §16.
-- **A line naming a value a secret file holds draws a warning, and nothing more**: the image a
-  rollback restores reads it, so it stays until the deploy that follows it runs healthy, and is then
-  deleted (§16).
+- **A line naming a value a secret file holds refuses the deploy at exit 2 before compose is asked
+  anything**, naming the line and never its value (`scripts/lib/_lib.sh :: refuse_credential_lines`):
+  delete it, the value being its file's (§16).
 - **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
   `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
   `git status` never shows it; move it out of the checkout, keeping it only if it holds something
@@ -384,11 +384,6 @@ administration is shut while it is down. Each of these is easy to get wrong:
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
-- **`ALLOWED_ADMIN_EMAILS` is read by nothing, and each boot names it while it stands**:
-  `FE-BOOT-002` for `fl_frontend/.env`, `SRV-BOOT-008` for `fl_backend/.env`. It stays in
-  `fl_frontend/.env` alone, so a rollback to the frontend before still finds the line it requires;
-  never add it to the server's `fl_backend/.env`, which the backend before refuses to boot with.
-  Delete it from the frontend's once this release is settled.
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
   (`docs/backend/spec.md :: I435`), the tier change to leave no owner
   (`docs/backend/spec.md :: I479`), and the Playground refuses nothing: the boot warns with
@@ -1312,14 +1307,10 @@ reads the application database and nothing else: `./scripts/ops/local.sh --seed`
 with it and with no other login. Copy its URI out of the password manager into the file in an
 editor, never through a shell command that echoes it.
 
-**Every line the secret files replace in the package files stays on the server for one release**
-(`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`), the three `INTERNAL_API_KEY_*` lines in both of them
-among it, because the image a failed deploy is rolled back to reads them there: the deploy warns
-while they are there, and once the release reading the files runs healthy they are
-deleted in an editor, never with `cat`, and a second `./scripts/ops/deploy.sh` recreates both
-containers without them. `local.sh` refuses them outright, since the local stack restores no older
-image. Keep their password-manager entries: a rollback by hand across that release needs them, as
-below.
+**No line in either package file names a value a secret file holds**: the deploy and `local.sh`
+refuse one before compose reads the file ([`spec.md`](spec.md) §1.5). Delete such a line in an
+editor, never with `cat`. Keep each value's password-manager entry: a rollback by hand to a build
+from before the files puts the lines back, as below.
 
 **On the server, each file is owned by the user that reads it** ([`spec.md`](spec.md) §1.2): a new
 value is written without ever existing under another owner or mode, and without passing through the
@@ -1337,8 +1328,7 @@ which fault: a missing one is written, an unreadable one is given the user and m
 one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside
 the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
-and update the password-manager entry and, while they still hold the keys, both package files'
-`INTERNAL_API_KEY_*` lines: nothing compares the two, and a rollback's image reads the lines. Both containers are recreated by the same deploy, so the new
+and update the password-manager entry. Both containers are recreated by the same deploy, so the new
 keys never meet the old. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
 and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
 
@@ -1389,28 +1379,30 @@ above again, or, where the refusal names `ACTOR_SIGNING_KEY_FILE`, to delete tha
 **A deploy by tag to a build from before the secret files is refused by this checkout**, whatever
 the environment files hold and before either tag moves: that build was released with another
 compose file, edge and preflight than this checkout's, and runs under these only as the automatic
-rollback's accepted limit. The rollback a failed health wait makes is unaffected while the moved
-lines are still there, since it restores images and reads no environment file, and it names these
-steps rather than the restored build's tag. To roll back across that release by hand, on the server
-at the checkout root:
+rollback's accepted limit: the rollback a failed health wait makes restores images and reads no
+environment file, so an image from before the files finds none of the lines it reads and refuses
+its boot, and that rollback names these steps rather than the restored build's tag. To roll back
+across that release by hand, on the server at the checkout root:
 
 1. `git checkout <commit>`, the older build's own commit, so the deploy script, the compose file and
    nginx's configuration are the ones that build was released with.
-2. Put each moved line back from its file, printing nothing — for the backend's database URI,
+2. Put each value back as the line that build reads, from its file, printing nothing — for the
+   backend's database URI,
    `{ printf 'MONGODB_URI='; sudo cat secrets/backend_mongodb_uri; echo; } >> fl_backend/.env`, and
    the same shape for every other line into the package file of the service that reads it, the
    three internal keys into both.
 3. `./scripts/ops/deploy.sh sha-<commit>`.
 
-Rolling forward undoes each step before deploying: check out the newer commit, then deploy, and
-delete the lines again once it runs healthy.
+Rolling forward undoes each step before deploying: check out the newer commit and delete the lines
+again, which its preflight refuses, then deploy.
 
 **A build from before the actor token takes a step more**, and every build published before the
 secret files is one, the two arriving in one release. Its backend's settings forbid a name they do
 not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that line in
-`fl_backend/.env` into a comment by putting `#` in front of it; its frontend also requires the
-`ALLOWED_ADMIN_EMAILS` line §3 keeps in `fl_frontend/.env`. Rolling forward restores the
-`ACTOR_TOKEN_PUBLIC_KEY` line.
+`fl_backend/.env` into a comment by putting `#` in front of it; its frontend also requires an
+`ALLOWED_ADMIN_EMAILS` line in `fl_frontend/.env`, put back from the password manager. Rolling
+forward restores the `ACTOR_TOKEN_PUBLIC_KEY` line and deletes the `ALLOWED_ADMIN_EMAILS` one, which
+the newer deploy refuses as undeclared.
 
 ## 17. Clearing an address's code lock
 

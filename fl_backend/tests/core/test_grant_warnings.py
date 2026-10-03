@@ -1,5 +1,5 @@
 """
-CORE · what the boot says about the grants and the retired variables, and that it boots anyway
+CORE · what the boot says about the grants, and that it boots anyway
 
 `app/core/db.py :: warn_about_the_grants` reads one `find`, so a collection standing in for that
 read is all most cases meet; one db case boots over a real collection, so the lifespan's own call
@@ -19,9 +19,9 @@ from pymongo import MongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.collections import Collection
-from app.core.db import DEAD_GRANT, NO_GRANT, NO_OWNER, RETIRED_VARIABLES, DatabaseUnreachableError, lifespan, warn_about_the_grants
+from app.core.db import DEAD_GRANT, NO_GRANT, NO_OWNER, lifespan, warn_about_the_grants
 from app.core.logging import FL_LOGGER_NAME
-from tests.config import UNANSWERED_URI, build_test_config
+from tests.config import build_test_config
 from tests.worker import worker_database
 
 
@@ -93,40 +93,6 @@ def test_an_unfolded_owner_row_is_no_owner(caplog):
         (DEAD_GRANT.error_code, DEAD_GRANT.sentence.format(count=1)),
         (NO_OWNER.error_code, NO_OWNER.sentence),
     ]
-
-
-def booted(retired: frozenset[str], caplog: pytest.LogCaptureFixture) -> list[str]:
-    """The lifespan entered against a server nothing answers: the variables' warning comes before the database is asked anything."""
-
-    config = build_test_config().model_copy(
-        update={"retired_variables": retired, "mongodb_uri": SecretStr(UNANSWERED_URI), "db_server_selection_timeout": 1}
-    )
-
-    async def enter() -> None:
-        app = FastAPI()
-        app.state.config = config
-        async with lifespan(app):
-            raise AssertionError("no database answers, so the boot is expected to stop")
-
-    with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME), pytest.raises(DatabaseUnreachableError):
-        asyncio.run(enter())
-
-    return [getattr(record, "error_code", "") for record in caplog.records]
-
-
-@pytest.mark.parametrize(
-    "carried",
-    [frozenset(), frozenset({"ALLOWED_ADMIN_EMAILS"}), frozenset({"MONGODB_URI", "SPERRLISTE_SCHLUESSEL"})],
-    ids=["absent", "the administrator list", "two moved to their files"],
-)
-def test_the_retired_variables_are_warned_about_by_name_exactly_while_they_are_carried(caplog, carried: frozenset[str]):
-    """Carried, the boot names each and goes on to the database; the settings hold no value to print (`tests/core/test_config.py`)."""
-
-    codes = booted(carried, caplog)
-    warned = [record.getMessage() for record in caplog.records if getattr(record, "error_code", "") == RETIRED_VARIABLES.error_code]
-
-    assert (RETIRED_VARIABLES.error_code in codes) is bool(carried)
-    assert all(name in warned[0] for name in carried) if carried else warned == []
 
 
 def booted_over(grants: Sequence[Mapping[str, Any]], mongo_url: str, caplog: pytest.LogCaptureFixture) -> set[str]:

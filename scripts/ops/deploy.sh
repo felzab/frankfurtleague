@@ -154,6 +154,7 @@ Compose's own output is above."
 # ValidationError, and everything below reaches this script's output. The environment half alone:
 # this caller's uid reads no secret file (`scripts/lib/_lib.sh :: check_backend_boot_config` does).
 ENV_NAME_CHECK='
+# No single quote anywhere in this program: the shell string holding it would end there.
 import os
 import sys
 
@@ -169,12 +170,7 @@ try:
     # Imported from the image working directory, then read from the one the file is mounted in:
     # the settings class takes its file from wherever it is built.
     os.chdir(sys.argv[1])
-    retired = read_environment().retired_variables
-    # Said and never refused: the image a rollback returns to reads these lines.
-    if retired:
-        # No single quote anywhere in this program: the shell string holding it would end there.
-        names = ", ".join(sorted(retired))
-        print(f"Retired, and read by nothing: {names}", file=sys.stderr)
+    read_environment()
 except EnvironmentValidationError as refusal:
     print(refusal, file=sys.stderr)
     raise SystemExit(3)
@@ -798,7 +794,7 @@ signing_key_mode_advisory
 for secret_file in $(printf '%s\n' "${FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "A service reads it at /run/secrets/${secret_file}. Write it as docs/ops/runbooks.md §16 says."
 done
-check_moved_names warn fl_frontend/.env fl_backend/.env
+refuse_credential_lines fl_frontend/.env fl_backend/.env
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
 

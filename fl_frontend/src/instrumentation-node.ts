@@ -1,5 +1,5 @@
 export async function registerOnNode() {
-  const { frontend_config, retiredVariablesSet } = await passBootGates().catch((refusal: unknown) => {
+  const { frontend_config } = await passBootGates().catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
     // policy and the deploy's rollback read (`docs/frontend/spec.md :: I476`). The empty write's
     // callback runs once the CRITICAL line has left.
@@ -7,13 +7,6 @@ export async function registerOnNode() {
     process.stdout.write("", () => process.exit());
     throw refusal;
   });
-
-  // The names alone, never a value: one of them held administrators' addresses, the rest credentials.
-  const retired = retiredVariablesSet();
-  if (retired.length > 0) {
-    const { logger } = await import("./core/logging");
-    logger.warn("config.retired_variable", { error_code: "FE-BOOT-002", variables: retired.join(", ") });
-  }
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
   // and the league's real people. Compared to "on" rather than "off": a skipped validation leaves it
@@ -43,7 +36,7 @@ async function passBootGates() {
   // Importing it *is* the gate — validation runs during this module load, before anything is served.
   // Taken apart where it loads, as lint holds every load of it to: the whole namespace would carry
   // every secret's reader.
-  const { frontend_config, retiredVariablesSet } = await import("./core/config");
+  const { frontend_config } = await import("./core/config");
 
   // Installed before the first request can error, so Next's own multi-line console dumps still
   // reach the log as one JSON document per line; the shim itself stands down under the console
@@ -56,5 +49,5 @@ async function passBootGates() {
   const { loadActorSigningKeyAtBoot } = await import("./core/actorToken");
   await loadActorSigningKeyAtBoot();
 
-  return { frontend_config, retiredVariablesSet };
+  return { frontend_config };
 }

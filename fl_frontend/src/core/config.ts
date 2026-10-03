@@ -278,8 +278,8 @@ const validated = createEnv({
     LOG_LEVEL: process.env.LOG_LEVEL,
     BEWERBUNG_SWEEP: process.env.BEWERBUNG_SWEEP,
 
-    // Off the files alone: a variable of the same name is a retired line, and standing in for a
-    // missing file it would hand a credential `docker inspect` prints to a boot that should refuse.
+    // Off the files alone: a variable of the same name, standing in for a missing file, would hand
+    // a credential `docker inspect` prints to a boot that should refuse.
     MONGODB_URI: secrets.values.MONGODB_URI,
     AUTH_SECRET: secrets.values.AUTH_SECRET,
     AUTH_RESEND_KEY: secrets.values.AUTH_RESEND_KEY,
@@ -310,21 +310,11 @@ export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYS
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 
 /**
- * Retired, read by nothing: each secret's name before it became a file, and the administrator list the
- * grant replaced. Declared so the preflight passes a rolled-back image's files; a boot finding one warns
- * (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
- */
-export const RETIRED_ENVIRONMENT_NAMES: readonly string[] = ["ALLOWED_ADMIN_EMAILS", ...Object.keys(SECRET_FILES)].sort();
-
-/** The retired names this process's environment carries, and never a value. */
-export const retiredVariablesSet = (): string[] => RETIRED_ENVIRONMENT_NAMES.filter((name) => process.env[name] !== undefined);
-
-/**
  * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
  * outside this set: nothing in this schema reads one, so it reads as omitted and the shipped default
  * serves production.
  */
-export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = [...Object.keys(environment), ...RETIRED_ENVIRONMENT_NAMES].sort();
+export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = Object.keys(environment).sort();
 
 // Asked of the schema rather than read off its shape: `.optional()` and `.default()` are two
 // spellings of one answer, and Zod publishes no introspection that gives it.

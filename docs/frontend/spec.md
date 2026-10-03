@@ -730,17 +730,16 @@ exits non-zero**, as it does when the signing key cannot be read (I476): Next se
 throwing boot hook, every page a 500, where a dead container is what a restart policy and the
 deploy's rollback read.
 
-| Variable                                                                                                               | Constraint                                                                                                                             |
-| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `APP_ENV`                                                                                                              | `production` \| `local`; **no default, so a deployment that does not declare it refuses to boot** — and only `production` mails (I228) |
-| `API_URL`                                                                                                              | URL; must not share `AUTH_URL`'s origin                                                                                                |
-| `API_VERSION`                                                                                                          | integer                                                                                                                                |
-| `AUTH_URL`                                                                                                             | URL; **must be https** unless it points at localhost                                                                                   |
-| `ACTOR_SIGNING_KEY_FILE`                                                                                               | PEM path of the actor's Ed25519 PKCS#8 signing key; `/run/secrets/fl_actor_signing_key` by default; unreadable at boot, `FE-BOOT-003`  |
-| `MONGODB_URI`, `AUTH_SECRET`, `AUTH_RESEND_KEY`, `RESEND_WEBHOOK_SECRET`, `INTERNAL_API_KEY_*`, `ALLOWED_ADMIN_EMAILS` | retired, declared so a rollback's file still passes; read by nothing, and a boot finding one set warns `FE-BOOT-002`                   |
-| `LOG_FORMAT`                                                                                                           | `json` \| `console`, case-normalised                                                                                                   |
-| `LOG_LEVEL`                                                                                                            | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused                |
-| `BEWERBUNG_SWEEP`                                                                                                      | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build   |
+| Variable                 | Constraint                                                                                                                             |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ENV`                | `production` \| `local`; **no default, so a deployment that does not declare it refuses to boot** — and only `production` mails (I228) |
+| `API_URL`                | URL; must not share `AUTH_URL`'s origin                                                                                                |
+| `API_VERSION`            | integer                                                                                                                                |
+| `AUTH_URL`               | URL; **must be https** unless it points at localhost                                                                                   |
+| `ACTOR_SIGNING_KEY_FILE` | PEM path of the actor's Ed25519 PKCS#8 signing key; `/run/secrets/fl_actor_signing_key` by default; unreadable at boot, `FE-BOOT-003`  |
+| `LOG_FORMAT`             | `json` \| `console`, case-normalised                                                                                                   |
+| `LOG_LEVEL`              | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused                |
+| `BEWERBUNG_SWEEP`        | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build   |
 
 | Secret file                                    | Read as                                        | Constraint                                                                                                                              |
 | ---------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -753,8 +752,9 @@ deploy's rollback read.
 **Each secret is its file's and never the environment's** (I503): `fl_frontend/src/core/config.ts ::
 readSecretFiles` reads them before the schema runs, trims the whitespace around each value, a shared key's alphabet
 refusing any character the backend's Python `strip()` treats otherwise (I504), and hands the schema
-the file's value under its key. A variable of the same name is a retired line, so it neither stands in for a
-missing file nor wins over a present one. A missing file is the schema's to judge; one the process
+the file's value under its key. A variable of the same name neither stands in for a missing file nor
+wins over a present one, and the schema declares none, so the deploy refuses a host's file carrying
+one as undeclared. A missing file is the schema's to judge; one the process
 cannot read — a directory at its path, bytes that are not UTF-8, a `SECRETS_DIR` that is no
 directory — refuses the boot as `Unreadable secret files: <PATH> (<ERRNO>)`, and a value the schema
 refuses is named by its file as `Invalid secret files: <FILES>`, both `FE-BOOT-004` and worded as
@@ -783,7 +783,7 @@ is:
   `signInStore` (`fl_frontend/eslint.config.mjs :: SIGN_IN_STORE`).
 
 A secret's name is refused in every spelling outside the config
-(`fl_frontend/eslint.config.mjs :: SECRET_NAMES`), since a host may still carry its retired variable,
+(`fl_frontend/eslint.config.mjs :: SECRET_NAMES`), since a process may carry a variable of its name,
 a live value no file check judges, and so is a secret's file name, bare or ending a path
 (`fl_frontend/eslint.config.mjs :: SECRET_FILE_NAMES`), since a module reading the file itself holds
 the secret past its reader. A loaded namespace of the config, the library's module or the
@@ -814,7 +814,7 @@ from the environment.** The library's own chain looks for `BETTER_AUTH_URL` and 
 explicit value is also what decides the cookie prefix above and the relying-party identifier the
 passkey ceremony is bound to. **An empty `secret` falls back to the process's own `AUTH_SECRET` in
 silence**, the library taking the first value that is set, so the file's `min(32)` refusal is what
-keeps a retired line from signing every session.
+keeps a stray `AUTH_SECRET` variable from signing every session.
 
 **`AUTH_URL` is also the origin every message's links are built on** (I186): repointing it moves the
 confirmation links and each close's legal links together, which is what lets a
@@ -843,7 +843,7 @@ stack mail links back into itself. The published origin is the module constant
 | `no-restricted-imports` of `SITE_URL` in production outside `fl_frontend/eslint.config.mjs :: SITE_ORIGIN`'s three crawler files                                                                | A link a message carries stands on the configured origin, never the published one (I186)                                                                                                                                                         |
 | `no-restricted-imports` of `fl_frontend/eslint.config.mjs :: SECRET_READERS`, `:: AUTH_INSTANCE` and `:: SIGN_IN_STORE` outside their owners, and every `import()` of the config but the boot's | Each secret stays with its owner (I545): elsewhere the provider's key skips the ban list's gate (I541), and the system's key acts as the system                                                                                                  |
 | `no-restricted-imports` of `fl_frontend/eslint.config.mjs :: SPERRE_NOTICE` outside the ban action, and the mailer loaded whole or into it                                                      | The notice's sender skips the ban list's gate, so only the action checking the ban's reason sends it (I541)                                                                                                                                      |
-| `no-restricted-syntax`: a confined name taken off a loaded module, the module held whole, or a secret's name spelled outside the config                                                         | A loaded namespace hands on every name it holds, and a host may still carry a secret's retired variable (I545)                                                                                                                                   |
+| `no-restricted-syntax`: a confined name taken off a loaded module, the module held whole, or a secret's name spelled outside the config                                                         | A loaded namespace hands on every name it holds, and a process may carry a variable of a secret's name (I545)                                                                                                                                    |
 | `no-restricted-syntax`: a secret file's name in `fl_frontend/eslint.config.mjs :: SECRET_FILE_NAMES`, bare or ending a path, outside the config                                                 | Read off disk by its name, a secret skips the one reader its holder imports (I545)                                                                                                                                                               |
 | `no-restricted-imports`, and `fl_frontend/eslint.config.mjs :: DYNAMIC_LOADS` for an `import()`, of Next's private contexts, the segmented date controls and HeroUI's `Form`                    | Each has one home: `fl_frontend/src/shared/testing/nextContexts.ts`, `fl_frontend/src/shared/components/ui/DateTimeFields.tsx` and `fl_frontend/src/shared/components/ui/Form.tsx`, each left out of that ban alone by a config block of its own |
 | `fl_frontend/eslint.config.mjs :: DYNAMIC_LOADS` for a `createRequire` load, and a ban on any string naming Next's private contexts                                                             | A module double spelled as a string, or a required path, reaches the contexts as an import does                                                                                                                                                  |

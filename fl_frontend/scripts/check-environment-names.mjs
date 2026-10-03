@@ -151,10 +151,6 @@ function report(argv) {
     return 4;
   }
 
-  // Said and never refused: the image a rollback returns to reads these lines (`docs/frontend/spec.md` §1.7).
-  const retired = names.filter((name) => sets.retired.includes(name));
-  if (retired.length > 0) process.stderr.write(`Retired environment variables still set: ${retired.join(", ")}\n`);
-
   const undeclared = undeclaredNames(names, sets.declared);
   const missing = missingNames(assigned, sets.required);
   if (undeclared.length === 0 && missing.length === 0) return 0;

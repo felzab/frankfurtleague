@@ -23,8 +23,6 @@ const {
   refuseInvalidEnvironment,
   REQUIRED_ENVIRONMENT_NAMES,
   REQUIRED_SECRET_FILES,
-  RETIRED_ENVIRONMENT_NAMES,
-  retiredVariablesSet,
 } = await import("./config.ts");
 
 const LENGTH = 64;
@@ -350,24 +348,14 @@ describe("the names the preflight demands a host's file carry", () => {
     });
     assert.ok(REQUIRED_SECRET_FILES.length > 0 && PRODUCTION_REQUIRED_SECRET_FILES.length > 0, "a set the schema derived is empty");
   });
-
-  /* A moved name demanded of the environment would refuse every host that did the move; one not
-     declared would refuse every host that has not done it yet, the rollback's own file included. */
-  it("demands none of the names the secret files replaced, and declares each of them as retired", () => {
-    for (const name of RETIRED_ENVIRONMENT_NAMES) {
-      assert.ok(DECLARED_ENVIRONMENT_NAMES.includes(name), `${name} is not declared`);
-      assert.ok(!REQUIRED_ENVIRONMENT_NAMES.includes(name), `${name} is demanded`);
-    }
-    assert.ok(RETIRED_ENVIRONMENT_NAMES.includes("MONGODB_URI") && RETIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
-  });
 });
 
 type SecretReader =
   "mongodbUri" | "authSecret" | "authResendKey" | "resendWebhookSecret" | "internalApiKeyBase" | "internalApiKeySystem" | "internalApiKeyAdmin";
 
 /**
- * Each secret's retired variable, its file, a value the schema takes, so a boot reading the variable is
- * not mistaken for one refusing it, and the reader handing the secret out.
+ * Each secret's key, the variable a host's file held before the secret was a file, then its file, a value
+ * the schema takes, so a boot reading the variable is not mistaken for one refusing it, and its reader.
  */
 const LEFT_BEHIND: readonly (readonly [variable: string, file: string, value: string, reader: SecretReader])[] = [
   ["MONGODB_URI", "frontend_mongodb_uri", "mongodb://left-behind:27017/?directConnection=true", "mongodbUri"],
@@ -380,12 +368,27 @@ const LEFT_BEHIND: readonly (readonly [variable: string, file: string, value: st
 ];
 
 describe("the secret files the frontend reads", () => {
-  it("names every secret file once, by the variable it retired", () => {
+  /* Paired through the refusal, which names a key's file by the schema's own map: a variable here the
+     schema does not read as that file would leave each case below passing over a name nothing reads. */
+  it("names every secret file once, by the key the schema reads it as", () => {
     assert.deepEqual(LEFT_BEHIND.map(([, file]) => file).sort(), Object.keys(COMPLETE_FILES).sort());
-    assert.deepEqual(
-      LEFT_BEHIND.map(([variable]) => variable).sort(),
-      RETIRED_ENVIRONMENT_NAMES.filter((name) => name !== "ALLOWED_ADMIN_EMAILS"),
-    );
+
+    process.env.LOG_FORMAT = "json";
+    for (const [variable, file] of LEFT_BEHIND) {
+      const documents = documentsWrittenBy(() => {
+        assert.throws(() => refuseInvalidEnvironment([variable]));
+      });
+
+      assert.equal(documents[0]?.files, file, variable);
+    }
+  });
+
+  /* Declared, a credential's line in a host's file would pass the deploy's name check and reach the
+     container's environment, which `docker inspect` prints. */
+  it("declares none of the variables a secret is read from instead, nor the administrator list the grants replaced", () => {
+    for (const name of [...LEFT_BEHIND.map(([variable]) => variable), "ALLOWED_ADMIN_EMAILS"]) {
+      assert.ok(!DECLARED_ENVIRONMENT_NAMES.includes(name), `${name} is declared`);
+    }
   });
 
   /* The variable a release before this one read, left behind in a host's file: standing in for a
@@ -403,10 +406,7 @@ describe("the secret files the frontend reads", () => {
   it("hands each secret out through its reader alone, never among the settings", async () => {
     const booted = await bootWith({});
 
-    assert.deepEqual(
-      Object.keys(booted.frontend_config).sort(),
-      DECLARED_ENVIRONMENT_NAMES.filter((name) => !RETIRED_ENVIRONMENT_NAMES.includes(name)),
-    );
+    assert.deepEqual(Object.keys(booted.frontend_config).sort(), DECLARED_ENVIRONMENT_NAMES);
     for (const [, file, , reader] of LEFT_BEHIND) assert.equal(booted[reader](), COMPLETE_FILES[file], reader);
   });
 
@@ -502,37 +502,6 @@ const ADDRESS_TABLE: [clause: string, address: string][] = [
   ["a doubled dot in the host", "vorstand@schule..de"],
   ["nothing at all", ""],
 ];
-
-describe("the retired variables", () => {
-  /* Declared for this release so a file carrying one passes the preflight for this image and for the one
-     a rollback returns to: refused here, the new image would not boot on the file the old one needs. */
-  it("boots whatever one holds, a value the retired rule refused included", async () => {
-    for (const value of ["vorstand@schule.de", "a@b.de;c@d.de", ""]) {
-      for (const name of ["ALLOWED_ADMIN_EMAILS", "MONGODB_URI"]) {
-        assert.equal((await bootWith({ [name]: value })).frontend_config.APP_ENV, "production", `refused ${name}=${JSON.stringify(value)}`);
-      }
-    }
-  });
-
-  it("is declared and demanded of no host, so a file may carry it or drop it", () => {
-    assert.ok(DECLARED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
-    assert.ok(!REQUIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
-  });
-
-  /* The boot's warning reads this, and it answers names alone: an empty line is a line still to delete. */
-  it("names each one the environment carries, an empty one included, and nothing else", () => {
-    const before = { ...process.env };
-    try {
-      for (const name of RETIRED_ENVIRONMENT_NAMES) delete process.env[name];
-      Object.assign(process.env, { AUTH_SECRET: "", INTERNAL_API_KEY_BASE: "a value nothing reads" });
-
-      assert.deepEqual(retiredVariablesSet(), ["AUTH_SECRET", "INTERNAL_API_KEY_BASE"]);
-    } finally {
-      for (const name of Object.keys(process.env)) delete process.env[name];
-      Object.assign(process.env, before);
-    }
-  });
-});
 
 describe("the sign-in library's own rule", () => {
   /* The send endpoint's own check, driven rather than copied: what it refuses is what a request for a

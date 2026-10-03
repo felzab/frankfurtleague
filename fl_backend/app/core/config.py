@@ -219,25 +219,11 @@ class _SecretFields(BaseModel):
         return value
 
 
-# Retired names are held under this prefix, so no consumer reads one by the name the value had.
-RETIRED_PREFIX: Final = "retired_"
-
-
 class BackendEnvironment(BaseSettings, _EnvironmentFields):
     """The environment half of the boot's settings: the process environment and the package's dotenv file, never a secret file."""
 
     # A path and never a secret: the directory the secret half reads each credential from.
     secrets_dir: str = Field(default=DEFAULT_SECRETS_DIR, description="The directory each secret file is read from")
-
-    # RETIRED, read by the boot's warning alone and never a value: declared so this release boots
-    # on the environment files the release before it reads, which a rollback puts back
-    # (`docs/backend/spec.md` §1.5). No validator, so no value refuses a boot.
-    retired_allowed_admin_emails: SecretStr | None = Field(default=None, validation_alias="ALLOWED_ADMIN_EMAILS")
-    retired_mongodb_uri: SecretStr | None = Field(default=None, validation_alias="MONGODB_URI")
-    retired_internal_api_key_base: SecretStr | None = Field(default=None, validation_alias="INTERNAL_API_KEY_BASE")
-    retired_internal_api_key_system: SecretStr | None = Field(default=None, validation_alias="INTERNAL_API_KEY_SYSTEM")
-    retired_internal_api_key_admin: SecretStr | None = Field(default=None, validation_alias="INTERNAL_API_KEY_ADMIN")
-    retired_sperrliste_schluessel: SecretStr | None = Field(default=None, validation_alias="SPERRLISTE_SCHLUESSEL")
 
     # `forbid`, because a class that drops a key cannot tell a typo from an omission, and the shipped
     # default serves production. Only the dotenv source hands this class an undeclared name, and it
@@ -262,15 +248,6 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return init_settings, env_settings, dotenv_settings
-
-    @property
-    def retired_variables(self) -> frozenset[str]:
-        """The retired names this environment still carries, as it spells them."""
-        return frozenset(
-            str(field.validation_alias)
-            for name, field in type(self).model_fields.items()
-            if name.startswith(RETIRED_PREFIX) and getattr(self, name) is not None
-        )
 
 
 class BackendSecrets(BaseSettings, _SecretFields):
@@ -308,9 +285,6 @@ SECRET_FILES: Final = tuple(str(field.validation_alias or name) for name, field 
 
 class BackendConfig(_EnvironmentFields, _SecretFields):
     """The settings every consumer reads: both halves, as `get_config` built them, reading no source of its own."""
-
-    # The names alone, never a value: what the boot's warning prints (`app/core/db.py :: lifespan`).
-    retired_variables: frozenset[str] = Field(default=frozenset(), description="The retired names the environment still carries")
 
     # By name, because the secret fields carry their file's name as the alias the file source reads.
     model_config = ConfigDict(extra="forbid", validate_by_name=True)
@@ -407,7 +381,6 @@ def get_config() -> BackendConfig:
     return BackendConfig(
         **environment.model_dump(include=set(_EnvironmentFields.model_fields)),
         **secrets.model_dump(),
-        retired_variables=environment.retired_variables,
     )
 
 
