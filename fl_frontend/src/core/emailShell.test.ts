@@ -51,6 +51,7 @@ const {
 } = await import("./bewerbungEmail.ts");
 const { buildCodeEmail } = await import("./authEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
+const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
 const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
 const { buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } =
   await import("./registrierungEmail.ts");
@@ -95,6 +96,7 @@ const BUILT_MESSAGES = [
   ...Object.keys(await import("./bewerbungEmail.ts")),
   ...Object.keys(await import("./authEmail.ts")),
   ...Object.keys(await import("./einladungEmail.ts")),
+  ...Object.keys(await import("./kontaktEmail.ts")),
   ...Object.keys(await import("./passkeyEmail.ts")),
   ...Object.keys(await import("./registrierungEmail.ts")),
   ...Object.keys(await import("./schiedsrichterEmail.ts")),
@@ -175,6 +177,16 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       saisonId: "2627",
       origin: origin,
       link: `${ORIGIN}/registrierung?token=beispiel-fuenf`,
+    }),
+  buildKontaktBestaetigungEmail: (origin) =>
+    buildKontaktBestaetigungEmail({
+      origin: origin,
+      vorname: "Erika",
+      rollenText: "Ansprechperson",
+      schule: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      token: "beispiel-sechs",
+      fristText: "05.10.2026",
     }),
   buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
   buildPasskeyHinzugefuegtEmail: (origin) =>
