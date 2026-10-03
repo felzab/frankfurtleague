@@ -4,16 +4,18 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { unansweredAction } from "@/shared/utils/actionError.ts";
 
+import type { InFlight } from "@/shared/testing/answersInFlight.ts";
 import type { ActionResult } from "@/shared/types/types.ts";
 
 // Replaced at the module boundary: the real toast module hands its raising to HeroUI's queue.
@@ -22,6 +24,26 @@ const { raised } = doubleToasts();
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { ConfirmDeleteModal } = await import("./ConfirmDeleteModal.tsx");
 const { NAME_WRAP_CLASSES } = await import("./nameWrap.ts");
+
+const inFlight = new Set<InFlight>();
+
+/**
+ * Hands the dialog `answer` as its write's, held until it lands: the write arrives as a prop, so no
+ * module double stands between the dialog and the case to record it.
+ */
+function handedOut<T>(name: string, answer: Promise<T>): Promise<T> {
+  const entry = { name, answer };
+  inFlight.add(entry);
+  const settle = (): void => void inFlight.delete(entry);
+  answer.then(settle, settle);
+  return answer;
+}
+
+/**
+ * Awaited inside `act` before a poll of the page, so the render an answer sets off lands inside it: a
+ * poll alone gives up after its second, which a loaded machine's answer and render outlast.
+ */
+const answered = (): Promise<void> => untilAnswered(() => [...inFlight], "settle a held answer before awaiting `answered`");
 
 /** The dialog over Halle West, retiring through `onConfirm`. */
 const dialog = (onConfirm: () => Promise<ActionResult>) =>
@@ -35,7 +57,7 @@ const dialog = (onConfirm: () => Promise<ActionResult>) =>
     consequence: "Er fehlt dann in der Auswahl.",
     successMessage: "Spielort stillgelegt",
     failureMessage: "Spielort nicht stillgelegt",
-    onConfirm,
+    onConfirm: () => handedOut("onConfirm", onConfirm()),
   });
 
 describe("the retirement dialog", () => {
@@ -46,6 +68,7 @@ describe("the retirement dialog", () => {
     render(underNext(dialog(() => Promise.reject<ActionResult>(new Error("An unexpected response was received from the server.")))));
 
     await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
+    await act(answered);
     // Found rather than got: the press lets go, disarmed as every two-press control is, once the rejection has been answered.
     await screen.findByRole("button", { name: "Stilllegen" });
 
