@@ -248,6 +248,9 @@ demand a tree spell every code below.
   that result.
 - **`REQ-SQUAD-002`** — a squad row took a `nummer` another live row of the same team and season
   already held.
+- **`REQ-BERECHTIGUNG-006`** — a grant or a ban whose administrator's own grant was revoked after
+  the actor check. Every admin-tier transaction re-judges its actor first and refuses that one
+  `REQ-AUTH-006`, under the same wording, so no write reaches the grants' own refusal.
 - **`REQ-STATE-001`** — what it refused is unrecorded: no revision this history holds spells it, and
   the family's rows open at `REQ-STATE-002`.
 - **`REQ-OID-001`** — a malformed ObjectId reached a handler past the path convertor and the query

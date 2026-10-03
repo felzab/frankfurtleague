@@ -30,8 +30,6 @@ BERECHTIGUNG_MINDESTZAHL = "REQ-BERECHTIGUNG-004"
 # 403 and not 409: the refusal is about who asks, and granting the asker `owner` is what lifts it.
 BERECHTIGUNG_NUR_INHABER = "REQ-BERECHTIGUNG-005"
 
-BERECHTIGUNG_OHNE_ZUGANG = "REQ-BERECHTIGUNG-006"
-
 # 409: the grants' state, and promoting another owner first is what lifts it.
 BERECHTIGUNG_LETZTER_INHABER = "REQ-BERECHTIGUNG-007"
 
@@ -157,23 +155,6 @@ def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]])
         error_code=BERECHTIGUNG_VORHANDEN,
         status=HTTPStatus.CONFLICT,
         message="this email address already holds access to the administration",
-    )
-
-
-def find_ohne_zugang_refusal(*, akteur: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-006`: the acting administrator's own live grant is gone when the grant is judged.
-
-    The actor check ran before this transaction, and a revoke committing between the two would leave
-    the revoked administrator one grant to hand out.
-    """
-
-    if verwaltung_des(akteur, grants) is not None:
-        return None
-
-    return WriteRefusal(
-        error_code=BERECHTIGUNG_OHNE_ZUGANG,
-        status=HTTPStatus.FORBIDDEN,
-        message="the administrator making this request holds no access to the administration now",
     )
 
 

@@ -146,7 +146,7 @@ async def through_the_binder(request: Request) -> tuple[Bound, Bound]:
     """
 
     # The binder's own dependencies first, as FastAPI resolves them.
-    binder = bind_actor(request, verify_admin_actor(get_actor_token(request), KEY))
+    binder = bind_actor(request, verify_admin_actor(get_actor_token(request), KEY), CONFIG)
     await anext(binder)
     during = (actor_var.get(), request_var.get())
 

@@ -26,7 +26,7 @@ from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S
 from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY
+from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
@@ -74,9 +74,10 @@ def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitab
                 saison_document(SAISON_ID, "active", rules=rules_document(number_of_groups=2), registrierung=dict(REGISTRIERUNG))
             )
             await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "AD", kontakte=None))
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             if seed is not None:
                 await seed(database)
-            async with app_client(url, app=_served(), admitting=(ADMIN,)) as http:
+            async with app_client(url, app=_served()) as http:
                 return await body(database, http)
 
     return on_the_seed_loop(_run())

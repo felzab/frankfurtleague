@@ -6365,7 +6365,7 @@
       },
       "post": {
         "summary": "Ban an email address",
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`), and where the administrator\nentering it holds no grant by the time it is judged (`REQ-BERECHTIGUNG-006`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued\nfor the address loses the address in the same transaction.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued\nfor the address loses the address in the same transaction.",
         "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
         "requestBody": {
           "content": {
@@ -6404,7 +6404,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-006"
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6517,7 +6517,7 @@
       },
       "post": {
         "summary": "Grant access to the administration",
-        "description": "Grant an address access to the administration, as `administration`. No request grants `owner`; any administrator may grant.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list\nholds it (`REQ-BERECHTIGUNG-003`), and where the acting administrator's own grant has gone by the time the write is judged\n(`REQ-BERECHTIGUNG-006`). The grant takes effect on the next request, for a session signed in after it alone -- an older one is\nrefused `REQ-AUTH-007` on every admin-tier route -- and its announcement is queued in the same transaction for\n`POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier change, it takes a passkey sign-in or confirmation no older than\n`ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused `REQ-AUTH-009` otherwise.",
+        "description": "Grant an address access to the administration, as `administration`. No request grants `owner`; any administrator may grant.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- and where the ban list\nholds it (`REQ-BERECHTIGUNG-003`). The grant takes effect on the next request, for a session signed in after it alone -- an older one is\nrefused `REQ-AUTH-007` on every admin-tier route -- and its announcement is queued in the same transaction for\n`POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier change, it takes a passkey sign-in or confirmation no older than\n`ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused `REQ-AUTH-009` otherwise.",
         "operationId": "post_berechtigung_api_v0_berechtigungen_post",
         "requestBody": {
           "content": {
@@ -6556,7 +6556,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-006"
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -21304,30 +21304,6 @@
                       "enum": [
                         "REQ-AUTH-006",
                         "REQ-BERECHTIGUNG-005"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "403.REQ-AUTH-006.REQ-BERECHTIGUNG-006": {
-        "description": "Forbidden",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "REQ-AUTH-006",
-                        "REQ-BERECHTIGUNG-006"
                       ]
                     }
                   }

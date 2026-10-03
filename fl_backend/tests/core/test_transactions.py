@@ -2,7 +2,8 @@ import ast
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -18,7 +19,8 @@ from app.core.collections import Collection
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
-from app.core.transactions import ABORT_GRACE_S, drain, transaction_session
+from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
+from app.core.transactions import ABORT_GRACE_S, actor_judge_var, drain, transaction_session
 from app.main import create_app
 from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, app_calls, callee, parsed
@@ -31,8 +33,14 @@ TRANSACTION_SESSION = "transaction_session"
 
 
 class _Session:
-    def __init__(self) -> None:
+    # No transaction number, as on a session no transaction reached a server through: a failure inside
+    # it is sent no abort.
+    _server_session = object()
+    _transaction_id = 0
+
+    def __init__(self, attempts: int = 1) -> None:
         self.open = False
+        self.attempts = attempts
 
     async def __aenter__(self) -> _Session:
         self.open = True
@@ -41,13 +49,23 @@ class _Session:
     async def __aexit__(self, *_: Any) -> None:
         self.open = False
 
+    async def with_transaction(self, callback: Callable[[Any], Awaitable[Any]]) -> Any:
+        """As the driver runs one: the callback handed the session itself, once per attempt, the last attempt's answer returned."""
+
+        answer = None
+        for _ in range(self.attempts):
+            answer = await callback(self)
+
+        return answer
+
 
 class _Client:
-    def __init__(self) -> None:
+    def __init__(self, attempts: int = 1) -> None:
         self.sessions: list[_Session] = []
+        self.attempts = attempts
 
     def start_session(self) -> _Session:
-        self.sessions.append(_Session())
+        self.sessions.append(_Session(self.attempts))
         return self.sessions[-1]
 
 
@@ -69,16 +87,122 @@ class TestAFullPageIsRunAgain:
         client = _Client()
         handed: list[_Session] = []
 
-        async def page_of(session: Any) -> tuple[int, int, int]:
+        async def erase_a_page(session: Any) -> tuple[int, int, int]:
             assert session.open, "a page ran outside the session it was handed"
             handed.append(session)
             return pages[len(handed) - 1]
 
-        erased, redacted = asyncio.run(drain(db=cast(AsyncMongoClient, client), page_of=page_of, page=PAGE))
+        erased, redacted = asyncio.run(
+            drain(db=cast(AsyncMongoClient, client), page_of=lambda session: session.with_transaction(erase_a_page), page=PAGE)
+        )
 
         assert handed == client.sessions
         assert len(handed) == len(pages)
         assert (erased, redacted) == (sum(page[1] for page in pages), sum(page[2] for page in pages))
+
+
+class _Judged:
+    """A judge recording where it ran, refusing before the callback where `refuses` is set."""
+
+    def __init__(self, events: list[str], *, refuses: bool = False) -> None:
+        self.events = events
+        self.refuses = refuses
+
+    @asynccontextmanager
+    async def __call__(self, session: Any) -> AsyncIterator[None]:
+        assert session.open, "the judge ran outside the attempt's session"
+        self.events.append("judged")
+        if self.refuses:
+            raise _RefusedByTheJudge
+
+        yield
+
+        self.events.append("anchored")
+
+
+class _RefusedByTheJudge(Exception):
+    """The judge's refusal, raised before its callback."""
+
+
+class _FailedInTheCallback(Exception):
+    """The callback's own failure."""
+
+
+def _run_judged(actor: Actor | PersonActor, judge: Any, *, attempts: int = 1, fails: bool = False, client: _Client | None = None) -> list[str]:
+    """One transaction run under `actor` and `judge` bound as a binder binds them, and what ran in it, in order."""
+
+    client = _Client(attempts) if client is None else client
+    events: list[str] = [] if judge is None else judge.events
+
+    async def callback(session: Any) -> None:
+        events.append("callback")
+        if fails:
+            raise _FailedInTheCallback
+
+    async def run() -> None:
+        actor_token, judge_token = actor_var.set(actor), actor_judge_var.set(judge)
+        try:
+            async with transaction_session(cast(AsyncMongoClient, client)) as session:
+                await session.with_transaction(callback)
+        finally:
+            actor_var.reset(actor_token)
+            actor_judge_var.reset(judge_token)
+
+    asyncio.run(run())
+
+    return events
+
+
+ADMINISTRATOR = Actor(kind="admin_session", email="admin@example.com")
+PERSON = PersonActor(pseudonym="0" * 64, funktion="spieler")
+
+
+class TestEveryAttemptJudgesItsActorFirst:
+    """`docs/backend/spec.md :: I921`: the judge a binder bound runs inside every attempt the driver makes, around its callback."""
+
+    @pytest.mark.parametrize("actor", [ADMINISTRATOR, PERSON], ids=["an administrator", "a person"])
+    def test_the_judge_runs_before_the_callback_and_anchors_after_it_on_every_attempt(self, actor: Actor | PersonActor):
+        """Two attempts, as a write conflict makes: a judge entered once per session would let the retry run on the first attempt's read."""
+
+        events = _run_judged(actor, _Judged([]), attempts=2)
+
+        assert events == ["judged", "callback", "anchored", "judged", "callback", "anchored"]
+
+    def test_a_refusing_judge_runs_no_callback(self):
+        events: list[str] = []
+        with pytest.raises(_RefusedByTheJudge):
+            _run_judged(ADMINISTRATOR, _Judged(events, refuses=True))
+
+        assert events == ["judged"]
+
+    def test_a_failing_callback_writes_no_anchor(self):
+        """The anchor is the judgement's last write, and an attempt that failed has nothing for it to protect."""
+
+        events: list[str] = []
+        with pytest.raises(_FailedInTheCallback):
+            _run_judged(ADMINISTRATOR, _Judged(events), fails=True)
+
+        assert events == ["judged", "callback"]
+
+
+class TestTheSystemAndThePublicAreJudgedByNothing:
+    @pytest.mark.parametrize("actor", [SYSTEM_ACTOR, PUBLIC_ACTOR], ids=["the system", "the public"])
+    def test_their_callback_runs_with_no_judge_bound(self, actor: Actor):
+        events = _run_judged(actor, None)
+
+        assert events == ["callback"]
+
+
+class TestAnUnjudgedActorIsRefused:
+    @pytest.mark.parametrize("actor", [ADMINISTRATOR, PERSON], ids=["an administrator", "a person"])
+    def test_a_judged_kind_with_no_judge_bound_opens_no_session(self, actor: Actor | PersonActor):
+        """Load-bearing for the administrator: a binder that bound the actor and forgot the judge would otherwise write past a revoke."""
+
+        client = _Client()
+        with pytest.raises(LookupError):
+            _run_judged(actor, None, client=client)
+
+        assert client.sessions == []
 
 
 class _TransactedSession(_Session):

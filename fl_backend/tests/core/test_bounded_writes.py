@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from app.api.berechtigungen.crud import pull_the_list_to_judge
+from app.api.berechtigungen.crud import anchor_the_actors_grant, pull_the_list_to_judge
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
@@ -130,7 +130,14 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/berechtigungen/sweep_router.py :: queue_and_claim",
         }
     ),
+    # No callback calls it: `app/core/transactions.py :: JudgedSession` runs this judge around every
+    # callback, which `HOOKED_CALLERS` below answers for.
+    "anchor_the_actors_grant": frozenset({"app/core/security.py :: judging_the_administrator"}),
 }
+
+# The callers no `with_transaction` is handed, each run by `transaction_session` inside every attempt
+# instead (`tests/core/test_transactions.py :: TestEveryAttemptJudgesItsActorFirst`).
+HOOKED_CALLERS: frozenset[str] = frozenset({"app/core/security.py :: judging_the_administrator"})
 
 CHOKE_POINT_FUNCTIONS = tuple(function for function, _, _ in CHOKE_POINTS)
 
@@ -142,6 +149,7 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (anchor_a_booked_referee, "schiedsrichter_collection"),
     (_pull_the_season_a_ban_counts_from, "saisons_collection"),
     (pull_the_list_to_judge, "berechtigungen_collection"),
+    (anchor_the_actors_grant, "berechtigungen_collection"),
 )
 
 ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)
@@ -359,7 +367,7 @@ def test_every_caller_hands_the_choke_point_a_transactions_session(function: str
 
     assert _app_callers_of(function) == callers
 
-    transactional = {callback.where for callback in transactional_callbacks(WRITE_HELPERS)}
+    transactional = {callback.where for callback in transactional_callbacks(WRITE_HELPERS)} | HOOKED_CALLERS
 
     assert callers <= transactional, f"{sorted(callers - transactional)} call {function} outside any transaction"
 

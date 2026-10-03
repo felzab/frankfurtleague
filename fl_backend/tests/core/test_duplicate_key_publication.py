@@ -332,9 +332,19 @@ def test_every_write_the_application_makes_is_reached_from_a_route():
         if callee(call) in WRITE_HELPERS or (isinstance(call.func, ast.Attribute) and callee(call) in DRIVER_WRITES)
     }
     reached = {write.site for _, writes in _write_operations().values() for write in writes}
+    # The judge's anchor: every admin-tier transaction writes it through `transaction_session`, and an
+    # `$inc` of `bounded_writes` alone reaches no unique index.
+    judged = {
+        (module, call.lineno)
+        for module, scope, call in app_calls()
+        if module == "app/api/berechtigungen/crud.py" and scope == "anchor_the_actors_grant" and callee(call) in WRITE_HELPERS
+    }
 
     assert made, "no write call site was found, so the comparison below holds over nothing"
-    assert sorted(made - reached) == [], "writes no route's trace reaches, so a route making them publishes nothing about their unique indexes"
+    assert len(judged) == 1, f"the judge's anchor is {len(judged)} writes, where the exemption below names one"
+    assert sorted(made - reached - judged) == [], (
+        "writes no route's trace reaches, so a route making them publishes nothing about their unique indexes"
+    )
 
 
 def test_no_write_helper_is_held_as_a_value():

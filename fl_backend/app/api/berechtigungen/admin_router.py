@@ -26,7 +26,6 @@ from app.api.berechtigungen.services import (
     find_letzter_inhaber_refusal,
     find_mindestzahl_refusal,
     find_nur_inhaber_refusal,
-    find_ohne_zugang_refusal,
     find_vorhanden_refusal,
     gefunden,
     lebendige,
@@ -130,16 +129,14 @@ async def post_berechtigung(
     Grant an address access to the administration, as `administration`. No request grants `owner`; any administrator may grant.
 
     The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
-    grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list
-    holds it (`REQ-BERECHTIGUNG-003`), and where the acting administrator's own grant has gone by the time the write is judged
-    (`REQ-BERECHTIGUNG-006`). The grant takes effect on the next request, for a session signed in after it alone -- an older one is
+    grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- and where the ban list
+    holds it (`REQ-BERECHTIGUNG-003`). The grant takes effect on the next request, for a session signed in after it alone -- an older one is
     refused `REQ-AUTH-007` on every admin-tier route -- and its announcement is queued in the same transaction for
     `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier change, it takes a passkey sign-in or confirmation no older than
     `ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused `REQ-AUTH-009` otherwise.
     """
 
     adresse = sign_in_identifier(str(berechtigung_data.email))
-    akteur = sign_in_identifier(erteilt_von)
     # Keyed from the payload's own value, as the ban write keys it (`app/api/identitaet/router.py :: get_subjekt`).
     gehasht = sperrliste.hash_of(str(berechtigung_data.email))
 
@@ -147,7 +144,6 @@ async def post_berechtigung(
         """Anchor and read the list, ask the ban list, then write the grant, its announced row and its outbox row, on one transaction."""
 
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
-        refuse(find_ohne_zugang_refusal(akteur=akteur, grants=grants))
         refuse(find_vorhanden_refusal(adresse=adresse, grants=grants))
 
         gesperrt = await hash_gesperrt(sperrliste, gehasht, session=session)

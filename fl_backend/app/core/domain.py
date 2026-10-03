@@ -2236,15 +2236,6 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_berechtigungen_execution.py::TestOnlyAnOwnerRevokes",
     ),
     Rule(
-        code="REQ-BERECHTIGUNG-006",
-        status=HTTPStatus.FORBIDDEN,
-        operation="POST /berechtigungen · POST /sperrliste",
-        aggregate="Berechtigung",
-        summary="a grant or a ban is made only by an actor whose own live grant still stands inside the transaction",
-        implemented_by="app.api.berechtigungen.services.find_ohne_zugang_refusal",
-        tested_by="tests/api/test_berechtigungen_execution.py::TestAnActorRevokedMidRequest",
-    ),
-    Rule(
         code="REQ-BERECHTIGUNG-004",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /berechtigungen/{berechtigung_id}",

@@ -345,6 +345,9 @@ def removals() -> tuple[Removal, ...]:
 # application is opened this way, and the writes sit in the callback rather than under it.
 TRANSACTION_RUNNER = "with_transaction"
 
+# Where `app/core/transactions.py :: JudgedSession` hands the driver its wrapper of each callback.
+FORWARDING_RUNNER = ("app/core/transactions.py", "with_transaction")
+
 # What a callback's docstring says of the reads its judgement rests on. The promise a reader is
 # given, so it is the promise a sweep has to be able to reach.
 IN_SESSION_PROMISE = "in-session"
@@ -376,6 +379,11 @@ def _callbacks() -> tuple[tuple[Path, str, tuple[Declaration, ...], Declaration]
 
         for outer, call in scoped_calls(tree, ()):
             if callee(call) != TRANSACTION_RUNNER:
+                continue
+
+            # The helper's own run of every caller's callback inside the actor's judge: each callback
+            # it is handed is found where its caller hands it, and this one writes nothing of its own.
+            if module == FORWARDING_RUNNER[0] and outer and outer[-1].name == FORWARDING_RUNNER[1]:
                 continue
 
             handed = call.args[0].id if call.args and isinstance(call.args[0], ast.Name) else ""
