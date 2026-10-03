@@ -1315,6 +1315,27 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bestaetigung.token_hash_zuvor", ASCENDING),),
         "the same lookup through the link a reminder replaced, which stays live beside the fresh one",
     ),
+    # One per clause of each `$or`, for the registration's pair's reason: a contact seat's link is
+    # looked up on whichever seat holds it, an application's on either of its two hashes.
+    *(
+        SupportIndex(
+            Collection.SAISON_TEAMS,
+            f"saison_teams_bestaetigungen_{seat}_token_hash",
+            ((f"bestaetigungen.{seat}.token_hash", ASCENDING),),
+            "a contact seat's confirmation page, through the season row's lookup, driven by strangers",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+    ),
+    *(
+        SupportIndex(
+            Collection.BEWERBUNGEN,
+            f"bewerbungen_bestaetigungen_{seat}_{field}",
+            ((f"bestaetigungen.{seat}.{field}", ASCENDING),),
+            "a contact seat's confirmation page, through the application's lookup, driven by strangers",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+        for field in ("token_hash", "token_hash_zuvor")
+    ),
     # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
     # "only when the query includes equality conditions on all prefix keys that precede the sort
     # keys." Mirrored from
