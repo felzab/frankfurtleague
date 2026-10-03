@@ -42,4 +42,16 @@ describe("whether a contacts save may move a seat's link", () => {
     assert.equal(kontakteMayMoveLinks(STORED, block(gesendet("Anna", "anna@schule.example", "069 999"))), false);
     assert.equal(kontakteMayMoveLinks(null, block(null)), false);
   });
+
+  /* A confirmed seat's link is spent, so emptying it voids nothing a stranger could still answer
+     (`fl_backend/app/api/teams/services.py :: voids_a_live_link`): asked, every such edit would prompt. */
+  it("asks nothing where the seat emptied had confirmed", () => {
+    const anna = gespeichert("Anna", "anna@schule.example");
+    const bestaetigt = {
+      ...STORED,
+      ansprechperson: { ...anna, einwilligung: { ...anna.einwilligung, erfasst_von: "person" as const, bestaetigt_am: "2026-10-03" } },
+    };
+
+    assert.equal(kontakteMayMoveLinks(bestaetigt, block(null)), false);
+  });
 });
