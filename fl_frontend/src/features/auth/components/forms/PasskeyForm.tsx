@@ -6,15 +6,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@heroui/react/button";
 
 import { authClient } from "@/core/authClient";
-import { KONTAKT_EMAIL } from "@/core/brand";
-import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { appToast } from "@/shared/utils/appToast";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
-import { describeCeremonyRefusal, refusalCode, refusalStatus } from "../../passkeyAnswers";
+import { describeCeremonyRefusal, refusalStatus } from "../../passkeyAnswers";
 
 /** Named off `fl_frontend/src/core/auth.ts :: PasskeyStep`, whose verdict the page hands over. */
 type Step = "enrol" | "assert" | "offer";
@@ -46,14 +44,6 @@ const STEPS = {
   },
 } as const;
 
-// Said as what now stands: a retry here is refused for good, and under a stolen mailbox this toast is
-// the administrator's one sign that a passkey they may not have made exists.
-
-/** The loser of two enrolments of this account that ran at once (`docs/frontend/spec.md :: I341`). */
-const GLEICHZEITIG =
-  "Für dieses Konto wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
-  `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Kontos.`;
-
 /** What the reader is told, and whether the step this card was handed may have moved on. */
 type Held = { readonly description: string; readonly stale: boolean };
 
@@ -70,12 +60,6 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
     const { error } = enrolling ? await authClient.passkey.addPasskey({ createSession: true }) : await authClient.signIn.passkey();
 
     if (error === null) return null;
-
-    const code = refusalCode(error);
-
-    // The other enrolment may stand, and then the guard offers the assertion: a retry on this card
-    // meets the refusal of a second code-borne enrolment for good.
-    if (code === ENROLMENT_CONFLICT) return { description: GLEICHZEITIG, stale: true };
 
     // The guard's own refusal, which an enrolment another tab or device finished first earns too:
     // the step this card was handed is then stale in the same way.

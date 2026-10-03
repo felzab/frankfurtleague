@@ -9,7 +9,6 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -198,30 +197,6 @@ describe("a prompt the browser did not complete", () => {
       raised.map((toast) => toast.description),
       ["Dieser Passkey hat nicht bestätigt, dass Du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung."],
     );
-  });
-
-  /* The other enrolment stands, and the guard then offers the assertion: left unread, the card offers
-     an enrolment the server refuses on every retry (`docs/frontend/spec.md :: I341`). */
-  it("tells the loser of two enrolments at once that a passkey now exists, and re-reads its own page", async () => {
-    const user = userEvent.setup();
-    answer = () =>
-      Promise.resolve({ data: null, error: { code: "PASSKEY_ENROLMENT_CONFLICT", message: "x", status: 409, statusText: "CONFLICT" } });
-    renderCard("enrol");
-
-    await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
-
-    assert.deepEqual(
-      raised.map((toast) => [toast.variant, toast.title, toast.description]),
-      [
-        [
-          "danger",
-          "Passkey nicht eingerichtet",
-          "Für dieses Konto wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
-            `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Kontos.`,
-        ],
-      ],
-    );
-    assert.deepEqual([seen.refresh, seen.replaced, left], [1, [], []]);
   });
 
   /* An enrolment another tab finished first earns the guard's plain refusal rather than the conflict,

@@ -5,12 +5,6 @@
  */
 export const USER_VERIFICATION_REFUSED = "USER_VERIFICATION_REQUIRED";
 
-/**
- * An enrolment that lost to another change to the same account's passkeys running at once, an
- * enrolment or a removal (`docs/frontend/spec.md :: I341`).
- */
-export const ENROLMENT_CONFLICT = "PASSKEY_ENROLMENT_CONFLICT";
-
 /** A sign-in the gate turned away as the session was minted: the address is barred (`docs/frontend/spec.md :: I403`). */
 export const SIGN_IN_BARRED = "SIGN_IN_BARRED";
 

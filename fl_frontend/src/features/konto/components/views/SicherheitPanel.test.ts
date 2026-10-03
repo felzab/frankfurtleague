@@ -395,20 +395,6 @@ describe("adding a passkey", () => {
     );
   });
 
-  it("names the loser of two changes at once", async () => {
-    const user = userEvent.setup();
-    ceremony.addPasskey = refused(409, "PASSKEY_ENROLMENT_CONFLICT");
-    open();
-
-    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
-
-    await waitFor(() =>
-      assert.deepEqual(toasts(), [
-        ["danger", "Passkey nicht hinzugefügt", `Gleichzeitig wurde ein anderer Passkey hinzugefügt oder gelöscht. ${VERSUCHE_ES_ERNEUT_SATZ}`],
-      ]),
-    );
-  });
-
   /* The guard answers the cap, a stale sign-in and an authenticator already held alike 404, so the page
      asks which it was (`docs/frontend/spec.md :: I427`). */
   describe("a 404 from the enrolment guard", () => {

@@ -37,8 +37,8 @@ const bound = (target: object, value: unknown): unknown => (typeof value === "fu
 /** The client `fl_frontend/src/core/db.ts` built, which the double below stands over. */
 let productionClient: unknown;
 
-/** The first write each collection makes after a request's judgement, held at `holding`. */
-const HELD: Readonly<Record<string, string>> = { passkey: "insertOne", user: "findOneAndUpdate" };
+/** The first write each collection makes after a request's judgement, held at `barrier`. */
+const HELD: Readonly<Record<string, string>> = { passkey: "insertOne" };
 
 const wrapCollection = (name: string, collection: object): object =>
   new Proxy(collection, {
@@ -46,7 +46,7 @@ const wrapCollection = (name: string, collection: object): object =>
       const value: unknown = Reflect.get(target, prop, target);
       if (HELD[name] === prop) {
         return async (...args: unknown[]) => {
-          await holding.arrive();
+          await barrier.arrive();
           return (value as Method).apply(target, args);
         };
       }
@@ -85,8 +85,7 @@ const wrapDb = (db: object): object =>
     },
   });
 
-/* The real client, held where a request makes its first write after its judgement: the passkey row
-   where nothing claims the account, the account's own row where something does. */
+/* The real client, held where a request makes its first write after its judgement: the passkey row. */
 const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
   signInStore: (db) => {
     productionClient = (db.signInStore as () => object)();
@@ -176,9 +175,6 @@ const barrier = new Barrier();
 /** Where each bound's count waits, for a case that arms it. */
 const counting = new Barrier();
 
-/** Where a request's first write after its judgement waits: `barrier`, unless a case holds it at its own gate. */
-let holding: { arrive: () => Promise<unknown> } = barrier;
-
 /**
  * What runs as a verification row is consumed: a passkey's challenge after its session was read and
  * before its transaction, a code inside its consume's own transaction.
@@ -187,9 +183,8 @@ let consuming: () => Promise<unknown> = async () => undefined;
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, endSessionsOfAddress, PASSKEY_LIMIT } = await import("./auth.ts");
+const { auth, endSessionsOfAddress } = await import("./auth.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
-const { ENROLMENT_CONFLICT } = await import("./passkeyRefusal.ts");
 
 type Collection = {
   find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
@@ -276,7 +271,7 @@ async function atOnce(
   barrier.arm(pairs.length);
   const responses = await Promise.all(pairs.map(([offered, rawId]) => verify(offered, rawId)));
   barrier.disarm();
-  assert.ok(await barrier.filled, "the enrolments were not all held at `passkey.insertOne` or `user.findOneAndUpdate`, so no race was run");
+  assert.ok(await barrier.filled, "the enrolments were not all held at `passkey.insertOne`, so no race was run");
 
   const refused = responses.filter((response) => response.status !== 200);
   const codes = await Promise.all(refused.map(async (response) => ((await response.json()) as { code?: unknown }).code));
@@ -286,11 +281,8 @@ async function atOnce(
 const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
 const AUTHENTICATOR_B = Buffer.from("fl-auth-db-authenticator-b");
 
-/** One enrolment stands, the other answers the conflict, one notice is mailed and one line is written. */
-const ONE_WINS = { statuses: [200, 409], codes: [ENROLMENT_CONFLICT], notices: 1, warnings: ["auth.passkey_enrolment_conflict"] };
-
-describe("two enrolments of one administrator at once, against a real database (`docs/frontend/spec.md :: I341`)", () => {
-  // The clause holding in sequence is what the concurrent cases below are measured against.
+describe("two enrolments of one administrator, against a real database", () => {
+  // The clause holds in sequence; two enrolments at once may both stand (`docs/frontend/spec.md` §4).
   it("refuses a second code-borne enrolment made after the first", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
@@ -301,54 +293,9 @@ describe("two enrolments of one administrator at once, against a real database (
     assert.deepEqual([first.status, second.status, (await passkeyRows()).length], [200, 404, 1]);
   });
 
-  // A stolen mailbox racing the administrator's own first enrolment: without the claim both rows
-  // stand and neither side is refused.
-  it("lets one of two code-borne sessions judged at zero rows enrol", async () => {
-    const a = await offer(await signIn(ADMIN_EMAIL));
-    const b = await offer(await signIn(ADMIN_EMAIL));
-
-    const raced = await atOnce([
-      [a, AUTHENTICATOR_A],
-      [b, AUTHENTICATOR_B],
-    ]);
-
-    assert.deepEqual({ ...raced, rows: (await passkeyRows()).length }, { ...ONE_WINS, rows: 1 });
-  });
-
-  /* The order the barrier above never forces: the second enrolment, judged at zero rows, waits at its
-     claim while the first commits whole, so its claim meets that commit's write to the account row. */
-  it("refuses the second of two enrolments where the first commits whole before the second claims", async () => {
-    const a = await offer(await signIn(ADMIN_EMAIL));
-    const b = await offer(await signIn(ADMIN_EMAIL));
-    const gate = new Gate();
-    holding = gate;
-
-    try {
-      const second = verify(b, AUTHENTICATOR_B);
-      assert.ok(await gate.reached, "the second enrolment reached neither `passkey.insertOne` nor `user.findOneAndUpdate`");
-
-      const first = await verify(a, AUTHENTICATOR_A);
-      gate.release();
-      const refused = await second;
-
-      assert.deepEqual(
-        {
-          statuses: [first.status, refused.status],
-          code: ((await refused.json()) as { code?: unknown }).code,
-          rows: (await passkeyRows()).length,
-          warnings: [...warnings],
-        },
-        { statuses: [200, 409], code: ENROLMENT_CONFLICT, rows: 1, warnings: ["auth.passkey_enrolment_conflict"] },
-      );
-    } finally {
-      gate.release();
-      holding = barrier;
-    }
-  });
-
   // The credential index alone keeps one row here, and answers the loser with the plugin's own failure
   // rather than a refusal the dialog can word.
-  it("stores one authenticator enrolled twice at once as one row, and answers the loser with the conflict", async () => {
+  it("stores one authenticator enrolled twice at once as one row", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
 
@@ -357,45 +304,15 @@ describe("two enrolments of one administrator at once, against a real database (
       [b, AUTHENTICATOR_A],
     ]);
 
-    assert.deepEqual({ ...raced, rows: (await passkeyRows()).length }, { ...ONE_WINS, rows: 1 });
-  });
-
-  it("keeps a stepped-up session at the cap when two enrolments start one below it", async () => {
-    const cookie = await signIn(ADMIN_EMAIL);
-
-    // A passkey-made session, made just now: the one shape the arm for a further passkey admits.
-    await authDb()
-      .collection("session")
-      .updateMany({}, { $set: { authFactor: "passkey", createdAt: new Date() } });
-
-    for (let index = 0; index < PASSKEY_LIMIT - 1; index += 1) {
-      const held = await verify(await offer(cookie), Buffer.from(`fl-auth-db-held-${index}-${randomUUID()}`));
-      assert.equal(held.status, 200, await held.clone().text());
-    }
-
-    const raced = await atOnce([
-      [await offer(cookie), AUTHENTICATOR_A],
-      [await offer(cookie), AUTHENTICATOR_B],
-    ]);
-
-    assert.deepEqual({ ...raced, rows: (await passkeyRows()).length }, { ...ONE_WINS, rows: PASSKEY_LIMIT });
-  });
-
-  // A claim on no row conflicts with nothing, so an enrolment reaching one is refused rather than
-  // admitted unguarded.
-  it("refuses an enrolment whose account row is gone by the time it is claimed", async () => {
-    const offered = await offer(await signIn(ADMIN_EMAIL));
-
-    // Gone before the transaction reads anything, so its snapshot holds no row to conflict over.
-    consuming = () => authDb().collection("user").deleteMany({});
-    const answer = await verify(offered, AUTHENTICATOR_A);
-
-    assert.deepEqual({ status: answer.status, rows: (await passkeyRows()).length }, { status: 500, rows: 0 });
+    assert.deepEqual(
+      { ...raced, rows: (await passkeyRows()).length },
+      { statuses: [200, 500], codes: ["FAILED_TO_VERIFY_REGISTRATION"], notices: 1, warnings: [], rows: 1 },
+    );
   });
 });
 
-/* The session a setup mints is written inside the transaction the patched plugin opens around the
-   registration, so a setup the database refuses signs nobody in and nobody out
+/* The session a setup mints is written inside the transaction the plugin opens around a registration
+   that signs in, so a setup the database refuses signs nobody in and nobody out
    (`docs/frontend/spec.md :: I399`). */
 describe("a passkey setup that signs in, against a real database", () => {
   it("replaces the code's session with the passkey's, the credential stamped", async () => {
@@ -412,6 +329,7 @@ describe("a passkey setup that signs in, against a real database", () => {
     );
   });
 
+  // One authenticator twice, so the credential index refuses the second row inside its transaction.
   it("mints one session for the winner of two setups at once, and leaves the loser signed in by code", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
@@ -420,12 +338,12 @@ describe("a passkey setup that signs in, against a real database", () => {
     barrier.arm(2);
     const responses = await Promise.all([
       verify(a, AUTHENTICATOR_A, { createSession: true }),
-      verify(b, AUTHENTICATOR_B, { createSession: true }),
+      verify(b, AUTHENTICATOR_A, { createSession: true }),
     ]);
     barrier.disarm();
     assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
 
-    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
+    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 500]);
     assert.equal(sent.length - mailedBefore, 1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");

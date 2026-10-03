@@ -27,7 +27,7 @@ import { MailBarredError, MailWithheldError, sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
-import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
+import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { oncePerRequest, setRequestActor } from "./requestScope";
 import {
   ADMIN_LIFETIME,
@@ -330,35 +330,30 @@ function isWriteConflict(failed: unknown): boolean {
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
-class EnrolmentOutsideTransaction extends Error {
-  override name = "EnrolmentOutsideTransaction";
-}
-
-/** Named for the same reason as the class above. */
 class ClaimMatchedNoAccount extends Error {
   override name = "ClaimMatchedNoAccount";
 }
 
-/** Named for the same reason as `EnrolmentOutsideTransaction`, whose removal twin this is. */
+/** Named for the same reason as `ClaimMatchedNoAccount`. */
 class RemovalOutsideTransaction extends Error {
   override name = "RemovalOutsideTransaction";
 }
 
 /**
- * The write every enrolment and every removal of one administrator makes, inside the transaction
- * holding its count and its passkey write: the database refuses the second of two, where the count
- * alone admits both (`docs/frontend/spec.md :: I341`).
+ * The write every removal of one administrator's passkeys makes, inside the transaction holding its
+ * count and its delete: the database refuses the second of two, where the count alone admits both
+ * (`docs/frontend/spec.md :: I341`).
  */
 async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userId: string): Promise<void> {
   // Any field of the account's own row conflicts; `updatedAt` is one the row already carries, so the
   // claim stores nothing new about the administrator.
   const claimed = await adapter.update({ model: "user", where: [{ field: "id", value: userId }], update: { updatedAt: new Date() } });
 
-  // A claim on no row conflicts with nothing, which is the enrolment the transaction exists to refuse.
+  // A claim on no row conflicts with nothing, which is the removal the transaction exists to refuse.
   if (claimed === null) throw new ClaimMatchedNoAccount();
 }
 
-/** Named for the same reason as `EnrolmentOutsideTransaction`. */
+/** Named for the same reason as `ClaimMatchedNoAccount`. */
 class CeremonyNamedNoCredential extends Error {
   override name = "CeremonyNamedNoCredential";
 }
@@ -1121,11 +1116,10 @@ const authOptions = (origin: URL, client: MongoClient) =>
             // a session this enrolment mints would otherwise name whichever passkey its caller chose.
             if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
 
-            // The transaction `patches/@better-auth__passkey@1.7.7.patch` opens around every
-            // registration. Outside one the claim below conflicts with nothing, so an enrolment
-            // arriving without it is refused rather than admitted unguarded.
+            // The transaction the plugin opens around a set-up that signs in, where one is open, so the
+            // count below reads the snapshot the row is written in. Two enrolments at once may both
+            // stand (`docs/frontend/spec.md` §4).
             const adapter = await getCurrentAdapter(ctx.context.adapter);
-            if (adapter === ctx.context.adapter) throw new EnrolmentOutsideTransaction();
 
             // Judged again here, the last point before the row is written, and reached by an `auth.api`
             // call the hook lets through; off the hook's carried read, and nothing where it carried none.
@@ -1140,20 +1134,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
               enrolling === null ? null : asStepUpCaller(enrolling, enrolmentGrant(carriedOrRefuse(ctx, enrolling.user.id))),
               verification.registrationInfo?.credential.id,
             );
-
-            try {
-              await claimAccount(adapter, user.id);
-            } catch (failed) {
-              if (!isWriteConflict(failed)) throw failed;
-
-              // The line is the record: under a stolen mailbox racing the administrator, this refusal
-              // is the only trace that a second enrolment ran.
-              logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
-              throw new APIError("CONFLICT", {
-                code: ENROLMENT_CONFLICT,
-                message: "Another change to this account's passkeys ran at the same time.",
-              });
-            }
           },
         },
         authentication: { afterVerification: ({ verification }) => refuseUnverified(verification.authenticationInfo.userVerified) },
@@ -1296,7 +1276,7 @@ export async function removePasskey(holder: { readonly id: string; readonly verw
     held: Pick<DBTransactionAdapter, "findMany" | "update" | "delete" | "deleteMany">,
   ): Promise<Exclude<PasskeyRemoval, "conflict">> {
     // The adapter hands itself back where it opens no transaction, and there the claim below
-    // conflicts with nothing: refused rather than admitted unguarded, as the enrolment is.
+    // conflicts with nothing: refused rather than admitted unguarded.
     if (held === adapter) throw new RemovalOutsideTransaction();
 
     const rows = await held.findMany<{ id: string; credentialID: string }>({
