@@ -320,6 +320,9 @@ export const FLSpielerSelbstSchema = z.object({
   inactive_since: CustomDateStringSchema.nullable(),
   // Never null here: the read serves confirmed records alone, an unconfirmed one holding nothing to withdraw.
   einwilligung: FLEinwilligungSchema,
+  // The label the person confirmed, read for the words shown beside the account page's control and never
+  // the block's own, which names the latest press once one has been made.
+  bestaetigt_text_version: z.string().nullable(),
   // The backend's verdicts, never recomputed here: a second clock or a second reading of a panel would
   // offer a press the write refuses.
   erteilbar: z.boolean(),

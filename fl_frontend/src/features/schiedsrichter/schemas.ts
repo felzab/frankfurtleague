@@ -295,6 +295,8 @@ export const FLSchiedsrichterSelbstSchema = z.object({
   inactive_since: CustomDateStringSchema.nullable(),
   // Never null here, for the reason the pupil's own read gives (`FLSpielerSelbstSchema`).
   einwilligung: FLEinwilligungSchema,
+  // Read for the words shown beside the account page's control, for the reason the pupil's read gives.
+  bestaetigt_text_version: z.string().nullable(),
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),
 });
