@@ -247,6 +247,7 @@ async def ablehnen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     ablehnung_data: Annotated[FLAblehnenBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
     von: str = Depends(get_actor_email),
 ) -> FLAblehnenBewerbungResponse:
@@ -257,27 +258,36 @@ async def ablehnen_bewerbung(
     so what the school wrote stays the record the decision was taken against.
     """
 
-    stored_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"])
-    refuse(find_triage_refusal(status=str(stored_raw["status"])))
-
-    # The status is in the FILTER, so the write is the guard: two administrators declining at once
-    # would both mail the applicants, and one `grund` would survive. `post_saison_team` keeps its
-    # race, which costs a planning bound and mails nobody.
-    try:
-        updated_raw = await patch_one_in_db(
-            collection=bewerbungen_collection,
-            db_filter={"_id": bewerbung_id, "status": "eingereicht"},
-            update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
-            return_document=ReturnDocument.AFTER,
+    async def decline_the_application(session: AsyncClientSession) -> Mapping[str, Any]:
+        stored_raw = await pull_one_from_db(
+            collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"], session=session
         )
-    except DocumentNotFoundException:
-        # Three ways here: a decision landed between the read and the write, the row is gone, or the
-        # write landed and the row went before `patch_one_in_db` re-read its echo. The re-read tells
-        # them apart, so only an application no document names keeps the 404.
-        raced_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"])
-        refuse(find_triage_refusal(status=str(raced_raw["status"])))
+        refuse(find_triage_refusal(status=str(stored_raw["status"])))
 
-        raise
+        # The status is in the FILTER, so the write is the guard: two administrators declining at once
+        # would both mail the applicants, and one `grund` would survive. `post_saison_team` keeps its
+        # race, which costs a planning bound and mails nobody.
+        try:
+            return await patch_one_in_db(
+                collection=bewerbungen_collection,
+                db_filter={"_id": bewerbung_id, "status": "eingereicht"},
+                update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
+                session=session,
+                return_document=ReturnDocument.AFTER,
+            )
+        except DocumentNotFoundException:
+            # Three ways here: a decision landed between the read and the write, the row is gone, or the
+            # write landed and the row went before `patch_one_in_db` re-read its echo. The re-read tells
+            # them apart, so only an application no document names keeps the 404.
+            raced_raw = await pull_one_from_db(
+                collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"], session=session
+            )
+            refuse(find_triage_refusal(status=str(raced_raw["status"])))
+
+            raise
+
+    async with transaction_session(db) as session:
+        updated_raw = await session.with_transaction(decline_the_application)
 
     return FLAblehnenBewerbungResponse(updated_document=FLBewerbung(**mit_vorenthaltener_entscheidung(updated_raw, _KEIN_ENTSCHEIDER_GESPERRT)))
 

@@ -1,3 +1,4 @@
+import ast
 import re
 from collections import Counter
 from collections.abc import Callable
@@ -8,6 +9,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
+from app.core.exception_handlers import stores_nothing
 from app.core.security import (
     MISSING_TOKEN,
     PERSON_ACTOR_BINDERS,
@@ -17,7 +19,8 @@ from app.core.security import (
     verify_access_system,
     verify_actor_is_admin,
 )
-from tests.core.app_source import api_routes, application
+from app.core.transactions import transaction_session
+from tests.core.app_source import api_routes, application, callee, declared, module_of, parsed
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
@@ -230,6 +233,62 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
     # The grants check passes a request naming nobody, so without the binder that one is served.
     assert bind_actor in calls, f"{method.upper()} {path} refuses no request naming nobody"
     assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
+
+
+# Read off the helper, so a rename cannot leave every write below matching nothing.
+TRANSACTION_SESSION = transaction_session.__name__
+
+
+def _opens_a_judged_transaction(endpoint: Callable[..., Any]) -> bool:
+    """Whether `endpoint`, or a function of its own module it calls, opens `transaction_session`, the one place its actor is judged again."""
+
+    module = parsed(module_of(endpoint))
+    own = {node.name: node for node in module.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    pending, seen = [declared(endpoint)], set()
+    while pending:
+        function = pending.pop()
+        if function.name in seen:
+            continue
+        seen.add(function.name)
+        for call in ast.walk(function):
+            if not isinstance(call, ast.Call):
+                continue
+            if callee(call) == TRANSACTION_SESSION:
+                return True
+            if isinstance(call.func, ast.Name) and call.func.id in own:
+                pending.append(own[call.func.id])
+
+    return False
+
+
+# Derived from the guard and the method, as `ADMIN_TIER_OPERATIONS` is, so a write router added later is swept unlisted.
+ADMIN_TIER_WRITES = [
+    operation
+    for operation in ADMIN_TIER_OPERATIONS
+    if operation[1] != "get" and stores_nothing not in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
+]
+
+
+@pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
+def test_every_admin_tier_write_runs_in_a_transaction_judging_its_actor(path: str, method: str):
+    """`docs/backend/spec.md :: I921`: a write outside the helper's session is judged once, before its handler.
+
+    A revoke committing between that check and the write then leaves the revoked administrator one write to make.
+    """
+
+    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
+        f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no actor"
+    )
+
+
+def test_the_transaction_sweep_follows_a_helper_and_can_refuse():
+    """Every case above passes, so only these two show the reader reaching past the endpoint's body and answering no at all.
+
+    The mailing opens one transaction per team in a helper of its module; the grants' list opens none.
+    """
+
+    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[("/api/v0/saisons/{saison_id}/einladungen/versand", "post")].endpoint)
+    assert not _opens_a_judged_transaction(ROUTES_BY_OPERATION[("/api/v0/berechtigungen", "get")].endpoint)
 
 
 def test_the_person_exemption_names_only_published_operations():

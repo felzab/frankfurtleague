@@ -149,15 +149,21 @@ async def patch_spieler(
     spieler_id: CustomRouteObjectId,
     spieler_data: Annotated[FLPatchSpielerPayload, Body()],
     spieler_collection: SpielerCollection,
+    db: DBClient,
 ) -> FLSpielerAdminSingleResponse:
     """Replace a player's own facts wholesale. No fan-out: unlike a team or a venue, a person is embedded in no other document."""
 
-    updated_raw = await patch_one_in_db(
-        collection=spieler_collection,
-        db_filter={"_id": spieler_id},
-        update={"$set": spieler_data.model_dump(mode="json")},
-        return_document=ReturnDocument.AFTER,
-    )
+    async def rewrite_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
+        return await patch_one_in_db(
+            collection=spieler_collection,
+            db_filter={"_id": spieler_id},
+            update={"$set": spieler_data.model_dump(mode="json")},
+            session=session,
+            return_document=ReturnDocument.AFTER,
+        )
+
+    async with transaction_session(db) as session:
+        updated_raw = await session.with_transaction(rewrite_the_player)
 
     return _as_single(updated_raw)
 
@@ -171,11 +177,16 @@ async def patch_spieler(
 async def delete_spieler(
     spieler_id: CustomRouteObjectId,
     spieler_collection: SpielerCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielerAdminSingleResponse:
     """Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE."""
 
-    updated_raw = await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=today)
+    async def retire_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
+        return await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=today, session=session)
+
+    async with transaction_session(db) as session:
+        updated_raw = await session.with_transaction(retire_the_player)
 
     return _as_single(updated_raw)
 
@@ -189,10 +200,15 @@ async def delete_spieler(
 async def reactivate_spieler(
     spieler_id: CustomRouteObjectId,
     spieler_collection: SpielerCollection,
+    db: DBClient,
 ) -> FLSpielerAdminSingleResponse:
     """Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate."""
 
-    updated_raw = await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=None)
+    async def bring_the_person_back(session: AsyncClientSession) -> Mapping[str, Any]:
+        return await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=None, session=session)
+
+    async with transaction_session(db) as session:
+        updated_raw = await session.with_transaction(bring_the_person_back)
 
     return _as_single(updated_raw)
 
@@ -445,6 +461,7 @@ async def delete_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonSpielerResponse:
     """
@@ -454,11 +471,16 @@ async def delete_saison_spieler(
     leave. `GET /spieler/memberships` is where an admin reads it back, marked by `inactive_since`.
     """
 
-    updated_raw = await set_inactive_since(
-        collection=saison_spieler_collection,
-        db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
-        when=today,
-    )
+    async def take_the_player_out(session: AsyncClientSession) -> Mapping[str, Any]:
+        return await set_inactive_since(
+            collection=saison_spieler_collection,
+            db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
+            when=today,
+            session=session,
+        )
+
+    async with transaction_session(db) as session:
+        updated_raw = await session.with_transaction(take_the_player_out)
 
     return _as_junction(updated_raw)
 

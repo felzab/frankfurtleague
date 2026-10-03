@@ -169,8 +169,8 @@ def _opens_transaction(record: _FunctionRecord, seen: set[int]) -> bool:
 # Three ways the sweep could go blind, each asserted PRESENT so a silent regression of the detector
 # fails here rather than passing over an empty or writeless parameter set.
 assert ENDPOINTS, "no route-decorated function found under app/ -- the endpoint detector, not the routers, is the likely cause"
-assert any(len(_bare_write_sites(record, set())) == 1 for record in ENDPOINTS), (
-    "no endpoint reaches a single bare write -- the write detector, not the handlers, is the likely cause"
+assert any(record.write_sites for named in FUNCTIONS.values() for record in named), (
+    "no function under app/ makes a write -- the write detector, not the handlers, is the likely cause"
 )
 _ERASURE_CALLBACK = next(
     record for record in FUNCTIONS.get("erase_the_person_and_their_record", []) if record.module.startswith("app/api/spieler/")

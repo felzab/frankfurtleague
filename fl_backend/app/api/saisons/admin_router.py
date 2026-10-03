@@ -6,6 +6,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
+from pymongo.results import InsertOneResult
 
 from app.api.bewerbungen.services import mint_token
 from app.api.einladungen.schemas import (
@@ -249,6 +250,7 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
+    db: DBClient,
 ) -> FLPostSaisonResponse:
     """
     Create a season, always `future`.
@@ -277,13 +279,18 @@ async def post_saison(
         )
     )
 
-    # Nothing cached is wrong yet; dropped anyway, so the rule stays "every season write drops it".
-    with dropping_the_saison_cache():
-        post_operation = await post_one_to_db(
+    async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
+        return await post_one_to_db(
             collection=saisons_collection,
             # `_id` rather than `id`: this payload's `id` IS the document key.
             document={**saison_data.model_dump(mode="json", exclude={"id"}), "_id": saison_data.id, "status": "future"},
+            session=session,
         )
+
+    # Nothing cached is wrong yet; dropped anyway, so the rule stays "every season write drops it".
+    with dropping_the_saison_cache():
+        async with transaction_session(db) as session:
+            post_operation = await session.with_transaction(enter_the_season)
 
     return FLPostSaisonResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -1347,6 +1354,10 @@ async def post_einladungen_versand(
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
     # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
     gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
+
+    # An administrator revoked mid-loop is refused at the next team's transaction, which writes nothing
+    # further; the teams before it keep new links nobody was sent, which a later press mints again
+    # (`docs/backend/spec.md :: I921`).
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.

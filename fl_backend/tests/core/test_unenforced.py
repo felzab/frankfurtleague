@@ -820,12 +820,12 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
 
 
 def _stamped_by(endpoint: Callable[..., Any]) -> set[str]:
-    """The collections one endpoint hands `set_inactive_since`, read off its own call site."""
+    """The collections one endpoint hands `set_inactive_since`, read off its own call site or the callback it runs as a transaction."""
 
     return {
         keyword.value.id
-        for scope, call in calls_in(declared(endpoint), endpoint.__name__)
-        if scope == endpoint.__name__ and callee(call) == "set_inactive_since"
+        for _, call in calls_in(declared(endpoint), endpoint.__name__)
+        if callee(call) == "set_inactive_since"
         for keyword in call.keywords
         if keyword.arg == "collection" and isinstance(keyword.value, ast.Name)
     }

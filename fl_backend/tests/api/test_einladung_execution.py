@@ -178,10 +178,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
 
 async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
     return await delete_einladung(
-        team_id=team_id,
-        saison_id=SAISON_ID,
-        einladungen_collection=database[Collection.EINLADUNGEN],
-        today=TODAY,
+        team_id=team_id, saison_id=SAISON_ID, einladungen_collection=database[Collection.EINLADUNGEN], today=TODAY, db=database.client
     )
 
 

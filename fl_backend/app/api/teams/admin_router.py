@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.results import InsertOneResult
 
 from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
@@ -219,10 +220,15 @@ async def get_teams_for_admin(
 async def post_team(
     team_data: Annotated[FLPostTeamPayload, Body()],
     teams_collection: TeamsCollection,
+    db: DBClient,
 ) -> FLPostTeamResponse:
     """Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409."""
 
-    post_operation = await insert_live(collection=teams_collection, document=team_data.model_dump(mode="json"))
+    async def found_the_club(session: AsyncClientSession) -> InsertOneResult:
+        return await insert_live(collection=teams_collection, document=team_data.model_dump(mode="json"), session=session)
+
+    async with transaction_session(db) as session:
+        post_operation = await session.with_transaction(found_the_club)
 
     return FLPostTeamResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -362,10 +368,15 @@ async def delete_team(
 async def reactivate_team(
     team_id: CustomRouteObjectId,
     teams_collection: TeamsCollection,
+    db: DBClient,
 ) -> FLTeamWriteResponse:
     """Clear `inactive_since`, restoring a retired club to reads that hide retired ones."""
 
-    updated_raw = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None)
+    async def bring_the_club_back(session: AsyncClientSession) -> Mapping[str, Any]:
+        return await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None, session=session)
+
+    async with transaction_session(db) as session:
+        updated_raw = await session.with_transaction(bring_the_club_back)
 
     return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
 
@@ -1000,6 +1011,7 @@ async def delete_einladung(
     team_id: CustomRouteObjectId,
     saison_id: str,
     einladungen_collection: EinladungenCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungWriteResponse:
     """
@@ -1009,14 +1021,19 @@ async def delete_einladung(
     which link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.
     """
 
-    # The filter is the judgement: `patch_one_in_db` answers a miss with the 404, so no read stands
-    # between resolving the live row and stamping it.
-    revoked = await patch_one_in_db(
-        collection=einladungen_collection,
-        db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
-        update=compose_widerruf_update(today=today),
-        return_document=ReturnDocument.BEFORE,
-    )
+    async def revoke_the_link(session: AsyncClientSession) -> Mapping[str, Any]:
+        # The filter is the judgement: `patch_one_in_db` answers a miss with the 404, so no read stands
+        # between resolving the live row and stamping it.
+        return await patch_one_in_db(
+            collection=einladungen_collection,
+            db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
+            update=compose_widerruf_update(today=today),
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+    async with transaction_session(db) as session:
+        revoked = await session.with_transaction(revoke_the_link)
 
     return FLEinladungWriteResponse(saison_id=saison_id, team_id=team_id, einladung_id=revoked["_id"])
 

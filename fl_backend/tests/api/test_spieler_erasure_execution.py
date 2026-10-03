@@ -141,16 +141,21 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
     # The earlier squad is LEFT, which is a shape the erasure has to reach as well: a row recording
     # what somebody wore stays about them after they stop wearing it.
     await delete_saison_spieler(
-        spieler_id=spieler_id, saison_id=FORMER_SAISON_ID, saison_spieler_collection=database[Collection.SAISON_SPIELER], today=TODAY
+        spieler_id=spieler_id,
+        saison_id=FORMER_SAISON_ID,
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        today=TODAY,
+        db=database.client,
     )
     await patch_spieler(
         spieler_id=spieler_id,
         spieler_data=FLPatchSpielerPayload(vorname=vorname, nachname=f"{vorname}-Musterfrau", geburtsdatum=None),
         spieler_collection=database[Collection.SPIELER],
+        db=database.client,
     )
 
     if retired:
-        await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
+        await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
 
     return spieler_id
 
@@ -166,8 +171,9 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
         spieler_id=spieler_id,
         spieler_data=FLPatchSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Musterfrau", geburtsdatum=None),
         spieler_collection=database[Collection.SPIELER],
+        db=database.client,
     )
-    await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
+    await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
 
     return spieler_id
 
@@ -466,7 +472,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
-            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
+            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
 
             return await call_erasure(database, client, spieler_id)
 

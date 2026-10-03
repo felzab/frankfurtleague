@@ -256,6 +256,7 @@ async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, grund: str
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         today=TODAY,
         von=ADMIN_EMAIL,
+        db=database.client,
     )
 
 
@@ -1016,6 +1017,7 @@ class TestTwoDeclinesAtOnce:
                     bewerbungen_collection=as_the_loser_read_it(database[Collection.BEWERBUNGEN], {**after_first, "status": "eingereicht"}),
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
+                    db=database.client,
                 )
 
             return conflict.value.error_code, after_first, await stored_bewerbung(database, PICKED_BEWERBUNG)
@@ -1038,6 +1040,7 @@ class TestTwoDeclinesAtOnce:
                     bewerbungen_collection=as_the_loser_read_it(database[Collection.BEWERBUNGEN], bewerbung_document(PICKED_BEWERBUNG)),
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
+                    db=database.client,
                 )
 
             return missing.value.status_code
@@ -1166,6 +1169,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
             posted = await post_team(
                 team_data=FLPostTeamPayload.model_validate(compose_new_club(schule=schule)),
                 teams_collection=database[Collection.TEAMS],
+                db=database.client,
             )
             through_post_teams = await database[Collection.TEAMS].find_one({"_id": posted.created_id})
             # Taken back out before the acceptance runs: `uniq_shorthand` spans every club, so one
