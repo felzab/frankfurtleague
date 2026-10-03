@@ -53,6 +53,7 @@ describe("a code that confirmed somebody other than the page's holder", () => {
       Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: { "content-type": "application/json" } })),
     );
     await user.type(field, "048213");
+    await act(fetchMock.answered);
     await screen.findByRole("alert");
 
     // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.

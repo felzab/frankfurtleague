@@ -94,10 +94,7 @@ async function pressFilledIn(): Promise<User> {
 }
 
 /** A request's answer arriving, and everything it sets off. */
-const settle = (): Promise<void> =>
-  act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
+const settle = (): Promise<void> => act(fetchMock.answered);
 
 /** The key each request to the submission route carried, in the order the presses were made. */
 const keysSent = (): (string | null)[] =>

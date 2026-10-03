@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -227,6 +227,7 @@ describe("the message the barred person is sent", () => {
     await user.type(screen.getByRole("textbox", { name: /Grund/ }), GRUND);
     await user.click(screen.getByRole("button", { name: "Speichern" }));
     // The write runs inside a transition, so the press returns before its toast is raised.
+    await act(client.answered);
     await waitFor(() => {
       assert.ok(toasts.length > 0, "the save raised no toast at all");
     });

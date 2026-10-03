@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createRef, createElement as h } from "react";
+import { act, createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -244,6 +244,7 @@ describe("the state the registration page renders", () => {
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
 
     const satz = await screen.findByText(/Frag in Deinem Team nach dem aktuellen Link/);
     const html = container.innerHTML;
@@ -321,6 +322,7 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
 
     const panel = await screen.findByRole("status");
     const worte = panel.textContent;
@@ -345,6 +347,7 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
     const adresse = screen.getByRole("textbox", { name: /E-Mail/ });
     await user.type(adresse, PUPIL_ADDRESS);
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
 
     await screen.findByText(MAIL_ABGEWIESEN);
 
@@ -371,6 +374,7 @@ describe("what the two public pages tell a pupil whose write may have landed", (
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
 
     await screen.findByRole("button", { name: /Registrierung abschicken/ });
     assert.deepEqual(failureToasts(), [
@@ -390,6 +394,7 @@ describe("what the two public pages tell a pupil whose write may have landed", (
     await user.click(tag!);
     await user.keyboard(getippt(geborenVor(MIN_ALTER + 1)));
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    await act(fetchMock.answered);
 
     await screen.findByRole("button", { name: /Registrierung bestätigen/ });
     assert.deepEqual(failureToasts(), [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]]);
@@ -422,6 +427,7 @@ describe("what the two public pages say about a refusal no box of theirs can tak
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.deepEqual(failureToasts(), [["Registrierung nicht abgeschickt", EIGENER_SATZ]]));
   });
@@ -442,6 +448,7 @@ describe("what the two public pages say about a refusal no box of theirs can tak
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.deepEqual(failureToasts(), [["Registrierung schon angekommen", SCHON_DA]]));
   });
@@ -461,6 +468,7 @@ describe("what the two public pages say about a refusal no box of theirs can tak
     await user.click(tag!);
     await user.keyboard(getippt(geborenVor(MIN_ALTER + 1)));
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.deepEqual(failureToasts(), [["Antwort nicht gespeichert", EIGENER_SATZ]]));
   });
@@ -727,6 +735,7 @@ describe("the media switch, offered from the media age alone", () => {
     render(h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: ansicht, token: "kein-echtes-token" }, fassung: FASSUNG }));
     await vorDemDruck?.(user);
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    await act(fetchMock.answered);
     await screen.findByRole("heading", { name: "Registrierung bestätigt" });
 
     return fetchMock.mock.calls.slice(bisher).map((call) => {
@@ -807,6 +816,7 @@ describe("what a link to a barred address opens on", () => {
     await user.click(tag!);
     await user.keyboard(getippt(geborenVor(MIN_ALTER + 1)));
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    await act(fetchMock.answered);
 
     const shown = await screen.findByText(LINK_ADRESSE_GESPERRT);
     const buttons = screen.queryAllByRole("button").length;

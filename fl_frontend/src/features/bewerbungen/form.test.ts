@@ -198,8 +198,10 @@ async function submitApplication() {
 
   await fillIn(mounted.user, mounted.container, COMPLETE_DRAFT);
   await mounted.user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+  // The route's answer is awaited itself: polling the receipt alone gives up after `waitFor`'s second, which a
+  // loaded machine's answer and render outlast.
+  await act(fetchMock.answered);
 
-  // Waited for: the receipt arrives with the route's answer, which a loaded machine sends later than a tick.
   const receipt = await waitFor(
     () =>
       screen.queryByRole("status") ??
@@ -282,6 +284,7 @@ describe("the public application form", () => {
 
     await fillIn(user, container, COMPLETE_DRAFT);
     await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Unklar, ob es bei uns angekommen ist", BEWERBUNG_UNKLAR]]));
   });
@@ -294,6 +297,7 @@ describe("the public application form", () => {
 
     await fillIn(user, container, COMPLETE_DRAFT);
     await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Unklar, ob es bei uns angekommen ist", BEWERBUNG_UNKLAR]]));
   });
@@ -310,6 +314,7 @@ describe("the public application form", () => {
 
     await fillIn(user, container, COMPLETE_DRAFT);
     await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await act(fetchMock.answered);
 
     // One toast in all: a second beside the failure's would announce the press twice.
     await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Bewerbung nicht abgeschickt", EIGENER_SATZ]]));
@@ -327,6 +332,7 @@ describe("the public application form", () => {
 
     await fillIn(user, container, COMPLETE_DRAFT);
     await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Bewerbung schon angekommen", SCHON_DA]]));
   });
@@ -339,6 +345,7 @@ describe("the public application form", () => {
     const { user, kuerzel } = await renderNewSchool();
 
     await typeInto(user, kuerzel, "GG", { leaveBox: true });
+    await act(fetchMock.answered);
 
     await waitFor(() =>
       assert.deepEqual(toastsOf("warning"), [["Kürzel noch nicht geprüft", `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`]]),

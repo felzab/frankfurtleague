@@ -92,6 +92,8 @@ async function confirmByCode(user: ReturnType<typeof userEvent.setup>, scope: { 
   const field = await screen.findByLabelText<HTMLInputElement>("Code aus der E-Mail");
   fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
   await user.type(field, "048213");
+  // The code's route answers first, and the holder check and the change it waited for after it.
+  await act(fetchMock.answered);
   await act(actionsAnswered);
 }
 
@@ -530,6 +532,7 @@ describe("confirming by a code mailed to the holder", () => {
     const field = await screen.findByLabelText<HTMLInputElement>("Code aus der E-Mail");
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true, bereits: true })));
     await user.type(field, "048213");
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.ok(panel.getByRole("alert").textContent?.includes(CODE_STEP_UP_REFUSED)));
     assert.deepEqual(

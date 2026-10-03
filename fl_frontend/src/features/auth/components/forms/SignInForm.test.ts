@@ -167,6 +167,7 @@ describe("the sign-in card's code step", () => {
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
 
     await user.type(field, "048213");
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.deepEqual(left, [LANDING]));
     assert.equal(fetchMock.mock.callCount(), 1);
@@ -183,6 +184,7 @@ describe("the sign-in card's code step", () => {
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: false, error: falsch })));
 
     await user.type(field, "000000");
+    await act(fetchMock.answered);
 
     const refusal = await screen.findByRole("alert");
     assert.equal(refusal.textContent, falsch);
@@ -192,6 +194,7 @@ describe("the sign-in card's code step", () => {
 
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
     await user.type(field, "048213");
+    await act(fetchMock.answered);
     await waitFor(() => assert.deepEqual(left, [LANDING]));
   });
 
@@ -202,6 +205,7 @@ describe("the sign-in card's code step", () => {
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
 
     await user.type(field, "048213");
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.equal(raised.at(-1)?.title, "Nicht angemeldet"));
     assert.ok(screen.queryByRole("alert") === null, "a refusal stands at the field for an answer that was not ours");
@@ -238,10 +242,12 @@ describe("the sign-in card's code step", () => {
     const field = await atTheCodeStep(user);
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
     await user.type(field, "048213");
+    await act(fetchMock.answered);
     await waitFor(() => assert.equal(raised.at(-1)?.title, "Nicht angemeldet"));
 
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: false, error: "Der Code stimmt nicht." })));
     await user.click(screen.getByRole("button", { name: "Anmelden" }));
+    await act(fetchMock.answered);
     await screen.findByRole("alert");
 
     assert.ok(document.activeElement === field, "the refusal closed the pressed button and left the focus on it rather than the field");
@@ -317,6 +323,7 @@ describe("the code step mounted outside the sign-in card", () => {
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
 
     await user.type(screen.getByLabelText("Code aus der E-Mail"), "048213");
+    await act(fetchMock.answered);
 
     await waitFor(() => assert.equal(signedIn.mock.callCount(), 1));
     assert.deepEqual(left, [], "the step navigated on its own rather than leaving that to its caller");
