@@ -94,7 +94,7 @@ take_dump() {
     -e DB_BASE_NAME \
     -v "/${REPO_ROOT}/${DUMP_URI_FILE}:/run/secrets/dump_mongodb_uri:ro" \
     -v "/${REPO_ROOT}/.local-db/dump:/dump" \
-    mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
+    mongo:8.3.11@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
 set -e
 # Neither the file nor the dotenv line has its quotes or a Windows editor's CR stripped on the way
 # in, and mongodump answers a URI holding either with a parse error.

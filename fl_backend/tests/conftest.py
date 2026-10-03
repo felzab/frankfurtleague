@@ -286,7 +286,7 @@ def saison() -> PayloadFactory:
 
 # Both containers' image, by tag and digest (`docs/ops/spec.md` §1.1): the local stack's server, with
 # its full version, which `scripts/tests/test_image_pins.py` holds to that form.
-MONGO_IMAGE = "mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b"
+MONGO_IMAGE = "mongo:8.3.11@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc"
 
 # A majority write's acknowledgement waits on the oplog entry reaching the journal, and this
 # container's data is discarded at session end, so the disk buys nothing the tier needs.
