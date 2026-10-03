@@ -3,7 +3,14 @@ import z from "zod";
 import type { FLEinwilligungFassung } from "./schemas";
 
 /** The pages this frontend renders a running label's words on, spelled as the backend keys them. */
-export type EinwilligungSeite = "bewerbung" | "bestaetigung_kontakt" | "bestaetigung_spieler" | "bestaetigung_schiedsrichter";
+export type EinwilligungSeite =
+  | "bewerbung"
+  | "bestaetigung_kontakt"
+  | "bestaetigung_spieler"
+  | "bestaetigung_schiedsrichter"
+  | "konto_spieler"
+  | "konto_schiedsrichter"
+  | "konto_kontakt";
 
 // Each list is its page's whole set: a served map missing a key or holding one more fails
 // `gekeyteFassung` rather than rendering a gap or dropping a paragraph nobody then sees.
