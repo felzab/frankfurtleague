@@ -285,6 +285,12 @@ export const FLSchiedsrichterBestaetigungResponseSchema = BaseAPIResponseSchema.
 });
 export type FLSchiedsrichterBestaetigungResponse = z.infer<typeof FLSchiedsrichterBestaetigungResponseSchema>;
 
+/** Mirrors `FLSchiedsrichterKontext`: the first part of the one stored name, cut as the confirmation page cuts it. */
+export const FLSchiedsrichterKontextSchema = z.object({
+  vorname: z.string().nullable(),
+});
+export type FLSchiedsrichterKontext = z.infer<typeof FLSchiedsrichterKontextSchema>;
+
 /** Mirrors `FLSchiedsrichterSelbst`, the person tier's own read: no fee and no link bookkeeping, which are the administration's. */
 export const FLSchiedsrichterSelbstSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
@@ -297,6 +303,7 @@ export const FLSchiedsrichterSelbstSchema = z.object({
   einwilligung: FLEinwilligungSchema,
   // The words shown beside the account page's control, for the reason `FLSpielerSelbstSchema` gives.
   bestaetigt_text_version: z.string().nullable(),
+  kontext: FLSchiedsrichterKontextSchema,
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),
 });

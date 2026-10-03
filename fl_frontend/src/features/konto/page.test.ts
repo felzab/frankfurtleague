@@ -289,17 +289,18 @@ describe("what the security section tells its reader", () => {
 
 const { answerReadsWith, EMPTIEST_ANSWER, renderPage } = await import("@/shared/testing/pageHarness.ts");
 const { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
+const { bestaetigteWorte, sitzMindestalter } = await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
 
-/** A seat confirmed through the application form, whose wording names no slot: its words render whole. */
+/** A Trainer who is also the Stellvertretung, confirmed on the contact page, every slot it names served. */
 const SITZ = {
   team_id: SITZ_TEAM_ID,
   team_name: "Lessing Lions",
   saison_id: "2526",
-  rollen: ["trainer"],
-  text_version: "2026-09-bestaetigung-5",
-  bestaetigt_text_version: "2026-09-bestaetigung-5",
+  rollen: ["stellvertretung", "trainer"],
+  bestaetigt_text_version: "2026-09-bestaetigungsseite-6",
+  kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526", rolle: "stellvertretung" },
   medien: false,
   medien_angeboten: true,
   erteilbar: true,
@@ -310,11 +311,11 @@ const EINWILLIGUNG = {
   erteilt_von: "volljaehrig",
   datum: "2026-09-01",
   bestaetigt_am: "2026-09-01",
-  text_version: "2026-09-spielerseite-2",
+  text_version: "2026-09-spielerseite-3",
   medien: false,
 };
 
-/** A pupil whose confirmation page named the registration's team, school and season. */
+/** A pupil confirmed on the pupil's page, the registration's team, school and season served. */
 const SPIELER = {
   spieler_id: "6890a1b2c3d4e5f607390031",
   vorname: "Alina",
@@ -322,10 +323,25 @@ const SPIELER = {
   geburtsdatum: "2008-05-02",
   inactive_since: null,
   einwilligung: EINWILLIGUNG,
-  bestaetigt_text_version: "2026-09-spielerseite-2",
+  bestaetigt_text_version: "2026-09-spielerseite-3",
+  kontext: { vorname: "Alina", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
   erteilbar: true,
   medien_angeboten: true,
   kader: [],
+};
+
+const SCHIEDSRICHTER = {
+  schiedsrichter_id: "6890a1b2c3d4e5f607390041",
+  name: "Mara Okafor",
+  schule: null,
+  kontakt: { telefon: null, email: "mara@example.org" },
+  geburtsdatum: "2007-03-01",
+  inactive_since: null,
+  einwilligung: { ...EINWILLIGUNG, text_version: "2026-09-schiedsrichterseite-3" },
+  bestaetigt_text_version: "2026-09-schiedsrichterseite-3",
+  kontext: { vorname: "Mara" },
+  erteilbar: true,
+  medien_angeboten: true,
 };
 
 /** The section's reads answered: the consent words off the backend's generated registry, the person's records as given. */
@@ -337,6 +353,10 @@ function answeringKonto(konto: Record<string, unknown>): void {
 }
 
 const sectionText = async (): Promise<string> => textOf(await renderPage(underNext(h(EinwilligungSection))), " ").replace(/\s+/g, " ");
+
+/** Every disclosure the section offers, one per record whose confirmed words it shows. */
+const disclosures = async (): Promise<number> =>
+  [...(await renderPage(underNext(h(EinwilligungSection)))).matchAll(/Was Du bestätigt hast/g)].length;
 
 describe("the account page's consent section", () => {
   it("renders nothing for a person holding no consent record", async () => {
@@ -354,20 +374,53 @@ describe("the account page's consent section", () => {
 
     const text = await sectionText();
     const konto = publishedLaufendeFassung("konto_kontakt");
-    const bestaetigt = publishedFassung(SITZ.bestaetigt_text_version);
 
     assert.ok(text.includes("Deine Einwilligung"));
     assert.ok(text.includes("Fotos, Videos und Interviews: Lessing Lions, Saison 2526"));
     assert.ok(text.includes(konto.schalter), "the seat's switch is not named by the account page's words");
-    for (const absatz of bestaetigt.absaetze) assert.ok(text.includes(absatz), `the confirmed words lack „${absatz.slice(0, 40)}…“`);
+    assert.equal(await disclosures(), 1);
   });
 
-  /* A slot nobody fills reads as a finished sentence stating nothing; the render fails instead, until
-     the read serves the registration's team, school and season. */
-  it("fails the render rather than show a confirmed wording's slot unfilled", async () => {
-    setSubject(OHNE_FUNKTION);
-    answeringKonto({ spieler: SPIELER });
+  /* Every slot of each kind's confirmation page filled from the record: every seat held named as the
+     contact page names it, the objection control's own label. A literal slot left standing fails. */
+  for (const [art, konto, erwartet] of [
+    [
+      "a seat holder",
+      { sitze: [SITZ] },
+      ["Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "Ich möchte nicht eingetragen sein"],
+    ],
+    ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
+    ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", "Konto löschen"]],
+  ] as const) {
+    it(`fills every slot of ${art}'s confirmed words from the record`, async () => {
+      setSubject(OHNE_FUNKTION);
+      answeringKonto(konto);
 
-    await assert.rejects(sectionText(), /has no value for .*schule/);
+      const text = await sectionText();
+
+      assert.equal(await disclosures(), 1, `${art}'s confirmed words are not shown`);
+      assert.doesNotMatch(text, /\{\w+\}/, `${art}'s confirmed words spell a slot`);
+      for (const wort of erwartet) assert.ok(text.includes(wort), `${art}'s confirmed words lack „${wort}“`);
+    });
+  }
+
+  /* A slot served empty, a pupil holding no squad row: a sentence with its subject blanked misstates the
+     agreement as a literal slot does, so the words stay out and the control stands. */
+  it("leaves the confirmed words out where a slot they need is served empty, and keeps the control", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ spieler: { ...SPIELER, kontext: { vorname: "Alina", team: null, schule: null, saison: null } } });
+
+    assert.equal(await disclosures(), 0);
+    assert.ok((await sectionText()).includes(publishedLaufendeFassung("konto_spieler").schalter));
+  });
+
+  it("names the highest floor any seat held asks, as the contact page judged the person", () => {
+    assert.equal(sitzMindestalter(["trainer"]), 16);
+    assert.equal(sitzMindestalter(["trainer", "ansprechperson"]), 18);
+  });
+
+  /* A slot nothing maps, a page naming one the section never fills, fails the render loudly. */
+  it("fails the render for a slot nothing maps", () => {
+    assert.throws(() => bestaetigteWorte(publishedFassung("2026-09-spielerseite-3"), {}), /has no value for/);
   });
 });

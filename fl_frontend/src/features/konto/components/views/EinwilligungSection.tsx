@@ -1,5 +1,6 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { getEinwilligungFassung, getLaufendeFassung } from "@/core/einwilligung";
+import { ABLEHNEN_LABEL } from "@/features/bewerbungen/constants";
 import { patchSitzEinwilligungAction } from "@/features/kontakte/personActions";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER, SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_MIN_ALTER, SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants";
@@ -8,20 +9,20 @@ import { patchSpielerEinwilligungAction } from "@/features/spieler/personActions
 
 import { getKontoEinwilligungen } from "../../queries";
 import { EinwilligungPanel } from "../forms/EinwilligungForm/EinwilligungPanel";
-import { bestaetigteWorte, personWorte, sitzTitel, sitzWorte } from "../forms/EinwilligungForm/kontoWorte";
+import { bestaetigteWorte, personWorte, sitzMindestalter, sitzRollenText, sitzTitel, sitzWorte } from "../forms/EinwilligungForm/kontoWorte";
 
-import type { Slots } from "@/shared/utils/stampedSlots";
 import type { EinwilligungEintrag } from "../forms/EinwilligungForm/EinwilligungPanel";
+import type { Fuellung } from "../forms/EinwilligungForm/kontoWorte";
 
 /** The values every confirmation page names alike: the league's address and the erasure control's own name. */
-const KONSTANTEN: Slots = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen", medienMinAlter: String(MEDIEN_MIN_ALTER) };
+const KONSTANTEN: Fuellung = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen", medienMinAlter: String(MEDIEN_MIN_ALTER) };
 
 /** The words a record's person confirmed, or `null` where the record names no label the registry holds. */
-async function bestaetigt(textVersion: string | null, werte: Slots) {
+async function bestaetigt(textVersion: string | null, fuellung: Fuellung) {
   if (textVersion === null) return null;
   const fassung = await getEinwilligungFassung(textVersion);
 
-  return fassung === null ? null : bestaetigteWorte(fassung, werte);
+  return fassung === null ? null : bestaetigteWorte(fassung, fuellung);
 }
 
 /**
@@ -38,7 +39,7 @@ export async function EinwilligungSection() {
       titel: "Als Spieler",
       bestaetigt: await bestaetigt(spieler.bestaetigt_text_version, {
         ...KONSTANTEN,
-        vorname: spieler.vorname,
+        ...spieler.kontext,
         minAlter: String(REGISTRIERUNG_MIN_ALTER),
       }),
       worte: personWorte(await getLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE),
@@ -55,7 +56,11 @@ export async function EinwilligungSection() {
       eintraege.push({
         id: `schiedsrichter-${eintrag.schiedsrichter_id}`,
         titel: "Als Schiedsrichter",
-        bestaetigt: await bestaetigt(eintrag.bestaetigt_text_version, { ...KONSTANTEN, minAlter: String(SCHIEDSRICHTER_MIN_ALTER) }),
+        bestaetigt: await bestaetigt(eintrag.bestaetigt_text_version, {
+          ...KONSTANTEN,
+          ...eintrag.kontext,
+          minAlter: String(SCHIEDSRICHTER_MIN_ALTER),
+        }),
         worte: personWorte(fassung, SCHIEDSRICHTER_UMFANG_FRAGE),
         gespeichert: { umfang: eintrag.einwilligung.umfang, medien: eintrag.einwilligung.medien },
         medienAngeboten: eintrag.medien_angeboten,
@@ -72,7 +77,14 @@ export async function EinwilligungSection() {
       eintraege.push({
         id: `sitz-${sitz.team_id}-${sitz.saison_id}`,
         titel: sitzTitel(sitz),
-        bestaetigt: await bestaetigt(sitz.bestaetigt_text_version, { ...KONSTANTEN, saison: sitz.saison_id }),
+        bestaetigt: await bestaetigt(sitz.bestaetigt_text_version, {
+          ...KONSTANTEN,
+          ...sitz.kontext,
+          // Every seat held on the row, as the contact page named them and judged the age.
+          rolle: sitzRollenText(sitz.rollen),
+          minAlter: String(sitzMindestalter(sitz.rollen)),
+          ablehnen: ABLEHNEN_LABEL,
+        }),
         worte: sitzWorte(fassung, sitz),
         gespeichert: { medien: sitz.medien },
         medienAngeboten: sitz.medien_angeboten,

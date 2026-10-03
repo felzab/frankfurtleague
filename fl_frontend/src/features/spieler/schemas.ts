@@ -311,6 +311,18 @@ export const FLSpielerSelbstKaderZeileSchema = z.object({
 });
 export type FLSpielerSelbstKaderZeile = z.infer<typeof FLSpielerSelbstKaderZeileSchema>;
 
+/**
+ * Mirrors `FLSpielerKontext`: what the pupil's confirmation page fills its slots with, as the record
+ * points to it today. Null where the pupil holds no squad row to name a team by.
+ */
+export const FLSpielerKontextSchema = z.object({
+  vorname: z.string(),
+  team: z.string().nullable(),
+  schule: z.string().nullable(),
+  saison: z.string().nullable(),
+});
+export type FLSpielerKontext = z.infer<typeof FLSpielerKontextSchema>;
+
 /** Mirrors `FLSpielerSelbst`, the person tier's own read: the whole surname, because the reader is the person it names. */
 export const FLSpielerSelbstSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
@@ -323,6 +335,7 @@ export const FLSpielerSelbstSchema = z.object({
   // The label whose words the account page shows beside the control: the backend names which stored
   // label the person confirmed, so the page never decides it from the record's shape.
   bestaetigt_text_version: z.string().nullable(),
+  kontext: FLSpielerKontextSchema,
   // The backend's verdicts, never recomputed here: a second clock or a second reading of a panel would
   // offer a press the write refuses.
   erteilbar: z.boolean(),

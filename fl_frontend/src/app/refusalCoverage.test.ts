@@ -18,6 +18,7 @@ const { BEWERBUNG_MIN_ALTER } = await import("@/features/bewerbungen/constants.t
 const bewerbungUtils = await import("@/features/bewerbungen/utils.ts");
 const einladungen = await import("@/features/einladungen/refusals.ts");
 const kontakte = await import("@/features/kontakte/refusals.ts");
+const konto = await import("@/features/konto/einwilligung.ts");
 const registrierungen = await import("@/features/registrierungen/utils.ts");
 const { REGISTRIERUNG_MIN_ALTER } = await import("@/features/registrierungen/constants.ts");
 const saisons = await import("@/features/saisons/refusals.ts");
@@ -91,6 +92,12 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "GET /spieler/kader/{team_id}/{saison_id}": (error) => (isFunktionLost(error) ? "the forbidden panel, in the page's stead" : null),
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,
+  // The player's page sends a pupil the backend finds no confirmed row for to the landing, as its own
+  // check sends a person holding no player row.
+  "GET /spieler/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  "PATCH /spieler/selbst/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": konto.mapEigeneEinwilligungRefusal,
   "POST /spieler/{spieler_id}/saisons": (error) => spieler.mapSquadRefusal(error) ?? spieler.mapAlreadyInSaisonRefusal(error),
   "PATCH /spieler/{spieler_id}/saisons/{saison_id}": spieler.mapSquadRefusal,
   "DELETE /spieler/{spieler_id}/saisons/{saison_id}": SHARED_READER,
