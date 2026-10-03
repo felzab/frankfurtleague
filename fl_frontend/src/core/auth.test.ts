@@ -3235,8 +3235,8 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
   });
 
   /* The registration's transaction opens after the before hook: a backend round trip inside it would
-     hold it open, and widen the window another change to the account's passkeys conflicts in
-     (`docs/frontend/spec.md :: I482`). The one read is the before hook's. */
+     hold it open for that call's length (`docs/frontend/spec.md :: I482`). The one read is the before
+     hook's. */
   it("reads the subject once for a set-up that signs in, ahead of the registration's transaction", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });

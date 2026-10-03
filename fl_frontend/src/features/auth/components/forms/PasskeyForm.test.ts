@@ -199,8 +199,8 @@ describe("a prompt the browser did not complete", () => {
     );
   });
 
-  /* An enrolment another tab finished first earns the guard's plain refusal rather than the conflict,
-     and leaves the card as stale. */
+  /* An enrolment another tab finished first earns the guard's plain refusal, and leaves the card as
+     stale. */
   it("re-reads its own page when the enrolment is refused outright", async () => {
     const user = userEvent.setup();
     answer = () => Promise.resolve({ data: null, error: { message: "Not Found", status: 404, statusText: "NOT_FOUND" } });
