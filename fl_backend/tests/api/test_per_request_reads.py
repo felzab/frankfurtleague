@@ -93,16 +93,18 @@ class _Stalled:
 
 
 def _find_subjekt(reads: _Reads, session: object = None) -> FLSubjekt:
-    return asyncio.run(
-        identitaet_crud.find_subjekt(
-            IDENTIFIER,
-            saison_teams_collection=cast(Any, SAISON_TEAMS),
-            saisons_collection=cast(Any, SAISONS),
-            spieler_collection=cast(Any, SPIELER),
-            schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),
-            session=cast(AsyncClientSession | None, session),
-        )
-    )
+    """The system route's lookup with no session, the one a transaction reaches with one."""
+
+    collections: dict[str, Any] = {
+        "saison_teams_collection": SAISON_TEAMS,
+        "saisons_collection": SAISONS,
+        "spieler_collection": SPIELER,
+        "schiedsrichter_collection": SCHIEDSRICHTER,
+    }
+    if session is None:
+        return asyncio.run(identitaet_crud.find_subjekt(IDENTIFIER, **collections))
+
+    return asyncio.run(identitaet_crud.find_subjekt_in_session(IDENTIFIER, **collections, session=cast(AsyncClientSession, session)))
 
 
 class TestTheSubjectLookupsReads:
@@ -233,7 +235,6 @@ class TestTheSubjectLookupsReads:
                 saisons_collection=cast(Any, SAISONS),
                 spieler_collection=cast(Any, SPIELER),
                 schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),
-                session=None,
             )
         )
 

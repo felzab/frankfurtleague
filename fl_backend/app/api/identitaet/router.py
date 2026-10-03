@@ -113,9 +113,6 @@ async def get_subjekt(
             saisons_collection=saisons_collection,
             spieler_collection=spieler_collection,
             schiedsrichter_collection=schiedsrichter_collection,
-            # No transaction, which is also what lets the three run at once: one session runs one
-            # operation at a time. The parameter exists for the caller that judges a Funktion inside its own.
-            session=None,
         ),
         hash_gesperrt(sperrliste, ban_key),
         verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),

@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -49,38 +50,39 @@ async def _statuses_of(
     return statuses
 
 
-async def find_subjekt(
+Rows = list[Mapping[str, Any]]
+
+
+def _reads(
     identifier: str,
     *,
     saison_teams_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
-    # Carried rather than defaulted, so a later caller judging a Funktion inside its own transaction
-    # states which session this read belongs to instead of silently opening a second one.
-    session: AsyncClientSession | None,
-) -> FLSubjekt:
-    """Every confirmed, live record this folded identifier matches, and whether its granting records are all unconfirmed.
+) -> tuple[tuple[AsyncCollection, Rows], ...]:
+    """The three record reads, in the order both lookups unpack them.
 
-    Unbounded on all four reads, as `app/api/kontakte/admin_router.py`'s are: a capped list reads as
-    a person holding fewer records rather than as a truncated answer.
+    Unbounded, as `app/api/kontakte/admin_router.py`'s are: a capped list reads as a person holding
+    fewer records rather than as a truncated answer.
     """
 
-    reads = (
+    return (
         (saison_teams_collection, build_seat_pipeline(identifier)),
         (schiedsrichter_collection, build_referee_pipeline(identifier)),
         (spieler_collection, build_pupil_pipeline(identifier)),
     )
-    if session is None:
-        seat_rows, referee_rows, pupil_rows = await gather_cancelling(
-            *(aggregate_many_from_db(collection=collection, pipeline=pipeline) for collection, pipeline in reads)
-        )
-    else:
-        # One at a time inside a transaction: a session cannot run two operations at once, which
-        # PyMongo's `AsyncClientSession` documents and never refuses.
-        seat_rows, referee_rows, pupil_rows = [
-            await aggregate_many_from_db(collection=collection, pipeline=pipeline, session=session) for collection, pipeline in reads
-        ]
+
+
+async def _judged(
+    identifier: str,
+    seat_rows: Rows,
+    referee_rows: Rows,
+    pupil_rows: Rows,
+    *,
+    saisons_collection: AsyncCollection,
+    session: AsyncClientSession | None,
+) -> FLSubjekt:
+    """The answer both lookups give from the same three reads: one judgement, so the two cannot narrow differently."""
 
     # The confirmation narrows HERE, in the lookup every caller reads, and never at a caller: a
     # caller-side check leaves the sign-in gate mailing, and a panel drawn for, a person nobody confirmed.
@@ -123,6 +125,64 @@ async def find_subjekt(
     )
 
 
+async def find_subjekt(
+    identifier: str,
+    *,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    spieler_collection: AsyncCollection,
+    schiedsrichter_collection: AsyncCollection,
+) -> FLSubjekt:
+    """Every confirmed, live record this folded identifier matches, and whether its granting records are all unconfirmed.
+
+    Its reads gathered and outside any transaction, for `POST /identitaet/subjekt`; a caller inside one
+    reads through `find_subjekt_in_session`.
+    """
+
+    seat_rows, referee_rows, pupil_rows = await gather_cancelling(
+        *(
+            aggregate_many_from_db(collection=collection, pipeline=pipeline)
+            for collection, pipeline in _reads(
+                identifier,
+                saison_teams_collection=saison_teams_collection,
+                spieler_collection=spieler_collection,
+                schiedsrichter_collection=schiedsrichter_collection,
+            )
+        )
+    )
+
+    return await _judged(identifier, seat_rows, referee_rows, pupil_rows, saisons_collection=saisons_collection, session=None)
+
+
+async def find_subjekt_in_session(
+    identifier: str,
+    *,
+    saison_teams_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    spieler_collection: AsyncCollection,
+    schiedsrichter_collection: AsyncCollection,
+    # REQUIRED: this is the lookup a transaction reaches, so no read of it can leave the session.
+    session: AsyncClientSession,
+) -> FLSubjekt:
+    """`find_subjekt`'s answer read inside a caller's session, one read at a time.
+
+    A session runs one operation at a time, which PyMongo's `AsyncClientSession` documents and never
+    refuses, so the gathered reads would race unseen here.
+    """
+
+    seat_rows, referee_rows, pupil_rows = [
+        await aggregate_many_from_db(collection=collection, pipeline=pipeline, session=session)
+        for collection, pipeline in _reads(
+            identifier,
+            saison_teams_collection=saison_teams_collection,
+            spieler_collection=spieler_collection,
+            schiedsrichter_collection=schiedsrichter_collection,
+        )
+    ]
+
+    return await _judged(identifier, seat_rows, referee_rows, pupil_rows, saisons_collection=saisons_collection, session=session)
+
+
 async def funktionen_of(
     identifier: str,
     *,
@@ -130,8 +190,8 @@ async def funktionen_of(
     saisons_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
-    # REQUIRED, unlike `find_subjekt`'s: a person endpoint judges this inside the transaction it
-    # writes in, so a caller forgetting it is a TypeError rather than a read outside its own write.
+    # REQUIRED: a person endpoint judges this inside the session it reads or writes in, so a caller
+    # forgetting it is a TypeError rather than a read outside its own write.
     session: AsyncClientSession,
 ) -> FLSubjekt:
     """What a person endpoint may authorise against: `find_subjekt`'s answer, its seats narrowed to the seasons granting a panel.
@@ -149,7 +209,7 @@ async def funktionen_of(
     if folded == "":
         raise ValueError("funktionen_of was asked about an empty identifier")
 
-    subjekt = await find_subjekt(
+    subjekt = await find_subjekt_in_session(
         folded,
         saison_teams_collection=saison_teams_collection,
         saisons_collection=saisons_collection,
