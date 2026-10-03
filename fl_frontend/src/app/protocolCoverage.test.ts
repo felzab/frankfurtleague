@@ -209,6 +209,16 @@ describe("every published credential and request-validation code against the ans
     }
   });
 
+  /* A name here the document does not publish as a person's route is asked about nothing, and the
+     route it meant is asked through the seat entry its action never runs on. */
+  it("names as a record route only person routes the document publishes", () => {
+    assert.deepEqual(
+      [...RECORD_ROUTES].filter((operation) => !PERSON_ROUTES.has(operation)),
+      [],
+      "a record route named here is no published person route",
+    );
+  });
+
   /* Once per tier and status on each of its spines, not per operation: an operation whose mapper leaves
      a code unworded answers it as its spine does. System callers show nobody a refusal, as
      `fl_frontend/src/app/refusalCoverage.test.ts :: REFUSING` leaves them out. */
