@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it, mock } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -20,7 +20,7 @@ import type { FLEinladungVersandVorschauZeile } from "@/features/einladungen/sch
 /** A write nobody has answered yet, which is how each action answers unless a case says otherwise. */
 const running = (): Promise<never> => new Promise(() => undefined);
 
-const { calls, answerWith } = doubleActions({ modules: ["/src/features/einladungen/actions.ts"], answer: running });
+const { calls, answerWith, answered } = doubleActions({ modules: ["/src/features/einladungen/actions.ts"], answer: running });
 
 /** The payloads one action was sent, in the order the panel sent them. */
 const sent = (action: string): unknown[] => calls.filter((call) => call.action === action).map((call) => call.payload);
@@ -96,10 +96,13 @@ function readout(label: string): string | null {
 }
 
 /**
- * Awaited, never read at once: the first press arms only once the preview it asked for has landed,
- * which is after the press's own event and later still on a loaded machine.
+ * The first press arms only once the preview it asked for has landed, so that answer is awaited itself:
+ * polling the press alone gives up after `findByRole`'s second, which a loaded machine's answer and render outlast.
  */
-const armedStep = (): Promise<HTMLElement> => screen.findByRole("button", { name: ARMED });
+async function armedStep(): Promise<HTMLElement> {
+  await act(answered);
+  return screen.findByRole("button", { name: ARMED });
+}
 
 beforeEach(() => {
   calls.length = 0;
@@ -118,6 +121,7 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
+      answered,
       whileArmed: () => {
         assert.deepEqual(
           sent("previewEinladungVersandAction"),
@@ -134,6 +138,7 @@ describe("the season's bulk invite send", () => {
 
     assert.deepEqual(sent("postEinladungVersandAction"), [{ id: SAISON_ID, erneut: false }]);
     // Its answer lands inside this case, or its toast is the next case's first.
+    await act(answered);
     await waitFor(() =>
       assert.deepEqual(
         raised.map((toast) => toast.title),
@@ -150,6 +155,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await act(answered);
     await waitFor(() => assert.equal(raised.length, 1));
 
     assert.deepEqual(
@@ -172,8 +178,10 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
+      answered,
       whileArmed: () => answerWith(() => Promise.reject(new TypeError("Failed to fetch"))),
     });
+    await act(answered);
     await screen.findByRole("button", { name: RESTING });
 
     const { error, outcome } = unansweredAction();
@@ -238,8 +246,10 @@ describe("the season's bulk invite send", () => {
       await pressTwice(user, {
         resting: RESTING,
         armed: ARMED,
+        answered,
         whileArmed: () => answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Keine Links gesendet." })),
       });
+      await act(answered);
       await waitFor(() => assert.equal(screen.getByRole("button", { name: RESTING }).getAttribute("data-pending"), null));
     } finally {
       observer.disconnect();
@@ -352,6 +362,7 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
+      answered,
       whileArmed: () => {
         assert.deepEqual(
           sent("previewEinladungVersandAction").at(-1),
@@ -363,6 +374,7 @@ describe("the season's bulk invite send", () => {
     });
 
     assert.deepEqual(sent("postEinladungVersandAction"), [{ id: SAISON_ID, erneut: true }]);
+    await act(answered);
     await waitFor(() =>
       assert.deepEqual(
         raised.map((toast) => toast.title),
@@ -377,6 +389,7 @@ describe("the season's bulk invite send", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await act(answered);
 
     // Nothing arms here to be awaited, so the empty state is.
     await waitFor(() => assert.ok(isInTheFlow("Diese Saison hat noch kein Team aufgenommen"), "an empty season states nothing"));
@@ -425,6 +438,7 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
+      answered,
       whileArmed: () => {
         answerWith(() =>
           Promise.resolve({
@@ -493,6 +507,7 @@ describe("the season's bulk invite send", () => {
     });
 
     // The result renders once the write the second press started answers, after that press's own event.
+    await act(answered);
     await waitFor(() => assert.ok(isInTheFlow("An die Adresse gesendet"), "the team reached at its one address reports nothing"));
     assert.ok(isInTheFlow("Gesendet: 2 von 3"), "the team reached in part reads as reached whole");
     assert.ok(
@@ -523,6 +538,7 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
+      answered,
       whileArmed: () => {
         answerWith(() =>
           Promise.resolve({
@@ -554,6 +570,7 @@ describe("the season's bulk invite send", () => {
         );
       },
     });
+    await act(answered);
 
     await waitFor(() => assert.ok(isInTheFlow("Gesendet: 1 von 2"), "the barred address went uncounted, so the team reads as reached whole"));
     assert.ok(isInTheFlow("An eine Adresse ging nichts, weil sie auf der Sperrliste steht."));
@@ -582,6 +599,7 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
+      answered,
       whileArmed: () => {
         answerWith(() =>
           Promise.resolve({
@@ -592,6 +610,7 @@ describe("the season's bulk invite send", () => {
         );
       },
     });
+    await act(answered);
 
     await waitFor(() => assert.ok(zeile("Ernst-Reuter-Schule").includes("Unklar"), "the result rows did not render"));
     assert.equal(
@@ -631,6 +650,7 @@ describe("the season's bulk invite send", () => {
     await pressTwice(user, {
       resting: RESTING,
       armed: ARMED,
+      answered,
       whileArmed: () => {
         answerWith(() =>
           Promise.resolve({
@@ -645,6 +665,7 @@ describe("the season's bulk invite send", () => {
         );
       },
     });
+    await act(answered);
 
     await waitFor(() => assert.ok(zeile("Ernst-Reuter-Schule").includes("nicht angelegt"), "the result rows did not render"));
     assert.equal(

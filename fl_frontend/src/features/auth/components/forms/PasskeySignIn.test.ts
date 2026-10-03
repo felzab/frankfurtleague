@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
 /* The browser's own credential calls, replaced at the module boundary: this runner has no
@@ -38,9 +39,14 @@ const answers: (() => Promise<unknown>)[] = [];
 
 const left: string[] = [];
 
+/** The answers a case handed out, awaited before it polls for what they decide. */
+const ceremonies = answersInFlight();
+
 function run(options: unknown): Promise<unknown> {
   calls.push(options);
-  return (answers.shift() ?? (() => new Promise(() => undefined)))();
+  const given = answers.shift();
+  // Untracked: an armed autofill stays pending for good, and awaiting it would wait out the bound.
+  return given === undefined ? new Promise(() => undefined) : ceremonies.track("signIn.passkey", given());
 }
 
 /** Whether the browser offers passkeys in an address field; jsdom has no `PublicKeyCredential` at all. */
@@ -87,6 +93,7 @@ describe("the passkey the browser offers in the address field", () => {
   it("leaves the document for the landing when the offered passkey signs in", async () => {
     answers.push(signedIn);
     render(h(PasskeySignIn));
+    await act(ceremonies.answered);
 
     await waitFor(() => assert.deepEqual(left, [LANDING]));
   });
@@ -106,6 +113,7 @@ describe("the passkey the browser offers in the address field", () => {
   it("reports a passkey the server refused and arms the field again", async () => {
     answers.push(refusedAfterPicking("USER_VERIFICATION_REQUIRED"));
     render(h(PasskeySignIn));
+    await act(ceremonies.answered);
 
     await waitFor(() => assert.deepEqual(calls, [AUTOFILL, AUTOFILL]));
     assert.deepEqual(
@@ -129,6 +137,7 @@ describe("the button", () => {
     render(h(PasskeySignIn));
 
     await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+    await act(ceremonies.answered);
 
     assert.deepEqual(calls, [undefined]);
     await waitFor(() => assert.deepEqual(left, [LANDING]));
@@ -143,6 +152,7 @@ describe("the button", () => {
     render(h(PasskeySignIn));
 
     await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+    await act(ceremonies.answered);
 
     // Back from „Meldet an...“: the abort has answered, so the silence below is its own.
     await screen.findByRole("button", { name: "Mit Passkey anmelden" });
@@ -158,6 +168,7 @@ describe("the button", () => {
 
     answers.push(() => Promise.resolve({ data: null, error: { code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY", status: 400 } }));
     await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+    await act(ceremonies.answered);
 
     await waitFor(() => assert.deepEqual(calls.slice(1), [undefined, AUTOFILL]));
     await waitFor(() =>
@@ -179,7 +190,10 @@ describe("the button", () => {
     render(h(PasskeySignIn));
 
     // Each press waits for the one before to answer, as the reader's own does: a press on „Meldet an...“ starts nothing.
-    for (let press = 0; press < 3; press += 1) await user.click(await screen.findByRole("button", { name: "Mit Passkey anmelden" }));
+    for (let press = 0; press < 3; press += 1) {
+      await user.click(await screen.findByRole("button", { name: "Mit Passkey anmelden" }));
+      await act(ceremonies.answered);
+    }
 
     await waitFor(() => assert.equal(raised.length, 3));
     assert.deepEqual(
@@ -199,6 +213,7 @@ describe("the button", () => {
     render(h(PasskeySignIn));
 
     await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+    await act(ceremonies.answered);
 
     assert.ok(await screen.findByRole("button", { name: "Mit Passkey anmelden" }));
     await waitFor(() =>

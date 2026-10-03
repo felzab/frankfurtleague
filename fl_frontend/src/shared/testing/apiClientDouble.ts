@@ -5,6 +5,7 @@ import { afterEach, beforeEach } from "node:test";
 import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch.ts";
 import { replacingModule } from "@/core/exportingModule.ts";
 import { judging } from "@/core/verdicts.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 
 /** One request a module handed the backend client: the path, and what it went with. */
 export type ApiCall = {
@@ -85,10 +86,16 @@ type ApiAnswer = (call: ApiCall) => Promise<unknown>;
 export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ acknowledged: 1 })): {
   calls: ApiCall[];
   answerWith: (next: ApiAnswer) => void;
+  /**
+   * Awaited inside `act` before a poll of the page, so the render an answer sets off lands inside it: a
+   * poll alone gives up after its second, which a loaded machine's answer and render outlast.
+   */
+  answered: () => Promise<void>;
 } {
   let answering = answer;
   const malformed: string[] = [];
-  const calls = doubleApiClient(async (call, schema) => {
+  const requests = answersInFlight();
+  const parsed = async (call: ApiCall, schema: ApiSchema): Promise<unknown> => {
     const answered = await answering(call);
     try {
       return schema.parse(answered);
@@ -96,7 +103,8 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
       malformed.push(`${call.method ?? "GET"} ${call.endpoint}`);
       throw error;
     }
-  });
+  };
+  const calls = doubleApiClient((call, schema) => requests.track(`${call.method ?? "GET"} ${call.endpoint}`, parsed(call, schema)));
 
   // Back to `answer` before every case: a case that named another would hand it to the next case's write.
   beforeEach(() => {
@@ -112,5 +120,9 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
     );
   });
 
-  return { calls, answerWith: (next) => void (answering = next) };
+  return {
+    calls,
+    answerWith: (next) => void (answering = next),
+    answered: requests.answered,
+  };
 }

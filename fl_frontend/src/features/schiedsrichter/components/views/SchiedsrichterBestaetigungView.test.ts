@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { createRef, createElement as h } from "react";
+import { act, createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -23,6 +23,7 @@ import {
   SCHIEDSRICHTER_UMFANG_OPTIONS,
 } from "@/features/schiedsrichter/constants.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
@@ -33,6 +34,7 @@ import type { SchiedsrichterBestaetigungStart } from "./SchiedsrichterBestaetigu
 
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
+const fetchMock = doubleFetch();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SchiedsrichterBestaetigungView } = await import("./SchiedsrichterBestaetigungView.tsx");
@@ -99,15 +101,14 @@ const words = (html: string): string =>
 
 const markup = (start: SchiedsrichterBestaetigungStart): string => renderTree(h(SchiedsrichterBestaetigungView, { start }));
 
-/** A `fetch` that records the body and answers what the case chose, standing in for the route handler. */
+/** The route handler's answer to every request of the case, each body recorded as it was sent. */
 function answerEveryFetch(answer: unknown): { sent: unknown[] } {
   const sent: unknown[] = [];
+  fetchMock.mock.mockImplementation((_input, init) => {
+    sent.push(JSON.parse(typeof init?.body === "string" ? init.body : "null"));
 
-  globalThis.fetch = (async (_input: unknown, init?: { body?: string }) => {
-    sent.push(JSON.parse(init?.body ?? "null"));
-
-    return { ok: true, status: 200, json: async () => answer };
-  }) as unknown as typeof globalThis.fetch;
+    return Promise.resolve(new Response(JSON.stringify(answer), { status: 200 }));
+  });
 
   return { sent: sent };
 }
@@ -336,6 +337,7 @@ describe("what a link to a barred address opens on", () => {
     await user.keyboard("01011990");
     await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    await act(fetchMock.answered);
 
     assert.ok(await screen.findByText(LINK_ADRESSE_GESPERRT), "the page kept the form the press cannot use again");
     assert.equal(screen.queryAllByRole("button").length, 0, "a press stands beside the barred sentence");
@@ -385,8 +387,9 @@ describe("what a refused press does to the page", () => {
       await user.keyboard("01011990");
       await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+      await act(fetchMock.answered);
 
-      // The panel arrives with the action's answer, which a loaded machine delivers after the click resolves.
+      // Found rather than got: the panel renders after the handler's answer, which is awaited above.
       assert.ok(await screen.findByRole("heading", { name: ueberschrift }), "the page kept the form the press cannot use again");
       assert.ok(screen.queryByRole("button", { name: "Eintrag bestätigen" }) === null);
       assert.deepEqual(toasts, [], "a dead link was reported as a toast over a dead form");
@@ -411,6 +414,7 @@ describe("what a refused press does to the page", () => {
       await user.keyboard("01011990");
       await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+      await act(fetchMock.answered);
 
       await waitFor(() =>
         assert.deepEqual(
@@ -433,6 +437,7 @@ describe("what a refused press does to the page", () => {
     await user.keyboard("01011990");
     await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    await act(fetchMock.answered);
 
     await waitFor(() =>
       assert.deepEqual(

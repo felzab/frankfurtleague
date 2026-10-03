@@ -3,12 +3,13 @@ import "@/shared/testing/dom.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { ActionResult } from "@/shared/types/types.ts";
@@ -27,10 +28,14 @@ function Probe({ answer }: { answer: () => Promise<ActionResult> }): ReturnType<
   return h("button", { type: "button", onClick: () => void reactivate({ id: "t1" }) }, isReactivating ? "Reaktiviert..." : "Reaktivieren");
 }
 
+/** The action's answers, awaited before a case reads what they raised. */
+const answers = answersInFlight();
+
 const press = async (answer: () => Promise<ActionResult>): Promise<void> => {
   const user = userEvent.setup();
-  render(underNext(h(Probe, { answer })));
+  render(underNext(h(Probe, { answer: () => answers.track("reactivate", answer()) })));
   await user.click(screen.getByRole("button", { name: "Reaktivieren" }));
+  await act(answers.answered);
 };
 
 beforeEach(() => {

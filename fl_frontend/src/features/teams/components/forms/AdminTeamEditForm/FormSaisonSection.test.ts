@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -18,7 +18,7 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus.ts";
 import type { Navigations } from "@/shared/testing/nextContexts.ts";
 
-const { answerWith } = doubleEveryAction();
+const { answerWith, answered } = doubleEveryAction();
 const { raised } = doubleToasts();
 
 const { FormSaisonSection } = await import("./FormSaisonSection.tsx");
@@ -103,6 +103,7 @@ describe("the club's group swap after its answer", () => {
     await pressTwice(user, { resting: "Gruppen tauschen", armed: "Ja, Gruppen tauschen" });
     // The toast is raised inside the transition, so the control still runs when it arrives: the panel is
     // read once it has let go.
+    await act(answered);
     await waitFor(() => {
       assert.equal(raised.length, 1);
       assert.equal(screen.queryAllByRole("button", { name: "Tauscht..." }).length, 0, "the swap is still running");

@@ -1332,7 +1332,7 @@ sudo install -o 1002 -g 1002 -m 400 /dev/stdin secrets/<a backend file>
 sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 ```
 
-This has not yet been run on the server. **Where a deploy refuses naming a file**, the refusal says
+**Where a deploy refuses naming a file**, the refusal says
 which fault: a missing one is written, an unreadable one is given the user and mode above, a blank
 one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside
 the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with

@@ -23,7 +23,7 @@ import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
 type Answer = { success: boolean; message?: string; error?: string; verschickt?: boolean };
 
 /** The strip's writes, replaced at the module boundary: a real one needs a session and a backend. */
-const { calls, answerWith, answerPending } = doubleActions({
+const { calls, answerWith, answerPending, answered } = doubleActions({
   modules: ["/src/features/bewerbungen/actions.ts"],
   answer: () => new Promise(() => undefined),
 });
@@ -326,6 +326,7 @@ describe("the address correction", () => {
 
       await correctClara(user, "clara.neu@schule.example{Enter}");
       // Its answer reported before the strip goes, so each arm's toast is its own.
+      await act(answered);
       await waitFor(() => assert.equal(raised.length, before + 1));
       unmount();
     }
@@ -406,6 +407,7 @@ describe("a write whose answer never arrives", () => {
       renderStrip();
 
       await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
+      await act(answered);
 
       await waitFor(() => assert.equal(raised.length, 1, "the press was answered nowhere"));
       assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
@@ -428,9 +430,11 @@ describe("a write whose answer never arrives", () => {
     answerWith(() => Promise.resolve({ success: false, error: "Die Bewerbung ist entschieden." }));
     await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
     // The second press waits for the first answer, as the held control makes the reader's own wait.
+    await act(answered);
     await waitFor(() => assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]));
     answerWith(() => Promise.resolve({ success: true, message: "Der neue Link ging raus." }));
     await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
+    await act(answered);
 
     await waitFor(() => assert.deepEqual(titles("success"), ["Link erneut gesendet"]));
     assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]);
@@ -447,6 +451,7 @@ describe("a write whose answer never arrives", () => {
       renderStrip();
 
       await correctClara(user, "clara.neu@schule.example{Enter}");
+      await act(answered);
 
       await waitFor(() => assert.equal(raised.length, 1, "the press was answered nowhere"));
       assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
@@ -467,6 +472,7 @@ describe("a write whose answer never arrives", () => {
       renderStrip({ stands: standsOf(claraStieAus) });
 
       await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
+      await act(answered);
 
       await waitFor(() => assert.equal(raised.length, 1, "the press was answered nowhere"));
       assert.ok(screen.getByRole("button", { name: "Neu besetzen und Link senden" }), "the rejected write left „Sendet...“ standing");
@@ -620,6 +626,7 @@ describe("seating another person where one stepped out", () => {
       const before = raised.length;
 
       await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
+      await act(answered);
       await waitFor(() => assert.equal(raised.length, before + 1));
       unmount();
     }

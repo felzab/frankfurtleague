@@ -79,6 +79,7 @@ async function arm(user: ReturnType<typeof userEvent.setup>): Promise<string> {
 async function confirm(t: TestContext, user: ReturnType<typeof userEvent.setup>, name: string): Promise<void> {
   t.mock.timers.tick(DOUBLE_PRESS_MS);
   await user.click(screen.getByRole("button", { name }));
+  await act(answered);
   await screen.findByRole("button", { name: RESTING });
 }
 
@@ -172,6 +173,7 @@ describe("the administrator's step-up window", () => {
     assert.ok(await screen.findByRole("button", { name: STEP_UP_RUNNING }), "the open prompt shows the write's own running words");
 
     answerPrompt({ data: {}, error: null });
+    await act(answered);
     await screen.findByRole("button", { name: RESTING });
     unmount();
   });
@@ -208,6 +210,7 @@ describe("the administrator's step-up window", () => {
     await arm(user);
     t.mock.timers.tick(DOUBLE_PRESS_MS);
     await user.click(screen.getByRole("button", { name: STEP_UP_LABEL }));
+    await act(answered);
     assert.ok(await screen.findByText(STEP_UP_REFUSED), "a confirmation for another account is not said to have failed");
     unmount();
 
@@ -294,13 +297,15 @@ describe("the narrow window a grant is held to", () => {
       }),
     );
 
-  /** Types an address and presses „Speichern“, answering once the grant has been sent and answered. */
+  /**
+   * Types an address and presses „Speichern“, answering once the grant has been sent and answered. A
+   * confirmation's holder check answers before the grant goes out, so the answers are awaited first.
+   */
   async function grant(user: ReturnType<typeof userEvent.setup>): Promise<void> {
     await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "neu@schule.de");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
-    await waitFor(() => assert.deepEqual(writes(), ["postBerechtigungAction"]));
-    // Its answer lands inside the case, or in the case after it.
     await act(answered);
+    await waitFor(() => assert.deepEqual(writes(), ["postBerechtigungAction"]));
   }
 
   /* The form reads the window it declares, never the standing one: on the two hours alone, the server

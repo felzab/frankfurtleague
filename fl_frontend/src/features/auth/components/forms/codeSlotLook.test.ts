@@ -102,6 +102,7 @@ describe("a code slot's look beside a text field's", () => {
     render(h(CodeStep, STEP));
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: false, error: "Der Code stimmt nicht." })));
     await user.type(screen.getByLabelText("Code aus der E-Mail"), "000000");
+    await act(fetchMock.answered);
     await screen.findByRole("alert");
 
     // The refused field takes the caret back once the answer has landed, later than its alert on a loaded machine.

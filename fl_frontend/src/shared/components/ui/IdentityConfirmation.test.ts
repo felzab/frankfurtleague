@@ -4,16 +4,20 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
+
+/** The ceremony's and the holder check's answers, awaited before a case polls for what they decide. */
+const answers = answersInFlight();
 
 /* The browser's own credential call, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = { authClient: { signIn: { passkey: () => ceremony() } } };
+const CLIENT_DOUBLE = { authClient: { signIn: { passkey: () => answers.track("signIn.passkey", ceremony()) } } };
 
 registerDoubles({
   modules: {
@@ -39,13 +43,16 @@ function open(codeHalf: string | null = null, hasPasskey = true) {
       hinweis: "Warum wir fragen.",
       hasPasskey: hasPasskey,
       codeHalf: codeHalf,
-      istInhaber: () => ((asked += 1), holder()),
+      istInhaber: () => ((asked += 1), answers.track("istInhaber", holder())),
       onConfirmed: () => void (confirmed += 1),
     }),
   );
 }
 
-const press = () => userEvent.setup().click(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
+async function press(): Promise<void> {
+  await userEvent.setup().click(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
+  await act(answers.answered);
+}
 
 beforeEach(() => {
   ceremony = () => Promise.resolve({ data: {}, error: null });

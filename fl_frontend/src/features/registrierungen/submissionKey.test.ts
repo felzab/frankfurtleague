@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -50,12 +50,13 @@ const keysSent = (): (string | null)[] =>
 const failureToasts = () =>
   raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description] as [string, string | undefined]);
 
-/** One mounted panel, filled in as a pupil fills it, and pressed. */
+/** One mounted panel, filled in as a pupil fills it, and pressed until the route has answered. */
 async function registerOnce(user: ReturnType<typeof userEvent.setup>): Promise<void> {
   await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
   await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
   await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), "mira.kern@beispiel.test");
   await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+  await act(fetchMock.answered);
 }
 
 beforeEach(() => {
@@ -73,6 +74,7 @@ describe("the registration's submission key", () => {
 
     await registerOnce(user);
     await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
     await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
     const keys = keysSent();
@@ -92,6 +94,7 @@ describe("the registration's submission key", () => {
 
     await registerOnce(user);
     await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
     await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
     const keys = keysSent();
@@ -112,6 +115,7 @@ describe("the registration's submission key", () => {
 
       await registerOnce(user);
       await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
+      await act(fetchMock.answered);
       await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
       const keys = keysSent();
@@ -129,6 +133,7 @@ describe("the registration's submission key", () => {
 
     await registerOnce(user);
     await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
     await screen.findByRole("button", { name: /Registrierung abschicken/ });
 
     const keys = keysSent();

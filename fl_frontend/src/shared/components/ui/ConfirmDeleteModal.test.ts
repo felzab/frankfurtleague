@@ -4,12 +4,13 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { unansweredAction } from "@/shared/utils/actionError.ts";
@@ -23,6 +24,12 @@ const { raised } = doubleToasts();
 const { ConfirmDeleteModal } = await import("./ConfirmDeleteModal.tsx");
 const { NAME_WRAP_CLASSES } = await import("./nameWrap.ts");
 
+/**
+ * The write's answers, held until they land: the write arrives as a prop, so no module double stands
+ * between the dialog and the case to record it.
+ */
+const { track: handedOut, answered } = answersInFlight();
+
 /** The dialog over Halle West, retiring through `onConfirm`. */
 const dialog = (onConfirm: () => Promise<ActionResult>) =>
   h(ConfirmDeleteModal, {
@@ -35,7 +42,7 @@ const dialog = (onConfirm: () => Promise<ActionResult>) =>
     consequence: "Er fehlt dann in der Auswahl.",
     successMessage: "Spielort stillgelegt",
     failureMessage: "Spielort nicht stillgelegt",
-    onConfirm,
+    onConfirm: () => handedOut("onConfirm", onConfirm()),
   });
 
 describe("the retirement dialog", () => {
@@ -46,6 +53,7 @@ describe("the retirement dialog", () => {
     render(underNext(dialog(() => Promise.reject<ActionResult>(new Error("An unexpected response was received from the server.")))));
 
     await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
+    await act(answered);
     // Found rather than got: the press lets go, disarmed as every two-press control is, once the rejection has been answered.
     await screen.findByRole("button", { name: "Stilllegen" });
 

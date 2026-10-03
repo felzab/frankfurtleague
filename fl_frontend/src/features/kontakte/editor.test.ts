@@ -51,7 +51,7 @@ import type { FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
  * Every slice's writes, replaced at the module boundary: a real one needs a session and a backend, and
  * the club editor rendered below reaches its own slices' actions.
  */
-const { calls, answerWith } = doubleEveryAction();
+const { calls, answerWith, answered } = doubleEveryAction();
 
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
@@ -211,10 +211,11 @@ const settle = (): Promise<void> =>
   });
 
 /**
- * Until the save has answered, its pending label gone. Waited for rather than one tick, since an answer
- * arrives when its action does, as a loaded machine shows.
+ * Until the save has answered, its pending label gone. The answer is awaited itself: polling the label
+ * alone gives up after `waitFor`'s second, which a loaded machine's answer and render outlast.
  */
 async function saved(): Promise<void> {
+  await act(answered);
   await waitFor(() =>
     assert.ok(screen.queryAllByRole("button", { name: "Speichert...", hidden: true }).length === 0, "the save is still pending"),
   );
@@ -222,11 +223,18 @@ async function saved(): Promise<void> {
 }
 
 /** Until the read an armed press is confirmed over has released it, for `saved`'s reason. */
-const armedReady = (armed: string): Promise<void> =>
-  waitFor(() => assert.notEqual(screen.getByRole("button", { name: armed }).getAttribute("data-pending"), "true", "the read is still running"));
+async function armedReady(armed: string): Promise<void> {
+  await act(answered);
+  await waitFor(() =>
+    assert.notEqual(screen.getByRole("button", { name: armed }).getAttribute("data-pending"), "true", "the read is still running"),
+  );
+}
 
 /** Until a destructive write has answered with its toast, so its answer lands inside the case that pressed it. */
-const toastedSince = (before: number): Promise<void> => waitFor(() => assert.ok(toasts.length > before, "the write was answered nowhere"));
+async function toastedSince(before: number): Promise<void> {
+  await act(answered);
+  await waitFor(() => assert.ok(toasts.length > before, "the write was answered nowhere"));
+}
 
 /** Every box a refusal marks, read off its description as a reader of the box hears it. */
 const refusedBoxes = (): HTMLElement[] => screen.queryAllByRole("textbox", { description: /./ });

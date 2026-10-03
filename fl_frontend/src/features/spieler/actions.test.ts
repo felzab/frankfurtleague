@@ -285,6 +285,7 @@ describe("the erasure's gate and its exit", () => {
     renderErasure(router);
 
     await pressTwice(user, { resting: ERASE_LABEL, armed: `Ja, ${ERASE_LABEL}` });
+    await act(answered);
 
     await waitFor(() =>
       assert.deepEqual(
@@ -543,6 +544,7 @@ describe("the reactivate's gate on the editor", () => {
     assert.ok(document.activeElement === document.body, "a mount with no write behind it takes focus");
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" }));
+    await act(answered);
     rerender(underNext(h(FormAustragenSection, { ...props, key: "ausgetragen", rowInactiveSince: RETIRED_ON })));
     // Waited for: the landing watches the page for the pressed control to go once the write has
     // answered, which a loaded machine delivers after the refresh it brings.

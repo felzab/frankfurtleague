@@ -911,6 +911,16 @@ its members from `appToast.ts`'s own source and records what was raised, a failu
 real module gives it (`fl_frontend/src/shared/utils/failureToastTitle.ts :: failureToastTitle`). A callback the component
 already takes is handed a `mock.fn()` from `node:test`.
 
+**A poll after a press waits on the render alone, never on the answer**: a case awaits its double's
+`answered` inside `act` before it polls the page, because `waitFor` and a `findBy` query give up
+after their second, which an answer and the render after it outlast under the gate's parallel load.
+The action, fetch and API doubles each offer it, and a double a suite writes itself tracks its
+answers through `fl_frontend/src/shared/testing/answersInFlight.ts :: answersInFlight` to offer the
+same; `fl_frontend/src/shared/testing/twoPress.ts :: pressTwice` takes it for a panel that arms on
+a read. `fl_frontend/src/shared/testing/answersInFlight.test.ts` fails a suite that presses and
+polls over a shared double without once taking its `answered`, judging the file rather than each
+press, so a second press left unawaited beside an awaited one passes it.
+
 **Any other module or package a suite cannot load is doubled through
 `fl_frontend/src/core/exportingModule.ts :: registerDoubles`**, keyed by the module's path under
 `fl_frontend/src/` or by the package's specifier, rather than through a hook the suite writes: it

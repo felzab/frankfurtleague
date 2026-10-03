@@ -526,13 +526,13 @@ describe("one reveal and one action row per panel, whatever it offers", () => {
         const { unmount } = render(arming.render());
         await arming.reach?.(user);
         await user.click(screen.getByRole("button", { name: arming.resting }));
+        // A read the arming started lands inside this case, or in the case after it.
+        await act(answered);
         // Found rather than got: a panel that arms once a read it started has answered is armed after the click returns.
         await screen.findByRole("button", { name: "Abbrechen" });
 
         const reveals = screen.getAllByRole("alert").length;
         const rows = document.querySelectorAll("[data-confirm-row]").length;
-        // A read the arming started lands inside this case, or in the case after it.
-        await act(answered);
         unmount();
 
         assert.equal(reveals, 1, "the armed panel shows a reveal count other than one");
@@ -553,6 +553,7 @@ describe("where arming and cancelling leave the focus, on every panel", () => {
         const { unmount } = render(arming.render());
         await arming.reach?.(user);
         await user.click(screen.getByRole("button", { name: arming.resting }));
+        await act(answered);
         const abbrechen = await screen.findByRole("button", { name: "Abbrechen" });
 
         // Booleans rather than nodes: a failing assertion's report inspects a jsdom node's whole window.
@@ -644,6 +645,8 @@ describe("every administrator panel past the step-up window", () => {
 
         t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
         await user.click(screen.getByRole("button", { name: arming.resting }));
+        // A panel arming over a read holds its press until that read has landed, as a reader's own press waits.
+        await act(answered);
         // Found rather than got: a panel that arms once a read it started has answered is armed after the click returns.
         await screen.findByRole("button", { name: "Abbrechen" });
         const armed = screen.queryByRole("button", { name: STEP_UP_LABEL });
@@ -653,8 +656,6 @@ describe("every administrator panel past the step-up window", () => {
           asks ? "a stale session armed without asking for the passkey" : "a reversible write asked for the passkey",
         );
         const control = armed ?? screen.getAllByRole("button").find((button) => button.textContent.startsWith("Ja,"));
-        // A panel arming over a read holds its press until that read has landed, as a reader's own press waits.
-        await act(answered);
         const sent = calls.length;
         t.mock.timers.tick(DOUBLE_PRESS_MS);
         await user.click(control ?? assert.fail("the armed panel offers no control to confirm with"));

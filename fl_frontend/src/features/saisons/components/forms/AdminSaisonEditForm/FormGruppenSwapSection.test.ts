@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -16,7 +16,7 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { Navigations } from "@/shared/testing/nextContexts.ts";
 
-const { answerWith } = doubleEveryAction();
+const { answerWith, answered } = doubleEveryAction();
 const { raised } = doubleToasts();
 
 const { FormGruppenSwapSection } = await import("./FormGruppenSwapSection.tsx");
@@ -76,6 +76,7 @@ describe("the season's group swap after its answer", () => {
     await user.click(screen.getByRole("button", { name: /^Tauscht Gruppen mit/ }));
     await user.click(screen.getByRole("option", { name: /^TSV Beta/ }));
     await pressTwice(user, { resting: "Gruppen tauschen", armed: "Ja, Gruppen tauschen" });
+    await act(answered);
     await waitFor(() => assert.equal(raised.length, 1));
 
     return seen;

@@ -1242,6 +1242,7 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
 
       // The objection, sent past the guard a confirmation's empty fields would stop at; the route answers both alike.
       await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+      await act(fetchMock.answered);
 
       // Until the answer has landed: the toast where one is expected, the field's own sentence where none is.
       await waitFor(() => {
@@ -1270,6 +1271,7 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
     assert.ok(container.querySelector('[name="text_version"]') === null, "the case's path is one a control renders");
 
     await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(fetchMock.answered);
 
     await waitFor(() =>
       assert.deepEqual(
@@ -1292,6 +1294,7 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
     const { user, unmount } = renderBestaetigung();
 
     await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(fetchMock.answered);
 
     await waitFor(() =>
       assert.deepEqual(
@@ -1373,6 +1376,7 @@ describe("what a link to a barred address opens on", () => {
     await user.click(within(screen.getByRole("group", { name: "Dein Geburtsdatum" })).getAllByRole("spinbutton")[0]!);
     await user.keyboard(`${tag}${monat}${jahr}`);
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    await act(fetchMock.answered);
 
     const shown = await screen.findByText(LINK_ADRESSE_GESPERRT);
     const buttons = screen.queryAllByRole("button").length;

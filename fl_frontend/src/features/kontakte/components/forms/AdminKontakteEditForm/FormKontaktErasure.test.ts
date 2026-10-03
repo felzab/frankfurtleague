@@ -18,7 +18,7 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 /** The panel's read and its write alike: a real one needs a session and a backend. */
-const { calls, answerWith, answerPending } = doubleActions({
+const { calls, answerWith, answerPending, answered } = doubleActions({
   modules: ["/src/features/kontakte/actions.ts"],
   answer: () => new Promise(() => undefined),
 });
@@ -44,11 +44,15 @@ const RESTING = "Kontaktperson löschen";
 const ARMED = "Ja, Kontaktperson endgültig löschen";
 
 /**
- * Until the arming read has answered and released the confirming press. Waited for rather than
- * one tick, since the read arrives when its action does, as a loaded machine shows.
+ * Until the arming read has answered and released the confirming press. The answer is awaited itself:
+ * polling the press alone gives up after `waitFor`'s second, which a loaded machine's answer and render outlast.
  */
-const readLanded = (): Promise<void> =>
-  waitFor(() => assert.notEqual(screen.getByRole("button", { name: ARMED }).getAttribute("data-pending"), "true", "the read is still running"));
+async function readLanded(): Promise<void> {
+  await act(answered);
+  await waitFor(() =>
+    assert.notEqual(screen.getByRole("button", { name: ARMED }).getAttribute("data-pending"), "true", "the read is still running"),
+  );
+}
 
 /** How often the write itself ran: the double records the panel's read under the same roster. */
 const erasures = (): number => calls.filter(({ action }) => action === "eraseKontaktpersonAction").length;
@@ -77,6 +81,7 @@ describe("the person's erasure over its arming read", () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await act(answered);
 
     await waitFor(() => closedControl(ARMED, OHNE_VERBINDUNG));
     assert.ok(
@@ -101,6 +106,7 @@ describe("the person's erasure over its arming read", () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole("button", { name: RESTING }));
+    await act(answered);
 
     await waitFor(() => closedControl(ARMED, OHNE_ANTWORT));
     assert.equal(screen.queryAllByText(/ist unklar/).length, 0, "a read that stored nothing is worded as a write that may stand");
@@ -169,6 +175,7 @@ describe("what an erasure reports once it has run", () => {
           answerWith(() => Promise.resolve({ success: true, cleared: cleared, message: "" }));
         },
       });
+      await act(answered);
 
       await waitFor(() => assert.equal(toastsOf(variant), 1, `a write clearing ${String(cleared)} is reported as something else`));
       unmount();

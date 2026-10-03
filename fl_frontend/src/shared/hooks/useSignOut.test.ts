@@ -4,12 +4,13 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
@@ -32,13 +33,17 @@ function Probe({ onSignOut }: { onSignOut: () => Promise<FormState> }): ReturnTy
   );
 }
 
+/** The sign-out's answers, awaited before the toast answering them is polled for. */
+const answers = answersInFlight();
+
 /** The arming press and the one that signs out, up to the toast answering it. */
 async function signOut(onSignOut: () => Promise<FormState>) {
   const user = userEvent.setup();
   const { router, seen } = recordingRouter();
-  render(underNext(h(Probe, { onSignOut }), { router }));
+  render(underNext(h(Probe, { onSignOut: () => answers.track("signOut", onSignOut()) }), { router }));
 
   await pressTwice(user, { resting: "Abmelden", armed: "Wirklich abmelden" });
+  await act(answers.answered);
   await waitFor(() => assert.equal(raised.length, 1));
 
   return seen;

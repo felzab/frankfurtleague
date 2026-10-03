@@ -100,6 +100,7 @@ describe("the team's invite panel", () => {
     assert.deepEqual(sent("postEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID }]);
     // Found rather than got: the first mint's update commits when `startMinting`'s transition ends,
     // after the click has resolved.
+    await act(answered);
     const feld = await screen.findByRole("textbox", { name: "Registrierungslink" });
     // The property and not the attribute: React writes a textarea's value as neither markup nor an
     // attribute, so an attribute read here would compare the empty string against the link forever.
@@ -120,6 +121,7 @@ describe("the team's invite panel", () => {
 
     const { rerender } = render(held(`${TEAM_ID}:${SAISON_ID}`, "vor dem Speichern"));
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+    await act(answered);
     await screen.findByRole("textbox", { name: "Registrierungslink" });
     assert.equal(wert(), LINK, "the mint never put the value on the page, so the two reads below prove nothing");
 
@@ -141,6 +143,7 @@ describe("the team's invite panel", () => {
 
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
     // Found rather than got: the press lets go once the rejection has been answered.
+    await act(answered);
     await screen.findByRole("button", { name: "Registrierungslink anlegen" });
 
     assert.deepEqual(
@@ -160,6 +163,7 @@ describe("the team's invite panel", () => {
       armed: "Ja, neuen Link anlegen",
       whileArmed: () => answerWith(() => Promise.reject(new Error("An unexpected response was received from the server."))),
     });
+    await act(answered);
     await waitFor(() => assert.equal(raised.length, 1));
 
     assert.deepEqual(
@@ -174,6 +178,7 @@ describe("the team's invite panel", () => {
     render(panel());
 
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+    await act(answered);
     answerWith(() => Promise.resolve({ success: true, message: "Der Link ist an 2 von 2 Adressen unterwegs." }));
     // Found rather than got, as the mint's own case finds its link: the press appears when
     // `startMinting`'s transition ends, which no click's resolving waits for.
@@ -183,6 +188,7 @@ describe("the team's invite panel", () => {
 
     assert.deepEqual(sent("mailEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: TOKEN }]);
     // The mail's own toast, read once its answer has landed rather than the mint's standing before it.
+    await act(answered);
     await waitFor(() => assert.equal(raised.length, before + 1));
     assert.equal(raised.at(-1)?.variant, "success");
   });

@@ -3,13 +3,12 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, beforeEach } from "node:test";
-// Imported rather than global: a case's mocked clock holds the globals, and would hold `answered` with them.
-import { setImmediate as nextTurn, setTimeout as wallClock } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
 import { judging } from "@/core/verdicts.ts";
+import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
 import type { AdminRefusal } from "@/core/auth.ts";
@@ -24,12 +23,6 @@ export type ActionCall = { action: string; payload: unknown };
  * spine would answer a press that wrote as one that did not; their doubles are the client's and the mailer's.
  */
 const WRITE_MODULE = /\/(?:mutations|notifications)\.ts$|\/core\/mail\.ts$/;
-
-/**
- * A double settles within its microtasks, so only an answer nobody gives reaches this bound. Unbounded,
- * the case awaiting that answer hangs until the runner cancels its file, naming nothing.
- */
-export const ANSWER_WAIT_MS = 2_000;
 
 /**
  * Replaces an actions module, or a read module a real action calls, at the module boundary: a
@@ -48,6 +41,10 @@ export function doubleActions({
   answerWith: (next: () => Promise<unknown>) => void;
   answerPending: (answer: unknown) => void;
   leavePending: (reason: string) => void;
+  /**
+   * Awaited inside `act` before a poll of the page, so the render an answer sets off lands inside it: a
+   * poll alone gives up after its second, which a loaded machine's answer and render outlast.
+   */
   answered: () => Promise<void>;
 } {
   const calls: ActionCall[] = [];
@@ -114,26 +111,12 @@ export function doubleActions({
       assert.ok(reason.trim() !== "", "name why the case may leave its actions pending");
       mayLeavePending = true;
     },
-    // For a case reading only what it sent: its answers land inside it, or in the case after it. A turn between
-    // rounds waits for a write an answer sets off.
-    answered: async () => {
-      const lapse = new AbortController();
-      const lapsed = wallClock(ANSWER_WAIT_MS, true, { signal: lapse.signal, ref: false }).catch(() => false);
-      try {
-        do {
-          const settled = Promise.allSettled([...pending].map((entry) => entry.answered)).then(() => false);
-          if (await Promise.race([settled, lapsed])) {
-            const left = [...pending].map(({ action }) => action).join(", ");
-            assert.fail(
-              `still unanswered after ${String(ANSWER_WAIT_MS)} ms: ${left}; answer them with \`answerPending\` before awaiting \`answered\``,
-            );
-          }
-          await nextTurn();
-        } while (pending.size > 0);
-      } finally {
-        lapse.abort();
-      }
-    },
+    // For a case reading only what it sent: its answers land inside it, or in the case after it.
+    answered: () =>
+      untilAnswered(
+        () => [...pending].map(({ action, answered }) => ({ name: action, answer: answered })),
+        "answer them with `answerPending` before awaiting `answered`",
+      ),
   };
 }
 

@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -15,7 +15,7 @@ import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 const ADDRESS = "spielerin@example.org";
 
 /** The send, replaced at the module boundary: the real one needs a session store and a mail provider. */
-doubleActions({
+const { answered } = doubleActions({
   modules: ["/src/features/auth/actions.ts"],
   answer: () =>
     Promise.resolve({
@@ -47,11 +47,13 @@ describe("a code that confirmed somebody other than the page's holder", () => {
     render(h(CodeConfirmation, { address: ADDRESS, istInhaber: () => Promise.resolve(false), onConfirmed: () => undefined }));
 
     await user.click(screen.getByRole("button", { name: "Code per E-Mail senden" }));
+    await act(answered);
     const field = await screen.findByLabelText<HTMLInputElement>("Code aus der E-Mail");
     fetchMock.mock.mockImplementationOnce(() =>
       Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: { "content-type": "application/json" } })),
     );
     await user.type(field, "048213");
+    await act(fetchMock.answered);
     await screen.findByRole("alert");
 
     // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.

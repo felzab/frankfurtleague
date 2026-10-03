@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -17,7 +17,7 @@ import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import type { ReactNode } from "react";
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answered } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
@@ -103,8 +103,9 @@ describe("the undo a referee's save offers", () => {
     await user.clear(box);
     await user.type(box, "anna.koerner@schule.de");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
-    // The write runs inside a transition, so its answer and the offer behind it land after the press,
-    // on a loaded machine later than a tick.
+    // The write runs inside a transition, so its answer and the offer behind it land after the press. The
+    // answer is awaited itself: a poll alone gives up after `waitFor`'s second, which a loaded machine outlasts.
+    await act(answered);
     await waitFor(() =>
       assert.ok(
         toasts.some((toast) => toast.title === "Änderung gespeichert"),

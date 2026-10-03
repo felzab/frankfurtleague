@@ -4,13 +4,14 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { z } from "zod";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
@@ -30,6 +31,12 @@ const { StepUpContext, STEP_UP_REFUSED } = await import("./stepUp.ts");
 
 type Draft = { name: string };
 
+/**
+ * The write's and the prompt's answers, held until they land: both arrive as props, so no module double
+ * stands between the form and the case to record them.
+ */
+const { track: handedOut, answered } = answersInFlight();
+
 /** A caller whose payload step trims: the padded value as typed is one the schema below refuses. */
 function renderTrimmingCaller(onSubmit: (payload: Draft) => Promise<ActionResult>, onClose: () => void = () => undefined) {
   render(
@@ -46,7 +53,7 @@ function renderTrimmingCaller(onSubmit: (payload: Draft) => Promise<ActionResult
           ),
         schema: z.object({ name: z.string().regex(/^\S+$/, { error: "Ohne Leerzeichen." }) }),
         toPayload: (draft) => ({ name: draft.name.trim() }),
-        onSubmit,
+        onSubmit: (payload: Draft) => handedOut("onSubmit", onSubmit(payload)),
         successMessage: "Angelegt",
         onClose,
       }),
@@ -70,6 +77,8 @@ describe("the create form", () => {
       [{ name: "Lena" }],
       "the write received the draft as typed, or nothing at all",
     );
+    // Its answer lands inside this case, or its toast is the next case's first.
+    await act(answered);
   });
 
   /* A running write holds both buttons rather than closing them (`docs/frontend/spec.md` §1.14): the way back would
@@ -90,6 +99,7 @@ describe("the create form", () => {
 
     // Answered before the case ends: React holds every later transition in this file behind an action left running.
     answer({ success: true, message: "Angelegt" });
+    await act(answered);
     await screen.findByRole("button", { name: "Speichern" });
   });
 
@@ -102,6 +112,7 @@ describe("the create form", () => {
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
     // Raised from an effect after the save's release commits, so the button coming back is no sign it was
     // raised: the toasts are read once one has been.
     await waitFor(() => assert.ok(raised.length > 0, "the refusal was announced nowhere"));
@@ -122,6 +133,7 @@ describe("the create form", () => {
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
 
     await waitFor(() =>
       assert.deepEqual(
@@ -144,6 +156,7 @@ describe("the create form", () => {
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
     await waitFor(() => assert.ok(raised.length > 0, "the answer was announced nowhere"));
 
     assert.deepEqual(
@@ -159,13 +172,13 @@ function renderSteppedUpCreate({ stepUp, answer }: { stepUp: boolean; answer: bo
   const order: string[] = [];
   const onSubmit = (): Promise<ActionResult> => {
     order.push("write");
-    return Promise.resolve({ success: true, message: "Angelegt" });
+    return handedOut("onSubmit", Promise.resolve({ success: true, message: "Angelegt" }));
   };
   const page = {
     isStale: () => true,
     confirm: () => {
       order.push("prompt");
-      return Promise.resolve(answer);
+      return handedOut("confirm", Promise.resolve(answer));
     },
   };
 
@@ -199,11 +212,13 @@ describe("the create form of a step-up write", () => {
 
     const declared = renderSteppedUpCreate({ stepUp: true, answer: true });
     await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
     await waitFor(() => assert.deepEqual(declared, ["prompt", "write"]));
 
     document.body.replaceChildren();
     const undeclared = renderSteppedUpCreate({ stepUp: false, answer: true });
     await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
     await waitFor(() => assert.deepEqual(undeclared, ["write"]));
   });
 
@@ -213,6 +228,7 @@ describe("the create form of a step-up write", () => {
 
     const order = renderSteppedUpCreate({ stepUp: true, answer: false });
     await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
 
     assert.equal((await screen.findByText(STEP_UP_REFUSED)).getAttribute("role"), "alert");
     assert.deepEqual(order, ["prompt"], "a refused prompt created the record");

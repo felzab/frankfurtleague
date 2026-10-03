@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -17,7 +17,7 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { describeUebernommeneSpiele } from "./replacementOffer.ts";
 
-const { calls } = doubleActions({
+const { calls, answered } = doubleActions({
   modules: ["/src/features/teams/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "TSV Beta steht jetzt auf dem Platz." }),
 });
@@ -91,6 +91,7 @@ describe("the replacement panel", () => {
 
     assert.deepEqual(sent("replaceSaisonTeamAction"), [{ team_id: "t1", saison_id: "2026-27", incoming_team_id: "c1" }]);
     // No undo: the undo route addresses the row by `team_id`, which answers to the arriving club by then.
+    await act(answered);
     await waitFor(() =>
       assert.deepEqual(
         raised.map((toast) => [toast.variant, toast.title, toast.description]),

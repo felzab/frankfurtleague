@@ -15,7 +15,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
 
-const { calls } = doubleActions({
+const { calls, answered } = doubleActions({
   modules: ["/src/features/spiele/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Spiel gespeichert.", priorPaarungen: [] }),
 });
@@ -71,14 +71,14 @@ describe("the match editor's undo whose dispatch never answered", () => {
 
     await user.type(screen.getByRole("textbox", { name: "Notiz zum Spiel" }), "Halle getauscht");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
-    await act(async () => settled());
+    await act(answered);
     assert.deepEqual(
       calls.map((call) => call.action),
       ["patchAdminSpielDataAction"],
       "the save never reached its write, so no undo was offered",
     );
 
-    // Found once the save's answer has landed, which a loaded machine delivers after a tick.
+    // Found rather than read at once: the offer renders after the save's answer, which is awaited above.
     const offer = await waitFor(
       () => raised.find((toast) => toast.options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo"),
     );
