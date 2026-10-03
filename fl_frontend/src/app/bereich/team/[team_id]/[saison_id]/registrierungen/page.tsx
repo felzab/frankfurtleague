@@ -22,7 +22,7 @@ export default async function RegistrierungenPage({ params, searchParams }: Next
 
   let offen;
   try {
-    offen = await getOffeneRegistrierungen(team_id, saison_id, { order: richtung });
+    offen = await getOffeneRegistrierungen(team_id, saison_id, richtung);
   } catch (error) {
     // The seat went between the page's own check and the backend's: answered as the shell answers a
     // seat not held, and every other failure is the area's boundary's.

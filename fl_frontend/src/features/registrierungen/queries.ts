@@ -13,19 +13,24 @@ import type { FLOffeneRegistrierungenResponse } from "./schemas";
 import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
 
 /**
- * A team's pending registrations, from one end of the queue: a capped read keeps the newest, so the
- * page offers the other end where `vollstaendig` is false. Never cached, the read being the person's
- * own; memoised per render pass.
+ * A team's pending registrations from one end of a capped queue, the page offering the other where
+ * `vollstaendig` is false. Never cached, being the person's own; memoised per render pass on primitive
+ * arguments alone, `cache` comparing them by identity.
  */
 export const getOffeneRegistrierungen = cache(
-  async (teamId: string, saisonId: string, filters: { order?: Leserichtung }): Promise<FLOffeneRegistrierungenResponse> =>
-    runPersonRead(() =>
+  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> => {
+    // Optional as published, though the page always sends one end: `fl_frontend/src/core/apiRequests.test.ts`
+    // refuses a parameter the request requires where the server omits it.
+    const filters: { order?: Leserichtung } = { order: order };
+
+    return runPersonRead(() =>
       apiClient<FLOffeneRegistrierungenResponse>(
         `/registrierungen/kader/${encodeURIComponent(teamId)}/${encodeURIComponent(saisonId)}`,
         FLOffeneRegistrierungenResponseSchema,
         { authType: "admin", params: filters },
       ),
-    ),
+    );
+  },
 );
 
 /**
