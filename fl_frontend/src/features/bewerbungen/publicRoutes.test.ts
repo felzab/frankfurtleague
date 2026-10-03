@@ -211,6 +211,7 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
       ansicht: {
         acknowledged: 1,
         zustand: "gueltig",
+        quelle: "bewerbung",
         saison_id: "2026",
         schule: "Lessing-Kolleg",
         rolle: rolle,
@@ -883,6 +884,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   const OPENED_LINK = {
     acknowledged: 1,
     zustand: "gueltig",
+    quelle: "bewerbung",
     saison_id: "2026",
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
@@ -1347,6 +1349,7 @@ describe("what a link to a barred address opens on", () => {
   const OFFEN = {
     acknowledged: 1,
     zustand: "gueltig",
+    quelle: "bewerbung",
     saison_id: "2026",
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",

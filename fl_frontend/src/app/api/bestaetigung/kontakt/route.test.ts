@@ -41,6 +41,7 @@ const ANSICHT_ENDPOINT = "/bewerbungen/einwilligung/ansicht";
 const ANSICHT = {
   acknowledged: 1,
   zustand: "gueltig" as const,
+  quelle: "bewerbung",
   saison_id: "2026",
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
@@ -57,6 +58,7 @@ const aRefusal = (serverErrorCode: string) => refusedOn(`POST ${WRITE}`, serverE
 // so the case reaches no mail provider.
 const GESCHRIEBEN = {
   acknowledged: 1,
+  quelle: "bewerbung",
   ergebnis: "bestaetigt" as const,
   ausstehend: ["trainer", "stellvertretung"],
   geburtsdatum: "1984-05-09",
@@ -242,6 +244,46 @@ describe("what one answered seat sets the confirmation handler sending", () => {
       mails.map((mail) => [mail.tags?.bewerbung_id, mail.idempotencyKey]),
       [[GESCHRIEBEN.bewerbung_id, undefined]],
     );
+  });
+});
+
+describe("a seat an administrator typed onto a team's season row", () => {
+  /* The answer as the endpoint gives it for a season row: the echo alone, no application behind it. */
+  const SAISON_GESCHRIEBEN = { acknowledged: 1, quelle: "saison", ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: true };
+
+  /* No application stands behind the seat, so neither „vollständig“ nor a Widerspruch notice is true
+     of it, and the person who would be told is nobody's Ansprechperson. */
+  it("sends neither of the application's messages, for a confirmation or a Widerspruch", async () => {
+    schreibAntwort = () => SAISON_GESCHRIEBEN;
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    schreibAntwort = () => ({ ...SAISON_GESCHRIEBEN, ergebnis: "abgelehnt", geburtsdatum: null, whatsapp: false });
+    await bodyOf(aRequest({ ...gueltigerKoerper, antwort: "abgelehnt", geburtsdatum: null }));
+
+    assert.deepEqual(mails, []);
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      [WRITE, WRITE],
+      "the handler reached past the write it was asked for",
+    );
+  });
+
+  it("answers the browser the same echo an application's seat is answered", async () => {
+    schreibAntwort = () => SAISON_GESCHRIEBEN;
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: true });
+  });
+
+  /* The control: the same write answered as an application's last seat does send, so the absence
+     above is the discriminator's and not a fan-out that never runs. */
+  it("still tells an application's Ansprechperson, the same answer read as the application's", async () => {
+    schreibAntwort = () => ({ ...GESCHRIEBEN, ausstehend: [] });
+
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.equal(mails.length, 1);
   });
 });
 

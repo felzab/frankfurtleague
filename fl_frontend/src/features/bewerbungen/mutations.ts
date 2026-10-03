@@ -5,7 +5,6 @@ import {
   FLAblehnenBewerbungResponseSchema,
   FLAnnehmenBewerbungResponseSchema,
   FLBewerbungEinwilligungAnsichtResponseSchema,
-  FLBewerbungEinwilligungAntwortResponseSchema,
   FLBewerbungEinwilligungErneutResponseSchema,
   FLBewerbungKontaktEmailResponseSchema,
   FLBewerbungKontaktSitzResponseSchema,
@@ -14,6 +13,7 @@ import {
   FLBewerbungSweepResponseSchema,
   FLBewerbungSweepSaisonsResponseSchema,
   FLBewerbungZustellungResponseSchema,
+  FLEinwilligungAntwortResponseSchema,
   FLPostBewerbungResponseSchema,
 } from "./schemas";
 
@@ -25,7 +25,6 @@ import type {
   FLBewerbungEinwilligungAnsichtPayload,
   FLBewerbungEinwilligungAnsichtResponse,
   FLBewerbungEinwilligungAntwortPayload,
-  FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungErneutResponse,
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktEmailResponse,
@@ -40,6 +39,7 @@ import type {
   FLBewerbungZustellungAngenommenPayload,
   FLBewerbungZustellungEreignisPayload,
   FLBewerbungZustellungResponse,
+  FLEinwilligungAntwortResponse,
   FLEinwilligungErneutPayload,
   FLPostBewerbungPayload,
   FLPostBewerbungResponse,
@@ -99,8 +99,8 @@ export async function postEinwilligungAnsicht(payload: FLBewerbungEinwilligungAn
  * Records one contact person's answer and spends their token. Base tier, as the create is: the
  * token authorises, and an over-declared tier succeeds silently.
  */
-export async function postEinwilligung(payload: FLBewerbungEinwilligungAntwortPayload): Promise<FLBewerbungEinwilligungAntwortResponse> {
-  return apiClient<FLBewerbungEinwilligungAntwortResponse>("/bewerbungen/einwilligung", FLBewerbungEinwilligungAntwortResponseSchema, {
+export async function postEinwilligung(payload: FLBewerbungEinwilligungAntwortPayload): Promise<FLEinwilligungAntwortResponse> {
+  return apiClient<FLEinwilligungAntwortResponse>("/bewerbungen/einwilligung", FLEinwilligungAntwortResponseSchema, {
     method: "POST",
     authType: "base",
     body: JSON.stringify(payload),

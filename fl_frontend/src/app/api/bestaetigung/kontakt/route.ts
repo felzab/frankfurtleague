@@ -115,7 +115,9 @@ export async function POST(request: NextRequest) {
         return { success: false as const, ...panel };
       }
 
-      await notifyAnsprechperson(antwort);
+      // A season row's seat was typed in by an administrator: no application stands behind it, so no
+      // Ansprechperson waits on the answer and neither of the application's messages is true of it.
+      if (antwort.quelle === "bewerbung") await notifyAnsprechperson(antwort);
 
       // The echo alone, never `ausstehend` and never an address: which other seats are open is the
       // submitter's business, and this person is shown what was stored for them and nothing more.

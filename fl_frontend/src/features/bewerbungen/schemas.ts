@@ -721,6 +721,9 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
   // unknown token has nothing to answer with and reaches the page as a 409.
   zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]),
+  // Which record the token opened: an application's seat, or a seat an administrator typed onto a
+  // team's season row, whose reader applied for nothing.
+  quelle: z.enum(["bewerbung", "saison"]),
   saison_id: z.string(),
   schule: z.string(),
   rolle: FLKontaktRolleSchema,
@@ -796,6 +799,7 @@ export type FLBewerbungEinwilligungAntwortPayload = z.infer<typeof FLBewerbungEi
 
 /** The write's echo: what was stored for this seat, and which seats the application still waits on. */
 export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchema.extend({
+  quelle: z.literal("bewerbung"),
   ergebnis: z.enum(["bestaetigt", "abgelehnt"]),
   ausstehend: z.array(FLKontaktRolleSchema),
   geburtsdatum: CustomDateStringSchema.nullable(),
@@ -813,6 +817,25 @@ export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchem
   ansprechperson_rollen: z.array(FLKontaktRolleSchema),
 });
 export type FLBewerbungEinwilligungAntwortResponse = z.infer<typeof FLBewerbungEinwilligungAntwortResponseSchema>;
+
+/**
+ * Mirrors `FLSaisonTeamEinwilligungAntwortResponse` — a season row's seat answered: the echo alone.
+ * No application stands behind it, so there is no Ansprechperson to tell and nothing to compose a message from.
+ */
+export const FLSaisonTeamEinwilligungAntwortResponseSchema = BaseAPIResponseSchema.extend({
+  quelle: z.literal("saison"),
+  ergebnis: FLBewerbungEinwilligungAntwortResponseSchema.shape.ergebnis,
+  geburtsdatum: CustomDateStringSchema.nullable(),
+  whatsapp: z.boolean(),
+});
+export type FLSaisonTeamEinwilligungAntwortResponse = z.infer<typeof FLSaisonTeamEinwilligungAntwortResponseSchema>;
+
+/** What one press on the confirmation page answers, by the record its token opened. Published inline, both members paired. */
+export const FLEinwilligungAntwortResponseSchema = z.discriminatedUnion("quelle", [
+  FLBewerbungEinwilligungAntwortResponseSchema,
+  FLSaisonTeamEinwilligungAntwortResponseSchema,
+]);
+export type FLEinwilligungAntwortResponse = z.infer<typeof FLEinwilligungAntwortResponseSchema>;
 
 /** Which application and which of its seats. Both travel in the path, so the request carries no body at all. */
 export const FLEinwilligungErneutPayloadSchema = z.object({
