@@ -1085,13 +1085,16 @@ backend starts publishing fails there until its words, or
 the reason the fallback is right, are chosen. The routing class is outside it, published on no
 operation because the router answers where none matched.
 
-**`DB-COMMON-002`, the unique index's refusal, is the one code the shared fallback words**, as an
-administrator's conflict with an entry that exists; a public route answers it in the visitor's words
-instead (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). Any other rule's code
-reaching the fallback (`fl_frontend/src/shared/utils/actionError.ts :: isRuleRefusal`) is answered with `fl_frontend/src/shared/utils/refusal.ts :: UNKNOWN_REFUSAL`, which
+**The shared reader words a few rule codes itself, each by an arm of
+`fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`**: the unique index's
+`DB-COMMON-002`, as an administrator's conflict with an entry that exists, and the codes every slice
+meets alike, a lost seat's `REQ-FUNKTION-001` among them (I553). A public route answers
+`DB-COMMON-002` in the visitor's words instead
+(`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). A rule's code no arm names
+(`fl_frontend/src/shared/utils/actionError.ts :: isRuleRefusal`) is answered with `fl_frontend/src/shared/utils/refusal.ts :: UNKNOWN_REFUSAL`, which
 names no reason, and on a public route with `:: UNHANDLED_FIELD_REFUSAL`, whose way out is no reload:
 a reload discards what the visitor typed. Every undo route answers
-it in its own replay table's row with the shared sentence
+`DB-COMMON-002` in its own replay table's row with the shared sentence
 (`fl_frontend/src/shared/utils/actionError.ts :: KONFLIKT_MIT_BESTEHENDEM`), which
 `fl_frontend/src/shared/utils/undoRoute.ts :: refusedReplay` closes, as it closes every row, on what
 became of the change: „Die Änderung steht weiterhin.“, or, where a replay of two writes had already

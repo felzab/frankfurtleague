@@ -33,7 +33,10 @@ const teams = await import("@/features/teams/refusals.ts");
 
 type Mapper = (error: unknown) => unknown;
 
-/** The operation's refusals go to the shared reader alone, which words the unique index's and no other. */
+/**
+ * The operation's refusals go to the shared reader alone, which words the unique index's and a lost
+ * seat's among the few codes its own arms name.
+ */
 const SHARED_READER: Mapper = () => null;
 
 /**
