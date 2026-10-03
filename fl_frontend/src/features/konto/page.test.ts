@@ -293,14 +293,17 @@ const { bestaetigteWorte, sitzMindestalter } = await import("./components/forms/
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
 
-/** A Trainer who is also the Stellvertretung, confirmed on the contact page, every slot it names served. */
+/**
+ * A Trainer who is also the Stellvertretung, confirmed on the contact page. The read names the Trainer's
+ * seat first, so a floor read off that one seat states the Trainer's 16 where the contact page asked 18.
+ */
 const SITZ = {
   team_id: SITZ_TEAM_ID,
   team_name: "Lessing Lions",
   saison_id: "2526",
   rollen: ["stellvertretung", "trainer"],
   bestaetigt_text_version: "2026-09-bestaetigungsseite-6",
-  kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526", rolle: "stellvertretung" },
+  kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526", rolle: "trainer" },
   medien: false,
   medien_angeboten: true,
   erteilbar: true,
@@ -387,7 +390,7 @@ describe("the account page's consent section", () => {
     [
       "a seat holder",
       { sitze: [SITZ] },
-      ["Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "Ich möchte nicht eingetragen sein"],
+      ["Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
     ],
     ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
     ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", "Konto löschen"]],
