@@ -162,7 +162,7 @@ const FRISTEN = [
   },
   {
     daten: "Registrierung eines Spielers oder einer Spielerin",
-    frist: `${amSatzanfang(ZAHLWORT[REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE])} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung löschen wir einen Monat nach der Entscheidung`,
+    frist: `${amSatzanfang(ZAHLWORT[REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE])} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann`,
   },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   {
@@ -421,6 +421,11 @@ export function DatenschutzView() {
             jederzeit die Löschung verlangen oder widersprechen (Abschnitt 14).
           </p>
           <p className={ABSATZ_CLASSES}>
+            Trägt die Verwaltung Dich als Kontaktperson eines Teams ein, schicken wir Dir einen Link, über den Du den Eintrag bestätigst oder
+            ihm widersprichst. Wer als Kontaktperson eines Teams bestätigt hat, sieht in seinem Bereich, wer die drei Rollen des Teams hat und
+            wer davon schon bestätigt hat, aber keine Kontaktdaten und kein Geburtsdatum.
+          </p>
+          <p className={ABSATZ_CLASSES}>
             Wer die Bewerbung sieht: Nur die Administratorinnen und Administratoren der Liga, die dafür angemeldet sein müssen. Eine Bewerbung
             ist über keine öffentliche Adresse abrufbar. Die Kontaktdaten der drei Personen werden zu keinem Zeitpunkt veröffentlicht, auch
             nicht nach der Aufnahme des Teams.
@@ -524,6 +529,20 @@ export function DatenschutzView() {
             Person eine Einwilligung dafür festgehalten ist; ohne sie steht die Person als „anonym“ im Kader. Diese Einwilligung gibst Du
             selbst, auch wenn Du noch nicht volljährig bist. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie angegeben
             sind.
+          </p>
+          <p className={ABSATZ_CLASSES}>
+            Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und Stufe;
+            mit der Bestätigung kommen Dein Geburtsdatum und Deine Antworten zu Veröffentlichung und Medien dazu. Über die Aufnahme in den Kader
+            entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen Deinen Namen, Deine Rückennummer,
+            Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga
+            eingetragen warst. Deine E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen
+            und Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail.
+          </p>
+          <p className={ABSATZ_CLASSES}>
+            Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person
+            eingetragen ist, und weichen Name oder Geburtsdatum von diesem Eintrag ab, fragen wir das Team, ob es dieselbe Person ist, und
+            nennen ihm dafür den eingetragenen Namen, nie das Geburtsdatum. Ist sie es nicht, lehnt das Team die Registrierung ab, und wir
+            bitten die Person, sich mit einer eigenen E-Mail-Adresse erneut zu registrieren.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse

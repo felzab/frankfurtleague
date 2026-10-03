@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "2784bca1be01df33b0053b28c3520778311c9c9b1d818cf94fcf2cf6c21dd0a1" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "19a423834ac8fc041af55cea93ff8b301866627f9b7bd3225d6964cc1560a450" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -171,14 +171,16 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
+  /* One fate per clock the registration sweep and the admission run: the admission erases the row, a
+     decline starts a month, and a season ending undecided takes the rest. */
   it("gives a pupil's registration three fates, one per decision", () => {
     assert.equal(
       ANGABEN.get("Registrierung eines Spielers oder einer Spielerin"),
       `${amAnfang(inWorten(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE))} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht ` +
-        "bestätigt wird, dann Löschung; eine Erinnerung " +
-        "verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen " +
-        "ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung " +
-        "löschen wir einen Monat nach der Entscheidung",
+        "bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis " +
+        "Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem " +
+        "Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht " +
+        "entschieden, löschen wir sie dann",
     );
   });
 
@@ -363,6 +365,8 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   },
   // Standing between the decision and the clause, the citation made the decision what Cloudflare is certified under.
   { weg: "Art. 45 DSGVO), nach dem Cloudflare zertifiziert ist", statt: "Nach diesem Framework ist Cloudflare zertifiziert" },
+  // The admission erases a registration it takes, so no confirmed one waits for the next season.
+  { weg: "bis in der nächsten Saison die Registrierung geschlossen ist" },
   {
     weg: "Das betrifft die Zugriffsprotokolle",
     statt: "Das betrifft jede Verarbeitung, für die diese Erklärung Art. 6 Abs. 1 lit. f DSGVO als Rechtsgrundlage nennt",
@@ -540,10 +544,44 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* No write enforces it (`docs/datenschutz.md :: "One address is one person"`), so this sentence and
-     the forms' hints are all that make the assumption known to the person it binds. */
+  /* Only the admission enforces it (`docs/datenschutz.md :: "One address is one person"`); every other
+     writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
   it("tells a person that their address stands for them alone and everything under it is their account's", () => {
     rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
+  });
+
+  /* Art. 13(1)(e) asks for the recipients: the team's three seats read a pending registration, so the
+     notice names them and what they do not see, which the pupil's confirmation page promises as well. */
+  it("names the team's three seats as who sees a registration, and what stays with the administrators", () => {
+    rendert(
+      "Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und " +
+        "Stufe; mit der Bestätigung kommen Dein Geburtsdatum und Deine Antworten zu Veröffentlichung und Medien dazu. Über die " +
+        "Aufnahme in den Kader entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen " +
+        "Deinen Namen, Deine Rückennummer, Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst. Deine " +
+        "E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und " +
+        "Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail.",
+    );
+  });
+
+  /* The same-person question shows the team a stored person's name, so the notice says so, and that it
+     never shows the birthdate the stored person was promised only administrators see. */
+  it("says an address already holding a person makes the team confirm it is the same one, by name alone", () => {
+    rendert(
+      "Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person " +
+        "eingetragen ist, und weichen Name oder Geburtsdatum von diesem Eintrag ab, fragen wir das Team, ob es dieselbe Person ist, " +
+        "und nennen ihm dafür den eingetragenen Namen, nie das Geburtsdatum. Ist sie es nicht, lehnt das Team die Registrierung ab, " +
+        "und wir bitten die Person, sich mit einer eigenen E-Mail-Adresse erneut zu registrieren.",
+    );
+  });
+
+  /* Art. 14(3)(a): a contact person the administration typed in learns of it from the link, and a seat
+     holder's landing shows the other seats' names and confirmations, never their contact details. */
+  it("tells a contact person the administration entered that a link reaches them, and what the other seats see", () => {
+    rendert(
+      "Trägt die Verwaltung Dich als Kontaktperson eines Teams ein, schicken wir Dir einen Link, über den Du den Eintrag bestätigst " +
+        "oder ihm widersprichst. Wer als Kontaktperson eines Teams bestätigt hat, sieht in seinem Bereich, wer die drei Rollen des " +
+        "Teams hat und wer davon schon bestätigt hat, aber keine Kontaktdaten und kein Geburtsdatum.",
+    );
   });
 
   it("promises every erasure asked for an emptied action log", () => {
