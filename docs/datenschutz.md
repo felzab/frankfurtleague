@@ -245,7 +245,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
   because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning
-  above. The save mints one for each person it newly seats
+  above. Ruled 2026-10-03. The save mints one for each person it newly seats
   (`fl_backend/app/api/teams/services.py :: links_owed`), and an administrator re-sends one to any
   seat still unconfirmed, a seat entered before the link existed included
   (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
