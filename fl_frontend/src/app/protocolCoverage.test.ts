@@ -19,7 +19,7 @@ const { NextRequest } = await import("next/server");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { GESPERRT_KEINE_AENDERUNG, ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
-const { runPersonMutation } = await import("@/shared/utils/personMutation.ts");
+const { runPersonMutation, runPersonRecordMutation } = await import("@/shared/utils/personMutation.ts");
 const { handlePublicRequest } = await import("@/shared/utils/publicRoute.ts");
 const { handleUndoRequest } = await import("@/shared/utils/undoRoute.ts");
 
@@ -115,6 +115,17 @@ const READS = /^(?:GET|HEAD|OPTIONS) /;
  */
 const PERSON_ROUTES = new Set(PUBLISHED.filter(({ code }) => code === "REQ-AUTH-008").map(({ operation }) => operation));
 
+/**
+ * The person routes whose actions claim the person's own record rather than a seat
+ * (`fl_frontend/src/shared/utils/personActionSpine.test.ts :: CLAIMS_A_RECORD`), so their writes run
+ * behind the record entry and are asked through it.
+ */
+const RECORD_ROUTES: ReadonlySet<string> = new Set([
+  "PATCH /spieler/selbst/einwilligung",
+  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
+]);
+
 const errorOf = (answer: unknown): unknown => (typeof answer === "object" && answer !== null && "error" in answer ? answer.error : answer);
 
 /** A same-origin request to a route, carrying an empty body for a spine that parses one. */
@@ -125,9 +136,18 @@ const routeRequest = (path: string) =>
  * What each of `tier`'s write spines answers the refusal with, its body throwing it as the API client
  * raises it: an admin write is sent by an action and replayed by an undo route, each answering itself.
  */
-async function shownBySpines(tier: KeyTier | null, isPerson: boolean, refusal: APIBadStatusError): Promise<Readonly<Record<string, unknown>>> {
-  // A person's write is sent by the person spine alone, for a seat the doubled lookup holds.
-  if (tier === "admin" && isPerson) {
+async function shownBySpines(
+  tier: KeyTier | null,
+  person: "seat" | "record" | null,
+  refusal: APIBadStatusError,
+): Promise<Readonly<Record<string, unknown>>> {
+  // A person's record write is sent by the record entry alone, which judges the session and nothing more.
+  if (tier === "admin" && person === "record") {
+    return { "the person record spine": errorOf(await runPersonRecordMutation("protocolCoverage", () => Promise.reject(refusal))) };
+  }
+
+  // A person's seat write is sent by the seat entry alone, for a seat the doubled lookup holds.
+  if (tier === "admin" && person === "seat") {
     const seat = { team_id: SITZ.team_id, saison_id: SITZ.saison_id };
 
     return { "the person action spine": errorOf(await runPersonMutation("protocolCoverage", seat, () => Promise.reject(refusal))) };
@@ -197,14 +217,14 @@ describe("every published credential and request-validation code against the ans
     const asked = new Set<string>();
     for (const { operation, code, status, tier } of PUBLISHED) {
       const answer = ANSWERED[code];
-      const isPerson = PERSON_ROUTES.has(operation);
-      const key = `${code} at ${String(status)} under the ${String(tier)} key${isPerson ? " on a person's route" : ""}`;
+      const person = !PERSON_ROUTES.has(operation) ? null : RECORD_ROUTES.has(operation) ? "record" : "seat";
+      const key = `${code} at ${String(status)} under the ${String(tier)} key${person === null ? "" : ` on a person's ${person} route`}`;
       if (answer === undefined || answer.kind === "nobody" || tier === "system" || READS.test(operation) || asked.has(key)) continue;
       asked.add(key);
 
-      const shown = await shownBySpines(tier, isPerson, refusedOn(operation, code, status));
+      const shown = await shownBySpines(tier, person, refusedOn(operation, code, status));
       const unclaimed =
-        answer.kind === "worded" ? null : await shownBySpines(tier, isPerson, refusedOn(operation, unclaimedBeside(code), status));
+        answer.kind === "worded" ? null : await shownBySpines(tier, person, refusedOn(operation, unclaimedBeside(code), status));
       for (const [spine, words] of Object.entries(shown)) {
         assert.equal(words, answer.kind === "worded" ? answer.words : unclaimed?.[spine], `${key}, on ${spine}: ${answer.because}`);
       }
