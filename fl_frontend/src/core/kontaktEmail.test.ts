@@ -101,7 +101,11 @@ describe("the message a seated contact person is mailed", () => {
       ["text", flat(mail.text)],
     ] as const) {
       assert.match(words, /Hallo Erika, die Verwaltung der Frankfurt League hat Dich/, `the ${branch} branch does not say who entered them`);
-      assert.match(words, /als Ansprechperson von Ernst-Reuter-Schule eingetragen/, `the ${branch} branch names no seat or school`);
+      assert.match(
+        words,
+        /hat Dich in der Saison 2627 als Ansprechperson für Ernst-Reuter-Schule eingetragen\./,
+        `the ${branch} branch names no seat or school`,
+      );
       assert.match(words, /Saison 2627/, `the ${branch} branch names no season`);
       assert.ok(words.includes(FRIST), `the ${branch} branch names no deadline`);
       assert.match(words, /funktioniert nur einmal/, `the ${branch} branch does not say the link is one-time`);

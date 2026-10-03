@@ -47,7 +47,8 @@ export function FormKontaktEinladen({
   const router = useRouter();
   const [sendet, setSendet] = useState(false);
   const stepUp = useStepUp();
-  const erneutLabel = `Link erneut senden an ${label}`;
+  // Not „erneut“: a seat stored before links existed never had one, and the page cannot tell which.
+  const sendeLabel = `Bestätigungslink senden an ${label}`;
 
   const sende = async () => {
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
@@ -78,14 +79,14 @@ export function FormKontaktEinladen({
         <Button
           type="button"
           isPending={sendet}
-          aria-label={erneutLabel}
+          aria-label={sendeLabel}
           onPress={() => void sende()}
           className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
           <PaperPlane
             className="size-3.5"
             aria-hidden="true"
           />
-          <span>{sendet ? stepUp.running("Sendet...") : "Link erneut senden"}</span>
+          <span>{sendet ? stepUp.running("Sendet...") : "Bestätigungslink senden"}</span>
         </Button>
       </FocusSlot>
       <StepUpRefused refused={stepUp.refused} />

@@ -341,7 +341,7 @@ const DRIVES: Record<string, Drive[]> = {
             router: nextRouter(),
           },
         ),
-      press: "Link erneut senden an Ansprechperson",
+      press: "Bestätigungslink senden an Ansprechperson",
       asks: true,
     },
   ],

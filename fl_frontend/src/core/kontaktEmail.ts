@@ -6,6 +6,7 @@ import {
   ANTWORT_SATZ_TEXT,
   ASIDE_TEXT,
   BRAND_NAME,
+  brandPhrase,
   escapeHtml,
   link,
   mailOrigin,
@@ -79,8 +80,11 @@ type Fakten = { vorname: string; rollen: string; schule: string; saisonId: strin
 function eintragSatz({ vorname, rollen, schule, saisonId }: Fakten, markup: boolean): string {
   const name = markup ? strong(escapeHtml(vorname)) : vorname;
   const team = markup ? strong(escapeHtml(schule)) : schule;
+  // Coloured as the registration and application messages colour the season they name.
+  const saison = markup ? brandPhrase(`Saison ${escapeHtml(saisonId)}`) : `Saison ${saisonId}`;
 
-  return `Hallo ${name}, die Verwaltung der ${BRAND_NAME} hat Dich für die Saison ${markup ? escapeHtml(saisonId) : saisonId} als ${markup ? escapeHtml(rollen) : rollen} von ${team} eingetragen.`;
+  // „für {Team} in der Saison …“, as the registration messages name a team and its season.
+  return `Hallo ${name}, die Verwaltung der ${BRAND_NAME} hat Dich in der ${saison} als ${markup ? escapeHtml(rollen) : rollen} für ${team} eingetragen.`;
 }
 
 // Both answers are named before the press: a reader who came to object and meets a birthdate box was
