@@ -33,7 +33,7 @@ from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_verlauf import compose_born_record
+from app.shared.einwilligung_verlauf import VERLAUF, compose_born_record
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -895,26 +895,42 @@ def nummern_im_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
     return frozenset(nummer for row in rows if isinstance(nummer := row.get("nummer"), str))
 
 
-def compose_person_update(*, registrierung_raw: Mapping[str, Any], adresse: str) -> Mapping[str, Any]:
-    """What an admission writes onto a matched person: the registration's name, birthdate, consent and address.
-
-    The consent is REWRITTEN: the confirmation page promised renewal under the words just read, and a
-    narrowed answer under the older record would be ignored.
-    """
-
+def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
     return {
-        "$set": {
-            **{field: registrierung_raw[field] for field in (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "einwilligung")},
-            "email": adresse,
-            "inactive_since": None,
-        }
+        **{field: registrierung_raw[field] for field in (*PERSON_IDENTITY_FIELDS, "geburtsdatum")},
+        "email": adresse,
+        "inactive_since": None,
     }
 
 
-def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
-    """A new person, from the registration alone."""
+def compose_person_update(*, registrierung_raw: Mapping[str, Any], adresse: str) -> Mapping[str, Any]:
+    """What an admission writes onto a matched person: the registration's name, birthdate, consent and address.
 
-    return {"_id": spieler_id, **compose_person_update(registrierung_raw=registrierung_raw, adresse=adresse)["$set"]}
+    The consent's choices and label are RENEWED, as the confirmation page promised; its acts follow
+    the person's own (`docs/backend/spec.md :: I867`).
+    """
+
+    # A matched person always holds a block, the validator requiring one, so the dotted paths are viable.
+    einwilligung = registrierung_raw["einwilligung"]
+    update: dict[str, Any] = {
+        "$set": {
+            **_person_fields(registrierung_raw=registrierung_raw, adresse=adresse),
+            **{f"einwilligung.{field}": value for field, value in einwilligung.items() if field != VERLAUF},
+        }
+    }
+    eintraege = list(einwilligung.get(VERLAUF) or [])
+    if eintraege:
+        update["$push"] = {f"einwilligung.{VERLAUF}": {"$each": eintraege}}
+
+    return update
+
+
+def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
+    """A new person, from the registration alone: its record carried whole, entries included."""
+
+    fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
+
+    return {"_id": spieler_id, **fields, "einwilligung": registrierung_raw["einwilligung"]}
 
 
 def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, ist_nachnominiert: bool) -> dict[str, Any]:

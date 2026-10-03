@@ -284,28 +284,23 @@ pickers, table and overlays and taken from index pages for the rest; whether Man
 theme variables without the runtime `<style>` element was not established, and it is the one open
 question that could move Mantine's rank.
 
-### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
+### `8wd7-ff49` · A guardian's provenance stays in the consent vocabulary, and a pupil's birthdate is not yet required
 
-| Status  | Depends on  |
-| ------- | ----------- |
-| Blocked | `f3ar-m4qf` |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
-**The flow it waits on is an admission, which is not built.** The `Depends on` beside it names
-`f3ar-m4qf`, whose part "Admitting a confirmed registration into its squad" is the writer this entry
-asks for. The block stands while that entry is on the page and that part is still in it, and an admission
-landing lifts it whatever else `f3ar-m4qf` still holds.
+**The admission writes the pupil's own record.** A confirmed registration's record reaches the person
+the admission creates whole; onto a person the league already holds, its choices and label are
+renewed and its entries appended after the person's own, so a returning pupil keeps every earlier act
+(`fl_backend/app/api/registrierungen/services.py :: compose_person_update`,
+`docs/backend/spec.md :: I867`). The publication gate reads this field
+(`docs/backend/spec.md :: READ-PUPIL-003`).
 
-**`spieler.einwilligung` has a schema and a gate reading it, and no route writes it.**
-`fl_backend/app/core/domain.py :: FIELD_POLICIES` says so of the field, a manual database edit being
-its only writer today, so every record stored there is one an earlier write left; the rows carrying
-`erteilt_von` as `erziehungsberechtigt` are those, and nothing distinguishes them from a record a
-guardian actually filed. A pupil's own consent is collected — the registration's confirmation
-composes it, the birthdate beside it, on the registration
-(`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`) — and nothing copies
-it onto this field yet. The publication gate reads this field (`docs/backend/spec.md :: READ-PUPIL-003`),
-so it publishes the rows standing today on the records they carry, and nobody a registration
-collected. `fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to having no
-writer while the vocabulary still admits it.
+**What is left is a value no route writes.** The rows carrying `erteilt_von` as `erziehungsberechtigt`
+are ones an earlier manual write left, and nothing distinguishes them from a record a guardian
+actually filed. `fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to
+having no writer while the vocabulary still admits it.
 
 **The writer is ruled.** `docs/datenschutz.md` §2 settles it: everyone signs up for themselves
 through the website and gives their own consent there, from 16, and an administrator may neither
@@ -314,17 +309,10 @@ a person's own consent and a carried-over record to express and nothing else —
 already marks the second, and `erziehungsberechtigt` stays in the enum for the rows that carry it,
 which the once-only reset of this season's pupil rows removes (`docs/datenschutz.md` §3).
 
-**Undecided, and the admission needs it: where a returning pupil's renewed consent lands.** A pupil
-the league already holds who registers again confirms a fresh record on the new registration, under
-the text version current that day. `FIELD_POLICIES` marks `spieler.einwilligung` immutable, written
-once at the person's creation, so an admission matching an existing person cannot copy that record
-onto them as the field stands; whether the person keeps the record they gave first, takes the fresh
-one, or keeps both is the ruling.
-
-**Done when** an admission writes a confirmed registration's own record onto the person it creates,
-the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it, and a pupil's
-birthdate is required on the person from then on, `fl_backend/app/core/domain.py :: UNENFORCED`
-carrying the state that ends there. The notice's referee publication row is `pw5c-zps5`'s.
+**Done when** the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it,
+and a pupil's birthdate is required on the person from then on, `fl_backend/app/core/domain.py ::
+UNENFORCED` carrying the state that ends there. The notice's referee publication row is
+`pw5c-zps5`'s.
 
 ### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 
