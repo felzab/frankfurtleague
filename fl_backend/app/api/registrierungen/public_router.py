@@ -24,6 +24,7 @@ from app.api.registrierungen.services import (
     find_fenster_refusal,
     find_gesperrt_refusal,
     find_kader_refusal,
+    find_schon_aufgenommen_refusal,
     find_stufe_refusal,
     find_team_junction_refusal,
     saison_nimmt_registrierungen_an,
@@ -249,7 +250,8 @@ async def post_registrierung(
     registration it holds and stores none: a fresh link where no message is known to have reached the
     inbox and nothing is confirmed, none otherwise. The same key over other details is refused
     (`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since
-    (`REQ-REGISTRIERUNG-009`), before any link is minted.
+    (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since
+    admitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
@@ -292,6 +294,18 @@ async def post_registrierung(
                 today=today,
                 session=session,
             )
+
+        # The admission carries the key onto the squad row it writes, so a press replayed after it is
+        # still a replay rather than the pupil's second registration.
+        aufgenommen = (
+            None
+            if schluessel is None
+            else await saison_spieler_collection.find_one(
+                build_schluessel_filter(schluessel=schluessel), ["idempotenz_fingerabdruck"], session=session
+            )
+        )
+        if aufgenommen is not None:
+            refuse(find_schon_aufgenommen_refusal(gespeichert=aufgenommen.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
 
         einladung_raw = await _open_einladung(einladungen_collection=einladungen_collection, token=registrierung_data.token, session=session)
         saison_id = str(einladung_raw["saison_id"])

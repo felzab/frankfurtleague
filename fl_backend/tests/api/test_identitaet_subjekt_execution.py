@@ -104,7 +104,6 @@ DOUBLE_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820015")
 HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607820016")
 IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
-PUPIL_TWO_OID = ObjectId("6890a1b2c3d4e5f607820022")
 IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
 RETIRED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820024")
 BYSTANDER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820029")
@@ -243,7 +242,6 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             _pupil(PUPIL_ONE_OID, PUPIL_STORED),
-            _pupil(PUPIL_TWO_OID, PUPIL_STORED),
             _pupil(IDN_PUPIL_OID, IDN_PUPIL_STORED),
             _pupil(BYSTANDER_PUPIL_OID, BYSTANDER),
             {**_pupil(RETIRED_PUPIL_OID, RETIRED), "inactive_since": "2026-03-01"},
@@ -356,10 +354,10 @@ def test_every_seat_the_mailbox_holds_is_answered_once_each(mongo_replica_set_ur
 
 
 @pytest.mark.db
-def test_two_pupils_sharing_an_address_are_both_answered(mongo_replica_set_url: str):
-    """Siblings on one inbox. Kills a lookup that answers the first `spieler` row and stops."""
+def test_the_pupil_the_address_names_is_answered(mongo_replica_set_url: str):
+    """One person per address among pupils (`uniq_spieler_email`), so a mailbox shared by siblings names one pupil."""
 
-    assert [row.spieler_id for row in answered(mongo_replica_set_url).spieler] == [PUPIL_ONE_OID, PUPIL_TWO_OID]
+    assert [row.spieler_id for row in answered(mongo_replica_set_url).spieler] == [PUPIL_ONE_OID]
 
 
 @pytest.mark.db
@@ -549,7 +547,7 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_replica
                 "saison_status": "active",
             },
         ],
-        "spieler": [{"spieler_id": str(PUPIL_ONE_OID)}, {"spieler_id": str(PUPIL_TWO_OID)}],
+        "spieler": [{"spieler_id": str(PUPIL_ONE_OID)}],
         "schiedsrichter": [{"schiedsrichter_id": str(REFEREE_ONE_OID)}, {"schiedsrichter_id": str(REFEREE_TWO_OID)}],
         "unbestaetigt": False,
         "gesperrt": False,

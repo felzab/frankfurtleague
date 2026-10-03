@@ -63,9 +63,17 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Equality and no pattern: `spieler.email` stores the folded form."""
+    """Equality and no pattern: `spieler.email` stores the folded form.
 
-    return [{"$match": {"email": identifier, **_LIVE}}, {"$project": {"einwilligung.bestaetigt_am": 1}}, {"$sort": {"_id": 1}}]
+    The `$type` term is the unique index's partial filter: an equality alone does not imply it, and
+    without it the planner scans every person on every subject read.
+    """
+
+    return [
+        {"$match": {"email": {"$eq": identifier, "$type": "string"}, **_LIVE}},
+        {"$project": {"einwilligung.bestaetigt_am": 1}},
+        {"$sort": {"_id": 1}},
+    ]
 
 
 def folds_to(stored: Any, identifier: str) -> bool:

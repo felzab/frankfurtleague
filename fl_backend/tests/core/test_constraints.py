@@ -532,6 +532,8 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer")): frozenset({"token_hash"}),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson")): frozenset({"token_hash"}),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash"}),
+    # The registration's pair after its admission, read by the submission's replay lookup alone.
+    (Collection.SAISON_SPIELER, ()): frozenset({"idempotenz_schluessel", "idempotenz_fingerabdruck"}),
 }
 
 

@@ -413,8 +413,8 @@ _BERECHTIGUNG_STAND = _object(
 )
 
 # The key a public submission is replayed by, and the digest of the payload it first carried
-# (`docs/backend/spec.md :: I346`). Out of `required` in both collections: every row stored
-# before the key carries none.
+# (`docs/backend/spec.md :: I346`), kept on the squad row an admission writes. Out of `required`
+# everywhere: every row stored before the key carries none.
 _IDEMPOTENZ_PROPERTIES: Mapping[str, Any] = {
     "idempotenz_schluessel": {"bsonType": "string"},
     "idempotenz_fingerabdruck": {"bsonType": "string"},
@@ -688,6 +688,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `uniq_spieler_id_saison_id` keeps indexing a retired row, so a second create is a
                 # DUPLICATE KEY answered 409 (`docs/backend/spec.md :: I20`).
                 "inactive_since": _INACTIVE_SINCE,
+                **_IDEMPOTENZ_PROPERTIES,
             },
         )
     },
@@ -1124,6 +1125,25 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one registration per submission key",
         partial_filter={"idempotenz_schluessel": {"$type": "string"}},
     ),
+    # The same key after its registration was admitted, so a replay finds it here once the row above
+    # is gone. Filtered for the reason above: a squad row an administrator wrote carries none.
+    UniqueIndex(
+        Collection.SAISON_SPIELER,
+        "uniq_saison_spieler_idempotenz_schluessel",
+        ("idempotenz_schluessel",),
+        "one admitted registration per submission key",
+        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
+    ),
+    # One stored person per address, firing where two admissions for one new address race. Filtered
+    # on `$type`, so persons holding no address are not one null key; an equality reader carries the
+    # term or scans.
+    UniqueIndex(
+        Collection.SPIELER,
+        "uniq_spieler_email",
+        ("email",),
+        "one person per address",
+        partial_filter={"email": {"$type": "string"}},
+    ),
     # Partial, because the league keeps every season it ever played: unfiltered, the second `past`
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
@@ -1226,15 +1246,6 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "schiedsrichter_bestaetigung_token_hash",
         (("bestaetigung.token_hash", ASCENDING),),
         "the referee confirmation page's lookup, driven by strangers",
-    ),
-    # A support index and not a unique one: an address is taken for one person without being enforced
-    # (`docs/datenschutz.md :: "One address is one person"`), so this read answers a list rather than
-    # refusing a second.
-    SupportIndex(
-        Collection.SPIELER,
-        "spieler_email",
-        (("email", ASCENDING),),
-        "the rows a signed-in person may be joined to, matched on the folded address",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
     # key holds as many rows as the team has been reissued links.

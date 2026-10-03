@@ -157,7 +157,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "side. The root's `status` bounds them too: a junction row's `name` tracks the club it names "
             "only while the season is not `past`, which is why the rename fan-out reads `saisons` before "
             "it writes. `saison_spieler` joins for its identity being (player, season) and for `stufe` "
-            "being offered by the root."
+            "being offered by the root, which the admission judges a pupil's Stufe against."
         ),
     ),
     Aggregate(
@@ -274,10 +274,11 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "nothing, as an application is: the document states what somebody registered, which stays true however the "
             "season, the club and the invite it names change afterwards. The season's own rules bound what this write may "
             "STORE -- the window, the squad cap and `erlaubte_stufen` are all read at the submission -- and bound the stored "
-            "row nowhere afterwards, so narrowing any of them strands no registration and refuses the next one instead. "
-            "Nothing of it reaches `spieler` or `saison_spieler`: the person and the squad row are written by the admission, "
-            "in the transaction that deletes this document, which is what keeps the squad cap and the junction's uniqueness "
-            "judged once, inside the Saison boundary, by the path that writes them."
+            "row nowhere afterwards, so narrowing any of them strands no registration; the admission reads the cap and "
+            "`erlaubte_stufen` again and refuses it instead. Nothing of it reaches `spieler` or `saison_spieler` before then: "
+            "the person and the squad row are written by the admission, in the transaction that deletes this document, which "
+            "is what keeps the squad cap and the junction's uniqueness judged once, inside the Saison boundary, by the path "
+            "that writes them."
         ),
     ),
     Aggregate(
@@ -775,9 +776,10 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "rules.erlaubte_stufen",
         Editability.EDITABLE,
         "narrowing is safe at any time, a finished season included: it bounds what the administrator's squad FORM offers and "
-        "never what a stored squad row holds. A pupil's own registration is REFUSED at it (`REQ-REGISTRIERUNG-003`), and so "
-        "is a representative's edit moving a row to a Stufe outside it (`REQ-SQUAD-005`), so narrowing mid-window closes the "
-        "season to a Stufe from that moment while every row already stored stays valid and editable",
+        "never what a stored squad row holds. A pupil not yet admitted is REFUSED at it (`REQ-REGISTRIERUNG-003`), at the "
+        "submission and again at the admission, and so is a representative's edit moving a row to a Stufe outside it "
+        "(`REQ-SQUAD-005`), so narrowing mid-window closes the season to a Stufe from that moment while every row already "
+        "stored stays valid and editable",
     ),
     FieldPolicy(
         Collection.SPIELTAGE,
@@ -892,31 +894,35 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.SPIELER,
         "einwilligung",
-        Editability.IMMUTABLE,
-        "written once at the person's creation, by no route this tree holds: the writer is the admission that copies a "
-        "confirmed registration's record, and until it exists a manual database edit is the only writer. No payload carries "
-        "the field either way, so an administrator can neither state a consent nor overwrite one",
+        Editability.CONTROL_ONLY,
+        "written by the admission alone, which copies the registration's freshly confirmed record onto the person it writes or "
+        "matches: the confirmation page promises renewal under the words just read. No payload carries the field, so an "
+        "administrator can neither state a consent nor overwrite one",
+        "app.api.registrierungen.services.compose_person_update",
     ),
     FieldPolicy(
         Collection.SPIELER,
         "email",
-        Editability.IMMUTABLE,
-        "written by no route, at create or after: no payload carries the field, so whatever a row holds here is what it keeps, "
-        "a correction is a fresh registration rather than an edit, and a manual database edit is the only writer there is. "
-        "`POST /identitaet/subjekt` joins on the field by equality against `sign_in_identifier`'s output, so a value stored in "
-        "any other form is matched by nothing",
+        Editability.CONTROL_ONLY,
+        "written by the admission alone, as `sign_in_identifier` folds the registration's address: at the person's creation, or "
+        "onto a proposed person holding none. No payload carries it, a person holding one never takes another, and "
+        "`uniq_spieler_email` keeps one person per address. `POST /identitaet/subjekt` joins on the field by equality, so a value "
+        "stored in any other form is matched by nothing",
+        "app.api.registrierungen.services.compose_person_update",
     ),
     FieldPolicy(
         Collection.SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /spieler/{spieler_id}/reactivate` clears it; this is the PERSON leaving the league",
+        "`DELETE` stamps it, and `POST /spieler/{spieler_id}/reactivate` and an admission of the person clear it; this is the "
+        "PERSON leaving the league",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "the SQUAD ROW's own retirement, independent of the person's; creating never revives one, which is why 409 is the right answer",
+        "the SQUAD ROW's own retirement, independent of the person's; an administrator's create never revives one, which is why "
+        "409 is the right answer there, and an admission rewrites the person's retired row of the season rather than writing a second",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
@@ -931,15 +937,17 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "stufe",
         Editability.CONDITIONAL,
         "held to the league's closed set by the validator, to the season's `erlaubte_stufen` by what the administrator's form "
-        "offers, and to that same list by a refusal where a pupil registers themselves (`REQ-REGISTRIERUNG-003`) and where a "
-        "team's representative edits the row (`REQ-SQUAD-005`), which lets through the value the row already holds",
+        "offers, and to that same list by a refusal where a pupil registers themselves and again where the team admits them "
+        "(`REQ-REGISTRIERUNG-003`), and where a team's representative edits the row (`REQ-SQUAD-005`), which lets through "
+        "the value the row already holds",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
         "ist_nachnominiert",
         Editability.COMPOSED,
-        "composed at create from matchday 1 of the season's first phase, on neither squad payload, and moved by no later "
-        "write: a PATCH and a reactivation keep it, so the row says whether the player joined after the season began",
+        "composed at create and at an admission from matchday 1 of the season's first phase, on no squad payload: a PATCH and "
+        "a reactivation keep it, so the row says whether the player joined after the season began, and an admission reviving "
+        "a retired row composes it afresh, the player joining on that day",
         "app.api.spieltage.crud.nachnominierung_laeuft_in",
     ),
     FieldPolicy(
@@ -1948,7 +1956,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
-            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
+            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate · POST /registrierungen/{registrierung_id}/aufnehmen"
         ),
         aggregate="Saison",
         summary="a squad may not exceed the season's `max_kadergroesse`",
@@ -2301,7 +2309,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-REGISTRIERUNG-003",
         status=HTTPStatus.CONFLICT,
-        operation="POST /registrierungen",
+        operation="POST /registrierungen · POST /registrierungen/{registrierung_id}/aufnehmen",
         aggregate="Registrierung",
         summary="a registration names a Stufe the season's `erlaubte_stufen` offers, or none at all",
         implemented_by="app.api.registrierungen.services.find_stufe_refusal",
@@ -2355,7 +2363,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-REGISTRIERUNG-009",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /registrierungen",
+        operation="POST /registrierungen · POST /registrierungen/{registrierung_id}/aufnehmen",
         aggregate="Registrierung",
         summary="an address the ban list holds registers nobody",
         implemented_by="app.api.registrierungen.services.find_gesperrt_refusal",
@@ -2417,6 +2425,42 @@ RULES: tuple[Rule, ...] = (
         summary="a representative's edit writes a `stufe` the season's `erlaubte_stufen` offers, none, or the one the row already holds",
         implemented_by="app.api.spieler.services.find_kader_stufe_refusal",
         tested_by="tests/api/test_kader_person.py::TestAStufeTheSeasonDoesNotOffer",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-013",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Registrierung",
+        summary="a registration the pupil has not confirmed is admitted by nobody",
+        implemented_by="app.api.registrierungen.services.find_unbestaetigt_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestAnUnconfirmedRegistration",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-014",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Registrierung",
+        summary="an admission names the person its address resolves to, confirmed where name or birthdate differ, or else a proposal",
+        implemented_by="app.api.registrierungen.services.find_person_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestThePersonAnAdmissionNames",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-015",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Saison",
+        summary="a person already in a live squad row of the season is admitted into no second squad",
+        implemented_by="app.api.registrierungen.services.find_schon_im_kader_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestAPersonAlreadyInASquad",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-016",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen",
+        aggregate="Registrierung",
+        summary="a submission replayed after its registration was admitted stores nothing",
+        implemented_by="app.api.registrierungen.services.find_schon_aufgenommen_refusal",
+        tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
     ),
 )
 

@@ -596,10 +596,15 @@ season's matches, a referee not being season-scoped.
 role the address sits in.** It is what a person signs in as, so changing one changes who can sign in
 as them.
 
-- **A pupil.** `spieler.email` is on no payload and no route writes one, so there is no stored
-  address on the person to correct. What the league does hold is the address a pending registration
-  was typed with, and that one is not corrected either: the answer to somebody asking is to register
-  again through their team's link, the unconfirmed row going with the seven-day sweep.
+- **A pupil.** `spieler.email` is written by the team's admission alone and is on no payload, so no
+  screen corrects it. A pupil admitted under an address they cannot read is corrected by hand: set
+  `spieler.email` to the new address as `fl_backend/app/shared/folding.py :: sign_in_identifier`
+  folds it, in the Playground, and run `python -m app.core.constraints --check` (§2); the unique
+  index `uniq_spieler_email` refuses an address another person already holds. Registering again
+  from the new address instead writes a second person, which the admission joins to the first only
+  where the first holds no address. The address a PENDING registration was typed with is not
+  corrected: the answer is to register again through the team's link, the unconfirmed row going
+  with the seven-day sweep.
 - **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
   itself kills the link that went to the old mailbox, mints a fresh one and mails the corrected
   address, so nothing further is owed and the old link opens nothing.

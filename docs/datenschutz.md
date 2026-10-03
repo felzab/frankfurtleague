@@ -356,13 +356,19 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.tsx :: FormKontaktReveal`),
   so a name nobody expected shows a mailbox shared against that entry before anything goes. A person
   id across seasons is not introduced: contact persons are season-scoped by design.
-- **One address is one person, and the league assumes it rather than enforcing it.** Every record
-  stored under a folded address (`fl_backend/app/shared/folding.py :: sign_in_identifier`) — a
+- **One address is one person: enforced among pupils, and assumed across the collections.** Every
+  record stored under a folded address (`fl_backend/app/shared/folding.py :: sign_in_identifier`) — a
   contact seat, a squad entry, a referee row, a grant — is that one person's, whatever Funktion it
   gives them, and so is the account the sign-in store keys on it
   (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). No write compares names to refuse
-  a second person: names typed by different people for one person differ, a grant carries none, and
-  no index spans the collections. The assumption is made known where an address is typed — the
+  a second person across the collections: names typed by different people for one person differ, a
+  grant carries none, and no index spans them. Among pupils the rule is enforced: `uniq_spieler_email`
+  holds one stored person per address, and the admission writes a registration into the person its
+  address resolves to rather than beside them, asking the team first where the stored name or
+  birthdate differs and showing it no birthdate
+  (`fl_backend/app/api/registrierungen/services.py :: find_person_refusal`); a „Nein“ declines the
+  registration with the reason that tells the pupil to register again under an address of their
+  own. The assumption is made known where an address is typed — the
   registration form and the application's contact seats — and in the published notice
   (`DatenschutzView.tsx :: Deine E-Mail-Adresse steht bei uns für Dich allein`). A mailbox shared
   anyway is one account: whoever reads it signs in, sees and changes every record under it, and an
@@ -520,7 +526,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   the notice went out is erasing somebody who was told nothing. It stands until an administrator
   enters a reachable address or decides the application, and in neither case past the end of the
   season it applied for. Ruled 2026-09-08.
-- **A registration is bounded at each of its three ends, and a pupil's own confirmation is what
+- **A registration is bounded at each of its four ends, and a pupil's own confirmation is what
   starts the longest of them.** The confirmation writes the birthdate and the whole consent record
   in one update (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`), so
   no row ever holds a birthdate nobody consented to the league keeping. Ruled 2026-09-11.
@@ -540,6 +546,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
     that it happened and why — never before it, a notice being unable to prolong a row nobody
     decided.
   - **Declined, it goes one calendar month after the decision** (`:: decline_erasure_is_due`).
+  - **Admitted, it is deleted at once**, in the admission's own transaction, its values in the log
+    redacted with it: its name, birthdate and consent record became the person and its squad
+    details the squad row, and only its submission key moves on, onto that squad row, so a replay is
+    still answered as one (`docs/backend/spec.md :: I349`).
 - **An application still awaiting a decision when the season it applied for has ended is deleted,
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the

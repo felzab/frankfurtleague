@@ -45,7 +45,7 @@ from app.shared.schemas.bounds import (
 # the order the router asks them in.
 
 # The state a submission arrives in, and the only one it may arrive in: the other is written by the
-# decline a later programme builds.
+# team's decline.
 SUBMITTED = "eingereicht"
 
 # What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
@@ -478,6 +478,16 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     return None
 
 
+def build_adressen_filter(adressen: Iterable[str]) -> Mapping[str, Any]:
+    """The persons stored under these folded addresses, matched as `uniq_spieler_email` serves it.
+
+    The `$type` term is the index's partial filter: an equality alone does not imply it, and without
+    it the planner scans every person.
+    """
+
+    return {"email": {"$in": sorted(set(adressen)), "$type": "string"}}
+
+
 # Which fields say WHO a stored person is, as `app/api/teams/services.py :: SEAT_IDENTITY_FIELDS`
 # says it of a contact seat.
 PERSON_IDENTITY_FIELDS: tuple[str, ...] = ("vorname", "nachname")
@@ -486,8 +496,8 @@ PERSON_IDENTITY_FIELDS: tuple[str, ...] = ("vorname", "nachname")
 def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: Any) -> list[Mapping[str, Any]]:
     """Every row at this address whose stored name is the registration's own.
 
-    Nothing enforces one person per address (`docs/datenschutz.md :: "One address is one person"`),
-    and joined on a mailbox shared anyway, the address alone shows one pupil another's birthdate.
+    An address holds one stored person (`docs/datenschutz.md :: "One address is one person"`), but a
+    sibling registering from a mailbox shared anyway would be shown that person's birthdate.
     """
 
     # The seat editor's fold (`app/api/teams/services.py :: _identity_of`), so „Weiß“ and „Weiss“ at
@@ -564,8 +574,7 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
 
 # --- The retention SWEEP. Each clock is a pure predicate over one document and `today`.
 
-# The other member of the status enum, read by the clock below and written by the decline a later
-# programme builds.
+# The other member of the status enum, read by the clock below and written by the team's decline.
 DECLINED: Final = "abgelehnt"
 
 # The season key this pass stamps, spelled once: the read that finds a stale season and the update
@@ -742,6 +751,190 @@ def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str)
             "bestaetigung.erinnert_am": today,
         }
     }
+
+
+# --- The TEAM's decision: the pending read, the admission and the decline a seat holder makes.
+
+REGISTRIERUNG_UNBESTAETIGT = "REQ-REGISTRIERUNG-013"
+REGISTRIERUNG_PERSON_NICHT_BENANNT = "REQ-REGISTRIERUNG-014"
+REGISTRIERUNG_SCHON_IM_KADER = "REQ-REGISTRIERUNG-015"
+REGISTRIERUNG_SCHON_AUFGENOMMEN = "REQ-REGISTRIERUNG-016"
+
+
+def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+    """One team's pending rows, on the equality prefix `registrierungen_saison_id_team_id_queue` sorts after."""
+
+    return {"saison_id": saison_id, "team_id": team_id, "status": SUBMITTED}
+
+
+def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
+    """`REQ-REGISTRIERUNG-013`: the pupil has not answered their own link, so nobody may admit them yet.
+
+    Asked at the write as well as marked on the read: the list and the press are two requests.
+    """
+
+    if registrierung_ist_bestaetigt(einwilligung=einwilligung):
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_UNBESTAETIGT,
+        status=HTTPStatus.CONFLICT,
+        message="this registration has not been confirmed by the pupil yet, so it cannot be admitted",
+    )
+
+
+def person_weicht_ab(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mapping[str, Any]) -> bool:
+    """Whether the person an address resolves to is named or born otherwise than the registration says.
+
+    A stored birthdate of null is no difference: a record kept before birthdates were asked has
+    nothing to contradict.
+    """
+
+    if any(person_name_key(registrierung_raw.get(field)) != person_name_key(spieler_raw.get(field)) for field in PERSON_IDENTITY_FIELDS):
+        return True
+
+    stored = spieler_raw.get("geburtsdatum")
+
+    return stored is not None and stored != registrierung_raw.get("geburtsdatum")
+
+
+def ist_vorschlag(*, spieler_raw: Mapping[str, Any], registrierung_raw: Mapping[str, Any]) -> bool:
+    """Whether a stored person may be proposed: no address, the registration's name, no other birthdate.
+
+    A person holding ANOTHER address never is: a yes would hand their record to whoever controls the
+    registering mailbox.
+    """
+
+    return spieler_raw.get("email") is None and not person_weicht_ab(registrierung_raw=registrierung_raw, spieler_raw=spieler_raw)
+
+
+def sole_vorschlag(*, registrierung_raw: Mapping[str, Any], ohne_adresse: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    """The one addressless namesake, or `None` where there is none or there are several (`sole_person`'s reason)."""
+
+    return sole_person([row for row in ohne_adresse if ist_vorschlag(spieler_raw=row, registrierung_raw=registrierung_raw)])
+
+
+def find_person_refusal(
+    *,
+    registrierung_raw: Mapping[str, Any],
+    adresse_raw: Mapping[str, Any] | None,
+    benannt_raw: Mapping[str, Any] | None,
+    spieler_id: Any,
+) -> WriteRefusal | None:
+    """`REQ-REGISTRIERUNG-014`: the body names nobody this registration may be admitted into.
+
+    A resolved address IS the person: the body only confirms it, and must where name or birthdate
+    differ. Otherwise it names nobody or a person `ist_vorschlag` admits.
+    """
+
+    if adresse_raw is not None:
+        answered = spieler_id == adresse_raw["_id"] or (
+            spieler_id is None and not person_weicht_ab(registrierung_raw=registrierung_raw, spieler_raw=adresse_raw)
+        )
+    else:
+        answered = spieler_id is None or (
+            benannt_raw is not None and ist_vorschlag(spieler_raw=benannt_raw, registrierung_raw=registrierung_raw)
+        )
+
+    if answered:
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_PERSON_NICHT_BENANNT,
+        status=HTTPStatus.CONFLICT,
+        message="the person named is not the one this registration resolves to; read the registration again and answer its question",
+    )
+
+
+def find_schon_im_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+    """`REQ-REGISTRIERUNG-015`: the person already plays in a squad this season, which one row per player per season leaves room for once.
+
+    A RETIRED row is no refusal: the admission rewrites it, whichever team it was on.
+    """
+
+    if kader_raw is None or kader_raw.get("inactive_since") is not None:
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_SCHON_IM_KADER,
+        status=HTTPStatus.CONFLICT,
+        message="this person already plays in a squad this season",
+    )
+
+
+def find_schon_aufgenommen_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
+    """Why a key an admission carried onto a squad row is refused: other details, or `REQ-REGISTRIERUNG-016`.
+
+    Never `None`: no registration is left to answer as the first, and a fresh one would register an
+    admitted pupil twice.
+    """
+
+    if (abweichend := find_abweichender_fingerabdruck_refusal(gespeichert=gespeichert, fingerabdruck=fingerabdruck)) is not None:
+        return abweichend
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_SCHON_AUFGENOMMEN,
+        status=HTTPStatus.CONFLICT,
+        message="this registration has already been admitted into the team's squad; nothing was stored",
+    )
+
+
+def nummern_im_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
+    """The shirt numbers the live squad wears, compared as stored strings: „07“ is not „7“."""
+
+    return frozenset(nummer for row in rows if isinstance(nummer := row.get("nummer"), str))
+
+
+def compose_person_update(*, registrierung_raw: Mapping[str, Any], adresse: str) -> Mapping[str, Any]:
+    """What an admission writes onto a matched person: the registration's name, birthdate, consent and address.
+
+    The consent is REWRITTEN: the confirmation page promised renewal under the words just read, and a
+    narrowed answer under the older record would be ignored.
+    """
+
+    return {
+        "$set": {
+            **{field: registrierung_raw[field] for field in (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "einwilligung")},
+            "email": adresse,
+            "inactive_since": None,
+        }
+    }
+
+
+def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
+    """A new person, from the registration alone."""
+
+    return {"_id": spieler_id, **compose_person_update(registrierung_raw=registrierung_raw, adresse=adresse)["$set"]}
+
+
+def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, ist_nachnominiert: bool) -> dict[str, Any]:
+    """The squad row's fields, written fresh or onto this person's retired row.
+
+    No `rolle`: a registration carries none, and a retired row's captaincy would return to a squad
+    that may have given it away.
+    """
+
+    fields: dict[str, Any] = {
+        "team_id": team_id,
+        **{field: registrierung_raw.get(field) for field in ("nummer", "position", "stufe")},
+        "rolle": None,
+        "ist_nachnominiert": ist_nachnominiert,
+        "inactive_since": None,
+    }
+
+    # The key outlives the registration here, so a replay after the admission is still a replay;
+    # a keyless registration leaves whatever the row holds.
+    for field in ("idempotenz_schluessel", "idempotenz_fingerabdruck"):
+        if isinstance(registrierung_raw.get(field), str):
+            fields[field] = registrierung_raw[field]
+
+    return fields
+
+
+def compose_ablehnung_update(*, von: str, grund: Any, today: str) -> Mapping[str, Any]:
+    """The decline: the state and the decision, and nothing else of the row moves."""
+
+    return {"$set": {"status": DECLINED, "entscheidung": {"getroffen_am": today, "von": von, "grund": grund}}}
 
 
 def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:

@@ -557,6 +557,19 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_document("registrierungen", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
         valid_document("registrierungen", _id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64),
     ),
+    # Two persons' rows in one season, keyed alike: the index refuses on the key alone, where the
+    # junction's own index would refuse a pair sharing the person.
+    "uniq_saison_spieler_idempotenz_schluessel": (
+        valid_document("saison_spieler", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
+        valid_document(
+            "saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64
+        ),
+    ),
+    # Two persons differing in their name and sharing an address: the index refuses on the address alone.
+    "uniq_spieler_email": (
+        valid_document("spieler", email="pupil@example.invalid"),
+        valid_document("spieler", _id=TEAM_OID, vorname="Zweite", email="pupil@example.invalid"),
+    ),
     # The second row differs in its tier and its author: the index refuses on the address alone, which
     # is what refuses a paste granting an address a route already granted.
     "uniq_berechtigung_adresse": (

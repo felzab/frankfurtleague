@@ -1,0 +1,142 @@
+import functools
+import json
+from collections.abc import Iterator, Mapping
+from datetime import datetime
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import pytest
+from bson import ObjectId
+from fastapi import FastAPI
+from pymongo.asynchronous.database import AsyncDatabase
+
+from app.core.collections import Collection
+from app.core.config import API_VERSION
+from app.main import create_app
+from tests import documents
+from tests.actor_tokens import SignedActor
+from tests.app_client import app_client
+from tests.config import ADMIN_KEY, build_test_config
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.worker import worker_database
+
+# Module level: the read opens a transaction against a real mongod.
+pytestmark = pytest.mark.db
+
+DATABASE_NAME = worker_database("fl_team_sitze_test")
+WIRE_CONFIG = build_test_config().model_copy(update={"db_base_name": DATABASE_NAME})
+
+SAISON_ID = "2026"
+NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607980001")
+OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607980002")
+
+# A Trainer-only seat holder, confirmed, beside an Ansprechperson who has not answered and an empty
+# Stellvertretung: the widest the landing ever is.
+THEO = "theo@example.com"
+OTTO = "otto@example.com"
+
+
+@functools.cache
+def _served() -> FastAPI:
+    return create_app(WIRE_CONFIG)
+
+
+def sitze_read(url: str, *, identifier: str, team_id: ObjectId = TEAM_OID) -> tuple[int, Any]:
+    async def _run() -> tuple[int, Any]:
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+            await seed(database)
+            async with app_client(url, app=_served(), now=NOW) as http:
+                response = await http.get(
+                    f"/api/v{API_VERSION}/teams/{team_id}/saisons/{SAISON_ID}/person/sitze",
+                    headers=SignedActor(identifier, ADMIN_KEY, lane="person"),
+                )
+
+            return response.status_code, response.json()
+
+    return on_the_seed_loop(_run())
+
+
+async def seed(database: AsyncDatabase) -> None:
+    await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+    await database[Collection.TEAMS].insert_many(
+        [documents.team_document(TEAM_OID, "Zorbanax", "ZO"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QU")]
+    )
+    await database[Collection.SAISON_TEAMS].insert_many(
+        [
+            documents.saison_team_document(
+                SAISON_ID,
+                TEAM_OID,
+                "Zorbanax",
+                "ZO",
+                kontakte={
+                    "trainer": documents.kontaktperson_document("Theo", bestaetigt_am="2026-03-21"),
+                    "ansprechperson": documents.kontaktperson_document("Anna"),
+                    "stellvertretung": None,
+                    "trainer_ist_zugleich": None,
+                },
+            ),
+            documents.saison_team_document(
+                SAISON_ID,
+                OTHER_TEAM_OID,
+                "Quillhilde",
+                "QU",
+                kontakte={
+                    "trainer": None,
+                    "ansprechperson": documents.kontaktperson_document("Otto", bestaetigt_am="2026-03-21"),
+                    "stellvertretung": None,
+                    "trainer_ist_zugleich": None,
+                },
+            ),
+        ]
+    )
+
+
+def keys_at_every_depth(value: Any) -> Iterator[str]:
+    if isinstance(value, Mapping):
+        for key, inner in value.items():
+            yield key
+            yield from keys_at_every_depth(inner)
+    elif isinstance(value, list):
+        for inner in value:
+            yield from keys_at_every_depth(inner)
+
+
+class TestTheSeatRead:
+    def test_a_seat_holder_reads_three_lines_for_their_own_team(self, mongo_replica_set_url: str):
+        status, served = sitze_read(mongo_replica_set_url, identifier=THEO)
+
+        assert status == 200
+        assert [sitz["rolle"] for sitz in served["sitze"]] == ["trainer", "ansprechperson", "stellvertretung"]
+
+    def test_another_teams_seat_is_refused(self, mongo_replica_set_url: str):
+        status, served = sitze_read(mongo_replica_set_url, identifier=OTTO)
+
+        assert (status, served["error_code"]) == (403, "REQ-FUNKTION-001")
+
+    def test_a_person_who_has_not_confirmed_reads_as_pending_and_a_stamped_one_as_confirmed(self, mongo_replica_set_url: str):
+        _, served = sitze_read(mongo_replica_set_url, identifier=THEO)
+
+        by_rolle = {sitz["rolle"]: sitz for sitz in served["sitze"]}
+        assert (by_rolle["trainer"]["name"], by_rolle["trainer"]["bestaetigt"]) == ("Theo Theo-Mustermann", True)
+        assert (by_rolle["ansprechperson"]["name"], by_rolle["ansprechperson"]["bestaetigt"]) == ("Anna Anna-Mustermann", False)
+
+    def test_an_emptied_slot_is_answered_as_an_empty_seat_rather_than_omitted(self, mongo_replica_set_url: str):
+        """Omitted, the landing would say the team has two seats rather than that one is unfilled."""
+
+        _, served = sitze_read(mongo_replica_set_url, identifier=THEO)
+
+        assert {"rolle": "stellvertretung", "name": None, "bestaetigt": False} in served["sitze"]
+
+    def test_no_address_telephone_or_birthdate_at_any_depth(self, mongo_replica_set_url: str):
+        """Over the serialised body, keys and values both, so a nested block cannot smuggle one in.
+
+        Seeded with every seat carrying all three, so the scan has something to find.
+        """
+
+        _, served = sitze_read(mongo_replica_set_url, identifier=THEO)
+
+        assert not {"email", "telefon", "geburtsdatum", "einwilligung", "bestaetigt_am"} & set(keys_at_every_depth(served))
+        text = json.dumps(served)
+        assert not any(value in text for value in ("@", "+49", "1984-05-09", "2026-03-21"))

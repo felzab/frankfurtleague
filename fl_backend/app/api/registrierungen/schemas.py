@@ -348,3 +348,125 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
     geloescht_ohne_entscheidung: int
     geloescht_abgelehnt: int
     redigierte_aktionen: int
+
+
+# --- The TEAM's decision, person tier. No model below declares `email`, `telefon`, `geburtsdatum` or
+# `einwilligung`: a seat holder reads who registered and decides, and a pupil's address and birthdate
+# are the league administrators' alone (`fl_frontend/src/core/einwilligung.ts :: SPIELER_ABSAETZE`).
+
+
+class FLOffeneRegistrierungenParams(BaseModel):
+    """The pending list's direction and page, so a flooded queue's oldest rows stay reachable."""
+
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
+    order: Literal["asc", "desc"] = Field(default="desc")
+
+
+class FLRegistrierungPerson(BaseModel):
+    """The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one."""
+
+    spieler_id: CustomObjectId
+    vorname: CustomNonEmptyString
+    nachname: str | None
+    # A flag and never the two values: the stored birthdate is shown to administrators alone, and
+    # the question needs only that something differs.
+    weicht_ab: bool
+
+
+class FLRegistrierungVorschlag(BaseModel):
+    """The one stored person holding no address whose name is the registration's: proposed, never resolved.
+
+    "A typed name is a weaker key than a shorthand", so a name only ever proposes.
+    """
+
+    spieler_id: CustomObjectId
+    vorname: CustomNonEmptyString
+    nachname: str | None
+
+
+class FLOffeneRegistrierung(BaseModel):
+    """One pending registration as the team deciding it reads it."""
+
+    registrierung_id: CustomObjectId
+    eingereicht_am: CustomDateString
+    vorname: CustomNonEmptyString
+    nachname: CustomNonEmptyString
+    nummer: str | None
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
+    # Whether the pupil answered their own link, which is what makes the row one the team may admit.
+    aufnehmbar: bool
+    nummer_doppelt: bool
+    # Both empty on an unconfirmed row: its address is unproven, and resolving it would show the team
+    # whoever stands behind an address anybody typed into the form.
+    person: FLRegistrierungPerson | None
+    # One or none, never a list: no birthdate is served, so two namesakes read identically and the
+    # team would be guessing between them.
+    vorschlag: FLRegistrierungVorschlag | None
+
+
+class FLOffeneRegistrierungenResponse(BaseAPIResponse):
+    """One team's pending registrations for one season, and whether that is the whole of them."""
+
+    team_id: CustomObjectId
+    saison_id: str
+    registrierungen: list[FLOffeneRegistrierung]
+    vollstaendig: bool
+
+
+class FLRegistrierungAufnehmenPayload(BaseModel):
+    """The team's answer to the question the read asked: the person this registration is admitted into, or none."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # REQUIRED with no default: a client that omitted it would be read as answering "a new person",
+    # which is the one answer that can put a returning pupil into the league twice.
+    spieler_id: CustomObjectId | None
+
+
+class FLRegistrierungAufnahmeResponse(BaseAPIResponse):
+    """The squad entry the admission wrote, and the person it belongs to."""
+
+    # The admitted registration's id, deleted with it, so a caller can drop the row it pressed.
+    registrierung_id: CustomObjectId
+    spieler_id: CustomObjectId
+    team_id: CustomObjectId
+    saison_id: str
+    vorname: CustomNonEmptyString
+    nachname: CustomNonEmptyString
+    nummer: str | None
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
+    ist_nachnominiert: bool
+
+
+# One member, and never free text: the reason reaches the pupil's mail, and a team's own words about
+# a pupil would be personal data the league then holds about them.
+FLRegistrierungAblehnungsgrund = Literal["andere_person"]
+
+
+class FLRegistrierungAblehnenPayload(BaseModel):
+    """Why the team declines, from a closed set or not at all."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Required, for `FLRegistrierungAufnehmenPayload.spieler_id`'s reason: the reason picks the
+    # sentence the pupil is mailed.
+    grund: FLRegistrierungAblehnungsgrund | None
+
+
+class FLRegistrierungAblehnungResponse(BaseAPIResponse):
+    """What the decline mail needs, answered to the frontend's server and never further."""
+
+    registrierung_id: CustomObjectId
+    team_id: CustomObjectId
+    saison_id: str
+    # The junction row's name, which the mail addresses the pupil by.
+    team: CustomNonEmptyString
+    vorname: CustomNonEmptyString
+    # As typed, the address the confirmation link was sent to: the one recipient this decline has.
+    email: CustomNonEmptyString
+    # Whether that address was ever proven. An unproven one is anybody's typing, and a mail to it
+    # tells a stranger about a team's decision.
+    bestaetigt: bool
+    grund: FLRegistrierungAblehnungsgrund | None

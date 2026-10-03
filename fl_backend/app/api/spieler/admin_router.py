@@ -143,7 +143,7 @@ async def get_spieler_nachnominierung(
     by_id("spieler_id"),
     response_model=FLSpielerAdminSingleResponse,
     summary="Update a Spieler's name",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_spieler(
     spieler_id: CustomRouteObjectId,
@@ -172,7 +172,7 @@ async def patch_spieler(
     by_id("spieler_id"),
     response_model=FLSpielerAdminSingleResponse,
     summary="Retire a Spieler (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def delete_spieler(
     spieler_id: CustomRouteObjectId,
@@ -195,7 +195,7 @@ async def delete_spieler(
     f"{by_id('spieler_id')}/reactivate",
     response_model=FLSpielerAdminSingleResponse,
     summary="Bring a retired Spieler back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def reactivate_spieler(
     spieler_id: CustomRouteObjectId,

@@ -16,6 +16,7 @@ from app.api.registrierungen.services import (
     BESTAETIGUNG_ANTWORT_FIELDS,
     PERSON_IDENTITY_FIELDS,
     answers_shown_back,
+    build_adressen_filter,
     build_bestaetigung_filter,
     compose_confirmation_update,
     find_already_confirmed_refusal,
@@ -30,7 +31,7 @@ from app.api.registrierungen.services import (
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     RegistrierungenCollection,
@@ -51,10 +52,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/registrierungen/bestaetigung",
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
-
-# Bounded for a mailbox shared anyway, which can stand behind several pupils: a larger set narrows
-# to nothing rather than to a guess.
-_PERSONS_READ = 8
 
 
 @router.post(
@@ -79,9 +76,9 @@ async def get_bestaetigung_ansicht(
     will be judged by, the age from which the media switch is offered, and the wording's version. Beside them the
     three answers the league already holds for this person -- the birthdate, the publication scope and the media
     switch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on
-    the registration's folded address AND its folded name: an address is taken for one person but enforced as one nowhere,
-    and matched on the address alone a mailbox shared anyway would show one pupil another's birthdate. All three are null wherever
-    that match is not exactly one person.
+    the registration's folded address AND its folded name: an address holds one stored person, and matched on the address
+    alone a mailbox shared anyway would show a sibling that person's birthdate. All three are null wherever no stored person
+    matches both.
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
@@ -103,20 +100,15 @@ async def get_bestaetigung_ansicht(
     # paragraph missing its subject reads as finished.
     team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": raw.get("team_id")}, projection=["name", "full_name"])
 
-    # An equality on the folded form, which is what `spieler.email` stores.
-    persons = await pull_many_from_db(
-        collection=spieler_collection,
-        db_filter={"email": sign_in_identifier(str(raw.get("email") or ""))},
-        # One PAST the bound, so a mailbox shared by more is seen to be: capped at the bound, the read
-        # answers a subset of the people behind it, and a namesake left outside it makes the other look sole.
-        limit=_PERSONS_READ + 1,
+    # On the folded form, which is what `spieler.email` stores; `uniq_spieler_email` holds one person to it.
+    person = await spieler_collection.find_one(
+        build_adressen_filter([sign_in_identifier(str(raw.get("email") or ""))]),
         projection=[*PERSON_IDENTITY_FIELDS, "geburtsdatum", "einwilligung"],
     )
-    at_the_address = persons if len(persons) <= _PERSONS_READ else []
 
-    # Narrowed by the NAME before anything is shown back: nothing stops a mailbox shared anyway
-    # standing behind more than one pupil.
-    named = persons_named(at_the_address, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
+    # Narrowed by the NAME before anything is shown back: a sibling registering from a mailbox shared
+    # anyway resolves to the person stored under it.
+    named = persons_named([] if person is None else [person], vorname=raw.get("vorname"), nachname=raw.get("nachname"))
 
     shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
     einwilligung = shown_back.get("einwilligung") or {}

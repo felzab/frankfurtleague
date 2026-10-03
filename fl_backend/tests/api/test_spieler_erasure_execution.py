@@ -23,6 +23,7 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spieler_document
+from tests.whole_database import every_collection_as_text
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -229,12 +230,6 @@ def images_naming(images: list[dict[str, Any]], spieler_id: ObjectId) -> list[di
     """The images that ARE this person or point at them, from whichever collection they were recorded."""
 
     return [image for image in images if spieler_id in (image.get("_id"), image.get("spieler_id"))]
-
-
-async def every_collection_as_text(database: AsyncDatabase) -> str:
-    """The whole database rendered, so a value can be looked for where nobody thought to put it."""
-
-    return str([await database[name].find().to_list(length=None) for name in await database.list_collection_names()])
 
 
 class TestARetiredPupilIsErasedWhole:

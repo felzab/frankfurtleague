@@ -45,7 +45,6 @@ EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607960002")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607960011")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607960012")
 SPIELER_OID = ObjectId("6890a1b2c3d4e5f607960021")
-TWIN_OID = ObjectId("6890a1b2c3d4e5f607960022")
 
 TEAM_NAME = "Adler"
 TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
@@ -68,7 +67,6 @@ A_DAY_SHORT = "2010-04-02"
 # Eighteen by the held consent's `datum`, as its media yes requires
 # (`app/api/registrierungen/services.py :: find_medien_refusal`): a record no write could store proves nothing.
 A_RETURNING_PUPILS_BIRTHDATE = "2007-07-14"
-A_TWINS_BIRTHDATE = "2007-02-02"
 
 THIS_SEASONS_LABEL = "2026-09-spielerseite"
 AN_OLDER_LABEL = "2025-09-spielerseite"
@@ -258,54 +256,6 @@ class TestWhatALinkOpens:
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[sibling], spieler=held)
 
         assert (response.geburtsdatum, response.umfang, response.medien, response.text_version) == (None, None, None, None)
-
-    def test_each_of_two_pupils_at_one_mailbox_is_shown_their_own_record(self, mongo_replica_set_url: str):
-        """The other half: the narrowing must not cost a returning sibling the answers they themselves gave."""
-
-        twin = spieler_document(TWIN_OID, vorname="Bramblewick", geburtsdatum=A_TWINS_BIRTHDATE)
-        at_the_mailbox = [spieler_document(SPIELER_OID), twin]
-
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=at_the_mailbox)
-
-        assert response.geburtsdatum == A_RETURNING_PUPILS_BIRTHDATE
-
-    def test_the_later_seeded_of_two_pupils_at_one_mailbox_is_shown_their_own_record(self, mongo_replica_set_url: str):
-        """The case above names the pupil seeded FIRST, so a read carrying one row would still find them.
-
-        What this one drives is `app/api/registrierungen/einwilligung_router.py :: _PERSONS_READ`
-        bounding the rows at one mailbox the narrowing can reach.
-        """
-
-        twin = spieler_document(TWIN_OID, vorname="Bramblewick", geburtsdatum=A_TWINS_BIRTHDATE)
-        at_the_mailbox = [spieler_document(SPIELER_OID), twin]
-        theirs = registrierung_document(vorname="Bramblewick")
-
-        response = on_a_league(
-            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[theirs], spieler=at_the_mailbox
-        )
-
-        assert response.geburtsdatum == A_TWINS_BIRTHDATE
-
-    def test_a_mailbox_shared_past_the_bound_shows_nobody_even_where_one_namesake_is_inside_it(self, mongo_replica_set_url: str):
-        """Nine rows at one mailbox, the pupil's two namesakes seeded last: a read capped at eight reaches one of them and shows it as sole."""
-
-        others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796003{n}"), vorname=f"Geschwister{n}") for n in range(7)]
-        namesakes = [spieler_document(ObjectId("6890a1b2c3d4e5f607960038")), spieler_document(ObjectId("6890a1b2c3d4e5f607960039"))]
-
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[*others, *namesakes])
-
-        assert (response.geburtsdatum, response.umfang, response.medien) == (None, None, None)
-
-    def test_a_mailbox_shared_past_the_bound_shows_nobody_even_where_the_pupil_is_sole_inside_it(self, mongo_replica_set_url: str):
-        """The bound's own rule: nine rows holding ONE namesake, whom the narrowing alone would show as sole."""
-
-        others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796004{n}"), vorname=f"Geschwister{n}") for n in range(8)]
-
-        response = on_a_league(
-            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[*others, spieler_document(SPIELER_OID)]
-        )
-
-        assert (response.geburtsdatum, response.umfang, response.medien) == (None, None, None)
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
