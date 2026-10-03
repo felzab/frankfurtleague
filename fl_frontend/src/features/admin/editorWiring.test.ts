@@ -27,7 +27,7 @@ import type { ReactNode } from "react";
 /** Every write is refused unless a case answers otherwise, so no editor leaves the page a case reads. */
 const REFUSED = () => Promise.resolve({ success: false, error: "Nicht gespeichert." });
 
-const { calls, answerWith } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: REFUSED });
+const { calls, answerWith, answered } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: REFUSED });
 
 const { raised } = doubleToasts();
 
@@ -100,10 +100,11 @@ async function save(user: UserEvent): Promise<void> {
 const confirmation = (): HTMLElement | null => screen.queryByRole("button", { name: "Trotzdem speichern" });
 
 /**
- * Until the press has answered, the save's pending label gone. Waited for rather than one tick, since
- * an answer arrives when its action does, as a loaded machine shows.
+ * Until the press has answered, the save's pending label gone. The answer is awaited itself: polling the
+ * label alone gives up after `waitFor`'s second, which a loaded machine's answer and render outlast.
  */
 async function settled(): Promise<void> {
+  await act(answered);
   await waitFor(() =>
     assert.ok(screen.queryAllByRole("button", { name: "Speichert...", hidden: true }).length === 0, "the press is still pending"),
   );
