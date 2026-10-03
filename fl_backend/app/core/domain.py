@@ -863,7 +863,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
         "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`). A seat's own person "
         "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum` "
-        "and the stamp on every seat that person holds, and a Widerspruch nulls those slots",
+        "and the stamp on every seat that person holds, and a Widerspruch nulls those slots; and the seat's own person moves "
+        "`medien` on every seat they hold on the row, and nothing else, through "
+        "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
     ),
     FieldPolicy(

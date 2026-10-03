@@ -312,8 +312,8 @@ def _projected_leaf(model: type[BaseModel], stored: Mapping[str, Any], field: st
     return parse_empty_string_to_none(stored.get(field))
 
 
-# DERIVED and stored nowhere: a version the row carried would have to be bumped by all four writers
-# of `kontakte`, and a club rename would then refuse a contacts save.
+# DERIVED and stored nowhere: a version the row carried would have to be bumped by every writer of
+# `kontakte`, and a club rename would then refuse a contacts save.
 def kontakte_stand_of(block: Any) -> str:
     """The token naming which contact block a save was composed against. A precondition, never a secret."""
 
