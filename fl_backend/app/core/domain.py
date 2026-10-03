@@ -2500,6 +2500,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-SQUAD-001",),
         proven_by="tests/core/test_unenforced.py::TestASharedSquadNumber",
+        surfaced_by="fl_frontend/src/features/spieler/components/collections/KaderList.tsx",
     ),
     Unenforced(
         subject="a bracket slot the resolution filled with a team that later left the season",
