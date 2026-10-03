@@ -2423,7 +2423,8 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /bewerbungen · POST /bewerbungen/einwilligung · POST /registrierungen/bestaetigung · "
-            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "POST /schiedsrichter/bestaetigung · PATCH /spieler/selbst/einwilligung · "
+            "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
             "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
         ),
         aggregate="Bewerbung",

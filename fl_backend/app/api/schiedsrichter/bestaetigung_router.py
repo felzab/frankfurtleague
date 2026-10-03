@@ -6,6 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung.services import find_fassung_refusal
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterBestaetigungAnsichtPayload,
     FLSchiedsrichterBestaetigungAnsichtResponse,
@@ -123,10 +124,11 @@ async def post_bestaetigung(
     and the fixture list reads it there.
 
     Refuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed
-    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), a link mailed to an address
-    the ban list holds now, whenever the link was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this
-    consent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`
-    (`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.
+    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee
+    page's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link
+    was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media
+    consent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged
+    before anything is written, so a reloaded page or a mistyped year spends nothing.
 
     **The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld
     name goes on being served for as long as that entry lives.
@@ -154,6 +156,8 @@ async def post_bestaetigung(
         # to ask for another.
         refuse(find_already_confirmed_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD)))
         refuse(find_expired_token_refusal(frist=frist_of(raw.get(BESTAETIGUNG_FELD)), today=today))
+        # A new acceptance: the running label alone, so a page loaded before a deploy is told to reload.
+        refuse(find_fassung_refusal(seite="bestaetigung_schiedsrichter", genannt={EINWILLIGUNG_FELD: antwort_data.text_version}))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         gesperrt = await adressen_gesperrt(

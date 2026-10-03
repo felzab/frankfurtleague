@@ -7296,7 +7296,7 @@
     "/api/v0/schiedsrichter/bestaetigung": {
       "post": {
         "summary": "Confirm one Schiedsrichter's entry and consent",
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), a link mailed to an address\nthe ban list holds now, whenever the link was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`\n(`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee\npage's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link\nwas minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media\nconsent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged\nbefore anything is written, so a reloaded page or a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
         "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7323,7 +7323,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-SCHIEDSRICHTER-002"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SCHIEDSRICHTER-004"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-SCHIEDSRICHTER-004"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-SCHIEDSRICHTER-005.REQ-SCHIEDSRICHTER-008.REQ-VAL-001"
@@ -24241,6 +24241,31 @@
           }
         }
       },
+      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-SCHIEDSRICHTER-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-EINWILLIGUNG-001",
+                        "REQ-SCHIEDSRICHTER-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.DB-COMMON-002.REQ-ENTER-001.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-005": {
         "description": "Conflict",
         "content": {
@@ -24517,30 +24542,6 @@
                         "REQ-SCHIEDSRICHTER-004",
                         "REQ-SCHIEDSRICHTER-006",
                         "REQ-SCHIEDSRICHTER-007"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-SCHIEDSRICHTER-004": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-SCHIEDSRICHTER-004"
                       ]
                     }
                   }

@@ -9,6 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.admin_router import (
     anonymise_schiedsrichter,
@@ -48,6 +49,7 @@ from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -90,7 +92,8 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 MESSAGE_ID = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
 ACCEPTED_AT = "2026-04-01T10:00:00.000000+00:00"
 
-TEXT_VERSION = "2026-04-schiedsrichterseite"
+# The label the referee page runs, the one a new acceptance must name.
+TEXT_VERSION = LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]
 
 # Seeded before every confirmation that asserts on it, so "the write reaches one collection" is a
 # comparison against a document that exists rather than against an empty collection.
@@ -855,6 +858,33 @@ EMPTY_STAMPED: Mapping[str, Any] = {
     "datum": "2026-03-01",
     "bestaetigt_am": "",
 }
+
+
+class TestTheLabelAPressNames:
+    """`REQ-EINWILLIGUNG-001`: a referee's press names the referee page's running label and nothing else."""
+
+    @pytest.mark.parametrize(
+        "genannt",
+        [
+            pytest.param("2026-09-schiedsrichterseite-2", id="a superseded label of the referee page"),
+            pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_spieler"], id="the pupil page's running label"),
+            pytest.param("2026-04-schiedsrichterseite", id="a label the registry never held"),
+        ],
+    )
+    def test_any_other_label_is_refused_and_spends_nothing(self, mongo_replica_set_url: str, genannt: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            before = await stored(database)
+            with pytest.raises(WriteRefusalException) as refused:
+                await confirm(database, client, minted.bestaetigung.token, text_version=genannt)
+
+            return refused.value, before, await stored(database), await ansicht(database, minted.bestaetigung.token)
+
+        refusal, before, after, view = on_a_league(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        assert after == before
+        assert view.zustand == "gueltig"
 
 
 class TestAStoredEmptyStamp:
