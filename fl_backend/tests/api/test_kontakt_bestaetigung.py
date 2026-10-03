@@ -22,8 +22,8 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnsichtPayload, F
 from app.api.bewerbungen.services import (
     BEWERBUNG_EINWILLIGUNG_GESPERRT,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
-    BEWERBUNG_TOKEN_PAST_DEADLINE,
     BEWERBUNG_TOKEN_UNKNOWN,
+    KONTAKT_LINK_ABGELAUFEN,
     bestaetigungsfrist_from,
     compose_bestaetigungen,
     hash_token,
@@ -620,7 +620,7 @@ class TestTheDeadline:
 
         assert on_the_day.zustand == "gueltig", "the deadline's own day still takes the link"
         assert after.zustand == "abgelaufen"
-        assert code == BEWERBUNG_TOKEN_PAST_DEADLINE
+        assert code == KONTAKT_LINK_ABGELAUFEN
 
     def test_a_resend_reopens_a_seat_whose_link_ran_out(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:

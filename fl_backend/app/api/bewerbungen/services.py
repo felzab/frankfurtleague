@@ -769,16 +769,24 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt
     return _zustand(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat, over=over, gesperrt=gesperrt)
 
 
+# The season row's own code, beside the application's 409 for its shared deadline (`REQ-BEWERBUNG-017`).
+KONTAKT_LINK_ABGELAUFEN = "REQ-KONTAKT-004"
+
+
 def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
-    """`REQ-BEWERBUNG-017` on a season row, whose link nothing decides: only its deadline ends it, and a fresh link restarts it."""
+    """Why a season row's link takes no answer past its own deadline, or `None`.
+
+    410, never the application's 409: no write moves this deadline, a re-send minting another token
+    (`docs/backend/spec.md` §1.4).
+    """
 
     if not _deadline_passed(bestaetigungsfrist=frist, today=today):
         return None
 
     return WriteRefusal(
-        error_code=BEWERBUNG_TOKEN_PAST_DEADLINE,
-        status=HTTPStatus.CONFLICT,
-        message="this link's confirmation deadline has passed; a fresh link from the administration reopens it",
+        error_code=KONTAKT_LINK_ABGELAUFEN,
+        status=HTTPStatus.GONE,
+        message="this link's confirmation deadline has passed; only a new link from the administration can confirm the seat",
     )
 
 

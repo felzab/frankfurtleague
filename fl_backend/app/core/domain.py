@@ -1661,6 +1661,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_kontakt_bestaetigung.py::TestABarredAddressIsMintedNoLink",
     ),
     Rule(
+        code="REQ-KONTAKT-004",
+        status=HTTPStatus.GONE,
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Saison",
+        summary="a season row's link takes no answer once its own deadline has passed; a re-send mints a new one",
+        implemented_by="app.api.bewerbungen.services.find_saison_frist_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestTheDeadline",
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /teams/{team_id}",
@@ -2084,10 +2093,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
-        summary=(
-            "a seat is not answered while its link's confirmation deadline has passed, the application's or the seat's own, "
-            "which a re-send restarts"
-        ),
+        summary="a seat is not answered while the application's confirmation deadline has passed, which a re-send restarts",
         implemented_by="app.api.bewerbungen.services.find_expired_token_refusal",
         tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestALinkWhoseTimeIsOver",
     ),

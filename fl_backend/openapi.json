@@ -7055,7 +7055,7 @@
             "$ref": "#/components/responses/403.REQ-BEWERBUNG-020"
           },
           "410": {
-            "$ref": "#/components/responses/410.REQ-BEWERBUNG-010"
+            "$ref": "#/components/responses/410.REQ-BEWERBUNG-010.REQ-KONTAKT-004"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -24427,7 +24427,7 @@
           }
         }
       },
-      "410.REQ-BEWERBUNG-010": {
+      "410.REQ-BEWERBUNG-010.REQ-KONTAKT-004": {
         "description": "Gone",
         "content": {
           "application/json": {
@@ -24440,7 +24440,8 @@
                   "properties": {
                     "error_code": {
                       "enum": [
-                        "REQ-BEWERBUNG-010"
+                        "REQ-BEWERBUNG-010",
+                        "REQ-KONTAKT-004"
                       ]
                     }
                   }
