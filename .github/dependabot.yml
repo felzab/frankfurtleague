@@ -139,6 +139,12 @@ updates:
       backend-image-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # Python's release-candidate tags (`3.15.0rc2`) arrive as ordinary minor updates, and production
+      # runs final releases only. A Bundler-syntax range, as this ecosystem reads one: move it to the
+      # next minor's candidates once this one ships.
+      - dependency-name: python
+        versions: [">= 3.15.0.a, < 3.15.0"]
 
   # --- Stack images ---------------------------------------------------------------------------
 
