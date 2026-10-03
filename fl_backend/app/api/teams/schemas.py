@@ -177,6 +177,7 @@ FLKontaktKenntnisnahmeWeg = Literal[
     # A seat holder's own press on the account page.
     "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
     "POST /bewerbungen/einwilligung",
+    "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
 ]
 
 

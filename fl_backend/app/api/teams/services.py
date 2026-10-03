@@ -18,6 +18,7 @@ from app.api.teams.schemas import (
     FLGruppen,
     FLGruppenNames,
     FLGruppenTeam,
+    FLKontaktKenntnisnahmeWeg,
     FLKontaktMint,
     FLKontaktRolle,
     FLPublicTeamsFilterParams,
@@ -31,6 +32,7 @@ from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung_verlauf import compose_born_record
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
@@ -908,17 +910,20 @@ def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, 
 
 
 def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    """The stored provenance where this slot holds a confirmation from the same person, else `None`."""
+    """The stored record, WHOLE, where this slot holds the same person, else `None`.
+
+    Every act, the scope, media answer and label are the person's, and the payload spells none of
+    them: a record recomposed from it erases them.
+    """
 
     held = _seat_held_by(stored_slot, seat=seat)
-    if held is None or not _seat_is_stamped(held):
+    einwilligung = None if held is None else _kenntnisnahme_of(held)
+    if held is None or einwilligung is None:
         return None
 
-    einwilligung = held["einwilligung"]
-
-    # `umfang` too: the WhatsApp scope is the person's own tick, and the payload can only spell the
-    # narrower one.
-    return {"umfang": einwilligung["umfang"], "erfasst_von": einwilligung["erfasst_von"], "bestaetigt_am": einwilligung["bestaetigt_am"]}
+    # The provenance stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
+    # makes it `person`, and a stored blank stamp is none.
+    return dict(einwilligung) if _seat_is_stamped(held) else {**einwilligung, **UNCONFIRMED_HERKUNFT}
 
 
 def _geburtsdatum_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
@@ -936,11 +941,15 @@ def _geburtsdatum_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str |
     return str(held.get("geburtsdatum")) if held.get("geburtsdatum") else None
 
 
-def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
-    """Each seat's provenance and its birthdate, composed here and taken from no payload (`docs/backend/spec.md :: I142`).
+# The contacts editor's own write, which a seat it fills names as its first entry.
+KONTAKTE_WEG: FLKontaktKenntnisnahmeWeg = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"
 
-    A confirmed seat keeps its stamp while the same person holds it; every other seat is recorded as
-    entered on somebody's behalf.
+
+def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any, am: str) -> dict[str, Any] | None:
+    """Each seat's record and its birthdate, composed here rather than taken from the payload (`docs/backend/spec.md :: I142`).
+
+    A seat its person keeps keeps its record; any other is born with the administrator's `erteilt`
+    entry under the payload's label.
     """
 
     if kontakte is None:
@@ -955,14 +964,43 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
             continue
 
         stored_slot = stored_block.get(slot)
-        herkunft = _confirmation_held_by(stored_slot, seat=seat) or UNCONFIRMED_HERKUNFT
-        composed[slot] = {
-            **seat,
-            "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat),
-            "einwilligung": {**seat["einwilligung"], **herkunft},
-        }
+        einwilligung = _confirmation_held_by(stored_slot, seat=seat)
+        if einwilligung is None:
+            # Born afresh (`docs/backend/spec.md :: I865`): nothing of a person who left travels to the
+            # one seated, and nobody filling a seat for another person may give their media consent.
+            einwilligung = compose_born_record(
+                block={**seat["einwilligung"], **UNCONFIRMED_HERKUNFT, "medien": False}, akt="erteilt", ueber=KONTAKTE_WEG, am=am
+            )
+        composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
 
     return composed
+
+
+def kontakte_fassungen_genannt(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, str]:
+    """The labels a contacts save stamps, keyed by seat: all but one an unchanged person names back as stored.
+
+    Keyed on the PERSON, never the seat: a seat handed to somebody else is a new acceptance.
+    """
+
+    if kontakte is None:
+        return {}
+
+    stored_block = stored if isinstance(stored, Mapping) else {}
+    genannt: dict[str, str] = {}
+
+    for slot in KONTAKT_SLOTS:
+        seat = kontakte.get(slot)
+        if not isinstance(seat, Mapping):
+            continue
+
+        label = str(seat["einwilligung"]["text_version"])
+        held = _confirmation_held_by(stored_block.get(slot), seat=seat)
+        # Carried rather than stamped: the save stores the record it holds, whichever page that label is
+        # a version of, so nothing new is claimed by naming it back.
+        if held is None or held.get("text_version") != label:
+            genannt[slot] = label
+
+    return genannt
 
 
 def compose_kontakte_at_entry(*, kontakte: Any) -> Any:

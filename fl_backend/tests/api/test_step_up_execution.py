@@ -24,6 +24,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S
 from app.main import create_app
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
@@ -156,7 +157,8 @@ class TestTheClubsContacts:
             "nachname": "Musterfrau",
             "email": "ida@example.com",
             "telefon": "+4917010000001",
-            "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-03-01"},
+            # The running label, so the label judgement admits the newcomer and the step-up alone refuses.
+            "einwilligung": {"umfang": "kontaktdaten", "text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
         }
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:

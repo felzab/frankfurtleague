@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -17,6 +18,7 @@ from app.api.einladungen.services import (
     find_saison_vorbei_refusal,
     find_team_in_saison_refusal,
 )
+from app.api.einwilligung.services import find_fassung_refusal
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
@@ -69,6 +71,7 @@ from app.api.teams.services import (
     find_retire_refusal,
     has_taken_place,
     in_declaration_order,
+    kontakte_fassungen_genannt,
     links_owed,
     mint_answer,
     row_takes_links,
@@ -97,9 +100,11 @@ from app.core.dependencies import (
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
@@ -583,6 +588,7 @@ async def patch_saison_team_kontakte(
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLPatchSaisonTeamKontakteResponse:
     """
     Rewrite the three people this team is reached through for one season. Null clears the block.
@@ -602,6 +608,11 @@ async def patch_saison_team_kontakte(
     live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A row of a `past`
     season, or of a team that has left it, is minted no link at all. A save minting a link, or voiding one its person
     could still answer, is refused `REQ-AUTH-009` as the clearing is; a save doing neither is not.
+
+    **A seat the same person keeps keeps its record whole**, every act on it included, and the save appends nothing
+    there; a seat newly filled or handed to another person is born with one `erteilt` entry, and its label must be the
+    application form's running one (`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page
+    it is a version of, or the running one, and its record is carried either way.
     """
 
     if kontakte_data.kontakte is None:
@@ -627,8 +638,11 @@ async def patch_saison_team_kontakte(
         )
 
         refuse(find_kontakte_precondition_refusal(erwartet=payload["kontakte_stand"], stored=stored.get("kontakte")))
+        # In session too: the kept arm reads the stored person, whom an erasure or a handover may just have moved.
+        genannt = kontakte_fassungen_genannt(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
+        refuse(find_fassung_refusal(seite="bewerbung", genannt=genannt))
 
-        kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
+        kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"), am=log_stamp(germany_now))
 
         # In session, as the precondition is: a rollover closing the season beside this save mails no link for it.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)

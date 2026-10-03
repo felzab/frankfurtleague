@@ -89,7 +89,7 @@ def person(vorname: str) -> dict[str, Any]:
         "nachname": "Musterfrau",
         "email": f"{vorname.lower()}@example.com",
         "telefon": TELEFON[vorname],
-        "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-03-01"},
+        "einwilligung": {"umfang": "kontaktdaten", "text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
     }
 
 
@@ -191,6 +191,7 @@ async def save(
         db=database.client,
         refuse_unconfirmed=step_up,
         today=today,
+        germany_now=NOW,
     )
 
 
