@@ -498,83 +498,88 @@ the club editor's single picker, share one write and grade a pair through
 `fl_frontend/src/features/saisons/utils.ts :: findSwapPartnerRefusal`, so neither can offer a pair
 the other refuses.
 
-| Action                            | Slice          | Invalidates                                                                                    |
-| --------------------------------- | -------------- | ---------------------------------------------------------------------------------------------- |
-| `patchAdminSpielDataAction`       | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                           |
-| `previewAdminSpielDataAction`     | spiele         | **nothing** — it writes nothing (`dry_run=true`)                                               |
-| `postSpielortAction`              | spielorte      | **nothing** — no cached read holds a venue                                                     |
-| `patchSpielortAction`             | spielorte      | `spiele`                                                                                       |
-| `deleteSpielortAction`            | spielorte      | **nothing**                                                                                    |
-| `reactivateSpielortAction`        | spielorte      | **nothing**                                                                                    |
-| `postSchiedsrichterAction`        | schiedsrichter | **nothing** — no cached read holds a referee                                                   |
-| `patchSchiedsrichterAction`       | schiedsrichter | `spiele`                                                                                       |
-| `deleteSchiedsrichterAction`      | schiedsrichter | **nothing**                                                                                    |
-| `reactivateSchiedsrichterAction`  | schiedsrichter | **nothing**                                                                                    |
-| `anonymiseSchiedsrichterAction`   | schiedsrichter | `spiele` — the repointed booking fans into every fixture the erased referee held               |
-| `einladeSchiedsrichterAction`     | schiedsrichter | **nothing** — no cached read holds a referee's confirmation link                               |
-| `postTeamAction`                  | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
-| `patchTeamAction`                 | teams          | `teams`, `spiele`                                                                              |
-| `deleteTeamAction`                | teams          | `teams`                                                                                        |
-| `reactivateTeamAction`            | teams          | `teams`                                                                                        |
-| `postSaisonTeamAction`            | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
-| `patchSaisonTeamAction`           | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                           |
-| `replaceSaisonTeamAction`         | teams          | `spiele`, `teams`, `spieler`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                |
-| `patchSpielerAction`              | spieler        | `spieler`                                                                                      |
-| `deleteSpielerAction`             | spieler        | `spieler`                                                                                      |
-| `eraseSpielerAction`              | spieler        | `spieler`                                                                                      |
-| `reactivateSpielerAction`         | spieler        | `spieler`                                                                                      |
-| `postSaisonSpielerAction`         | spieler        | `spieler`                                                                                      |
-| `patchSaisonSpielerAction`        | spieler        | `spieler`                                                                                      |
-| `deleteSaisonSpielerAction`       | spieler        | `spieler`                                                                                      |
-| `reactivateSaisonSpielerAction`   | spieler        | `spieler`                                                                                      |
-| `patchKaderZeileAction`           | spieler        | `spieler`                                                                                      |
-| `deleteKaderZeileAction`          | spieler        | `spieler`                                                                                      |
-| `postSaisonAction`                | saisons        | `saisons`                                                                                      |
-| `patchSaisonAction`               | saisons        | `saisons`, `teams`                                                                             |
-| `activateSaisonAction`            | saisons        | `saisons`, `spiele`, `spieltage`, `teams`, `spieler`                                           |
-| `swapGruppenAction`               | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                                                    |
-| `generateSpielplanAction`         | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                            |
-| `undrawSpielplanAction`           | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                            |
-| `patchSpieltagAction`             | spieltage      | `spieltage`                                                                                    |
-| `annehmenBewerbungAction`         | bewerbungen    | `teams`, + `teams:saison_id:{id}`                                                              |
-| `ablehnenBewerbungAction`         | bewerbungen    | **nothing** — a decline moves this application's own row, which no cached read holds           |
-| `einwilligungErneutSendenAction`  | bewerbungen    | **nothing** — no cached read holds an application                                              |
-| `kontaktEmailKorrigierenAction`   | bewerbungen    | **nothing** — no cached read holds an application                                              |
-| `besetzeKontaktSitzAction`        | bewerbungen    | **nothing** — no cached read holds an application                                              |
-| `postEinladungAction`             | einladungen    | **nothing** — no cached read holds an invitation                                               |
-| `mailEinladungAction`             | einladungen    | **nothing** — its only write is the delivery record, which no cached read holds                |
-| `deleteEinladungAction`           | einladungen    | **nothing** — no cached read holds an invitation                                               |
-| `previewEinladungVersandAction`   | einladungen    | **nothing** — it writes nothing                                                                |
-| `postEinladungVersandAction`      | einladungen    | **nothing** — no cached read holds an invitation                                               |
-| `patchSaisonTeamKontakteAction`   | kontakte       | **nothing** — the only read carrying the block is `getTeamMemberships`, which is React `cache` |
-| `eraseKontaktpersonAction`        | kontakte       | **nothing** — no cached read holds a contact person                                            |
-| `readKontaktErasureAnsichtAction` | kontakte       | **nothing** — it writes nothing                                                                |
-| `einladeKontaktAction`            | kontakte       | **nothing** — no cached read holds a seat's confirmation link                                  |
-| `postSperreAction`                | sperrliste     | **nothing** — no cached read holds a ban                                                       |
-| `deleteSperreAction`              | sperrliste     | **nothing** — no cached read holds a ban                                                       |
-| `postBerechtigungAction`          | berechtigungen | **nothing** — no cached read holds a grant                                                     |
-| `deleteBerechtigungAction`        | berechtigungen | **nothing** — no cached read holds a grant                                                     |
-| `patchBerechtigungAction`         | berechtigungen | **nothing** — no cached read holds a grant                                                     |
-| `renamePasskeyAction`             | passkeys       | **nothing** — no cached read holds a passkey                                                   |
-| `removePasskeyAction`             | passkeys       | **nothing** — no cached read holds a passkey                                                   |
-| `readPasskeyStandAction`          | passkeys       | **nothing** — it writes nothing                                                                |
-| `endAnmeldungAction`              | konto          | **nothing** — no cached read holds a session                                                   |
-| `endAndereAnmeldungenAction`      | konto          | **nothing** — no cached read holds a session                                                   |
-| `pruefeInhaberAction`             | konto          | **nothing** — it writes nothing                                                                |
-| `pruefeAdministratorAction`       | admin          | **nothing** — it writes nothing                                                                |
-| `handleSignIn`                    | auth           | —                                                                                              |
-| `signOutAction`                   | auth           | —                                                                                              |
+| Action                                  | Slice          | Invalidates                                                                                    |
+| --------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------- |
+| `patchAdminSpielDataAction`             | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                           |
+| `previewAdminSpielDataAction`           | spiele         | **nothing** — it writes nothing (`dry_run=true`)                                               |
+| `postSpielortAction`                    | spielorte      | **nothing** — no cached read holds a venue                                                     |
+| `patchSpielortAction`                   | spielorte      | `spiele`                                                                                       |
+| `deleteSpielortAction`                  | spielorte      | **nothing**                                                                                    |
+| `reactivateSpielortAction`              | spielorte      | **nothing**                                                                                    |
+| `postSchiedsrichterAction`              | schiedsrichter | **nothing** — no cached read holds a referee                                                   |
+| `patchSchiedsrichterAction`             | schiedsrichter | `spiele`                                                                                       |
+| `deleteSchiedsrichterAction`            | schiedsrichter | **nothing**                                                                                    |
+| `reactivateSchiedsrichterAction`        | schiedsrichter | **nothing**                                                                                    |
+| `anonymiseSchiedsrichterAction`         | schiedsrichter | `spiele` — the repointed booking fans into every fixture the erased referee held               |
+| `einladeSchiedsrichterAction`           | schiedsrichter | **nothing** — no cached read holds a referee's confirmation link                               |
+| `postTeamAction`                        | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
+| `patchTeamAction`                       | teams          | `teams`, `spiele`                                                                              |
+| `deleteTeamAction`                      | teams          | `teams`                                                                                        |
+| `reactivateTeamAction`                  | teams          | `teams`                                                                                        |
+| `postSaisonTeamAction`                  | teams          | `teams`, + `teams:saison_id:{id}`                                                              |
+| `patchSaisonTeamAction`                 | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                           |
+| `replaceSaisonTeamAction`               | teams          | `spiele`, `teams`, `spieler`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                |
+| `patchSpielerAction`                    | spieler        | `spieler`                                                                                      |
+| `deleteSpielerAction`                   | spieler        | `spieler`                                                                                      |
+| `eraseSpielerAction`                    | spieler        | `spieler`                                                                                      |
+| `reactivateSpielerAction`               | spieler        | `spieler`                                                                                      |
+| `postSaisonSpielerAction`               | spieler        | `spieler`                                                                                      |
+| `patchSaisonSpielerAction`              | spieler        | `spieler`                                                                                      |
+| `deleteSaisonSpielerAction`             | spieler        | `spieler`                                                                                      |
+| `reactivateSaisonSpielerAction`         | spieler        | `spieler`                                                                                      |
+| `patchKaderZeileAction`                 | spieler        | `spieler`                                                                                      |
+| `deleteKaderZeileAction`                | spieler        | `spieler`                                                                                      |
+| `patchSpielerEinwilligungAction`        | spieler        | `spieler` — the consent is an input of the public squad read                                   |
+| `patchSchiedsrichterEinwilligungAction` | schiedsrichter | `spiele` — the fixtures read carries the referee's name                                        |
+| `patchSitzEinwilligungAction`           | kontakte       | **nothing** — no cached read holds a seat's media choice                                       |
+| `postSaisonAction`                      | saisons        | `saisons`                                                                                      |
+| `patchSaisonAction`                     | saisons        | `saisons`, `teams`                                                                             |
+| `activateSaisonAction`                  | saisons        | `saisons`, `spiele`, `spieltage`, `teams`, `spieler`                                           |
+| `swapGruppenAction`                     | saisons        | `teams`, `spiele`, + both `:saison_id:{id}`                                                    |
+| `generateSpielplanAction`               | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                            |
+| `undrawSpielplanAction`                 | saisons        | `saisons`, `spieltage`, `spiele`, `teams`, + both `:saison_id:{id}`                            |
+| `patchSpieltagAction`                   | spieltage      | `spieltage`                                                                                    |
+| `annehmenBewerbungAction`               | bewerbungen    | `teams`, + `teams:saison_id:{id}`                                                              |
+| `ablehnenBewerbungAction`               | bewerbungen    | **nothing** — a decline moves this application's own row, which no cached read holds           |
+| `einwilligungErneutSendenAction`        | bewerbungen    | **nothing** — no cached read holds an application                                              |
+| `kontaktEmailKorrigierenAction`         | bewerbungen    | **nothing** — no cached read holds an application                                              |
+| `besetzeKontaktSitzAction`              | bewerbungen    | **nothing** — no cached read holds an application                                              |
+| `postEinladungAction`                   | einladungen    | **nothing** — no cached read holds an invitation                                               |
+| `mailEinladungAction`                   | einladungen    | **nothing** — its only write is the delivery record, which no cached read holds                |
+| `deleteEinladungAction`                 | einladungen    | **nothing** — no cached read holds an invitation                                               |
+| `previewEinladungVersandAction`         | einladungen    | **nothing** — it writes nothing                                                                |
+| `postEinladungVersandAction`            | einladungen    | **nothing** — no cached read holds an invitation                                               |
+| `patchSaisonTeamKontakteAction`         | kontakte       | **nothing** — the only read carrying the block is `getTeamMemberships`, which is React `cache` |
+| `eraseKontaktpersonAction`              | kontakte       | **nothing** — no cached read holds a contact person                                            |
+| `readKontaktErasureAnsichtAction`       | kontakte       | **nothing** — it writes nothing                                                                |
+| `einladeKontaktAction`                  | kontakte       | **nothing** — no cached read holds a seat's confirmation link                                  |
+| `postSperreAction`                      | sperrliste     | **nothing** — no cached read holds a ban                                                       |
+| `deleteSperreAction`                    | sperrliste     | **nothing** — no cached read holds a ban                                                       |
+| `postBerechtigungAction`                | berechtigungen | **nothing** — no cached read holds a grant                                                     |
+| `deleteBerechtigungAction`              | berechtigungen | **nothing** — no cached read holds a grant                                                     |
+| `patchBerechtigungAction`               | berechtigungen | **nothing** — no cached read holds a grant                                                     |
+| `renamePasskeyAction`                   | passkeys       | **nothing** — no cached read holds a passkey                                                   |
+| `removePasskeyAction`                   | passkeys       | **nothing** — no cached read holds a passkey                                                   |
+| `readPasskeyStandAction`                | passkeys       | **nothing** — it writes nothing                                                                |
+| `endAnmeldungAction`                    | konto          | **nothing** — no cached read holds a session                                                   |
+| `endAndereAnmeldungenAction`            | konto          | **nothing** — no cached read holds a session                                                   |
+| `pruefeInhaberAction`                   | konto          | **nothing** — it writes nothing                                                                |
+| `pruefeAdministratorAction`             | admin          | **nothing** — it writes nothing                                                                |
+| `handleSignIn`                          | auth           | —                                                                                              |
+| `signOutAction`                         | auth           | —                                                                                              |
 
 What the table cannot carry:
 
 - **The public application form's create is absent by rule**: every row but the `auth` pair, the
-  account page's six and a seat holder's two is an admin mutation, which a write that authorizes
+  account page's six, a seat holder's two and the three consent writes is an admin mutation, which a write that authorizes
   nobody can never be, and it invalidates nothing — no cached read holds an application (§1.2).
 - **A seat holder's two run under `fl_frontend/src/shared/utils/personMutation.ts ::
 runPersonMutation`** — `patchKaderZeileAction` and `deleteKaderZeileAction` — the admin spine over a
   guard deriving the seat the action claims from the person's own session (I551). They live in
   the slice's `personActions.ts`, never its `actions.ts`, whose every export the admin spine's sweep
   holds to the administrator's guard.
+- **The three consent writes run under `fl_frontend/src/shared/utils/personMutation.ts ::
+runPersonRecordMutation`**, each claiming the person's own record rather than a seat (I893).
 - **The account page's six run under `fl_frontend/src/shared/utils/kontoMutation.ts ::
 runKontoMutation`** — `renamePasskeyAction`, `removePasskeyAction`, `readPasskeyStandAction`,
   `endAnmeldungAction`, `endAndereAnmeldungenAction` and `pruefeInhaberAction` — the admin spine
@@ -2360,6 +2365,8 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I943 | **A contact seat's message names the seats it covers** on its tags, its key and both delivery writes; an event naming none reaches no seat                                                                                                         | `fl_frontend/src/features/zustellung/notifications.ts :: zielZustellungTags` and `:: zielIdempotenzSchluessel`, `fl_frontend/src/features/bewerbungen/zustellung.ts :: leseZustellEreignis`; `fl_frontend/src/features/zustellung/notifications.test.ts`, `fl_frontend/src/features/bewerbungen/zustellung.test.ts`                                                                                                                                                                                                                                                                                                                                                                                |
 | I891 | **One control changes every consent a person holds**, each choice named by its own words and described by the paragraph governing it                                                                                                               | `fl_frontend/src/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx :: EinwilligungForm`; `fl_frontend/src/features/konto/components/forms/EinwilligungForm/EinwilligungForm.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | I892 | **A consent control offers a grant only where the record admits one**, and a withdrawal on every record holding a consent                                                                                                                          | `fl_frontend/src/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx :: EinwilligungForm`; `fl_frontend/src/features/konto/components/forms/EinwilligungForm/EinwilligungForm.test.ts :: "on a record that takes a withdrawal alone"`                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| I893 | **Every consent write claims the person's record, never a seat** (I917), a past season's seat and a retired record included                                                                                                                        | `fl_frontend/src/shared/utils/personActionSpine.test.ts :: CLAIMS_A_RECORD`; each consent action's case reaching the backend with no Funktion held                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| I894 | **A consent write drops the cached public read its record feeds**: the pupil's `spieler`, the referee's `spiele`                                                                                                                                   | `fl_frontend/src/features/spieler/personActions.test.ts`, `fl_frontend/src/features/schiedsrichter/personActions.test.ts`, reading `cacheCalls`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## 3. Violation → remedy
 

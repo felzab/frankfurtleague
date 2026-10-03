@@ -15,9 +15,9 @@ import type { ActionResult } from "@/shared/types/types";
 import type { FLSchiedsrichterSelbstEinwilligungPayload } from "./schemas";
 
 /**
- * A referee's own consent, pressed on the account page. The page binds the record's id, one address
- * possibly holding several referee rows; it claims that record rather than a seat, so a retired
- * referee reaches the backend to withdraw a consent the league still holds.
+ * A referee's own consent. The page binds the record's id, one address possibly holding several
+ * referee rows, and the write claims that record, so a retired referee can still withdraw
+ * (`docs/frontend/spec.md :: I893`).
  */
 export async function patchSchiedsrichterEinwilligungAction(
   schiedsrichterId: string,

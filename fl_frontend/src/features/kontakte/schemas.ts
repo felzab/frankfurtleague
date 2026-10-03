@@ -5,6 +5,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 // other response of this API publishes.
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
+import { FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
 import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
@@ -133,3 +134,19 @@ export const FLKontaktEinladenResponseSchema = BaseAPIResponseSchema.extend({
   bestaetigung: FLKontaktMintSchema,
 });
 export type FLKontaktEinladenResponse = z.infer<typeof FLKontaktEinladenResponseSchema>;
+
+/**
+ * Mirrors `FLSaisonTeamPersonEinwilligungPayload`: a seat holder's media choice alone, its contact
+ * scope being no publication choice. The label rule is the person writes' one rule, read off the pupil's.
+ */
+export const FLSaisonTeamPersonEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema.pick({ medien: true, text_version: true });
+export type FLSaisonTeamPersonEinwilligungPayload = z.infer<typeof FLSaisonTeamPersonEinwilligungPayloadSchema>;
+
+/** Mirrors `FLSaisonTeamPersonEinwilligungResponse`: every seat of the person's on that row, moved together. */
+export const FLSaisonTeamPersonEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string(),
+  rollen: z.array(FLKontaktRolleSchema),
+  medien: z.boolean(),
+});
+export type FLSaisonTeamPersonEinwilligungResponse = z.infer<typeof FLSaisonTeamPersonEinwilligungResponseSchema>;

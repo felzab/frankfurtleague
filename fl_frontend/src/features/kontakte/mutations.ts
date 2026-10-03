@@ -5,6 +5,7 @@ import {
   FLKontaktErasureAnsichtResponseSchema,
   FLKontaktErasureResponseSchema,
   FLPatchSaisonTeamKontakteResponseSchema,
+  FLSaisonTeamPersonEinwilligungResponseSchema,
 } from "./schemas";
 
 import type {
@@ -15,6 +16,8 @@ import type {
   FLKontaktErasureResponse,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
+  FLSaisonTeamPersonEinwilligungPayload,
+  FLSaisonTeamPersonEinwilligungResponse,
 } from "./schemas";
 
 /**
@@ -72,6 +75,24 @@ export async function einladeKontakt({ team_id, saison_id, rolle }: FLKontaktEin
     {
       method: "POST",
       authType: "admin",
+    },
+  );
+}
+
+// A seat holder's own media choice, under the person lane's actor: the backend moves it on every seat
+// of theirs on that row and judges the seat itself, a past season's included for a withdrawal.
+export async function patchSitzEinwilligung(
+  teamId: string,
+  saisonId: string,
+  payload: FLSaisonTeamPersonEinwilligungPayload,
+): Promise<FLSaisonTeamPersonEinwilligungResponse> {
+  return apiClient<FLSaisonTeamPersonEinwilligungResponse>(
+    `/teams/${teamId}/saisons/${saisonId}/person/einwilligung`,
+    FLSaisonTeamPersonEinwilligungResponseSchema,
+    {
+      method: "PATCH",
+      authType: "admin",
+      body: JSON.stringify(payload),
     },
   );
 }
