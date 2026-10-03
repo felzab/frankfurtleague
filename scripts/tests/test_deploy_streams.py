@@ -1077,6 +1077,16 @@ def test_a_credential_line_in_any_form_compose_reads_refuses(line: str) -> None:
     assert "credential-lines-passed" not in output, output
 
 
+def test_a_multi_line_quoted_value_declares_nothing_and_the_line_after_it_is_judged() -> None:
+    """Compose reads the middle line as the value's data; the line after the closing quote is a declaration again."""
+    text = 'NOTE="first\nAUTH_SECRET: data the value carries\nlast"\nAUTH_SECRET=a value no case reads\n'
+    code, output, _ = _run(f"printf '%s' {shlex.quote(text)} > fl_backend/.env\nrefuse_credential_lines fl_backend/.env\n")
+
+    assert code == 2, output
+    assert "fl_backend/.env: AUTH_SECRET\n" in output.replace("\r", ""), output
+    assert "data the value carries" not in output and "a value no case reads" not in output, output
+
+
 def test_a_credential_line_behind_a_byte_order_mark_refuses() -> None:
     """Compose drops the mark before parsing (compose-go `dotenv/godotenv.go :: parseWithLookup`, read 2026-10-03)."""
     code, output, _ = _run(
@@ -1086,6 +1096,28 @@ def test_a_credential_line_behind_a_byte_order_mark_refuses() -> None:
     assert code == 2, output
     assert "fl_backend/.env: AUTH_SECRET" in output, output
     assert "a value no case reads" not in output, output
+
+
+def test_a_multi_line_quoted_value_every_reader_takes_alike_is_clean() -> None:
+    """Next, `parseEnv` and python-dotenv each read this three-line value alike; its middle line opens `word:`."""
+    code, output = _env_spellings('NOTE="first line\nhttps://example.org/a\nlast"\nLOG_FORMAT=json\n')
+
+    assert code == 0, output
+    assert "judged-clean" in output, output
+
+
+@pytest.mark.parametrize(
+    ("text", "said"),
+    [
+        pytest.param('NOTE="first\nsecond $base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="dollar-inside"),
+        pytest.param('NOTE="first\nsecond\n', "line 1: NOTE's quoted value never closes", id="unclosed"),
+    ],
+)
+def test_a_multi_line_quoted_value_the_readers_disagree_on_refuses(text: str, said: str) -> None:
+    code, output = _env_spellings(text)
+
+    assert code == 2, output
+    assert said in output, output
 
 
 def test_a_spelling_behind_a_byte_order_mark_refuses() -> None:

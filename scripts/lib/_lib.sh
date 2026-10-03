@@ -770,17 +770,43 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
+# A backslash escapes either quote, as `fl_frontend/scripts/check-environment-names.mjs :: endOfQuoted`
+# reads one: closing on an escaped quote reads the value's next line as a declaration.
+quote_closes() { # $1 the text, $2 the quote, $3 the index to read from
+  local text="$1" quote="$2" i="$3"
+  while (( i < ${#text} )); do
+    if [[ "${text:i:1}" == "\\" ]]; then
+      i=$(( i + 2 ))
+      continue
+    fi
+    [[ "${text:i:1}" == "$quote" ]] && return 0
+    i=$(( i + 1 ))
+  done
+  return 1
+}
+
 # Compose and each package's dev server read an environment file, five spellings apart
 # (`docs/ops/spec.md :: I487`). Judged as text before a start's first compose call; names and line
 # numbers only, never a value.
 check_env_spellings() { # $1 the file
-  local line number=0 name value IFS=' '
+  local line number=0 name value open="" opened_at=0 IFS=' '
   local -a wrong=()
   while IFS= read -r line || [[ -n "$line" ]]; do
     number=$(( number + 1 ))
     line="${line%$'\r'}"
     # Compose drops a byte-order mark before parsing, so the first line is judged without it too.
     (( number > 1 )) || line="${line#$'\xEF\xBB\xBF'}"
+    # A quoted value's later lines are its data, judged for what the readers decode and never as a
+    # declaration (`fl_frontend/scripts/check-environment-names.mjs :: scanNames`).
+    if [[ -n "$open" ]]; then
+      if [[ "$line" == *'$'* ]]; then
+        wrong+=("line ${number}: ${name}'s quoted value holds a \$, which each reader substitutes its own way")
+      elif [[ "$line" == *\\* ]]; then
+        wrong+=("line ${number}: ${name}'s quoted value holds a backslash, which each reader decodes its own way")
+      fi
+      if quote_closes "$line" "$open" 0; then open=""; fi
+      continue
+    fi
     [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
     # Compose takes `NAME:value` in every spacing, Next's reader only with a space after the colon;
     # python-dotenv and `parseEnv` skip it, and the deploy's frontend checker cannot parse it.
@@ -800,7 +826,14 @@ check_env_spellings() { # $1 the file
     elif [[ "$value" != [\"\']* && ( "$value" == '#'* || "$value" =~ [^[:space:]]# ) ]]; then
       wrong+=("line ${number}: ${name} holds a # with no space before it, where Next's reader alone ends the value")
     fi
+    if [[ "$value" == [\"\']* ]] && ! quote_closes "$value" "${value:0:1}" 1; then
+      open="${value:0:1}"; opened_at="$number"
+    fi
   done < "$1"
+  # Compose refuses a file whose quote never closes; read as closed, every line below it went unjudged.
+  if [[ -n "$open" ]]; then
+    wrong+=("line ${opened_at}: ${name}'s quoted value never closes")
+  fi
   if (( ${#wrong[@]} )); then
     refuse "$1 holds a value its readers would not agree on, so the service and its dev server would
 each be handed a different one:
@@ -972,19 +1005,27 @@ whether it would boot. Its own answer is above."
 # with any value or none (`docs/ops/spec.md :: I508`). Names only.
 refuse_credential_lines() { # $@ the environment files
   # A space, not this file's newline, joins one file's names onto its own line of the refusal.
-  local file line name moved number IFS=' '
+  local file line name moved number value open IFS=' '
   local -a held found=()
   for file in "$@"; do
-    held=(); number=0
+    held=(); number=0; open=""
     while IFS= read -r line || [[ -n "$line" ]]; do
       number=$(( number + 1 ))
       line="${line%$'\r'}"
       # Compose drops a byte-order mark before parsing, which would otherwise hide the first name here.
       (( number > 1 )) || line="${line#$'\xEF\xBB\xBF'}"
+      # A quoted value's later lines are its data and declare nothing, `word:` among them.
+      if [[ -n "$open" ]]; then
+        if quote_closes "$line" "$open" 0; then open=""; fi
+        continue
+      fi
       # Every form compose's parser ends a name at: `=`, the YAML-style `:`, and a bare name, its
       # pass-through form, which hands the container the shell's own value.
       [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$) ]] || continue
       name="${BASH_REMATCH[2]}"
+      value="${line:${#BASH_REMATCH[0]}}"
+      value="${value#"${value%%[![:space:]]*}"}"
+      if [[ "$value" == [\"\']* ]] && ! quote_closes "$value" "${value:0:1}" 1; then open="${value:0:1}"; fi
       for moved in "${MOVED_ENV_NAMES[@]}" "${RETIRED_ENV_NAMES[@]}"; do
         if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
       done

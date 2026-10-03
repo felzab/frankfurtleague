@@ -490,7 +490,9 @@ being no value an alphabet could narrow: a deploy and a local start refuse, befo
 compose call, a `$` anywhere, which each reader substitutes its own way and Next's inside single
 quotes too; a `#` with no space before it in a bare value; a `\` inside quotes; a leading
 backtick; and a line whose name ends in a colon, which compose reads in every spacing, Next only
-as `NAME: value`, and python-dotenv and `parseEnv` skip (`scripts/lib/_lib.sh :: check_env_spellings`). A matched pair of quotes is left
+as `NAME: value`, and python-dotenv and `parseEnv` skip (`scripts/lib/_lib.sh :: check_env_spellings`).
+A quoted value is judged across every line it spans, those lines declaring nothing to either check,
+and one whose quote never closes is refused. A matched pair of quotes is left
 alone, every reader stripping it alike. A URL writes `$` and `#` percent-encoded.
 
 **The local stack points both application services at its own database through one inline
