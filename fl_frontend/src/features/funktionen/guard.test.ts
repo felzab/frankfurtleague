@@ -268,13 +268,62 @@ describe("the way back from the account page", () => {
   });
 });
 
+/** One referee row as the own-data read serves it; the read's emptiest answer would hold none to show. */
+const SCHIEDSRICHTER_SELBST = {
+  schiedsrichter_id: TEAM_A,
+  name: "Mara Okafor",
+  schule: null,
+  kontakt: { telefon: null, email: "mara@example.org" },
+  geburtsdatum: "2007-03-01",
+  inactive_since: null,
+  einwilligung: {
+    umfang: "intern",
+    erteilt_von: "volljaehrig",
+    datum: "2026-09-01",
+    bestaetigt_am: "2026-09-01",
+    text_version: "2026-09-schiedsrichterseite-3",
+    medien: false,
+  },
+  bestaetigt_text_version: "2026-09-schiedsrichterseite-3",
+  kontext: { vorname: "Mara" },
+  erteilbar: true,
+  medien_angeboten: true,
+};
+
 describe("the referee's page", () => {
-  it("tells a referee that no match is assigned yet", async () => {
+  /* The person tier's own read, and no other: the page shows the referee their own data. */
+  it("reads the referee's own records and shows their data", async () => {
     setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
+    answerReadsWith((endpoint, schema, params) =>
+      endpoint === "/schiedsrichter/selbst"
+        ? { acknowledged: 1, schiedsrichter: [SCHIEDSRICHTER_SELBST] }
+        : EMPTIEST_ANSWER(endpoint, schema, params),
+    );
     const { markup, reads } = await renderedAlone(PersoenlichSchiedsrichterPage);
 
-    assert.deepEqual(reads, [], "the referee's page reads past the session it is drawn from");
-    assert.ok(markup.includes("Dir ist noch kein Spiel zugeteilt."), "the referee's empty state is not what renders");
+    assert.deepEqual(reads, ["/schiedsrichter/selbst"]);
+    assert.ok(textOf(markup, " ").includes("Mara Okafor"), "the referee's own data is not what renders");
+    answerReadsWith(EMPTIEST_ANSWER);
+  });
+
+  /* The row went between the page's check and the backend's: the page's own turn-away, reached late. */
+  it("sends a referee the backend finds no confirmed row for to the landing", async () => {
+    setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
+    answerReadsWith((endpoint) => {
+      throw new APIBadStatusError({
+        message: "refused",
+        url: `http://backend/api/v0${endpoint}`,
+        statusCode: 403,
+        serverErrorCode: "REQ-FUNKTION-001",
+        endpoint: endpoint,
+        method: "GET",
+        readOnly: true,
+        traceId: "0",
+      });
+    });
+
+    assert.deepEqual(await redirectsOf(PersoenlichSchiedsrichterPage), ["/bereich"]);
+    answerReadsWith(EMPTIEST_ANSWER);
   });
 
   /* The page speaks to a referee, so a person holding none is sent where their own Funktionen are. */

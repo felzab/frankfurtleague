@@ -92,9 +92,10 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "GET /spieler/kader/{team_id}/{saison_id}": (error) => (isFunktionLost(error) ? "the forbidden panel, in the page's stead" : null),
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,
-  // The player's page sends a pupil the backend finds no confirmed row for to the landing, as its own
-  // check sends a person holding no player row.
+  // The player's and the referee's pages send a person the backend finds no confirmed row for to the
+  // landing, as each page's own check sends a person holding none.
   "GET /spieler/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  "GET /schiedsrichter/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
   "PATCH /spieler/selbst/einwilligung": konto.mapEigeneEinwilligungRefusal,
   "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": konto.mapEigeneEinwilligungRefusal,
   "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": konto.mapEigeneEinwilligungRefusal,

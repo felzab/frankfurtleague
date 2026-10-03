@@ -1,16 +1,19 @@
+import { cache } from "react";
+
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
+import { runPersonRead } from "@/shared/utils/personRead";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
 import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
-import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
+import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSelbstResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSchiedsrichterListResponse, FLSchiedsrichterSingleResponse } from "./schemas";
+import type { FLSchiedsrichterListResponse, FLSchiedsrichterSelbstResponse, FLSchiedsrichterSingleResponse } from "./schemas";
 import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
 
 /**
@@ -142,3 +145,14 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
     ),
   );
 }
+
+/**
+ * The signed-in referee's own records, refused `REQ-FUNKTION-001` where the backend holds no confirmed
+ * referee row for the address the page's own check passed.
+ */
+// Never `"use cache"`, which keys on the arguments rather than the caller (`docs/frontend/spec.md` §1.2).
+export const getSchiedsrichterSelbst = cache(async (): Promise<FLSchiedsrichterSelbstResponse> =>
+  runPersonRead(() =>
+    apiClient<FLSchiedsrichterSelbstResponse>("/schiedsrichter/selbst", FLSchiedsrichterSelbstResponseSchema, { authType: "admin" }),
+  ),
+);
