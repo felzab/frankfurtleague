@@ -19,7 +19,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSchulePayload,
     FLBewerbungTrikot,
     FLPostBewerbungPayload,
-    normalise_telefon,
 )
 from app.api.bewerbungen.services import (
     BEWERBUNG_FENSTER_GESCHLOSSEN,
@@ -46,7 +45,15 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, find_fassung_refusal
 from app.api.saisons.schemas import FLSaisonStatus
-from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, FLPostTeamPayload, FLTeam, FLTeamRecord, FLTrikotFarbe
+from app.api.teams.schemas import (
+    FLKontaktperson,
+    FLKontaktpersonPayload,
+    FLPostTeamPayload,
+    FLTeam,
+    FLTeamRecord,
+    FLTrikotFarbe,
+    normalise_telefon,
+)
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.addresses import FLAddressPayload

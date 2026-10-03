@@ -27,7 +27,7 @@ export const gleicheAdresse = (a: string, b: string): boolean => asSignInIdentif
 const TELEFON_LAENDERVORWAHLEN = ["0049", "49"] as const;
 
 /**
- * One spelling per number, mirroring `fl_backend/app/api/bewerbungen/schemas.py :: normalise_telefon`.
+ * One spelling per number, mirroring `fl_backend/app/api/teams/schemas.py :: normalise_telefon`.
  * Compared raw, the form accepts a pair the backend refuses as a 422 naming the contact block rather
  * than a box — so the applicant is told to retry what cannot succeed.
  */

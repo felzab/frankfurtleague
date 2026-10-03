@@ -262,7 +262,7 @@ describe("the three people have to be tellable apart", () => {
 });
 
 describe("two spellings of one telephone number are one number", () => {
-  /* `fl_backend/app/api/bewerbungen/schemas.py :: normalise_telefon` compares digits and folds both
+  /* `fl_backend/app/api/teams/schemas.py :: normalise_telefon` compares digits and folds both
      country codes. Compared as raw text here, the form accepts a pair the backend refuses as a 422
      naming the contact block rather than a box, so no box carries the answer. */
   const sharedNumber = (eine: string, andere: string) => {

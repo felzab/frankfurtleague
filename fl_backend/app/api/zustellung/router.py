@@ -1,5 +1,5 @@
 from collections.abc import Callable, Sequence
-from typing import Annotated, Any
+from typing import Annotated
 
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends
@@ -40,10 +40,6 @@ router = APIRouter(
 )
 
 
-def _judged(judge: Callable[..., bool], halter: Any, schluessel: str) -> bool:
-    return judge(bestaetigungen=halter, seat=schluessel)
-
-
 async def _apply(
     *,
     db: DB,
@@ -71,7 +67,8 @@ async def _apply(
         raw = await pull_one_from_db(collection=collection, db_filter={"_id": ziel_id}, projection=projection, session=session)
         # The mapping a carrier sits in stands in for the application's seat block and the carrier's
         # key for the seat, which is what the judges read an entry off.
-        applying = [pfad for pfad in traeger if _judged(judge, *traeger_halter(raw, pfad))]
+        held = {pfad: traeger_halter(raw, pfad) for pfad in traeger}
+        applying = [pfad for pfad, (halter, sitz) in held.items() if judge(bestaetigungen=halter, seat=sitz)]
         if not applying:
             return False
 

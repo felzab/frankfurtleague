@@ -869,12 +869,26 @@ class TestTheStepUp:
 
 class TestAnApplicationsLinkIsAnsweredAsBefore:
     def test_an_application_seat_link_reads_as_the_application_s(self, mongo_replica_set_url: str):
-        """The application is asked first, so a token both could hold, which none can, would still read as the application's."""
+        """The application is asked first: a token a season row holds as well, which no mint can make, still reads as the application's."""
 
         raw = "an-applications-link"
         hashes: Mapping[str, str] = {seat: hash_token(f"{raw}-{seat}") for seat in SEATS}
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            # The season row holds the application's Trainer hash too, so only the order decides which record answers.
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"_id": ROW_OID},
+                {
+                    "$set": {
+                        "kontakte": STORED_UNCONFIRMED,
+                        "bestaetigungen": {
+                            "trainer": compose_kontakt_bestaetigung(token_hash=hashes["trainer"], today=TODAY),
+                            "ansprechperson": None,
+                            "stellvertretung": None,
+                        },
+                    }
+                },
+            )
             await database[Collection.BEWERBUNGEN].insert_one(
                 {
                     "_id": ObjectId("6890a1b2c3d4e5f607a50021"),

@@ -15,10 +15,6 @@ from app.api.teams.schemas import (
     FLTrikotFarbe,
     _KontaktpersonWritablePayload,
 )
-
-# Re-exported where the rule was first written, which the frontend's mirror cites
-# (`fl_frontend/src/features/bewerbungen/schemas.ts`).
-from app.api.teams.schemas import normalise_telefon as normalise_telefon
 from app.shared.alter import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
