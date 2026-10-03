@@ -48,7 +48,8 @@ after(() => rmSync(SECRETS_ROOT, { recursive: true, force: true }));
 
 describe("the schema the three internal API keys share", () => {
   it("takes a key of every class character, the three generators' alphabets among them", () => {
-    // `openssl rand -hex`, base64 with its padding, and `secrets.token_urlsafe`, then each range edge.
+    // `openssl rand -hex`, base64 with its padding, and `secrets.token_urlsafe`, then punctuation
+    // reaching both ends of the range, `!` and `~`.
     for (const key of [pad("0123456789abcdef"), pad("AZaz09+/=="), pad("-_"), pad("!%&(["), pad("]^_a{|}~")]) {
       assert.equal(INTERNAL_API_KEY.safeParse(key).success, true, `refused ${String([...key].length)} class characters`);
     }

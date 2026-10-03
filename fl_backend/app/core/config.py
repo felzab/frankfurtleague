@@ -225,13 +225,16 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
     # A path and never a secret: the directory the secret half reads each credential from.
     secrets_dir: str = Field(default=DEFAULT_SECRETS_DIR, description="The directory each secret file is read from")
 
-    # `forbid`, because a class that drops a key cannot tell a typo from an omission, and the shipped
-    # default serves production. Only the dotenv source hands this class an undeclared name, and it
-    # drops one carrying no value (`docs/backend/spec.md` §1.5).
-
-    # The package's file, the one `docker-compose.yml` lists, so a run from `fl_backend/` reads what
-    # compose hands the container. A container has no file: compose hands it the names as variables.
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid")
+    model_config = SettingsConfigDict(
+        # The package's file, the one `docker-compose.yml` lists, so a run from `fl_backend/` reads what
+        # compose hands the container. A container has no file: compose hands it the names as variables.
+        env_file=".env",
+        env_file_encoding="utf-8",
+        # `forbid`, because a class that drops a key cannot tell a typo from an omission, and the shipped
+        # default serves production. Only the dotenv source hands this class an undeclared name, and it
+        # drops one carrying no value (`docs/backend/spec.md` §1.5).
+        extra="forbid",
+    )
 
     # Declared, or a type checker reads the fields as the constructor's arguments and demands the
     # required ones, which only the sources below supply.
