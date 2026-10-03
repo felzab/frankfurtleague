@@ -17,6 +17,7 @@ from app.api.einladungen.schemas import (
     FLEinladungVersandZeile,
 )
 from app.api.einladungen.services import (
+    LIVE_EINLADUNG,
     WITHOUT_TOKEN_HASH,
     bestaetigte_empfaenger,
     build_live_team_filter,
@@ -1281,7 +1282,7 @@ async def preview_einladungen_versand(
     # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
     live = await pull_many_from_db(
         collection=einladungen_collection,
-        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, "widerrufen_am": None},
+        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_EINLADUNG},
         limit=len(team_ids) or 1,
         projection=dict(WITHOUT_TOKEN_HASH),
     )
