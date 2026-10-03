@@ -323,6 +323,14 @@ async function refuseEnrolment(
 // driver exports no name for it.
 const WRITE_CONFLICT = 112;
 
+// The server's code for an insert a unique index refused; the driver exports no name for it either.
+const DUPLICATE_KEY = 11000;
+
+/** A second row for a credential `fl_frontend/src/core/authIndexes.ts` already holds one of. */
+function isDuplicateCredential(failed: unknown): boolean {
+  return failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "credentialID" in (failed.keyPattern ?? {});
+}
+
 function isWriteConflict(failed: unknown): boolean {
   // The code, not the `TransientTransactionError` label: the driver labels a lost connection and a
   // stepped-down primary that way too, and neither is another change to these passkeys.
@@ -736,6 +744,9 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
 
 const LIBRARY_EVENT_UNKNOWN = "auth.library_failed";
 
+/** The passkey plugin's line for a registration that failed past its verifier, which its error names. */
+const REGISTRATION_FAILED = "Failed to verify registration";
+
 const sessionOptions = {
   expiresIn: SESSION_EXPIRES_IN_SECONDS,
   updateAge: SESSION_UPDATE_AGE_SECONDS,
@@ -890,6 +901,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // `args` is dropped whole: it carries the error object itself, which
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
+
+        // The same authenticator enrolled twice at once: the credential index refuses the second row, inside
+        // a set-up's transaction as a write conflict, and the plugin reports either as any other failure.
+        if (message.startsWith(REGISTRATION_FAILED) && (isDuplicateCredential(raised) || isWriteConflict(raised))) {
+          logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
+          return;
+        }
 
         logger.error(event, undefined, { error_code: "FE-AUTH-003", name: raised?.name ?? "unknown" });
       },

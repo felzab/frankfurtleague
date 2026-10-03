@@ -305,8 +305,15 @@ describe("two enrolments of one administrator, against a real database", () => {
     ]);
 
     assert.deepEqual(
-      { ...raced, rows: (await passkeyRows()).length },
-      { statuses: [200, 500], codes: ["FAILED_TO_VERIFY_REGISTRATION"], notices: 1, warnings: [], rows: 1 },
+      { ...raced, rows: (await passkeyRows()).length, errors: [...errors] },
+      {
+        statuses: [200, 500],
+        codes: ["FAILED_TO_VERIFY_REGISTRATION"],
+        notices: 1,
+        warnings: ["auth.passkey_enrolment_conflict"],
+        rows: 1,
+        errors: [],
+      },
     );
   });
 });
@@ -344,6 +351,7 @@ describe("a passkey setup that signs in, against a real database", () => {
     assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
 
     assert.deepEqual(responses.map((response) => response.status).sort(), [200, 500]);
+    assert.deepEqual([warnings, errors], [["auth.passkey_enrolment_conflict"], []]);
     assert.equal(sent.length - mailedBefore, 1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");
