@@ -116,7 +116,7 @@ type ZustellGemeinsam = {
 };
 
 /** Why a tagged event reached no record. A closed set, because it reaches a log line rather than a reader. */
-type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar";
+type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar" | "rollen_unlesbar";
 
 /**
  * **`bewerbung` is the fall-through**: no message the application flow sends carries a `ziel`, so an
@@ -135,13 +135,18 @@ export type ZustellMeldung =
   | { ziel: "unplatzierbar"; grund: ZustellUnplatzierbarGrund; art: FLZustellungZiel | null };
 
 /** The generic arm: a kind names a population, so an event carrying one without the row's own id is placed nowhere. */
-function leseZielMeldung(ziel: string, zielId: string | undefined, gemeinsam: ZustellGemeinsam): ZustellMeldung {
-  const art = FLZustellungZielSchema.safeParse(ziel);
+function leseZielMeldung(tags: Record<string, string>, gemeinsam: ZustellGemeinsam): ZustellMeldung {
+  const art = FLZustellungZielSchema.safeParse(tags["ziel"]);
   if (!art.success) return { ziel: "unplatzierbar", grund: "ziel_unbekannt", art: null };
 
-  const zeile = CustomObjectIdStringSchema.safeParse(zielId);
+  // A season row's message names the seats it covered, and every other kind's names none: a stray
+  // `rollen` on those is ignored rather than refused, their one carrier needing no seat.
+  const rollen = art.data === "kontakt" ? rollenAus(tags["rollen"]) : [];
+  if (rollen === null) return { ziel: "unplatzierbar", grund: "rollen_unlesbar", art: art.data };
+
+  const zeile = CustomObjectIdStringSchema.safeParse(tags["ziel_id"]);
   const meldung = zeile.success
-    ? FLZustellungEreignisPayloadSchema.safeParse({ ziel: art.data, ziel_id: zeile.data, ...gemeinsam }).data
+    ? FLZustellungEreignisPayloadSchema.safeParse({ ziel: art.data, ziel_id: zeile.data, rollen: rollen, ...gemeinsam }).data
     : undefined;
 
   return meldung === undefined ? { ziel: "unplatzierbar", grund: "ziel_id_unlesbar", art: art.data } : { ziel: art.data, meldung: meldung };
@@ -185,8 +190,7 @@ export function leseZustellEreignis(raw: unknown): ZustellMeldung | null {
     return { ziel: "berechtigung", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
   }
 
-  const ziel = ereignis.data.tags?.["ziel"];
-  if (ziel !== undefined) return leseZielMeldung(ziel, ereignis.data.tags?.["ziel_id"], gemeinsam);
+  if (ereignis.data.tags?.["ziel"] !== undefined) return leseZielMeldung(ereignis.data.tags, gemeinsam);
 
   const bewerbungId = CustomObjectIdStringSchema.safeParse(ereignis.data.tags?.["bewerbung_id"]);
   const rollen = rollenAus(ereignis.data.tags?.["rollen"]);

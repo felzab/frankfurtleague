@@ -280,11 +280,44 @@ describe("which record one event names", () => {
     assert.deepEqual(gelesen?.meldung, {
       ziel: "schiedsrichter",
       ziel_id: ZIEL_ID,
+      rollen: [],
       nachricht_id: MESSAGE_ID,
       stand: "unzustellbar",
       grund: "Suppressed",
       am: EVENT_AT,
     });
+  });
+
+  /* One season row holds three seats, so the event is applied to the seats its message covered and
+     to no other: read without them, a bounce would land on every seat or on none. */
+  it("reads a season row's seats off the message's own tag", () => {
+    const gelesen = leseZustellEreignis(zielEvent({ ziel: "kontakt", ziel_id: ZIEL_ID, rollen: "ansprechperson-trainer", anlass: "empfang" }));
+
+    assert.equal(gelesen?.ziel, "kontakt");
+    assert.deepEqual(gelesen?.ziel === "kontakt" ? gelesen.meldung.rollen : undefined, ["ansprechperson", "trainer"]);
+  });
+
+  /* The endpoint refuses a season row's event naming no seat, and that 422 is answered 200 upstream,
+     so the bounce would vanish with nothing to say so. */
+  it("marks a season row's event naming no seat it knows as unplaceable", () => {
+    for (const rollen of [undefined, "", "kapitaen", "ansprechperson-"]) {
+      const tags: Record<string, string> = { ziel: "kontakt", ziel_id: ZIEL_ID, anlass: "empfang" };
+      if (rollen !== undefined) tags["rollen"] = rollen;
+
+      assert.deepEqual(
+        leseZustellEreignis(zielEvent(tags)),
+        { ziel: "unplatzierbar", grund: "rollen_unlesbar", art: "kontakt" },
+        `rollen ${String(rollen)} was placed`,
+      );
+    }
+  });
+
+  /* A kind with one carrier names no seat, and the endpoint refuses one it is sent: a stray tag is
+     dropped rather than costing the record its event. */
+  it("drops a seat tag on a kind that has none", () => {
+    const gelesen = leseZustellEreignis(zielEvent({ ziel: "schiedsrichter", ziel_id: ZIEL_ID, rollen: "trainer", anlass: "eingang" }));
+
+    assert.deepEqual(gelesen?.ziel === "schiedsrichter" ? gelesen.meldung.rollen : undefined, []);
   });
 
   /* Read as `null` this is dropped exactly as the untagged sign-in mail is, and a slice's bounces
