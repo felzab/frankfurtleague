@@ -15,6 +15,7 @@ from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, seat_is_confirm
 from app.api.kontakte.services import KONTAKT_SLOTS, same_address
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
+from app.shared.einwilligung import Seite
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # What the code refuses is `fl_backend/app/core/domain.py :: RULES`. One code for all three records, so
@@ -22,9 +23,9 @@ from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 SELBST_MEDIEN_ALTER = "REQ-EINWILLIGUNG-002"
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
-KONTO_SEITE_SPIELER: Final = "konto_spieler"
-KONTO_SEITE_SCHIEDSRICHTER: Final = "konto_schiedsrichter"
-KONTO_SEITE_KONTAKT: Final = "konto_kontakt"
+KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
+KONTO_SEITE_SCHIEDSRICHTER: Final[Seite] = "konto_schiedsrichter"
+KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 
 # The place `find_fassung_refusal` names in its message: each PATCH stamps one label.
 _FASSUNG_ORT: Final = "einwilligung"
@@ -94,7 +95,7 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
     )
 
 
-def find_konto_fassung_refusal(*, seite: str, text_version: str, erteilt: bool) -> WriteRefusal | None:
+def find_konto_fassung_refusal(*, seite: Seite, text_version: str, erteilt: bool) -> WriteRefusal | None:
     """`REQ-EINWILLIGUNG-001` on an account-page control: a grant names the page's running label, a withdrawal any version of it.
 
     Refusing a withdrawal from a page loaded before a deploy would make taking a consent back harder
