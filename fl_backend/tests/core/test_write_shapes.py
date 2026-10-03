@@ -33,6 +33,8 @@ from tests.core.app_source import (
     removals,
     session_carriers,
     session_handoffs,
+    snapshot_blocks,
+    snapshot_carriers,
     transactional_callbacks,
 )
 
@@ -740,6 +742,34 @@ class TestEveryHelperTheTransactionReachesReadsInSession:
         """
 
         loose = [f"{carrier.where} reads with {read}" for carrier in session_carriers() for read, carries in carrier.reads if not carries]
+
+        assert loose == []
+
+
+# Two snapshot sessions the finder must see, so a finder matching nothing cannot pass the clause below.
+SNAPSHOT_READERS = frozenset({"app/api/berechtigungen/crud.py :: _grant_and_its_record", "app/api/spieler/person_router.py :: get_kader"})
+
+
+class TestEveryReadInsideASnapshotSessionCarriesIt:
+    """That a snapshot session's reads are one point in time.
+
+    A read left off it sees whatever committed last, and nothing at run time tells the two apart.
+    """
+
+    def test_the_sweep_sees_the_snapshot_sessions_and_what_each_reads(self):
+        blocks = snapshot_blocks()
+
+        assert SNAPSHOT_READERS <= {block.where for block in blocks}, "a snapshot session is no longer seen, so the clause below asks less"
+        assert [block.where for block in blocks if not (block.reads or block.seeds)] == [], "a block is seen reading nothing at all"
+
+    def test_no_read_and_no_handoff_inside_one_leaves_its_session(self):
+        """Write a read without `session=` straight into `app/api/spieler/person_router.py :: get_kader`'s snapshot and this fails."""
+
+        loose = [
+            *(f"{block.where} reads with {read}" for block in snapshot_blocks() for read, carries in block.reads if not carries),
+            *(f"{block.where} hands {called} no session" for block in snapshot_blocks() for called, bound in block.handoffs if not bound),
+            *(f"{carrier.where} reads with {read}" for carrier in snapshot_carriers() for read, carries in carrier.reads if not carries),
+        ]
 
         assert loose == []
 

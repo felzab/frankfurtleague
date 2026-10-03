@@ -685,7 +685,14 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
     away answers nowhere in it.
     """
 
-    frontier = [(handoff.declaration, handoff.declared_in, handoff.parameter) for handoff in session_handoffs() if handoff.in_session]
+    return _carriers_from(
+        [(handoff.declaration, handoff.declared_in, handoff.parameter) for handoff in session_handoffs() if handoff.in_session]
+    )
+
+
+def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[SessionCarrier, ...]:
+    """Each declaration a session is handed to from `frontier`, followed on through every further hand-off."""
+
     seen: set[tuple[Path, str, str]] = set()
     found: list[SessionCarrier] = []
 
@@ -723,6 +730,91 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
         )
 
     return tuple(sorted(found, key=lambda carrier: carrier.where))
+
+
+# What opens a session reading one point in time with no transaction: nothing hands it to
+# `with_transaction`, so every sweep above passes over the reads inside it.
+SNAPSHOT_OPENER = "start_session"
+
+
+def _opens_a_snapshot(call: ast.Call) -> bool:
+    return callee(call) == SNAPSHOT_OPENER and any(
+        keyword.arg == "snapshot" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in call.keywords
+    )
+
+
+@dataclass(frozen=True)
+class SnapshotBlock:
+    """One `async with ... start_session(snapshot=True) as <name>:` block, and what its own body reads and hands on."""
+
+    where: str
+    #: Every read the body makes, with whether it carries the block's session.
+    reads: tuple[tuple[str, bool], ...]
+    #: Every session parameter of an application function the body calls, with whether the block's session is what it binds.
+    handoffs: tuple[tuple[str, bool], ...]
+    #: Where `snapshot_carriers` follows the session on from.
+    seeds: tuple[tuple[Declaration, Path, str], ...]
+
+
+def _scoped_async_withs(node: ast.AST, chain: tuple[Declaration, ...]) -> Iterator[tuple[tuple[Declaration, ...], ast.AsyncWith]]:
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.AsyncWith):
+            yield chain, child
+
+        inner = (*chain, child) if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else chain
+        yield from _scoped_async_withs(child, inner)
+
+
+@functools.cache
+def snapshot_blocks() -> tuple[SnapshotBlock, ...]:
+    """Every snapshot session the application opens, read as `transactional_callbacks` reads a transaction's callback."""
+
+    found: list[SnapshotBlock] = []
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        module = path.relative_to(BACKEND_ROOT).as_posix()
+        for chain, block in _scoped_async_withs(parsed(path), ()):
+            for item in block.items:
+                opener = item.context_expr
+                if not (isinstance(opener, ast.Call) and _opens_a_snapshot(opener) and isinstance(item.optional_vars, ast.Name)):
+                    continue
+
+                name = item.optional_vars.id
+                reads: list[tuple[str, bool]] = []
+                handoffs: list[tuple[str, bool]] = []
+                seeds: list[tuple[Declaration, Path, str]] = []
+                for statement in block.body:
+                    for inner_chain, call in scoped_calls(statement, chain):
+                        if reads_the_database(call):
+                            reads.append((callee(call), bound_at(call, "session", None).argument == name))
+
+                        resolved = resolve_callee(call, inner_chain, path)
+                        if resolved is None:
+                            continue
+
+                        declaration, declared_in = resolved
+                        for parameter, position in session_parameters(declaration):
+                            bound = bound_at(call, parameter, position).argument == name
+                            handoffs.append((declaration.name, bound))
+                            if bound:
+                                seeds.append((declaration, declared_in, parameter))
+
+                found.append(
+                    SnapshotBlock(
+                        where=f"{module} :: {chain[-1].name if chain else '<module>'}",
+                        reads=tuple(reads),
+                        handoffs=tuple(handoffs),
+                        seeds=tuple(seeds),
+                    )
+                )
+
+    return tuple(found)
+
+
+@functools.cache
+def snapshot_carriers() -> tuple[SessionCarrier, ...]:
+    """Every declaration a snapshot session reaches by being handed on, followed as `session_carriers` follows a transaction's."""
+
+    return _carriers_from([seed for block in snapshot_blocks() for seed in block.seeds])
 
 
 # What `application()` built, each surface a caller can edit held apart so an edit is told from it.
