@@ -2,7 +2,6 @@ from collections.abc import Mapping
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
-from pydantic import TypeAdapter
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -10,6 +9,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.services import find_funktion_refusal
 from app.api.saisons.cache import dropping_the_saison_cache
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import refuse_a_taken_rolle
 from app.api.spieler.schemas import FLKaderResponse, FLKaderZeile, FLKaderZeileResponse, FLPatchKaderZeilePayload, FLSpielerStufe
 from app.api.spieler.services import build_kader_pipeline, find_kader_stufe_refusal, mark_shared_nummern
@@ -89,17 +89,12 @@ async def _read_the_squad(
     return [FLKaderZeile.model_validate(row) for row in mark_shared_nummern(rows)]
 
 
-_STUFEN = TypeAdapter(list[FLSpielerStufe])
-
-
 async def _erlaubte_stufen(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
-    saison_raw = await pull_one_from_db(
-        collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules.erlaubte_stufen"], session=session
-    )
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
 
-    # Validated, not read raw, as `refuse_a_full_squad` reads the cap: a season missing the key fails
-    # here rather than offering or refusing against a list nobody chose.
-    return _STUFEN.validate_python(saison_raw["rules"]["erlaubte_stufen"])
+    # Through the model the rules are written under, as `refuse_a_full_squad` reads the cap: a list
+    # that model refuses, an empty one included, fails here rather than reaching the page.
+    return FLSaisonRules.model_validate(saison_raw["rules"]).erlaubte_stufen
 
 
 async def _the_row_as_written(
