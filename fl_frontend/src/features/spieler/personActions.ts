@@ -2,17 +2,18 @@
 
 import { updateTag } from "next/cache";
 
+import { mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { refusalResult } from "@/shared/utils/adminMutation";
-import { runPersonMutation } from "@/shared/utils/personMutation";
+import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { KADER_AUSTRAGEN_FOLGE } from "./constants";
-import { deleteKaderZeile, patchKaderZeile } from "./mutations";
+import { deleteKaderZeile, patchKaderZeile, patchSpielerSelbstEinwilligung } from "./mutations";
 import { mapKaderZeileRefusal } from "./refusals";
-import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema } from "./schemas";
+import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "./schemas";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { FLKaderZeileKeyPayload, FLKaderZeileResponse, FLPatchKaderZeilePayload } from "./schemas";
+import type { FLKaderZeileKeyPayload, FLKaderZeileResponse, FLPatchKaderZeilePayload, FLSpielerSelbstEinwilligungPayload } from "./schemas";
 
 /**
  * The public squad read is cached for days and joins every squad row, so a seat holder's edit drops its
@@ -64,5 +65,33 @@ export async function deleteKaderZeileAction(
     invalidateSpieler();
 
     return { success: true, kader_zeile: kaderZeile, message: KADER_AUSTRAGEN_FOLGE };
+  });
+}
+
+/**
+ * The pupil's own consent, pressed on the account page. It claims the pupil's record rather than a
+ * seat, so a retired pupil reaches the backend to withdraw a consent the league still holds.
+ */
+export async function patchSpielerEinwilligungAction(rawPayload: FLSpielerSelbstEinwilligungPayload): Promise<ActionResult> {
+  return runPersonRecordMutation("patchSpielerEinwilligungAction", async () => {
+    const validated = FLSpielerSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    try {
+      await patchSpielerSelbstEinwilligung(validated.data);
+    } catch (error) {
+      const refusal = mapEigeneEinwilligungRefusal(error);
+      if (refusal !== null) return refusalResult(refusal);
+      throw error;
+    }
+
+    // The consent is an input of the public squad read (`READ-PUPIL-003`), cached for days: a withdrawal
+    // that drops no tag keeps the name published until it expires.
+    invalidateSpieler();
+
+    return { success: true, message: WAHL_GESPEICHERT };
   });
 }

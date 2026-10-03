@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapKaderZeileRefusal } from "./refusals.ts";
 
@@ -104,5 +104,62 @@ describe("what each squad write answers a refusal with", () => {
       act: () => deleteKaderZeileAction(KEY),
       mapped: () => null,
     });
+  });
+});
+
+const { patchSpielerEinwilligungAction } = await import("./personActions.ts");
+const { EINTRAG_WEG, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
+
+const EINWILLIGUNG_OPERATION = "PATCH /spieler/selbst/einwilligung";
+const WAHL = { umfang: "intern" as const, medien: false, text_version: "2026-10-konto-spieler" };
+
+/** The record as the backend answers a consent write that landed. */
+const EINWILLIGUNG_LANDED = {
+  acknowledged: 1,
+  spieler_id: KEY.spieler_id,
+  einwilligung: {
+    umfang: "intern",
+    erteilt_von: "volljaehrig",
+    datum: "2026-09-01",
+    bestaetigt_am: "2026-09-01",
+    text_version: "2026-09-spielerseite-3",
+    medien: false,
+  },
+};
+
+describe("a pupil's own consent write", () => {
+  /* The consent is an input of the public squad read, cached for days: the call is the only witness
+     the tag is dropped, a stale answer and a fresh one being the same answer at runtime. */
+  it("sends both choices and the account page's label, drops the squad's cached public read and refreshes the page", async () => {
+    setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
+    answerWith(() => Promise.resolve(EINWILLIGUNG_LANDED));
+    calls.length = 0;
+
+    const answer = await patchSpielerEinwilligungAction(WAHL);
+
+    assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT });
+    assert.deepEqual(requestsOf(calls), [{ endpoint: "/spieler/selbst/einwilligung", method: "PATCH", body: WAHL }]);
+    assert.deepEqual(invalidations(), [["updateTag", "spieler"], ["refresh"]]);
+  });
+
+  /* A retired pupil holds no Funktion and may still withdraw: the record is the backend's to judge. */
+  it("reaches the backend for a person holding no player Funktion", async () => {
+    setSubject(person());
+    answerWith(() => Promise.resolve(EINWILLIGUNG_LANDED));
+    calls.length = 0;
+
+    await patchSpielerEinwilligungAction(WAHL);
+
+    assert.equal(requestsOf(calls).length, 1, "a withdrawal from a record granting no panel never reached the backend");
+  });
+
+  it("answers the backend's lost record in words naming no team, and drops nothing", async () => {
+    setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
+    answerWith(() => Promise.reject(refusedOn(EINWILLIGUNG_OPERATION, "REQ-FUNKTION-001", 403)));
+
+    const answer = await patchSpielerEinwilligungAction(WAHL);
+
+    assert.deepEqual(answer, { success: false, error: EINTRAG_WEG, fieldErrors: undefined });
+    assert.deepEqual(invalidations(), [], "a refused write dropped a cache or refreshed the page");
   });
 });

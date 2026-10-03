@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapEinwilligungWahlRefusal, MEDIEN_ZU_JUNG, SEITE_VERALTET } from "./einwilligung.ts";
+import { EINTRAG_WEG, mapEigeneEinwilligungRefusal, mapEinwilligungWahlRefusal, MEDIEN_ZU_JUNG, SEITE_VERALTET } from "./einwilligung.ts";
 
 /** One of the three writes the mapper serves; the status is stated, so each code is put at two. */
 const PUPIL_WRITE = "PATCH /spieler/selbst/{spieler_id}/einwilligung";
@@ -28,5 +28,12 @@ describe("the consent writes' one mapper", () => {
     assert.equal(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-FUNKTION-001", 403)), null);
     assert.equal(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-AUTH-008", 403)), null);
     assert.equal(mapEinwilligungWahlRefusal(new Error("network")), null);
+  });
+
+  /* The shared answer to a lost Funktion names a team, which a pupil's or a referee's record has none of. */
+  it("words a pupil's or a referee's lost record itself, and the rest as the shared mapper does", () => {
+    assert.deepEqual(mapEigeneEinwilligungRefusal(refusedOn(PUPIL_WRITE, "REQ-FUNKTION-001", 403)), { error: EINTRAG_WEG });
+    assert.deepEqual(mapEigeneEinwilligungRefusal(refusedOn(PUPIL_WRITE, "REQ-EINWILLIGUNG-001", 409)), { error: SEITE_VERALTET });
+    assert.equal(mapEigeneEinwilligungRefusal(refusedOn(PUPIL_WRITE, "REQ-AUTH-008", 403)), null);
   });
 });

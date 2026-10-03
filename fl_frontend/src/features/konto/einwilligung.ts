@@ -1,5 +1,5 @@
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants";
-import { isRefusal } from "@/shared/utils/actionError";
+import { isFunktionLost, isRefusal } from "@/shared/utils/actionError";
 
 export const WAHL_GESPEICHERT = "Deine Wahl ist gespeichert";
 
@@ -12,6 +12,9 @@ export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu 
 // The retyped floor rather than a served one: the floor is one constant for every record, and none of
 // the account page's reads serve it (`fl_frontend/src/features/registrierungen/constants.ts :: MEDIEN_MIN_ALTER`).
 export const MEDIEN_ZU_JUNG = `Fotos, Videos und Interviews kannst Du erst ab ${String(MEDIEN_MIN_ALTER)} Jahren erlauben.`;
+
+// The shared answer to a lost Funktion names a team, which a pupil's or a referee's own record has none of.
+export const EINTRAG_WEG = "Diese Angaben sind nicht mehr bei Dir eingetragen. Lade die Seite neu.";
 
 /**
  * The one mapper the three consent writes share: one code set behind one control, so a refusal reads
@@ -30,4 +33,13 @@ export function mapEinwilligungWahlRefusal(error: unknown): { error: string } | 
     default:
       return null;
   }
+}
+
+/**
+ * The pupil's and the referee's writes, which claim a record of their own rather than a seat: their
+ * lost record is worded here, ahead of the shared reader.
+ */
+export function mapEigeneEinwilligungRefusal(error: unknown): { error: string } | null {
+  if (isFunktionLost(error)) return { error: EINTRAG_WEG };
+  return mapEinwilligungWahlRefusal(error);
 }

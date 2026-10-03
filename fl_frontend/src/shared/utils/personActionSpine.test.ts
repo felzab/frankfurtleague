@@ -57,7 +57,10 @@ function countingBody() {
  * claims a seat. Declared, never read off behaviour: an export behind the wrong entry then fails its
  * kind instead of joining the other.
  */
-const CLAIMS_A_RECORD: ReadonlySet<string> = new Set<string>([]);
+const CLAIMS_A_RECORD: ReadonlySet<string> = new Set<string>([
+  "schiedsrichter :: patchSchiedsrichterEinwilligungAction",
+  "spieler :: patchSpielerEinwilligungAction",
+]);
 
 type PersonAction = (argument: unknown) => Promise<unknown>;
 
