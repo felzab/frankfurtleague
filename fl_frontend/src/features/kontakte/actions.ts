@@ -27,6 +27,9 @@ import type {
   FLPatchSaisonTeamKontakteResponse,
 } from "./schemas";
 
+/** What the editor reads off a save: the block as stored and the token an undo of it carries. */
+type KontakteGespeichert = Pick<FLPatchSaisonTeamKontakteResponse, "kontakte" | "kontakte_stand">;
+
 /**
  * Clears one contact person from every season's junction row, every application, and the log's saved
  * images of both. **Permanent, with no undo.** It refuses nothing: a person may ask to be forgotten
@@ -75,7 +78,7 @@ export async function patchSaisonTeamKontakteAction(
   rawPayload: FLPatchSaisonTeamKontaktePayload,
   // A flag beside the sentence rather than one the caller parses: the editor grades its toast a
   // warning on it, and the save landed either way.
-): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
+): Promise<ActionResult<{ saison_team?: KontakteGespeichert; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", async (session) => {
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
 
@@ -137,7 +140,9 @@ export async function patchSaisonTeamKontakteAction(
 
     return {
       success: true,
-      saison_team: saisonTeam,
+      // The two fields the editor reads and nothing else: an action's result reaches the browser, and
+      // the answer beside them carries every minted link's raw token (`docs/backend/spec.md :: I142`).
+      saison_team: { kontakte: saisonTeam.kontakte, kontakte_stand: saisonTeam.kontakte_stand },
       // The cleared block is a removal rather than a save, and it is the one outcome a reader would
       // not expect to have to check for.
       message: validated.data.kontakte === null ? "Kontakte entfernt" : "Kontakte gespeichert",

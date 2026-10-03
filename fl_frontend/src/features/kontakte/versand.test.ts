@@ -341,3 +341,34 @@ describe("the re-send beside an unconfirmed seat", () => {
     assert.equal(res.success && res.message, describeLinkMail("bernd@schule.example", "fehlgeschlagen"));
   });
 });
+
+/** Every key at every depth of an action's result, which is what reaches the administrator's browser. */
+function keysOf(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(keysOf);
+  if (typeof value !== "object" || value === null) return [];
+
+  return Object.entries(value).flatMap(([key, inner]) => [key, ...keysOf(inner)]);
+}
+
+describe("what an action of this slice hands the browser", () => {
+  /* A raw token is the seat's whole credential: one in an action's result lets whoever holds the
+     administrator's session confirm the seat as its person (`docs/backend/spec.md :: I142`). */
+  it("carries no minted link's token at any depth, from the save or the re-send", async () => {
+    save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"]), minted("Clara", "clara@schule.example", ["trainer"])]);
+
+    const results = [
+      await patchSaisonTeamKontakteAction(PAYLOAD),
+      await einladeKontaktAction({ team_id: TEAM_ID, saison_id: "2627", rolle: "stellvertretung" }),
+    ];
+
+    assert.ok(
+      results.every(({ success }) => success),
+      "an action failed, so the scan below reads a refusal",
+    );
+    assert.equal(mail.sent.length, 3, "the actions minted nothing to leak");
+    for (const result of results) {
+      assert.ok(!keysOf(result).includes("token"), `a result carries a token: ${JSON.stringify(result)}`);
+      assert.ok(!JSON.stringify(result).includes("token-"), "a result carries a token's value under another key");
+    }
+  });
+});
