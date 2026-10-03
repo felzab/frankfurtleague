@@ -267,9 +267,9 @@ async def ablehnen_bewerbung(
         )
         refuse(find_triage_refusal(status=str(stored_raw["status"])))
 
-        # The status is in the FILTER, so the write is the guard: two administrators declining at once
-        # would both mail the applicants, and one `grund` would survive. `post_saison_team` keeps its
-        # race, which costs a planning bound and mails nobody.
+        # The status is in the FILTER as well as the read: a second decline would mail the applicants
+        # again and replace the first `grund`. A decision landing after the read conflicts instead,
+        # and the retry's read refuses it.
         try:
             return await patch_one_in_db(
                 collection=bewerbungen_collection,
@@ -279,9 +279,8 @@ async def ablehnen_bewerbung(
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundException:
-            # Three ways here: a decision landed between the read and the write, the row is gone, or the
-            # write landed and the row went before `patch_one_in_db` re-read its echo. The re-read tells
-            # them apart, so only an application no document names keeps the 404.
+            # A miss the read above did not foresee: the re-read answers a decided application as the
+            # decision it is, so only an application no document names keeps the 404.
             raced_raw = await pull_one_from_db(
                 collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"], session=session
             )

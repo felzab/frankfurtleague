@@ -1347,6 +1347,11 @@ async def post_einladungen_versand(
 
     The answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);
     404 where no season holds that id; a season holding no team answers an empty list.
+
+    **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**, and the answer
+    carries no link at all: every team minted for before that point has lost the link it held and holds one nobody was sent. Running the
+    mailing again, as an administrator who still holds access, mints and answers those teams' links anew, none of them carrying a
+    delivery record yet.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
@@ -1356,9 +1361,8 @@ async def post_einladungen_versand(
     # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
     gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
-    # An administrator revoked mid-loop is refused at the next team's transaction, which writes nothing
-    # further; the teams before it keep new links nobody was sent, which a later press mints again
-    # (`docs/backend/spec.md :: I921`).
+    # A revoke mid-loop refuses the next team's transaction: each team before it lost its old link
+    # and holds one nobody was sent, which pressing again mints anew (`docs/backend/spec.md :: I450`).
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
