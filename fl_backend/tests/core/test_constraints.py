@@ -64,6 +64,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.spieler.schemas import (
     FLEinwilligung,
+    FLEinwilligungEintrag,
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerPosition,
@@ -76,6 +77,7 @@ from app.api.teams.schemas import (
     FLAustritt,
     FLGruppenNames,
     FLKontaktKenntnisnahme,
+    FLKontaktKenntnisnahmeEintrag,
     FLKontaktperson,
     FLSaisonTeamBestaetigung,
     FLSaisonTeamBestaetigungen,
@@ -125,6 +127,17 @@ OUT_OF_SCOPE_KEYWORDS = {
     # Its own reason: forbidding unknown keys makes every field addition a deploy-ordering problem.
     "additionalProperties",
 }
+
+# Where a person's own consent record sits, and where a contact seat's does: one sub-schema each in
+# Python, and a separate path to the drift walk at every home.
+PERSON_RECORD_HOMES: tuple[tuple[Collection, tuple[str, ...]], ...] = tuple(
+    (collection, ("einwilligung",)) for collection in (Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.REGISTRIERUNGEN)
+)
+SEAT_RECORD_HOMES: tuple[tuple[Collection, tuple[str, ...]], ...] = tuple(
+    (collection, ("kontakte", seat, "einwilligung"))
+    for collection in (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
+    for seat in ("trainer", "ansprechperson", "stellvertretung")
+)
 
 # (collection, path to the sub-schema, model, fields the model has that the document does not). The
 # fourth keeps this an equality check: `FLTeam` and `FLSpieler` are assembled from several collections.
@@ -237,6 +250,10 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), FLBerechtigungPostausgangZeile, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), FLBerechtigungStand, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), FLBerechtigungStand, frozenset()),
+    # A consent record's entries at every home: an array's path names its members, which are what
+    # the drift walk compares (`schema_at`).
+    *((collection, (*block, "verlauf"), FLEinwilligungEintrag, frozenset()) for collection, block in PERSON_RECORD_HOMES),
+    *((collection, (*block, "verlauf"), FLKontaktKenntnisnahmeEintrag, frozenset()) for collection, block in SEAT_RECORD_HOMES),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -423,6 +440,18 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # pupil may answer neither.
     (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
     (Collection.REGISTRIERUNGEN, (), "stufe", get_args(FLSpielerStufe), True),
+    # Every closed field of an entry, at every home: one sub-schema in Python is still a path per
+    # home to the drift walk.
+    *(
+        (collection, (*block, "verlauf"), field, get_args(FLEinwilligungEintrag.model_fields[field].annotation), False)
+        for collection, block in PERSON_RECORD_HOMES
+        for field in ("akt", "ueber", "umfang", "erteilt_von")
+    ),
+    *(
+        (collection, (*block, "verlauf"), field, get_args(FLKontaktKenntnisnahmeEintrag.model_fields[field].annotation), False)
+        for collection, block in SEAT_RECORD_HOMES
+        for field in ("akt", "ueber", "umfang", "erfasst_von")
+    ),
 ]
 
 
@@ -450,30 +479,40 @@ def stored_fields(models: type[BaseModel] | tuple[type[BaseModel], ...]) -> dict
     return fields
 
 
-def properties_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str, Any]:
+def schema_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str, Any]:
+    """The sub-schema a path names, an array's step landing on its `items`.
+
+    One path for an array and its members, as `test_every_declared_enum_is_checked` records an
+    array's enum: the members are what a model row mirrors.
+    """
     schema: Mapping[str, Any] = COLLECTION_VALIDATORS[collection]["$jsonSchema"]
 
     for step in path:
         schema = schema["properties"][step]
+        schema = schema.get("items", schema)
 
-    return schema["properties"]
+    return schema
+
+
+def properties_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str, Any]:
+    return schema_at(collection, path)["properties"]
 
 
 def required_at(collection: Collection, path: tuple[str, ...]) -> list[str]:
     """`properties_at`'s sibling: `required` is a key beside `properties` rather than one inside it."""
-    schema: Mapping[str, Any] = COLLECTION_VALIDATORS[collection]["$jsonSchema"]
 
-    for step in path:
-        schema = schema["properties"][step]
-
-    return list(schema.get("required", []))
+    return list(schema_at(collection, path).get("required", []))
 
 
 def walk_schemas(schema: Mapping[str, Any]):
+    """Every sub-schema, an array's `items` among them: a member's `required` and its keywords bind as a property's do."""
     yield schema
 
     for child in schema.get("properties", {}).values():
         yield from walk_schemas(child)
+
+    if "items" in schema:
+        yield from walk_schemas(schema["items"])
 
 
 def test_every_collection_has_a_validator():

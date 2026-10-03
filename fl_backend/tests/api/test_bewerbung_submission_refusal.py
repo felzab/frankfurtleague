@@ -27,6 +27,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    BEWERBUNG_WEG,
     KONTAKT_SEATS,
     SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
@@ -67,6 +68,8 @@ PICKED_OID = ObjectId("6890a1b2c3d4e5f607930001")
 RETIRED_OID = ObjectId("6890a1b2c3d4e5f607930002")
 
 TODAY = "2026-04-01"
+# The submission's instant on `TODAY`, as `app/core/recording.py :: log_stamp` spells one.
+AM = "2026-04-01T08:15:00+00:00"
 
 # A window this day sits inside, so each case below moves ONE thing away from a passing state.
 OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
@@ -630,7 +633,7 @@ class TestWhatTheServerComposes:
     def test_a_consent_records_an_entry_on_the_persons_behalf_and_the_day_it_arrived(self):
         """One person ticked for three, so every seat is `administrativ` until its own confirmation writes `person`."""
 
-        composed = compose_einwilligung(text_version="v3", today=TODAY)
+        composed = compose_einwilligung(text_version="v3", today=TODAY, ueber=BEWERBUNG_WEG, am=AM)
 
         assert composed == {
             "umfang": "kontaktdaten",
@@ -638,20 +641,40 @@ class TestWhatTheServerComposes:
             "text_version": "v3",
             "datum": TODAY,
             "bestaetigt_am": None,
+            "medien": False,
+            "verlauf": [
+                {
+                    "am": AM,
+                    "akt": "erteilt",
+                    "ueber": "POST /bewerbungen",
+                    "umfang": "kontaktdaten",
+                    "medien": False,
+                    "text_version": "v3",
+                    "erfasst_von": "administrativ",
+                }
+            ],
         }
 
     def test_the_composed_block_stores_no_field_the_payload_carried_beside_the_wording(self):
         """`erteilt` is the form's tickbox, not a stored field: the record IS the consent, and `False` is a body this endpoint refuses."""
 
-        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
+        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY, am=AM)
 
-        assert set(composed["trainer"]["einwilligung"]) == {"umfang", "erfasst_von", "text_version", "datum", "bestaetigt_am"}
+        assert set(composed["trainer"]["einwilligung"]) == {
+            "umfang",
+            "erfasst_von",
+            "text_version",
+            "datum",
+            "bestaetigt_am",
+            "medien",
+            "verlauf",
+        }
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_no_seat_carries_a_confirmation_or_a_birthdate_at_submission(self, seat: str):
         """Both keys are written null rather than left off, as `wunschgegner` is: each marks what the confirmation fills in."""
 
-        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
+        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY, am=AM)
 
         assert composed[seat]["einwilligung"]["erfasst_von"] == "administrativ"
         assert "bestaetigt_am" in composed[seat]["einwilligung"] and composed[seat]["einwilligung"]["bestaetigt_am"] is None
@@ -661,7 +684,7 @@ class TestWhatTheServerComposes:
         """The control for the case above: a composer dropping a seat would satisfy it and store two people."""
 
         block = kontakte(trainer_ist_zugleich="ansprechperson", ansprechperson=person())
-        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(block).model_dump(mode="json"), today=TODAY)
+        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(block).model_dump(mode="json"), today=TODAY, am=AM)
 
         assert set(composed) == {"trainer", "ansprechperson", "stellvertretung", "trainer_ist_zugleich"}
         assert composed["trainer_ist_zugleich"] == "ansprechperson"
@@ -1199,7 +1222,9 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "status": "eingereicht",
         "team_id": str(PICKED_OID),
         "schule": None,
-        "kontakte": compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY),
+        "kontakte": compose_kontakte(
+            kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY, am=AM
+        ),
         "trikot": {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": "blau"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 4},
         "entscheidung": None,

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -31,8 +32,9 @@ from app.api.schiedsrichter.services import (
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
-from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str
+from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
+from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
@@ -111,6 +113,7 @@ async def post_bestaetigung(
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterBestaetigungResponse:
     """
     Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
@@ -169,6 +172,7 @@ async def post_bestaetigung(
                 medien=antwort_data.medien,
                 text_version=antwort_data.text_version,
                 today=today,
+                am=log_stamp(germany_now),
             ),
             session=session,
             return_document=ReturnDocument.BEFORE,

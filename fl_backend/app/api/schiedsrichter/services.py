@@ -5,11 +5,13 @@ from typing import Any, Final
 from app.api.bewerbungen.services import days_after
 from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
+from app.api.spieler.schemas import FLEinwilligungWeg
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung_verlauf import compose_born_record
 from app.shared.folding import canonical_address, mailbox_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -184,6 +186,10 @@ EINWILLIGUNG_FELD: Final = "einwilligung"
 # them, so this flow writes neither of the other two sources.
 SCHIEDSRICHTER_ERTEILT_VON: Final = "volljaehrig"
 
+# The operation a confirmation's entry names, the route `app/api/schiedsrichter/bestaetigung_router.py
+# :: post_bestaetigung` serves.
+BESTAETIGUNG_WEG: Final[FLEinwilligungWeg] = "POST /schiedsrichter/bestaetigung"
+
 
 def bestaetigung_frist_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
@@ -224,19 +230,23 @@ def compose_einwilligung(*, umfang: str, medien: bool, text_version: str, today:
     }
 
 
-def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str) -> Mapping[str, Any]:
+def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str, am: str) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is.
 
     Never two writes: between them the row would hold a birthdate nobody had yet consented to the
     league keeping.
     """
 
-    return {
-        "$set": {
-            "geburtsdatum": geburtsdatum,
-            EINWILLIGUNG_FELD: compose_einwilligung(umfang=umfang, medien=medien, text_version=text_version, today=today),
-        }
-    }
+    # Born whole rather than moved: the stamp refusal admits only a row whose stored block no answer
+    # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
+    record = compose_born_record(
+        block=compose_einwilligung(umfang=umfang, medien=medien, text_version=text_version, today=today),
+        akt="bestaetigt",
+        ueber=BESTAETIGUNG_WEG,
+        am=am,
+    )
+
+    return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
 
 
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:

@@ -12944,6 +12944,14 @@
             "type": "boolean",
             "title": "Medien",
             "default": false
+          },
+          "verlauf": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinwilligungEintrag"
+            },
+            "type": "array",
+            "title": "Verlauf",
+            "default": []
           }
         },
         "type": "object",
@@ -12955,6 +12963,65 @@
         ],
         "title": "FLEinwilligung",
         "description": "What this person agreed may be published about them.\n\nThe keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no\nconfirmation date claims somebody consented, and no surface can tell that from one somebody gave."
+      },
+      "FLEinwilligungEintrag": {
+        "properties": {
+          "am": {
+            "type": "string",
+            "title": "Am"
+          },
+          "akt": {
+            "type": "string",
+            "enum": [
+              "erteilt",
+              "bestaetigt",
+              "widerrufen"
+            ],
+            "title": "Akt"
+          },
+          "ueber": {
+            "type": "string",
+            "const": "POST /schiedsrichter/bestaetigung",
+            "title": "Ueber"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "title": "Text Version"
+          },
+          "erteilt_von": {
+            "type": "string",
+            "enum": [
+              "erziehungsberechtigt",
+              "volljaehrig",
+              "bestandsuebernahme"
+            ],
+            "title": "Erteilt Von"
+          }
+        },
+        "type": "object",
+        "required": [
+          "am",
+          "akt",
+          "ueber",
+          "umfang",
+          "medien",
+          "text_version",
+          "erteilt_von"
+        ],
+        "title": "FLEinwilligungEintrag",
+        "description": "One act on a person's consent record, as `app/shared/einwilligung_verlauf.py :: compose_eintrag` cut it from the block."
       },
       "FLEinwilligungFassung": {
         "properties": {
@@ -13795,6 +13862,19 @@
               }
             ],
             "title": "Bestaetigt Am"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien",
+            "default": false
+          },
+          "verlauf": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktKenntnisnahmeEintrag"
+            },
+            "type": "array",
+            "title": "Verlauf",
+            "default": []
           }
         },
         "type": "object",
@@ -13806,6 +13886,67 @@
         ],
         "title": "FLKontaktKenntnisnahme",
         "description": "Which wording this person was shown, and how the record came to be held.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`)."
+      },
+      "FLKontaktKenntnisnahmeEintrag": {
+        "properties": {
+          "am": {
+            "type": "string",
+            "title": "Am"
+          },
+          "akt": {
+            "type": "string",
+            "enum": [
+              "erteilt",
+              "bestaetigt",
+              "widerrufen"
+            ],
+            "title": "Akt"
+          },
+          "ueber": {
+            "type": "string",
+            "enum": [
+              "POST /bewerbungen",
+              "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
+            ],
+            "title": "Ueber"
+          },
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kontaktdaten",
+              "kontaktdaten_whatsapp"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "title": "Text Version"
+          },
+          "erfasst_von": {
+            "type": "string",
+            "enum": [
+              "person",
+              "administrativ"
+            ],
+            "title": "Erfasst Von"
+          }
+        },
+        "type": "object",
+        "required": [
+          "am",
+          "akt",
+          "ueber",
+          "umfang",
+          "medien",
+          "text_version",
+          "erfasst_von"
+        ],
+        "title": "FLKontaktKenntnisnahmeEintrag",
+        "description": "One act on a contact seat's record, as `app/shared/einwilligung_verlauf.py :: compose_eintrag` cut it from the block."
       },
       "FLKontaktKenntnisnahmePayload": {
         "properties": {

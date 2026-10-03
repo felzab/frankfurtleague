@@ -77,6 +77,12 @@ _TRIKOT_FARBEN = [
 # The second member is the person's own tick on their confirmation page: no payload offers it.
 _KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
 _KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
+# Mirrors `app/shared/einwilligung_verlauf.py :: FLEinwilligungAkt`, shared by both vocabularies.
+_EINWILLIGUNG_AKTE = ["erteilt", "bestaetigt", "widerrufen"]
+# Mirror `app/api/spieler/schemas.py :: FLEinwilligungWeg` and `app/api/teams/schemas.py ::
+# FLKontaktKenntnisnahmeWeg`. Only ever widened: a stored entry names its write for good.
+_EINWILLIGUNG_WEGE = ["POST /schiedsrichter/bestaetigung"]
+_KONTAKT_KENNTNISNAHME_WEGE = ["POST /bewerbungen", "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
@@ -146,6 +152,31 @@ _AKTION_REQUEST = _object(
     properties={"method": {"bsonType": "string"}, "path": {"bsonType": "string"}},
 )
 
+
+# One act on a record, cut from the block it leaves (`app/shared/einwilligung_verlauf.py ::
+# compose_eintrag`), so every key is required: an entry missing one records less than the act did.
+def _eintrag(*, umfang: list[str], quelle: str, quellen: list[str], wege: list[str]) -> Mapping[str, Any]:
+    return _object(
+        required=("am", "akt", "ueber", "umfang", "medien", "text_version", quelle),
+        properties={
+            # An instant in UTC, where the block carries a day.
+            "am": {"bsonType": "string"},
+            "akt": {"bsonType": "string", "enum": _EINWILLIGUNG_AKTE},
+            "ueber": {"bsonType": "string", "enum": wege},
+            "umfang": {"bsonType": "string", "enum": umfang},
+            "medien": {"bsonType": "bool"},
+            "text_version": {"bsonType": "string"},
+            quelle: {"bsonType": "string", "enum": quellen},
+        },
+    )
+
+
+# Out of every block's `required` for `saisons.spielplan`'s reason: every stored record predates it,
+# and reads as its block alone.
+def _verlauf(eintrag: Mapping[str, Any]) -> Mapping[str, Any]:
+    return {"bsonType": "array", "items": eintrag}
+
+
 # Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
 # the consent is UNCONFIRMED rather than absent. Read by `spieler`, `schiedsrichter` and
 # `registrierungen` alike, so widening `umfang` for one widens it for all three.
@@ -161,6 +192,9 @@ _EINWILLIGUNG = _object(
         # member, so a record can be withdrawn from one and stand in the other.
         "text_version": {"bsonType": _STRING_OR_NULL},
         "medien": {"bsonType": "bool"},
+        "verlauf": _verlauf(
+            _eintrag(umfang=_EINWILLIGUNG_UMFANG, quelle="erteilt_von", quellen=_EINWILLIGUNG_QUELLEN, wege=_EINWILLIGUNG_WEGE)
+        ),
     },
 )
 
@@ -176,6 +210,16 @@ _KONTAKT_KENNTNISNAHME = _object(
         # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
         # the key, and a decision re-validates the whole document.
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
+        # Out of `required` for `bestaetigt_am`'s reason.
+        "medien": {"bsonType": "bool"},
+        "verlauf": _verlauf(
+            _eintrag(
+                umfang=_KONTAKT_KENNTNISNAHME_UMFANG,
+                quelle="erfasst_von",
+                quellen=_KONTAKT_KENNTNISNAHME_QUELLEN,
+                wege=_KONTAKT_KENNTNISNAHME_WEGE,
+            )
+        ),
     },
 )
 

@@ -123,6 +123,15 @@ def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def as_read(kontakte: dict[str, Any]) -> dict[str, Any]:
+    """`as_stored` as the read model answers it: a seat's record no write gave `medien` or entries reads both at their defaults."""
+
+    return {
+        seat: ({**value, "einwilligung": {**value["einwilligung"], "medien": False, "verlauf": []}} if isinstance(value, dict) else value)
+        for seat, value in as_stored(kontakte).items()
+    }
+
+
 # The shape every row held before the stamp existed: a dated `person` on each seat, and no stamp key
 # at all.
 SEEDED_KONTAKTE: dict[str, Any] = {
@@ -278,7 +287,7 @@ class TestTheBlockIsWritten:
 
         assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
         assert response.kontakte is not None
-        assert response.kontakte.model_dump(mode="json") == as_stored(NEW_KONTAKTE)
+        assert response.kontakte.model_dump(mode="json") == as_read(NEW_KONTAKTE)
         assert (response.saison_id, response.team_id) == (SAISON_ID, TEAM_OID)
 
     def test_a_null_clears_the_block(self, mongo_replica_set_url: str):
@@ -862,7 +871,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         write judging it would stop agreeing after a restart.
         """
 
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "e33d7b4b681b6241cb2bcc37cd44e062e5be25bb3adcd14ae3af42d2eaefe86d"
+        assert kontakte_stand_of(SEEDED_KONTAKTE) == "655e2c7c4a61746cc0787c5b6e9cb4056646d481df002bea3e962454d6ec2c3b"
 
     def test_a_row_predating_the_optional_fields_answers_the_token_of_one_spelling_them_null(self):
         """The whole reason the token is not taken over the document: `SEEDED_KONTAKTE` carries no `bestaetigt_am` key at all."""

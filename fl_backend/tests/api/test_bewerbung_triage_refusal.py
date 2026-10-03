@@ -46,6 +46,9 @@ SCHULE: Mapping[str, Any] = {"team_name": "Zorbanax", "shorthand": "ZX"}
 # be taken from, which is what makes this list the whole of the refused set.
 DECIDED = ["angenommen", "abgelehnt"]
 
+# The reseat's instant, as `app/core/recording.py :: log_stamp` spells one.
+RESEATED_AT = "2026-03-26T09:00:00+00:00"
+
 
 class TestADecisionIsTakenOnce:
     """`REQ-BEWERBUNG-001`, apart from a database: acceptance is irreversible, so the second press is what this stops."""
@@ -344,6 +347,7 @@ class TestWhatSeatingAnotherPersonWrites:
             token_hash="frisch",
             today="2026-03-26",
             bestaetigungsfrist="2026-04-09",
+            am=RESEATED_AT,
         )
 
         assert set(update) == {"$set"}
@@ -359,17 +363,32 @@ class TestWhatSeatingAnotherPersonWrites:
             token_hash="frisch",
             today="2026-03-26",
             bestaetigungsfrist="2026-04-09",
+            am=RESEATED_AT,
         )
         slot = update["$set"]["kontakte.ansprechperson"]
 
         assert {field: slot[field] for field in NEW_PERSON} == dict(NEW_PERSON)
         assert slot["geburtsdatum"] is None
+        # Born with one entry naming the reseat: which write a seat's first entry names is what tells
+        # an administrator-filled seat from an applicant-named one.
         assert slot["einwilligung"] == {
             "umfang": "kontaktdaten",
             "erfasst_von": "administrativ",
             "text_version": "2026-09-bestaetigung-4",
             "datum": "2026-03-26",
             "bestaetigt_am": None,
+            "medien": False,
+            "verlauf": [
+                {
+                    "am": RESEATED_AT,
+                    "akt": "erteilt",
+                    "ueber": "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
+                    "umfang": "kontaktdaten",
+                    "medien": False,
+                    "text_version": "2026-09-bestaetigung-4",
+                    "erfasst_von": "administrativ",
+                }
+            ],
         }
 
     def test_the_day_the_last_holder_stepped_out_goes_with_the_entry(self):
@@ -382,6 +401,7 @@ class TestWhatSeatingAnotherPersonWrites:
             token_hash="frisch",
             today="2026-03-26",
             bestaetigungsfrist="2026-04-09",
+            am=RESEATED_AT,
         )
 
         for seat_name in ("trainer", "ansprechperson"):
@@ -403,6 +423,7 @@ class TestWhatSeatingAnotherPersonWrites:
             token_hash="frisch",
             today="2026-03-26",
             bestaetigungsfrist="2026-04-09",
+            am=RESEATED_AT,
         )
 
         assert update["$set"]["bestaetigungsfrist"] == "2026-04-09"

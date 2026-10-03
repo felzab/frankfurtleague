@@ -2,6 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
+from app.shared.einwilligung_verlauf import FLEinwilligungAkt
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomKontaktName
@@ -28,6 +29,31 @@ FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
 FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 
+# Aliases rather than inline: the record and each entry it keeps answer in one vocabulary.
+FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
+
+# `bestandsuebernahme` is what a BACKFILLED row carries, so a record carried over from before
+# consent was collected stays distinguishable from one a person actually gave. `volljaehrig` pins no
+# age: the floor is per seat (`docs/backend/spec.md :: I180`).
+FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
+
+# The operations appending to a person's consent record, spelled as `app/core/domain.py :: RULES`
+# spells one. Never narrowed: a stored entry names its write for good.
+FLEinwilligungWeg = Literal["POST /schiedsrichter/bestaetigung"]
+
+
+class FLEinwilligungEintrag(BaseModel):
+    """One act on a person's consent record, as `app/shared/einwilligung_verlauf.py :: compose_eintrag` cut it from the block."""
+
+    # An instant in UTC (`app/core/recording.py :: log_stamp`), where the block carries a day.
+    am: str
+    akt: FLEinwilligungAkt
+    ueber: FLEinwilligungWeg
+    umfang: FLEinwilligungUmfang
+    medien: bool
+    text_version: str
+    erteilt_von: FLEinwilligungQuelle
+
 
 class FLEinwilligung(BaseModel):
     """What this person agreed may be published about them.
@@ -36,13 +62,8 @@ class FLEinwilligung(BaseModel):
     confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
     """
 
-    # Inline rather than a module-level alias, as the `spiele` quelle Literals are: each is used
-    # once, and `MIRRORED_ENUMS` reads its members off the field.
-    umfang: Literal["kader_oeffentlich", "intern"]
-    # `bestandsuebernahme` is what a BACKFILLED row carries, so a record carried over from before
-    # consent was collected stays distinguishable from one a person actually gave. `volljaehrig`
-    # pins no age: the floor is per seat (`docs/backend/spec.md :: I180`).
-    erteilt_von: Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
+    umfang: FLEinwilligungUmfang
+    erteilt_von: FLEinwilligungQuelle
     # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
     datum: CustomOptionalDateString
     # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves
@@ -56,6 +77,9 @@ class FLEinwilligung(BaseModel):
     # are independent answers, so withdrawing one leaves the other standing. Defaulted for
     # `text_version`'s reason.
     medien: bool = False
+    # Every act on the record, oldest first, the block above being where they leave it. Defaulted,
+    # every record stored before them reading as its block alone.
+    verlauf: list[FLEinwilligungEintrag] = []
 
 
 class _SpielerPerson(BaseModel):

@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.shared.einwilligung_verlauf import FLEinwilligungAkt
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -159,6 +160,33 @@ class _KontaktKenntnisnahmeWritable(BaseModel):
     datum: CustomDateString
 
 
+# Widened past the payload's on the READ side alone: the WhatsApp scope is what a person ticks on
+# their own confirmation page, and a payload offering it would let an administrator transcribe one.
+FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
+
+# Distinguishing the two is what stops an admin's transcription reading as the person's own answer.
+# `person` is the confirmation link's to write and nobody else's.
+FLKontaktKenntnisnahmeQuelle = Literal["person", "administrativ"]
+
+# The operations appending to a contact seat's record, spelled as `app/core/domain.py :: RULES`
+# spells one. Never narrowed: a stored entry names its write for good, and the first entry's is what
+# tells an applicant-named seat from one an administrator filled.
+FLKontaktKenntnisnahmeWeg = Literal["POST /bewerbungen", "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"]
+
+
+class FLKontaktKenntnisnahmeEintrag(BaseModel):
+    """One act on a contact seat's record, as `app/shared/einwilligung_verlauf.py :: compose_eintrag` cut it from the block."""
+
+    # An instant in UTC (`app/core/recording.py :: log_stamp`), where the block carries a day.
+    am: str
+    akt: FLEinwilligungAkt
+    ueber: FLKontaktKenntnisnahmeWeg
+    umfang: FLKontaktKenntnisnahmeUmfang
+    medien: bool
+    text_version: str
+    erfasst_von: FLKontaktKenntnisnahmeQuelle
+
+
 class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
     """Which wording this person was shown, and how the record came to be held.
 
@@ -167,15 +195,17 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
     (`docs/glossary.md :: Einwilligung`).
     """
 
-    # Widened on the READ model alone: the WhatsApp scope is what a person ticks on their own
-    # confirmation page, and a payload offering it would let an administrator transcribe one.
-    umfang: Literal["kontaktdaten", "kontaktdaten_whatsapp"]
-    # Distinguishing the two is what stops an admin's transcription reading as the person's own
-    # answer. `person` is the confirmation link's to write and nobody else's.
-    erfasst_von: Literal["person", "administrativ"]
+    umfang: FLKontaktKenntnisnahmeUmfang
+    erfasst_von: FLKontaktKenntnisnahmeQuelle
     # The day this person confirmed the seat themselves; null until they do. Defaulted for
     # `FLTeam.schulform`'s reason: a record stored before the field carries no key.
     bestaetigt_am: CustomOptionalDateString = None
+    # The one consent on this record, to photographs, video and interviews, and on the READ model
+    # alone for `umfang`'s reason. Defaulted for `bestaetigt_am`'s.
+    medien: bool = False
+    # Every act on the record, oldest first. Defaulted for `bestaetigt_am`'s reason, a record stored
+    # before them reading as its block alone.
+    verlauf: list[FLKontaktKenntnisnahmeEintrag] = []
 
 
 class FLKontaktperson(BaseModel):
@@ -241,8 +271,8 @@ class FLSaisonTeamBestaetigungen(BaseModel):
 def _project_seat(value: Any) -> Any:
     """One seat with every READ field spelled, absent or not.
 
-    `geburtsdatum` and `bestaetigt_am` arrived after rows existed, so a row missing either key has to
-    answer the same token as one storing it null.
+    Every defaulted field arrived after rows existed, so a row missing its key has to answer the same
+    token as one storing what the read model reads there.
     """
 
     # `parse_empty_string_to_none` at every leaf, the coercion the read model makes on the way in: a
@@ -253,14 +283,28 @@ def _project_seat(value: Any) -> Any:
         # seat alike.
         return parse_empty_string_to_none(value)
 
-    projected: dict[str, Any] = {field: parse_empty_string_to_none(value.get(field)) for field in FLKontaktperson.model_fields}
+    projected: dict[str, Any] = {field: _projected_leaf(FLKontaktperson, value, field) for field in FLKontaktperson.model_fields}
     einwilligung = projected.get("einwilligung")
     if isinstance(einwilligung, Mapping):
         projected["einwilligung"] = {
-            field: parse_empty_string_to_none(einwilligung.get(field)) for field in FLKontaktKenntnisnahme.model_fields
+            field: _projected_leaf(FLKontaktKenntnisnahme, einwilligung, field) for field in FLKontaktKenntnisnahme.model_fields
         }
 
     return projected
+
+
+def _projected_leaf(model: type[BaseModel], stored: Mapping[str, Any], field: str) -> Any:
+    """One field as the read model answers it, an absent key reading as the field's default.
+
+    Never `None` there: `medien` and `verlauf` read `false` and `[]`, and null would answer a token
+    no read mints.
+    """
+
+    info = model.model_fields[field]
+    if field not in stored and not info.is_required():
+        return info.get_default(call_default_factory=True)
+
+    return parse_empty_string_to_none(stored.get(field))
 
 
 # DERIVED and stored nowhere: a version the row carried would have to be bumped by all four writers

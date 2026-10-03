@@ -16,10 +16,11 @@ from app.api.bewerbungen.schemas import (
     refuse_age_outside_the_bounds,
 )
 from app.api.sperrliste.services import withheld_actor
-from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
+from app.api.teams.schemas import FLKontaktKenntnisnahmeWeg, FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
+from app.shared.einwilligung_verlauf import compose_born_record
 from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -394,14 +395,31 @@ def compose_wiederholung_update(*, hashes: Mapping[str, str], bestaetigungen: An
     return {"$set": written}
 
 
-def compose_einwilligung(*, text_version: str, today: str) -> dict[str, Any]:
+# The operations a seat's first entry names: which of the two it is tells an applicant-named seat
+# from one an administrator filled.
+BEWERBUNG_WEG: Final[FLKontaktKenntnisnahmeWeg] = "POST /bewerbungen"
+NEUBESETZUNG_WEG: Final[FLKontaktKenntnisnahmeWeg] = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
+
+
+def compose_einwilligung(*, text_version: str, today: str, ueber: FLKontaktKenntnisnahmeWeg, am: str) -> dict[str, Any]:
     """The contact seat's record as the server writes it.
 
     `administrativ` on every seat: one person ticked for three, and only a seat's own confirmation
     writes `person`. Named by no client, who could otherwise dress a transcription as a signature.
     """
 
-    return {"umfang": "kontaktdaten", "erfasst_von": "administrativ", "text_version": text_version, "datum": today, "bestaetigt_am": None}
+    # `medien` written false rather than left off: nobody filling a seat for another person may give
+    # that person's media consent.
+    block = {
+        "umfang": "kontaktdaten",
+        "erfasst_von": "administrativ",
+        "text_version": text_version,
+        "datum": today,
+        "bestaetigt_am": None,
+        "medien": False,
+    }
+
+    return compose_born_record(block=block, akt="erteilt", ueber=ueber, am=am)
 
 
 # The three seats, in the order `FLSaisonTeamKontakte` declares them; nothing reads one by position.
@@ -425,7 +443,7 @@ def mindestalter_for(seats: Sequence[str]) -> int:
     return max(SEAT_MIN_AGE_YEARS[seat] for seat in seats)
 
 
-def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, Any]:
+def compose_kontakte(*, kontakte: Mapping[str, Any], today: str, am: str) -> dict[str, Any]:
     """The three people as `saison_teams` stores them, each seat's record recomposed here.
 
     Taken as the DUMPED payload rather than the model: this module composes documents, and every
@@ -438,7 +456,9 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
             # Written null rather than left off, as `wunschgegner` is: the key marks a date not yet
             # entered, and the confirmation fills it (`docs/backend/spec.md :: I141`).
             "geburtsdatum": None,
-            "einwilligung": compose_einwilligung(text_version=kontakte[seat]["einwilligung"]["text_version"], today=today),
+            "einwilligung": compose_einwilligung(
+                text_version=kontakte[seat]["einwilligung"]["text_version"], today=today, ueber=BEWERBUNG_WEG, am=am
+            ),
         }
         for seat in KONTAKT_SEATS
     }
@@ -1070,14 +1090,16 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
 
 
 def compose_kontakt_seat_update(
-    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, token_hash: str, today: str, bestaetigungsfrist: str
+    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, token_hash: str, today: str, bestaetigungsfrist: str, am: str
 ) -> Mapping[str, Any]:
     """The new person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
     erneut = compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist)
+    # Born afresh: nothing of the person who stepped out travels to the one seated.
+    einwilligung = compose_einwilligung(text_version=text_version, today=today, ueber=NEUBESETZUNG_WEG, am=am)
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
     # and the confirmation fills it (`docs/backend/spec.md :: I141`).
-    slot = {**person, "geburtsdatum": None, "einwilligung": compose_einwilligung(text_version=text_version, today=today)}
+    slot = {**person, "geburtsdatum": None, "einwilligung": einwilligung}
 
     # The WHOLE slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
     # `$set` under a null is `PathNotViable`, which aborts the transaction.

@@ -62,6 +62,8 @@ SAISON_ID = "2026"
 TODAY = "2026-04-01"
 # Injected through `get_germany_now` for the cases driven over HTTP, so the day is not the wall clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# `NOW` as an entry records it (`app/core/recording.py :: log_stamp`), written out rather than derived.
+SUBMITTED_AT = "2026-04-01T10:30:00+00:00"
 
 # Fixed rather than generated, so a failure names the same row every run.
 EXISTING_OID = ObjectId("6890a1b2c3d4e5f607940001")
@@ -195,6 +197,7 @@ async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bew
         sperrliste=ban_list(database),
         db=database.client,
         today=TODAY,
+        germany_now=NOW,
     )
 
 
@@ -250,12 +253,26 @@ class TestWhatASubmissionStores:
         stored = on_a_league(mongo_replica_set_url, body)
 
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
+            # Born with the applicant's acknowledgement as its one entry, its instant in UTC: `NOW` is
+            # half past noon in Frankfurt's summer time.
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "umfang": "kontaktdaten",
                 "erfasst_von": "administrativ",
                 "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
                 "datum": TODAY,
                 "bestaetigt_am": None,
+                "medien": False,
+                "verlauf": [
+                    {
+                        "am": SUBMITTED_AT,
+                        "akt": "erteilt",
+                        "ueber": "POST /bewerbungen",
+                        "umfang": "kontaktdaten",
+                        "medien": False,
+                        "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
+                        "erfasst_von": "administrativ",
+                    }
+                ],
             }
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
             assert "geburtsdatum" in stored["kontakte"][seat] and stored["kontakte"][seat]["geburtsdatum"] is None
@@ -930,7 +947,7 @@ def _application_without_a_wish() -> dict[str, Any]:
         "status": "eingereicht",
         "team_id": EXISTING_OID,
         "schule": None,
-        "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
+        "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY, am=SUBMITTED_AT),
         "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
         "entscheidung": None,
@@ -947,7 +964,7 @@ def _stored_with(database: AsyncDatabase, kader: Mapping[str, Any]) -> Awaitable
             "status": "eingereicht",
             "team_id": EXISTING_OID,
             "schule": None,
-            "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
+            "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY, am=SUBMITTED_AT),
             "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
             "kader": dict(kader),
             "entscheidung": None,
@@ -1052,7 +1069,7 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
                 "status": "eingereicht",
                 "team_id": EXISTING_OID,
                 "schule": None,
-                "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
+                "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY, am=SUBMITTED_AT),
                 # The colour an administrator has not assigned. The payload admits no null here, so
                 # only a stored row reaches the read models carrying one.
                 "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": None},
@@ -1077,7 +1094,7 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
                 "status": "eingereicht",
                 "team_id": EXISTING_OID,
                 "schule": None,
-                "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
+                "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY, am=SUBMITTED_AT),
                 "trikot": {"vorhandener_satz": "16 rote Trikots"},
                 "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
                 "entscheidung": None,

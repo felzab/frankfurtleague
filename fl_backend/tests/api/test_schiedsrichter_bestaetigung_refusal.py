@@ -60,6 +60,8 @@ from app.shared.schemas.bounds import (
 )
 
 TODAY = "2026-04-01"
+# The confirmation's instant on `TODAY`, as `app/core/recording.py :: log_stamp` spells one.
+CONFIRMED_AT = "2026-04-01T10:30:00+00:00"
 YESTERDAY = "2026-03-31"
 TOMORROW = "2026-04-02"
 
@@ -116,11 +118,30 @@ class TestTheRecordTheConfirmationWrites:
         """One write and never two: between them the row would hold a birthdate nobody had yet consented to the league keeping."""
 
         update = compose_confirmation_update(
-            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY
+            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY, am=CONFIRMED_AT
         )
 
         assert set(update) == {"$set"}
         assert set(update["$set"]) == {"geburtsdatum", EINWILLIGUNG_FELD}
+
+    def test_the_record_is_born_with_the_confirmation_as_its_one_entry(self):
+        """Whole and never dotted: a dotted `$set` under the null block a live referee row stores aborts the transaction."""
+
+        update = compose_confirmation_update(
+            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY, am=CONFIRMED_AT
+        )
+
+        assert update["$set"][EINWILLIGUNG_FELD]["verlauf"] == [
+            {
+                "am": CONFIRMED_AT,
+                "akt": "bestaetigt",
+                "ueber": "POST /schiedsrichter/bestaetigung",
+                "umfang": "kader_oeffentlich",
+                "medien": True,
+                "text_version": "v1",
+                "erteilt_von": "volljaehrig",
+            }
+        ]
 
     def test_the_record_carries_the_media_answer_even_when_it_is_off(self):
         """An off switch is an answer, so the key is stored rather than omitted for the model's default to supply."""
