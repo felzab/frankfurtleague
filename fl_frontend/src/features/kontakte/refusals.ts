@@ -17,6 +17,12 @@ export function mapEinladenRefusal(error: unknown): string | null {
       });
     case "REQ-KONTAKT-003":
       return SPERRLISTE_ADRESSE_GESPERRT;
+    // A link would ask to confirm a seat for a season that is over, or on a team that has left it.
+    case "REQ-KONTAKT-005":
+      return buildRefusal({
+        reason: "Diese Saison ist vorbei oder das Team ist ausgetreten",
+        repair: "Für diesen Eintrag verschicken wir keinen Bestätigungslink mehr",
+      });
     default:
       return null;
   }

@@ -333,6 +333,7 @@ describe("the re-send beside an unconfirmed seat", () => {
   for (const [code, fragment] of [
     ["REQ-KONTAKT-002", /leer oder schon bestätigt/],
     ["REQ-KONTAKT-003", /Sperrliste/],
+    ["REQ-KONTAKT-005", /Saison ist vorbei oder das Team ist ausgetreten/],
   ] as const) {
     it(`words ${code} beside the seat, and mails nothing`, async () => {
       resend = () => aRefusal(code);
