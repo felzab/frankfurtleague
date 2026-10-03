@@ -450,6 +450,7 @@ async function endEarlierSiblings(
       { field: "userId", value: minted.userId },
       { field: REPLACED_SESSION_FIELD, value: lineage },
     ],
+    limit: EVERY_ROW,
   });
 
   // Every hook keeps the latest it sees and ends the rest, its own row included: the last hook to run
