@@ -18,7 +18,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
 
 /* One answer for every action the editor calls: the dry run reads its two lists off it, and the save its message. */
-const { calls } = doubleActions({
+const { calls, answered } = doubleActions({
   modules: ["/src/features/spiele/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Spiel gespeichert.", priorPaarungen: [], voidedFixtures: [], releasedFixtures: [] }),
 });
@@ -101,6 +101,8 @@ describe("the shoot-out the match editor sends", () => {
     const saved = calls.filter((call) => call.action === "patchAdminSpielDataAction").map((call) => call.payload as Record<string, unknown>);
     assert.equal(saved.length, 1, "the edited result was never saved, so nothing below is judged");
     assert.equal(saved[0]?.["elfmeterschiessen"], null, "the unlevelled result is sent with the shoot-out it no longer admits");
+    // Its answer lands inside this case, or in the case after it.
+    await act(answered);
   });
 
   /* The defect this pair is here to prevent: a form offering the control on part of the condition

@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
@@ -210,6 +210,24 @@ const settle = (): Promise<void> =>
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
+/**
+ * Until the save has answered, its pending label gone. Waited for rather than one tick, since an answer
+ * arrives when its action does, as a loaded machine shows.
+ */
+async function saved(): Promise<void> {
+  await waitFor(() =>
+    assert.ok(screen.queryAllByRole("button", { name: "Speichert...", hidden: true }).length === 0, "the save is still pending"),
+  );
+  await settle();
+}
+
+/** Until the read an armed press is confirmed over has released it, for `saved`'s reason. */
+const armedReady = (armed: string): Promise<void> =>
+  waitFor(() => assert.notEqual(screen.getByRole("button", { name: armed }).getAttribute("data-pending"), "true", "the read is still running"));
+
+/** Until a destructive write has answered with its toast, so its answer lands inside the case that pressed it. */
+const toastedSince = (before: number): Promise<void> => waitFor(() => assert.ok(toasts.length > before, "the write was answered nowhere"));
+
 /** Every box a refusal marks, read off its description as a reader of the box hears it. */
 const refusedBoxes = (): HTMLElement[] => screen.queryAllByRole("textbox", { description: /./ });
 
@@ -228,13 +246,15 @@ async function saveOver(
   render(editorElement(viewElement(stored, true, TEAM_ID), stored));
   await change(user);
   await user.click(screen.getByRole("button", { name: "Speichern" }));
-  await settle();
+  await saved();
 }
 
-/** Presses the Rückgängig the save's toast offered, as the toast's own button does. */
+/** Presses the Rückgängig the save's toast offered, as the toast's own button does, until the undo has answered with a toast of its own. */
 async function pressUndo(): Promise<void> {
   const offer = toasts.find(({ options }) => options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo");
+  const before = toasts.length;
   offer.options?.actionProps?.onPress?.();
+  await waitFor(() => assert.ok(toasts.length > before, "the undo was answered nowhere"));
   await settle();
 }
 
@@ -528,9 +548,7 @@ describe("the editor's shape", () => {
 
     await user.click(screen.getByRole("button", { name: "Speichern" }));
     // The write runs inside a transition, so its answer and the reset behind it land after the press.
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    await saved();
 
     assert.equal(calls.length, 1, "the press never reached the write, so the reset below proves nothing");
     assert.equal(phone.value, BLOCK.ansprechperson?.telefon, "a save leaves typed values standing in the tree");
@@ -597,7 +615,7 @@ describe("the editor's shape", () => {
     });
     const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Trotzdem speichern" }));
-    await settle();
+    await saved();
 
     assert.equal(calls.length, 1, "the dialog's confirmation never reached the write, so the offer below is judged over nothing");
     await pressUndo();
@@ -951,8 +969,9 @@ describe("how the editor clears a season's contact block", () => {
 
     const user = userEvent.setup({ delay: null });
     render(editorElement(viewElement(BLOCK), BLOCK));
+    const before = toasts.length;
     await pressTwice(user, { resting: "Kontakte löschen", armed: "Ja, Kontakte dieser Saison endgültig löschen" });
-    await settle();
+    await toastedSince(before);
 
     // This row, by its natural key and under the token the page was served: the clearing is a save on
     // the same endpoint, and one sent without the token is refused whole.
@@ -1174,14 +1193,16 @@ describe("what the two destructive controls do to the page", () => {
       const user = userEvent.setup({ delay: null });
       const { unmount } = render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
       answerWith(() => Promise.resolve(ERASURE_READ));
+      const before = toasts.length;
       await pressTwice(user, {
         resting,
         armed,
         whileArmed: async () => {
-          await settle();
+          await armedReady(armed);
           answerWith(() => Promise.resolve({ success: true, cleared: 1, message: "Gelöscht." }));
         },
       });
+      await toastedSince(before);
       await settle();
 
       // The re-read comes back with the action's own answer, so a second one from here re-renders nothing new.
@@ -1197,17 +1218,18 @@ describe("what the two destructive controls do to the page", () => {
     const user = userEvent.setup({ delay: null });
     render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
     answerWith(() => Promise.resolve(ERASURE_READ));
+    const before = toasts.length;
 
     await pressTwice(user, {
       resting: "Kontaktperson löschen",
       armed: "Ja, Kontaktperson endgültig löschen",
       whileArmed: async () => {
-        await settle();
+        await armedReady("Ja, Kontaktperson endgültig löschen");
         assert.ok(document.body.textContent.includes("Saison 2425 · Trainer"), "the armed panel names none of the seats the write would clear");
         answerWith(() => Promise.resolve({ success: true, cleared: 1, message: "Gelöscht." }));
       },
     });
-    await settle();
+    await toastedSince(before);
 
     assert.deepEqual(calls, [
       { action: "readKontaktErasureAnsichtAction", payload: { email: "grace@example.org" } },

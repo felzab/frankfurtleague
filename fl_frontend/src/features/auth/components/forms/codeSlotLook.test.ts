@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { Input } from "@heroui/react/input";
@@ -104,7 +104,8 @@ describe("a code slot's look beside a text field's", () => {
     await user.type(screen.getByLabelText("Code aus der E-Mail"), "000000");
     await screen.findByRole("alert");
 
-    const slot = lookOf(activeSlot());
+    // The refused field takes the caret back once the answer has landed, later than its alert on a loaded machine.
+    const slot = lookOf(await waitFor(activeSlot));
     const field = await fieldLook({ isInvalid: true });
 
     assert.match(field["border-color"] ?? "", /accent-danger/, "the text field's refused look was not found, so nothing is compared");

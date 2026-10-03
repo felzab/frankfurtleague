@@ -434,9 +434,11 @@ describe("what a refused press does to the page", () => {
     await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
-    assert.deepEqual(
-      toasts.map((toast) => [toast.variant, toast.title, toast.description]),
-      [["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+      ),
     );
   });
 });

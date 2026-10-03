@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -59,14 +59,16 @@ describe("lifting one ban from the row it stands on", () => {
     await pressTwice(user, { resting: RESTING, armed: ARMED });
 
     assert.deepEqual(calls, [{ action: "deleteSperreAction", payload: { id: SPERRE_ID } }]);
-    assert.deepEqual(raised, [
-      {
-        variant: "success",
-        title: "Sperre aufgehoben",
-        description: "Diese Adresse wird nicht mehr abgewiesen.",
-        options: { description: "Diese Adresse wird nicht mehr abgewiesen." },
-      },
-    ]);
+    await waitFor(() =>
+      assert.deepEqual(raised, [
+        {
+          variant: "success",
+          title: "Sperre aufgehoben",
+          description: "Diese Adresse wird nicht mehr abgewiesen.",
+          options: { description: "Diese Adresse wird nicht mehr abgewiesen." },
+        },
+      ]),
+    );
   });
 
   /* The failure title is the success one negated (`docs/frontend/spec.md :: I250`), and the server's
@@ -79,7 +81,7 @@ describe("lifting one ban from the row it stands on", () => {
 
     await pressTwice(user, { resting: RESTING, armed: ARMED });
 
-    assert.equal(raised.length, 1);
+    await waitFor(() => assert.equal(raised.length, 1));
     assert.equal(raised[0]?.variant, "danger");
     assert.equal(raised[0]?.title, "Sperre nicht aufgehoben");
     assert.equal(raised[0]?.description, "Der Eintrag wurde nicht gefunden. Lade die Seite neu.");
@@ -97,9 +99,11 @@ describe("lifting one ban from the row it stands on", () => {
     await screen.findByRole("button", { name: RESTING });
 
     const { error, outcome } = unansweredAction();
-    assert.deepEqual(
-      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
-      [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+        [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
+      ),
     );
   });
 });

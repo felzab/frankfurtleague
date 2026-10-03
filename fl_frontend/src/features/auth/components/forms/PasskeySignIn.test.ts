@@ -131,7 +131,7 @@ describe("the button", () => {
     await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
 
     assert.deepEqual(calls, [undefined]);
-    assert.deepEqual(left, [LANDING]);
+    await waitFor(() => assert.deepEqual(left, [LANDING]));
   });
 
   /* Pressed while the autofill is armed: the press aborts that request, which answers aborted and must
@@ -144,6 +144,8 @@ describe("the button", () => {
 
     await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
 
+    // Back from „Meldet an...“: the abort has answered, so the silence below is its own.
+    await screen.findByRole("button", { name: "Mit Passkey anmelden" });
     assert.deepEqual(raised, []);
     assert.equal(calls.length, 1, "an aborted press armed the autofill again");
   });
@@ -158,11 +160,13 @@ describe("the button", () => {
     await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
 
     await waitFor(() => assert.deepEqual(calls.slice(1), [undefined, AUTOFILL]));
-    assert.deepEqual(
-      raised.map((toast) => [toast.title, toast.description]),
-      [["Nicht angemeldet", VERSUCHE_ES_ERNEUT_SATZ]],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => [toast.title, toast.description]),
+        [["Nicht angemeldet", VERSUCHE_ES_ERNEUT_SATZ]],
+      ),
     );
-    assert.ok(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+    assert.ok(await screen.findByRole("button", { name: "Mit Passkey anmelden" }));
   });
 
   /* The gate at session creation names its reason, and a retry would meet it again: the ban is named
@@ -174,8 +178,10 @@ describe("the button", () => {
     answers.push(refusedWith("SIGN_IN_BARRED", 403), refusedWith("SIGN_IN_HOLDS_NOTHING", 403), refusedWith("SERVICE_UNAVAILABLE", 503));
     render(h(PasskeySignIn));
 
-    for (let press = 0; press < 3; press += 1) await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+    // Each press waits for the one before to answer, as the reader's own does: a press on „Meldet an...“ starts nothing.
+    for (let press = 0; press < 3; press += 1) await user.click(await screen.findByRole("button", { name: "Mit Passkey anmelden" }));
 
+    await waitFor(() => assert.equal(raised.length, 3));
     assert.deepEqual(
       raised.map((toast) => toast.description),
       [
@@ -194,10 +200,12 @@ describe("the button", () => {
 
     await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
 
-    assert.ok(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
-    assert.deepEqual(
-      raised.map((toast) => toast.title),
-      ["Nicht angemeldet"],
+    assert.ok(await screen.findByRole("button", { name: "Mit Passkey anmelden" }));
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => toast.title),
+        ["Nicht angemeldet"],
+      ),
     );
   });
 });

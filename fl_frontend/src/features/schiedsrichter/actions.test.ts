@@ -456,10 +456,12 @@ describe("the erasure on the referee's editor", () => {
     renderEditor();
     await pressTwice(userEvent.setup());
 
-    assert.deepEqual(
-      toasts.map(({ variant, title }) => [variant, title]),
-      [["success", "Schiedsrichterdaten gelöscht"]],
-      "the write answered without its toast, so nothing below is judged",
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map(({ variant, title }) => [variant, title]),
+        [["success", "Schiedsrichterdaten gelöscht"]],
+        "the write answered without its toast, so nothing below is judged",
+      ),
     );
     assert.deepEqual(seen.replaced, ["/bereich/admin/schiedsrichter"], "the erasure stays on the page whose row it deleted");
     assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");

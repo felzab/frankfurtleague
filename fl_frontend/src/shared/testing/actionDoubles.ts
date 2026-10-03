@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, beforeEach } from "node:test";
+import { setImmediate as nextTurn } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
@@ -40,10 +41,11 @@ export function doubleActions({
   answerWith: (next: () => Promise<unknown>) => void;
   answerPending: (answer: unknown) => void;
   leavePending: (reason: string) => void;
+  answered: () => Promise<void>;
 } {
   const calls: ActionCall[] = [];
   let answering = answer;
-  const pending = new Set<{ action: string; release: (answer: unknown) => void }>();
+  const pending = new Set<{ action: string; release: (answer: unknown) => void; answered: Promise<unknown> }>();
   let mayLeavePending = false;
   // Back to `answer` before every case: a case that named another answer and never restored it
   // would otherwise hand that answer to the next case's write, which then passes on it.
@@ -66,7 +68,7 @@ export function doubleActions({
     let release: (answer: unknown) => void = () => undefined;
     // Raced rather than replaced, so a case's own held answer still decides until the case answers it.
     const answered = Promise.race([answering(), new Promise((resolve) => (release = resolve))]);
-    const entry = { action, release };
+    const entry = { action, release, answered };
     pending.add(entry);
     const settle = (): void => void pending.delete(entry);
     answered.then(settle, settle);
@@ -104,6 +106,14 @@ export function doubleActions({
     leavePending: (reason) => {
       assert.ok(reason.trim() !== "", "name why the case may leave its actions pending");
       mayLeavePending = true;
+    },
+    // For a case reading only what it sent: its answers land inside it, or in the case after it. A turn between
+    // rounds waits for a write an answer sets off; `setImmediate`, which no case's clock holds.
+    answered: async () => {
+      do {
+        await Promise.allSettled([...pending].map((entry) => entry.answered));
+        await nextTurn();
+      } while (pending.size > 0);
     },
   };
 }

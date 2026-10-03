@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { describeAngesetzteSpiele, describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils.ts";
@@ -91,9 +91,11 @@ describe("the replacement panel", () => {
 
     assert.deepEqual(sent("replaceSaisonTeamAction"), [{ team_id: "t1", saison_id: "2026-27", incoming_team_id: "c1" }]);
     // No undo: the undo route addresses the row by `team_id`, which answers to the arriving club by then.
-    assert.deepEqual(
-      raised.map((toast) => [toast.variant, toast.title, toast.description]),
-      [["success", "Team ersetzt", "TSV Beta steht jetzt auf dem Platz."]],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["success", "Team ersetzt", "TSV Beta steht jetzt auf dem Platz."]],
+      ),
     );
   });
 

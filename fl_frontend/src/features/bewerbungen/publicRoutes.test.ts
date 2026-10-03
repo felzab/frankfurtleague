@@ -9,7 +9,7 @@ import { describe, it, mock } from "node:test";
 import { act, createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
@@ -1242,15 +1242,16 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
 
       // The objection, sent past the guard a confirmation's empty fields would stop at; the route answers both alike.
       await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
 
-      assert.deepEqual(
-        raised.filter((toast) => toast.variant === "danger").map((toast) => toast.title),
-        expectedTitles,
-        `${named} is announced otherwise`,
-      );
+      // Until the answer has landed: the toast where one is expected, the field's own sentence where none is.
+      await waitFor(() => {
+        assert.deepEqual(
+          raised.filter((toast) => toast.variant === "danger").map((toast) => toast.title),
+          expectedTitles,
+          `${named} is announced otherwise`,
+        );
+        if (fieldErrors?.geburtsdatum !== undefined) assert.ok(screen.queryByText(fieldErrors.geburtsdatum), `${named} reached no field`);
+      });
       unmount();
     }
   });
@@ -1269,13 +1270,12 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
     assert.ok(container.querySelector('[name="text_version"]') === null, "the case's path is one a control renders");
 
     await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
 
-    assert.deepEqual(
-      raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
-      [["Antwort nicht gespeichert", EIGENER_SATZ]],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+        [["Antwort nicht gespeichert", EIGENER_SATZ]],
+      ),
     );
     unmount();
   });
@@ -1292,13 +1292,12 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
     const { user, unmount } = renderBestaetigung();
 
     await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
 
-    assert.deepEqual(
-      raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
-      [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+        [["Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+      ),
     );
     unmount();
   });

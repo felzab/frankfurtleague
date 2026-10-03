@@ -353,6 +353,8 @@ describe("adding a passkey", () => {
 
     await waitFor(() => assert.deepEqual(sent(), [["endAnmeldungAction", "andere"]]));
     assert.ok(screen.queryByRole("dialog") === null, "a change inside the two hours asked for a confirmation");
+    // Its answer lands inside the case, so none is left pending into the next.
+    await waitFor(() => assert.equal(raised.length, 1));
   });
 
   /* The window closes while the page stands: the control turns back into the confirmation unpressed. */
@@ -472,6 +474,7 @@ describe("confirming by a code mailed to the holder", () => {
     assert.deepEqual(JSON.parse(String(init?.body)), { email: ADDRESS, code: "048213" });
     assert.deepEqual(reached, [], "the code path ran a passkey ceremony");
     assert.ok(seen.refresh >= 1, "the page kept what it drew off the session the code ended");
+    await waitFor(() => assert.equal(raised.length, 1, "the change the code waited for never answered"));
   });
 
   /* The holder check holds on this path too (`docs/frontend/spec.md :: I428`): a code whose sign-in is

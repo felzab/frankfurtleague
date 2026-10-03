@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -19,7 +19,7 @@ import type { FLEinladungZeile } from "@/features/einladungen/schemas.ts";
 /** A write nobody has answered yet, which is how each action answers unless a case says otherwise. */
 const running = (): Promise<never> => new Promise(() => undefined);
 
-const { calls, answerWith } = doubleActions({ modules: ["/src/features/einladungen/actions.ts"], answer: running });
+const { calls, answerWith, answered } = doubleActions({ modules: ["/src/features/einladungen/actions.ts"], answer: running });
 
 /** The payloads one action was sent, in the order the panel sent them. */
 const sent = (action: string): unknown[] => calls.filter((call) => call.action === action).map((call) => call.payload);
@@ -177,9 +177,13 @@ describe("the team's invite panel", () => {
     answerWith(() => Promise.resolve({ success: true, message: "Der Link ist an 2 von 2 Adressen unterwegs." }));
     // Found rather than got, as the mint's own case finds its link: the press appears when
     // `startMinting`'s transition ends, which no click's resolving waits for.
-    await user.click(await screen.findByRole("button", { name: "Link per E-Mail senden" }));
+    const mailing = await screen.findByRole("button", { name: "Link per E-Mail senden" });
+    const before = raised.length;
+    await user.click(mailing);
 
     assert.deepEqual(sent("mailEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: TOKEN }]);
+    // The mail's own toast, read once its answer has landed rather than the mint's standing before it.
+    await waitFor(() => assert.equal(raised.length, before + 1));
     assert.equal(raised.at(-1)?.variant, "success");
   });
 
@@ -236,6 +240,8 @@ describe("the team's invite panel", () => {
     });
 
     assert.deepEqual(sent("postEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID }]);
+    // Its answer lands inside this case, or in the case after it.
+    await act(answered);
   });
 
   it("escalates the withdrawal, and writes nothing on the arming press", async () => {
@@ -254,6 +260,7 @@ describe("the team's invite panel", () => {
     });
 
     assert.deepEqual(sent("deleteEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID }]);
+    await act(answered);
   });
 
   /* The reveal names one operation's loss, so a pick moving under an armed panel would have the

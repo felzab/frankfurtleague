@@ -7,7 +7,7 @@ import { setImmediate as settled } from "node:timers/promises";
 
 import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -78,7 +78,10 @@ describe("the match editor's undo whose dispatch never answered", () => {
       "the save never reached its write, so no undo was offered",
     );
 
-    const offer = raised.find((toast) => toast.options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo");
+    // Found once the save's answer has landed, which a loaded machine delivers after a tick.
+    const offer = await waitFor(
+      () => raised.find((toast) => toast.options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo"),
+    );
     const originalFetch = globalThis.fetch;
     globalThis.fetch = () => Promise.reject(new TypeError("Failed to fetch"));
     try {

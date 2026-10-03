@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -89,12 +89,15 @@ describe("which ceremony the card runs", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
     assert.deepEqual(reached, ["addPasskey"]);
+    // Its answer landed before the card goes, so none reaches the next case's records.
+    await waitFor(() => assert.deepEqual(left, [LANDING]));
     unmount();
 
     reached.length = 0;
     renderCard("assert");
     await user.click(screen.getByRole("button", { name: "Jetzt anmelden" }));
     assert.deepEqual(reached, ["signInPasskey"]);
+    await waitFor(() => assert.deepEqual(left, [LANDING, LANDING]));
   });
 
   /* Setting the passkey up signs in with it, so the card asks for no second press: one enrolment,
@@ -104,7 +107,9 @@ describe("which ceremony the card runs", () => {
 
     for (const step of ["enrol", "offer"] as const) {
       const { unmount } = renderCard(step);
+      const before = left.length;
       await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
+      await waitFor(() => assert.equal(left.length, before + 1, `the ${step} step never left the document`));
       unmount();
     }
 
@@ -121,7 +126,7 @@ describe("which ceremony the card runs", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt anmelden" }));
 
-    assert.deepEqual(left, [LANDING]);
+    await waitFor(() => assert.deepEqual(left, [LANDING]));
     assert.deepEqual([seen.refresh, seen.replaced], [0, []]);
   });
 });
@@ -134,6 +139,8 @@ describe("what the reader is told when the step worked", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
 
+    // Read once the answer has landed, its departure being the sign: before it, silence proves nothing.
+    await waitFor(() => assert.deepEqual(left, [LANDING]));
     assert.deepEqual(raised, []);
   });
 
@@ -145,8 +152,8 @@ describe("what the reader is told when the step worked", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt anmelden" }));
 
+    await waitFor(() => assert.deepEqual(left, [LANDING]));
     assert.deepEqual(raised, []);
-    assert.deepEqual(left, [LANDING]);
   });
 });
 
@@ -175,11 +182,13 @@ describe("a prompt the browser did not complete", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
 
-    assert.deepEqual([seen.replaced, left, seen.refresh], [[], [], 0], "a refused ceremony sent the reader on");
-    assert.deepEqual(
-      raised.map((toast) => [toast.variant, toast.title, toast.description]),
-      [["danger", "Passkey nicht eingerichtet", "Versuche es erneut."]],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["danger", "Passkey nicht eingerichtet", "Versuche es erneut."]],
+      ),
     );
+    assert.deepEqual([seen.replaced, left, seen.refresh], [[], [], 0], "a refused ceremony sent the reader on");
     assert.ok(screen.getByRole("button", { name: "Jetzt einrichten" }), "the control the reader would press again is gone");
   });
 
@@ -193,9 +202,11 @@ describe("a prompt the browser did not complete", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt anmelden" }));
 
-    assert.deepEqual(
-      raised.map((toast) => toast.description),
-      ["Dieser Passkey hat nicht bestätigt, dass Du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung."],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => toast.description),
+        ["Dieser Passkey hat nicht bestätigt, dass Du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung."],
+      ),
     );
   });
 
@@ -208,9 +219,11 @@ describe("a prompt the browser did not complete", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt einrichten" }));
 
-    assert.deepEqual(
-      raised.map((toast) => toast.description),
-      ["Versuche es erneut."],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => toast.description),
+        ["Versuche es erneut."],
+      ),
     );
     assert.deepEqual([seen.refresh, seen.replaced, left], [1, [], []]);
   });
@@ -224,10 +237,12 @@ describe("a prompt the browser did not complete", () => {
 
     await user.click(screen.getByRole("button", { name: "Jetzt anmelden" }));
 
-    assert.ok(screen.getByRole("button", { name: "Jetzt anmelden" }), "the rejected ceremony left the pending label standing");
-    assert.deepEqual(
-      raised.map((toast) => toast.title),
-      ["Nicht angemeldet"],
+    assert.ok(await screen.findByRole("button", { name: "Jetzt anmelden" }), "the rejected ceremony left the pending label standing");
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => toast.title),
+        ["Nicht angemeldet"],
+      ),
     );
   });
 });

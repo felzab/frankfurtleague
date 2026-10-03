@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -55,9 +55,12 @@ describe("a code that confirmed somebody other than the page's holder", () => {
     await screen.findByRole("alert");
 
     // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
-    assert.ok(
-      document.activeElement === screen.getByRole("button", { name: "Code per E-Mail senden" }),
-      "the refusal replaced the code field and the focus fell to the page",
+    // Waited for: the focus moves once the replaced field has gone, which a loaded machine commits after its alert.
+    await waitFor(() =>
+      assert.ok(
+        document.activeElement === screen.getByRole("button", { name: "Code per E-Mail senden" }),
+        "the refusal replaced the code field and the focus fell to the page",
+      ),
     );
   });
 });

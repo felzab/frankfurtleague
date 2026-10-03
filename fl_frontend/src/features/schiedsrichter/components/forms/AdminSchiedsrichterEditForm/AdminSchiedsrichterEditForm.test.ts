@@ -4,9 +4,9 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { act, createElement as h } from "react";
+import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE } from "@/features/schiedsrichter/constants.ts";
@@ -103,10 +103,14 @@ describe("the undo a referee's save offers", () => {
     await user.clear(box);
     await user.type(box, "anna.koerner@schule.de");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
-    // The write runs inside a transition, so its answer and the offer behind it land after the press.
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    // The write runs inside a transition, so its answer and the offer behind it land after the press,
+    // on a loaded machine later than a tick.
+    await waitFor(() =>
+      assert.ok(
+        toasts.some((toast) => toast.title === "Änderung gespeichert"),
+        "the save offered no undo",
+      ),
+    );
 
     assert.equal(calls.length, 1, "the press never reached the write, so the undo below proves nothing");
   }

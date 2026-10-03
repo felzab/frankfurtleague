@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -18,7 +18,7 @@ import { renderMarkup } from "@/shared/testing/renderTest.ts";
 import type { ReactNode } from "react";
 
 /* Every write answers as landed, so a case reads what each form sent. */
-const { calls: gesendet } = doubleActions({
+const { calls: gesendet, answered } = doubleActions({
   modules: ["/src/features/spieler/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: "68c1f0a2b3c4d5e6f7a8b9c0" }),
 });
@@ -101,6 +101,8 @@ describe("a squad number typed with space around it", () => {
     await user.click(screen.getByRole("button", { name: "Speichern" }));
 
     assert.deepEqual(nummern("patchSaisonSpielerAction"), ["7"], "the editor sends the space along, or sends nothing");
+    // Its answer lands inside this case, or in the case after it.
+    await act(answered);
   });
 });
 

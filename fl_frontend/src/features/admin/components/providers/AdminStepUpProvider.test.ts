@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -40,7 +40,7 @@ function prompt(): Promise<unknown> {
 /** Whether the session a confirmation mints is the asking administrator's, as the holder check answers it. */
 let heldBy = true;
 
-const { calls } = doubleActions({
+const { calls, answered } = doubleActions({
   modules: [/\/features\/sperrliste\/actions\.ts$/, /\/features\/berechtigungen\/actions\.ts$/, /\/features\/admin\/actions\.ts$/],
   // One answer for the write and the holder check: each reads its own field of it.
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", gleich: heldBy }),
@@ -294,11 +294,13 @@ describe("the narrow window a grant is held to", () => {
       }),
     );
 
-  /** Types an address and presses „Speichern“, answering once the grant has been sent. */
+  /** Types an address and presses „Speichern“, answering once the grant has been sent and answered. */
   async function grant(user: ReturnType<typeof userEvent.setup>): Promise<void> {
     await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "neu@schule.de");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
     await waitFor(() => assert.deepEqual(writes(), ["postBerechtigungAction"]));
+    // Its answer lands inside the case, or in the case after it.
+    await act(answered);
   }
 
   /* The form reads the window it declares, never the standing one: on the two hours alone, the server
