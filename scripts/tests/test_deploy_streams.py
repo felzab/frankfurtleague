@@ -1074,6 +1074,8 @@ def test_every_credential_line_refuses_naming_each_in_any_case_and_no_value() ->
         pytest.param("AUTH_SECRET: a value no case reads", id="colon"),
         pytest.param("  AUTH_SECRET :a value no case reads", id="colon-spaced"),
         pytest.param("export AUTH_SECRET: a value no case reads", id="export-colon"),
+        pytest.param("export AUTH_SECRET=a value no case reads", id="export-equals"),
+        pytest.param("export   AUTH_SECRET", id="export-bare"),
     ],
 )
 def test_a_credential_line_in_any_form_compose_reads_refuses(line: str) -> None:
@@ -1102,15 +1104,43 @@ def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> No
     assert "credential-lines-passed" not in output, output
 
 
-@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
-def test_each_script_runs_the_check_over_both_files_before_compose_reads_either(script: Path) -> None:
-    """The local stack runs neither image's name check, so there this is the one reader standing between a credential's line and a container."""
-    text = script.read_text(encoding="utf-8")
-    call = "\nrefuse_credential_lines fl_frontend/.env fl_backend/.env\n"
-    readers = ("\ncheck_compose_config\n", "docker compose build", "\ncheck_actor_key ")
+def _top_level_compose_lines(script: Path) -> tuple[list[str], list[int]]:
+    """The script's unindented lines, and the indexes of those asking compose, directly or through a function.
 
-    assert text.count(call) == 1, script.name
-    assert text.index(call) < min(text.index(marker) for marker in readers if marker in text), script.name
+    Derived rather than named, so the case below sees a compose call a later change puts first.
+    """
+    bodies: dict[str, str] = {}
+    for source in (LIB, script):
+        for found in re.finditer(r"^([a-z_][a-z0-9_]*)\(\) \{.*?^\}", source.read_text(encoding="utf-8"), flags=re.MULTILINE | re.DOTALL):
+            bodies[found.group(1)] = found.group(0)
+    asking = {name for name, body in bodies.items() if "docker compose" in body}
+    while grown := {name for name, body in bodies.items() if name not in asking and any(re.search(rf"\b{n}\b", body) for n in asking)}:
+        asking |= grown
+    lines, inside = [], False
+    for line in script.read_text(encoding="utf-8").splitlines():
+        if re.match(r"^[a-z_][a-z0-9_]*\(\) \{", line):
+            inside = True
+        if not inside and line and not line[0].isspace() and not line.startswith("#"):
+            lines.append(line)
+        if inside and line == "}":
+            inside = False
+    composing = [i for i, line in enumerate(lines) if "docker compose" in line or line.split(" ", 1)[0] in asking]
+    return lines, composing
+
+
+@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
+def test_each_script_runs_the_check_over_both_files_before_a_start_asks_compose(script: Path) -> None:
+    """On the local stack this is the only reader between a credential's line and a container.
+
+    The status and stop modes ask compose earlier but create no container, so the count starts at
+    the preflight.
+    """
+    lines, composing = _top_level_compose_lines(script)
+    call = "refuse_credential_lines fl_frontend/.env fl_backend/.env"
+    start = lines.index('section "preflight"')
+
+    assert lines.count(call) == 1, script.name
+    assert start < lines.index(call) < min(i for i in composing if i > start), (script.name, [lines[i] for i in composing])
 
 
 def test_a_file_holding_no_credential_line_passes_in_silence() -> None:
