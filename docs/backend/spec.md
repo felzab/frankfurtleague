@@ -519,7 +519,7 @@ default are required at boot and the process refuses to start without them.
 | Secret file                                    | Constraint                                                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `backend_mongodb_uri`                          | must start `mongodb://` or `mongodb+srv://`                                                 |
-| `internal_api_key_base` / `_system` / `_admin` | exactly 64 printable ASCII characters, none a space or one an env-file reader alters        |
+| `internal_api_key_base` / `_system` / `_admin` | exactly 64 printable ASCII characters, none a space                                         |
 | `sperrliste_schluessel`                        | at least 64 characters; never rotated, and the length counts characters rather than entropy |
 
 **A credential is its file's and nothing else's.** The secret half takes no environment and no
@@ -547,10 +547,10 @@ deliberate: this API is reached server-side from the frontend's own origin, neve
 an origin we do not already name, and `Access-Control-Allow-Origin: *` is invalid for a credentialed
 request in any case. `fl_backend/tests/core/test_config.py :: TestCorsAllowedOrigins` pins it.
 
-**The internal keys' character class is what `secrets.compare_digest` can read, less what an
-env-file reader alters** (`docs/ops/spec.md :: I11`): a key the length bound alone admits boots and
-then answers every internal request 500, and a `$` or a `#` in one reaches the two sides as
-different keys ([`docs/ops/spec.md`](../ops/spec.md) §1.5 names the six).
+**The internal keys' character class is what `secrets.compare_digest` can read**
+(`docs/ops/spec.md :: I11`): a key the length bound alone admits boots and then answers every
+internal request 500, and an older build a rollback restores refuses some keys this one takes
+([`docs/ops/spec.md`](../ops/spec.md) §1.5).
 
 **`sperrliste_schluessel` is the one secret here that can never be replaced.** Every row of
 `sperrliste` holds an HMAC taken under it and no address survives to re-hash

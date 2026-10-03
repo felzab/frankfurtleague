@@ -31,10 +31,10 @@ ORIGIN = re.compile(r"https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1
 # alone would refuse is a deployment already broken.
 INTERNAL_API_KEY_LENGTH: Final = 64
 
-# ASCII, because `security.py :: verify_api_key`'s `secrets.compare_digest` RAISES on a non-ASCII
-# `str`; without `"` `#` `$` `'` `\` and the backtick, which some env-file reader alters
-# (`docs/ops/spec.md :: I11`). Pinned identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY`.
-INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21\x25\x26\x28-\x5b\x5d-\x5f\x61-\x7e]+")
+# RFC 9110's `VCHAR`, which a header carries as written: `security.py :: verify_api_key`'s
+# `secrets.compare_digest` RAISES on a non-ASCII `str` (`docs/ops/spec.md :: I11`). Pinned
+# identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY`.
+INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
 
 # The ban list's key is never rotated, every stored hash having been taken under it and no address
 # surviving to re-hash (`docs/ops/runbooks.md :: 5`), so the boot is the one place a weak one is
@@ -52,7 +52,7 @@ MONGODB_URI_FILE: Final = "backend_mongodb_uri"
 def _only_key_characters(key: SecretStr) -> SecretStr:
     """A validator rather than `Field(pattern=)`, which pydantic refuses to apply to a `SecretStr`."""
     if INTERNAL_API_KEY_CHARACTERS.fullmatch(key.get_secret_value()) is None:
-        raise ValueError("printable ASCII only, with no space and none of \" # $ ' \\ or a backtick")
+        raise ValueError("printable ASCII only, with no space")
     return key
 
 

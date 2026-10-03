@@ -12,13 +12,12 @@ import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 // transitive dependency, and pnpm puts none of those on this module's resolution path.
 type ValidationIssues = Parameters<NonNullable<Parameters<typeof createEnv>[0]["onValidationError"]>>[0];
 
-// The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII,
-// which `secrets.compare_digest` there reads, without the six characters some env-file reader
-// alters (`docs/ops/spec.md :: I11`).
+// The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII
+// without the space, which `secrets.compare_digest` there reads (`docs/ops/spec.md :: I11`).
 export const INTERNAL_API_KEY = z
   .string()
   .length(64)
-  .regex(/^[\x21\x25\x26\x28-\x5b\x5d-\x5f\x61-\x7e]+$/, "printable ASCII only, with no space and none of \" # $ ' \\ or a backtick");
+  .regex(/^[\x21-\x7e]+$/, "printable ASCII only, with no space");
 
 // Where Compose mounts a file secret, which is where a container finds it with nothing set.
 const DEFAULT_SECRETS_DIR = "/run/secrets";

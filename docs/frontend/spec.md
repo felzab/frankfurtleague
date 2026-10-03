@@ -748,7 +748,7 @@ deploy's rollback read.
 | `auth_secret`                                  | `AUTH_SECRET`                                  | **at least 32 characters** — the sign-in library warns below that floor and never refuses                                               |
 | `auth_resend_key`                              | `AUTH_RESEND_KEY`                              | not empty; **required only under `APP_ENV=production`** — a deployment that is not production is handed no key and sends nothing (I228) |
 | `resend_webhook_secret`                        | `RESEND_WEBHOOK_SECRET`                        | beginning `whsec_`; **required only under `APP_ENV=production`**, the one deployment the provider sends its events to                   |
-| `internal_api_key_base` / `_system` / `_admin` | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space or one an env-file reader alters (`docs/ops/spec.md :: I11`)                        |
+| `internal_api_key_base` / `_system` / `_admin` | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space (`docs/ops/spec.md :: I11`)                                                         |
 
 **Each secret is its file's and never the environment's** (I503): `fl_frontend/src/core/config.ts ::
 readSecretFiles` reads them before the schema runs, trims the whitespace around each value, a shared key's alphabet

@@ -471,18 +471,13 @@ such a line as well and pass it (`fl_backend/app/core/config.py :: read_environm
 authenticate one machine's processes to each other, so a development machine generates fresh ones
 rather than copying production's ([`runbooks.md`](runbooks.md) §16).
 
-**A key carries none of `"`, `#`, `$`, `'`, `\` or the backtick** (I11), because some env-file reader
-alters each, so the two sides would hold different keys:
-
-- `$` is interpolated by compose and by Next's `@next/env`, and `${` by python-dotenv.
-- `#` ends the value wherever it stands for dotenv, which `@next/env` runs.
-- A leading `"` or `'` opens a quoted value for every reader, and a backtick does for dotenv alone.
-- `\` inside a quoted value is an escape to python-dotenv, and inside a double-quoted one to
-  compose, while dotenv keeps it.
-
-Every other printable ASCII character reaches each reader as written, bare or quoted, so a key from
-`openssl rand -hex`, base64 or `secrets.token_urlsafe` is always one of the class. A key in its file
-is held to the same class. **The deploy's
+**A key is printable ASCII without the space** (I11): `secrets.compare_digest` raises on anything
+else, so a key outside the class would boot and then answer every internal request 500. Its file is
+its only reader, which parses no env-file syntax, so `"`, `#`, `$`, `'`, `\` and the backtick are
+part of the class. **A build from before the class took those six refuses a key carrying one**, so
+such a key also refuses the boot of an older image the automatic rollback restores; a key from
+`openssl rand -hex 32`, as [`runbooks.md`](runbooks.md) §16 generates one, carries none of them and
+is one every build takes. **The deploy's
 preflight judges a key with the pulled backend image's own validator**, in the backend's container
 (I510), so a key outside the class refuses the deploy at exit 2 before anything is recreated; the
 remedy is a new key ([`runbooks.md`](runbooks.md) §16).
@@ -1275,7 +1270,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I7   | Neither `:latest` tag moves until both packages hold the build under its `sha-` tag                                                                                           | `.github/workflows/publish.yml`'s last step moves both; `scripts/ops/deploy.sh :: compare_pulled_pair` refuses a `:latest` pair whose `version` labels differ or are absent before recreating, driven by `scripts/tests/test_deploy_pair.py`                                                            |
 | I9   | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                  | `deploy.sh`                                                                                                                                                                                                                                                                                             |
 | I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                                                                                                       |
-| I11  | The three API keys are 64 printable ASCII characters, none that an env-file reader alters (§1.5), one file each that both sides read                                          | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`, held equal by `fl_backend/tests/shared/test_frontend_mirrors.py`; one file serves both sides (I508)                                                                            |
+| I11  | The three API keys are 64 printable ASCII characters without the space (§1.5), one file each that both sides read                                                             | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`, held equal by `fl_backend/tests/shared/test_frontend_mirrors.py`; one file serves both sides (I508)                                                                            |
 | I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — both stacks serve `nginx/shared/site.conf`'s one location set; `nginx -t` reads no location and no test requests a backend path                                                                                                                                                                |
 | I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/shared/http.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                                                                     |
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                                                                                           |

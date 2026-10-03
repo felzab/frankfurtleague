@@ -261,9 +261,12 @@ class TestTheInternalKeys:
             build(**{field: SecretStr("k" * length)})
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
-    @pytest.mark.parametrize("odd_character", ["ü", "\U0001f600", " "], ids=["non-ascii", "astral", "space"])
+    @pytest.mark.parametrize("odd_character", ["ü", "\U0001f600", " ", "\x7f"], ids=["non-ascii", "astral", "space", "delete"])
     def test_a_key_of_the_right_length_carrying_a_non_ascii_character_or_a_space_fails_the_boot(self, field, odd_character):
-        """The three the length alone admits: `compare_digest` RAISES on the first two, and the astral one is also 65 units to the frontend."""
+        """What the length alone admits: `compare_digest` RAISES on the first two, and the astral one is also 65 units to the frontend.
+
+        The space and DEL sit either side of the class's range.
+        """
         key = odd_character + "k" * (INTERNAL_API_KEY_LENGTH - 1)
 
         assert len(key) == INTERNAL_API_KEY_LENGTH
@@ -273,14 +276,13 @@ class TestTheInternalKeys:
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
     @pytest.mark.parametrize(
-        "altered", ['"', "#", "$", "'", "\\", "`"], ids=["double-quote", "hash", "dollar", "single-quote", "backslash", "backtick"]
+        "syntax", ['"', "#", "$", "'", "\\", "`"], ids=["double-quote", "hash", "dollar", "single-quote", "backslash", "backtick"]
     )
-    def test_a_key_carrying_a_character_an_env_file_reader_alters_fails_the_boot(self, field, altered):
-        """Compose, python-dotenv, `@next/env` or Node reads each of these as syntax somewhere, so the two sides could hold different keys."""
-        key = "k" * 10 + altered + "k" * (INTERNAL_API_KEY_LENGTH - 11)
+    def test_a_key_carrying_a_character_an_env_file_reader_alters_boots(self, field, syntax):
+        """A key is read from its file alone, which no env-file reader parses, so the class need not refuse their syntax."""
+        key = "k" * 10 + syntax + "k" * (INTERNAL_API_KEY_LENGTH - 11)
 
-        with pytest.raises(ValidationError):
-            build(**{field: SecretStr(key)})
+        assert getattr(build(**{field: SecretStr(key)}), field).get_secret_value() == key
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
     @pytest.mark.parametrize(

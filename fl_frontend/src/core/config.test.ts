@@ -49,16 +49,18 @@ const SECRETS_ROOT = mkdtempSync(path.join(tmpdir(), "fl-config-secrets-"));
 after(() => rmSync(SECRETS_ROOT, { recursive: true, force: true }));
 
 describe("the schema the three internal API keys share", () => {
-  it("takes a key of every class character no env-file reader alters, the three generators' alphabets among them", () => {
+  it("takes a key of every class character, the three generators' alphabets among them", () => {
     // `openssl rand -hex`, base64 with its padding, and `secrets.token_urlsafe`, then each range edge.
     for (const key of [pad("0123456789abcdef"), pad("AZaz09+/=="), pad("-_"), pad("!%&(["), pad("]^_a{|}~")]) {
       assert.equal(INTERNAL_API_KEY.safeParse(key).success, true, `refused ${String([...key].length)} class characters`);
     }
   });
 
-  it("refuses a key carrying a character Compose, python-dotenv, @next/env or Node reads as syntax", () => {
-    for (const altered of ['"', "#", "$", "'", "\\", "`"]) {
-      assert.equal(INTERNAL_API_KEY.safeParse(pad(altered)).success, false, `accepted ${altered}`);
+  /* A key is read from its file alone, which no env-file reader parses, so the class need not refuse
+     their syntax. */
+  it("takes a key carrying a character Compose, python-dotenv, @next/env or Node reads as syntax", () => {
+    for (const syntax of ['"', "#", "$", "'", "\\", "`"]) {
+      assert.equal(INTERNAL_API_KEY.safeParse(pad(syntax)).success, true, `refused ${syntax}`);
     }
   });
 
@@ -70,6 +72,11 @@ describe("the schema the three internal API keys share", () => {
 
   it("refuses a key a space would let through a bearer header", () => {
     assert.equal(INTERNAL_API_KEY.safeParse(pad("a b")).success, false);
+  });
+
+  // The class's upper edge, past which a header carries no character as written.
+  it("refuses a key carrying DEL", () => {
+    assert.equal(INTERNAL_API_KEY.safeParse(pad("a\x7f")).success, false);
   });
 
   it("refuses any other length", () => {
