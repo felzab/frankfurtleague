@@ -69,7 +69,7 @@ type Sitz = "trainer" | "ansprechperson" | "stellvertretung";
 
 /**
  * The two rules every contact block written by anybody keeps, mirroring
- * `fl_backend/app/api/bewerbungen/schemas.py :: the_trainer_equals_the_seat_they_also_hold` and
+ * `fl_backend/app/api/teams/schemas.py :: the_trainer_equals_the_seat_they_also_hold` and
  * `:: the_distinct_people_share_no_email_or_telephone`. An empty seat holds nobody to compare.
  */
 export function kontaktePersonenRegeln<P extends Person>({
