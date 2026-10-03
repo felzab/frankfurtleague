@@ -8,6 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { Button } from "@heroui/react/button";
 import { Label } from "@heroui/react/label";
 
+import { ABLEHNEN_LABEL } from "@/features/bewerbungen/constants";
 import { buildEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -43,9 +44,6 @@ export type BestaetigungAbschluss =
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean }
   | (PublicEnvelope & { success: false; zustand?: LinkZustand });
-
-/** A control, not a link: it arms the objection and navigates nowhere. Named in the information text too. */
-const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 
 /**
  * What the armed press sends. A constant rather than a literal in the branch: it is where

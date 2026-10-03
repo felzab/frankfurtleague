@@ -30,7 +30,7 @@ import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
-import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
+import { ABLEHNEN_LABEL, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 
 import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten.ts";
 import type { ReactElement, ReactNode } from "react";
@@ -79,8 +79,6 @@ const { fensterZustand } = await import("./utils.ts");
 const { FLBewerbungEinwilligungAntwortPayloadSchema } = await import("./schemas.ts");
 const { BestaetigungFormPanel } = await import("./components/views/BestaetigungFormPanel.tsx");
 
-/** The words a reader presses to object, which the stamped version names in a paragraph of its own. */
-const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
 const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");

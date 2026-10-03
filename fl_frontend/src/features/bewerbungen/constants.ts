@@ -93,6 +93,12 @@ export const BEWERBUNG_MIN_ALTER = 16;
 export const BEWERBUNG_MAX_ALTER = 120;
 
 /**
+ * The contact page's objection control, which the stamped wording names in a paragraph of its own
+ * (its `{ablehnen}` slot): the label and that sentence say the same words wherever either renders.
+ */
+export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
+
+/**
  * The floor the Ansprechperson and the Stellvertretung clear, mirrored from
  * `fl_backend/app/shared/schemas/bounds.py`. Those two sign what binds the school, which asks
  * contractual capacity rather than the age a person consents for themselves at.
