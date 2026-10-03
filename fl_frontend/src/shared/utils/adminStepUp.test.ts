@@ -308,9 +308,8 @@ describe("an administrator write the server holds to the step-up window", () => 
     }
   });
 
-  /* Clearing the block voids every link on the row; an edit moving no link keeps its undo, and asking
-     for the passkey there would ask on every save of the contact editor. The row holds nobody here,
-     so an empty block moves nothing. */
+  /* Clearing the block voids every link on the row; an edit moving no link keeps its undo, or every
+     save would ask. The row holds nobody here, so an empty block moves nothing. */
   it("refuses clearing a team's contacts, and never an edit moving no link", async () => {
     const patch = await action("patchSaisonTeamKontakteAction");
     const key = { team_id: TEAM_ID, saison_id: "2526", kontakte_stand: "9f2c" };

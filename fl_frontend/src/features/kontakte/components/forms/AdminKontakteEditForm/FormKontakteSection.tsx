@@ -56,9 +56,8 @@ const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
 
 /**
- * Whether the stored seat takes a re-send: any seat whose person has not confirmed. A paired Trainer
- * shares the named seat's one link, so the press stands on one of the two: the named seat's while it
- * is unconfirmed, the Trainer's once the named seat alone is confirmed.
+ * Any seat whose person has not confirmed takes a re-send. A pair shares one link, so its press
+ * stands on the named seat while that is open and on the Trainer once the named seat alone is confirmed.
  */
 function istEinladbar(stored: FLSaisonTeamKontakte | null, rolle: KontaktRolle): boolean {
   const unbestaetigt = (sitz: KontaktRolle) => {

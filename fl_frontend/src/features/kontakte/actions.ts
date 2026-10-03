@@ -90,9 +90,8 @@ export async function patchSaisonTeamKontakteAction(
       };
     }
 
-    // Clearing the block and a save seating, removing or replacing a person are step-up writes, each
-    // minting or voiding a link; an edit moving no link keeps its undo (`docs/frontend/spec.md :: I432`).
-    // The stored row is read only for a session past the window, the backend refusing the rest.
+    // A save minting or voiding a link is a step-up write, and one moving none keeps its undo
+    // (`docs/frontend/spec.md :: I432`). The stored row is read only for a session past the window.
     const movesLinks =
       validated.data.kontakte !== null &&
       !isFreshlySignedIn(session) &&
