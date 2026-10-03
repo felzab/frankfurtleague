@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
+import { EinwilligungSection } from "@/features/konto/components/views/EinwilligungSection";
 import { SicherheitSection } from "@/features/konto/components/views/SicherheitSection";
 import { KontoPanel } from "@/shared/components/ui/KontoPanel";
 
@@ -19,6 +20,7 @@ export default async function KontoPage() {
     <KontoPanel
       email={subject.email}
       sicherheit={<SicherheitSection />}
+      einwilligung={<EinwilligungSection />}
     />
   );
 }

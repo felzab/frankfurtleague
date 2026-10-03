@@ -1,5 +1,5 @@
 import { gekeyteFassung } from "@/core/einwilligungSeiten";
-import { Gefuellt } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { ABSATZ_CLASSES, Gefuellt } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants";
 
 import type { FLEinwilligungFassung } from "@/core/schemas";
@@ -49,6 +49,35 @@ export function sitzWorte(fassung: FLEinwilligungFassung, sitz: { readonly team_
     medien: { schalter: gekeyt.schalter, absatz: absatz(gekeyt.absaetze.medien, werte) },
     widerruf: absatz(gekeyt.absaetze.widerruf, werte),
   };
+}
+
+/** Filled by `Gefuellt` itself on every page, so no record has to carry it. */
+const SELBST_GEFUELLT = new Set(["datenschutz"]);
+
+/**
+ * The words a person confirmed, read-only, each slot filled from the record's present context
+ * (`docs/frontend/spec.md :: I895`). Throws for a slot `werte` leaves empty: a page spelling a literal
+ * `{schule}` reads as finished and states nothing.
+ */
+export function bestaetigteWorte(fassung: FLEinwilligungFassung, werte: Slots) {
+  const offen = fassung.platzhalter.filter((slot) => !SELBST_GEFUELLT.has(slot) && !Object.hasOwn(werte, slot));
+  if (offen.length > 0) throw new Error(`the confirmed wording ${fassung.text_version} has no value for ${offen.join(", ")}`);
+
+  return (
+    <>
+      {fassung.absaetze.map((text) => (
+        <p
+          key={text}
+          className={ABSATZ_CLASSES}>
+          <Gefuellt
+            text={text}
+            werte={werte}
+            eigene={EIGENE}
+          />
+        </p>
+      ))}
+    </>
+  );
 }
 
 /** A seat's record title, which names the team season the control moves; the switch's own words are the same on every seat. */

@@ -12,8 +12,8 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { patchSitzEinwilligung } from "./mutations";
 import { FLSaisonTeamPersonEinwilligungPayloadSchema } from "./schemas";
 
+import type { EinwilligungAntwort } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
 import type { ActionResult } from "@/shared/types/types";
-import type { FLSaisonTeamPersonEinwilligungPayload } from "./schemas";
 
 /** The team season the page binds, never a value the reader typed. */
 const SitzAdresseSchema = z.object({ team_id: CustomObjectIdStringSchema, saison_id: z.string().length(SAISON_ID_LENGTH) });
@@ -22,11 +22,7 @@ const SitzAdresseSchema = z.object({ team_id: CustomObjectIdStringSchema, saison
  * A seat holder's own media consent for one team season. It claims the person's record on that row,
  * never a seat panel, so a past season's seat holder can still withdraw (`docs/frontend/spec.md :: I893`).
  */
-export async function patchSitzEinwilligungAction(
-  teamId: string,
-  saisonId: string,
-  rawPayload: FLSaisonTeamPersonEinwilligungPayload,
-): Promise<ActionResult> {
+export async function patchSitzEinwilligungAction(teamId: string, saisonId: string, rawPayload: EinwilligungAntwort): Promise<ActionResult> {
   return runPersonRecordMutation("patchSitzEinwilligungAction", async () => {
     const adresse = SitzAdresseSchema.safeParse({ team_id: teamId, saison_id: saisonId });
     const validated = FLSaisonTeamPersonEinwilligungPayloadSchema.safeParse(rawPayload);

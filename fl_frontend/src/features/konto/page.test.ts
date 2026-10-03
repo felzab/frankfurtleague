@@ -20,6 +20,7 @@ doubleEveryAction();
 const { default: KontoPage } = await import("@/app/bereich/(persoenlich)/konto/page.tsx");
 const { KontoPanel } = await import("@/shared/components/ui/KontoPanel.tsx");
 const { SicherheitSection } = await import("./components/views/SicherheitSection.tsx");
+const { EinwilligungSection } = await import("./components/views/EinwilligungSection.tsx");
 const { SicherheitPanel } = await import("./components/views/SicherheitPanel.tsx");
 const { AdminShell } = await import("@/features/admin/components/ui/AdminShell.tsx");
 const { PersonShell } = await import("@/features/funktionen/components/ui/PersonShell.tsx");
@@ -50,15 +51,16 @@ const kontoLinks = (html: string): string[] => [...html.matchAll(/<a [^>]*href="
 describe("the account page", () => {
   /* One page per person, reached whatever they hold: a person whose every record is unconfirmed still
      has a sign-in, and so passkeys and devices to manage. */
-  it("hands the panel the person's address and the security section, a Funktion held or none", async () => {
+  it("hands the panel the person's address, the security section and the consent section, a Funktion held or none", async () => {
     setSubject(OHNE_FUNKTION);
 
     const body = await pageBody(KontoPage, NO_PROPS);
 
     assert.equal(body.type, KontoPanel);
-    const props = body.props as { email: string; sicherheit: { type: unknown } };
+    const props = body.props as { email: string; sicherheit: { type: unknown }; einwilligung: { type: unknown } };
     assert.equal(props.email, "pia@example.org");
     assert.equal(props.sicherheit.type, SicherheitSection);
+    assert.equal(props.einwilligung.type, EinwilligungSection);
   });
 
   /* The section is the administrator's lane's to fill, so a lapsed administrator verdict is sent on to
@@ -77,7 +79,7 @@ describe("the account page", () => {
   });
 
   it("draws the address under a panel heading and carries no second h1", () => {
-    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null }));
+    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null, einwilligung: null }));
 
     assert.equal([...html.matchAll(/<h1/g)].length, 0, "the panel carries an h1 beside the bar's");
     // Headed „Anmeldung“: „Zugang“ names the administration grant alone.
@@ -282,5 +284,90 @@ describe("what the security section tells its reader", () => {
     };
     const both = renderTree(underNext(h(SicherheitPanel, { sicherheit: sicherheit({ anmeldungen: [...sicherheit().anmeldungen, andere] }) })));
     assert.match(both, ABMELDEN_BUTTON);
+  });
+});
+
+const { answerReadsWith, EMPTIEST_ANSWER, renderPage } = await import("@/shared/testing/pageHarness.ts");
+const { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
+
+const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
+
+/** A seat confirmed through the application form, whose wording names no slot: its words render whole. */
+const SITZ = {
+  team_id: SITZ_TEAM_ID,
+  team_name: "Lessing Lions",
+  saison_id: "2526",
+  rollen: ["trainer"],
+  text_version: "2026-09-bestaetigung-5",
+  bestaetigt_text_version: "2026-09-bestaetigung-5",
+  medien: false,
+  medien_angeboten: true,
+  erteilbar: true,
+};
+
+const EINWILLIGUNG = {
+  umfang: "kader_oeffentlich",
+  erteilt_von: "volljaehrig",
+  datum: "2026-09-01",
+  bestaetigt_am: "2026-09-01",
+  text_version: "2026-09-spielerseite-2",
+  medien: false,
+};
+
+/** A pupil whose confirmation page named the registration's team, school and season. */
+const SPIELER = {
+  spieler_id: "6890a1b2c3d4e5f607390031",
+  vorname: "Alina",
+  nachname: "Fischer",
+  geburtsdatum: "2008-05-02",
+  inactive_since: null,
+  einwilligung: EINWILLIGUNG,
+  bestaetigt_text_version: "2026-09-spielerseite-2",
+  erteilbar: true,
+  medien_angeboten: true,
+  kader: [],
+};
+
+/** The section's reads answered: the consent words off the backend's generated registry, the person's records as given. */
+function answeringKonto(konto: Record<string, unknown>): void {
+  answerReadsWith((endpoint, schema, params) => {
+    if (endpoint === "/konto/einwilligungen") return { acknowledged: 1, spieler: null, schiedsrichter: [], sitze: [], ...konto };
+    return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+  });
+}
+
+const sectionText = async (): Promise<string> => textOf(await renderPage(underNext(h(EinwilligungSection))), " ").replace(/\s+/g, " ");
+
+describe("the account page's consent section", () => {
+  it("renders nothing for a person holding no consent record", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({});
+
+    assert.equal(await renderPage(underNext(h(EinwilligungSection))), "");
+  });
+
+  /* The control's words are the account page's own running wording; the words beside it are the ones
+     the seat's person confirmed, a different label of a different page. */
+  it("draws a seat's control in the account page's words and the confirmed words beside it", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ sitze: [SITZ] });
+
+    const text = await sectionText();
+    const konto = publishedLaufendeFassung("konto_kontakt");
+    const bestaetigt = publishedFassung(SITZ.bestaetigt_text_version);
+
+    assert.ok(text.includes("Deine Einwilligung"));
+    assert.ok(text.includes("Fotos, Videos und Interviews: Lessing Lions, Saison 2526"));
+    assert.ok(text.includes(konto.schalter), "the seat's switch is not named by the account page's words");
+    for (const absatz of bestaetigt.absaetze) assert.ok(text.includes(absatz), `the confirmed words lack „${absatz.slice(0, 40)}…“`);
+  });
+
+  /* A slot nobody fills reads as a finished sentence stating nothing; the render fails instead, until
+     the read serves the registration's team, school and season. */
+  it("fails the render rather than show a confirmed wording's slot unfilled", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ spieler: SPIELER });
+
+    await assert.rejects(sectionText(), /has no value for .*schule/);
   });
 });

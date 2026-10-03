@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
  * (`fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY`), so the page reads the holder and hands the
  * feature sections in.
  */
-export function KontoPanel({ email, sicherheit }: { email: string; sicherheit: ReactNode }) {
+export function KontoPanel({ email, sicherheit, einwilligung }: { email: string; sicherheit: ReactNode; einwilligung: ReactNode }) {
   const panel = formPanel();
 
   return (
@@ -32,6 +32,8 @@ export function KontoPanel({ email, sicherheit }: { email: string; sicherheit: R
         </section>
 
         {sicherheit}
+
+        {einwilligung}
       </div>
     </div>
   );

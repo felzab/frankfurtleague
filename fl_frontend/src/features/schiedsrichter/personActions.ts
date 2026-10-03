@@ -11,18 +11,15 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { patchSchiedsrichterSelbstEinwilligung } from "./mutations";
 import { FLSchiedsrichterSelbstEinwilligungPayloadSchema } from "./schemas";
 
+import type { EinwilligungAntwort } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
 import type { ActionResult } from "@/shared/types/types";
-import type { FLSchiedsrichterSelbstEinwilligungPayload } from "./schemas";
 
 /**
  * A referee's own consent. The page binds the record's id, one address possibly holding several
  * referee rows, and the write claims that record, so a retired referee can still withdraw
  * (`docs/frontend/spec.md :: I893`).
  */
-export async function patchSchiedsrichterEinwilligungAction(
-  schiedsrichterId: string,
-  rawPayload: FLSchiedsrichterSelbstEinwilligungPayload,
-): Promise<ActionResult> {
+export async function patchSchiedsrichterEinwilligungAction(schiedsrichterId: string, rawPayload: EinwilligungAntwort): Promise<ActionResult> {
   return runPersonRecordMutation("patchSchiedsrichterEinwilligungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(schiedsrichterId);
     const validated = FLSchiedsrichterSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
