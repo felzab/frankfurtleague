@@ -111,6 +111,9 @@ async def angenommen_zustellung(
     writes nothing, and the answer says whether anything was written; a delivery state the provider stamped never blocks it, that
     stamp being the provider's clock rather than this sender's. A record whose document carries no delivery bookkeeping at all --
     never mailed, or emptied by an erasure -- is skipped rather than refused. 404 where no document of that kind has the id.
+
+    A `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and
+    written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.
     """
 
     return await _apply(
@@ -150,6 +153,9 @@ async def abgewiesen_zustellung(
     already holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider
     stamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no
     document of that kind has the id.
+
+    A `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and
+    written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.
     """
 
     return await _apply(
@@ -189,6 +195,9 @@ async def post_zustellung(
 
     404 where no document of that kind has the id, which a record erased between the send and the event is: a caller that must not
     retry maps it rather than repeating the call.
+
+    A `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and
+    written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.
     """
 
     return await _apply(
