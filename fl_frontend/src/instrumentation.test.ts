@@ -66,6 +66,16 @@ beforeEach(() => {
   lines.length = 0;
 });
 
+describe("a boot with nothing to report", () => {
+  /* Every line a boot writes is one an operator reads in the container log, so a line written on every
+     clean boot buries the one that matters. */
+  it("writes no log line", async () => {
+    await register();
+
+    assert.deepEqual(lines, []);
+  });
+});
+
 describe("the pass announcing each change to who administers", () => {
   const MINUTE_MS = 60 * 1000;
   const env = process.env as Record<string, string | undefined>;
