@@ -931,7 +931,15 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
 
 
 def compose_confirmation_update(
-    *, kontakte: Mapping[str, Any], seats: Sequence[str], geburtsdatum: str, today: str, text_version: str, whatsapp: bool, am: str
+    *,
+    kontakte: Mapping[str, Any],
+    seats: Sequence[str],
+    geburtsdatum: str,
+    today: str,
+    text_version: str,
+    whatsapp: bool,
+    medien: bool,
+    am: str,
 ) -> Mapping[str, Any]:
     """The ONE update a confirmation is, on every seat the person holds.
 
@@ -953,6 +961,7 @@ def compose_confirmation_update(
                 "erfasst_von": "person",
                 "text_version": text_version,
                 "umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG,
+                "medien": medien,
             },
             akt="bestaetigt",
             ueber=BESTAETIGUNG_WEG,

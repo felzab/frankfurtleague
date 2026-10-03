@@ -6995,7 +6995,7 @@
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
         "summary": "Confirm or decline one seat of a Bewerbung or of a team's season row",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, and\nappends its act to each seat's record after the entry that seated them; a decline empties their slot and redacts\nevery log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),\na link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered\n(`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for that seat\n(`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted\n(`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`) --\nthe last three judged before anything is written, so a reloaded page or a mistyped year spends nothing. A decline\nstores no label and is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from.",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, and\nappends its act to each seat's record after the entry that seated them; a decline empties their slot and redacts\nevery log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),\na link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered\n(`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for that seat\n(`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted\n(`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a\nmedia consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before\nanything is written, so a reloaded page or a mistyped year spends nothing. A decline\nstores no label and is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -7040,7 +7040,7 @@
             "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017.REQ-EINWILLIGUNG-001"
           },
           "422": {
-            "$ref": "#/components/responses/422.REQ-BEWERBUNG-012.REQ-VAL-001"
+            "$ref": "#/components/responses/422.REQ-BEWERBUNG-012.REQ-EINWILLIGUNG-002.REQ-VAL-001"
           },
           "default": {
             "$ref": "#/components/responses/default"
@@ -10551,6 +10551,10 @@
           "mindestalter": {
             "type": "integer",
             "title": "Mindestalter"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
           }
         },
         "type": "object",
@@ -10564,7 +10568,8 @@
           "vorname",
           "text_version",
           "laufende_fassung",
-          "mindestalter"
+          "mindestalter",
+          "medien_mindestalter"
         ],
         "title": "FLBewerbungEinwilligungAnsichtResponse",
         "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns nothing its mail did not already say: a first name, a school, a\nseason, the roles one answer covers and a wording's version."
@@ -10601,6 +10606,10 @@
             "type": "boolean",
             "title": "Whatsapp"
           },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
           "text_version": {
             "type": "string",
             "maxLength": 64,
@@ -10615,6 +10624,7 @@
           "antwort",
           "geburtsdatum",
           "whatsapp",
+          "medien",
           "text_version"
         ],
         "title": "FLBewerbungEinwilligungAntwortPayload",
@@ -24853,7 +24863,7 @@
           }
         }
       },
-      "422.REQ-BEWERBUNG-012.REQ-VAL-001": {
+      "422.REQ-BEWERBUNG-012.REQ-EINWILLIGUNG-002.REQ-VAL-001": {
         "description": "Unprocessable Content",
         "content": {
           "application/json": {
@@ -24867,6 +24877,7 @@
                     "error_code": {
                       "enum": [
                         "REQ-BEWERBUNG-012",
+                        "REQ-EINWILLIGUNG-002",
                         "REQ-VAL-001"
                       ]
                     }

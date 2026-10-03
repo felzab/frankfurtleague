@@ -723,6 +723,8 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # The PERSON's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     mindestalter: int
+    # The age from which the page offers the media switch, `REQ-EINWILLIGUNG-002`'s floor.
+    medien_mindestalter: int
 
 
 class FLBewerbungEinwilligungAntwortPayload(BaseModel):
@@ -737,6 +739,8 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
     # `REQ-VAL-001`.
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
+    # Required as `whatsapp` is: a page that forgot the switch is refused rather than read as a no.
+    medien: bool
     # The wording the CONFIRMING person saw, which is what a confirmed seat then cites: the label
     # the applicant ticked for them may be an older one.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]

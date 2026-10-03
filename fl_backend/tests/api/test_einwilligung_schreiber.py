@@ -170,6 +170,7 @@ def _contact_confirmation(record: Mapping[str, Any]) -> tuple[dict[str, Any], Ma
         today="2026-04-01",
         text_version="label",
         whatsapp=True,
+        medien=True,
         am=AM,
     )
     return stored, update, "kontakte.trainer.einwilligung"
@@ -214,9 +215,9 @@ def _account_press(record: Mapping[str, Any]) -> tuple[dict[str, Any], Mapping[s
     return stored, update, "einwilligung"
 
 
-# Every writer acting on a block that may already exist. The writers that only ever BEAR a block -- the
-# application, the reseat, the pupil's and the referee's confirmation -- are refused or reached only
-# where no block stands, so nothing of an earlier act is theirs to erase.
+# Every writer of a block that may already exist. The application, the reseat and the pupil's and the
+# referee's confirmation only bear one: each runs only where no block stands, so no earlier act is
+# theirs to erase.
 MOVERS: Final[Mapping[str, tuple[Callable[[Mapping[str, Any]], tuple[dict[str, Any], Mapping[str, Any], str]], Mapping[str, Any]]]] = {
     "POST /bewerbungen/einwilligung": (_contact_confirmation, SEAT_RECORD),
     "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": (_contacts_editor, SEAT_RECORD),

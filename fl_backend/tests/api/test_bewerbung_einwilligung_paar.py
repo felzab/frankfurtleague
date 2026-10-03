@@ -103,6 +103,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         "antwort": "erteilt",
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
         "whatsapp": False,
+        "medien": False,
         "text_version": BEWERBER_SEITE,
         **overrides,
     }

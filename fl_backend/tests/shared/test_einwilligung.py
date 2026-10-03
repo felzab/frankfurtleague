@@ -57,6 +57,8 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-konto-kontakt": "5ce576610f7d3131202dd6d9c5c99e7dd531fe3de7bd7fc4194e78e28c4b4526",
     "2026-10-bestaetigungsseite-verwaltung": "31ee5b3c9b17f8c270366bac62fce94975593e81f9330f012cbad508b6c3fc87",
     "2026-10-spielerseite-4": "d5a5751c1206a0d769e60e6713a73166d45962e04cb5115d6f568e87797289ea",
+    "2026-10-bestaetigungsseite-7": "5d8b6236e4108a2f06990e7e78e8b6b6189789f911c3f4ae1a656cd1afe82ff4",
+    "2026-10-bestaetigungsseite-verwaltung-2": "4e9764880323bd9996a16c90e4739c6f4fbfc3eaf6ebcc072ac35c7e8180b9d2",
 }
 
 
@@ -168,6 +170,58 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
         (
             "medien",
             "widerruf",
+        ),
+    ),
+    "2026-10-bestaetigungsseite-7": (
+        "bestaetigung_kontakt",
+        date(2026, 10, 3),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "rechtsgrundlage",
+            "nichtOeffentlich",
+            "fristAbgelehnt",
+            "fristAngenommen",
+            "fristUnvollstaendig",
+            "fristOhneEntscheidung",
+            "ablehnen",
+            "ablehnenFolge",
+            "widerruf",
+            "art21",
+            "whatsapp",
+            "medien",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickHinweise",
+            "keineEinwilligung",
+        ),
+    ),
+    "2026-10-bestaetigungsseite-verwaltung-2": (
+        "bestaetigung_kontakt_verwaltung",
+        date(2026, 10, 3),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "rechtsgrundlage",
+            "nichtOeffentlich",
+            "fristAbgelehnt",
+            "fristAngenommen",
+            "fristUnvollstaendig",
+            "fristOhneEntscheidung",
+            "ablehnen",
+            "ablehnenFolge",
+            "widerruf",
+            "art21",
+            "whatsapp",
+            "medien",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickHinweise",
+            "keineEinwilligung",
         ),
     ),
     "2026-10-spielerseite-4": (
@@ -307,6 +361,17 @@ class TestTheRegistryOfWordings:
         assert list(verwaltung.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
         assert anders == {"worum"}
         assert (verwaltung.schalter, dict(verwaltung.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
+
+    @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung"])
+    def test_both_contact_pages_offer_the_media_consent_beside_the_whatsapp_one(self, seite: Seite):
+        """A seat's `medien` is asked on whichever page the link opens, its paragraph naming the age the switch is offered from."""
+
+        fassung = FASSUNGEN[LAUFENDE_FASSUNGEN[seite]]
+        assert fassung.absaetze_nach_schluessel is not None
+
+        assert set(fassung.bedienelemente) == {"medien"}
+        assert "{medienMinAlter}" in fassung.absaetze_nach_schluessel["medien"]
+        assert "außer der freiwilligen für WhatsApp" not in fassung.absaetze_nach_schluessel["widerruf"]
 
     def test_the_pupil_page_changed_its_retention_paragraph_alone(self):
         """The running pupil label is the earlier one but for when a registration goes, which the notice states the same way."""

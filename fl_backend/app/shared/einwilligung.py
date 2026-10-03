@@ -157,6 +157,53 @@ _BESTAETIGUNGSSEITE_VERWALTUNG: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
+# What a contact page says once it offers the media consent too: its own paragraph beside the
+# WhatsApp one, and the two sentences that called WhatsApp the page's only consent.
+_KONTAKT_MEDIEN: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "widerruf": (
+            "Auch nach einer Bestätigung kannst Du jederzeit die Löschung Deiner Daten verlangen (Art. 17 DSGVO). "
+            "Eine Einwilligung, die man widerrufen müsste, gibt es hier nicht, außer den freiwilligen für WhatsApp und "
+            "für Fotos, Videos und Interviews. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}. "
+            "Für alles genügt eine formlose E-Mail an {kontakt}."
+        ),
+        "medien": (
+            "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Trainerinnen, Trainer und "
+            "Ansprechpersonen zu sehen sind, und führt Interviews. Unabhängig von Deiner Bestätigung kannst Du ab "
+            "{medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf "
+            "unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das "
+            "nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine "
+            "Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein "
+            "Nachteil, und Du kannst sie jederzeit in Deinem Konto zurücknehmen. Rechtsgrundlage dafür ist Deine "
+            "Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Deine Kontaktdaten werden davon nicht berührt und "
+            "nirgends veröffentlicht."
+        ),
+        "keineEinwilligung": (
+            "Eine Einwilligung ist das nicht; einwilligen kannst Du hier nur mit den beiden freiwilligen Schaltern. Du "
+            "bestätigst, was in der Bewerbung steht, und ergänzt Dein Geburtsdatum; die Grundlage dafür steht oben."
+        ),
+    }
+)
+
+
+def _mit_medien(seite: Mapping[str, str]) -> Mapping[str, str]:
+    """A contact page's paragraphs with the media consent added after the WhatsApp one, in the order the page reads."""
+
+    absaetze: dict[str, str] = {}
+    for key, text in seite.items():
+        absaetze[key] = _KONTAKT_MEDIEN.get(key, text)
+        if key == "whatsapp":
+            absaetze["medien"] = _KONTAKT_MEDIEN["medien"]
+
+    return MappingProxyType(absaetze)
+
+
+_BESTAETIGUNGSSEITE_7: Final[Mapping[str, str]] = _mit_medien(_BESTAETIGUNGSSEITE_6)
+_BESTAETIGUNGSSEITE_VERWALTUNG_2: Final[Mapping[str, str]] = _mit_medien(_BESTAETIGUNGSSEITE_VERWALTUNG)
+
+# The media switch, worded as the account page's own for a seat.
+_KONTAKT_MEDIEN_SCHALTER: Final = "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen."
+
 _SCHIEDSRICHTERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
     {
         "worum": (
@@ -925,6 +972,22 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
             bedienelemente=MappingProxyType({}),
         ),
+        "2026-10-bestaetigungsseite-7": Fassung(
+            seite="bestaetigung_kontakt",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_BESTAETIGUNGSSEITE_7.values()),
+            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_7,
+            schalter="Die Liga darf mich auch über WhatsApp erreichen.",
+            bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
+        ),
+        "2026-10-bestaetigungsseite-verwaltung-2": Fassung(
+            seite="bestaetigung_kontakt_verwaltung",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG_2.values()),
+            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG_2,
+            schalter="Die Liga darf mich auch über WhatsApp erreichen.",
+            bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
+        ),
         "2026-09-schiedsrichterseite": Fassung(
             seite="bestaetigung_schiedsrichter",
             gilt_ab=date(2026, 9, 22),
@@ -1321,8 +1384,8 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
 LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
     {
         "bewerbung": "2026-09-bestaetigung-5",
-        "bestaetigung_kontakt": "2026-09-bestaetigungsseite-6",
-        "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung",
+        "bestaetigung_kontakt": "2026-10-bestaetigungsseite-7",
+        "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung-2",
         "bestaetigung_spieler": "2026-10-spielerseite-4",
         "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
         "konto_spieler": "2026-10-konto-spieler",

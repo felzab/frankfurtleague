@@ -233,6 +233,7 @@ async def answer(
         "antwort": antwort,
         "geburtsdatum": AN_ADULTS_BIRTHDATE if erteilt else None,
         "whatsapp": erteilt,
+        "medien": False,
         "text_version": text_version,
     }
 

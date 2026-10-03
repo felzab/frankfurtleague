@@ -27,11 +27,13 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
+from app.api.konto.services import SELBST_MEDIEN_ALTER
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, kontaktperson_document, saison_document, team_document
@@ -176,6 +178,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         "antwort": "erteilt",
         "geburtsdatum": AN_ADULTS_BIRTHDATE,
         "whatsapp": True,
+        "medien": False,
         "text_version": BEWERBER_SEITE,
         **overrides,
     }
@@ -395,6 +398,7 @@ class TestWhatAConfirmationWrites:
             "text_version": BEWERBER_SEITE,
             "datum": "2026-03-20",
             "bestaetigt_am": TODAY,
+            "medien": False,
             "verlauf": [
                 {
                     "am": "2026-04-01T10:30:00+00:00",
@@ -564,6 +568,55 @@ class TestThePageALinkOpens:
             return await stored(database)
 
         assert on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"] is None
+
+
+class TestTheMediaConsent:
+    """A seat's own media consent, asked on its confirmation page as on a pupil's and a referee's (`REQ-EINWILLIGUNG-002`)."""
+
+    def test_the_view_answers_the_age_the_switch_is_offered_from(self, mongo_replica_set_url: str):
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]))
+
+        assert response.medien_mindestalter == MEDIEN_MIN_AGE_YEARS
+
+    def test_a_confirmation_giving_medien_from_a_person_of_age_stores_it_on_the_seat_and_appends_a_grant(self, mongo_replica_set_url: str):
+        """The grant is the confirmation's own entry, carrying the `true` it gave: one act, never a second entry beside it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["trainer"], medien=True)
+
+            return await stored(database)
+
+        einwilligung = on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"]["einwilligung"]
+
+        assert einwilligung["medien"] is True
+        assert [(eintrag["akt"], eintrag["medien"]) for eintrag in einwilligung["verlauf"]] == [("bestaetigt", True)]
+
+    def test_a_trainer_below_the_media_age_giving_medien_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
+        """Seventeen clears the Trainer's own floor and not the media one, so the age refusal stays silent and this one speaks."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE, medien=True)
+
+            return refused.value, await stored(database), await log_rows(database)
+
+        refusal, document, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.status_code) == (SELBST_MEDIEN_ALTER, 422)
+        assert document == bewerbung_document()
+        assert rows == []
+
+    def test_the_same_trainer_confirming_without_it_is_taken(self, mongo_replica_set_url: str):
+        """The control: the refusal above is the media switch's alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE, medien=False)
+
+            return await stored(database)
+
+        einwilligung = on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"]["einwilligung"]
+
+        assert (einwilligung["bestaetigt_am"], einwilligung["medien"]) == (TODAY, False)
 
 
 class TestTheLinkIsSpentByTheStamp:

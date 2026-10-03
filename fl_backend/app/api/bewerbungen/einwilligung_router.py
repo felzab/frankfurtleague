@@ -51,6 +51,7 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal
+from app.api.konto.services import find_selbst_medien_refusal
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -69,6 +70,7 @@ from app.core.recording import build_redaction_filter, build_redaction_update, l
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
 # credential, as a sign-in code is, so both endpoints are base-tier and bound to the public actor
@@ -140,6 +142,7 @@ async def _saison_ansicht(
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
         laufende_fassung=LAUFENDE_FASSUNGEN[await _saison_seite(row=row, seat=seat, bewerbungen_collection=bewerbungen_collection)],
         mindestalter=mindestalter_for(seats),
+        medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
     )
 
 
@@ -217,6 +220,7 @@ async def get_einwilligung_ansicht(
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
         laufende_fassung=LAUFENDE_FASSUNGEN[bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=seat)],
         mindestalter=mindestalter_for(seats),
+        medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
     )
 
 
@@ -245,8 +249,9 @@ async def post_einwilligung(
     a link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered
     (`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for that seat
     (`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted
-    (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`) --
-    the last three judged before anything is written, so a reloaded page or a mistyped year spends nothing. A decline
+    (`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a
+    media consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before
+    anything is written, so a reloaded page or a mistyped year spends nothing. A decline
     stores no label and is taken from a barred address too: it empties the seat.
 
     The answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own
@@ -295,6 +300,7 @@ async def post_einwilligung(
             )
             refuse(find_einwilligung_gesperrt_refusal(gesperrt=bool(gesperrt)))
             refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter_for(seats)))
+            refuse(find_selbst_medien_refusal(geburtsdatum=geburtsdatum, medien_erteilt=antwort_data.medien, today=today))
 
             await patch_one_in_db(
                 collection=saison_teams_collection,
@@ -306,6 +312,7 @@ async def post_einwilligung(
                     today=today,
                     text_version=antwort_data.text_version,
                     whatsapp=antwort_data.whatsapp,
+                    medien=antwort_data.medien,
                     am=log_stamp(germany_now),
                 ),
                 session=session,
@@ -391,6 +398,7 @@ async def post_einwilligung(
             # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
             refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter_for(seats)))
+            refuse(find_selbst_medien_refusal(geburtsdatum=geburtsdatum, medien_erteilt=antwort_data.medien, today=today))
 
             updated_raw = await patch_one_in_db(
                 collection=bewerbungen_collection,
@@ -402,6 +410,7 @@ async def post_einwilligung(
                     today=today,
                     text_version=antwort_data.text_version,
                     whatsapp=antwort_data.whatsapp,
+                    medien=antwort_data.medien,
                     am=log_stamp(germany_now),
                 ),
                 session=session,

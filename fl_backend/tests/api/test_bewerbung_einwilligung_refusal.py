@@ -521,22 +521,22 @@ class TestThePairedSeat:
         assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat="stellvertretung") is None
 
 
-# The seat's record as the answer's read holds it: the applicant's entry already on it, `medien` granted
-# so the case can tell an entry cut from the stored block from one cut from the moved fields alone.
+# The seat's record as the answer's read holds it: the applicant's entry already on it, `medien` refused
+# so the case can tell the answer's own media consent from the stored one.
 STORED_RECORD = {
     "bestaetigt_am": None,
-    "medien": True,
+    "medien": False,
     "datum": "2026-03-20",
     "verlauf": [{"ueber": "POST /bewerbungen"}],
 }
 AM = "2026-04-01T08:00:00+00:00"
 
 
-def confirmation(*, seats: tuple[str, ...] = ("trainer",), whatsapp: bool = False) -> Mapping[str, Any]:
+def confirmation(*, seats: tuple[str, ...] = ("trainer",), whatsapp: bool = False, medien: bool = True) -> Mapping[str, Any]:
     stored = {seat: {"einwilligung": dict(STORED_RECORD)} for seat in KONTAKT_SEATS}
 
     return compose_confirmation_update(
-        kontakte=stored, seats=seats, geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=whatsapp, am=AM
+        kontakte=stored, seats=seats, geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=whatsapp, medien=medien, am=AM
     )
 
 
@@ -553,6 +553,7 @@ class TestWhatAConfirmationWrites:
                 "kontakte.trainer.einwilligung.erfasst_von": "person",
                 "kontakte.trainer.einwilligung.text_version": "v4",
                 "kontakte.trainer.einwilligung.umfang": "kontaktdaten",
+                "kontakte.trainer.einwilligung.medien": True,
             },
             "$push": {
                 "kontakte.trainer.einwilligung.verlauf": {
@@ -577,7 +578,7 @@ class TestWhatAConfirmationWrites:
         update = confirmation(seats=("trainer", "ansprechperson"))
 
         assert {key.split(".")[1] for key in update["$set"]} == {"trainer", "ansprechperson"}
-        assert len(update["$set"]) == 10
+        assert len(update["$set"]) == 12
         assert set(update["$push"]) == {"kontakte.trainer.einwilligung.verlauf", "kontakte.ansprechperson.einwilligung.verlauf"}
 
     def test_a_decline_empties_the_slot_and_marks_the_day_beside_it(self):
@@ -597,7 +598,15 @@ class TestWhatAConfirmationWrites:
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:
-    return {"token": "raw-trainer", "antwort": "erteilt", "geburtsdatum": "1984-05-09", "whatsapp": False, "text_version": "v4", **overrides}
+    return {
+        "token": "raw-trainer",
+        "antwort": "erteilt",
+        "geburtsdatum": "1984-05-09",
+        "whatsapp": False,
+        "medien": False,
+        "text_version": "v4",
+        **overrides,
+    }
 
 
 class TestWhatTheAnswerPayloadRefuses:
@@ -630,7 +639,7 @@ class TestWhatTheAnswerPayloadRefuses:
 
         assert (payload.antwort, payload.whatsapp) == ("abgelehnt", False)
 
-    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "text_version", "antwort"])
+    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_version", "antwort"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         body = antwort()
         del body[field]

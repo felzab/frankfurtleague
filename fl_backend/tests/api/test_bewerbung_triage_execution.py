@@ -1770,7 +1770,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
 
     return await post_einwilligung(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(
-            {"token": token, "antwort": "abgelehnt", "geburtsdatum": None, "whatsapp": False, "text_version": "v1", **answer}
+            {"token": token, "antwort": "abgelehnt", "geburtsdatum": None, "whatsapp": False, "medien": False, "text_version": "v1", **answer}
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

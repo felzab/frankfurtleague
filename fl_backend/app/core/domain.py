@@ -2501,7 +2501,8 @@ RULES: tuple[Rule, ...] = (
         code="REQ-EINWILLIGUNG-002",
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation=(
-            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "POST /bewerbungen/einwilligung · PATCH /spieler/selbst/einwilligung · "
+            "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
             "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
         ),
         aggregate="Spieler",
