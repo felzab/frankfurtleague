@@ -7,7 +7,6 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import {
@@ -29,6 +28,12 @@ import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { ReactNode } from "react";
 
 export type SeatRolle = "ansprechperson" | "stellvertretung" | "trainer";
+
+/**
+ * The words the form shows under the label every seat it submits stamps, read by the page per
+ * request: a deploy moves the label the submission is judged against.
+ */
+export type BewerbungFassung = { readonly textVersion: string; readonly absaetze: readonly string[]; readonly schalter: string };
 
 /** What each seat is for, behind the heading's own glyph. */
 const SEAT_HINT: Record<SeatRolle, ReactNode> = {
@@ -233,9 +238,11 @@ function mitDatenschutzLink(absatz: string): ReactNode {
  * comes through their own link.
  */
 export function FormEinwilligungSection({
+  fassung,
   erteilt,
   onErteiltPicked,
 }: {
+  fassung: BewerbungFassung;
   erteilt: boolean;
   /** A press, so it is judged here rather than on a blur no switch produces. */
   onErteiltPicked: (erteilt: boolean) => void;
@@ -256,7 +263,7 @@ export function FormEinwilligungSection({
       <div className={panel.body()}>
         {/* `muted-meta` rather than `muted-hint`: the wording is stamped and cannot be shortened, so
             the type step it is set at is the only lever on how long the block reads. */}
-        {LIGA_KENNTNISNAHME.absaetze.map((absatz) => (
+        {fassung.absaetze.map((absatz) => (
           <p
             key={absatz}
             className="muted-meta">
@@ -274,7 +281,7 @@ export function FormEinwilligungSection({
           isSelected={erteilt}
           onChange={onErteiltPicked}>
           <Switch.Content className={panel.switchContent()}>
-            {LIGA_KENNTNISNAHME.schalter}
+            {fassung.schalter}
             <Switch.Control className={panel.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>

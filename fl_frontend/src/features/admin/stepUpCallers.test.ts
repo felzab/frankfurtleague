@@ -17,6 +17,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
+import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
@@ -168,6 +169,7 @@ const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: nu
 const strip = (trainerStieAus: boolean) =>
   underNext(
     h(BewerbungBestaetigungStrip, {
+      neubesetzung: laufendeNeubesetzung(),
       bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
       staende:
         bestaetigungsStand({
@@ -195,6 +197,7 @@ const strip = (trainerStieAus: boolean) =>
 const refereeEditor = (answered: boolean) =>
   underNext(
     h(AdminSchiedsrichterEditForm, {
+      istFassungBekannt: true,
       schiedsrichter: { ...retiredReferee(answered), inactive_since: undefined },
       isRetired: false,
       pageHeader: { title: "Anna Körner" },
@@ -277,6 +280,7 @@ const DRIVES: Record<string, Drive[]> = {
       render: () =>
         underNext(
           h(FormBestaetigungSection, {
+            istFassungBekannt: true,
             schiedsrichterId: REFEREE_ID,
             hatAdresse: true,
             isRetired: false,
@@ -311,6 +315,7 @@ const DRIVES: Record<string, Drive[]> = {
       render: () =>
         underNext(
           h(AdminSchiedsrichterEditView, {
+            istFassungBekannt: true,
             schiedsrichter: { ...retiredReferee(!unanswered), inactive_since: undefined },
             inactiveSince: "2026-01-10",
           } as never),

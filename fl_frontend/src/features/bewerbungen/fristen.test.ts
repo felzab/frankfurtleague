@@ -19,7 +19,7 @@ const {
   buildBewerbungVollstaendigEmail,
   buildBewerbungWiderspruchEmail,
 } = await import("@/core/bewerbungEmail.ts");
-const { LIGA_KENNTNISNAHMEN } = await import("@/core/einwilligung.ts");
+const { readEinwilligungDocument } = await import("@/core/einwilligungDocument.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -140,7 +140,7 @@ describe("the two clocks the workflow messages state", () => {
   /* The stamped text is never interpolated from the constant: the words are what somebody was shown,
      so a moved bound has to fail here and be minted as a new label rather than reword this one. */
   it("holds each stamped wording to its own flow's deletion clock, written in a word", () => {
-    const gelesen = Object.entries(LIGA_KENNTNISNAHMEN).flatMap(([label, fassung]) =>
+    const gelesen = Object.entries(readEinwilligungDocument().fassungen).flatMap(([label, fassung]) =>
       daysIn(fassung.absaetze.join(" ")).map((number) => [label, number] as const),
     );
 

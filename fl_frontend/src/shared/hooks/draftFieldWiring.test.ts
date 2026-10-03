@@ -15,6 +15,7 @@ import { z } from "zod";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { laufendeKontaktFassung, laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { ActionResult } from "@/shared/types/types.ts";
@@ -165,6 +166,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
     const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
     render(
       h(BestaetigungFormPanel, {
+        fassung: laufendeKontaktFassung(),
         token: "kein-echtes-token",
         vorname: "Mira",
         schule: "Lessing-Kolleg",
@@ -227,6 +229,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
     render(
       underNext(
         h(BewerbungBestaetigungStrip, {
+          neubesetzung: laufendeNeubesetzung(),
           bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
           staende,
           frist: "2099-12-31",

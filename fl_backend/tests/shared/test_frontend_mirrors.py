@@ -37,7 +37,6 @@ from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
 from app.core.routing import OBJECT_ID_REGEX
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
 from app.shared.schemas.custom import (
@@ -467,28 +466,6 @@ def test_every_mirrored_sentinel_agrees_on_the_value(module: str, name: str, dec
 
     assert found is not None, f"{module} no longer exports {name} as a bare lowercase-hex string"
     assert found[1] == declared, f"{name} disagrees with the backend's sentinel"
-
-
-# The record the public form reads the label it stamps on every seat from.
-RUNNING_LABEL: Final = ("core/einwilligung.ts", "LIGA_KENNTNISNAHME")
-
-
-def test_the_form_stamps_the_label_the_submission_admits():
-    """A label the form stamps and the endpoint does not hold refuses every application; the reverse admits a page older than the deploy.
-
-    Read through the record's own `textVersion`, so a record pointed at another constant is still compared.
-    """
-
-    module, record = RUNNING_LABEL
-    source = _source(module)
-    pointer = re.search(rf"^export const {record} = \{{\n  textVersion: (?P<name>[A-Z][A-Z0-9_]*),$", source, re.MULTILINE)
-
-    assert pointer is not None, f"{module} no longer spells {record}'s textVersion as one constant"
-
-    label = re.search(rf'^const {pointer["name"]} = "(?P<label>[^"]+)";$', source, re.MULTILINE)
-
-    assert label is not None, f"{module} no longer declares {pointer['name']} as one string"
-    assert label["label"] == LAUFENDE_FASSUNGEN["bewerbung"], f"{record} stamps a label `find_fassung_refusal` refuses"
 
 
 class ModelBound(NamedTuple):

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
@@ -24,8 +25,10 @@ doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: 
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
-const { SCHIEDSRICHTER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
+
+/** The label the backend runs on this page, off the registry it generated. */
+const LAUFEND = publishedLaufendeFassung("bestaetigung_schiedsrichter").text_version;
 
 const TOKEN = "abc123";
 const HEUTE = "2026-09-21";
@@ -34,7 +37,7 @@ const ANSICHT = {
   acknowledged: 1,
   zustand: "gueltig" as const,
   vorname: "Anna",
-  text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+  text_version: LAUFEND,
   mindestalter: 16,
   medien_mindestalter: 18,
   frist: "2026-10-05",
@@ -61,7 +64,7 @@ const gueltigerKoerper = {
   geburtsdatum: "1990-01-01",
   umfang: "intern",
   medien: false,
-  text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+  text_version: LAUFEND,
 };
 
 function aRequest(body: unknown, headers: Record<string, string> = {}) {
@@ -85,7 +88,11 @@ let leseAntwort: () => unknown = () => ANSICHT;
 
 let gelesen = 0;
 
+/** What the backend runs on each page in this case: the registry's own answer unless a case moves it. */
+let seitenAntwort: () => unknown = () => einwilligungAnswer("/einwilligung/seiten");
+
 function antwortFuer(endpoint: string): unknown {
+  if (endpoint === "/einwilligung/seiten") return seitenAntwort();
   if (endpoint === "/schiedsrichter/bestaetigung/ansicht") {
     gelesen += 1;
     const antwort = leseAntwort();
@@ -101,6 +108,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
   (await POST(request)) as unknown as Record<string, unknown>;
 
 beforeEach(() => {
+  seitenAntwort = () => einwilligungAnswer("/einwilligung/seiten");
   tags.length = 0;
   gelesen = 0;
   schreibAntwort = () => GESCHRIEBEN;
@@ -110,11 +118,25 @@ beforeEach(() => {
 describe("the referee's confirmation handler", () => {
   /* A page opened before a deploy moved the label shows words the running build does not serve, and
      filing the answer under the new label would record a consent to a text nobody was shown. */
-  it("refuses a label other than the one this server renders, before the endpoint", async () => {
+  it("refuses a label other than the one the backend runs, before the endpoint", async () => {
     const answer = await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
 
     assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
-    assert.deepEqual(calls, []);
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      ["/einwilligung/seiten"],
+    );
+  });
+
+  /* The running label is the backend's and is read per request: a frontend recreated before the backend
+     would otherwise judge by a label the backend has not reached yet, or has left. */
+  it("judges the label against the one the backend runs on this request, whatever this build last saw", async () => {
+    seitenAntwort = () => ({ acknowledged: 1, laufende_fassungen: { bestaetigung_schiedsrichter: "2026-09-schiedsrichterseite-2" } });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
+    assert.notEqual(LAUFEND, "2026-09-schiedsrichterseite-2", "the case moves nothing: the registry already runs that label");
   });
 
   /* Judged before the parse, so an older page gets the one sentence as its whole answer rather than
@@ -124,7 +146,10 @@ describe("the referee's confirmation handler", () => {
     const answer = await bodyOf(aRequest(ohneFassung));
 
     assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
-    assert.deepEqual(calls, []);
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      ["/einwilligung/seiten"],
+    );
   });
 
   it("files the answer under the label this server renders", async () => {
@@ -132,7 +157,7 @@ describe("the referee's confirmation handler", () => {
 
     const geschrieben = calls.find((call) => call.endpoint === "/schiedsrichter/bestaetigung");
 
-    assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, SCHIEDSRICHTER_EINWILLIGUNG.textVersion);
+    assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, LAUFEND);
   });
 
   it("sends the media answer as a boolean rather than omitting it", async () => {
@@ -217,13 +242,16 @@ describe("the referee's confirmation handler", () => {
   });
 
   it("refuses a body no schema admits without reaching the endpoint", async () => {
-    const answer = await bodyOf(aRequest({ token: TOKEN, text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion }));
+    const answer = await bodyOf(aRequest({ token: TOKEN, text_version: LAUFEND }));
 
     assert.equal((answer.body as { success: boolean }).success, false);
     // Beside the boxes it names, the sentence for any this page does not render: only an older page
     // sends such a body, and only the mail's link reopens this one.
     assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
-    assert.deepEqual(calls, []);
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      ["/einwilligung/seiten"],
+    );
   });
 
   /* A GET would let a mail scanner's pre-fetch confirm for the reader, and the same-origin guard

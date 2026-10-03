@@ -16,11 +16,14 @@ import type { ComponentProps } from "react";
  */
 export function AdminSchiedsrichterEditView({
   schiedsrichter,
+  istFassungBekannt,
   inactiveSince,
 }: {
   // Taken off the form rather than restated: this view adds nothing to the record and a second
   // spelling is one the form's next field would leave behind.
   schiedsrichter: ComponentProps<typeof AdminSchiedsrichterEditForm>["schiedsrichter"];
+  /** Whether the registry holds the stored label. */
+  istFassungBekannt: boolean;
   /** The day this referee was retired, or `null` while they officiate — on no field of the form. */
   inactiveSince: string | null;
 }) {
@@ -33,6 +36,7 @@ export function AdminSchiedsrichterEditView({
     <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSchiedsrichterEditForm
         schiedsrichter={schiedsrichter}
+        istFassungBekannt={istFassungBekannt}
         isRetired={isRetired}
         pageHeader={{
           // The list's word for the same row, so one state is not two phrases across two surfaces.

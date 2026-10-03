@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { parseDate } from "@internationalized/date";
 
-import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { APIBadStatusError } from "@/core/errors";
 import { TEAM_FACETS } from "@/features/teams/facets";
 import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -38,6 +38,9 @@ import {
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft } from "./types.ts";
+
+/** The label the backend runs on the contact page, off the registry it generated. */
+const KONTAKT_LABEL = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {
@@ -298,7 +301,7 @@ describe("the birthdate window a contact person's date has to fall in", () => {
     for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
       const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", antwort: "erteilt", whatsapp: false, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
+      const antwort = { token: "kein-echtes-token", antwort: "erteilt", whatsapp: false, text_version: KONTAKT_LABEL };
 
       assert.equal(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, true, `${String(mindestalter)}: the offer is refused`);
       assert.equal(
@@ -719,14 +722,11 @@ describe("which wording an answer may be stored under", () => {
 
   /* The label names which words were on screen, and only this server knows which it renders now: a
      body's own label is a claim, admitted only where it is that one. */
-  it("admits the label this server renders and no other", () => {
-    assert.equal(
-      nenntLaufendeFassung({ ...GESENDET, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion }, BESTAETIGUNG_KENNTNISNAHME.textVersion),
-      true,
-    );
-    assert.equal(nenntLaufendeFassung({ ...GESENDET, text_version: "2019-01-erfunden" }, BESTAETIGUNG_KENNTNISNAHME.textVersion), false);
-    assert.equal(nenntLaufendeFassung(GESENDET, BESTAETIGUNG_KENNTNISNAHME.textVersion), false, "a body naming no label is admitted");
-    assert.equal(nenntLaufendeFassung(null, BESTAETIGUNG_KENNTNISNAHME.textVersion), false);
+  it("admits the label it is handed and no other", () => {
+    assert.equal(nenntLaufendeFassung({ ...GESENDET, text_version: KONTAKT_LABEL }, KONTAKT_LABEL), true);
+    assert.equal(nenntLaufendeFassung({ ...GESENDET, text_version: "2019-01-erfunden" }, KONTAKT_LABEL), false);
+    assert.equal(nenntLaufendeFassung(GESENDET, KONTAKT_LABEL), false, "a body naming no label is admitted");
+    assert.equal(nenntLaufendeFassung(null, KONTAKT_LABEL), false);
   });
 });
 

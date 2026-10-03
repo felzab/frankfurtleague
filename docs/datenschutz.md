@@ -37,7 +37,7 @@ two** — which is what a reviewer needs before reading the published notice
   kontakt@frankfurtleague.de** until people can act for themselves. The published notice gives that
   route a section of its own
   (`DatenschutzView.tsx :: 2. Wohin Deine Datenschutzanfrage geht`), the confirmation page repeats
-  it beside every right it names (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`),
+  it beside every right it names (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`),
   and [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
   is the procedure that answers one. Self-service comes with the account tiers planned for teams,
   players and referees, and the deletion route lives there once they exist.
@@ -302,7 +302,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   published in media, the supervisory guidance on minors' photographs disagreeing on whether a
   minor's own consent suffices. The confirmation pages and the notice state that bound as no photograph or video
   in which a younger person can be recognised and no interview with one
-  (`fl_frontend/src/core/einwilligung.ts :: SPIELER_ABSAETZE`,
+  (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`,
   `DatenschutzView.tsx :: Bist Du jünger als`); each confirmation refuses a
   `true` from anyone younger (`fl_backend/app/api/registrierungen/services.py :: find_medien_refusal`,
   `fl_backend/app/api/schiedsrichter/services.py :: find_medien_refusal`, against
@@ -559,7 +559,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   application the fourteen-day clock above leaves standing: one every contact person confirmed and
   nobody judged, one whose window no stored deadline bounds, and one held because the notice was
   refused. The confirmation page states the period to the person whose details they are
-  (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`), and the published notice
+  (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), and the published notice
   tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
 - **A pupil's own row is bounded by a condition and never by a clock.** It stands while a squad row
   references it, and what ends it is the person's erasure, the one-off reset of
@@ -629,7 +629,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The retention sweep runs both clocks
   (`docs/backend/spec.md :: I153` and `:: I154`), the confirmation page states both periods to the
-  person whose details they are (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`),
+  person whose details they are (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`),
   and the published notice tabulates them (`DatenschutzView.tsx :: FRISTEN`). This bounds the
   permanent record that `docs/glossary.md :: Bewerbung`
   and `docs/backend/spec.md :: READ-CONTACT-001` describe. Ruled 2026-09-02.

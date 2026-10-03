@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache";
 
-import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
+import { getLaufendesLabel } from "@/core/einwilligung";
 import { nenntLaufendeFassung } from "@/features/bewerbungen/utils";
 import { postSchiedsrichterBestaetigung } from "@/features/schiedsrichter/mutations";
 import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefusal } from "@/features/schiedsrichter/queries";
@@ -39,7 +39,9 @@ export async function POST(request: NextRequest) {
       // Judged BEFORE the parse, by the check every confirmation handler shares: a page opened
       // before a deploy moved the label posts the words its reader saw, and only the mail's link
       // reopens the page on the running ones.
-      if (!nenntLaufendeFassung(body, SCHIEDSRICHTER_EINWILLIGUNG.textVersion)) return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
+      if (!nenntLaufendeFassung(body, await getLaufendesLabel("bestaetigung_schiedsrichter"))) {
+        return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
+      }
 
       const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse(body);
 

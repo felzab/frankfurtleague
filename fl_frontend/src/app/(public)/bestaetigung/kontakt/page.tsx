@@ -1,10 +1,13 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
+import { getLaufendeFassung } from "@/core/einwilligung";
+import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { BestaetigungStart } from "@/features/bewerbungen/components/views/BestaetigungView";
 import type { NextPageProps } from "@/shared/types/types";
@@ -41,13 +44,24 @@ async function BestaetigungContent(props: NextPageProps) {
 
   // A missing or repeated parameter is no link at all and reads as the dead link. Caught, so a
   // failed read is its own state: the dead-link panel there would call a live link void.
-  const start: BestaetigungStart =
-    typeof token === "string" && token !== ""
-      ? await getEinwilligungAnsicht(token).then(
-          (gelesen) => (gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen),
-          () => ({ zustand: "unlesbar" }),
-        )
-      : { zustand: "ungueltig" };
+  if (typeof token !== "string" || token === "") return <BestaetigungView start={{ zustand: "ungueltig" }} />;
+
+  // Beside the link's read rather than after it, and settled to `null` so a dead link's panel never
+  // waits on words it does not show. Per request: a deploy moves the label the answer must stamp.
+  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt"))
+    .then((gelesen) => gekeyteFassung(gelesen, KONTAKT_ABSATZ_SCHLUESSEL))
+    .catch(() => null);
+
+  const start: BestaetigungStart = await getEinwilligungAnsicht(token).then(
+    async (gelesen): Promise<BestaetigungStart> => {
+      if (gelesen.zustand !== "gueltig") return gelesen;
+
+      // A page with no words to show is a page that cannot be answered, which the failed read's panel says.
+      const worte = await fassung;
+      return worte === null ? { zustand: "unlesbar" } : { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
+    },
+    () => ({ zustand: "unlesbar" }),
+  );
 
   return <BestaetigungView start={start} />;
 }

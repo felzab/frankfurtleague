@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { readPublishedDocument } from "@/core/openapiDocument";
 import { publishedCeilings } from "@/core/publishedCeilings";
+import { laufendeBewerbungFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { renderMarkup } from "@/shared/testing/renderTest";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
@@ -56,7 +57,13 @@ const SCHOOLS = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
  * block only the picker's sentinel reaches is rendered beside it.
  */
 const RENDERED = [
-  renderMarkup(BewerbungForm, { saisonId: "2026", schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] }),
+  renderMarkup(BewerbungForm, {
+    saisonId: "2026",
+    fassung: laufendeBewerbungFassung(),
+    schulen: SCHOOLS,
+    isSchulenLesbar: true,
+    vergebeneFarben: [],
+  }),
   renderMarkup(FormSchuleSection, {
     schulen: SCHOOLS,
     auswahl: SCHULE_NICHT_IN_LISTE,

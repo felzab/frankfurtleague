@@ -51,14 +51,23 @@ const { FormEinwilligungSection } = await import("./components/forms/BewerbungFo
 const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
 const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
-const { LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
+const { laufendeBewerbungFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
+
+/** The form's running words, off the registry the backend generated, as the page hands them in. */
+const FASSUNG = laufendeBewerbungFassung();
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { FIELD_ERROR_CLASSES, FIELD_ERROR_SWITCH_CLASSES } = await import("@/shared/components/ui/formFieldStyles.ts");
 
 const SCHOOLS = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
 
 /** The form as the applicant meets it, composed by the component the page renders rather than here. */
-const FORM_MARKUP = renderMarkup(BewerbungForm, { saisonId: "2026", schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] });
+const FORM_MARKUP = renderMarkup(BewerbungForm, {
+  saisonId: "2026",
+  fassung: FASSUNG,
+  schulen: SCHOOLS,
+  isSchulenLesbar: true,
+  vergebeneFarben: [],
+});
 
 /** Everything the panel needs but the picked key, which is the one thing the two arms differ by. */
 const SCHOOL_PROPS = {
@@ -108,12 +117,12 @@ const person = (vorname: string, nachname: string, email: string, telefon: strin
   nachname: nachname,
   email: email,
   telefon: telefon,
-  einwilligung: { ...buildEmptyBewerbungDraft("2026").kontakte.trainer.einwilligung, erteilt: true },
+  einwilligung: { ...buildEmptyBewerbungDraft("2026", FASSUNG.textVersion).kontakte.trainer.einwilligung, erteilt: true },
 });
 
 /** An application the payload schema takes whole, for a school the league already holds. */
 const COMPLETE_DRAFT: BewerbungFormDraft = {
-  ...buildEmptyBewerbungDraft("2026"),
+  ...buildEmptyBewerbungDraft("2026", FASSUNG.textVersion),
   auswahl: SCHOOLS[0]!.id,
   stufengroesse: 90,
   kontakte: {
@@ -132,6 +141,7 @@ function renderApplicationPage() {
   const view = render(
     h(BewerbungView, {
       saisonId: "2026",
+      fassung: FASSUNG,
       isUnlesbar: false,
       today: "2026-04-01",
       schulen: SCHOOLS,
@@ -566,7 +576,7 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
   it("sets the stamped wording at the muted caption step, one recipe for all of it", () => {
     assert.equal(
       [...FORM_MARKUP.matchAll(/<p class="muted-meta">/g)].length,
-      LIGA_KENNTNISNAHME.absaetze.length,
+      FASSUNG.absaetze.length,
       "a stamped paragraph is set in something other than the panel's own muted recipe",
     );
   });
@@ -585,7 +595,7 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
   /* A `FieldError` with nothing to say renders no element, so the class is read off a refusal the
      form hands the switch by the name the switch itself renders. */
   it("starts the switch's refusal on the label's own edge", () => {
-    const section = h(FormEinwilligungSection, { erteilt: false, onErteiltPicked: () => undefined });
+    const section = h(FormEinwilligungSection, { fassung: FASSUNG, erteilt: false, onErteiltPicked: () => undefined });
     const name = /<input\b[^>]*\bname="([^"]+)"/.exec(renderTree(h(Form, { onSubmit: () => undefined, wiring: formWiring() }, section)))?.[1];
     assert.ok(name !== undefined, "the Kenntnisnahme switch renders no named control, so no refusal can reach it");
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { einwilligungFassung } from "@/core/einwilligung";
 import {
   EINWILLIGUNG_HERKUNFT_LABELS,
   EINWILLIGUNG_MEDIEN_LABELS,
@@ -32,15 +31,15 @@ function KeinTag({ children }: { children: ReactNode }) {
 }
 
 /**
- * A stored label names an `@/core/einwilligung :: LIGA_KENNTNISNAHMEN` entry, so one no entry
- * answers is a record citing words nobody can produce, and a bare key renders the two alike.
+ * A stored label names a label of the backend's registry, so one the registry does not hold is a
+ * record citing words nobody can produce, and a bare key renders the two alike.
  */
-function Fassung({ textVersion }: { textVersion: string | null }) {
+function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean }) {
   if (textVersion === null) return <KeinTag>Nicht erfasst</KeinTag>;
 
   // Beside the key rather than instead of it: whoever repairs the mismatch needs the key that
   // resolved to nothing.
-  if (einwilligungFassung(textVersion) === null) {
+  if (!istBekannt) {
     return (
       <>
         {textVersion} <KeinTag>Unbekannte Fassung</KeinTag>
@@ -55,7 +54,14 @@ function Fassung({ textVersion }: { textVersion: string | null }) {
  * **No control and no draft field**: `fl_backend/app/core/domain.py` declares this field immutable,
  * so a picker here would offer a write no payload carries.
  */
-export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinwilligung | null }) {
+export function FormEinwilligungSection({
+  einwilligung,
+  istFassungBekannt,
+}: {
+  einwilligung: FLEinwilligung | null;
+  /** Whether the registry holds the stored label, resolved by the page through the words read. */
+  istFassungBekannt: boolean;
+}) {
   const panel = formPanel();
 
   return (
@@ -100,7 +106,10 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
               {/* The key rather than a German gloss of it, which would be a second name for one
                   wording. */}
               <Angabe label="Fassung">
-                <Fassung textVersion={einwilligung.text_version} />
+                <Fassung
+                  textVersion={einwilligung.text_version}
+                  istBekannt={istFassungBekannt}
+                />
               </Angabe>
               {/* A word and never a switch: this panel reads a record back, and a control here would
                   offer an administrator the answer that is the person's alone. */}

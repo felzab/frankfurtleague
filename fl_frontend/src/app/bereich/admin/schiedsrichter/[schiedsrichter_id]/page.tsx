@@ -2,10 +2,12 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { istFassungBekannt } from "@/core/einwilligung";
 import { AdminSchiedsrichterEditView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { resolveSchiedsrichterId } from "@/features/schiedsrichter/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -33,6 +35,9 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   }
   const { schiedsrichter } = schiedsrichterRes;
 
+  // Resolved through the words read rather than a copy here: the registry is the backend's.
+  const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(schiedsrichter.einwilligung?.text_version ?? null));
+
   return (
     // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminSchiedsrichterEditView
@@ -47,6 +52,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
         einwilligung: schiedsrichter.einwilligung,
         bestaetigung: schiedsrichter.bestaetigung,
       }}
+      istFassungBekannt={fassungBekannt}
       inactiveSince={schiedsrichter.inactive_since}
     />
   );

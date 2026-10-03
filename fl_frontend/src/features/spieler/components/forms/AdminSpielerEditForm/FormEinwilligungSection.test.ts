@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { einwilligungFassung } from "@/core/einwilligung";
+import { readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -18,7 +18,7 @@ import type { FLEinwilligung } from "../../../schemas.ts";
    static import beside it resolves first and dies on the extension. */
 const { FormEinwilligungSection } = await import("./FormEinwilligungSection.tsx");
 
-/** A label `@/core/einwilligung :: LIGA_KENNTNISNAHMEN` answers, which is the branch a stored record is meant to take. */
+/** A label the backend's registry holds, which is the branch a stored record is meant to take. */
 const FASSUNG = "2026-09-bestaetigung-3";
 
 /** A label it answers with nothing — what a record stamped under a wording since removed would carry. */
@@ -44,8 +44,10 @@ const ERTEILT: FLEinwilligung = {
   medien: true,
 };
 
-const markup = (einwilligung: FLEinwilligung | null): string => renderMarkup(FormEinwilligungSection, { einwilligung });
-const words = (einwilligung: FLEinwilligung | null): string => textOf(markup(einwilligung));
+/** The panel as the page hands it over, which resolves the stored label through the words read. */
+const markup = (einwilligung: FLEinwilligung | null, istFassungBekannt = true): string =>
+  renderMarkup(FormEinwilligungSection, { einwilligung, istFassungBekannt });
+const words = (einwilligung: FLEinwilligung | null, istFassungBekannt = true): string => textOf(markup(einwilligung, istFassungBekannt));
 
 /** The panel's last paragraph, which is where the publication rule is written on either branch. */
 const closingNote = (einwilligung: FLEinwilligung | null): string => {
@@ -99,7 +101,7 @@ describe("the stored consent panel", () => {
   it("shows the wording a record cites, and says in words where it cites none", () => {
     // Floored on the registry, because the fixture's own label is what the assertion under it
     // greps for: a key the registry stopped answering would take the resolving branch with it.
-    assert.notEqual(einwilligungFassung(FASSUNG), null, "the fixture cites a label the registry no longer answers");
+    assert.ok(Object.hasOwn(readEinwilligungDocument().fassungen, FASSUNG), "the fixture cites a label the registry does not hold");
     assert.ok(words(ERTEILT).includes(FASSUNG), "the stored wording label is not shown");
     // The label is the registry key rather than a sentence, so an absent one renders as blank
     // unless the panel words it — and a blank cell reads as a record nobody has finished filling.
@@ -107,9 +109,9 @@ describe("the stored consent panel", () => {
   });
 
   it("marks a label the wording registry answers with nothing, beside the key itself", () => {
-    assert.equal(einwilligungFassung(UNBEKANNTE_FASSUNG), null, "the fixture names a label the registry does answer");
+    assert.ok(!Object.hasOwn(readEinwilligungDocument().fassungen, UNBEKANNTE_FASSUNG), "the fixture names a label the registry does answer");
 
-    const text = words({ ...ERTEILT, text_version: UNBEKANNTE_FASSUNG });
+    const text = words({ ...ERTEILT, text_version: UNBEKANNTE_FASSUNG }, false);
 
     assert.ok(text.includes(UNBEKANNTE_FASSUNG), "the key that resolved to nothing is not shown");
     assert.ok(text.includes("Unbekannte Fassung"), "a record citing words nobody can produce reads as an ordinary one");

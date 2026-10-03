@@ -8,7 +8,7 @@ import { createRef } from "react";
 
 import { act, renderHook } from "@testing-library/react";
 
-import { LIGA_KENNTNISNAHMEN } from "@/core/einwilligung.ts";
+import { readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
@@ -33,7 +33,7 @@ describe("a stamped sentence with its slots filled", () => {
      passes on a sentence no page could show. */
   it("reads as the suites' oracle fills it, for every stamped paragraph and every map", () => {
     const vorlagen = [
-      ...Object.values(LIGA_KENNTNISNAHMEN).flatMap((fassung) => fassung.absaetze),
+      ...Object.values(readEinwilligungDocument().fassungen).flatMap((fassung) => fassung.absaetze),
       "in der {datenschutz}",
       "{constructor}, {toString} und {__proto__}",
       "{rolle} für {unbekannt}",

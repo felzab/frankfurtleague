@@ -5,10 +5,10 @@ import { pathToFileURL } from "node:url";
 
 import ts from "typescript";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import {
@@ -112,6 +112,11 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
     gesperrt: [],
   };
 }
+
+/** The label the backend runs on the application form, off the registry it generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+// The running label's read answered at its module, so a refusal a case hands the client is the write's alone.
+doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
 
 const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolve(landed(call)));
 
@@ -567,7 +572,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
       nachname: "Beispiel",
       email: "berta@example.de",
       telefon: "069 1234567",
-      text_version: LIGA_KENNTNISNAHME.textVersion,
+      text_version: FORM_LABEL,
     },
   },
   "POST /teams/{team_id}/saisons/{saison_id}/einladung": { name: "postEinladungAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID } },

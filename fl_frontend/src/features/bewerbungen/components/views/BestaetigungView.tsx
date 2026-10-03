@@ -26,12 +26,14 @@ import {
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
+import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /**
  * What the page opens on. The token rides only with a link a press can still spend: every other
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
-export type BestaetigungStart = { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string } | { zustand: LinkZustand | "unlesbar" };
+export type BestaetigungStart =
+  { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string; fassung: KontaktFassung } | { zustand: LinkZustand | "unlesbar" };
 
 type Stand =
   | BestaetigungStart
@@ -110,6 +112,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
 
       {stand.zustand === "gueltig" && (
         <BestaetigungFormPanel
+          fassung={stand.fassung}
           token={stand.token}
           vorname={stand.ansicht.vorname}
           schule={stand.ansicht.schule}

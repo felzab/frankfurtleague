@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
@@ -72,6 +72,11 @@ const writes = client.calls;
 /** Answers the write a case presses with `next`, the delivery report after it as the endpoint does. */
 const answerWith = (next: () => Promise<unknown>): void =>
   client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(deliveryApplied(call)) : next()));
+/** The label the backend runs on the application form, off the registry it generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+// The running label's read answered at its module, so the writes below are the client's whole record:
+// `kontaktSitz.test.ts` drives the read itself.
+doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
 const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const { answerWith: clubsWith } = doubleActions({
   modules: ["/src/features/teams/queries.ts"],
@@ -255,7 +260,7 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
       einwilligung: {
         umfang: "kontaktdaten",
         erfasst_von: "person",
-        text_version: LIGA_KENNTNISNAHME.textVersion,
+        text_version: FORM_LABEL,
         datum: "2026-09-01",
         bestaetigt_am: null,
       },
@@ -308,7 +313,7 @@ const SITZ = {
   nachname: "Beispiel",
   email: "berta@example.de",
   telefon: "069 1234567",
-  text_version: LIGA_KENNTNISNAHME.textVersion,
+  text_version: FORM_LABEL,
 } as const;
 
 /** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
@@ -1155,7 +1160,7 @@ describe("the person seated where one stepped out", () => {
           nachname: "Beispiel",
           email: "berta@example.de",
           telefon: "069 1234567",
-          text_version: LIGA_KENNTNISNAHME.textVersion,
+          text_version: FORM_LABEL,
         }),
       mapped: mapKontaktSitzRefusal,
     });

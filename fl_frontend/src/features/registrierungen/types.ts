@@ -1,3 +1,4 @@
+import type { GekeyteFassung, SpielerAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
 
@@ -52,37 +53,10 @@ export type SpielerBestaetigungDraft = {
 };
 
 /**
- * The keys the pupil's ruled copy is written under.
- *
- * Declared rather than inferred from the consent registry's own copy object: a dropped paragraph
- * then fails at the page rather than rendering as a gap nobody sees.
- */
-export type SpielerAbsatzSchluessel =
-  | "worum"
-  | "gespeichert"
-  | "geburtsdatum"
-  | "wer"
-  | "veroeffentlichung"
-  | "medien"
-  | "rechtsgrundlage"
-  | "frist"
-  | "widerruf"
-  | "art21"
-  | "klickIdentitaet"
-  | "klickAlter"
-  | "klickEinwilligung"
-  | "klickHinweise";
-
-/**
  * The stamped words this page renders, handed in by the page rather than imported by the view: the
  * label freezes what a reader saw, and a component reaching for the current one would render words
  * no record cites.
  */
-export type SpielerFassung = {
-  readonly textVersion: string;
-  readonly absaetze: Readonly<Record<SpielerAbsatzSchluessel, string>>;
-  readonly schalter: string;
-  // TOTAL over the enum, so a scope the registry has no words for fails at the page that binds the
-  // label rather than rendering as a chip with no text and a readout with an empty row.
-  readonly bedienelemente: Readonly<Record<FLEinwilligungUmfang, string>>;
-};
+// TOTAL over the enum, so a scope the label has no words for fails at the page that reads it rather
+// than rendering as a chip with no text and a readout with an empty row.
+export type SpielerFassung = GekeyteFassung<SpielerAbsatzSchluessel, FLEinwilligungUmfang>;

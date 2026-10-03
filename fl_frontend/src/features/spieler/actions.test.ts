@@ -105,6 +105,7 @@ function renderEditor({
   render(
     underSaison(
       h(AdminSpielerEditForm, {
+        istFassungBekannt: true,
         spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
         einwilligung: null,
         saison: {
@@ -791,6 +792,7 @@ describe("the late-entry marker, which the backend derives", () => {
     render(
       underSaison(
         h(AdminSpielerEditForm, {
+          istFassungBekannt: true,
           spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
           einwilligung: null,
           saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },

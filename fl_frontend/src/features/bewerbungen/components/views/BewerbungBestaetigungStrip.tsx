@@ -16,7 +16,6 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
@@ -50,11 +49,12 @@ import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/uti
 
 import { Absatz } from "./BestaetigungHinweise";
 
-import type { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
+import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
+import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /**
  * One height for every chip on this readout and for the control beside them, so a row carrying a
@@ -113,11 +113,18 @@ const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. St
 type Bearbeitung = "korrektur" | "neubesetzung";
 
 /**
+ * What a reseat writes and shows, read by the page per request: the label the application form runs,
+ * which the new person's record stamps, and the confirmation page's words that person will be asked.
+ */
+export type Neubesetzung = { textVersion: string; absaetze: KontaktFassung["absaetze"] };
+
+/**
  * A readout above the fact panels rather than a section inside them, so the question deciding
  * whether the Zusage is possible at all is answered before the panels it governs.
  */
 export function BewerbungBestaetigungStrip({
   bewerbungId,
+  neubesetzung,
   staende,
   frist,
   isOpen,
@@ -125,6 +132,7 @@ export function BewerbungBestaetigungStrip({
   onGetipptChange,
 }: {
   bewerbungId: string;
+  neubesetzung: Neubesetzung;
   staende: readonly SitzBestaetigung[];
   /** The day an incomplete application is deleted after, or `null` where none is recorded. */
   frist: string | null;
@@ -216,6 +224,7 @@ export function BewerbungBestaetigungStrip({
             <SitzZeile
               key={sitz.rolle}
               bewerbungId={bewerbungId}
+              neubesetzung={neubesetzung}
               sitz={sitz}
               belegteAdressen={adressenAndererPersonen(staende, sitz)}
               hatAngebot={isOpen && angebot.has(sitz.rolle)}
@@ -254,6 +263,7 @@ export function BewerbungBestaetigungStrip({
  */
 function SitzZeile({
   bewerbungId,
+  neubesetzung,
   sitz,
   belegteAdressen,
   hatAngebot,
@@ -268,6 +278,7 @@ function SitzZeile({
   onSchliessen,
 }: {
   bewerbungId: string;
+  neubesetzung: Neubesetzung;
   sitz: SitzBestaetigung;
   belegteAdressen: readonly string[];
   /** Whether a link can still be sent to this seat, which is the one condition the pencil and the re-send stand under. */
@@ -409,6 +420,7 @@ function SitzZeile({
         <FocusSlot name="neubesetzung">
           <SitzNeuBesetzen
             bewerbungId={bewerbungId}
+            neubesetzung={neubesetzung}
             rolle={sitz.rolle}
             label={sitz.label}
             belegteAdressen={belegteAdressen}
@@ -611,11 +623,12 @@ const SEITENANFANG = [
   "fristUnvollstaendig",
   "widerruf",
   "art21",
-] as const satisfies readonly (keyof typeof BESTAETIGUNG_ABSAETZE)[];
+] as const satisfies readonly KontaktAbsatzSchluessel[];
 
 /** The box `AdresseKorrigieren` opens in, carrying four fields rather than one: this writes a whole person. */
 function SitzNeuBesetzen({
   bewerbungId,
+  neubesetzung,
   rolle,
   label,
   belegteAdressen,
@@ -624,6 +637,7 @@ function SitzNeuBesetzen({
   onFertig,
 }: {
   bewerbungId: string;
+  neubesetzung: Neubesetzung;
   rolle: KontaktRolle;
   /** The seat's own German, so the heading names the role the strip's chip beside it named. */
   label: string;
@@ -649,9 +663,9 @@ function SitzNeuBesetzen({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
   });
 
-  // The label the new person will be shown, written from the registry rather than typed, as the
+  // The label the new person will be shown, read from the registry rather than typed, as the
   // application form writes it: a later rewording never changes what a stored record claims.
-  const payload = { id: bewerbungId, rolle: rolle, ...person, text_version: LIGA_KENNTNISNAHME.textVersion };
+  const payload = { id: bewerbungId, rolle: rolle, ...person, text_version: neubesetzung.textVersion };
 
   useForgiveFixed({ neubesetzung: payload });
 
@@ -751,7 +765,7 @@ function SitzNeuBesetzen({
             key={schluessel}
             className="muted-meta">
             <Absatz
-              schluessel={schluessel}
+              text={neubesetzung.absaetze[schluessel]}
               werte={{ kontakt: KONTAKT_EMAIL }}
             />
           </p>

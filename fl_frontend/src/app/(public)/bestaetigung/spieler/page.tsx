@@ -1,11 +1,14 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { SPIELER_EINWILLIGUNG } from "@/core/einwilligung";
+import { getLaufendeFassung } from "@/core/einwilligung";
+import { gekeyteFassung, SPIELER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { SpielerBestaetigungView } from "@/features/registrierungen/components/views/SpielerBestaetigungView";
+import { EINWILLIGUNG_UMFANG_OPTIONS } from "@/features/registrierungen/constants";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { SpielerBestaetigungStart } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
@@ -42,6 +45,12 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   await connection();
   const { token } = await props.searchParams;
 
+  // Beside the link's read, settled to `null` so a dead link's panel never waits on words it does not
+  // show. Per request: a deploy moves the label the answer must stamp.
+  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler"))
+    .then((gelesen) => gekeyteFassung(gelesen, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS))
+    .catch(() => null);
+
   const start: SpielerBestaetigungStart =
     typeof token === "string" && token !== ""
       ? await getSpielerBestaetigungAnsicht(token).then(
@@ -50,18 +59,10 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
         )
       : { zustand: "ungueltig" };
 
-  // Every word off the CURRENT LABEL's own entry, the paragraphs included: a page reaching past the
-  // label for its wording renders whatever that object holds after the next rewording, under a
-  // label whose records cite the words before it.
   return (
     <SpielerBestaetigungView
       start={start}
-      fassung={{
-        textVersion: SPIELER_EINWILLIGUNG.textVersion,
-        absaetze: SPIELER_EINWILLIGUNG.absaetzeNachSchluessel,
-        schalter: SPIELER_EINWILLIGUNG.schalter,
-        bedienelemente: SPIELER_EINWILLIGUNG.bedienelemente,
-      }}
+      fassung={await fassung}
     />
   );
 }

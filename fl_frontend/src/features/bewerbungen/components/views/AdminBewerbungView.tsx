@@ -17,6 +17,7 @@ import { BewerbungBestaetigungStrip } from "./BewerbungBestaetigungStrip";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
+import type { Neubesetzung } from "./BewerbungBestaetigungStrip";
 
 /**
  * One application, with the two decisions it is still open to. **Nothing on this page is a draft
@@ -28,6 +29,7 @@ export function AdminBewerbungView({
   teamName,
   saisonStatus,
   gruppeOffer,
+  neubesetzung,
 }: {
   bewerbung: FLBewerbung;
   /** The club the application names, resolved by the page — `null` where it names none. */
@@ -35,6 +37,7 @@ export function AdminBewerbungView({
   /** The state of the season this application is for, or `null` where no season carries its id. */
   saisonStatus: "past" | "active" | "future" | null;
   gruppeOffer: readonly GruppeOffer[];
+  neubesetzung: Neubesetzung;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -73,6 +76,7 @@ export function AdminBewerbungView({
           {staende !== null && (
             <BewerbungBestaetigungStrip
               bewerbungId={bewerbung.id}
+              neubesetzung={neubesetzung}
               staende={staende}
               frist={bewerbung.bestaetigungsfrist}
               isOpen={isOpen}

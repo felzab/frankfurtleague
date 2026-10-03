@@ -1732,8 +1732,8 @@ RESEAT_PERSON: Mapping[str, Any] = {
     "telefon": "+49 69 7654321",
 }
 
-# The label the page the new person will be shown cites, which is the frontend's registry entry and
-# never a backend constant (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`).
+# A label the reseat carries as typed, never one this file reads from the registry
+# (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
 RESEAT_TEXT_VERSION = "liga-kenntnisnahme-2026-01"
 
 

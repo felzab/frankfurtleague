@@ -8,7 +8,6 @@ import { parseDate } from "@internationalized/date";
 import { Button } from "@heroui/react/button";
 import { Label } from "@heroui/react/label";
 
-import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { buildEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -35,6 +34,7 @@ import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate } from "@internationalized/date";
+import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type BestaetigungAbschluss =
@@ -77,10 +77,10 @@ function toCalendarDate(stored: string): CalendarDate | null {
  * An objection sends no date and no consent, whatever the draft holds: an objection carrying a
  * consent switched on is a contradiction the page must not be able to send.
  */
-function antwortPayload(token: string, entwurf: Entwurf, ablehnen: boolean): FLBewerbungEinwilligungAntwortPayload {
+function antwortPayload(token: string, textVersion: string, entwurf: Entwurf, ablehnen: boolean): FLBewerbungEinwilligungAntwortPayload {
   // Stamped on an objection as well: the record has to name the words that were on screen when the
   // seat was refused, and a null there would leave the refusal citing nothing.
-  const fassung = { token: token, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
+  const fassung = { token: token, text_version: textVersion };
 
   if (ablehnen) return { ...fassung, antwort: "abgelehnt", geburtsdatum: null, whatsapp: false };
 
@@ -93,12 +93,14 @@ function antwortPayload(token: string, entwurf: Entwurf, ablehnen: boolean): FLB
  * them.
  */
 function BestaetigungAngaben({
+  fassung,
   entwurf,
   onEntwurf,
   onGeburtsdatumVerlassen,
   isDisabled,
   mindestalter,
 }: {
+  fassung: KontaktFassung;
   entwurf: Entwurf;
   onEntwurf: (entwurf: Entwurf) => void;
   onGeburtsdatumVerlassen: () => void;
@@ -146,13 +148,13 @@ function BestaetigungAngaben({
           isSelected={entwurf.whatsapp}
           onChange={(whatsapp) => onEntwurf({ ...entwurf, whatsapp: whatsapp })}>
           <Switch.Content className={panel.switchContent()}>
-            {BESTAETIGUNG_KENNTNISNAHME.schalter}
+            {fassung.schalter}
             <Switch.Control className={panel.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
         </Switch>
-        <WhatsappHinweis />
+        <WhatsappHinweis absaetze={fassung.absaetze} />
       </section>
     </>
   );
@@ -163,11 +165,13 @@ function BestaetigungAngaben({
  * objection stood in, so no new control lands under a finger already on the first.
  */
 function BestaetigungEntscheidung({
+  absaetze,
   widerspruch,
   isPending,
   beschreibtId,
   onWiderspruch,
 }: {
+  absaetze: KontaktFassung["absaetze"];
   /** The objection's two presses, which the confirmation's own flight is graded apart from. */
   widerspruch: TwoPressConfirm;
   /** The confirmation's own flight. */
@@ -223,7 +227,7 @@ function BestaetigungEntscheidung({
           <p className="fluid-xxs leading-normal font-medium text-foreground">
             Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden. Deine Angaben oben brauchen wir für einen Widerspruch nicht.
           </p>
-          <WiderspruchFolge />
+          <WiderspruchFolge absaetze={absaetze} />
         </ConfirmReveal>
       )}
     </div>
@@ -235,6 +239,7 @@ function BestaetigungEntscheidung({
  * press records, and a required „gelesen“ switch would be a second act recording the same thing.
  */
 export function BestaetigungFormPanel({
+  fassung,
   token,
   vorname,
   schule,
@@ -243,6 +248,8 @@ export function BestaetigungFormPanel({
   mindestalter,
   onAbschluss,
 }: {
+  /** The words the page shows, under the label its answer stamps. */
+  fassung: KontaktFassung;
   token: string;
   vorname: string;
   schule: string;
@@ -274,7 +281,7 @@ export function BestaetigungFormPanel({
       failureTitle: "Antwort nicht gespeichert",
     });
 
-  useForgiveFixed({ einwilligung: antwortPayload(token, entwurf, isConfirming) });
+  useForgiveFixed({ einwilligung: antwortPayload(token, fassung.textVersion, entwurf, isConfirming) });
 
   const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
@@ -333,7 +340,7 @@ export function BestaetigungFormPanel({
 
   /* Both presses of the objection hand the shared control the same write: the arming one drops it,
      and the second runs it, so the two cannot arm and send different payloads. */
-  const sendeWiderspruch = () => sende(antwortPayload(token, entwurf, true));
+  const sendeWiderspruch = () => sende(antwortPayload(token, fassung.textVersion, entwurf, true));
 
   const handleSubmit = () => {
     // Armed, this press is the shared control's second one and is graded there — including the
@@ -343,7 +350,7 @@ export function BestaetigungFormPanel({
       return;
     }
 
-    const payload = antwortPayload(token, entwurf, false);
+    const payload = antwortPayload(token, fassung.textVersion, entwurf, false);
     guardSubmit({ einwilligung: payload }, () => {
       startSending(async () => {
         await sende(payload);
@@ -358,6 +365,7 @@ export function BestaetigungFormPanel({
       className="flex w-full flex-col gap-6"
       onSubmit={handleSubmit}>
       <BestaetigungHinweise
+        absaetze={fassung.absaetze}
         schule={schule}
         saison={saison}
         rolle={rolle}
@@ -367,6 +375,7 @@ export function BestaetigungFormPanel({
 
       <BestaetigungAbschnitt titel="Deine Antwort">
         <KlickBestaetigung
+          absaetze={fassung.absaetze}
           id={klickPunkteId}
           vorname={vorname}
           schule={schule}
@@ -375,9 +384,12 @@ export function BestaetigungFormPanel({
         />
 
         <BestaetigungAngaben
+          fassung={fassung}
           entwurf={entwurf}
           onEntwurf={setEntwurf}
-          onGeburtsdatumVerlassen={() => validatePaths("einwilligung", antwortPayload(token, entwurf, false), ["geburtsdatum"])}
+          onGeburtsdatumVerlassen={() =>
+            validatePaths("einwilligung", antwortPayload(token, fassung.textVersion, entwurf, false), ["geburtsdatum"])
+          }
           isDisabled={isConfirming}
           mindestalter={mindestalter}
         />
@@ -394,6 +406,7 @@ export function BestaetigungFormPanel({
         )}
 
         <BestaetigungEntscheidung
+          absaetze={fassung.absaetze}
           widerspruch={widerspruch}
           isPending={isPending}
           beschreibtId={klickPunkteId}

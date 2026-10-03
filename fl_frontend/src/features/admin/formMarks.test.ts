@@ -581,9 +581,11 @@ const FORMS: Record<string, FormCase> = {
     marks: async () => {
       const { BewerbungForm } = await import("@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx");
       const { SCHULE_NICHT_IN_LISTE } = await import("@/features/bewerbungen/constants.ts");
+      const { laufendeBewerbungFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
       return marksOf(
         h(BewerbungForm, {
           saisonId: "2026",
+          fassung: laufendeBewerbungFassung(),
           schulen: [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }],
           isSchulenLesbar: true,
           vergebeneFarben: [],
@@ -646,8 +648,10 @@ const FORMS: Record<string, FormCase> = {
     module: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
     marks: async () => {
       const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
+      const { laufendeKontaktFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
       return marksOf(
         h(BestaetigungFormPanel, {
+          fassung: laufendeKontaktFassung(),
           token: "kein-echtes-token",
           vorname: "Mira",
           schule: "Lessing-Kolleg",
@@ -694,9 +698,11 @@ const FORMS: Record<string, FormCase> = {
     module: "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx",
     marks: async () => {
       const { BewerbungBestaetigungStrip } = await import("@/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx");
+      const { laufendeNeubesetzung } = await import("@/shared/testing/einwilligungAnswers.ts");
       return marksOf(
         h(BewerbungBestaetigungStrip, {
           bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+          neubesetzung: laufendeNeubesetzung(),
           staende: await staende(),
           frist: "2099-12-31",
           isOpen: true,
@@ -733,14 +739,9 @@ const FORMS: Record<string, FormCase> = {
   "the player's confirmation": {
     module: "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
     marks: async () => {
-      const { SPIELER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
+      const { laufendeSpielerFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
       const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
-      const fassung = {
-        textVersion: SPIELER_EINWILLIGUNG.textVersion,
-        absaetze: SPIELER_EINWILLIGUNG.absaetzeNachSchluessel,
-        schalter: SPIELER_EINWILLIGUNG.schalter,
-        bedienelemente: SPIELER_EINWILLIGUNG.bedienelemente,
-      };
+      const fassung = laufendeSpielerFassung();
       const ansicht = {
         acknowledged: 1,
         zustand: "gueltig",
@@ -774,7 +775,8 @@ const FORMS: Record<string, FormCase> = {
   "the referee's confirmation": {
     module: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
     marks: async () => {
-      const { SCHIEDSRICHTER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
+      const { laufendeSchiedsrichterFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
+      const fassung = laufendeSchiedsrichterFassung();
       const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
       return marksOf(
         h(SchiedsrichterBestaetigungView, {
@@ -785,11 +787,12 @@ const FORMS: Record<string, FormCase> = {
               acknowledged: 1,
               zustand: "gueltig",
               vorname: "Anna",
-              text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+              text_version: fassung.textVersion,
               mindestalter: 16,
               medien_mindestalter: 18,
               frist: "2026-10-05",
             },
+            fassung,
           },
         } as never),
         async (into) => {

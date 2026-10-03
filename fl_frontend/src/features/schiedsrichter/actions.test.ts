@@ -251,7 +251,8 @@ afterEach(() => {
 });
 
 /** The editor the page mounts for a referee nobody erased, whose last panel is the erasure. */
-const renderEditor = () => render(underRecordingNext(h(AdminSchiedsrichterEditView, { schiedsrichter: RECORD, inactiveSince: null })));
+const renderEditor = () =>
+  render(underRecordingNext(h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: RECORD, inactiveSince: null })));
 
 const erasureButton = () => screen.getByRole("button", { name: /^(Ja, )?Daten (endgültig )?löschen$/ });
 

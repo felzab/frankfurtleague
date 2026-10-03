@@ -29,6 +29,7 @@ const view = (props: { name: string | null; inactiveSince: string | null }): str
   renderTree(
     underNext(
       h(AdminSchiedsrichterEditView, {
+        istFassungBekannt: true,
         schiedsrichter: { ...RECORD, name: props.name },
         inactiveSince: props.inactiveSince,
       }),

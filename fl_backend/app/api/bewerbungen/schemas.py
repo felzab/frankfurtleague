@@ -836,9 +836,9 @@ class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
     nothing: their own link is what asks them.
     """
 
-    # The label alone, `compose_einwilligung` requiring one and the registry naming it being the
-    # frontend's (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`). Stripped before the
-    # floor counts it: a version that is spaces cites no text.
+    # The label alone, `compose_einwilligung` requiring one and the registry naming it
+    # (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`). Stripped before the floor counts it: a
+    # version that is spaces cites no text.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 

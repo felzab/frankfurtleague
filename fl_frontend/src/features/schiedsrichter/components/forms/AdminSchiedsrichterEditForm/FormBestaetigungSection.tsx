@@ -7,7 +7,6 @@ import PaperPlane from "@gravity-ui/icons/PaperPlane";
 
 import { Button } from "@heroui/react/button";
 
-import { einwilligungFassung } from "@/core/einwilligung";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { einladeSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import {
@@ -67,15 +66,15 @@ function KeinTag({ children }: { children: ReactNode }) {
 }
 
 /**
- * A stored label names an `@/core/einwilligung :: LIGA_KENNTNISNAHMEN` entry, so one no entry
- * answers is a record citing words nobody can produce, and a bare key renders the two alike.
+ * A stored label names a label of the backend's registry, so one the registry does not hold is a
+ * record citing words nobody can produce, and a bare key renders the two alike.
  */
-function Fassung({ textVersion }: { textVersion: string | null }) {
+function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean }) {
   if (textVersion === null) return <KeinTag>Nicht erfasst</KeinTag>;
 
   // Beside the key rather than instead of it: whoever repairs the mismatch needs the key that
   // resolved to nothing.
-  if (einwilligungFassung(textVersion) === null) {
+  if (!istBekannt) {
     return (
       <>
         {textVersion} <KeinTag>Unbekannte Fassung</KeinTag>
@@ -119,7 +118,15 @@ function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsric
 }
 
 /** The record the referee's own press wrote, read back as facts. */
-function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEinwilligung; geburtsdatum: string | null }) {
+function EinwilligungStand({
+  einwilligung,
+  istFassungBekannt,
+  geburtsdatum,
+}: {
+  einwilligung: FLEinwilligung;
+  istFassungBekannt: boolean;
+  geburtsdatum: string | null;
+}) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Veröffentlichung">{SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
@@ -128,7 +135,10 @@ function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEin
       </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
       <Angabe label="Fassung">
-        <Fassung textVersion={einwilligung.text_version} />
+        <Fassung
+          textVersion={einwilligung.text_version}
+          istBekannt={istFassungBekannt}
+        />
       </Angabe>
       <Angabe label="Medien">{einwilligung.medien ? SCHIEDSRICHTER_MEDIEN_LABELS.erteilt : SCHIEDSRICHTER_MEDIEN_LABELS.nicht_erteilt}</Angabe>
       {/* Beside the record because the same press wrote it, and on no field of this form: the person
@@ -149,6 +159,7 @@ export function FormBestaetigungSection({
   isRetired,
   bestaetigung,
   einwilligung,
+  istFassungBekannt,
   geburtsdatum,
   isDirty,
 }: {
@@ -158,6 +169,8 @@ export function FormBestaetigungSection({
   isRetired: boolean;
   bestaetigung: FLSchiedsrichterBestaetigung | null;
   einwilligung: FLEinwilligung | null;
+  /** Whether the registry holds the stored label, resolved by the page through the words read. */
+  istFassungBekannt: boolean;
   geburtsdatum: string | null;
   /** The editor's unsaved typing, which the mint re-keys the editor over. */
   isDirty: boolean;
@@ -248,6 +261,7 @@ export function FormBestaetigungSection({
             <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
             <EinwilligungStand
               einwilligung={einwilligung}
+              istFassungBekannt={istFassungBekannt}
               geburtsdatum={geburtsdatum}
             />
           </>

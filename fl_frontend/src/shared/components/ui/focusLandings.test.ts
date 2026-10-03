@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
@@ -187,6 +188,7 @@ const spielerList = (rows: ReturnType<typeof spieler>[]) =>
 /** The player's editor in the season its squad row stands in, retired as the case says. */
 const spielerEditor = (inactiveSince: string | null, inKader = true) =>
   h(AdminSpielerEditView, {
+    istFassungBekannt: true,
     spieler: { id: SP_A, vorname: "Lena", nachname: "Meier", inactive_since: inactiveSince, geburtsdatum: null },
     einwilligung: null,
     saison: {
@@ -401,7 +403,13 @@ const MIT_OFFENEN_SITZEN: Bewerbung = {
   bestaetigungen: OFFENE_BESTAETIGUNGEN,
 };
 const bewerbungPage = (bewerbung: Bewerbung) =>
-  h(AdminBewerbungView, { bewerbung, teamName: "SG Alpha", saisonStatus: "future", gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }] });
+  h(AdminBewerbungView, {
+    neubesetzung: laufendeNeubesetzung(),
+    bewerbung,
+    teamName: "SG Alpha",
+    saisonStatus: "future",
+    gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],
+  });
 
 const rollover = (saisonStatus: "future" | "active") =>
   h(FormRolloverSection, {
@@ -780,9 +788,9 @@ const LANDINGS: Record<string, Landing> = {
     lands: () => heading("Halle A"),
   },
   "a referee editor's reactivation, on the editor's heading": {
-    before: () => h(AdminSchiedsrichterEditView, { schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
+    before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
-    after: () => h(AdminSchiedsrichterEditView, { schiedsrichter: SR_RECORD, inactiveSince: null }),
+    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
     remount: true,
     lands: () => heading("Pia Kraft"),
   },
@@ -1075,10 +1083,11 @@ const LANDINGS: Record<string, Landing> = {
     lands: () => heading("Kader 2026"),
   },
   "a referee's confirmation link, on its control drawn anew to send another": {
-    before: () => h(AdminSchiedsrichterEditView, { schiedsrichter: SR_RECORD, inactiveSince: null }),
+    before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
     press: (user) => user.click(screen.getByRole("button", { name: "Bestätigungslink senden" })),
     after: () =>
       h(AdminSchiedsrichterEditView, {
+        istFassungBekannt: true,
         schiedsrichter: {
           ...SR_RECORD,
           bestaetigung: { verschickt_am: "2026-09-21", erinnert_am: null, frist: "2026-10-05", zustellung: null },

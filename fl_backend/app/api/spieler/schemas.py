@@ -69,9 +69,9 @@ class FLEinwilligung(BaseModel):
     # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves
     # this so a carried-over record shows as awaiting a confirmation rather than merely dateless.
     bestaetigt_am: CustomOptionalDateString
-    # The registry label of `fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN` and never
-    # the words, as `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must
-    # not change what a stored record claims. Defaulted, every stored record predating it.
+    # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
+    # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
+    # a stored record claims. Defaulted, every stored record predating it.
     text_version: str | None = None
     # A SECOND consent under one record rather than a third `umfang` member: publication and media
     # are independent answers, so withdrawing one leaves the other standing. Defaulted for

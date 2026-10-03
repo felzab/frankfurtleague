@@ -10,8 +10,13 @@ import { parseDate } from "@internationalized/date";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { SCHIEDSRICHTER_EINWILLIGUNG, SPIELER_EINWILLIGUNG } from "@/core/einwilligung.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import {
+  laufendeBewerbungFassung,
+  laufendeKontaktFassung,
+  laufendeSchiedsrichterFassung,
+  laufendeSpielerFassung,
+} from "@/shared/testing/einwilligungAnswers.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
@@ -30,8 +35,11 @@ const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsricht
 const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
 const { BEWERBUNG_SEATS } = await import("@/features/bewerbungen/constants.ts");
-const { SCHIEDSRICHTER_UMFANG_OPTIONS } = await import("@/features/schiedsrichter/constants.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
+
+/** Each public page's running words, off the registry the backend generated, as its page hands them in. */
+const SCHIEDSRICHTER = laufendeSchiedsrichterFassung();
+const SPIELER = laufendeSpielerFassung();
 
 // The three sentences a visitor can be shown, spelled here rather than imported: what this file
 // holds is the wording, and a test reading the module's own constant would agree with any rewording.
@@ -212,7 +220,13 @@ const FORMS: Record<string, PublicForm> = {
   "the application form": {
     route: "/api/bewerbung",
     render: () =>
-      h(BewerbungForm, { saisonId: "2026", schulen: [{ id: SCHOOL_ID, name: "Lessing-Kolleg" }], isSchulenLesbar: true, vergebeneFarben: [] }),
+      h(BewerbungForm, {
+        saisonId: "2026",
+        fassung: laufendeBewerbungFassung(),
+        schulen: [{ id: SCHOOL_ID, name: "Lessing-Kolleg" }],
+        isSchulenLesbar: true,
+        vergebeneFarben: [],
+      }),
     submit: async (user) => {
       await user.selectOptions(control("team_id"), SCHOOL_ID);
       await typeInto(user, screen.getByRole("textbox", { name: "Größe der Stufe" }), "90");
@@ -239,6 +253,7 @@ const FORMS: Record<string, PublicForm> = {
     route: "/api/bestaetigung/kontakt",
     render: () =>
       h(BestaetigungFormPanel, {
+        fassung: laufendeKontaktFassung(),
         token: "kein-echtes-token",
         vorname: "Mira",
         schule: "Lessing-Kolleg",
@@ -260,17 +275,18 @@ const FORMS: Record<string, PublicForm> = {
             acknowledged: 1,
             zustand: "gueltig",
             vorname: "Anna",
-            text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+            text_version: SCHIEDSRICHTER.textVersion,
             mindestalter: 16,
             medien_mindestalter: 18,
             frist: "2026-10-05",
           },
+          fassung: SCHIEDSRICHTER,
         },
       }),
     submit: async (user) => {
       await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
       await user.keyboard(typedBirthdate(40));
-      await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+      await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER.bedienelemente.intern }));
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
     },
   },
@@ -314,7 +330,7 @@ const FORMS: Record<string, PublicForm> = {
             schule: "Lessing-Kolleg Oberstufengymnasium",
             saison_id: "2026",
             vorname: "Mira",
-            text_version: SPIELER_EINWILLIGUNG.textVersion,
+            text_version: SPIELER.textVersion,
             mindestalter: 16,
             medien_mindestalter: 18,
             geburtsdatum: null,
@@ -322,15 +338,10 @@ const FORMS: Record<string, PublicForm> = {
             medien: null,
           },
         },
-        fassung: {
-          textVersion: SPIELER_EINWILLIGUNG.textVersion,
-          absaetze: SPIELER_EINWILLIGUNG.absaetzeNachSchluessel,
-          schalter: SPIELER_EINWILLIGUNG.schalter,
-          bedienelemente: SPIELER_EINWILLIGUNG.bedienelemente,
-        },
+        fassung: SPIELER,
       }),
     submit: async (user) => {
-      await user.click(screen.getByRole("radio", { name: SPIELER_EINWILLIGUNG.bedienelemente.intern }));
+      await user.click(screen.getByRole("radio", { name: SPIELER.bedienelemente.intern }));
       const [tag] = screen.getAllByRole("spinbutton");
       await user.click(tag ?? assert.fail("the page renders no date to type"));
       await user.keyboard(typedBirthdate(17));

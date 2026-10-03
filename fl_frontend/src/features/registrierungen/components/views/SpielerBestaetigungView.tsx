@@ -54,13 +54,13 @@ import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
+import type { SpielerAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 import type { FLEinwilligungUmfang } from "../../schemas";
 import type {
-  SpielerAbsatzSchluessel,
   SpielerBestaetigungDraft,
   SpielerBestaetigungGeoeffnet,
   SpielerBestaetigungStart,
@@ -68,7 +68,18 @@ import type {
   SpielerLinkZustand,
 } from "../../types";
 
-type Stand = SpielerBestaetigungStart | { zustand: "erfolg"; ansicht: SpielerBestaetigungGeoeffnet; gespeichert: SpielerBestaetigungDraft };
+// The words ride with the two states that show them, so neither can render without them.
+type Stand =
+  | (Extract<SpielerBestaetigungStart, { zustand: "gueltig" }> & { fassung: SpielerFassung })
+  | Exclude<SpielerBestaetigungStart, { zustand: "gueltig" }>
+  | { zustand: "erfolg"; ansicht: SpielerBestaetigungGeoeffnet; gespeichert: SpielerBestaetigungDraft; fassung: SpielerFassung };
+
+/** An open link whose words could not be read is a page nobody can answer, which the failed read's panel says. */
+function anfang(start: SpielerBestaetigungStart, fassung: SpielerFassung | null): Stand {
+  if (start.zustand !== "gueltig") return start;
+
+  return fassung === null ? { zustand: "unlesbar" } : { ...start, fassung: fassung };
+}
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
 const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
@@ -188,8 +199,8 @@ type Antwort =
  * `fassung` is handed in rather than imported: the label freezes exactly what a reader saw, and a
  * component reaching for the current words would render a text no stored record cites.
  */
-export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBestaetigungStart; fassung: SpielerFassung }) {
-  const [stand, setStand] = useState<Stand>(start);
+export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBestaetigungStart; fassung: SpielerFassung | null }) {
+  const [stand, setStand] = useState<Stand>(() => anfang(start, fassung));
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
   if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
@@ -219,12 +230,12 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <SpielerBestaetigungForm
           token={stand.token}
           ansicht={stand.ansicht}
-          fassung={fassung}
+          fassung={stand.fassung}
           onAbschluss={(abschluss) => {
             beantwortet();
             setStand(
               abschluss.zustand === "erfolg"
-                ? { zustand: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert }
+                ? { zustand: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert, fassung: stand.fassung }
                 : { zustand: abschluss.zustand },
             );
           }}
@@ -241,7 +252,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
           <GespeicherteAngaben
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) },
-              { label: "Auf der Website", wert: fassung.bedienelemente[stand.gespeichert.umfang] },
+              { label: "Auf der Website", wert: stand.fassung.bedienelemente[stand.gespeichert.umfang] },
               { label: "Fotos und Videos", wert: stand.gespeichert.medien ? "erlaubt" : "nicht erlaubt" },
             ]}
           />

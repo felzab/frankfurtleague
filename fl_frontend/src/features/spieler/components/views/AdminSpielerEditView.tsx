@@ -18,12 +18,15 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
 export function AdminSpielerEditView({
   spieler,
   einwilligung,
+  istFassungBekannt,
   saison,
   teams,
   membershipCount,
 }: {
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
   einwilligung: FLEinwilligung | null;
+  /** Whether the registry holds the stored label. */
+  istFassungBekannt: boolean;
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: SpielerTeamOption[];
@@ -40,6 +43,7 @@ export function AdminSpielerEditView({
       <AdminSpielerEditForm
         spieler={spieler}
         einwilligung={einwilligung}
+        istFassungBekannt={istFassungBekannt}
         saison={saison}
         teams={teams}
         membershipCount={membershipCount}

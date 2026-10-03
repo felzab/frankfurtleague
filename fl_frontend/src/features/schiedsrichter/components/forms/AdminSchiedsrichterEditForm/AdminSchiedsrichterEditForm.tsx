@@ -69,6 +69,7 @@ const OHNE_GESPEICHERTE_ADRESSE = buildRefusal({
  */
 export function AdminSchiedsrichterEditForm({
   schiedsrichter,
+  istFassungBekannt,
   isRetired,
   pageHeader,
 }: {
@@ -85,6 +86,8 @@ export function AdminSchiedsrichterEditForm({
     einwilligung: FLEinwilligung | null;
     bestaetigung: FLSchiedsrichterBestaetigung | null;
   };
+  /** Whether the registry holds the stored label, which no record of the row says. */
+  istFassungBekannt: boolean;
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
@@ -292,6 +295,7 @@ export function AdminSchiedsrichterEditForm({
             isRetired={isRetired}
             bestaetigung={schiedsrichter.bestaetigung}
             einwilligung={schiedsrichter.einwilligung}
+            istFassungBekannt={istFassungBekannt}
             geburtsdatum={schiedsrichter.geburtsdatum}
           />
 

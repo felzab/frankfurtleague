@@ -13,7 +13,6 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   ABSATZ_CLASSES,
@@ -31,7 +30,7 @@ import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import {
   SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
   SCHIEDSRICHTER_UMFANG_FRAGE,
-  SCHIEDSRICHTER_UMFANG_OPTIONS,
+  SCHIEDSRICHTER_UMFANG_WERTE,
 } from "@/features/schiedsrichter/constants";
 import { buildSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -56,6 +55,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
+import type { GekeyteFassung, SchiedsrichterAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
 import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
@@ -68,7 +68,16 @@ import type { CalendarDate } from "@internationalized/date";
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
 export type SchiedsrichterBestaetigungStart =
-  { zustand: "gueltig"; ansicht: SchiedsrichterAnsichtGeoeffnet; token: string } | { zustand: SchiedsrichterLinkZustand | "unlesbar" };
+  | { zustand: "gueltig"; ansicht: SchiedsrichterAnsichtGeoeffnet; token: string; fassung: SchiedsrichterFassung }
+  | { zustand: SchiedsrichterLinkZustand | "unlesbar" };
+
+/**
+ * The referee page's words under the label its answer stamps, handed in by the page: a component
+ * reaching for the running words would render a text no stored record cites.
+ */
+export type SchiedsrichterFassung = GekeyteFassung<SchiedsrichterAbsatzSchluessel, FLSchiedsrichterUmfang>;
+
+type Absaetze = SchiedsrichterFassung["absaetze"];
 
 type Gespeichert = { vorname: string; geburtsdatum: string; umfang: FLSchiedsrichterUmfang; medien: boolean };
 
@@ -101,15 +110,11 @@ const EIGENE_SLOTS = new Set(["vorname"]);
 /** The words every reader's copy fills alike; the rest come off the record the page was opened with. */
 const KONSTANTEN = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen" } as const;
 
-// Read off the stamped version rather than off the paragraph object beside it: the words this page
-// renders and the label its press stores are then one source, which a rewording cannot part.
-type Schluessel = keyof typeof SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel;
-
 /** A stamped sentence, filled as `:: Gefuellt` fills one. */
-function Absatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots }) {
+function Absatz({ text, werte }: { text: string; werte: Slots }) {
   return (
     <Gefuellt
-      text={SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel[schluessel]}
+      text={text}
       werte={werte}
       eigene={EIGENE_SLOTS}
     />
@@ -117,11 +122,11 @@ function Absatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots })
 }
 
 /** A stamped paragraph in the page's body grade, which every standing sentence here takes. */
-function StandAbsatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots }) {
+function StandAbsatz({ text, werte }: { text: string; werte: Slots }) {
   return (
     <p className={ABSATZ_CLASSES}>
       <Absatz
-        schluessel={schluessel}
+        text={text}
         werte={werte}
       />
     </p>
@@ -132,13 +137,13 @@ function StandAbsatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slo
  * Rendered in the order a reader meets it rather than the legal draft's order: the media paragraph
  * sits at its switch and the points at the button. **One column**, as the contact page keeps.
  */
-function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
+function SchiedsrichterHinweise({ absaetze, werte }: { absaetze: Absaetze; werte: Slots }) {
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
       <section className={ABSCHNITT_CLASSES}>
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
         <StandAbsatz
-          schluessel="worum"
+          text={absaetze.worum}
           werte={werte}
         />
       </section>
@@ -146,15 +151,15 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
       <section className={ABSCHNITT_CLASSES}>
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
         <StandAbsatz
-          schluessel="gespeichert"
+          text={absaetze.gespeichert}
           werte={werte}
         />
         <StandAbsatz
-          schluessel="geburtsdatum"
+          text={absaetze.geburtsdatum}
           werte={werte}
         />
         <StandAbsatz
-          schluessel="rechtsgrundlage"
+          text={absaetze.rechtsgrundlage}
           werte={werte}
         />
       </section>
@@ -162,7 +167,7 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
       <section className={ABSCHNITT_CLASSES}>
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Was nicht veröffentlicht wird</h3>
         <StandAbsatz
-          schluessel="wer"
+          text={absaetze.wer}
           werte={werte}
         />
       </section>
@@ -170,7 +175,7 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
       <section className={ABSCHNITT_CLASSES}>
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Wie lange Dein Eintrag bleibt</h3>
         <StandAbsatz
-          schluessel="frist"
+          text={absaetze.frist}
           werte={werte}
         />
       </section>
@@ -178,11 +183,11 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
       <section className={ABSCHNITT_CLASSES}>
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Wenn Du etwas zurücknehmen willst</h3>
         <StandAbsatz
-          schluessel="widerruf"
+          text={absaetze.widerruf}
           werte={werte}
         />
         <StandAbsatz
-          schluessel="art21"
+          text={absaetze.art21}
           werte={werte}
         />
       </section>
@@ -194,7 +199,7 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
  * **The one wording of the points**: the button describes itself by this block's `id` rather
  * than by a summary sentence beside it, which is how a reader met the same promise twice.
  */
-function KlickBestaetigung({ id, werte }: { id: string; werte: Slots }) {
+function KlickBestaetigung({ absaetze, id, werte }: { absaetze: Absaetze; id: string; werte: Slots }) {
   return (
     <div
       id={id}
@@ -204,7 +209,7 @@ function KlickBestaetigung({ id, werte }: { id: string; werte: Slots }) {
         {(["klickIdentitaet", "klickEintrag", "klickAlter", "klickEinwilligung", "klickHinweise"] as const).map((schluessel) => (
           <li key={schluessel}>
             <Absatz
-              schluessel={schluessel}
+              text={absaetze[schluessel]}
               werte={werte}
             />
           </li>
@@ -230,7 +235,7 @@ function toCalendarDate(stored: string): CalendarDate | null {
  * What the press sends. `text_version` is the label this page rendered, which the handler admits only
  * where it is still the one it serves.
  */
-function antwortPayload(token: string, entwurf: Entwurf, medienAngeboten: boolean): FLSchiedsrichterBestaetigungPayload {
+function antwortPayload(token: string, textVersion: string, entwurf: Entwurf, medienAngeboten: boolean): FLSchiedsrichterBestaetigungPayload {
   return {
     token: token,
     geburtsdatum: entwurf.geburtsdatum,
@@ -240,7 +245,7 @@ function antwortPayload(token: string, entwurf: Entwurf, medienAngeboten: boolea
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.
     medien: medienAngeboten && entwurf.medien,
-    text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+    text_version: textVersion,
   };
 }
 
@@ -252,12 +257,14 @@ type BestaetigungAntwort =
  * press records, and a required „gelesen“ switch would be a second act recording the same thing.
  */
 function SchiedsrichterFormPanel({
+  fassung,
   token,
   vorname,
   mindestalter,
   medienMindestalter,
   onAbschluss,
 }: {
+  fassung: SchiedsrichterFassung;
   token: string;
   vorname: string;
   /** The floor the link's own read answered; a constant here would be a number the endpoint never judges by. */
@@ -291,7 +298,7 @@ function SchiedsrichterFormPanel({
   const medienAngeboten =
     entwurf.geburtsdatum !== "" && entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), medienMindestalter).spaeteste;
 
-  useForgiveFixed({ bestaetigung: antwortPayload(token, entwurf, medienAngeboten) });
+  useForgiveFixed({ bestaetigung: antwortPayload(token, fassung.textVersion, entwurf, medienAngeboten) });
 
   // The floor's alone, never the ceiling's: a date past the ceiling is a mistyped century, and
   // telling a 190-year-old what the age rule costs them is the wrong repair.
@@ -343,7 +350,7 @@ function SchiedsrichterFormPanel({
   };
 
   const handleSubmit = () => {
-    const payload = antwortPayload(token, entwurf, medienAngeboten);
+    const payload = antwortPayload(token, fassung.textVersion, entwurf, medienAngeboten);
     guardSubmit({ bestaetigung: payload }, () => {
       startSending(async () => {
         await sende(payload);
@@ -357,7 +364,10 @@ function SchiedsrichterFormPanel({
       data-required-marks="on"
       className="flex w-full flex-col gap-6"
       onSubmit={handleSubmit}>
-      <SchiedsrichterHinweise werte={werte} />
+      <SchiedsrichterHinweise
+        absaetze={fassung.absaetze}
+        werte={werte}
+      />
 
       <BestaetigungAbschnitt titel="Deine Antwort">
         <section className="flex flex-col gap-y-3">
@@ -371,7 +381,9 @@ function SchiedsrichterFormPanel({
               calendarLabel="Geburtsdatum auswählen"
               value={toCalendarDate(entwurf.geburtsdatum)}
               onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-              onBlur={() => validatePaths("bestaetigung", antwortPayload(token, entwurf, medienAngeboten), ["geburtsdatum"])}
+              onBlur={() =>
+                validatePaths("bestaetigung", antwortPayload(token, fassung.textVersion, entwurf, medienAngeboten), ["geburtsdatum"])
+              }
               hint={`Spiele leiten kann nur, wer mindestens ${String(mindestalter)} Jahre alt ist. Das Datum wird mit Deinem Eintrag gespeichert.`}
               minValue={parseDate(frueheste)}
               maxValue={parseDate(spaeteste)}
@@ -399,16 +411,17 @@ function SchiedsrichterFormPanel({
               selectedKeys={entwurf.umfang === null ? [] : [entwurf.umfang]}
               onSelectionChange={(keys: Set<Key>) => {
                 const [picked] = [...keys].map(String);
-                const option = SCHIEDSRICHTER_UMFANG_OPTIONS.find((candidate) => candidate.value === picked);
-                if (option !== undefined) setEntwurf({ ...entwurf, umfang: option.value });
+                const umfang = SCHIEDSRICHTER_UMFANG_WERTE.find((candidate) => candidate === picked);
+                if (umfang !== undefined) setEntwurf({ ...entwurf, umfang: umfang });
               }}
               className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
-              {SCHIEDSRICHTER_UMFANG_OPTIONS.map((option) => (
+              {/* The chips' words are the stamped label's, so a record reproduces the question beside its answer. */}
+              {SCHIEDSRICHTER_UMFANG_WERTE.map((umfang) => (
                 <ToggleButton
-                  key={option.value}
-                  id={option.value}
+                  key={umfang}
+                  id={umfang}
                   className={OPTION_CHIP_CLASSES}>
-                  {option.label}
+                  {fassung.bedienelemente[umfang]}
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
@@ -419,7 +432,7 @@ function SchiedsrichterFormPanel({
             <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
           <StandAbsatz
-            schluessel="veroeffentlichung"
+            text={fassung.absaetze.veroeffentlichung}
             werte={werte}
           />
         </section>
@@ -436,7 +449,7 @@ function SchiedsrichterFormPanel({
               isSelected={entwurf.medien}
               onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
               <Switch.Content className={panel.switchContent()}>
-                {SCHIEDSRICHTER_EINWILLIGUNG.schalter}
+                {fassung.schalter}
                 <Switch.Control className={panel.switchControl()}>
                   <Switch.Thumb />
                 </Switch.Control>
@@ -444,12 +457,13 @@ function SchiedsrichterFormPanel({
             </Switch>
           )}
           <StandAbsatz
-            schluessel="medien"
+            text={fassung.absaetze.medien}
             werte={werte}
           />
         </section>
 
         <KlickBestaetigung
+          absaetze={fassung.absaetze}
           id={klickPunkteId}
           werte={werte}
         />
@@ -500,6 +514,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
 
       {stand.zustand === "gueltig" && (
         <SchiedsrichterFormPanel
+          fassung={stand.fassung}
           token={stand.token}
           vorname={stand.ansicht.vorname}
           mindestalter={stand.ansicht.mindestalter}

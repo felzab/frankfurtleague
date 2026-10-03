@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -36,6 +37,9 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 
+/** The label the application form runs, off the registry the backend generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+
 /** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
   vorname: vorname,
@@ -59,7 +63,7 @@ const schule = (overrides: Partial<BewerbungSchuleDraft> = {}): BewerbungSchuleD
 
 /** A submission that passes, so a failing case below fails for the field it changed and no other. */
 const validDraft = (overrides: Partial<BewerbungFormDraft> = {}): BewerbungFormDraft => ({
-  ...buildEmptyBewerbungDraft("2627"),
+  ...buildEmptyBewerbungDraft("2627", FORM_LABEL),
   auswahl: SCHULE_NICHT_IN_LISTE,
   schule: schule(),
   kontakte: {
@@ -221,7 +225,7 @@ describe("the three people have to be tellable apart", () => {
   /* Read off the issues rather than the field map, which keeps a box's first message: the empty box's
      own refusal comes first and would hide a second one claiming the empty numbers are shared. */
   it("calls no two empty boxes one person, the fold reading two empty numbers as equal", () => {
-    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627")));
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627", FORM_LABEL)));
     const sharedSeat = parsed.success ? [] : parsed.error.issues.filter((issue) => issue.message.includes("schon bei einer anderen Person"));
 
     assert.equal(parsed.success, false);
@@ -325,7 +329,7 @@ describe("a submission names exactly one school", () => {
   /* zod skips a refinement once any box is refused, so without `when` an empty first press would mark
      every box but the picker, whose message would come with the second. */
   it("marks the unpicked school in the same press as every empty box", () => {
-    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627")));
+    const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627", FORM_LABEL)));
     const refusals = parsed.success ? {} : toFieldErrors(parsed.error);
 
     assert.ok(Object.keys(refusals).length > 1, "the empty draft is refused for the picker alone, so nothing else competes with it");

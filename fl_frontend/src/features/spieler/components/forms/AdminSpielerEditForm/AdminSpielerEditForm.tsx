@@ -57,6 +57,7 @@ type SpielerUndoPayloads = {
 export function AdminSpielerEditForm({
   spieler,
   einwilligung,
+  istFassungBekannt,
   saison,
   teams,
   membershipCount,
@@ -65,6 +66,8 @@ export function AdminSpielerEditForm({
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
   /** `null` for a person stored before consent was collected. */
   einwilligung: FLEinwilligung | null;
+  /** Whether the registry holds the stored label. */
+  istFassungBekannt: boolean;
   /** The sidemenu selector's season and its squad row, resolved by the page. */
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
@@ -342,7 +345,10 @@ export function AdminSpielerEditForm({
 
           {/* Beside the name and above the season's panels: consent is the person's, and it does not
               change when the sidemenu's season does. */}
-          <FormEinwilligungSection einwilligung={einwilligung} />
+          <FormEinwilligungSection
+            einwilligung={einwilligung}
+            istFassungBekannt={istFassungBekannt}
+          />
 
           <FormKaderSection
             saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}

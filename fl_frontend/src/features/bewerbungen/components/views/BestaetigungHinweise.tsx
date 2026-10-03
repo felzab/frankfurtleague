@@ -1,10 +1,15 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
 import { ABSATZ_CLASSES, BestaetigungAbschnitt, Gefuellt } from "./BestaetigungPanels";
 
+import type { GekeyteFassung, KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { Slots } from "@/shared/utils/stampedSlots";
+
+/** The contact page's words, keyed as the page places them, under the label its answer stamps. */
+export type KontaktFassung = GekeyteFassung<KontaktAbsatzSchluessel>;
+
+type KontaktAbsaetze = KontaktFassung["absaetze"];
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
@@ -21,10 +26,10 @@ const KONSTANTEN = { kontakt: KONTAKT_EMAIL } as const;
 const EIGENE_SLOTS = new Set(["vorname", "schule", "saison", "rolle"]);
 
 /** A stamped paragraph, whichever key it stands under, filled as this page fills it wherever else it is quoted. */
-export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAETIGUNG_ABSAETZE; werte: Slots }) {
+export function Absatz({ text, werte }: { text: string; werte: Slots }) {
   return (
     <Gefuellt
-      text={BESTAETIGUNG_ABSAETZE[schluessel]}
+      text={text}
       werte={werte}
       eigene={EIGENE_SLOTS}
     />
@@ -37,6 +42,7 @@ export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAET
  * places to have stopped in.
  */
 export function BestaetigungHinweise({
+  absaetze,
   schule,
   saison,
   rolle,
@@ -45,6 +51,7 @@ export function BestaetigungHinweise({
   /** The objection control's own label, named in the text so a reader finds the control it describes. */
   ablehnenLabel,
 }: {
+  absaetze: KontaktAbsaetze;
   schule: string;
   saison: string;
   rolle: string;
@@ -59,7 +66,7 @@ export function BestaetigungHinweise({
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="worum"
+            text={absaetze.worum}
             werte={werte}
           />
         </p>
@@ -69,19 +76,19 @@ export function BestaetigungHinweise({
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="gespeichert"
+            text={absaetze.gespeichert}
             werte={werte}
           />
         </p>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="geburtsdatum"
+            text={absaetze.geburtsdatum}
             werte={werte}
           />
         </p>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="rechtsgrundlage"
+            text={absaetze.rechtsgrundlage}
             werte={werte}
           />
         </p>
@@ -91,7 +98,7 @@ export function BestaetigungHinweise({
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Was nicht passiert</h3>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="nichtOeffentlich"
+            text={absaetze.nichtOeffentlich}
             werte={werte}
           />
         </p>
@@ -102,25 +109,25 @@ export function BestaetigungHinweise({
         <ul className={LISTE_CLASSES}>
           <li>
             <Absatz
-              schluessel="fristAbgelehnt"
+              text={absaetze.fristAbgelehnt}
               werte={werte}
             />
           </li>
           <li>
             <Absatz
-              schluessel="fristAngenommen"
+              text={absaetze.fristAngenommen}
               werte={werte}
             />
           </li>
           <li>
             <Absatz
-              schluessel="fristUnvollstaendig"
+              text={absaetze.fristUnvollstaendig}
               werte={werte}
             />
           </li>
           <li>
             <Absatz
-              schluessel="fristOhneEntscheidung"
+              text={absaetze.fristOhneEntscheidung}
               werte={werte}
             />
           </li>
@@ -131,19 +138,19 @@ export function BestaetigungHinweise({
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Wenn Du nicht einverstanden bist</h3>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="ablehnen"
+            text={absaetze.ablehnen}
             werte={werte}
           />
         </p>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="widerruf"
+            text={absaetze.widerruf}
             werte={werte}
           />
         </p>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="art21"
+            text={absaetze.art21}
             werte={werte}
           />
         </p>
@@ -156,13 +163,13 @@ export function BestaetigungHinweise({
  * What an objection does, inside the armed control's own reveal. Its own component rather than a
  * paragraph in the form, so the stamped text is rendered from one place whichever screen shows it.
  */
-export function WiderspruchFolge() {
+export function WiderspruchFolge({ absaetze }: { absaetze: KontaktAbsaetze }) {
   // The reveal's body scale rather than `ABSATZ_CLASSES`: this paragraph is read inside an escalation panel
   // and beside the rest of that panel's copy.
   return (
     <p className="fluid-xxs leading-normal font-medium text-foreground">
       <Absatz
-        schluessel="ablehnenFolge"
+        text={absaetze.ablehnenFolge}
         werte={KONSTANTEN}
       />
     </p>
@@ -170,11 +177,11 @@ export function WiderspruchFolge() {
 }
 
 /** Rendered whole under the switch it belongs to: the withdrawal sentence has to stand beside the consent it withdraws. */
-export function WhatsappHinweis() {
+export function WhatsappHinweis({ absaetze }: { absaetze: KontaktAbsaetze }) {
   return (
     <p className={ABSATZ_CLASSES}>
       <Absatz
-        schluessel="whatsapp"
+        text={absaetze.whatsapp}
         werte={KONSTANTEN}
       />
     </p>
@@ -186,12 +193,14 @@ export function WhatsappHinweis() {
  * than by a summary sentence beside it, which is how a reader met the same promise twice.
  */
 export function KlickBestaetigung({
+  absaetze,
   id,
   vorname,
   schule,
   rolle,
   mindestalter,
 }: {
+  absaetze: KontaktAbsaetze;
   /** Published for the submit button's `aria-describedby`, so the points reach a reader who cannot see them. */
   id: string;
   vorname: string;
@@ -209,32 +218,32 @@ export function KlickBestaetigung({
       <ul className={LISTE_CLASSES}>
         <li>
           <Absatz
-            schluessel="klickIdentitaet"
+            text={absaetze.klickIdentitaet}
             werte={werte}
           />
         </li>
         <li>
           <Absatz
-            schluessel="klickEintrag"
+            text={absaetze.klickEintrag}
             werte={werte}
           />
         </li>
         <li>
           <Absatz
-            schluessel="klickAlter"
+            text={absaetze.klickAlter}
             werte={werte}
           />
         </li>
         <li>
           <Absatz
-            schluessel="klickHinweise"
+            text={absaetze.klickHinweise}
             werte={werte}
           />
         </li>
       </ul>
       <p className={ABSATZ_CLASSES}>
         <Absatz
-          schluessel="keineEinwilligung"
+          text={absaetze.keineEinwilligung}
           werte={werte}
         />
       </p>

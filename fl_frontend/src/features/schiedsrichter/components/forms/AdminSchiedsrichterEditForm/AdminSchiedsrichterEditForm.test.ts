@@ -61,6 +61,7 @@ const RECORD = {
 const editor = (email: string | null) =>
   underNext(
     h(AdminSchiedsrichterEditForm, {
+      istFassungBekannt: true,
       schiedsrichter: { ...RECORD, kontakt: { telefon: null, email } },
       isRetired: false,
       pageHeader: { title: RECORD.name },

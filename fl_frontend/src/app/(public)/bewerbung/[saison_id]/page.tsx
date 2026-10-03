@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { getLaufendeFassung } from "@/core/einwilligung";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
 import { parseSaisonIdParam, resolveSaisonIdParam } from "@/features/saisons/resolvers";
@@ -9,6 +10,7 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -86,9 +88,20 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
         )
       : [];
 
+  // Per request and only for a running window: a deploy moves the label the submission is judged
+  // against. A failure is the page's own state rather than a form stamping nothing.
+  const fassung =
+    fenster.fenster?.laeuft === true
+      ? await runWithIncomingTrace(() => getLaufendeFassung("bewerbung")).then(
+          (gelesen) => ({ textVersion: gelesen.text_version, absaetze: gelesen.absaetze, schalter: gelesen.schalter }),
+          () => null,
+        )
+      : null;
+
   return (
     <BewerbungView
       saisonId={saison_id}
+      fassung={fassung}
       fenster={fenster.fenster}
       isUnlesbar={fenster.isUnlesbar}
       // Legal here: the connection() above already made the scope dynamic.

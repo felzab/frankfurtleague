@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
@@ -39,6 +40,9 @@ const { bestaetigungsLink } = await import("@/features/bewerbungen/bestaetigungL
 const { rollenText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 
+/** The label the application form runs, off the registry the backend generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+
 const KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427";
 
 const person = (vorname: string, email: string, telefon: string) => ({
@@ -46,12 +50,12 @@ const person = (vorname: string, email: string, telefon: string) => ({
   nachname: "Muster",
   email: email,
   telefon: telefon,
-  einwilligung: { ...buildEmptyBewerbungDraft("2026").kontakte.trainer.einwilligung, erteilt: true },
+  einwilligung: { ...buildEmptyBewerbungDraft("2026", FORM_LABEL).kontakte.trainer.einwilligung, erteilt: true },
 });
 
 /** An application the payload schema takes whole, for a school the league already holds. */
 const BODY = bewerbungPayload({
-  ...buildEmptyBewerbungDraft("2026"),
+  ...buildEmptyBewerbungDraft("2026", FORM_LABEL),
   auswahl: "68d0f2a4c1e2b3a4d5e6f708",
   stufengroesse: 90,
   kontakte: {

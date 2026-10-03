@@ -12,17 +12,12 @@ import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import {
-  BESTAETIGUNG_ABSAETZE,
-  SCHIEDSRICHTER_ABSAETZE,
-  SCHIEDSRICHTER_EINWILLIGUNG,
-  SCHIEDSRICHTER_MEDIEN_SCHALTER,
-} from "@/core/einwilligung.ts";
-import {
   SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
   SCHIEDSRICHTER_UMFANG_FRAGE,
-  SCHIEDSRICHTER_UMFANG_OPTIONS,
+  SCHIEDSRICHTER_UMFANG_WERTE,
 } from "@/features/schiedsrichter/constants.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { laufendeKontaktFassung, laufendeSchiedsrichterFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
@@ -46,7 +41,9 @@ const TOKEN = "abc123";
 const MINDESTALTER = 16;
 /** The media age this fixture's read answers, for `MINDESTALTER`'s reason. */
 const MEDIEN_ALTER = 18;
-const FASSUNG = SCHIEDSRICHTER_EINWILLIGUNG.textVersion;
+/** The referee page's running words, off the registry the backend generated, as the page hands them in. */
+const WORTE = laufendeSchiedsrichterFassung();
+const FASSUNG = WORTE.textVersion;
 
 const OFFEN: SchiedsrichterBestaetigungStart = {
   zustand: "gueltig",
@@ -60,6 +57,7 @@ const OFFEN: SchiedsrichterBestaetigungStart = {
     medien_mindestalter: MEDIEN_ALTER,
     frist: "2026-10-05",
   },
+  fassung: WORTE,
 };
 
 /** A birthdate this many whole years before the German day the page judges by, moved later by `tageSpaeter`. */
@@ -126,7 +124,7 @@ describe("the referee's confirmation page", () => {
   it("renders every paragraph of the referee's own label as an element of its own", () => {
     const elemente = [...markup(OFFEN).matchAll(/<(p|li)\b[^>]*>(.*?)<\/\1>/gs)].map((treffer) => words(treffer[2] ?? ""));
 
-    for (const [schluessel, absatz] of Object.entries(SCHIEDSRICHTER_ABSAETZE)) {
+    for (const [schluessel, absatz] of Object.entries(WORTE.absaetze)) {
       assert.ok(elemente.includes(words(filledSlots(absatz, SLOTS))), `the page renders ${schluessel} inside another element's text`);
     }
   });
@@ -136,7 +134,7 @@ describe("the referee's confirmation page", () => {
   it("renders no paragraph of the contact person's label", () => {
     const shown = words(markup(OFFEN));
 
-    for (const [schluessel, absatz] of Object.entries(BESTAETIGUNG_ABSAETZE)) {
+    for (const [schluessel, absatz] of Object.entries(laufendeKontaktFassung().absaetze)) {
       // The click points are word-for-word shared with the referee's label, so only the paragraphs
       // that differ can be compared.
       if (schluessel.startsWith("klick")) continue;
@@ -181,8 +179,8 @@ describe("the controls the page collects an answer with", () => {
 
     assert.ok(screen.getByRole("group", { name: "Dein Geburtsdatum" }));
     assert.ok(screen.getByRole("radiogroup", { name: SCHIEDSRICHTER_UMFANG_FRAGE }));
-    for (const option of SCHIEDSRICHTER_UMFANG_OPTIONS) assert.ok(screen.getByRole("radio", { name: option.label }));
-    assert.ok(schalter(SCHIEDSRICHTER_MEDIEN_SCHALTER));
+    for (const umfang of SCHIEDSRICHTER_UMFANG_WERTE) assert.ok(screen.getByRole("radio", { name: WORTE.bedienelemente[umfang] }));
+    assert.ok(schalter(WORTE.schalter));
     assert.ok(screen.getByRole("button", { name: "Eintrag bestätigen" }));
   });
 
@@ -214,7 +212,7 @@ describe("the controls the page collects an answer with", () => {
 
     const datum = screen.getByRole("group", { name: "Dein Geburtsdatum" });
     const wahl = screen.getByRole("radiogroup", { name: SCHIEDSRICHTER_UMFANG_FRAGE });
-    const medien = schalter(SCHIEDSRICHTER_MEDIEN_SCHALTER);
+    const medien = schalter(WORTE.schalter);
 
     const erreicht: string[] = [];
     for (let step = 0; step < 24; step++) {
@@ -233,7 +231,7 @@ describe("the controls the page collects an answer with", () => {
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
     const user = userEvent.setup();
 
-    const intern = screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" });
+    const intern = screen.getByRole("radio", { name: WORTE.bedienelemente.intern });
     intern.focus();
     await user.keyboard(" ");
 
@@ -251,7 +249,7 @@ describe("the controls the page collects an answer with", () => {
 
     await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
     await user.keyboard("01012020");
-    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
     const meldung = await screen.findByText(/noch nicht pfeifen/);
@@ -309,7 +307,7 @@ describe("what the press sends", () => {
 
     await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
     await user.keyboard("01011990");
-    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
     assert.deepEqual(sent, [{ token: TOKEN, geburtsdatum: "1990-01-01", umfang: "intern", medien: false, text_version: FASSUNG }]);
@@ -335,7 +333,7 @@ describe("what a link to a barred address opens on", () => {
 
     await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
     await user.keyboard("01011990");
-    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
     await act(fetchMock.answered);
 
@@ -385,7 +383,7 @@ describe("what a refused press does to the page", () => {
 
       await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
       await user.keyboard("01011990");
-      await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+      await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
       await act(fetchMock.answered);
 
@@ -412,7 +410,7 @@ describe("what a refused press does to the page", () => {
 
       await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
       await user.keyboard("01011990");
-      await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+      await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
       await act(fetchMock.answered);
 
@@ -435,7 +433,7 @@ describe("what a refused press does to the page", () => {
 
     await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
     await user.keyboard("01011990");
-    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
     await act(fetchMock.answered);
 
@@ -479,8 +477,8 @@ describe("the media switch, offered from the media age alone", () => {
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
 
     await tippeGeburtsdatum(user, geborenVor(MEDIEN_ALTER + 2));
-    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
-    await user.click(schalter(SCHIEDSRICHTER_MEDIEN_SCHALTER));
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
+    await user.click(schalter(WORTE.schalter));
     await tippeGeburtsdatum(user, geborenVor(MEDIEN_ALTER - 1));
 
     assert.ok(keinSchalter(), "the switch stands for a date under the media age");

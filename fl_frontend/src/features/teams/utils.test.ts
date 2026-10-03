@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
@@ -759,13 +759,14 @@ describe("what a website box reports upward", () => {
 });
 
 describe("what a new Kenntnisnahme cites", () => {
-  /* Stamped from the one constant, never typed and never left blank: the version NAMES the wording,
-     so a record citing nothing, or citing a value somebody keyed in, claims acknowledgement of a text the
-     league cannot identify. */
-  it("stamps the league's current wording version", () => {
-    const frisch = buildEmptyKontaktperson().einwilligung;
+  /* Stamped from the label the backend runs, never typed and never left blank: the version NAMES the
+     wording, so a record citing nothing, or citing a value somebody keyed in, claims acknowledgement of a
+     text the league cannot identify. */
+  it("stamps the label it is handed, the one the backend runs", () => {
+    const laufend = publishedLaufendeFassung("bewerbung").text_version;
+    const frisch = buildEmptyKontaktperson(laufend).einwilligung;
 
-    assert.equal(frisch.text_version, LIGA_KENNTNISNAHME.textVersion, "a new Kenntnisnahme cites a version the league did not stamp");
+    assert.equal(frisch.text_version, laufend, "a new Kenntnisnahme cites a version the league did not stamp");
     assert.notEqual(frisch.text_version, "", "a new Kenntnisnahme cites no wording at all");
   });
 });

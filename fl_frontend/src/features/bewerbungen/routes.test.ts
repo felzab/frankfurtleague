@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import {
@@ -71,7 +72,7 @@ const built =
 let answers = new Map<string, unknown>();
 
 answerReadsWith((endpoint, schema, params) => {
-  if (!answers.has(endpoint)) return EMPTIEST_ANSWER(endpoint, schema, params);
+  if (!answers.has(endpoint)) return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
   const answered = answers.get(endpoint);
   if (answered instanceof Error) throw answered;
   return typeof answered === "function" ? (answered as ReturnType<typeof built>)(schema) : answered;
@@ -291,8 +292,15 @@ describe("what the public application page reads while its window runs", () => {
     await publicBody({ fenster: ABGELAUFEN });
     assert.deepEqual(endpointsRead(), ["/bewerbungen/fenster/2026"], "a closed page reads what only a picker needs");
 
+    // The form's words too, which a closed page shows no form for: the label the backend runs, then its words.
     await publicBody({ fenster: LAEUFT });
-    assert.deepEqual(endpointsRead(), ["/bewerbungen/fenster/2026", "/bewerbungen/schulen", "/bewerbungen/trikotfarben/2026"]);
+    assert.deepEqual(endpointsRead(), [
+      "/bewerbungen/fenster/2026",
+      "/bewerbungen/schulen",
+      "/bewerbungen/trikotfarben/2026",
+      "/einwilligung/seiten",
+      `/einwilligung/fassungen/${publishedLaufendeFassung("bewerbung").text_version}`,
+    ]);
   });
 
   /* Uncaught, one unreachable list would take the whole form down with it. */

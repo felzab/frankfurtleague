@@ -13,14 +13,15 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
-import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { laufendeBewerbungFassung, laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, pageBody, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
@@ -31,13 +32,20 @@ import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 
+import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten.ts";
 import type { ReactElement, ReactNode } from "react";
+import type { BestaetigungStart } from "./components/views/BestaetigungView.tsx";
 import type { FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
 import type { LinkZustand } from "./types.ts";
 
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
 // the one reader that decides which answers are this application's.
 const fetchMock = doubleFetch();
+
+/** The contact page's running words and the form's, off the registry the backend generated, as each page hands them in. */
+const KONTAKT = laufendeKontaktFassung();
+const KONTAKT_LABEL = KONTAKT.textVersion;
+const BEWERBUNG = laufendeBewerbungFassung();
 
 /** The toasts, replaced at the module boundary: the real module raises into HeroUI's queue. */
 const { raised } = doubleToasts();
@@ -59,6 +67,7 @@ const { default: BewerbungLoading } = await import("@/app/(public)/bewerbung/[sa
 const { default: BewerbungPage } = await import("@/app/(public)/bewerbung/[saison_id]/page.tsx");
 const { default: LandingPage } = await import("@/app/(public)/page.tsx");
 const { default: KontaktPage } = await import("@/app/(public)/(meta)/kontakt/page.tsx");
+const { default: BestaetigungPage } = await import("@/app/(public)/bestaetigung/kontakt/page.tsx");
 const { BewerbungBandSkeleton } = await import("./components/ui/BewerbungBandSkeleton.tsx");
 const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
 const { band } = await import("./components/ui/band.ts");
@@ -106,6 +115,8 @@ const FENSTER: FLBewerbungFensterResponse = {
 /** A public page resolved whole, its window read answering `fenster` and no season running. */
 async function publicMarkup(Page: () => ReactNode, fenster: FLBewerbungFensterResponse | null): Promise<string> {
   answerReadsWith((endpoint, schema, params) => {
+    const einwilligung = einwilligungAnswer(endpoint);
+    if (einwilligung !== undefined) return einwilligung;
     if (endpoint === "/saisons/current" || (endpoint === "/bewerbungen/fenster" && fenster === null)) throw backendNotFound(endpoint);
     if (endpoint === "/bewerbungen/fenster") return fenster;
     return EMPTIEST_ANSWER(endpoint, schema, params);
@@ -114,7 +125,15 @@ async function publicMarkup(Page: () => ReactNode, fenster: FLBewerbungFensterRe
   return renderPage(underNext(h(Page)));
 }
 
-const BASE_PROPS = { saisonId: "2026", isUnlesbar: false, today: TODAY, schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] };
+const BASE_PROPS = {
+  saisonId: "2026",
+  fassung: BEWERBUNG,
+  isUnlesbar: false,
+  today: TODAY,
+  schulen: SCHOOLS,
+  isSchulenLesbar: true,
+  vergebeneFarben: [],
+};
 
 /** One prop set per window state, named by `fensterZustand` itself rather than by a label typed here. */
 const WINDOW_STATES = [
@@ -189,6 +208,7 @@ function renderBestaetigung(mindestalter = VERTRETUNG_MIN_ALTER) {
   const user = userEvent.setup();
   const view = render(
     h(BestaetigungFormPanel, {
+      fassung: KONTAKT,
       token: "kein-echtes-token",
       vorname: "Mira",
       schule: "Lessing-Kolleg",
@@ -208,6 +228,7 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
     start: {
       zustand: "gueltig",
       token: "kein-echtes-token",
+      fassung: KONTAKT,
       ansicht: {
         acknowledged: 1,
         zustand: "gueltig",
@@ -217,7 +238,7 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
         rolle: rolle,
         zugleich_rolle: zugleich_rolle,
         vorname: "Mira",
-        text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+        text_version: KONTAKT_LABEL,
         mindestalter: mindestalter,
       },
     },
@@ -774,9 +795,9 @@ describe("which of the confirmation page's words its stamped version covers", ()
     datenschutz: "Datenschutzerklärung",
   };
 
-  type Absatz = keyof typeof BESTAETIGUNG_ABSAETZE;
+  type Absatz = KontaktAbsatzSchluessel;
 
-  const stamped = (key: Absatz): string => filledSlots(BESTAETIGUNG_ABSAETZE[key], SLOTS);
+  const stamped = (key: Absatz): string => filledSlots(KONTAKT.absaetze[key], SLOTS);
 
   /** Every paragraph and list item a render puts on the page, as a reader reads it. */
   const paragraphsOf = (html: string): string[] =>
@@ -786,24 +807,27 @@ describe("which of the confirmation page's words its stamped version covers", ()
      nothing else: the panel around them words its own prose, which the version never covers. */
   const STANDING_TEXT = [
     renderMarkup(BestaetigungHinweise, {
+      absaetze: KONTAKT.absaetze,
       schule: SLOTS.schule,
       saison: SLOTS.saison,
       rolle: SLOTS.rolle,
       mindestalter: VERTRETUNG_MIN_ALTER,
       ablehnenLabel: ABLEHNEN_LABEL,
     }),
-    renderMarkup(WhatsappHinweis, {}),
+    renderMarkup(WhatsappHinweis, { absaetze: KONTAKT.absaetze }),
     renderMarkup(KlickBestaetigung, {
+      absaetze: KONTAKT.absaetze,
       id: "klick-punkte",
       vorname: SLOTS.vorname,
       schule: SLOTS.schule,
       rolle: SLOTS.rolle,
       mindestalter: VERTRETUNG_MIN_ALTER,
     }),
-    renderMarkup(WiderspruchFolge, {}),
+    renderMarkup(WiderspruchFolge, { absaetze: KONTAKT.absaetze }),
   ].join("");
 
   const FORM_PANEL = renderMarkup(BestaetigungFormPanel, {
+    fassung: KONTAKT,
     token: "kein-echtes-token",
     vorname: SLOTS.vorname,
     schule: SLOTS.schule,
@@ -816,7 +840,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
   /* A record cites its label alone, so a paragraph the page spells for itself leaves that record
      claiming words its reader was never shown -- which is the whole of what the label is for. */
   it("renders no paragraph of its own beside the ones the version holds", () => {
-    const version = new Set((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map(stamped));
+    const version = new Set((Object.keys(KONTAKT.absaetze) as Absatz[]).map(stamped));
     const renderedProps = paragraphsOf(STANDING_TEXT);
 
     assert.ok(renderedProps.length > 0, "the information text rendered nothing, so this case compares nothing");
@@ -829,7 +853,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
   it("renders every paragraph the version holds", () => {
     const renderedProps = new Set(paragraphsOf(STANDING_TEXT));
 
-    for (const key of Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]) {
+    for (const key of Object.keys(KONTAKT.absaetze) as Absatz[]) {
       assert.ok(renderedProps.has(stamped(key)), `the version holds ${key}, which the page renders nowhere`);
     }
   });
@@ -840,7 +864,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     const text = textOf(FORM_PANEL);
     const describedBy = [...FORM_PANEL.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((hit) => (hit[1] ?? "").split(" "));
 
-    assert.ok(text.includes(BESTAETIGUNG_KENNTNISNAHME.schalter), "the switch says something the stamped version does not hold");
+    assert.ok(text.includes(KONTAKT.schalter), "the switch says something the stamped version does not hold");
     assert.ok(describedBy.length > 0, "no control on the form describes itself by anything at all");
     assert.ok(
       // Cut at the first close, which is this block's: the points stand in a list, and no
@@ -863,7 +887,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     const { user, container } = renderBestaetigung();
     await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
 
-    const version = new Map((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map((key) => [stamped(key), key]));
+    const version = new Map((Object.keys(KONTAKT.absaetze) as Absatz[]).map((key) => [stamped(key), key]));
     const counted = new Map<Absatz, number>();
 
     for (const paragraph of paragraphsOf(container.innerHTML)) {
@@ -873,7 +897,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
     assert.deepEqual(
       [...counted.keys()].sort(),
-      (Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).sort(),
+      (Object.keys(KONTAKT.absaetze) as Absatz[]).sort(),
       "the armed form renders a stamped paragraph twice over, or drops one",
     );
     for (const [key, howOften] of counted) assert.equal(howOften, 1, `${key} stands on the page ${String(howOften)} times`);
@@ -890,7 +914,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     rolle: "ansprechperson",
     zugleich_rolle: null,
     vorname: "Mira",
-    text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+    text_version: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
   } as const;
 
@@ -907,9 +931,11 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     kontakt: KONTAKT_EMAIL,
     datenschutz: "Datenschutzerklärung",
   };
-  const STAMPED = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => filledSlots(text, SLOTS)));
+  const STAMPED = new Set(Object.values(KONTAKT.absaetze).map((text) => filledSlots(text, SLOTS)));
 
-  const VALID_PAGE = renderMarkup(BestaetigungView, { start: { zustand: "gueltig", ansicht: OPENED_LINK, token: "kein-echtes-token" } });
+  const VALID_PAGE = renderMarkup(BestaetigungView, {
+    start: { zustand: "gueltig", ansicht: OPENED_LINK, token: "kein-echtes-token", fassung: KONTAKT },
+  });
   const STATE_PAGES = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar", "gesperrt"] as const).map((zustand) => ({
     zustand: zustand,
     html: renderMarkup(BestaetigungView, { start: { zustand: zustand } }),
@@ -1331,7 +1357,7 @@ describe("what a decline may carry", () => {
       token: "kein-echtes-token",
       antwort: "abgelehnt",
       geburtsdatum: null,
-      text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+      text_version: KONTAKT_LABEL,
     };
     const refused = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: true });
 
@@ -1355,7 +1381,7 @@ describe("what a link to a barred address opens on", () => {
     rolle: "ansprechperson",
     zugleich_rolle: null,
     vorname: "Mira",
-    text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+    text_version: KONTAKT_LABEL,
     mindestalter: BEWERBUNG_MIN_ALTER,
   } as const;
 
@@ -1373,7 +1399,9 @@ describe("what a link to a barred address opens on", () => {
     raised.length = 0;
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ success: false, zustand: "gesperrt" }))));
     const user = userEvent.setup();
-    const { unmount } = render(h(BestaetigungView, { start: { zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token" } }));
+    const { unmount } = render(
+      h(BestaetigungView, { start: { zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token", fassung: KONTAKT } }),
+    );
 
     const [jahr = "", monat = "", tag = ""] = parseDate(getGermanTodayStr()).subtract({ years: 30 }).toString().split("-");
     await user.click(within(screen.getByRole("group", { name: "Dein Geburtsdatum" })).getAllByRole("spinbutton")[0]!);
@@ -1409,5 +1437,83 @@ describe("the address the confirmation page opened under", () => {
     unmount();
 
     assert.equal(adresse, "/bestaetigung/kontakt?token=kein-echtes-token", "the page stripped the token a reload needs");
+  });
+});
+
+describe("the words the two contact pages are handed", () => {
+  const GEOEFFNET = {
+    acknowledged: 1,
+    quelle: "bewerbung",
+    zustand: "gueltig",
+    saison_id: "2026",
+    schule: "Lessing-Kolleg",
+    rolle: "ansprechperson",
+    zugleich_rolle: null,
+    vorname: "Mira",
+    text_version: KONTAKT_LABEL,
+    mindestalter: VERTRETUNG_MIN_ALTER,
+  } as const;
+
+  /** Every read answered as the backend would, `laufend` overriding what it runs on each page and `scheitert` failing one endpoint. */
+  function backend({ laufend, scheitert }: { laufend?: Record<string, string>; scheitert?: string } = {}): void {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === scheitert) throw new Error(`the backend failed ${endpoint}`);
+      if (endpoint === "/einwilligung/seiten" && laufend !== undefined) return { acknowledged: 1, laufende_fassungen: laufend };
+      if (endpoint === "/bewerbungen/einwilligung/ansicht") return GEOEFFNET;
+      if (endpoint === "/bewerbungen/fenster/2026") return FENSTER;
+      return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+  }
+
+  const bestaetigungStart = async (): Promise<BestaetigungStart> => {
+    const body = (await pageBody(BestaetigungPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+    })) as ReactElement<{ start: BestaetigungStart }>;
+    return body.props.start;
+  };
+
+  const formFassung = async (): Promise<unknown> => {
+    const body = (await pageBody(BewerbungPage, {
+      params: Promise.resolve({ saison_id: "2026" }),
+      searchParams: Promise.resolve({}),
+    })) as ReactElement<{ fassung: unknown }>;
+    return body.props.fassung;
+  };
+
+  /* The words are the backend's, read per request for the label it runs: a page holding its own copy
+     renders a wording the backend may have moved past, under a label it does not stamp. */
+  it("hands an open link the words the backend serves for the label it runs on the contact page", async () => {
+    backend();
+    const start = await bestaetigungStart();
+
+    assert.equal(start.zustand, "gueltig", "an open link did not open");
+    assert.deepEqual(start.zustand === "gueltig" ? start.fassung : null, KONTAKT, "the page renders words other than the backend serves");
+  });
+
+  /* A label whose sections were never kept by key cannot be placed by this page: an open link then
+     reads as the failed read it is, never as a form missing paragraphs. */
+  it("opens a link on the failed read's panel where the backend runs a label the page cannot place", async () => {
+    backend({ laufend: { bestaetigung_kontakt: "2026-09-bestaetigungsseite-5" } });
+
+    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+  });
+
+  it("hands the application form the words and label the backend runs on the form", async () => {
+    backend();
+
+    assert.deepEqual(await formFassung(), BEWERBUNG, "the form renders words other than the backend serves");
+  });
+
+  /* A form without its words would stamp a label nobody was shown, so a running window whose words
+     could not be read offers no form and says why. */
+  it("offers no form where the form's words could not be read, and says so", async () => {
+    backend({ scheitert: `/einwilligung/fassungen/${BEWERBUNG.textVersion}` });
+    const fassung = await formFassung();
+    const html = renderMarkup(BewerbungView, { ...BASE_PROPS, fenster: FENSTER, fassung: null });
+
+    assert.equal(fassung, null, "a failed words read reached the form as words");
+    assert.ok(!html.includes('name="team_id"'), "the page offers a form it holds no words for");
+    assert.ok(textOf(html).includes("Wir können das Formular gerade nicht laden"), "the page does not say why no form stands");
   });
 });

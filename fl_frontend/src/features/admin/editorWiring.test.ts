@@ -164,6 +164,7 @@ const SPIELER_MEMBERSHIP = {
 const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string } = {}) => ({
   spieler: { ...SPIELER, inactive_since: over.inactiveSince ?? null },
   einwilligung: null,
+  istFassungBekannt: true,
   saison: {
     saisonId: "2026",
     saisonStatus: "active" as const,
@@ -300,6 +301,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminSchiedsrichterEditForm, {
+          istFassungBekannt: true,
           schiedsrichter: SCHIEDSRICHTER,
           isRetired: false,
           pageHeader: { title: "Pia Kraft" },
@@ -893,7 +895,9 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     render: async () => {
       const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
 
-      return renderEditor(h(AdminSchiedsrichterEditView, { schiedsrichter: SCHIEDSRICHTER, inactiveSince: RETIRED_ON }));
+      return renderEditor(
+        h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SCHIEDSRICHTER, inactiveSince: RETIRED_ON }),
+      );
     },
     type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
     press: "Reaktivieren",
@@ -903,7 +907,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     render: async () => {
       const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
 
-      return renderEditor(h(AdminSchiedsrichterEditView, { schiedsrichter: SCHIEDSRICHTER, inactiveSince: null }));
+      return renderEditor(h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SCHIEDSRICHTER, inactiveSince: null }));
     },
     type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
     press: "Bestätigungslink senden",

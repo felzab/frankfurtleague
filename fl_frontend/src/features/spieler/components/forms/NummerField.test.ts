@@ -48,6 +48,7 @@ const renderEditor = () =>
   render(
     underSaison(
       h(AdminSpielerEditForm, {
+        istFassungBekannt: true,
         spieler: { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
         einwilligung: null,
         saison: {

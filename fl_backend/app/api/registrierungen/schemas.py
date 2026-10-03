@@ -352,7 +352,7 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
 
 # --- The TEAM's decision, person tier. No model below declares `email`, `telefon`, `geburtsdatum` or
 # `einwilligung`: a seat holder reads who registered and decides, and a pupil's address and birthdate
-# are the league administrators' alone (`fl_frontend/src/core/einwilligung.ts :: SPIELER_ABSAETZE`).
+# are the league administrators' alone (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
 
 
 class FLOffeneRegistrierungenParams(BaseModel):

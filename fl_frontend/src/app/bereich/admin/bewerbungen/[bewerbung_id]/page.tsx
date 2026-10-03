@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { getLaufendeFassung, getLaufendesLabel } from "@/core/einwilligung";
+import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { AdminBewerbungView } from "@/features/bewerbungen/components/views/AdminBewerbungView";
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { resolveBewerbungId } from "@/features/bewerbungen/resolvers";
@@ -10,6 +12,7 @@ import { getAdminSaisons } from "@/features/saisons/queries";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { buildGruppeOffer } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -43,7 +46,13 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
 
   // The admin-tier season read, because this season is still planned — which is the only state a
   // team is taken into (`REQ-ENTER-001`) and the one the base read withholds.
-  const [saisonsRes, teamsRes] = await Promise.all([getAdminSaisons(), getTeamMemberships()]);
+  const [saisonsRes, teamsRes, formLabel, seite] = await Promise.all([
+    getAdminSaisons(),
+    getTeamMemberships(),
+    // Per request, as every stamper reads the running label: a deploy moves it.
+    runWithIncomingTrace(() => getLaufendesLabel("bewerbung")),
+    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt")),
+  ]);
 
   // Null where nothing carries the application's `saison_id`: the acceptance would 404, and the
   // panel says so rather than offering groups nobody declared.
@@ -57,6 +66,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
       bewerbung={bewerbung}
       teamName={bewerbungTeamName(bewerbung, teamsRes.teams)}
       saisonStatus={saison?.status ?? null}
+      neubesetzung={{ textVersion: formLabel, absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL).absaetze }}
       gruppeOffer={
         saison === null
           ? []

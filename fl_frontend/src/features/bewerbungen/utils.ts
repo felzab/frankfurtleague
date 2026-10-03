@@ -1,7 +1,6 @@
 import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -203,8 +202,8 @@ export function mapBewerbungSubmitRefusal(
 // Takes an unjudged body: judged first, an older page's answer is the one sentence rather than marks
 // on boxes whose values may be right, and a stale label the newer schema accepts never reaches the write.
 /**
- * Whether a confirmation names the label the running build renders, the only one a stored answer may
- * cite: a page opened before a deploy posts the label of words the running build does not serve.
+ * Whether a confirmation names the label the backend runs, the only one a stored answer may cite: a
+ * page opened before a deploy posts the label of words the backend has moved past.
  */
 export function nenntLaufendeFassung(body: unknown, textVersion: string): boolean {
   return typeof body === "object" && body !== null && "text_version" in body && body.text_version === textVersion;
@@ -308,13 +307,13 @@ export function abiJahrgang(saisonId: string): string {
   return String(Number(saisonId) + 1);
 }
 
-export const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft => ({
+export const buildEmptyBewerbungKontaktperson = (textVersion: string): BewerbungKontaktpersonDraft => ({
   vorname: "",
   nachname: "",
   email: "",
   telefon: "",
   // Stamped as the form opens, so what a record cites is the wording its reader was shown.
-  einwilligung: { text_version: LIGA_KENNTNISNAHME.textVersion, erteilt: false },
+  einwilligung: { text_version: textVersion, erteilt: false },
 });
 
 /** A blank new school, held from the moment the form opens so nothing typed into it can be dropped. */
@@ -329,14 +328,14 @@ export const buildEmptyBewerbungSchule = (): BewerbungSchuleDraft => ({
   website_url: null,
 });
 
-export const buildEmptyBewerbungDraft = (saisonId: string): BewerbungFormDraft => ({
+export const buildEmptyBewerbungDraft = (saisonId: string, textVersion: string): BewerbungFormDraft => ({
   saison_id: saisonId,
   auswahl: null,
   schule: buildEmptyBewerbungSchule(),
   kontakte: {
-    trainer: buildEmptyBewerbungKontaktperson(),
-    ansprechperson: buildEmptyBewerbungKontaktperson(),
-    stellvertretung: buildEmptyBewerbungKontaktperson(),
+    trainer: buildEmptyBewerbungKontaktperson(textVersion),
+    ansprechperson: buildEmptyBewerbungKontaktperson(textVersion),
+    stellvertretung: buildEmptyBewerbungKontaktperson(textVersion),
     trainer_ist_zugleich: null,
   },
   trikot: { vorhandener_satz: "", wunschfarbe: null },

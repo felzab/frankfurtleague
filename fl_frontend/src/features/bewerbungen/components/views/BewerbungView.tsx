@@ -14,6 +14,7 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { BewerbungFassung } from "@/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection";
 import type { FLBewerbungFensterResponse } from "@/features/bewerbungen/schemas";
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
 
@@ -39,6 +40,7 @@ const KOPF_LINKS = [
  */
 export function BewerbungView({
   saisonId,
+  fassung,
   fenster,
   isUnlesbar,
   today,
@@ -47,6 +49,8 @@ export function BewerbungView({
   vergebeneFarben,
 }: {
   saisonId: string;
+  /** The form's words and the label they stamp, `null` where the page could not read them. */
+  fassung: BewerbungFassung | null;
   /** `null` where the season takes no applications at all, which is its own answer. */
   fenster: FLBewerbungFensterResponse | null;
   /** The window could not be read. Never folded into a closed state: no deadline was learnt. */
@@ -58,7 +62,9 @@ export function BewerbungView({
   isSchulenLesbar: boolean;
   vergebeneFarben: readonly FLTrikotFarbe[];
 }) {
-  const zustand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
+  const fensterStand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
+  // A running window whose words could not be read offers no form: one without them stamps nothing.
+  const zustand = fensterStand === "laeuft" && fassung === null ? "worteUnlesbar" : fensterStand;
 
   return (
     <section className={SEITE_CLASSES}>
@@ -113,9 +119,10 @@ export function BewerbungView({
         </nav>
       </header>
 
-      {zustand === "laeuft" && fenster !== null && (
+      {zustand === "laeuft" && fenster !== null && fassung !== null && (
         <BewerbungForm
           saisonId={saisonId}
+          fassung={fassung}
           schulen={schulen}
           isSchulenLesbar={isSchulenLesbar}
           vergebeneFarben={vergebeneFarben}
@@ -159,6 +166,14 @@ export function BewerbungView({
 
       {/* Says that it does not know, and nothing else. Folded into a closed state, this arm would
           tell a school the deadline had passed on a day the league was still taking applications. */}
+      {zustand === "worteUnlesbar" && (
+        <ZustandPanel
+          titel="Wir können das Formular gerade nicht laden"
+          text="Die Bewerbung läuft, aber das Formular können wir Dir im Moment nicht zeigen. Lade die Seite in ein paar Minuten neu, oder schreib uns."
+          aktion={ZUM_KONTAKT}
+        />
+      )}
+
       {zustand === "unlesbar" && (
         <ZustandPanel
           titel="Wir können die Bewerbungsfrist gerade nicht abrufen"

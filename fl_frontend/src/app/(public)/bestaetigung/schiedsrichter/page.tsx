@@ -1,10 +1,14 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
+import { getLaufendeFassung } from "@/core/einwilligung";
+import { gekeyteFassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { SchiedsrichterBestaetigungView } from "@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView";
+import { SCHIEDSRICHTER_UMFANG_WERTE } from "@/features/schiedsrichter/constants";
 import { getSchiedsrichterBestaetigungAnsicht } from "@/features/schiedsrichter/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { SchiedsrichterBestaetigungStart } from "@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView";
 import type { NextPageProps } from "@/shared/types/types";
@@ -42,13 +46,24 @@ async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
 
   // A missing or repeated parameter is no link at all and reads as the dead link. Caught, so a
   // failed read is its own state: the dead-link panel there would call a live link void.
-  const start: SchiedsrichterBestaetigungStart =
-    typeof token === "string" && token !== ""
-      ? await getSchiedsrichterBestaetigungAnsicht(token).then(
-          (gelesen) => (gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen),
-          () => ({ zustand: "unlesbar" }),
-        )
-      : { zustand: "ungueltig" };
+  if (typeof token !== "string" || token === "") return <SchiedsrichterBestaetigungView start={{ zustand: "ungueltig" }} />;
+
+  // Beside the link's read, settled to `null` so a dead link's panel never waits on words it does not
+  // show. Per request: a deploy moves the label the answer must stamp.
+  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter"))
+    .then((gelesen) => gekeyteFassung(gelesen, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, SCHIEDSRICHTER_UMFANG_WERTE))
+    .catch(() => null);
+
+  const start: SchiedsrichterBestaetigungStart = await getSchiedsrichterBestaetigungAnsicht(token).then(
+    async (gelesen): Promise<SchiedsrichterBestaetigungStart> => {
+      if (gelesen.zustand !== "gueltig") return gelesen;
+
+      // A page with no words to show cannot be answered, which the failed read's panel says.
+      const worte = await fassung;
+      return worte === null ? { zustand: "unlesbar" } : { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
+    },
+    () => ({ zustand: "unlesbar" }),
+  );
 
   return <SchiedsrichterBestaetigungView start={start} />;
 }

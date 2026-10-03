@@ -17,6 +17,7 @@ import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
+import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
@@ -234,6 +235,7 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () =>
         el(C.bestaetigung, {
+          fassung: laufendeKontaktFassung(),
           token: "kein-echtes-token",
           vorname: "Mira",
           schule: "Lessing-Kolleg",

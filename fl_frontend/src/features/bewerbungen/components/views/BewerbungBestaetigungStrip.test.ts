@@ -9,11 +9,12 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { bestaetigungsStand } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/schemas.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
+import { laufendeKontaktFassung, laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { toFieldErrors } from "@/shared/utils/validation.ts";
 
@@ -106,6 +107,7 @@ function renderStrip({
     underNext(
       h(BewerbungBestaetigungStrip, {
         bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+        neubesetzung: laufendeNeubesetzung(),
         staende: stands,
         frist,
         isOpen,
@@ -528,9 +530,19 @@ describe("seating another person where one stepped out", () => {
     // drops or moves fails here rather than drifting from the box.
     const markiert = "MARKIERT-SLOT";
     const seite = render(
-      underNext(h(BestaetigungHinweise, { schule: markiert, saison: markiert, rolle: markiert, mindestalter: 987, ablehnenLabel: markiert }), {
-        router,
-      }),
+      underNext(
+        h(BestaetigungHinweise, {
+          absaetze: laufendeKontaktFassung().absaetze,
+          schule: markiert,
+          saison: markiert,
+          rolle: markiert,
+          mindestalter: 987,
+          ablehnenLabel: markiert,
+        }),
+        {
+          router,
+        },
+      ),
     );
     const seitenAbsaetze = [...seite.container.querySelectorAll("p, li")].map((absatz) => absatz.textContent ?? "");
     seite.unmount();
@@ -551,7 +563,7 @@ describe("seating another person where one stepped out", () => {
       seitenAbsaetze.filter((absatz) => !absatz.includes(markiert) && !absatz.includes("987")),
       "the box shows other words than the page opens with, or in another order",
     );
-    for (const absatz of LIGA_KENNTNISNAHME.absaetze) {
+    for (const absatz of publishedLaufendeFassung("bewerbung").absaetze) {
       assert.ok(
         !(box.textContent ?? "").includes(absatz),
         `the box shows the form's words to a person who never sees the form: ${absatz.slice(0, 40)}`,
@@ -589,9 +601,9 @@ describe("seating another person where one stepped out", () => {
     assert.equal(ran("besetzeKontaktSitzAction"), 0, "an address another person holds reaches the write");
   });
 
-  /* The label is the registry's rather than anything typed, and it is what the new person's own
-     confirmation page will then overwrite with the wording they were shown. */
-  it("sends the typed person and the current Kenntnisnahme label, once however often Enter is pressed", async () => {
+  /* The label is the one the backend runs, read by the page, rather than anything typed, and it is what
+     the new person's own confirmation page will then overwrite with the wording they were shown. */
+  it("sends the typed person and the running Kenntnisnahme label, once however often Enter is pressed", async () => {
     const user = userEvent.setup();
     renderStrip({ stands: standsOf(claraStieAus) });
 
@@ -606,7 +618,7 @@ describe("seating another person where one stepped out", () => {
       nachname: "Ostwald",
       email: "doreen@schule.example",
       telefon: "069 7654321",
-      text_version: LIGA_KENNTNISNAHME.textVersion,
+      text_version: publishedLaufendeFassung("bewerbung").text_version,
     });
     await act(async () => answerPending({ success: true, verschickt: true, message: "Der Link ging an doreen@schule.example." }));
   });

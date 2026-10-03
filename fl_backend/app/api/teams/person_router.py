@@ -28,7 +28,7 @@ class FLTeamSitz(BaseModel):
     """One seat as the people beside it see it: who holds it and whether they answered their link.
 
     No address, telephone number or birthdate: the contact page promises that only administrators
-    see those (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`).
+    see those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
     """
 
     rolle: FLKontaktRolle

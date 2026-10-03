@@ -15,6 +15,7 @@ import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/best
 import { FLBewerbungSchema } from "@/features/bewerbungen/schemas.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
@@ -82,7 +83,13 @@ const OFFEN: FLBewerbung = FLBewerbungSchema.parse({
 function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME) {
   return render(
     underNext(
-      h(AdminBewerbungView, { bewerbung, teamName, saisonStatus: "future", gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }] }),
+      h(AdminBewerbungView, {
+        neubesetzung: laufendeNeubesetzung(),
+        bewerbung,
+        teamName,
+        saisonStatus: "future",
+        gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],
+      }),
       { search: "saison_id=2027" },
     ),
   );

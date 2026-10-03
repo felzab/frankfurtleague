@@ -11,9 +11,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { laufendeSpielerFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
@@ -92,22 +94,15 @@ const REGISTRIERUNG_STATES = [
 
 const seite = (stand: string): string => REGISTRIERUNG_STATES.find((eintrag) => eintrag.stand === stand)?.html ?? "";
 
-const { SPIELER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
-
 /**
- * The words the page stamps, read off the registry rather than retyped.
+ * The words the page stamps, read off the registry the backend generated rather than retyped.
  *
  * A copy here compares the render with itself: the case stays green over a rewording, holding the
  * dead words it was written with.
  */
-const ABSAETZE = SPIELER_EINWILLIGUNG.absaetzeNachSchluessel;
+const FASSUNG: SpielerFassung = laufendeSpielerFassung();
 
-const FASSUNG: SpielerFassung = {
-  textVersion: SPIELER_EINWILLIGUNG.textVersion,
-  absaetze: ABSAETZE,
-  schalter: SPIELER_EINWILLIGUNG.schalter,
-  bedienelemente: SPIELER_EINWILLIGUNG.bedienelemente,
-};
+const ABSAETZE = FASSUNG.absaetze;
 
 const GEOEFFNET: SpielerBestaetigungGeoeffnet = {
   acknowledged: 1,
@@ -516,18 +511,38 @@ describe("which of the confirmation page's words its stamped version covers", ()
     );
   });
 
-  it("is handed the registry's current label by the page rather than reaching for one", async () => {
+  /** The page's body as the backend's reads answer it, `laufend` being what the backend runs on this page. */
+  async function handedFassung(laufend?: string): Promise<SpielerFassung | null> {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === "/einwilligung/seiten" && laufend !== undefined) {
+        return { acknowledged: 1, laufende_fassungen: { bestaetigung_spieler: laufend } };
+      }
+      return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+    });
     const body = (await pageBody(SpielerBestaetigungPage, { params: Promise.resolve({}), searchParams: Promise.resolve({}) })) as ReactElement<{
-      fassung: SpielerFassung;
+      fassung: SpielerFassung | null;
     }>;
-    const { fassung } = body.props;
 
-    // Identity rather than equality: a page reaching past the CURRENT LABEL's entry renders whatever the
-    // keyed object holds after the next rewording, under a label whose records cite the words before it.
-    assert.equal(fassung.textVersion, SPIELER_EINWILLIGUNG.textVersion, "the page stamps a label other than the registry's current one");
-    assert.equal(fassung.absaetze, SPIELER_EINWILLIGUNG.absaetzeNachSchluessel, "the page reaches past the label for its paragraphs");
-    assert.equal(fassung.schalter, SPIELER_EINWILLIGUNG.schalter, "the page reaches past the label for its switch");
-    assert.equal(fassung.bedienelemente, SPIELER_EINWILLIGUNG.bedienelemente, "the page reaches past the label for its controls");
+    return body.props.fassung;
+  }
+
+  /* The words are the backend's, read per request for the label it runs: a page holding its own copy
+     renders a wording the backend may have moved past, under a label it does not stamp. */
+  it("is handed the words the backend serves for the label it runs on this page", async () => {
+    assert.deepEqual(await handedFassung(), FASSUNG, "the page renders words other than the ones the backend serves");
+  });
+
+  /* A label whose sections were never kept by key cannot be placed by this page: an open link then
+     reads as the failed read it is, never as a form missing paragraphs. */
+  it("hands the view no words where the backend runs a label the page cannot place", async () => {
+    assert.equal(await handedFassung("2026-09-spielerseite-2"), null, "the page placed words it holds no keys for");
+    assert.equal(
+      textOf(
+        renderMarkup(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: null }),
+      ),
+      textOf(renderMarkup(SpielerBestaetigungView, { start: { zustand: "unlesbar" }, fassung: null })),
+      "an open link whose words could not be read renders something other than the failed read's panel",
+    );
   });
 });
 

@@ -57,6 +57,7 @@ const PROPS: Props = {
   isRetired: false,
   bestaetigung: null,
   einwilligung: null,
+  istFassungBekannt: true,
   geburtsdatum: null,
   isDirty: false,
 };

@@ -32,6 +32,7 @@ import type { FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas"
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";
+import type { BewerbungFassung } from "./FormKontaktpersonenSection";
 
 type BewerbungAntwort = PublicEnvelope & { message?: string };
 
@@ -72,12 +73,14 @@ async function fetchKuerzel(shorthand: string): Promise<KuerzelAntwort> {
  */
 export function BewerbungForm({
   saisonId,
+  fassung,
   schulen,
   isSchulenLesbar,
   vergebeneFarben,
   hinweisSlot,
 }: {
   saisonId: string;
+  fassung: BewerbungFassung;
   schulen: readonly { id: string; name: string }[];
   isSchulenLesbar: boolean;
   vergebeneFarben: readonly FLTrikotFarbe[];
@@ -90,7 +93,7 @@ export function BewerbungForm({
   const [isPending, startSending] = useTransition();
 
   const [isEingereicht, setIsEingereicht] = useState(false);
-  const [draft, applyDraft] = useBewerbungDraft(saisonId, isEingereicht);
+  const [draft, applyDraft] = useBewerbungDraft(saisonId, fassung.textVersion, isEingereicht);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   /**
@@ -368,6 +371,7 @@ export function BewerbungForm({
         ))}
 
         <FormEinwilligungSection
+          fassung={fassung}
           erteilt={draft.kontakte.ansprechperson.einwilligung.erteilt}
           onErteiltPicked={pickEinwilligung}
         />

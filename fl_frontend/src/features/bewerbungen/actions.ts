@@ -4,7 +4,7 @@ import { refresh, updateTag } from "next/cache";
 
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { getLaufendesLabel } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
@@ -502,8 +502,8 @@ export async function kontaktEmailKorrigierenAction(
 export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
   return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
     // Judged before the parse, as the confirmation handlers judge theirs: a page opened before a deploy
-    // moved the label would seat a person under words the build does not serve, and no key replays a reseat.
-    if (!nenntLaufendeFassung(rawPayload, LIGA_KENNTNISNAHME.textVersion)) return { success: false, error: BEWERBUNG_VERALTET };
+    // moved the label would seat a person under words the backend does not run, and no key replays a reseat.
+    if (!nenntLaufendeFassung(rawPayload, await getLaufendesLabel("bewerbung"))) return { success: false, error: BEWERBUNG_VERALTET };
 
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 

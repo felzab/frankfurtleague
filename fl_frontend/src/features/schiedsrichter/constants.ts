@@ -1,4 +1,3 @@
-import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -70,10 +69,8 @@ export const SCHIEDSRICHTER_UMFANG_FRAGE = "Was darf im Spielplan von Deinem Nam
 export const alterAusserhalb = (mindestalter: number): string =>
   `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein. Prüfe Dein Geburtsdatum.`;
 
-export const SCHIEDSRICHTER_UMFANG_OPTIONS: readonly { value: FLEinwilligung["umfang"]; label: string }[] = [
-  { value: "kader_oeffentlich", label: SCHIEDSRICHTER_EINWILLIGUNG.bedienelemente.kader_oeffentlich },
-  { value: "intern", label: SCHIEDSRICHTER_EINWILLIGUNG.bedienelemente.intern },
-];
+/** The publication question's answers in the order the chips stand; their words are the stamped label's. */
+export const SCHIEDSRICHTER_UMFANG_WERTE = ["kader_oeffentlich", "intern"] as const satisfies readonly FLEinwilligung["umfang"][];
 
 /**
  * What a referee agreed may be PUBLISHED. Not `@/features/spieler/constants :: EINWILLIGUNG_UMFANG_LABELS`,
