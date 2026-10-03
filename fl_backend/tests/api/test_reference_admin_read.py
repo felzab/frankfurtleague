@@ -1,10 +1,12 @@
 import asyncio
+import functools
 from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
 import pymongo
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
@@ -12,6 +14,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.security import WRONG_ADMIN_KEY
+from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import (
@@ -137,6 +140,16 @@ def schiedsrichter_documents() -> list[dict[str, Any]]:
     ]
 
 
+@functools.cache
+def _served(database_name: str) -> FastAPI:
+    """One app per database for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(config_for(database_name))
+
+
 def answered(
     uri: str,
     path: str,
@@ -146,7 +159,7 @@ def answered(
     admitting: Iterable[str] | None = None,
 ) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, config=config_for(database_name), admitting=admitting) as http:
+        async with app_client(uri, app=_served(database_name), admitting=admitting) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
                 return await http.get(path, headers=dict(headers))
 
@@ -157,7 +170,7 @@ def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Resp
     """`X-FL-Actor` rides along because the WRITE router binds an actor and refuses a write carrying none (`docs/backend/spec.md :: I41`)."""
 
     async def _created() -> Response:
-        async with app_client(uri, config=config_for(database_name)) as http:
+        async with app_client(uri, app=_served(database_name)) as http:
             return await http.post(SPIELORTE, json=dict(payload), headers=SignedActor(ACTOR, ADMIN_KEY))
 
     return asyncio.run(_created())

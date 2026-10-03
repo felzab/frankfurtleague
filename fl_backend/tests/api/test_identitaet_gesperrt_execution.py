@@ -1,8 +1,10 @@
+import functools
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo import AsyncMongoClient
@@ -16,7 +18,8 @@ from app.core.security import WRONG_SYSTEM_KEY
 from app.main import create_app
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.app_client import app_client
-from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
+from tests.config import BASE_AUTH, SYSTEM_AUTH
+from tests.core.app_source import application
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
 from tests.worker import worker_database
@@ -26,8 +29,6 @@ from .conftest import config_for
 DATABASE_NAME = worker_database("fl_identitaet_gesperrt_test")
 
 PATH = f"/api/v{API_VERSION}/identitaet/gesperrt"
-
-APP = create_app(build_test_config())
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -79,10 +80,20 @@ def on_a_list(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(config_for(DATABASE_NAME))
+
+
 async def ask(url: str, email: str) -> Response:
     """One request through the MOUNTED route, so the payload is parsed as the frontend's body arrives."""
 
-    async with app_client(url, config=config_for(DATABASE_NAME)) as http:
+    async with app_client(url, app=_served()) as http:
         return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
 
@@ -187,7 +198,7 @@ class TestWhatThePayloadRefuses:
         """The refusal reaches a log line and the frontend's gate alike, so it echoes nothing of the address it was asked about."""
 
         async def body(_database: AsyncDatabase, _client: AsyncMongoClient) -> Response:
-            async with app_client(mongo_replica_set_url, config=config_for(DATABASE_NAME)) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
         response: Response = on_a_list(mongo_replica_set_url, body)
@@ -200,6 +211,6 @@ class TestWhatThePayloadRefuses:
 def test_the_base_key_draws_the_system_guard_s_own_code():
     """The ban is keyed under a secret the system tier alone may make the backend use; the guard answers its own code."""
 
-    response = TestClient(APP, raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": GESPERRT})
+    response = TestClient(application(), raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": GESPERRT})
 
     assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)

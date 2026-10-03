@@ -6,6 +6,7 @@ the actor bound as `bind_actor` binds it; the mounted route is what reads a requ
 class goes through it.
 """
 
+import functools
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -14,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -46,6 +48,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, get_grant_lookup
+from app.main import create_app
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.actor_tokens import SignedActor, actor_claims, sign
 from tests.app_client import app_client
@@ -89,6 +92,16 @@ GRUND = "Wiederholt gemeldet"
 RUNNING = "2026"
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
+
+
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(CONFIG)
 
 
 def grant_document(grant_id: ObjectId, adresse: str, verwaltung: str) -> dict[str, Any]:
@@ -1481,7 +1494,7 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, str | None]:
             await grant(database, client, now=since(granted_s_ago))
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(NEU, int(time.time()) - 60))
 
             return response.status_code, response.json().get("error_code")
@@ -1502,7 +1515,7 @@ class TestTheMountedRouteReadsTheGrants:
             )
             before_the_paste, between = int(pasted.timestamp()) - 60, int(time.time()) - 60
 
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 before_the_pass = [await asked(http, NEU, before_the_paste), await asked(http, NEU, between)]
                 await claimed(database, client, now=datetime.now(UTC))
                 after_the_pass = [await asked(http, NEU, between), await asked(http, NEU, int(time.time()))]
@@ -1523,7 +1536,7 @@ class TestTheMountedRouteReadsTheGrants:
             signed_in_before_the_paste = int(time.time()) - 600
             await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(ObjectId(), NEU, "owner") | {"erteilt_am": since(3600)})
 
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 return [await asked(http, NEU, signed_in_before_the_paste), await asked(http, NEU, int(time.time()))]
 
         assert on_a_league(mongo_replica_set_url, body) == [(401, ACTOR_TOKEN_REFUSED), (200, None)]
@@ -1547,7 +1560,7 @@ class TestTheMountedRouteReadsTheGrants:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
             email, before_the_edit = await edit(database, client)
 
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 before_the_pass = [await asked(http, email, before_the_edit), await asked(http, email, int(time.time()))]
                 await claimed(database, client, now=datetime.now(UTC))
                 after_the_pass = [await asked(http, email, before_the_edit), await asked(http, email, int(time.time()))]
@@ -1571,7 +1584,7 @@ class TestTheMountedRouteReadsTheGrants:
     )
     def test_an_actor_is_admitted_exactly_where_a_grant_names_it(self, mongo_replica_set_url: str, actor: str, status: int):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, str | None]:
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(actor, ADMIN_KEY))
 
             return response.status_code, response.json().get("error_code")
@@ -1580,7 +1593,7 @@ class TestTheMountedRouteReadsTheGrants:
 
     def test_a_revoked_administrator_is_refused_on_the_very_next_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 headers = SignedActor(BERND, ADMIN_KEY)
                 before = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=headers)
                 revoked = await http.delete(f"/api/v{API_VERSION}/berechtigungen/{BERND_ID}", headers=SignedActor(OWNER, ADMIN_KEY))
@@ -1598,7 +1611,7 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, Any, Any, Any]:
             await told(database, client)
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 response = await http.post(
                     f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(ANNA.upper(), ADMIN_KEY), json={"email": NEU_TYPED}
                 )
@@ -1621,7 +1634,7 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, dict[str, str], Any]:
             await told(database, client)
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 response = await http.patch(
                     f"/api/v{API_VERSION}/berechtigungen/{ANNA_ID}", headers=SignedActor(OWNER, ADMIN_KEY), json={"verwaltung": "owner"}
                 )
@@ -1637,7 +1650,7 @@ class TestTheMountedRouteReadsTheGrants:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str, str]:
             await told(database, client)
             await grant(database, client)
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 listed = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(ANNA, ADMIN_KEY))
                 answered = await http.post(f"/api/v{API_VERSION}/berechtigungen/abgleich", headers=SYSTEM_AUTH)
 
@@ -1657,7 +1670,7 @@ class TestTheMountedRouteReadsTheGrants:
         """A barred holder holds no floor, so it acts on nothing either (`docs/backend/spec.md :: I463`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 before = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
                 await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
                 after = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
@@ -1671,7 +1684,7 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=str(int(RUNNING) - 1)))
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
 
             return response.status_code
@@ -1714,7 +1727,7 @@ class TestAnOwnersPowerDatesFromThePromotion:
             before_the_promotion = int(time.time()) - 60
             await change(database, client, ANNA_ID, "owner", now=since(30))
 
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 return [
                     await asked(http, ANNA, before_the_promotion),
                     await changing(http, ANNA, before_the_promotion, BERND_ID, "owner"),
@@ -1739,7 +1752,7 @@ class TestAnOwnersPowerDatesFromThePromotion:
             await database[Collection.BERECHTIGUNGEN].update_one({"_id": ANNA_ID}, {"$set": {"verwaltung": "owner"}})
             before_the_pass = int(time.time()) - 60
 
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 unfound = [await asked(http, ANNA, before_the_pass), await revoking(http, ANNA, before_the_pass, BERND_ID)]
                 await claimed(database, client, now=datetime.now(UTC))
                 found = [await revoking(http, ANNA, before_the_pass, BERND_ID), await revoking(http, ANNA, int(time.time()), BERND_ID)]
@@ -1771,7 +1784,7 @@ class TestAnOwnersPowerDatesFromThePromotion:
             signed_in = int(time.time()) - 60
             await demoted(database, client)
 
-            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+            async with app_client(mongo_replica_set_url, app=_served()) as http:
                 return [await asked(http, ANNA, signed_in), await revoking(http, ANNA, signed_in, BERND_ID)]
 
         assert on_a_league(mongo_replica_set_url, body) == [(200, None), (403, BERECHTIGUNG_NUR_INHABER)]

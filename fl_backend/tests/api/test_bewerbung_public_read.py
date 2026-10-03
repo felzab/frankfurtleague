@@ -1,4 +1,5 @@
 import asyncio
+import functools
 from collections.abc import Iterator, Mapping
 from datetime import datetime
 from typing import Any
@@ -6,11 +7,13 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.main import create_app
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database_sync
@@ -196,9 +199,19 @@ def seeded_with(mongo_url: str, saisons: list[dict[str, Any]], *, constrained: b
         client.close()
 
 
+@functools.cache
+def _served(database_name: str) -> FastAPI:
+    """One app per database for every case reading it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(config_for(database_name))
+
+
 def answered(uri: str, path: str, headers: Mapping[str, str] = BASE_AUTH, *, database_name: str = CORPUS_DATABASE) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, config=config_for(database_name), now=NOW) as http:
+        async with app_client(uri, app=_served(database_name), now=NOW) as http:
             return await http.get(path, headers=dict(headers))
 
     return asyncio.run(_answered())

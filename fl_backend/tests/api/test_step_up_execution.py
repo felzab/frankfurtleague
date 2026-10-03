@@ -7,11 +7,13 @@ link to an address, and refuses `REQ-AUTH-009` there from a sign-in older than t
 shown to leave the stored state as it was, and each call of the other kind to pass the same sign-in.
 """
 
+import functools
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -21,6 +23,7 @@ from app.api.teams.schemas import kontakte_stand_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S
+from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
@@ -52,6 +55,16 @@ REGISTRIERUNG: dict[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "202
 Body = Callable[[AsyncDatabase, AsyncClient], Awaitable[Any]]
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(CONFIG)
+
+
 def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitable[None]] | None = None) -> Any:
     """The shipped validators and indexes, a running season holding one club, and `seed`'s rows beside them."""
 
@@ -63,7 +76,7 @@ def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitab
             await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "AD", kontakte=None))
             if seed is not None:
                 await seed(database)
-            async with app_client(url, config=CONFIG, admitting=(ADMIN,)) as http:
+            async with app_client(url, app=_served(), admitting=(ADMIN,)) as http:
                 return await body(database, http)
 
     return on_the_seed_loop(_run())

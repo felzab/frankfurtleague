@@ -1,15 +1,18 @@
 import asyncio
+import functools
 from collections.abc import Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DUPLICATE_KEY
+from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
@@ -70,6 +73,16 @@ def payload(name: str) -> dict[str, Any]:
     return {"name": name, "address": dict(ADDRESS), "default_mietpreis": MIETPREIS}
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(config_for(DATABASE_NAME))
+
+
 def served(url: str, path: str, body: Mapping[str, Any], *, method: str = "POST") -> Response:
     """One venue write as a REAL request, exception handlers included.
 
@@ -77,11 +90,11 @@ def served(url: str, path: str, body: Mapping[str, Any], *, method: str = "POST"
     administrator is answered.
     """
 
-    async def _served() -> Response:
-        async with app_client(url, config=config_for(DATABASE_NAME)) as http:
+    async def _answered() -> Response:
+        async with app_client(url, app=_served()) as http:
             return await http.request(method, path, json=dict(body), headers=SignedActor(ACTOR, ADMIN_KEY))
 
-    return asyncio.run(_served())
+    return asyncio.run(_answered())
 
 
 def stored_names(url: str) -> list[str]:

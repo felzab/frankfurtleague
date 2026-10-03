@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
@@ -7,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -46,6 +48,7 @@ from app.core.crud import patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
+from app.main import create_app
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -976,6 +979,16 @@ class TestASeasonNobodyHas:
         assert on_a_league(mongo_replica_set_url, body) == (5, [])
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(build_test_config())
+
+
 def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:
     """One call over the wire, so the guard, the system binder and the route template all run."""
 
@@ -990,7 +1003,7 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
         database[Collection.BEWERBUNGEN].insert_one(application(DELETE_OID, bestaetigungsfrist=YESTERDAY, loeschung_angekuendigt_am=YESTERDAY))
 
         async def _called() -> int:
-            async with app_client(url, now=NOW) as http:
+            async with app_client(url, app=_served(), now=NOW) as http:
                 response = await http.post(f"/api/v{API_VERSION}{path}", json=body, headers=dict(auth))
                 return response.status_code
 

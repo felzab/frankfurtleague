@@ -1,9 +1,11 @@
 import asyncio
+import functools
 from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import Response
 from pydantic import BaseModel
 from pymongo import MongoClient
@@ -28,6 +30,7 @@ from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import COLLECTION_VALIDATORS
+from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
@@ -168,9 +171,19 @@ def keys_under(payload: Any, field: str) -> set[str]:
     return set()
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(build_test_config())
+
+
 def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri) as http:
+        async with app_client(uri, app=_served()) as http:
             return await http.get(path, headers=dict(headers))
 
     return asyncio.run(_answered())

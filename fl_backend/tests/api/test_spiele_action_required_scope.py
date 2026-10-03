@@ -1,9 +1,11 @@
 import asyncio
+import functools
 from collections.abc import Iterator
 from typing import Any, cast
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 from pymongo.asynchronous.collection import AsyncCollection
@@ -12,6 +14,7 @@ from app.api.spiele.admin_router import get_spiele_action_required
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
@@ -106,9 +109,19 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         client.close()
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(build_test_config())
+
+
 def answered(uri: str, path: str) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri) as http:
+        async with app_client(uri, app=_served()) as http:
             return await http.get(path, headers=dict(ADMIN_AUTH))
 
     return asyncio.run(_answered())
