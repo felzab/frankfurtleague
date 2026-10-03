@@ -92,6 +92,7 @@ _KONTAKT_KENNTNISNAHME_WEGE = [
     "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
     # A seat holder's own press on the account page.
     "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
+    "POST /bewerbungen/einwilligung",
 ]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 

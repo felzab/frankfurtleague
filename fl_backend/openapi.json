@@ -6941,7 +6941,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list\nholds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred\nperson nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed, nothing\ndeciding a season row.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them, else the one for a person the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list\nholds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred\nperson nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed, nothing\ndeciding a season row.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -6995,7 +6995,7 @@
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
         "summary": "Confirm or decline one seat of a Bewerbung or of a team's season row",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), a consent from an address the ban list holds\nnow, whenever the link was minted (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds\nask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing. A\ndecline is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from.",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, and\nappends its act to each seat's record after the entry that seated them; a decline empties their slot and redacts\nevery log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),\na link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered\n(`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for that seat\n(`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted\n(`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`) --\nthe last three judged before anything is written, so a reloaded page or a mistyped year spends nothing. A decline\nstores no label and is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -7037,7 +7037,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-BEWERBUNG-009"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017.REQ-EINWILLIGUNG-001"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-BEWERBUNG-012.REQ-VAL-001"
@@ -10544,6 +10544,10 @@
             ],
             "title": "Text Version"
           },
+          "laufende_fassung": {
+            "type": "string",
+            "title": "Laufende Fassung"
+          },
           "mindestalter": {
             "type": "integer",
             "title": "Mindestalter"
@@ -10559,6 +10563,7 @@
           "zugleich_rolle",
           "vorname",
           "text_version",
+          "laufende_fassung",
           "mindestalter"
         ],
         "title": "FLBewerbungEinwilligungAnsichtResponse",
@@ -14242,7 +14247,8 @@
             "enum": [
               "POST /bewerbungen",
               "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
-              "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+              "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
+              "POST /bewerbungen/einwilligung"
             ],
             "title": "Ueber"
           },
@@ -24009,7 +24015,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017": {
+      "409.DB-COMMON-002.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017.REQ-EINWILLIGUNG-001": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -24024,7 +24030,8 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-BEWERBUNG-011",
-                        "REQ-BEWERBUNG-017"
+                        "REQ-BEWERBUNG-017",
+                        "REQ-EINWILLIGUNG-001"
                       ]
                     }
                   }

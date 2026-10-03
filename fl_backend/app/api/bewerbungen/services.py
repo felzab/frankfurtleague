@@ -4,7 +4,7 @@ import secrets
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
-from typing import Any, Final, cast, get_args
+from typing import Any, Final, Literal, cast, get_args
 
 from pydantic import BaseModel, ValidationError
 
@@ -20,7 +20,7 @@ from app.api.teams.schemas import FLKontaktKenntnisnahmeWeg, FLPostTeamPayload, 
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_verlauf import compose_born_record
+from app.shared.einwilligung_verlauf import VERLAUF, compose_born_record, compose_record_move
 from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -399,6 +399,8 @@ def compose_wiederholung_update(*, hashes: Mapping[str, str], bestaetigungen: An
 # from one an administrator filled.
 BEWERBUNG_WEG: Final[FLKontaktKenntnisnahmeWeg] = "POST /bewerbungen"
 NEUBESETZUNG_WEG: Final[FLKontaktKenntnisnahmeWeg] = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
+# A seat's own answer, on an application and on a team's season row alike: one endpoint answers both.
+BESTAETIGUNG_WEG: Final[FLKontaktKenntnisnahmeWeg] = "POST /bewerbungen/einwilligung"
 
 
 def compose_einwilligung(*, text_version: str, today: str, ueber: FLKontaktKenntnisnahmeWeg, am: str) -> dict[str, Any]:
@@ -530,6 +532,11 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
     return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in fields}
 
 
+# What decides which page a seat's link opens (`kontakt_seite_of`): its first entry's write, and the
+# day a record stored before its entries carries.
+KONTAKT_SEITE_FIELDS: Final = ("einwilligung.verlauf.ueber", "einwilligung.datum")
+
+
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
 # rest of the document is what a base-tier read must not hold
 # (`docs/backend/spec.md :: READ-CONTACT-001`). Both hashes, which `seat_holding` compares.
@@ -537,13 +544,14 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     # The address for the ban list alone, as the answer's read takes it: the response model declares
     # no field to carry it.
-    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version"),
+    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
     # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
     # serves only the pair it resolves for this link's own seat.
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "status": 1,
     "bestaetigungsfrist": 1,
+    "eingereicht_am": 1,
     "schule.team_name": 1,
     "team_id": 1,
     # Suppressed here alone: an inclusion projection answers `_id` unasked, and only the answer's
@@ -555,11 +563,12 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 # address is what a consent asks the ban list of, and no answer carries it.
 EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
-    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am"),
+    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.medien", *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "status": 1,
     "bestaetigungsfrist": 1,
+    "eingereicht_am": 1,
 }
 
 
@@ -745,11 +754,17 @@ def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 # `schule`.
 SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", SAISON_TOKEN_FIELD, "abgelehnt_am", "frist"),
-    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version"),
+    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
+    # With `saison_id`, the key of the accepted application a seat stored before its entries is asked about.
+    "team_id": 1,
     "name": 1,
 }
+
+# The answer's read writes on the row, so it keys the patch on `_id`, and cuts each entry from the
+# seat's stored `medien`.
+SAISON_EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {**SAISON_EINWILLIGUNG_FIELDS, **_per_seat("kontakte", "einwilligung.medien"), "_id": 1}
 
 
 def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:
@@ -915,22 +930,107 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
     return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
 
 
-def compose_confirmation_update(*, seats: Sequence[str], geburtsdatum: str, today: str, text_version: str, whatsapp: bool) -> Mapping[str, Any]:
-    """The ONE `$set` a confirmation is, on every seat the person holds.
+def compose_confirmation_update(
+    *, kontakte: Mapping[str, Any], seats: Sequence[str], geburtsdatum: str, today: str, text_version: str, whatsapp: bool, am: str
+) -> Mapping[str, Any]:
+    """The ONE update a confirmation is, on every seat the person holds.
 
     `docs/backend/spec.md :: I141` rests on the date and the stamp landing together, which is why
     this is one update and never two.
     """
 
     written: dict[str, Any] = {}
+    appended: dict[str, Any] = {}
     for seat in seats:
         written[f"kontakte.{seat}.geburtsdatum"] = geburtsdatum
-        written[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = today
-        written[f"kontakte.{seat}.einwilligung.erfasst_von"] = "person"
-        written[f"kontakte.{seat}.einwilligung.text_version"] = text_version
-        written[f"kontakte.{seat}.einwilligung.umfang"] = KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG
+        # Moved field by field beside the entry, never set whole: the applicant's or the
+        # administrator's entry stays first, and it is what tells which page this seat opens.
+        move = compose_record_move(
+            pfad=f"kontakte.{seat}.einwilligung",
+            stored=kontakte[seat]["einwilligung"],
+            moved={
+                "bestaetigt_am": today,
+                "erfasst_von": "person",
+                "text_version": text_version,
+                "umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG,
+            },
+            akt="bestaetigt",
+            ueber=BESTAETIGUNG_WEG,
+            am=am,
+            text_version=text_version,
+        )
+        written.update(move["$set"])
+        appended.update(move["$push"])
 
-    return {"$set": written}
+    return {"$set": written, "$push": appended}
+
+
+# The two pages a contact seat's link opens, named as the registry names them.
+KontaktSeite = Literal["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung"]
+
+
+def kontakt_seite_of(*, einwilligung: Any, ohne_eintraege_vom_bewerber: bool) -> KontaktSeite:
+    """The page this seat's link opens: the applicant's where the applicant named the person, the administration's otherwise.
+
+    Read off the FIRST entry, the act that seated the person; a record without entries takes the
+    caller's reading of its home.
+    """
+
+    verlauf = einwilligung.get(VERLAUF) if isinstance(einwilligung, Mapping) else None
+    if isinstance(verlauf, list) and verlauf:
+        erster = verlauf[0]
+        vom_bewerber = isinstance(erster, Mapping) and erster.get("ueber") == BEWERBUNG_WEG
+    else:
+        vom_bewerber = ohne_eintraege_vom_bewerber
+
+    return "bestaetigung_kontakt" if vom_bewerber else "bestaetigung_kontakt_verwaltung"
+
+
+def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
+    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
+    einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
+
+    return einwilligung if isinstance(einwilligung, Mapping) else {}
+
+
+def hat_eintraege(*, kontakte: Any, seat: str) -> bool:
+    """Whether this seat's record carries its entries, so its page needs no second read."""
+
+    return bool(_einwilligung_of(kontakte, seat).get(VERLAUF))
+
+
+def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> KontaktSeite:
+    """The page an application's seat opens."""
+
+    einwilligung = _einwilligung_of(bewerbung_raw.get("kontakte"), seat)
+
+    # Before its entries: the submission stamps its own day on every seat it writes, and a reseat the
+    # day it seats somebody, so a seat dated otherwise was filled by an administrator.
+    vom_bewerber = einwilligung.get("datum") == bewerbung_raw.get("eingereicht_am")
+
+    return kontakt_seite_of(einwilligung=einwilligung, ohne_eintraege_vom_bewerber=vom_bewerber)
+
+
+def build_angenommene_bewerbung_filter(*, row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The accepted application a season row was entered from, if one is still kept."""
+
+    return {"saison_id": row.get("saison_id"), "team_id": row.get("team_id"), "status": "angenommen"}
+
+
+def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str, bewerbung_raw: Mapping[str, Any] | None) -> KontaktSeite:
+    """The page a season row's seat opens; `bewerbung_raw` is that row's accepted application, read only for a seat with no entries."""
+
+    kontakte = row.get("kontakte")
+    adresse = {sign_in_identifier(adresse) for adresse in seat_adressen(kontakte=kontakte, seats=(seat,))}
+    beworben = {
+        sign_in_identifier(adresse)
+        for adresse in seat_adressen(kontakte=None if bewerbung_raw is None else bewerbung_raw.get("kontakte"), seats=(seat,))
+    }
+
+    # Before its entries the seat itself cannot tell a person carried over from the application at
+    # acceptance from one the contacts editor entered; the application still holding them in that
+    # seat can, while it is kept.
+    return kontakt_seite_of(einwilligung=_einwilligung_of(kontakte, seat), ohne_eintraege_vom_bewerber=bool(adresse) and adresse == beworben)
 
 
 def compose_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:

@@ -13,6 +13,7 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, KONTAKT_SEATS, compose_bestaetigungen, hash_token
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, kontaktperson_document
@@ -92,8 +93,19 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]]) -> Any
     return on_the_seed_loop(_run())
 
 
+# The applicant's page: every seat here is the applicant's, dated the submission's day.
+BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
+
+
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
-    body = {"token": token, "antwort": "erteilt", "geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": False, "text_version": "v4", **overrides}
+    body = {
+        "token": token,
+        "antwort": "erteilt",
+        "geburtsdatum": AN_ADULTS_BIRTHDATE,
+        "whatsapp": False,
+        "text_version": BEWERBER_SEITE,
+        **overrides,
+    }
 
     return await post_einwilligung(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),

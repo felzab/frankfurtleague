@@ -717,6 +717,9 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
     vorname: str | None
     text_version: str | None
+    # The label the page renders and its answer must name: the applicant's page, or the one for a
+    # person an administrator seated, decided from how the seat was filled (`kontakt_seite_of`).
+    laufende_fassung: str
     # The PERSON's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     mindestalter: int

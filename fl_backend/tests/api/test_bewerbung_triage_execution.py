@@ -41,6 +41,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_SUBJECT_UNRESOLVED,
     BEWERBUNG_TOKEN_UNKNOWN,
     bestaetigungsfrist_from,
+    bewerbung_kontakt_seite,
     compose_bestaetigungen,
     compose_new_club,
     hash_token,
@@ -58,6 +59,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import DUPLICATE_KEY, DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -1578,7 +1580,9 @@ class MissesTheFirstWrite:
 
 
 async def answer_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await answer_for(database, client, "ansprechperson", antwort="erteilt", geburtsdatum="1980-05-04")
+    # Under the label of the page the seat's view answers, which the press is judged against.
+    seite = bewerbung_kontakt_seite(bewerbung_raw=await stored_bewerbung(database, ERNEUT_BEWERBUNG), seat="ansprechperson")
+    await answer_for(database, client, "ansprechperson", antwort="erteilt", geburtsdatum="1980-05-04", text_version=LAUFENDE_FASSUNGEN[seite])
 
 
 async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:

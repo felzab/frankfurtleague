@@ -27,6 +27,7 @@ from app.api.bewerbungen.services import (
     WITHOUT_TOKEN_HASHES,
     ausstehende_seats,
     bestaetigungsfrist_from,
+    bewerbung_kontakt_seite,
     build_token_filter,
     compose_bestaetigungen,
     compose_confirmation_update,
@@ -38,9 +39,11 @@ from app.api.bewerbungen.services import (
     find_unconfirmed_kontakte_refusal,
     find_unknown_token_refusal,
     hash_token,
+    kontakt_seite_of,
     mindestalter_for,
     mint_token,
     paired_seat,
+    saison_kontakt_seite,
     seat_holding,
     seat_named,
     zustand_of,
@@ -518,34 +521,64 @@ class TestThePairedSeat:
         assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat="stellvertretung") is None
 
 
+# The seat's record as the answer's read holds it: the applicant's entry already on it, `medien` granted
+# so the case can tell an entry cut from the stored block from one cut from the moved fields alone.
+STORED_RECORD = {
+    "bestaetigt_am": None,
+    "medien": True,
+    "datum": "2026-03-20",
+    "verlauf": [{"ueber": "POST /bewerbungen"}],
+}
+AM = "2026-04-01T08:00:00+00:00"
+
+
+def confirmation(*, seats: tuple[str, ...] = ("trainer",), whatsapp: bool = False) -> Mapping[str, Any]:
+    stored = {seat: {"einwilligung": dict(STORED_RECORD)} for seat in KONTAKT_SEATS}
+
+    return compose_confirmation_update(
+        kontakte=stored, seats=seats, geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=whatsapp, am=AM
+    )
+
+
 class TestWhatAConfirmationWrites:
-    """One `$set` per answer, so `docs/backend/spec.md :: I141`'s pairing cannot land in halves."""
+    """One update per answer, so `docs/backend/spec.md :: I141`'s pairing cannot land in halves."""
 
-    def test_a_consent_writes_the_date_the_stamp_the_source_and_the_wording_together(self):
-        update = compose_confirmation_update(seats=("trainer",), geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=False)
+    def test_a_consent_moves_the_record_field_by_field_and_appends_its_act(self):
+        """Never the block whole: that would erase the applicant's entry, which is what decides the page a link opens."""
 
-        assert update == {
+        assert confirmation() == {
             "$set": {
                 "kontakte.trainer.geburtsdatum": "1984-05-09",
                 "kontakte.trainer.einwilligung.bestaetigt_am": TODAY,
                 "kontakte.trainer.einwilligung.erfasst_von": "person",
                 "kontakte.trainer.einwilligung.text_version": "v4",
                 "kontakte.trainer.einwilligung.umfang": "kontaktdaten",
-            }
+            },
+            "$push": {
+                "kontakte.trainer.einwilligung.verlauf": {
+                    "am": AM,
+                    "akt": "bestaetigt",
+                    "ueber": "POST /bewerbungen/einwilligung",
+                    "umfang": "kontaktdaten",
+                    "medien": True,
+                    "text_version": "v4",
+                    "erfasst_von": "person",
+                }
+            },
         }
 
     def test_the_whatsapp_tick_widens_the_scope_and_nothing_else(self):
-        update = compose_confirmation_update(seats=("trainer",), geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=True)
+        update = confirmation(whatsapp=True)
 
         assert update["$set"]["kontakte.trainer.einwilligung.umfang"] == "kontaktdaten_whatsapp"
+        assert update["$push"]["kontakte.trainer.einwilligung.verlauf"]["umfang"] == "kontaktdaten_whatsapp"
 
     def test_a_paired_seat_takes_every_key_the_first_does(self):
-        update = compose_confirmation_update(
-            seats=("trainer", "ansprechperson"), geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=False
-        )
+        update = confirmation(seats=("trainer", "ansprechperson"))
 
         assert {key.split(".")[1] for key in update["$set"]} == {"trainer", "ansprechperson"}
         assert len(update["$set"]) == 10
+        assert set(update["$push"]) == {"kontakte.trainer.einwilligung.verlauf", "kontakte.ansprechperson.einwilligung.verlauf"}
 
     def test_a_decline_empties_the_slot_and_marks_the_day_beside_it(self):
         assert compose_decline_update(seats=("trainer",), today=TODAY) == {
@@ -616,3 +649,65 @@ class TestWhatTheAnswerPayloadRefuses:
             FLBewerbungEinwilligungAnsichtPayload.model_validate({"token": "raw", "seat": "trainer"})
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
+
+
+def seat_record(*, ueber: str | None, datum: str = "2026-03-20") -> dict[str, Any]:
+    """A seat's record with a first entry naming `ueber`, or with no entries at all where it is `None`."""
+
+    return {"datum": datum, **({} if ueber is None else {"verlauf": [{"ueber": ueber}, {"ueber": "POST /bewerbungen/einwilligung"}]})}
+
+
+class TestWhichPageASeatOpens:
+    """The person reads a page true for them: the applicant's where the applicant named them, the administration's elsewhere."""
+
+    @pytest.mark.parametrize(
+        ("ueber", "seite"),
+        [
+            pytest.param("POST /bewerbungen", "bestaetigung_kontakt", id="named by the applicant"),
+            pytest.param("POST /bewerbungen/{bewerbung_id}/kontakte/{seat}", "bestaetigung_kontakt_verwaltung", id="reseated"),
+            pytest.param("PATCH /teams/{team_id}/saisons/{saison_id}/kontakte", "bestaetigung_kontakt_verwaltung", id="entered by the editor"),
+        ],
+    )
+    def test_the_first_entry_decides_whatever_came_after_it(self, ueber: str, seite: str):
+        """The later entries name the confirmation; only the act that seated the person says who named them."""
+
+        assert kontakt_seite_of(einwilligung=seat_record(ueber=ueber), ohne_eintraege_vom_bewerber=ueber == "POST /bewerbungen") == seite
+        # The fallback is never read where an entry stands.
+        assert kontakt_seite_of(einwilligung=seat_record(ueber=ueber), ohne_eintraege_vom_bewerber=ueber != "POST /bewerbungen") == seite
+
+    @pytest.mark.parametrize(
+        ("datum", "seite"),
+        [
+            pytest.param("2026-03-20", "bestaetigung_kontakt", id="dated the submission's day"),
+            pytest.param("2026-03-27", "bestaetigung_kontakt_verwaltung", id="dated the reseat's day"),
+        ],
+    )
+    def test_an_application_seat_without_entries_is_read_off_its_day(self, datum: str, seite: str):
+        """The submission stamps its own day on every seat it writes; a reseat stamps the day it seats somebody."""
+
+        bewerbung_raw = {"eingereicht_am": "2026-03-20", "kontakte": {"trainer": {"einwilligung": seat_record(ueber=None, datum=datum)}}}
+
+        assert bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat="trainer") == seite
+
+    @pytest.mark.parametrize(
+        ("beworben", "seite"),
+        [
+            pytest.param("Ida@Example.org", "bestaetigung_kontakt", id="the accepted application named this address there"),
+            pytest.param("jo@example.org", "bestaetigung_kontakt_verwaltung", id="it named somebody else there"),
+            pytest.param(None, "bestaetigung_kontakt_verwaltung", id="no accepted application is kept"),
+        ],
+    )
+    def test_a_season_row_seat_without_entries_is_read_off_its_accepted_application(self, beworben: str | None, seite: str):
+        """Folded as sign-in folds an address, so a capital typed on one side moves no page."""
+
+        row = {"kontakte": {"trainer": {"email": "ida@example.org", "einwilligung": seat_record(ueber=None)}}}
+        bewerbung_raw = None if beworben is None else {"kontakte": {"trainer": {"email": beworben}}}
+
+        assert saison_kontakt_seite(row=row, seat="trainer", bewerbung_raw=bewerbung_raw) == seite
+
+    def test_a_season_row_seat_with_entries_never_asks_the_application(self):
+        """An applicant-named seat carried at acceptance keeps the applicant's page, whatever the application now holds."""
+
+        row = {"kontakte": {"trainer": {"email": "ida@example.org", "einwilligung": seat_record(ueber="POST /bewerbungen")}}}
+
+        assert saison_kontakt_seite(row=row, seat="trainer", bewerbung_raw=None) == "bestaetigung_kontakt"

@@ -311,11 +311,20 @@ CONFIRMED_GEBURTSDATUM = "1994-07-19"
 async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) -> None:
     """Every seat answered, through the production composer: an application in this state is what the fourteen-day clock stops reaching."""
 
+    stored = await database[Collection.BEWERBUNGEN].find_one({"_id": bewerbung_id})
+    assert stored is not None
+
     await patch_one_in_db(
         collection=database[Collection.BEWERBUNGEN],
         db_filter={"_id": bewerbung_id},
         update=compose_confirmation_update(
-            seats=KONTAKT_SEATS, geburtsdatum=CONFIRMED_GEBURTSDATUM, today=MAILED_ON_THE_MARK, text_version="v3", whatsapp=False
+            kontakte=stored["kontakte"],
+            seats=KONTAKT_SEATS,
+            geburtsdatum=CONFIRMED_GEBURTSDATUM,
+            today=MAILED_ON_THE_MARK,
+            text_version="v3",
+            whatsapp=False,
+            am=f"{MAILED_ON_THE_MARK}T08:00:00+00:00",
         ),
         return_document=ReturnDocument.BEFORE,
     )

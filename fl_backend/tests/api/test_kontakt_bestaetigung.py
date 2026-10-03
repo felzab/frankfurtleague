@@ -28,6 +28,7 @@ from app.api.bewerbungen.services import (
     compose_bestaetigungen,
     hash_token,
 )
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.identitaet.crud import funktionen_of
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
@@ -42,6 +43,7 @@ from app.api.teams.services import (
 from app.core.collections import Collection
 from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
 from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S, get_step_up_check
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK, verified_actor
 from tests.bans import ban_list, ban_through_the_route
@@ -216,14 +218,21 @@ async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) ->
     )
 
 
-async def answer(database: AsyncDatabase, token: str, *, antwort: str = "erteilt", today: str = TODAY) -> Any:
+# A seat the contacts editor entered opens the administration's page; an application's own seat the applicant's.
+VERWALTUNG_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_verwaltung"]
+BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
+
+
+async def answer(
+    database: AsyncDatabase, token: str, *, antwort: str = "erteilt", today: str = TODAY, text_version: str = VERWALTUNG_SEITE
+) -> Any:
     erteilt = antwort == "erteilt"
     body = {
         "token": token,
         "antwort": antwort,
         "geburtsdatum": AN_ADULTS_BIRTHDATE if erteilt else None,
         "whatsapp": erteilt,
-        "text_version": "v4",
+        "text_version": text_version,
     }
 
     return await post_einwilligung(
@@ -910,7 +919,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
                 }
             )
             view = await ansicht(database, f"{raw}-trainer")
-            answered = await answer(database, f"{raw}-trainer")
+            answered = await answer(database, f"{raw}-trainer", text_version=BEWERBER_SEITE)
 
             return view, answered
 
@@ -1000,3 +1009,109 @@ class TestTheLinkLookupWalksAnIndex:
         # The premise: a lookup the profiler never saw would pass the next line vacuously.
         assert sorted(ns.rsplit(".", 1)[1] for ns, _ in plans) == sorted(str(name) for name in lookups), plans
         assert all("IXSCAN" in plan and "COLLSCAN" not in plan for _, plan in plans), plans
+
+
+def angenommene_bewerbung(trainer: Mapping[str, Any]) -> dict[str, Any]:
+    """The accepted application this team entered the season through, its Trainer seat holding `trainer`."""
+
+    return {
+        "_id": ObjectId("6890a1b2c3d4e5f607a50031"),
+        "saison_id": SAISON_ID,
+        "eingereicht_am": "2026-03-01",
+        "status": "angenommen",
+        "team_id": TEAM_OID,
+        "schule": None,
+        "kontakte": {
+            "trainer": dict(trainer),
+            "ansprechperson": documents.kontaktperson_document("Jonas"),
+            "stellvertretung": documents.kontaktperson_document("Klara"),
+            "trainer_ist_zugleich": None,
+        },
+        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "wunschgegner": None,
+        "entscheidung": None,
+        "bestaetigungsfrist": FRIST,
+        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"angenommen-{seat}") for seat in SEATS}, today=TODAY),
+    }
+
+
+class TestThePageASeasonRowsLinkOpens:
+    """A season row's seat reads the page true for its person, and its answer is judged against that page."""
+
+    def test_a_seat_the_editor_entered_opens_the_administrations_page_and_takes_its_label_alone(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            token = (await save(database, THREE)).bestaetigungen[0].token
+            view = await ansicht(database, token)
+            refusal = await refused(answer(database, token, text_version=BEWERBER_SEITE))
+            unmoved = await row_now(database)
+            await answer(database, token)
+
+            return view, refusal, unmoved, await row_now(database)
+
+        view, refusal, unmoved, row = on_a_league(mongo_replica_set_url, body)
+
+        assert view.laufende_fassung == VERWALTUNG_SEITE
+        assert refusal == FASSUNG_UNZULAESSIG
+        assert unmoved["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the refused answer wrote"
+        einwilligung = row["kontakte"]["trainer"]["einwilligung"]
+        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == (TODAY, VERWALTUNG_SEITE)
+        assert {key: einwilligung["verlauf"][-1][key] for key in ("akt", "ueber", "text_version", "erfasst_von")} == {
+            "akt": "bestaetigt",
+            "ueber": "POST /bewerbungen/einwilligung",
+            "text_version": VERWALTUNG_SEITE,
+            "erfasst_von": "person",
+        }
+
+    @pytest.mark.parametrize(
+        ("beworben", "fassung"),
+        [
+            pytest.param("Ida", BEWERBER_SEITE, id="the accepted application named this person in this seat"),
+            pytest.param("Lea", VERWALTUNG_SEITE, id="it named somebody else there"),
+            pytest.param(None, VERWALTUNG_SEITE, id="no accepted application is kept"),
+        ],
+    )
+    def test_a_seat_stored_before_its_entries_is_read_off_the_accepted_application(
+        self, mongo_replica_set_url: str, beworben: str | None, fassung: str
+    ):
+        """The seat itself cannot tell a person carried over at acceptance from one the editor entered."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            if beworben is not None:
+                await database[Collection.BEWERBUNGEN].insert_one(angenommene_bewerbung(documents.kontaktperson_document(beworben)))
+            token = (await resend(database, "trainer")).bestaetigung.token
+
+            return await ansicht(database, token)
+
+        assert on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED).laufende_fassung == fassung
+
+    def test_a_seat_carried_from_the_application_keeps_the_applicants_page(self, mongo_replica_set_url: str):
+        """Its first entry is the application's, so no application is asked and none needs to be kept."""
+
+        carried = {
+            **STORED_UNCONFIRMED,
+            "trainer": {
+                **STORED_UNCONFIRMED["trainer"],
+                "einwilligung": {
+                    **STORED_UNCONFIRMED["trainer"]["einwilligung"],
+                    "verlauf": [
+                        {
+                            "am": "2026-03-01T09:00:00+00:00",
+                            "akt": "erteilt",
+                            "ueber": "POST /bewerbungen",
+                            "umfang": "kontaktdaten",
+                            "medien": False,
+                            "text_version": "v1",
+                            "erfasst_von": "administrativ",
+                        }
+                    ],
+                },
+            },
+        }
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            token = (await resend(database, "trainer")).bestaetigung.token
+
+            return await ansicht(database, token)
+
+        assert on_a_league(mongo_replica_set_url, body, kontakte=carried).laufende_fassung == BEWERBER_SEITE

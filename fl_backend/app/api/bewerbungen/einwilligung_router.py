@@ -17,9 +17,13 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSICHT_FIELDS,
     EINWILLIGUNG_ANTWORT_FIELDS,
+    SAISON_EINWILLIGUNG_ANTWORT_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
+    KontaktSeite,
     ansprechperson_mailbox,
     ausstehende_seats,
+    bewerbung_kontakt_seite,
+    build_angenommene_bewerbung_filter,
     build_saison_token_filter,
     build_token_filter,
     compose_confirmation_update,
@@ -32,9 +36,11 @@ from app.api.bewerbungen.services import (
     find_saison_frist_refusal,
     find_unknown_token_refusal,
     hash_token,
+    hat_eintraege,
     mindestalter_for,
     paired_seat,
     saison_frist_of,
+    saison_kontakt_seite,
     saison_link_pair,
     saison_zustand_of,
     seat_adressen,
@@ -42,6 +48,7 @@ from app.api.bewerbungen.services import (
     seat_vorname,
     zustand_of,
 )
+from app.api.einwilligung.services import find_fassung_refusal
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -59,6 +66,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
 # credential, as a sign-in code is, so both endpoints are base-tier and bound to the public actor
@@ -81,8 +89,29 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
     return str(team_raw.get("name") or "")
 
 
+async def _saison_seite(
+    *, row: Mapping[str, Any], seat: str, bewerbungen_collection: BewerbungenCollection, session: AsyncClientSession | None = None
+) -> KontaktSeite:
+    """The page a season row's seat opens, asking its accepted application only where the seat carries no entries."""
+
+    bewerbung_raw = (
+        None
+        if hat_eintraege(kontakte=row.get("kontakte"), seat=seat)
+        else await bewerbungen_collection.find_one(
+            build_angenommene_bewerbung_filter(row=row), projection={f"kontakte.{seat}.email": 1, "_id": 0}, session=session
+        )
+    )
+
+    return saison_kontakt_seite(row=row, seat=seat, bewerbung_raw=bewerbung_raw)
+
+
 async def _saison_ansicht(
-    *, token_hash: str, saison_teams_collection: SaisonTeamsCollection, sperrliste: SperrlisteLookup, today: str
+    *,
+    token_hash: str,
+    saison_teams_collection: SaisonTeamsCollection,
+    bewerbungen_collection: BewerbungenCollection,
+    sperrliste: SperrlisteLookup,
+    today: str,
 ) -> FLBewerbungEinwilligungAnsichtResponse:
     """The view of a link no application holds, read off the season row holding it, or the unknown-token refusal."""
 
@@ -108,6 +137,7 @@ async def _saison_ansicht(
         zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
+        laufende_fassung=LAUFENDE_FASSUNGEN[await _saison_seite(row=row, seat=seat, bewerbungen_collection=bewerbungen_collection)],
         mindestalter=mindestalter_for(seats),
     )
 
@@ -133,7 +163,8 @@ async def get_einwilligung_ansicht(
     The seat's state, the school, the season, the role, the holder's first name and the consent wording's version,
     and `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.
     `mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers
-    exactly the dates the answer will take.
+    exactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their
+    answer must name: the applicant's where the applicant named them, else the one for a person the administration seated.
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     seat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,
     so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list
@@ -151,7 +182,13 @@ async def get_einwilligung_ansicht(
     bewerbung_raw = await bewerbungen_collection.find_one(build_token_filter(token_hash=token_hash), projection=EINWILLIGUNG_ANSICHT_FIELDS)
     if bewerbung_raw is None:
         # The application first, so its own links read exactly as they did before a season row could answer one.
-        return await _saison_ansicht(token_hash=token_hash, saison_teams_collection=saison_teams_collection, sperrliste=sperrliste, today=today)
+        return await _saison_ansicht(
+            token_hash=token_hash,
+            saison_teams_collection=saison_teams_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            sperrliste=sperrliste,
+            today=today,
+        )
 
     seat = seat_holding(bewerbung_raw=bewerbung_raw, token_hash=token_hash)
     refuse(find_unknown_token_refusal(seat=seat))
@@ -177,6 +214,7 @@ async def get_einwilligung_ansicht(
         zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
+        laufende_fassung=LAUFENDE_FASSUNGEN[bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=seat)],
         mindestalter=mindestalter_for(seats),
     )
 
@@ -200,13 +238,15 @@ async def post_einwilligung(
     """
     Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.
 
-    A consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;
-    a decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:
-    a token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided
-    (`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), a consent from an address the ban list holds
-    now, whenever the link was minted (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds
-    ask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing. A
-    decline is taken from a barred address too: it empties the seat.
+    A consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, and
+    appends its act to each seat's record after the entry that seated them; a decline empties their slot and redacts
+    every log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),
+    a link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered
+    (`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for that seat
+    (`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted
+    (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`) --
+    the last three judged before anything is written, so a reloaded page or a mistyped year spends nothing. A decline
+    stores no label and is taken from a barred address too: it empties the seat.
 
     The answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own
     mailbox among it: this is a server-to-server response, and a caller putting it in front of a browser
@@ -225,7 +265,7 @@ async def post_einwilligung(
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
 
         row = await saison_teams_collection.find_one(
-            build_saison_token_filter(token_hash=token_hash), projection={**SAISON_EINWILLIGUNG_FIELDS, "_id": 1}, session=session
+            build_saison_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_ANTWORT_FIELDS, session=session
         )
         seat = None if row is None else seat_holding(bewerbung_raw=row, token_hash=token_hash)
         refuse(find_unknown_token_refusal(seat=seat))
@@ -242,6 +282,11 @@ async def post_einwilligung(
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
 
+            # Each seat against the page its own link opens, which is the page the view answered.
+            for held in seats:
+                seite = await _saison_seite(row=row, seat=held, bewerbungen_collection=bewerbungen_collection, session=session)
+                refuse(find_fassung_refusal(seite=seite, genannt={held: antwort_data.text_version}))
+
             # Asked at the press, however old the link, as the application's consent asks it
             # (`docs/backend/spec.md :: I505`); never of the Widerspruch below.
             gesperrt = await adressen_gesperrt(
@@ -254,7 +299,13 @@ async def post_einwilligung(
                 collection=saison_teams_collection,
                 db_filter={"_id": row["_id"]},
                 update=compose_confirmation_update(
-                    seats=seats, geburtsdatum=geburtsdatum, today=today, text_version=antwort_data.text_version, whatsapp=antwort_data.whatsapp
+                    kontakte=kontakte,
+                    seats=seats,
+                    geburtsdatum=geburtsdatum,
+                    today=today,
+                    text_version=antwort_data.text_version,
+                    whatsapp=antwort_data.whatsapp,
+                    am=log_stamp(germany_now),
                 ),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
@@ -325,6 +376,11 @@ async def post_einwilligung(
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
 
+            # Each seat against the page its own link opens, which is the page the view answered.
+            for held in seats:
+                seite = bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=held)
+                refuse(find_fassung_refusal(seite=seite, genannt={held: antwort_data.text_version}))
+
             # Asked at the press rather than only at the mint, so a ban entered after the link went out
             # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
             gesperrt = await adressen_gesperrt(
@@ -339,7 +395,13 @@ async def post_einwilligung(
                 collection=bewerbungen_collection,
                 db_filter={"_id": bewerbung_raw["_id"]},
                 update=compose_confirmation_update(
-                    seats=seats, geburtsdatum=geburtsdatum, today=today, text_version=antwort_data.text_version, whatsapp=antwort_data.whatsapp
+                    kontakte=kontakte,
+                    seats=seats,
+                    geburtsdatum=geburtsdatum,
+                    today=today,
+                    text_version=antwort_data.text_version,
+                    whatsapp=antwort_data.whatsapp,
+                    am=log_stamp(germany_now),
                 ),
                 session=session,
                 return_document=ReturnDocument.AFTER,
