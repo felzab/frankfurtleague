@@ -7,11 +7,21 @@ import { pathToFileURL } from "node:url";
 import { createElement as h } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { callPage, clearSteps, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
+import {
+  answerReadsWith,
+  callPage,
+  clearSteps,
+  EMPTIEST_ANSWER,
+  readsOf,
+  redirectTarget,
+  renderPage,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
 import type { SubjectSession } from "@/core/subject.ts";
@@ -276,12 +286,34 @@ describe("the referee's page", () => {
 });
 
 describe("the player's page", () => {
-  it("tells a player they are entered", async () => {
+  /* The person tier's own read, and no other: the page shows the pupil their own data. */
+  it("reads the player's own record and shows their data", async () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
+    answerReadsWith(EMPTIEST_ANSWER);
     const { markup, reads } = await renderedAlone(PersoenlichSpielerPage);
 
-    assert.deepEqual(reads, [], "the player's page reads past the session it is drawn from");
-    assert.ok(markup.includes("Du bist als Spieler eingetragen."), "the player's page is not what renders");
+    assert.deepEqual(reads, ["/spieler/selbst"]);
+    assert.ok(textOf(markup, " ").includes("Deine Angaben"), "the player's own data is not what renders");
+  });
+
+  /* The row went between the page's check and the backend's: the page's own turn-away, reached late. */
+  it("sends a player the backend finds no confirmed row for to the landing", async () => {
+    setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
+    answerReadsWith((endpoint) => {
+      throw new APIBadStatusError({
+        message: "refused",
+        url: `http://backend/api/v0${endpoint}`,
+        statusCode: 403,
+        serverErrorCode: "REQ-FUNKTION-001",
+        endpoint: endpoint,
+        method: "GET",
+        readOnly: true,
+        traceId: "0",
+      });
+    });
+
+    assert.deepEqual(await redirectsOf(PersoenlichSpielerPage), ["/bereich"]);
+    answerReadsWith(EMPTIEST_ANSWER);
   });
 
   /* The page speaks to a player, so a person holding no squad row is sent where their own Funktionen are. */

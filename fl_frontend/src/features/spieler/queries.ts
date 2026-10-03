@@ -10,9 +10,16 @@ import {
   FLSpielerListResponseSchema,
   FLSpielerMembershipsResponseSchema,
   FLSpielerNachnominierungResponseSchema,
+  FLSpielerSelbstResponseSchema,
 } from "./schemas";
 
-import type { FLKaderResponse, FLSpielerListResponse, FLSpielerMembershipsResponse, FLSpielerNachnominierungResponse } from "./schemas";
+import type {
+  FLKaderResponse,
+  FLSpielerListResponse,
+  FLSpielerMembershipsResponse,
+  FLSpielerNachnominierungResponse,
+  FLSpielerSelbstResponse,
+} from "./schemas";
 import type { FLSpielerFilterParams } from "./types";
 
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
@@ -62,4 +69,13 @@ export const getSpielerNachnominierung = cache(async (saisonId: string): Promise
 // Never `"use cache"`, for `getSpielerMemberships`' reason: what it answers is the reading person's.
 export const getKader = cache(async (teamId: string, saisonId: string): Promise<FLKaderResponse> =>
   runPersonRead(() => apiClient<FLKaderResponse>(`/spieler/kader/${teamId}/${saisonId}`, FLKaderResponseSchema, { authType: "admin" })),
+);
+
+/**
+ * The signed-in pupil's own record, refused `REQ-FUNKTION-001` where the backend holds no confirmed
+ * pupil row for the address the page's own check passed.
+ */
+// Never `"use cache"`, for `getSpielerMemberships`' reason: what it answers is the reading person's.
+export const getSpielerSelbst = cache(async (): Promise<FLSpielerSelbstResponse> =>
+  runPersonRead(() => apiClient<FLSpielerSelbstResponse>("/spieler/selbst", FLSpielerSelbstResponseSchema, { authType: "admin" })),
 );
