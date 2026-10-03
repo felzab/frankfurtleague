@@ -71,6 +71,7 @@ from app.api.teams.services import (
     links_owed,
     mint_answer,
     seats_one_link_answers,
+    voids_a_live_link,
 )
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -595,8 +596,9 @@ async def patch_saison_team_kontakte(
     **Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the
     caller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person
     keeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing
-    live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A save minting
-    a link is refused `REQ-AUTH-009` as the clearing is; a save minting none is not.
+    live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A save minting a link,
+    or voiding one its person could still answer, is refused `REQ-AUTH-009` as the clearing is; a save doing neither is
+    not.
     """
 
     if kontakte_data.kontakte is None:
@@ -646,14 +648,20 @@ async def patch_saison_team_kontakte(
             assert kontakte is not None
             links.append(mint_answer(token=raw_token, seats=seats, kontakte=kontakte, row=stored, frist=entry["frist"]))
 
-        # Judged on what this transaction mints, which aborts with the refusal: only a link somebody
-        # will hold makes the save a step-up write.
-        if links:
-            refuse_unconfirmed()
-
         bestaetigungen = compose_bestaetigungen_nach(
             kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("bestaetigungen"), minted=minted
         )
+
+        # Judged on what this transaction mints and voids, which aborts with the refusal: a bearer link
+        # handed out or taken away is a step-up write (`docs/backend/spec.md :: I931`).
+        voids = voids_a_live_link(
+            stored_kontakte=stored.get("kontakte"),
+            stored_bestaetigungen=stored.get("bestaetigungen"),
+            bestaetigungen=bestaetigungen,
+            today=today,
+        )
+        if links or voids:
+            refuse_unconfirmed()
 
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,

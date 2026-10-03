@@ -1097,6 +1097,38 @@ def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_b
     return block
 
 
+def _live_link(*, kontakte: Mapping[str, Any], bestaetigungen: Mapping[str, Any], slot: str, today: str) -> str | None:
+    """The hash of the link this seat's person can still answer, or `None`: answered, declined and lapsed links open nothing."""
+
+    entry = bestaetigungen.get(slot)
+    seat = kontakte.get(slot)
+    if not isinstance(entry, Mapping) or not isinstance(seat, Mapping) or _seat_is_stamped(seat):
+        return None
+
+    if entry.get("abgelehnt_am") is not None or str(entry.get("frist") or "") < today:
+        return None
+
+    token_hash = entry.get("token_hash")
+
+    return str(token_hash) if token_hash else None
+
+
+def voids_a_live_link(*, stored_kontakte: Any, stored_bestaetigungen: Any, bestaetigungen: Any, today: str) -> bool:
+    """Whether the link block a save leaves drops a link somebody can still answer: a bearer credential voided, as a mint is one handed out."""
+
+    stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
+    stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
+    left = bestaetigungen if isinstance(bestaetigungen, Mapping) else {}
+
+    for slot in KONTAKT_SLOTS:
+        live = _live_link(kontakte=stored_slots, bestaetigungen=stored_links, slot=slot, today=today)
+        kept = left.get(slot)
+        if live is not None and (not isinstance(kept, Mapping) or kept.get("token_hash") != live):
+            return True
+
+    return False
+
+
 def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
     """The stored link block with the minted seats replaced, every other seat as it stood."""
 
