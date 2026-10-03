@@ -74,7 +74,7 @@ export type SchiedsrichterBestaetigungStart =
  * The referee page's words under the label its answer stamps, handed in by the page: a component
  * reaching for the running words would render a text no stored record cites.
  */
-export type SchiedsrichterFassung = GekeyteFassung<SchiedsrichterAbsatzSchluessel, FLSchiedsrichterUmfang>;
+type SchiedsrichterFassung = GekeyteFassung<SchiedsrichterAbsatzSchluessel, FLSchiedsrichterUmfang>;
 
 type Absaetze = SchiedsrichterFassung["absaetze"];
 

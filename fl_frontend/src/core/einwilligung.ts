@@ -45,7 +45,7 @@ export async function istFassungBekannt(textVersion: string | null): Promise<boo
 // React's `cache` and never `"use cache"`: a deploy moves a page's running label, and a frontend
 // recreated before the backend would go on stamping a label the backend has moved past.
 /** Each page's running label, read once per render pass. Called inside the request's trace scope. */
-export const getLaufendeFassungen = cache(async (): Promise<Readonly<Record<string, string>>> => {
+const getLaufendeFassungen = cache(async (): Promise<Readonly<Record<string, string>>> => {
   const antwort = await apiClient("/einwilligung/seiten", FLEinwilligungSeitenResponseSchema, { authType: "base" });
   return antwort.laufende_fassungen;
 });
