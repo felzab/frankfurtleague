@@ -1211,7 +1211,7 @@ export type LiveSessionRow = {
 };
 
 /**
- * Every live row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
+ * Every row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
  * missing from the list a holder searches for a device they do not know (`docs/frontend/spec.md :: I425`).
  */
 const EVERY_ROW = Number.MAX_SAFE_INTEGER;
@@ -1255,7 +1255,8 @@ export async function endSessionOf(userId: string, id: string): Promise<number> 
  */
 export async function passkeysOf(userId: string): Promise<Passkey[]> {
   const { adapter } = await auth.$context;
-  return adapter.findMany<Passkey>({ model: "passkey", where: [{ field: "userId", value: userId }] });
+  // Enrolments made at once can pass the cap, and a passkey past the default 100 is a card nobody can remove.
+  return adapter.findMany<Passkey>({ model: "passkey", where: [{ field: "userId", value: userId }], limit: EVERY_ROW });
 }
 
 /** What a removal found inside its transaction, each answered differently by the one caller. */
