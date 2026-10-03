@@ -5,6 +5,9 @@ import { afterEach, beforeEach } from "node:test";
 import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch.ts";
 import { replacingModule } from "@/core/exportingModule.ts";
 import { judging } from "@/core/verdicts.ts";
+import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
+
+import type { InFlight } from "@/shared/testing/answersInFlight.ts";
 
 /** One request a module handed the backend client: the path, and what it went with. */
 export type ApiCall = {
@@ -85,10 +88,16 @@ type ApiAnswer = (call: ApiCall) => Promise<unknown>;
 export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ acknowledged: 1 })): {
   calls: ApiCall[];
   answerWith: (next: ApiAnswer) => void;
+  /**
+   * Awaited inside `act` before a poll of the page, so the render an answer sets off lands inside it: a
+   * poll alone gives up after its second, which a loaded machine's answer and render outlast.
+   */
+  answered: () => Promise<void>;
 } {
   let answering = answer;
   const malformed: string[] = [];
-  const calls = doubleApiClient(async (call, schema) => {
+  const inFlight = new Set<InFlight>();
+  const parsed = async (call: ApiCall, schema: ApiSchema): Promise<unknown> => {
     const answered = await answering(call);
     try {
       return schema.parse(answered);
@@ -96,6 +105,13 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
       malformed.push(`${call.method ?? "GET"} ${call.endpoint}`);
       throw error;
     }
+  };
+  const calls = doubleApiClient((call, schema) => {
+    const entry = { name: `${call.method ?? "GET"} ${call.endpoint}`, answer: parsed(call, schema) };
+    inFlight.add(entry);
+    const settle = (): void => void inFlight.delete(entry);
+    entry.answer.then(settle, settle);
+    return entry.answer;
   });
 
   // Back to `answer` before every case: a case that named another would hand it to the next case's write.
@@ -103,6 +119,7 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
     answering = answer;
     calls.length = 0;
     malformed.length = 0;
+    inFlight.clear();
   });
   // Judged after the case, not at the call: the action catches the parse's throw and may answer just
   // as the case expects of a real failure. A fixture error, never the client's malformed-data error.
@@ -112,5 +129,9 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
     );
   });
 
-  return { calls, answerWith: (next) => void (answering = next) };
+  return {
+    calls,
+    answerWith: (next) => void (answering = next),
+    answered: () => untilAnswered(() => [...inFlight], "settle a held answer before awaiting `answered`"),
+  };
 }

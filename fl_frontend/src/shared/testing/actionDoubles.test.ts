@@ -8,7 +8,8 @@ import { pathToFileURL } from "node:url";
 import { runAsTestFile } from "@/core/childTestRun.ts";
 import { person } from "@/core/subjectFixtures.ts";
 
-import { ANSWER_WAIT_MS, cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
+import { ANSWER_WAIT_MS } from "./answersInFlight.ts";
 
 const { raised } = doubleToasts();
 
