@@ -7,6 +7,7 @@ import {
   FLSchiedsrichterBestaetigungResponseSchema,
   FLSchiedsrichterMintResponseSchema,
   FLSchiedsrichterReactivateResponseSchema,
+  FLSchiedsrichterSelbstEinwilligungResponseSchema,
   FLSchiedsrichterWriteResponseSchema,
 } from "./schemas";
 
@@ -24,6 +25,8 @@ import type {
   FLSchiedsrichterKeyPayload,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
+  FLSchiedsrichterSelbstEinwilligungPayload,
+  FLSchiedsrichterSelbstEinwilligungResponse,
   FLSchiedsrichterWriteResponse,
 } from "./schemas";
 
@@ -105,4 +108,21 @@ export async function postSchiedsrichterBestaetigung(
     authType: "base",
     body: JSON.stringify(payload),
   });
+}
+
+// The referee's own press on the account page, under the person lane's actor; the record is named in
+// the path because one address may hold several referee rows.
+export async function patchSchiedsrichterSelbstEinwilligung(
+  schiedsrichterId: string,
+  payload: FLSchiedsrichterSelbstEinwilligungPayload,
+): Promise<FLSchiedsrichterSelbstEinwilligungResponse> {
+  return apiClient<FLSchiedsrichterSelbstEinwilligungResponse>(
+    `/schiedsrichter/selbst/${schiedsrichterId}/einwilligung`,
+    FLSchiedsrichterSelbstEinwilligungResponseSchema,
+    {
+      method: "PATCH",
+      authType: "admin",
+      body: JSON.stringify(payload),
+    },
+  );
 }

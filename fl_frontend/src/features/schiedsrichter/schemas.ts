@@ -4,7 +4,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLBewerbungZustellungSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
-import { FLEinwilligungSchema } from "@/features/spieler/schemas";
+import { FLEinwilligungSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import {
   CustomDateStringSchema,
@@ -284,3 +284,33 @@ export const FLSchiedsrichterBestaetigungResponseSchema = BaseAPIResponseSchema.
   bestaetigt_am: CustomDateStringSchema,
 });
 export type FLSchiedsrichterBestaetigungResponse = z.infer<typeof FLSchiedsrichterBestaetigungResponseSchema>;
+
+/** Mirrors `FLSchiedsrichterSelbst`, the person tier's own read: no fee and no link bookkeeping, which are the administration's. */
+export const FLSchiedsrichterSelbstSchema = z.object({
+  schiedsrichter_id: CustomObjectIdStringSchema,
+  name: z.string(),
+  schule: z.string().nullable(),
+  kontakt: FLKontaktSchema,
+  geburtsdatum: CustomDateStringSchema.nullable(),
+  inactive_since: CustomDateStringSchema.nullable(),
+  // Never null here, for the reason the pupil's own read gives (`FLSpielerSelbstSchema`).
+  einwilligung: FLEinwilligungSchema,
+  erteilbar: z.boolean(),
+  medien_angeboten: z.boolean(),
+});
+export type FLSchiedsrichterSelbst = z.infer<typeof FLSchiedsrichterSelbstSchema>;
+
+export const FLSchiedsrichterSelbstResponseSchema = BaseAPIResponseSchema.extend({
+  schiedsrichter: z.array(FLSchiedsrichterSelbstSchema),
+});
+export type FLSchiedsrichterSelbstResponse = z.infer<typeof FLSchiedsrichterSelbstResponseSchema>;
+
+/** The pupil's payload, as the backend publishes one declaration under two names: the two writes cannot drift. */
+export const FLSchiedsrichterSelbstEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema;
+export type FLSchiedsrichterSelbstEinwilligungPayload = z.infer<typeof FLSchiedsrichterSelbstEinwilligungPayloadSchema>;
+
+export const FLSchiedsrichterSelbstEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
+  schiedsrichter_id: CustomObjectIdStringSchema,
+  einwilligung: FLEinwilligungSchema,
+});
+export type FLSchiedsrichterSelbstEinwilligungResponse = z.infer<typeof FLSchiedsrichterSelbstEinwilligungResponseSchema>;

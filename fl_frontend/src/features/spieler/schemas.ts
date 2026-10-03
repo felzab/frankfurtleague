@@ -2,7 +2,7 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
+import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
 
 import { NUMMER_MUST_BE_DIGITS } from "./constants";
@@ -296,3 +296,64 @@ export type FLPatchKaderZeilePayload = z.infer<typeof FLPatchKaderZeilePayloadSc
 /** The austragen's whole argument: the row's three ids, every one in the path, and no request body. */
 export const FLKaderZeileKeyPayloadSchema = z.object(kaderZeileKeyFields);
 export type FLKaderZeileKeyPayload = z.infer<typeof FLKaderZeileKeyPayloadSchema>;
+
+/** Mirrors `FLSpielerSelbstKaderZeile`: one squad row of the signed-in pupil, the team named as it played that season. */
+export const FLSpielerSelbstKaderZeileSchema = z.object({
+  team_id: CustomObjectIdStringSchema,
+  team_name: z.string(),
+  saison_id: z.string(),
+  nummer: z.string().nullable(),
+  position: FLSpielerPositionSchema.nullable(),
+  stufe: FLSpielerStufeSchema.nullable(),
+  rolle: FLSpielerRolleSchema.nullable(),
+  ist_nachnominiert: z.boolean(),
+  inactive_since: CustomDateStringSchema.nullable(),
+});
+export type FLSpielerSelbstKaderZeile = z.infer<typeof FLSpielerSelbstKaderZeileSchema>;
+
+/** Mirrors `FLSpielerSelbst`, the person tier's own read: the whole surname, because the reader is the person it names. */
+export const FLSpielerSelbstSchema = z.object({
+  spieler_id: CustomObjectIdStringSchema,
+  vorname: z.string().nonempty(),
+  nachname: z.string().nullable(),
+  geburtsdatum: CustomDateStringSchema.nullable(),
+  inactive_since: CustomDateStringSchema.nullable(),
+  // Never null here: the read serves confirmed records alone, an unconfirmed one holding nothing to withdraw.
+  einwilligung: FLEinwilligungSchema,
+  // The backend's verdicts, never recomputed here: a second clock or a second reading of a panel would
+  // offer a press the write refuses.
+  erteilbar: z.boolean(),
+  medien_angeboten: z.boolean(),
+  kader: z.array(FLSpielerSelbstKaderZeileSchema),
+});
+export type FLSpielerSelbst = z.infer<typeof FLSpielerSelbstSchema>;
+
+export const FLSpielerSelbstResponseSchema = BaseAPIResponseSchema.extend({
+  spieler: z.array(FLSpielerSelbstSchema),
+});
+export type FLSpielerSelbstResponse = z.infer<typeof FLSpielerSelbstResponseSchema>;
+
+/**
+ * Mirrors `FLSpielerSelbstEinwilligungPayload`, and the referee's payload is this same schema: the two
+ * writes are one shape, so the one consent control cannot send either a member the other lacks.
+ */
+export const FLSpielerSelbstEinwilligungPayloadSchema = z.object({
+  umfang: FLEinwilligungSchema.shape.umfang,
+  medien: z.boolean(),
+  // The account page's own label, never the one the record was confirmed under: the backend judges it
+  // against the page that took the press.
+  text_version: z
+    .string()
+    .trim()
+    .min(1)
+    .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
+      error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
+    }),
+});
+export type FLSpielerSelbstEinwilligungPayload = z.infer<typeof FLSpielerSelbstEinwilligungPayloadSchema>;
+
+export const FLSpielerSelbstEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
+  spieler_id: CustomObjectIdStringSchema,
+  einwilligung: FLEinwilligungSchema,
+});
+export type FLSpielerSelbstEinwilligungResponse = z.infer<typeof FLSpielerSelbstEinwilligungResponseSchema>;

@@ -5,6 +5,7 @@ import {
   FLSaisonSpielerResponseSchema,
   FLSpielerAdminSingleResponseSchema,
   FLSpielerErasureResponseSchema,
+  FLSpielerSelbstEinwilligungResponseSchema,
 } from "./schemas";
 
 import type {
@@ -21,6 +22,8 @@ import type {
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
   FLSpielerErasureResponse,
+  FLSpielerSelbstEinwilligungPayload,
+  FLSpielerSelbstEinwilligungResponse,
 } from "./schemas";
 
 // The ids go in the PATH, never the body — a backend payload model that saw one refuses the whole
@@ -106,4 +109,21 @@ export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKad
     method: "DELETE",
     authType: "admin",
   });
+}
+
+// The pupil's own press, under the person lane's actor: the record is named in the path because one
+// address may hold several pupil rows, each with its own consent.
+export async function patchSpielerSelbstEinwilligung(
+  spielerId: string,
+  payload: FLSpielerSelbstEinwilligungPayload,
+): Promise<FLSpielerSelbstEinwilligungResponse> {
+  return apiClient<FLSpielerSelbstEinwilligungResponse>(
+    `/spieler/selbst/${spielerId}/einwilligung`,
+    FLSpielerSelbstEinwilligungResponseSchema,
+    {
+      method: "PATCH",
+      authType: "admin",
+      body: JSON.stringify(payload),
+    },
+  );
 }
