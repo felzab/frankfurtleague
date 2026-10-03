@@ -48,6 +48,10 @@ export function doubleActions({
   answerWith: (next: () => Promise<unknown>) => void;
   answerPending: (answer: unknown) => void;
   leavePending: (reason: string) => void;
+  /**
+   * Awaited inside `act` before a poll of the page, so the render an answer sets off lands inside it: a
+   * poll alone gives up after its second, which a loaded machine's answer and render outlast.
+   */
   answered: () => Promise<void>;
 } {
   const calls: ActionCall[] = [];

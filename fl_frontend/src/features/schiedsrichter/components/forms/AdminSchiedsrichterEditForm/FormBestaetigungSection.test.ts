@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -20,7 +20,7 @@ import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/sch
 import type { FLEinwilligung } from "@/features/spieler/schemas.ts";
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answered } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
@@ -211,6 +211,7 @@ describe("the control that sends the link", () => {
 
     assert.deepEqual(calls, [{ action: "einladeSchiedsrichterAction", payload: { id: SCHIEDSRICHTER_ID } }]);
     // Its answer lands inside this case, or its toast is the next case's first.
+    await act(answered);
     await waitFor(() => assert.equal(toasts.length, 1));
   });
 
@@ -219,6 +220,7 @@ describe("the control that sends the link", () => {
     render(panel({ bestaetigung: BLOCK }));
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+    await act(answered);
 
     await waitFor(() =>
       assert.deepEqual(
@@ -245,6 +247,7 @@ describe("the control that sends the link", () => {
       render(panel({ bestaetigung: BLOCK }));
 
       await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+      await act(answered);
 
       await waitFor(() =>
         assert.deepEqual(
@@ -274,6 +277,7 @@ describe("the control that sends the link", () => {
 
       await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
       // Read once every arm's answer has landed, each raising its one toast.
+      await act(answered);
       await waitFor(() => assert.equal(toasts.length, before + 1, `the ${arm} send was answered nowhere`));
       refreshes[arm] = seen.refresh;
       unmount();

@@ -31,7 +31,7 @@ import {
 import type { ReactNode } from "react";
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
-const { calls, answerWith, answerPending } = doubleActions({
+const { calls, answerWith, answerPending, answered } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
@@ -334,6 +334,7 @@ describe("what the save tells the administrator about the message it sent", () =
     await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
     await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
     // The write runs inside a transition, so the press returns before the offer is raised.
+    await act(answered);
     await waitFor(() => {
       assert.ok(toasts.length > 0, "the save raised no toast at all");
     });
@@ -364,6 +365,7 @@ describe("what the save tells the administrator about the message it sent", () =
     await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
     await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
     // The write runs inside a transition, so the press returns before the offer is raised.
+    await act(answered);
     await waitFor(() => {
       assert.ok(toasts.length > 0, "the save raised no toast at all");
     });
@@ -384,6 +386,7 @@ describe("what the save tells the administrator about the message it sent", () =
     await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
     await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
     // The write runs inside a transition, so the press returns before the offer is raised.
+    await act(answered);
     await waitFor(() => {
       assert.ok(toasts.length > 0, "the save raised no toast at all");
     });
@@ -455,6 +458,7 @@ describe("the erasure on the referee's editor", () => {
     answerWith(() => Promise.resolve({ success: true, message: "Die Daten sind gelöscht." }));
     renderEditor();
     await pressTwice(userEvent.setup());
+    await act(answered);
 
     await waitFor(() =>
       assert.deepEqual(

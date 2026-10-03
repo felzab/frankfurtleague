@@ -1003,7 +1003,7 @@ async function readied(user: UserEvent, move: RecordMove): Promise<HTMLElement> 
 async function pressThrough(user: UserEvent, { press, armed }: RecordMove): Promise<void> {
   if (armed === undefined) await user.click(screen.getByRole("button", { name: press }));
   else await pressTwice(user, { resting: press, armed });
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+  await act(answered);
 }
 
 describe("a press whose write moves the record the page keys its editor by", () => {

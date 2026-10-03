@@ -314,6 +314,7 @@ const DRIVES: Record<string, Drive[]> = {
         Promise.resolve({ success: true, einladung_id: "b".repeat(24), token: "t", link: "https://example.org/r/t", message: "Angelegt." }),
       reach: async (user) => {
         await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+        await act(answered);
         await screen.findByRole("button", { name: "Link per E-Mail senden" });
       },
       press: "Link per E-Mail senden",

@@ -30,7 +30,7 @@ import type { ReactNode } from "react";
 /** A write nobody has answered yet, which is how each action answers unless a case says otherwise. */
 const running = (): Promise<never> => new Promise(() => undefined);
 
-const { calls, answerWith, answerPending } = doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: running });
+const { calls, answerWith, answerPending, answered } = doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: running });
 
 /** The payloads one action was sent, in the order the panel sent them. */
 const sent = (action: string): unknown[] => calls.filter((call) => call.action === action).map((call) => call.payload);
@@ -319,6 +319,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
       const { unmount } = render(panel(DRAWN));
       await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
       await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
+      await act(answered);
 
       await waitFor(() =>
         assert.deepEqual(

@@ -30,7 +30,7 @@ const CLIENT_DOUBLE = { authClient: { signIn: { passkey: async () => ({ error: n
 registerDoubles({ modules: { "shared/utils/documentNavigation.ts": NAVIGATION_DOUBLE, "core/authClient.ts": CLIENT_DOUBLE } });
 
 /** The send, replaced at the module boundary: the real one needs a session store and a mail provider. */
-const { calls, answerWith } = doubleActions({ modules: ["/src/features/auth/actions.ts"] });
+const { calls, answerWith, answered: codeSent } = doubleActions({ modules: ["/src/features/auth/actions.ts"] });
 const { raised } = doubleToasts();
 const fetchMock = doubleFetch();
 
@@ -56,6 +56,7 @@ beforeEach(() => {
 async function atTheCodeStep(user: ReturnType<typeof userEvent.setup>): Promise<HTMLInputElement> {
   render(h(SignInForm, { next: LANDING }));
   await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+  await act(codeSent);
 
   return screen.findByLabelText<HTMLInputElement>("Code aus der E-Mail");
 }
@@ -118,6 +119,7 @@ describe("the sign-in card's look", () => {
     assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, "the address step carries a glyph");
 
     await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+    await act(codeSent);
     await screen.findByLabelText("Code aus der E-Mail");
     assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, "the code step carries a glyph");
   });
@@ -133,6 +135,7 @@ describe("the sign-in card's two ways in", () => {
     assert.ok(screen.getByText("oder"));
 
     await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+    await act(codeSent);
     await screen.findByLabelText("Code aus der E-Mail");
 
     assert.ok(screen.queryByRole("button", { name: "Mit Passkey anmelden" }) === null, "the passkey stayed on the code step");

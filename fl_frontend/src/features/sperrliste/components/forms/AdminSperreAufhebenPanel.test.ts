@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -14,7 +14,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 /** The removal itself: a real one needs a session and a backend. */
-const { calls, answerWith } = doubleActions({ modules: ["/src/features/sperrliste/actions.ts"] });
+const { calls, answerWith, answered } = doubleActions({ modules: ["/src/features/sperrliste/actions.ts"] });
 
 const { raised } = doubleToasts();
 
@@ -59,6 +59,7 @@ describe("lifting one ban from the row it stands on", () => {
     await pressTwice(user, { resting: RESTING, armed: ARMED });
 
     assert.deepEqual(calls, [{ action: "deleteSperreAction", payload: { id: SPERRE_ID } }]);
+    await act(answered);
     await waitFor(() =>
       assert.deepEqual(raised, [
         {
@@ -80,6 +81,7 @@ describe("lifting one ban from the row it stands on", () => {
     mount();
 
     await pressTwice(user, { resting: RESTING, armed: ARMED });
+    await act(answered);
 
     await waitFor(() => assert.equal(raised.length, 1));
     assert.equal(raised[0]?.variant, "danger");
@@ -96,6 +98,7 @@ describe("lifting one ban from the row it stands on", () => {
 
     await pressTwice(user, { resting: RESTING, armed: ARMED });
     // Found rather than got: the press lets go once the rejection has been answered.
+    await act(answered);
     await screen.findByRole("button", { name: RESTING });
 
     const { error, outcome } = unansweredAction();
