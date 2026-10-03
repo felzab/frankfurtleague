@@ -41,6 +41,12 @@ type Mapper = (error: unknown) => unknown;
 const SHARED_READER: Mapper = () => null;
 
 /**
+ * A team page's read refused for a seat the reader does not hold: its refusal reaches no action, the
+ * page rendering the forbidden panel by the one predicate the shared reader words it by for a write.
+ */
+const TEAM_FORBIDDEN_PANEL: Mapper = (error) => (isFunktionLost(error) ? "the forbidden panel, in the page's stead" : null);
+
+/**
  * The mapper each write consults for an operation's refusals, a read's context fixed where the mapper
  * takes one. That the write does consult it is its slice suite's to hold
  * (`fl_frontend/src/shared/testing/publishedRefusals.ts :: assertEachAnswered`).
@@ -61,11 +67,15 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /teams/{team_id}/saisons/{saison_id}/einladung": SHARED_READER,
   "POST /saisons/{saison_id}/einladungen/versand": einladungen.mapEinladungRefusal,
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapStaleBlockRefusal,
+  "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /kontakte/erasure": SHARED_READER,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
   "POST /registrierungen/bestaetigung": (error) => registrierungen.mapBestaetigungRefusal(error, async () => REGISTRIERUNG_MIN_ALTER),
   "POST /registrierungen/einladung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "POST /registrierungen/bestaetigung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
+  "GET /registrierungen/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
+  "POST /registrierungen/{registrierung_id}/aufnehmen": registrierungen.mapAufnahmeRefusal,
+  "POST /registrierungen/{registrierung_id}/ablehnen": registrierungen.mapAblehnungRefusal,
   "POST /saisons": (error) => saisons.mapRulesRefusal(error) ?? saisons.mapSaisonIdRefusal(error),
   "PATCH /saisons/{saison_id}": saisons.mapRulesRefusal,
   "POST /saisons/{saison_id}/activate": saisons.mapActivateRefusal,
@@ -86,10 +96,11 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   // Written by the undo route's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
+  "PATCH /spieler/{spieler_id}": SHARED_READER,
+  "DELETE /spieler/{spieler_id}": SHARED_READER,
+  "POST /spieler/{spieler_id}/reactivate": SHARED_READER,
   "DELETE /spieler/{spieler_id}/erasure": spieler.mapErasureRefusal,
-  // A read's refusal reaches no action: the squad pages render the forbidden panel for it, by the one
-  // predicate the shared reader words it by for a write.
-  "GET /spieler/kader/{team_id}/{saison_id}": (error) => (isFunktionLost(error) ? "the forbidden panel, in the page's stead" : null),
+  "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,
   // The player's and the referee's pages send a person the backend finds no confirmed row for to the
@@ -99,6 +110,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /spieler/selbst/einwilligung": konto.mapEigeneEinwilligungRefusal,
   "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": konto.mapEigeneEinwilligungRefusal,
   "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "GET /teams/{team_id}/saisons/{saison_id}/person/sitze": TEAM_FORBIDDEN_PANEL,
   "POST /spieler/{spieler_id}/saisons": (error) => spieler.mapSquadRefusal(error) ?? spieler.mapAlreadyInSaisonRefusal(error),
   "PATCH /spieler/{spieler_id}/saisons/{saison_id}": spieler.mapSquadRefusal,
   "DELETE /spieler/{spieler_id}/saisons/{saison_id}": SHARED_READER,
