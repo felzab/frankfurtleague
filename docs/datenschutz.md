@@ -48,12 +48,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 - **Every participant answers for themselves through the website, and nobody consents on anybody
   else's behalf.** A pupil registers themselves; a referee is entered by an administrator and a
-  contact person by whoever submits their school's application, and each of them confirms their own
-  entry through their own link — except a contact seat an administrator fills in the junction
-  contacts editor, whose person nothing tells of it
-  ([section 11](#11-open-and-owed-a-decision)). No route creates a player and no payload carries a
-  consent record, so an administrator can neither create one nor assume, enter or transcribe a
-  consent on anybody's behalf.
+  contact person by whoever submits their school's application or by an administrator on a team's
+  season row, and each of them confirms their own entry through their own link. No route creates a
+  player and no payload carries a consent record, so an administrator can neither create one nor
+  assume, enter or transcribe a consent on anybody's behalf.
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(f) rather than an
   Einwilligung, and the only consent their block holds is the optional WhatsApp scope
