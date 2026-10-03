@@ -25,9 +25,8 @@ def is_confirmed(einwilligung: Any) -> bool:
     return isinstance(stamp, str) and stamp != ""
 
 
-# Every page that stamps a label: a name outside it is a type error at the caller rather than a
-# `KeyError` answered as a 500. The wire serves it as a plain string, so a page added here moves no
-# published schema.
+# Every page that stamps a label: a name outside it is a type error rather than a 500. The wire
+# serves a plain string, so a page added here moves no published schema.
 Seite = Literal[
     "bewerbung",
     "bestaetigung_kontakt",

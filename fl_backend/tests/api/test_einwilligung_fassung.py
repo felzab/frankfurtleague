@@ -70,10 +70,9 @@ class TestTheLabelAWriteStamps:
 
 
 def as_registered(label: str) -> dict[str, Any]:
-    """One label as the registry holds it, spelled field by field here rather than through the read's own mapping.
+    """One label as the registry holds it, spelled here rather than by `served_fassung`.
 
-    The read and the document are both built by `served_fassung`, so a field it dropped or mistook
-    would agree with itself in both; only the registry is a second witness.
+    The read and the document share that builder, so a field it dropped would agree with itself in both.
     """
 
     fassung = FASSUNGEN[label]
