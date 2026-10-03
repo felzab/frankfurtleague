@@ -303,6 +303,21 @@ _SPIELERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
+# The pupil page once a registration's fate follows the team's decision: only the retention paragraph,
+# which promised the details until the next season's registration closed, is its own.
+_SPIELERSEITE_4: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        **_SPIELERSEITE_3,
+        "frist": (
+            "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du "
+            "kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du sie, behalten wir sie, bis "
+            "Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in "
+            "Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende "
+            "der Saison nicht entschieden, löschen wir sie dann."
+        ),
+    }
+)
+
 # The account page's three controls, each a page of its own: a press there is no confirmation, so
 # it never stamps a confirmation page's label, and the words beside the switch say what it does now.
 _KONTO_SPIELER: Final[Mapping[str, str]] = MappingProxyType(
@@ -1249,6 +1264,19 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 }
             ),
         ),
+        "2026-10-spielerseite-4": Fassung(
+            seite="bestaetigung_spieler",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_SPIELERSEITE_4.values()),
+            absaetze_nach_schluessel=_SPIELERSEITE_4,
+            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
+                    "intern": "Intern: nur Nummer und Position, ohne Namen",
+                }
+            ),
+        ),
         "2026-10-konto-spieler": Fassung(
             seite="konto_spieler",
             gilt_ab=date(2026, 10, 3),
@@ -1295,7 +1323,7 @@ LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
         "bewerbung": "2026-09-bestaetigung-5",
         "bestaetigung_kontakt": "2026-09-bestaetigungsseite-6",
         "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung",
-        "bestaetigung_spieler": "2026-09-spielerseite-3",
+        "bestaetigung_spieler": "2026-10-spielerseite-4",
         "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
         "konto_spieler": "2026-10-konto-spieler",
         "konto_schiedsrichter": "2026-10-konto-schiedsrichter",

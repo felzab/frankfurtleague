@@ -56,6 +56,7 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-konto-schiedsrichter": "ce42b5fbac90d520a1aa204e169ecc3c211502287bf9e94b9022331e6bb72e21",
     "2026-10-konto-kontakt": "5ce576610f7d3131202dd6d9c5c99e7dd531fe3de7bd7fc4194e78e28c4b4526",
     "2026-10-bestaetigungsseite-verwaltung": "31ee5b3c9b17f8c270366bac62fce94975593e81f9330f012cbad508b6c3fc87",
+    "2026-10-spielerseite-4": "d5a5751c1206a0d769e60e6713a73166d45962e04cb5115d6f568e87797289ea",
 }
 
 
@@ -167,6 +168,26 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
         (
             "medien",
             "widerruf",
+        ),
+    ),
+    "2026-10-spielerseite-4": (
+        "bestaetigung_spieler",
+        date(2026, 10, 3),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "veroeffentlichung",
+            "medien",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickEinwilligung",
+            "klickHinweise",
         ),
     ),
     "2026-10-bestaetigungsseite-verwaltung": (
@@ -286,6 +307,17 @@ class TestTheRegistryOfWordings:
         assert list(verwaltung.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
         assert anders == {"worum"}
         assert (verwaltung.schalter, dict(verwaltung.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
+
+    def test_the_pupil_page_changed_its_retention_paragraph_alone(self):
+        """The running pupil label is the earlier one but for when a registration goes, which the notice states the same way."""
+
+        earlier = FASSUNGEN["2026-09-spielerseite-3"].absaetze_nach_schluessel
+        running = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]].absaetze_nach_schluessel
+        assert earlier is not None and running is not None
+
+        assert {key for key, text in running.items() if earlier.get(key) != text} == {"frist"}
+        assert "bis in der nächsten Saison die Registrierung geschlossen ist" not in running["frist"]
+        assert "einen Monat nach der Entscheidung" in running["frist"]
 
     def test_no_word_is_empty_or_padded(self):
         for label, fassung in FASSUNGEN.items():

@@ -514,7 +514,7 @@ class TestThePageALinkOpens:
             pytest.param(mit_eintrag(BEWERBER_EINTRAG), VERWALTUNG_SEITE, id="the administration's page on an applicant-named seat"),
             pytest.param(mit_eintrag(NEUBESETZUNG_EINTRAG, datum="2026-03-27"), BEWERBER_SEITE, id="the applicant's page on a reseated seat"),
             pytest.param(mit_eintrag(BEWERBER_EINTRAG), "2026-09-bestaetigungsseite-5", id="a superseded label of the right page"),
-            pytest.param(mit_eintrag(BEWERBER_EINTRAG), "2026-09-spielerseite-3", id="another page's running label"),
+            pytest.param(mit_eintrag(BEWERBER_EINTRAG), LAUFENDE_FASSUNGEN["bestaetigung_spieler"], id="another page's running label"),
         ],
     )
     def test_an_answer_naming_any_other_label_is_refused_and_spends_nothing(
