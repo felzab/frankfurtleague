@@ -1184,7 +1184,7 @@ const SCOPED_BANS = [
       selector:
         "ExpressionStatement[directive=/^use cache/], :matches(CallExpression > Identifier.callee, CallExpression > MemberExpression.callee > Identifier.property, ImportSpecifier > Identifier.imported)[name=/^(?:cacheTag|cacheLife)$/], CallExpression > MemberExpression.callee[computed=true] > Literal.property[value=/^(?:cacheTag|cacheLife)$/]",
       message:
-        'This module caches no read: `"use cache"` keys on the arguments, not the caller, so an admin read would become a shared slot (docs/frontend/spec.md §1.2).',
+        'This module caches no read: `"use cache"` keys on the arguments, not the caller, so a read made for one signed-in administrator or seat holder would become a slot every caller shares (docs/frontend/spec.md §1.2).',
     },
   ],
   [
