@@ -1,4 +1,4 @@
-import { isRefusal, ZUGANG_WEG } from "@/shared/utils/actionError";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -32,9 +32,6 @@ export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors
   if (error.serverErrorCode === "REQ-SPERRLISTE-003") {
     return { fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." } };
   }
-
-  // The acting administrator's own grant went while the page stood: a banner, since no box repairs it.
-  if (error.serverErrorCode === "REQ-BERECHTIGUNG-006") return { error: ZUGANG_WEG };
 
   return null;
 }
