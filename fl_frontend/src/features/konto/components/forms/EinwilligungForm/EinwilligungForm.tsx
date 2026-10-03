@@ -40,6 +40,8 @@ export type EinwilligungWorte = {
   readonly textVersion: string;
   readonly umfang?: { readonly frage: string; readonly optionen: Readonly<Record<Umfang, string>>; readonly absatz: ReactNode };
   readonly medien: { readonly schalter: string; readonly absatz: ReactNode };
+  /** What a change takes effect from, and that a record granting no panel takes a withdrawal alone. */
+  readonly widerruf: ReactNode;
 };
 
 /** What a press sends: the whole record's choices, so moving one never resets the other. */
@@ -54,6 +56,7 @@ export function EinwilligungForm({
   worte,
   gespeichert,
   medienAngeboten,
+  erteilbar,
   speichereAction,
 }: {
   worte: EinwilligungWorte;
@@ -61,6 +64,8 @@ export function EinwilligungForm({
   gespeichert: EinwilligungWahl;
   /** The backend's verdict on the person's age; a media consent already given stays withdrawable without it. */
   medienAngeboten: boolean;
+  /** Whether the record admits a grant; one that grants no panel takes a withdrawal alone, which is never closed. */
+  erteilbar: boolean;
   speichereAction: (antwort: EinwilligungAntwort) => Promise<{ readonly success: true } | ActionFailure>;
 }) {
   const router = useRouter();
@@ -68,6 +73,7 @@ export function EinwilligungForm({
   const frageId = useId();
   const umfangAbsatzId = useId();
   const medienAbsatzId = useId();
+  const widerrufId = useId();
 
   // Shown until the press's answer re-reads the page: the action's spine refreshes it after a landed
   // write, and a refused one falls back to what the page last read.
@@ -109,14 +115,22 @@ export function EinwilligungForm({
               if (gewaehlt !== undefined && gewaehlt !== wahl.umfang) waehle({ ...wahl, umfang: gewaehlt });
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
-            {UMFANG_REIHENFOLGE.map((option) => (
-              <ToggleButton
-                key={option}
-                id={option}
-                className={OPTION_CHIP_CLASSES}>
-                {umfang.optionen[option]}
-              </ToggleButton>
-            ))}
+            {UMFANG_REIHENFOLGE.map((option) => {
+              // The wider publication is the grant: closed on a record granting no panel, unless the
+              // record holds it, and the other chip then withdraws it.
+              const geschlossen = !erteilbar && option === "kader_oeffentlich" && gespeichert.umfang !== option;
+
+              return (
+                <ToggleButton
+                  key={option}
+                  id={option}
+                  isDisabled={geschlossen}
+                  aria-describedby={geschlossen ? widerrufId : undefined}
+                  className={OPTION_CHIP_CLASSES}>
+                  {umfang.optionen[option]}
+                </ToggleButton>
+              );
+            })}
           </ToggleButtonGroup>
           <p
             id={umfangAbsatzId}
@@ -127,9 +141,10 @@ export function EinwilligungForm({
       )}
 
       <div className="flex w-full flex-col gap-y-3">
-        {/* Offered while it is on as well: a withdrawal stands open on every record that holds a consent,
-            whatever the age verdict says about granting one. */}
-        {(medienAngeboten || wahl.medien) && (
+        {/* Offered while the stored record holds it on, whatever may be granted: a withdrawal stands open
+            on every record. The stored record, never the pressed value, so a switch just turned off keeps
+            the focus until the page is read again. */}
+        {((erteilbar && medienAngeboten) || gespeichert.medien) && (
           <Switch
             className="flex w-full flex-col gap-y-1"
             aria-describedby={medienAbsatzId}
@@ -149,6 +164,12 @@ export function EinwilligungForm({
           {worte.medien.absatz}
         </p>
       </div>
+
+      <p
+        id={widerrufId}
+        className={ABSATZ_CLASSES}>
+        {worte.widerruf}
+      </p>
     </div>
   );
 }

@@ -33,10 +33,11 @@ const WORTE: EinwilligungWorte = {
     schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
     absatz: "Fotos, Videos und Interviews kannst Du hier zurücknehmen.",
   },
+  widerruf: "Bist Du nicht mehr dabei, kannst Du hier nur zurücknehmen.",
 };
 
 /** A contact seat's record: a media choice and no publication choice. */
-const SITZ_WORTE: EinwilligungWorte = { textVersion: WORTE.textVersion, medien: WORTE.medien };
+const SITZ_WORTE: EinwilligungWorte = { textVersion: WORTE.textVersion, medien: WORTE.medien, widerruf: WORTE.widerruf };
 
 const GESPEICHERT: EinwilligungWahl = { umfang: "kader_oeffentlich", medien: false };
 
@@ -61,10 +62,11 @@ function renderForm({
   worte = WORTE,
   gespeichert = GESPEICHERT,
   medienAngeboten = true,
-}: { worte?: EinwilligungWorte; gespeichert?: EinwilligungWahl; medienAngeboten?: boolean } = {}) {
+  erteilbar = true,
+}: { worte?: EinwilligungWorte; gespeichert?: EinwilligungWahl; medienAngeboten?: boolean; erteilbar?: boolean } = {}) {
   const { router } = recordingRouter();
   const user = userEvent.setup();
-  const mounted = render(underNext(h(EinwilligungForm, { worte, gespeichert, medienAngeboten, speichereAction }), { router }));
+  const mounted = render(underNext(h(EinwilligungForm, { worte, gespeichert, medienAngeboten, erteilbar, speichereAction }), { router }));
 
   return { ...mounted, user };
 }
@@ -209,6 +211,42 @@ describe("when the media switch is offered", () => {
   it("offers the switch while it is on, so the consent can be withdrawn", async () => {
     const { user } = renderForm({ gespeichert: { umfang: "intern", medien: true }, medienAngeboten: false });
 
+    await user.click(screen.getByRole("switch", { name: WORTE.medien.schalter }));
+    await act(answered);
+
+    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion }]);
+  });
+});
+
+/* A record granting no panel (a retired pupil or referee, a past season's seat) takes a withdrawal and
+   never a grant, so the page offers no press the backend refuses. */
+describe("on a record that takes a withdrawal alone", () => {
+  it("closes the wider publication and says why on the chip", () => {
+    renderForm({ gespeichert: { umfang: "intern", medien: false }, erteilbar: false });
+
+    const chip = screen.getByRole("radio", { name: "Vorname und Initiale" });
+    assert.ok(
+      chip.hasAttribute("disabled") || chip.getAttribute("aria-disabled") === "true",
+      "a grant is offered on a record granting no panel",
+    );
+    assert.equal(describedBy(chip).textContent, WORTE.widerruf);
+  });
+
+  it("keeps a wider publication the record holds withdrawable", async () => {
+    const { user } = renderForm({ gespeichert: { umfang: "kader_oeffentlich", medien: false }, erteilbar: false });
+
+    await user.click(screen.getByRole("radio", { name: "Nur Nummer und Position" }));
+    await act(answered);
+
+    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion }]);
+  });
+
+  it("leaves an off media switch out whatever the age allows, and keeps an on one withdrawable", async () => {
+    const aus = renderForm({ gespeichert: { umfang: "intern", medien: false }, erteilbar: false });
+    assert.equal(screen.queryAllByRole("switch").length, 0, "a grant is offered on a record granting no panel");
+    aus.unmount();
+
+    const { user } = renderForm({ gespeichert: { umfang: "intern", medien: true }, erteilbar: false });
     await user.click(screen.getByRole("switch", { name: WORTE.medien.schalter }));
     await act(answered);
 
