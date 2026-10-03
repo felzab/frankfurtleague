@@ -140,13 +140,14 @@ def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False)
 
     cleared: dict[str, Any] = {f"kontakte.{slot}": None for slot in slots}
 
-    # The seat's confirmation bookkeeping goes with the person: a live link would otherwise
-    # outlive the erasure and confirm a slot that names nobody.
+    # The seat's confirmation bookkeeping goes with the person, on an application and on a season row
+    # alike: a live link would otherwise outlive the erasure and confirm a slot that names nobody.
     if bestaetigungen:
         cleared.update({f"bestaetigungen.{slot}": None for slot in slots})
 
         # An application's submission digest was taken over this person's details too, and a hash of
-        # personal data is still personal data (`docs/backend/spec.md :: I346`).
+        # personal data is still personal data (`docs/backend/spec.md :: I346`). A season row holds
+        # none, so the `$unset` there removes nothing.
         return {"$set": cleared, "$unset": {"idempotenz_fingerabdruck": ""}}
 
     return {"$set": cleared}

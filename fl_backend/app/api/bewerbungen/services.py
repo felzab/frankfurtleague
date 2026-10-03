@@ -681,25 +681,96 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> W
     return None
 
 
-def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str, gesperrt: bool) -> FLBewerbungEinwilligungZustand:
-    """What a reopened link shows: the ban first (`docs/backend/spec.md :: I515`), then a stamp.
-
-    A confirmed seat on an accepted application reads as confirmed.
-    """
+def _zustand(*, kontakte: Any, bestaetigungen: Any, seat: str, over: bool, gesperrt: bool) -> FLBewerbungEinwilligungZustand:
+    """The one ranking both records' links are shown in: the ban first (`docs/backend/spec.md :: I515`), then a stamp."""
 
     if gesperrt:
         return "gesperrt"
 
-    if _seat_is_confirmed(bewerbung_raw.get("kontakte"), seat):
+    if _seat_is_confirmed(kontakte, seat):
         return "bestaetigt"
 
-    if _declined_on(bewerbung_raw.get("bestaetigungen"), seat) is not None:
+    if _declined_on(bestaetigungen, seat) is not None:
         return "abgelehnt"
 
-    if link_is_over(bestaetigungsfrist=bewerbung_raw.get("bestaetigungsfrist"), status=bewerbung_raw.get("status"), today=today):
-        return "abgelaufen"
+    return "abgelaufen" if over else "gueltig"
 
-    return "gueltig"
+
+def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str, gesperrt: bool) -> FLBewerbungEinwilligungZustand:
+    """What a reopened link shows. A confirmed seat on an accepted application reads as confirmed."""
+
+    over = link_is_over(bestaetigungsfrist=bewerbung_raw.get("bestaetigungsfrist"), status=bewerbung_raw.get("status"), today=today)
+
+    return _zustand(
+        kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=seat, over=over, gesperrt=gesperrt
+    )
+
+
+# --- A TEAM'S SEASON ROW. A contact seat an administrator typed in is mailed its own link, resolved
+# by the application's two operations: the slots and stamps are one shape, only the deadline's home
+# differing.
+
+# One hash per entry: no reminder chases these links, so nothing keeps a second one live.
+SAISON_TOKEN_FIELD: Final = "token_hash"
+
+
+def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
+    """Every seat path, so the hash alone finds the seat on whichever row holds it."""
+
+    return {"$or": [{f"bestaetigungen.{seat}.{SAISON_TOKEN_FIELD}": token_hash} for seat in KONTAKT_SEATS]}
+
+
+# An INCLUSION for `EINWILLIGUNG_ANSICHT_FIELDS`' reason: the rest of the row is what a base-tier read
+# must not hold. The address is the ban list's alone, and the club's season name is the page's
+# `schule`.
+SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
+    **_per_seat("bestaetigungen", SAISON_TOKEN_FIELD, "abgelehnt_am", "frist"),
+    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version"),
+    "kontakte.trainer_ist_zugleich": 1,
+    "saison_id": 1,
+    "name": 1,
+}
+
+
+def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:
+    """The deadline the seat's own link carries: each seat is minted on its own day, so the row holds none."""
+
+    entry = bestaetigungen.get(seat) if isinstance(bestaetigungen, Mapping) else None
+
+    return entry.get("frist") if isinstance(entry, Mapping) else None
+
+
+def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt: bool) -> FLBewerbungEinwilligungZustand:
+    """What a reopened season-row link shows, ranked as an application's is; only its own deadline makes it over."""
+
+    bestaetigungen = row.get("bestaetigungen")
+    over = _deadline_passed(bestaetigungsfrist=saison_frist_of(bestaetigungen=bestaetigungen, seat=seat), today=today)
+
+    return _zustand(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat, over=over, gesperrt=gesperrt)
+
+
+def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
+    """`REQ-BEWERBUNG-017` on a season row, whose link nothing decides: only its deadline ends it, and a fresh link restarts it."""
+
+    if not _deadline_passed(bestaetigungsfrist=frist, today=today):
+        return None
+
+    return WriteRefusal(
+        error_code=BEWERBUNG_TOKEN_PAST_DEADLINE,
+        status=HTTPStatus.CONFLICT,
+        message="this link's confirmation deadline has passed; a fresh link from the administration reopens it",
+    )
+
+
+def compose_saison_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
+    """A Widerspruch empties the person's slots and records the day on the link entry beside each, where the emptying cannot reach."""
+
+    written: dict[str, Any] = {}
+    for seat in seats:
+        written[f"kontakte.{seat}"] = None
+        written[f"bestaetigungen.{seat}.abgelehnt_am"] = today
+
+    return {"$set": written}
 
 
 def ausstehende_seats(*, kontakte: Any) -> list[FLKontaktRolle]:

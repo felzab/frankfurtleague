@@ -4,6 +4,7 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
+from app.api.bewerbungen.services import bestaetigungsfrist_from
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
@@ -17,6 +18,8 @@ from app.api.teams.schemas import (
     FLGruppen,
     FLGruppenNames,
     FLGruppenTeam,
+    FLKontaktMint,
+    FLKontaktRolle,
     FLPublicTeamsFilterParams,
     FLTeam,
     FLTeamsFilterParams,
@@ -992,8 +995,188 @@ def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
     return composed
 
 
+# --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at
+# `bestaetigungen.<slot>` as an application keeps its own.
+
+
+def compose_kontakt_bestaetigung(*, token_hash: str, today: str) -> dict[str, Any]:
+    """One seat's fresh link: a live hash, mailed today, its deadline the application's bound, nobody declined.
+
+    Written WHOLE wherever a link is minted, so the delivery state of the message an older link went
+    out in goes with it.
+    """
+
+    return {"token_hash": token_hash, "verschickt_am": today, "frist": bestaetigungsfrist_from(today=today), "abgelehnt_am": None}
+
+
+# The wire's closed set, read off rather than spelled, so a seat this module answers is typed as one.
+KONTAKT_ROLLEN: tuple[FLKontaktRolle, ...] = get_args(FLKontaktRolle)
+
+
+def in_declaration_order(seats: Iterable[str]) -> list[FLKontaktRolle]:
+    """The named seats in the order the block declares them, each once."""
+
+    named = set(seats)
+
+    return [rolle for rolle in KONTAKT_ROLLEN if rolle in named]
+
+
+def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
+    """Each person the block seats, as the filled seats they hold, the Trainer beside the seat `trainer_ist_zugleich` names.
+
+    One link per PERSON: two would leave the first answering for a seat the second already answered.
+    """
+
+    block = kontakte if isinstance(kontakte, Mapping) else {}
+    zugleich = block.get("trainer_ist_zugleich")
+    people: list[tuple[FLKontaktRolle, ...]] = []
+
+    for slot in KONTAKT_ROLLEN:
+        if slot == zugleich:
+            continue
+
+        held: tuple[FLKontaktRolle, ...] = (
+            (slot, *in_declaration_order([zugleich])) if slot == "trainer" and isinstance(zugleich, str) else (slot,)
+        )
+        filled: tuple[FLKontaktRolle, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
+        if filled:
+            people.append(filled)
+
+    return people
+
+
+def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktRolle, ...]]:
+    """Each person this save NEWLY seats, as the unconfirmed seats one fresh link answers for.
+
+    Newly is `_seat_held_by`'s identity, so a corrected name is a handover here too: the seat's last
+    link reached somebody this save may have just replaced.
+    """
+
+    block = kontakte if isinstance(kontakte, Mapping) else {}
+    stored_block = stored if isinstance(stored, Mapping) else {}
+    owed: list[tuple[FLKontaktRolle, ...]] = []
+
+    for person in people_of(block):
+        if all(_seat_held_by(stored_block.get(seat), seat=block[seat]) is not None for seat in person):
+            continue
+
+        # A seat of the pair this person has already confirmed keeps its stamp and its link.
+        unconfirmed: tuple[FLKontaktRolle, ...] = tuple(seat for seat in person if not _seat_is_stamped(block[seat]))
+        if unconfirmed:
+            owed.append(unconfirmed)
+
+    return owed
+
+
+def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> Any:
+    """The whole link block a contacts save leaves; null with a cleared block.
+
+    Whole rather than dotted: a `$set` into an absent or null block leaves it short of its keys, or is
+    `PathNotViable`.
+    """
+
+    if not isinstance(kontakte, Mapping):
+        return None
+
+    stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
+    stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
+    block: dict[str, Any] = {}
+
+    for slot in KONTAKT_SLOTS:
+        if slot in minted:
+            block[slot] = minted[slot]
+            continue
+
+        seat = kontakte.get(slot)
+        held = stored_slots.get(slot)
+        # A seat staying empty keeps a Widerspruch's record of itself; a seat the save empties, or hands
+        # to a person it mints nothing for, loses its link, so the person who left it holds nothing live.
+        keeps = held is None if not isinstance(seat, Mapping) else _seat_held_by(held, seat=seat) is not None
+        block[slot] = stored_links.get(slot) if keeps else None
+
+    return block
+
+
+def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
+    """The stored link block with the minted seats replaced, every other seat as it stood."""
+
+    stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
+
+    return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_SLOTS}
+
+
+def mint_answer(
+    *, token: str, seats: Sequence[FLKontaktRolle], kontakte: Mapping[str, Any], row: Mapping[str, Any], frist: str
+) -> FLKontaktMint:
+    """One person's raw link with what its mail names, every value off the row this transaction wrote, the seats' person being one."""
+
+    person = kontakte[seats[0]]
+
+    return FLKontaktMint(
+        token=token,
+        rollen=list(seats),
+        email=str(person["email"]),
+        frist=frist,
+        vorname=str(person["vorname"]),
+        schule=str(row.get("name") or ""),
+    )
+
+
+def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktRolle) -> tuple[FLKontaktRolle, ...]:
+    """The pressed seat and, where one person holds both, the other seat they have not confirmed."""
+
+    for person in people_of(kontakte):
+        if seat in person:
+            return tuple(held for held in person if held == seat or not _seat_is_stamped(kontakte[held]))
+
+    return (seat,)
+
+
 # What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 KONTAKTE_MOVED_UNDER_THE_SAVE = "REQ-KONTAKT-001"
+KONTAKT_SITZ_OHNE_BESTAETIGUNG = "REQ-KONTAKT-002"
+KONTAKT_SITZ_GESPERRT = "REQ-KONTAKT-003"
+
+
+def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | None:
+    """Why this seat is sent no fresh link, or `None`: it holds nobody, or its person has confirmed it.
+
+    A fresh link on a confirmed seat would replace a spent one with a credential nothing can answer.
+    """
+
+    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
+
+    if not isinstance(slot, Mapping):
+        return WriteRefusal(
+            error_code=KONTAKT_SITZ_OHNE_BESTAETIGUNG,
+            status=HTTPStatus.CONFLICT,
+            message=f"the seat '{seat}' holds nobody, so there is nobody to send a confirmation link to",
+        )
+
+    if _seat_is_stamped(slot):
+        return WriteRefusal(
+            error_code=KONTAKT_SITZ_OHNE_BESTAETIGUNG,
+            status=HTTPStatus.CONFLICT,
+            message=f"the person in the seat '{seat}' has already confirmed it; a link is answered once",
+        )
+
+    return None
+
+
+def find_kontakt_sitz_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-KONTAKT-003`: the seat's address is on the ban list, so no link is minted for it.
+
+    409, as every administrator's write naming a barred address is (`docs/backend/spec.md :: 1.4`).
+    """
+
+    if not gesperrt:
+        return None
+
+    return WriteRefusal(
+        error_code=KONTAKT_SITZ_GESPERRT,
+        status=HTTPStatus.CONFLICT,
+        message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
+    )
 
 
 def find_kontakte_precondition_refusal(*, erwartet: str, stored: Any) -> WriteRefusal | None:

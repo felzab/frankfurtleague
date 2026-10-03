@@ -1,5 +1,5 @@
-from collections.abc import Callable
-from typing import Annotated
+from collections.abc import Callable, Sequence
+from typing import Annotated, Any
 
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends
@@ -16,7 +16,14 @@ from app.api.zustellung.schemas import (
     FLZustellungResponse,
     FLZustellungZiel,
 )
-from app.api.zustellung.services import ABGEWIESENER_VERSAND_STAND, ZIEL_PFADE, compose_ziel_zustellung_update, zustellung_projektion
+from app.api.zustellung.services import (
+    ABGEWIESENER_VERSAND_STAND,
+    ZIEL_PFADE,
+    compose_ziel_zustellung_update,
+    traeger_halter,
+    traeger_pfade,
+    zustellung_projektion,
+)
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import DB, DBClient
@@ -33,38 +40,45 @@ router = APIRouter(
 )
 
 
+def _judged(judge: Callable[..., bool], halter: Any, schluessel: str) -> bool:
+    return judge(bestaetigungen=halter, seat=schluessel)
+
+
 async def _apply(
     *,
     db: DB,
     db_client: DBClient,
     ziel: FLZustellungZiel,
     ziel_id: ObjectId,
+    rollen: Sequence[str],
     judge: Callable[..., bool],
     stand: str,
     nachricht_id: str,
     grund: str | None,
     am: str,
 ) -> FLZustellungResponse:
-    """Judge this record and write it where it qualifies, in one transaction.
+    """Judge every carrier this record names and write the ones that qualify, in one transaction.
 
     Judged in-session because a re-send landing between the read and the write mints the very
     `nachricht_id` the comparison exists to reject.
     """
 
-    pfad = ZIEL_PFADE[ziel]
-    collection = db[pfad.collection]
+    collection = db[ZIEL_PFADE[ziel].collection]
+    traeger = traeger_pfade(ziel, rollen)
 
     async def write_the_state(session: AsyncClientSession) -> bool:
-        raw = await pull_one_from_db(collection=collection, db_filter={"_id": ziel_id}, projection=zustellung_projektion(pfad), session=session)
-        # The carrier is what the judges read a seat's entry off, so the projected document stands in
-        # for the application's seat block and the carrier's key for the seat.
-        if not judge(bestaetigungen=raw, seat=pfad.traeger):
+        projection = zustellung_projektion(traeger)
+        raw = await pull_one_from_db(collection=collection, db_filter={"_id": ziel_id}, projection=projection, session=session)
+        # The mapping a carrier sits in stands in for the application's seat block and the carrier's
+        # key for the seat, which is what the judges read an entry off.
+        applying = [pfad for pfad in traeger if _judged(judge, *traeger_halter(raw, pfad))]
+        if not applying:
             return False
 
         await patch_one_in_db(
             collection=collection,
             db_filter={"_id": ziel_id},
-            update=compose_ziel_zustellung_update(pfad=pfad, nachricht_id=nachricht_id, stand=stand, grund=grund, am=am),
+            update=compose_ziel_zustellung_update(traeger=applying, nachricht_id=nachricht_id, stand=stand, grund=grund, am=am),
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
@@ -104,6 +118,7 @@ async def angenommen_zustellung(
         db_client=db_client,
         ziel=angenommen_data.ziel,
         ziel_id=angenommen_data.ziel_id,
+        rollen=angenommen_data.rollen,
         judge=lambda *, bestaetigungen, seat: zustellung_send_applies(bestaetigungen=bestaetigungen, seat=seat, am=angenommen_data.am),
         stand="angenommen",
         nachricht_id=angenommen_data.nachricht_id,
@@ -142,6 +157,7 @@ async def abgewiesen_zustellung(
         db_client=db_client,
         ziel=abgewiesen_data.ziel,
         ziel_id=abgewiesen_data.ziel_id,
+        rollen=abgewiesen_data.rollen,
         judge=lambda *, bestaetigungen, seat: zustellung_send_applies(bestaetigungen=bestaetigungen, seat=seat, am=abgewiesen_data.am),
         stand=ABGEWIESENER_VERSAND_STAND,
         # Empty by construction: no message was minted, so a synthetic id would let a real event
@@ -180,6 +196,7 @@ async def post_zustellung(
         db_client=db_client,
         ziel=ereignis_data.ziel,
         ziel_id=ereignis_data.ziel_id,
+        rollen=ereignis_data.rollen,
         judge=lambda *, bestaetigungen, seat: zustellung_event_applies(
             bestaetigungen=bestaetigungen, seat=seat, nachricht_id=ereignis_data.nachricht_id, am=ereignis_data.am
         ),

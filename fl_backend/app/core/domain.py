@@ -858,8 +858,19 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
-        "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`)",
+        "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`). A seat's own person "
+        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum` "
+        "and the stamp on every seat that person holds, and a Widerspruch nulls those slots",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
+    ),
+    FieldPolicy(
+        Collection.SAISON_TEAMS,
+        "bestaetigungen",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block: the contacts save mints an entry for each person it newly seats and voids the "
+        "entry of a seat it empties or hands on, the per-seat re-send replaces one person's entries, a Widerspruch "
+        "stamps `abgelehnt_am`, and the clearing, the replacement and an erasure null it with the people. A client able "
+        "to name a `token_hash` is a client able to mint its own link",
     ),
     FieldPolicy(
         Collection.SAISON_TEAMS,
@@ -1617,6 +1628,24 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_saison_team_kontakte.py::TestAnErasureLandingMidSaveIsNotUndone",
     ),
     Rule(
+        code="REQ-KONTAKT-002",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen",
+        aggregate="Saison",
+        summary="a contact seat is sent a fresh confirmation link only while it holds a person who has not confirmed it",
+        implemented_by="app.api.teams.services.find_kontakt_sitz_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestTheResend",
+    ),
+    Rule(
+        code="REQ-KONTAKT-003",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen",
+        aggregate="Saison",
+        summary="no confirmation link is re-sent to a contact address the ban list still holds",
+        implemented_by="app.api.teams.services.find_kontakt_sitz_gesperrt_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestABarredAddressIsMintedNoLink",
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /teams/{team_id}",
@@ -2018,7 +2047,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.NOT_FOUND,
         operation="POST /bewerbungen/einwilligung/ansicht · POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
-        summary="a token no seat of any application holds opens nothing, whether unknown, replaced or deleted with its application",
+        summary=(
+            "a token no seat of any application or team's season row holds opens nothing, whether unknown, replaced, "
+            "deleted with its application or cleared with the row's contacts"
+        ),
         implemented_by="app.api.bewerbungen.services.find_unknown_token_refusal",
         tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestATokenNoSeatHolds",
     ),
@@ -2036,7 +2068,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
-        summary="a seat is not answered while the application's confirmation deadline has passed, which a re-send restarts",
+        summary=(
+            "a seat is not answered while its link's confirmation deadline has passed, the application's or the seat's own, "
+            "which a re-send restarts"
+        ),
         implemented_by="app.api.bewerbungen.services.find_expired_token_refusal",
         tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestALinkWhoseTimeIsOver",
     ),

@@ -243,6 +243,16 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 3](#3-the-current-pupil-records-are-reset-once)); no link is ever minted to a
   placeholder, the mint refusing it as no address
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
+- **A contact person an administrator enters on a team's season row is mailed a link of their own,
+  because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning
+  above. The save mints one for each person it newly seats
+  (`fl_backend/app/api/teams/services.py :: links_owed`), and an administrator re-sends one to any
+  seat still unconfirmed, a seat entered before the link existed included
+  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
+  fourteen days, and on it the person confirms the seat or makes their Widerspruch, which empties it.
+  No link is minted to an address the ban list holds, so that person is told nothing by the league;
+  the notice's own sentence saying so is the published page's
+  (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`).
 
 ## 3. The current pupil records are reset once
 
@@ -761,17 +771,6 @@ the `Entry` column carries a token only where one still resolves in that file.
   argues it, and `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS` performs it. The
   question to put: whether signing for a school is contractual capacity at all, and so whether
   eighteen is the floor it asks.
-- **A contact seat an administrator fills in the junction contacts editor is told of nothing, for
-  the Datenschutzexperte.** Such a seat is stored unconfirmed, and nothing mails its person: the
-  season's invitation goes only to seats whose person confirmed their own
-  (`fl_backend/app/api/einladungen/services.py :: plan_einladung_versand`), and the published notice
-  describes the application route alone. Art. 14 (3)(a) asks that a person whose data was not
-  collected from them be told what Art. 14 (1) and (2) list, its source and its categories among it,
-  within a reasonable period and a month at the latest, and for these people nothing does. The
-  question to put: whether entering such a seat mints and mails its person the confirmation link the
-  application route already sends — the reasoning that made a referee's address required
-  ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), applied to this class — or an
-  administrator informs the person by hand within that period.
 - **Whether a refusal the code takes alone is a decision under Art. 22, for the
   Datenschutzexperte.** [Section 2](#2-consent-comes-from-the-person-from-16-or-18) records the
   disclosure and the human review I ruled, and leaves the threshold aside. The review Art. 22 (3)

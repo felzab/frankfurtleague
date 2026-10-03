@@ -3772,7 +3772,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat\nis stored as entered administratively.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat\nis stored as entered administratively.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing\nlive. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A save minting\na link is refused `REQ-AUTH-009` as the clearing is; a save minting none is not.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -3915,6 +3915,85 @@
           },
           "400": {
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": {
+      "post": {
+        "summary": "Send one contact seat a fresh confirmation link",
+        "description": "Mint a fresh confirmation link for one contact seat and answer it raw once, for the caller to mail.\n\nIt replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:\nthe previous link stops opening anything, the delivery state of the message it went out in goes with it, and the\ndeadline restarts from today. A seat stored before links were minted, which holds none, is sent its first.\n\nRefused where the seat holds nobody or its person has already confirmed it (`REQ-KONTAKT-002`), and where its\naddress is on the ban list (`REQ-KONTAKT-003`). 404 for a team and season holding no row, and for a path naming no\nseat. Every call mints, so every call from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused\n`REQ-AUTH-009`.",
+        "operationId": "einladen_kontakt_api_v0_teams__team_id__saisons__saison_id__kontakte__seat__bestaetigung_einladen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "seat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Seat"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKontaktEinladenResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-KONTAKT-002.REQ-KONTAKT-003"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
@@ -6853,7 +6932,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list\nholds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred\nperson nothing to press.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list\nholds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred\nperson nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed, nothing\ndeciding a season row.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -6906,8 +6985,8 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "summary": "Confirm or decline one seat of a Bewerbung",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), a consent from an address the ban list holds\nnow, whenever the link was minted (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds\nask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing. A\ndecline is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
+        "summary": "Confirm or decline one seat of a Bewerbung or of a team's season row",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), a consent from an address the ban list holds\nnow, whenever the link was minted (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds\nask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing. A\ndecline is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -6925,7 +7004,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungEinwilligungAntwortResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLBewerbungEinwilligungAntwortResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLSaisonTeamEinwilligungAntwortResponse"
+                    }
+                  ],
+                  "title": "Response Post Einwilligung Api V0 Bewerbungen Einwilligung Post",
+                  "discriminator": {
+                    "propertyName": "quelle",
+                    "mapping": {
+                      "bewerbung": "#/components/schemas/FLBewerbungEinwilligungAntwortResponse",
+                      "saison": "#/components/schemas/FLSaisonTeamEinwilligungAntwortResponse"
+                    }
+                  }
                 }
               }
             }
@@ -9506,6 +9600,14 @@
             "title": "Acknowledged",
             "default": 1
           },
+          "quelle": {
+            "type": "string",
+            "enum": [
+              "bewerbung",
+              "saison"
+            ],
+            "title": "Quelle"
+          },
           "zustand": {
             "type": "string",
             "enum": [
@@ -9579,6 +9681,7 @@
         },
         "type": "object",
         "required": [
+          "quelle",
           "zustand",
           "saison_id",
           "schule",
@@ -9652,6 +9755,12 @@
             ],
             "title": "Acknowledged",
             "default": 1
+          },
+          "quelle": {
+            "type": "string",
+            "const": "bewerbung",
+            "title": "Quelle",
+            "default": "bewerbung"
           },
           "ergebnis": {
             "type": "string",
@@ -12675,6 +12784,43 @@
         ],
         "title": "FLKontakt"
       },
+      "FLKontaktEinladenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "saison_team_id": {
+            "type": "string",
+            "title": "Saison Team Id"
+          },
+          "bestaetigung": {
+            "$ref": "#/components/schemas/FLKontaktMint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "saison_team_id",
+          "bestaetigung"
+        ],
+        "title": "FLKontaktEinladenResponse",
+        "description": "A fresh link for one seat, and its pair where the Trainer holds both; the old link then opens nothing."
+      },
       "FLKontaktErasureAnsichtResponse": {
         "properties": {
           "acknowledged": {
@@ -12845,6 +12991,54 @@
           "datum"
         ],
         "title": "FLKontaktKenntnisnahmePayload"
+      },
+      "FLKontaktMint": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "schule": {
+            "type": "string",
+            "title": "Schule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "rollen",
+          "email",
+          "frist",
+          "vorname",
+          "schule"
+        ],
+        "title": "FLKontaktMint",
+        "description": "One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever."
       },
       "FLKontaktPayload": {
         "properties": {
@@ -13211,6 +13405,10 @@
             "type": "string",
             "title": "Team Id"
           },
+          "saison_team_id": {
+            "type": "string",
+            "title": "Saison Team Id"
+          },
           "kontakte": {
             "anyOf": [
               {
@@ -13220,6 +13418,25 @@
                 "type": "null"
               }
             ]
+          },
+          "bestaetigungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktMint"
+            },
+            "type": "array",
+            "title": "Bestaetigungen"
+          },
+          "gesperrt": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Gesperrt"
           },
           "kontakte_stand": {
             "type": "string",
@@ -13232,11 +13449,14 @@
         "required": [
           "saison_id",
           "team_id",
+          "saison_team_id",
           "kontakte",
+          "bestaetigungen",
+          "gesperrt",
           "kontakte_stand"
         ],
         "title": "FLPatchSaisonTeamKontakteResponse",
-        "description": "The block as STORED after the write, and the row it was written to.\n\nNo other field off that row: the caller sent none of them, and echoing one would invite a client\nto believe this endpoint owns it."
+        "description": "The block as STORED after the write, its row, and the links it minted.\n\nNo other field off that row: the caller sent none, and echoing one would invite a client to\nbelieve this endpoint owns it."
       },
       "FLPatchSaisonTeamPayload": {
         "properties": {
@@ -16075,6 +16295,57 @@
         ],
         "title": "FLSaisonSpielplan",
         "description": "What the generator left behind on the season it wrote.\n\nCounts rather than a hash: these are the two numbers an admin can compare against the page in\nfront of them, and a hash answers no question anyone standing there is asking."
+      },
+      "FLSaisonTeamEinwilligungAntwortResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "quelle": {
+            "type": "string",
+            "const": "saison",
+            "title": "Quelle",
+            "default": "saison"
+          },
+          "ergebnis": {
+            "type": "string",
+            "enum": [
+              "bestaetigt",
+              "abgelehnt"
+            ],
+            "title": "Ergebnis"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "whatsapp": {
+            "type": "boolean",
+            "title": "Whatsapp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ergebnis",
+          "geburtsdatum",
+          "whatsapp"
+        ],
+        "title": "FLSaisonTeamEinwilligungAntwortResponse",
+        "description": "What an answer on a season row's link did, and nothing to compose a message from.\n\nNo application stands behind the seat, so nobody is told."
       },
       "FLSaisonTeamKontakte": {
         "properties": {
@@ -19973,13 +20244,26 @@
             "enum": [
               "schiedsrichter",
               "einladung",
-              "registrierung"
+              "registrierung",
+              "kontakt"
             ],
             "title": "Ziel"
           },
           "ziel_id": {
             "type": "string",
             "title": "Ziel Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
           },
           "am": {
             "type": "string",
@@ -20006,6 +20290,7 @@
         "required": [
           "ziel",
           "ziel_id",
+          "rollen",
           "am",
           "grund"
         ],
@@ -20019,13 +20304,26 @@
             "enum": [
               "schiedsrichter",
               "einladung",
-              "registrierung"
+              "registrierung",
+              "kontakt"
             ],
             "title": "Ziel"
           },
           "ziel_id": {
             "type": "string",
             "title": "Ziel Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
           },
           "am": {
             "type": "string",
@@ -20045,6 +20343,7 @@
         "required": [
           "ziel",
           "ziel_id",
+          "rollen",
           "am",
           "nachricht_id"
         ],
@@ -20058,13 +20357,26 @@
             "enum": [
               "schiedsrichter",
               "einladung",
-              "registrierung"
+              "registrierung",
+              "kontakt"
             ],
             "title": "Ziel"
           },
           "ziel_id": {
             "type": "string",
             "title": "Ziel Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
           },
           "am": {
             "type": "string",
@@ -20108,6 +20420,7 @@
         "required": [
           "ziel",
           "ziel_id",
+          "rollen",
           "am",
           "nachricht_id",
           "stand",
@@ -21245,6 +21558,31 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-KONTAKT-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-KONTAKT-002.REQ-KONTAKT-003": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-KONTAKT-002",
+                        "REQ-KONTAKT-003"
                       ]
                     }
                   }

@@ -1,7 +1,8 @@
 import hashlib
 import json
+import re
 from collections.abc import Mapping
-from typing import Annotated, Any, Final, Literal, get_args
+from typing import Annotated, Any, Final, Literal, Self, get_args
 
 from pydantic import (
     AfterValidator,
@@ -13,8 +14,10 @@ from pydantic import (
     StringConstraints,
     TypeAdapter,
     computed_field,
+    model_validator,
 )
 
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -89,6 +92,34 @@ FLTrikotFarbe = Literal[
 # Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per
 # seat: the two are alternatives, and nothing can mean holding both.
 FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
+
+# The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
+# derives the same three from the model, and a test holds the two spellings equal.
+FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+
+
+# Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
+# start with `49` -- so the order carries nothing.
+_TELEFON_COUNTRY_CODES = ("0049", "49")
+
+
+def normalise_telefon(value: str) -> str:
+    """One spelling per telephone number, so `+49 170 …` and `0170 …` compare equal.
+
+    Digits alone, `PHONE_REGEX` admitting spaces, brackets, hyphens and dots. No German area code
+    starts with the trunk `0`, so a leading country code folds back to it.
+    """
+
+    digits = re.sub(r"[^0-9]", "", value)
+
+    for country_code in _TELEFON_COUNTRY_CODES:
+        if digits.startswith(country_code):
+            # The second `removeprefix` takes the trunk zero written as `(0)`, which is the standard
+            # German notation and the commonest spelling of all. An international-format number
+            # carries no real leading zero, so dropping one can only be right.
+            return f"0{digits.removeprefix(country_code).removeprefix('0')}"
+
+    return digits
 
 
 class FLAustritt(BaseModel):
@@ -181,6 +212,32 @@ class FLSaisonTeamKontakte(BaseModel):
     trainer_ist_zugleich: FLTrainerZugleich | None
 
 
+class FLSaisonTeamBestaetigung(BaseModel):
+    """One seat's confirmation link as the season row stores it -- and NO `token_hash`, the raw document key the link's lookup alone reads.
+
+    The row's declared shape for the drift check; no read serves it.
+    """
+
+    verschickt_am: CustomDateString
+    # STORED rather than derived from `verschickt_am` and the bound: raising the bound would otherwise
+    # move the deadline of every link already in somebody's inbox.
+    frist: CustomDateString
+    # Beside the slot rather than inside it: a Widerspruch EMPTIES the slot, and a marker in there would go with it.
+    abgelehnt_am: CustomOptionalDateString
+    # Defaulted: a fresh link knows nothing yet about its message. A mapping, the record's model
+    # (`app/api/bewerbungen/schemas.py :: FLBewerbungZustellung`) living in a slice that imports this
+    # one; the drift check reaches the record at its own path.
+    zustellung: dict[str, Any] | None = None
+
+
+class FLSaisonTeamBestaetigungen(BaseModel):
+    """The three seats' links, outside `kontakte` and mirroring its slots; nullable per seat, as the slot beside each is."""
+
+    trainer: FLSaisonTeamBestaetigung | None
+    ansprechperson: FLSaisonTeamBestaetigung | None
+    stellvertretung: FLSaisonTeamBestaetigung | None
+
+
 def _project_seat(value: Any) -> Any:
     """One seat with every READ field spelled, absent or not.
 
@@ -269,6 +326,48 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
     trainer: FLKontaktpersonPayload | None
     ansprechperson: FLKontaktpersonPayload | None
     stellvertretung: FLKontaktpersonPayload | None
+
+    @model_validator(mode="after")
+    def the_trainer_equals_the_seat_they_also_hold(self) -> Self:
+        """Where one person holds two seats, the two blocks agree field for field.
+
+        A mismatch is a drifted client, and stored it leaves two records of one person, unpaired by the
+        erasure and mailed two links.
+        """
+
+        if self.trainer_ist_zugleich is None:
+            return self
+
+        seat = getattr(self, self.trainer_ist_zugleich)
+
+        # An empty side is a seat an erasure or a Widerspruch emptied, which names nobody to compare.
+        if seat is not None and self.trainer is not None and seat != self.trainer:
+            raise ValueError(f"Die Angaben unter '{self.trainer_ist_zugleich}' müssen denen des Trainers entsprechen.")
+
+        return self
+
+    @model_validator(mode="after")
+    def the_distinct_people_share_no_email_or_telephone(self) -> Self:
+        """Two DIFFERENT people may not be reachable at one address or one number.
+
+        The seat the Trainer also holds is left out of the comparison: it is the same person, and
+        the rule above has already held the two blocks equal.
+        """
+
+        seats = [seat for seat in ("trainer", "ansprechperson", "stellvertretung") if seat != self.trainer_ist_zugleich]
+        people: list[_KontaktpersonWritablePayload] = [person for seat in seats if (person := getattr(self, seat)) is not None]
+
+        # On the sign-in fold: two seats one sign-in reaches are one identity, and `casefold` would
+        # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
+        emails = [sign_in_identifier(person.email) for person in people]
+        if len(set(emails)) != len(emails):
+            raise ValueError("Die Kontaktpersonen müssen unterschiedliche E-Mail-Adressen haben.")
+
+        telefone = [normalise_telefon(person.telefon) for person in people]
+        if len(set(telefone)) != len(telefone):
+            raise ValueError("Die Kontaktpersonen müssen unterschiedliche Telefonnummern haben.")
+
+        return self
 
 
 class FLTeamStatistik(BaseModel):
@@ -613,16 +712,38 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
 
 
-class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
-    """The block as STORED after the write, and the row it was written to.
+class FLKontaktMint(BaseModel):
+    """One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever."""
 
-    No other field off that row: the caller sent none of them, and echoing one would invite a client
-    to believe this endpoint owns it.
+    token: str
+    # Every seat the one link answers for, two where the Trainer holds a second: one link per person.
+    rollen: list[FLKontaktRolle]
+    # As this transaction stored it, never a caller's earlier read: the link has to reach the person it seats.
+    email: str
+    frist: CustomDateString
+    # What the mail names, read in the same transaction as the address: the person's first name as
+    # seated, and the club under the name it carries in that season, the link's own page saying the same.
+    vorname: str
+    schule: str
+
+
+class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
+    """The block as STORED after the write, its row, and the links it minted.
+
+    No other field off that row: the caller sent none, and echoing one would invite a client to
+    believe this endpoint owns it.
     """
 
     saison_id: str
     team_id: CustomObjectId
+    # The row's own id, which the delivery record of a mailed link is filed against.
+    saison_team_id: CustomObjectId
     kontakte: FLSaisonTeamKontakte | None
+    # Empty where the save seated nobody new: a seat keeping its person keeps their link.
+    bestaetigungen: list[FLKontaktMint]
+    # Seats the save newly wrote with an address the ban list holds: the person is stored and minted
+    # no link, so the administrator is told as for any barred send.
+    gesperrt: list[FLKontaktRolle]
 
     @computed_field
     @property
@@ -630,6 +751,15 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
         """The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other."""
 
         return kontakte_stand_of(None if self.kontakte is None else self.kontakte.model_dump(mode="json"))
+
+
+class FLKontaktEinladenResponse(BaseAPIResponse):
+    """A fresh link for one seat, and its pair where the Trainer holds both; the old link then opens nothing."""
+
+    saison_id: str
+    team_id: CustomObjectId
+    saison_team_id: CustomObjectId
+    bestaetigung: FLKontaktMint
 
 
 class FLReplaceSaisonTeamResponse(BaseAPIResponse):

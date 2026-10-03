@@ -147,6 +147,25 @@ class TestTheClubsContacts:
 
         assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == 200
 
+    def test_a_rewrite_seating_a_new_person_from_an_older_sign_in_is_refused_and_seats_nobody(self, mongo_replica_set_url: str):
+        """Seating somebody new mints them a link, which is a step-up write whatever else the save does."""
+
+        newcomer = {
+            "vorname": "Ida",
+            "nachname": "Musterfrau",
+            "email": "ida@example.com",
+            "telefon": "+4917010000001",
+            "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-03-01"},
+        }
+
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
+            payload = {"kontakte": {**self.NOBODY, "trainer": newcomer}, "kontakte_stand": kontakte_stand_of(self.NOBODY)}
+            response = await http.patch(self.URL, headers=OLDER, json=payload)
+            stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
+            return refused(response), stored and (stored["kontakte"], stored.get("bestaetigungen"))
+
+        assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == (True, (self.NOBODY, None))
+
 
 class TestTheDraw:
     URL = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/spielplan"

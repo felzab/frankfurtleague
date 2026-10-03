@@ -77,6 +77,8 @@ from app.api.teams.schemas import (
     FLGruppenNames,
     FLKontaktKenntnisnahme,
     FLKontaktperson,
+    FLSaisonTeamBestaetigung,
+    FLSaisonTeamBestaetigungen,
     FLSaisonTeamKontakte,
     FLSchulform,
     FLTeam,
@@ -181,6 +183,15 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SAISON_TEAMS, ("kontakte", "trainer", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
+    # A seat's link, one row per seat because the validator declares the entry three times over, and
+    # the delivery record at its home under each.
+    (Collection.SAISON_TEAMS, ("bestaetigungen",), FLSaisonTeamBestaetigungen, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer"), FLSaisonTeamBestaetigung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson"), FLSaisonTeamBestaetigung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung"), FLSaisonTeamBestaetigung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung", "zustellung"), FLBewerbungZustellung, frozenset()),
     (Collection.BEWERBUNGEN, (), FLBewerbung, frozenset()),
     (Collection.BEWERBUNGEN, ("schule",), FLBewerbungSchule, frozenset()),
     (Collection.BEWERBUNGEN, ("schule", "address"), FLAddress, frozenset()),
@@ -392,6 +403,9 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     # The consent vocabulary at its third home: one sub-schema in Python, and the drift walk still
     # reaches each collection's path on its own.
     (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
@@ -514,6 +528,10 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.REGISTRIERUNGEN, ("bestaetigung",)): frozenset({"token_hash", "token_hash_zuvor"}),
     # The application's pair, for the application's reason.
     (Collection.REGISTRIERUNGEN, ()): frozenset({"idempotenz_schluessel", "idempotenz_fingerabdruck"}),
+    # A contact seat's link on a team's season row, for the application's reason.
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer")): frozenset({"token_hash"}),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson")): frozenset({"token_hash"}),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash"}),
 }
 
 

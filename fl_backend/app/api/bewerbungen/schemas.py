@@ -1,4 +1,3 @@
-import re
 from datetime import UTC, datetime
 from typing import Annotated, Any, Final, Literal, Self
 
@@ -9,14 +8,18 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 # no model in `teams` imports this slice.
 from app.api.teams.schemas import (
     FLGruppenNames,
+    FLKontaktRolle,
     FLSaisonTeamKontakte,
     FLSaisonTeamKontaktePayload,
     FLSchulform,
     FLTrikotFarbe,
     _KontaktpersonWritablePayload,
 )
+
+# Re-exported where the rule was first written, which the frontend's mirror cites
+# (`fl_frontend/src/features/bewerbungen/schemas.ts`).
+from app.api.teams.schemas import normalise_telefon as normalise_telefon
 from app.shared.alter import whole_years_between
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -61,10 +64,6 @@ FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
 # submission and no path removes a row, so a second order would plan a blocking sort over an archive
 # nothing bounds.
 FLBewerbungenSortOptions = Literal["eingereicht_am"]
-
-# The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
-# derives the same three from the model, and a test holds the two spellings equal.
-FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
 
 # What became of the last message to one seat's address. `angenommen` is the provider ACCEPTING the
 # request, which is all a send ever learns; the five after it are what a delivery event reports.
@@ -403,30 +402,6 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter
         raise ValueError(f"Ein Geburtsdatum, das auf ein Alter über {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} Jahre führt, ist kein gültiges Datum.")
 
 
-# Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
-# start with `49` -- so the order carries nothing.
-_TELEFON_COUNTRY_CODES = ("0049", "49")
-
-
-def normalise_telefon(value: str) -> str:
-    """One spelling per telephone number, so `+49 170 …` and `0170 …` compare equal.
-
-    Digits alone, `PHONE_REGEX` admitting spaces, brackets, hyphens and dots. No German area code
-    starts with the trunk `0`, so a leading country code folds back to it.
-    """
-
-    digits = re.sub(r"[^0-9]", "", value)
-
-    for country_code in _TELEFON_COUNTRY_CODES:
-        if digits.startswith(country_code):
-            # The second `removeprefix` takes the trunk zero written as `(0)`, which is the standard
-            # German notation and the commonest spelling of all. An international-format number
-            # carries no real leading zero, so dropping one can only be right.
-            return f"0{digits.removeprefix(country_code).removeprefix('0')}"
-
-    return digits
-
-
 class FLBewerbungEinwilligungPayload(BaseModel):
     """What the applicant agreed to, and nothing about how the record of it is composed.
 
@@ -464,47 +439,6 @@ class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
     trainer: FLBewerbungKontaktpersonPayload
     ansprechperson: FLBewerbungKontaktpersonPayload
     stellvertretung: FLBewerbungKontaktpersonPayload
-
-    @model_validator(mode="after")
-    def the_trainer_equals_the_seat_they_also_hold(self) -> Self:
-        """Where one person holds two seats, the two blocks must agree field for field.
-
-        The form fills the second seat from the first, so a mismatch is a client that has drifted --
-        and storing it would leave two records of one person the erasure cannot pair up.
-        """
-
-        if self.trainer_ist_zugleich is None:
-            return self
-
-        seat: FLBewerbungKontaktpersonPayload = getattr(self, self.trainer_ist_zugleich)
-
-        if seat != self.trainer:
-            raise ValueError(f"Die Angaben unter '{self.trainer_ist_zugleich}' müssen denen des Trainers entsprechen.")
-
-        return self
-
-    @model_validator(mode="after")
-    def the_distinct_people_share_no_email_or_telephone(self) -> Self:
-        """Two DIFFERENT people may not be reachable at one address or one number.
-
-        The seat the Trainer also holds is left out of the comparison: it is the same person, and
-        the rule above has already held the two blocks equal.
-        """
-
-        seats = [seat for seat in ("trainer", "ansprechperson", "stellvertretung") if seat != self.trainer_ist_zugleich]
-        people: list[FLBewerbungKontaktpersonPayload] = [getattr(self, seat) for seat in seats]
-
-        # On the sign-in fold: two seats one sign-in reaches are one identity, and `casefold` would
-        # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
-        emails = [sign_in_identifier(person.email) for person in people]
-        if len(set(emails)) != len(emails):
-            raise ValueError("Die Kontaktpersonen müssen unterschiedliche E-Mail-Adressen haben.")
-
-        telefone = [normalise_telefon(person.telefon) for person in people]
-        if len(set(telefone)) != len(telefone):
-            raise ValueError("Die Kontaktpersonen müssen unterschiedliche Telefonnummern haben.")
-
-        return self
 
 
 class FLBewerbungAddressPayload(FLAddressPayload):
@@ -752,6 +686,11 @@ CustomBewerbungToken = Annotated[str, StringConstraints(strip_whitespace=True, m
 # ranks first (`docs/backend/spec.md :: I515`).
 FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]
 
+# Which record a link's seat sits on: an application, or a team's season row an administrator seated
+# the person on. The page picks its wording by it, and the route handler mails an application's
+# messages for the first alone.
+FLEinwilligungQuelle = Literal["bewerbung", "saison"]
+
 
 class FLBewerbungEinwilligungAnsichtPayload(BaseModel):
     """A POST that reads: the token travels in a body, never in a second URL."""
@@ -768,9 +707,11 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     season, the roles one answer covers and a wording's version.
     """
 
+    quelle: FLEinwilligungQuelle
     zustand: FLBewerbungEinwilligungZustand
     saison_id: str
-    # The school's name as submitted, or the picked club's.
+    # The school's name as submitted, or the picked club's; on a season row, the name the club
+    # carries in that season.
     schule: str
     rolle: FLKontaktRolle
     # The second seat this link's answer writes (`app/api/bewerbungen/services.py :: paired_seat`),
@@ -830,6 +771,7 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     withhold the rest at.
     """
 
+    quelle: Literal["bewerbung"] = "bewerbung"
     ergebnis: Literal["bestaetigt", "abgelehnt"]
     # In `FLSaisonTeamKontakte`'s declaration order. A declined seat stays listed: the application
     # cannot complete without it.
@@ -855,6 +797,24 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     ansprechperson_email: str | None
     # Every seat that one mailbox holds, so a person holding two is told both in the message it gets.
     ansprechperson_rollen: list[FLKontaktRolle]
+
+
+class FLSaisonTeamEinwilligungAntwortResponse(BaseAPIResponse):
+    """What an answer on a season row's link did, and nothing to compose a message from.
+
+    No application stands behind the seat, so nobody is told.
+    """
+
+    quelle: Literal["saison"] = "saison"
+    ergebnis: Literal["bestaetigt", "abgelehnt"]
+    geburtsdatum: CustomOptionalDateString
+    whatsapp: bool
+
+
+FLEinwilligungAntwortResponse = Annotated[
+    FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse,
+    Field(discriminator="quelle"),
+]
 
 
 class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):

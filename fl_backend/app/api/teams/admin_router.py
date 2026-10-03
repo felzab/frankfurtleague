@@ -6,7 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import mint_token
+from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
@@ -20,11 +20,13 @@ from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.schemas import (
+    FLKontaktEinladenResponse,
+    FLKontaktMint,
     FLPatchSaisonTeamKontaktePayload,
     FLPatchSaisonTeamKontakteResponse,
     FLPatchSaisonTeamPayload,
@@ -47,17 +49,27 @@ from app.api.teams.schemas import (
     FLTeamWriteResponse,
 )
 from app.api.teams.services import (
+    KONTAKT_ROLLEN,
     build_gruppen,
     build_team_memberships_pipeline,
     build_team_pipeline,
+    compose_bestaetigungen_mit,
+    compose_bestaetigungen_nach,
+    compose_kontakt_bestaetigung,
     compose_kontakte_herkunft,
     find_club_entry_refusal,
     find_gruppe_move_refusal,
+    find_kontakt_sitz_gesperrt_refusal,
+    find_kontakt_sitz_refusal,
     find_kontakte_precondition_refusal,
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
     has_taken_place,
+    in_declaration_order,
+    links_owed,
+    mint_answer,
+    seats_one_link_answers,
 )
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -83,6 +95,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
@@ -551,8 +564,10 @@ async def patch_saison_team_kontakte(
     saison_id: str,
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
+    today: str = Depends(get_german_date_str),
 ) -> FLPatchSaisonTeamKontakteResponse:
     """
     Rewrite the three people this team is reached through for one season. Null clears the block.
@@ -565,6 +580,12 @@ async def patch_saison_team_kontakte(
     `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and
     `bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat
     is stored as entered administratively.
+
+    **Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the
+    caller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person
+    keeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing
+    live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A save minting
+    a link is refused `REQ-AUTH-009` as the clearing is; a save minting none is not.
     """
 
     if kontakte_data.kontakte is None:
@@ -572,24 +593,64 @@ async def patch_saison_team_kontakte(
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
     payload = kontakte_data.model_dump(mode="json")
+    # Outside the callback, for `post_einladung`'s reason, one per seat a person can lead with; a
+    # retry seats the same people, so it picks the same ones. Unused values cost nothing.
+    tokens = {slot: mint_token() for slot in KONTAKT_ROLLEN}
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
         # In session, so the precondition judges what this write will land on. Read outside one, an
         # erasure (`app/api/kontakte/admin_router.py :: erase_kontaktperson`) committing between the
         # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
-        stored = await pull_one_from_db(collection=saison_teams_collection, db_filter=db_filter, projection=["kontakte"], session=session)
+        stored = await pull_one_from_db(
+            collection=saison_teams_collection, db_filter=db_filter, projection=["kontakte", "bestaetigungen", "name"], session=session
+        )
 
         refuse(find_kontakte_precondition_refusal(erwartet=payload["kontakte_stand"], stored=stored.get("kontakte")))
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
+        owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
+        # In the transaction, so whether a link exists answers the ban as it stands at the write; a ban
+        # landing after it is the confirmation press's to refuse (`docs/backend/spec.md :: I505`).
+        barred = await adressen_gesperrt(
+            sperrliste,
+            {adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)},
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
+
+        minted: dict[str, dict[str, Any]] = {}
+        links: list[FLKontaktMint] = []
+        gesperrt: set[str] = set()
+        for seats in owed:
+            if seat_adressen(kontakte=kontakte, seats=seats) & barred:
+                gesperrt.update(seats)
+                continue
+
+            raw_token, token_hash = tokens[seats[0]]
+            entry = compose_kontakt_bestaetigung(token_hash=token_hash, today=today)
+            minted.update(dict.fromkeys(seats, entry))
+            assert kontakte is not None
+            links.append(mint_answer(token=raw_token, seats=seats, kontakte=kontakte, row=stored, frist=entry["frist"]))
+
+        # Judged on what this transaction mints, which aborts with the refusal: only a link somebody
+        # will hold makes the save a step-up write.
+        if links:
+            refuse_unconfirmed()
+
+        bestaetigungen = compose_bestaetigungen_nach(
+            kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("bestaetigungen"), minted=minted
+        )
+
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
-            # The one path, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
+            # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
             # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
             # whatever this caller last read.
-            update={"$set": {"kontakte": kontakte}},
+            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -597,9 +658,12 @@ async def patch_saison_team_kontakte(
         return FLPatchSaisonTeamKontakteResponse(
             saison_id=saison_id,
             team_id=team_id,
+            saison_team_id=updated_raw["_id"],
             # The AFTER image, not the payload: what the row holds is the claim this echo makes, and
             # its token is the precondition an undo of this save replays against.
             kontakte=updated_raw["kontakte"],
+            bestaetigungen=links,
+            gesperrt=in_declaration_order(gesperrt),
         )
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,
@@ -709,8 +773,8 @@ async def replace_saison_team(
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
             # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
-            # colour and the contacts describe the OUTGOING school (`docs/backend/spec.md :: I50`).
-            update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None}},
+            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I50`).
+            update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -745,6 +809,91 @@ async def replace_saison_team(
     # callback re-reading everything it judges on.
     async with transaction_session(db) as session:
         return await session.with_transaction(hand_the_row_over)
+
+
+@router.post(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/bestaetigung/einladen",
+    response_model=FLKontaktEinladenResponse,
+    summary="Send one contact seat a fresh confirmation link",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
+)
+async def einladen_kontakt(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    seat: str,
+    saison_teams_collection: SaisonTeamsCollection,
+    sperrliste: SperrlisteLookup,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLKontaktEinladenResponse:
+    """
+    Mint a fresh confirmation link for one contact seat and answer it raw once, for the caller to mail.
+
+    It replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:
+    the previous link stops opening anything, the delivery state of the message it went out in goes with it, and the
+    deadline restarts from today. A seat stored before links were minted, which holds none, is sent its first.
+
+    Refused where the seat holds nobody or its person has already confirmed it (`REQ-KONTAKT-002`), and where its
+    address is on the ban list (`REQ-KONTAKT-003`). 404 for a team and season holding no row, and for a path naming no
+    seat. Every call mints, so every call from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused
+    `REQ-AUTH-009`.
+    """
+
+    db_filter = {"team_id": team_id, "saison_id": saison_id}
+
+    # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
+    rolle = seat_named(seat)
+    if rolle is None:
+        raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+
+    # Outside the callback, for `post_einladung`'s reason.
+    raw_token, token_hash = mint_token()
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+
+    async def judge_and_mint(session: AsyncClientSession) -> FLKontaktEinladenResponse:
+        """Judge the seat, ask the ban, then replace the link. Everything judged is read in-session, so a retry re-judges it."""
+
+        stored = await pull_one_from_db(
+            collection=saison_teams_collection, db_filter=db_filter, projection=["kontakte", "bestaetigungen", "name"], session=session
+        )
+        kontakte = stored.get("kontakte")
+        refuse(find_kontakt_sitz_refusal(kontakte=kontakte, seat=rolle))
+        assert isinstance(kontakte, Mapping)
+
+        seats = seats_one_link_answers(kontakte=kontakte, seat=rolle)
+        gesperrt = await adressen_gesperrt(
+            sperrliste, seat_adressen(kontakte=kontakte, seats=seats), massgebliche_saison_id=massgebliche_saison_id, session=session
+        )
+        refuse(find_kontakt_sitz_gesperrt_refusal(gesperrt=bool(gesperrt)))
+
+        entry = compose_kontakt_bestaetigung(token_hash=token_hash, today=today)
+        await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter=db_filter,
+            update={
+                "$set": {
+                    "bestaetigungen": compose_bestaetigungen_mit(
+                        stored_bestaetigungen=stored.get("bestaetigungen"), minted=dict.fromkeys(seats, entry)
+                    )
+                }
+            },
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+        return FLKontaktEinladenResponse(
+            saison_id=saison_id,
+            team_id=team_id,
+            saison_team_id=stored["_id"],
+            # The address read in-session, never one the caller read before this request: a save moving
+            # it in between would otherwise send the link to the previous mailbox.
+            bestaetigung=mint_answer(token=raw_token, seats=seats, kontakte=kontakte, row=stored, frist=entry["frist"]),
+        )
+
+    async with transaction_session(db) as session:
+        return await session.with_transaction(judge_and_mint)
 
 
 @router.post(

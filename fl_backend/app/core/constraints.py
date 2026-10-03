@@ -291,6 +291,35 @@ _SCHIEDSRICHTER_BESTAETIGUNG = _object(
     },
 )
 
+# A seat's link on a team's season row. Never `_BEWERBUNG_BESTAETIGUNG`: no reminder chases these
+# links, so a second hash and a reminder stamp are keys nothing writes, and each link carries its own
+# deadline.
+_SAISON_TEAM_BESTAETIGUNG = _object(
+    nullable=True,
+    required=("token_hash", "verschickt_am", "frist", "abgelehnt_am"),
+    properties={
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason: raising the bound moves no link already sent.
+        "frist": {"bsonType": "string"},
+        "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
+# Outside `kontakte`, as an application's block is: a Widerspruch empties the slot, and the record of
+# it has to outlive the emptying.
+_SAISON_TEAM_BESTAETIGUNGEN = _object(
+    nullable=True,
+    required=("trainer", "ansprechperson", "stellvertretung"),
+    properties={
+        "trainer": _SAISON_TEAM_BESTAETIGUNG,
+        "ansprechperson": _SAISON_TEAM_BESTAETIGUNG,
+        "stellvertretung": _SAISON_TEAM_BESTAETIGUNG,
+    },
+)
+
 _SAISON_BEWERBUNG = _object(
     nullable=True,
     required=("offen", "von", "bis"),
@@ -599,6 +628,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Both out of `required` for `saisons.spielplan`'s reason.
                 "trikot_farbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
                 "kontakte": _SAISON_TEAM_KONTAKTE,
+                # Out of `required` for `saisons.spielplan`'s reason: no row carried links before them.
+                "bestaetigungen": _SAISON_TEAM_BESTAETIGUNGEN,
                 # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
                 # while the season is not `past` (`docs/backend/spec.md :: I13`). What makes the copy
                 # embedded in its fixtures true rather than merely old.

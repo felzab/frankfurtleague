@@ -29,6 +29,7 @@ from app.api.teams.services import (
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_team_document
 from tests.isolation import InterleavedCollection
@@ -61,11 +62,26 @@ CONFIRMED_ON = "2026-03-15"
 # An edit to a seat that changes nothing about who holds it: `person` writes the other number.
 OTHER_TELEFON = "+4915199999999"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+TODAY = "2026-04-01"
 
 
 # On no payload: each person types their own on their confirmation page, so a seat only ever holds a
 # date the server carried over from the row.
 GEBURTSDATUM = "1990-05-17"
+
+
+# One number per person: two different people sharing one is a payload the save refuses.
+TELEFON: dict[str, str] = {
+    "Ida": "+4915110000001",
+    "Jonas": "+4915110000002",
+    "Klara": "+4915110000003",
+    "Lea": "+4915110000004",
+    "Mika": "+4915110000005",
+    "Nils": "+4915110000006",
+    "Ove": "+4915110000007",
+    "Bert": "+4915110000008",
+    "Ida-Marie": "+4915110000001",
+}
 
 
 def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
@@ -75,7 +91,7 @@ def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
         "vorname": vorname,
         "nachname": "Musterfrau",
         "email": email or f"{vorname.lower()}@example.com",
-        "telefon": "+4915112345678",
+        "telefon": TELEFON[vorname],
         "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-03-01"},
     }
 
@@ -124,9 +140,10 @@ SEEDED_KONTAKTE: dict[str, Any] = {
     "trainer_ist_zugleich": None,
 }
 
+# The Trainer holding the Ansprechperson's seat too, so the two blocks are one person's.
 NEW_KONTAKTE: dict[str, Any] = {
     "trainer": person("Lea"),
-    "ansprechperson": person("Mika"),
+    "ansprechperson": person("Lea"),
     "stellvertretung": person("Nils"),
     "trainer_ist_zugleich": "ansprechperson",
 }
@@ -209,8 +226,10 @@ async def write_kontakte(
         saison_id=saison_id,
         kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "kontakte_stand": stand}),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
+        sperrliste=ban_list(database),
         db=database.client,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        today=TODAY,
     )
 
 
@@ -384,7 +403,7 @@ class TestTheProvenanceIsTheServers:
         """`person` with no stamp is the shape every row held before the stamp existed, and it is not a confirmation."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, {**NEW_KONTAKTE, "trainer": person("Ida")})
+            await write_kontakte(database, {**NEW_KONTAKTE, "trainer": person("Ida"), "ansprechperson": person("Ida")})
 
             return await row_now(database)
 
@@ -606,6 +625,59 @@ class TestWhatThePayloadRefuses:
         assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("missing", "kontakte_stand")]
 
 
+class TestTheTwoContactRules:
+    """The application's two rules on the season row too, an empty seat comparing with nothing."""
+
+    def block(self, **seats: Any) -> dict[str, Any]:
+        return {"kontakte": {**RESAVED_AS_RENDERED, **seats}, "kontakte_stand": kontakte_stand_of(SEEDED_KONTAKTE)}
+
+    def test_a_trainer_holding_a_seat_whose_block_differs_is_refused(self):
+        """Two records of one person the erasure cannot pair up, each mailed a link of its own."""
+
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonTeamKontaktePayload.model_validate(self.block(trainer_ist_zugleich="ansprechperson"))
+
+        assert "denen des Trainers" in str(failure.value)
+
+    def test_a_trainer_holding_a_seat_whose_block_agrees_is_taken(self):
+        """The control: one person in two seats is a legitimate block."""
+
+        sent = self.block(ansprechperson=person("Ida"), trainer_ist_zugleich="ansprechperson")
+
+        assert FLPatchSaisonTeamKontaktePayload.model_validate(sent).kontakte is not None
+
+    @pytest.mark.parametrize(
+        "emptied",
+        [pytest.param("trainer", id="the Trainer emptied"), pytest.param("ansprechperson", id="the seat they also hold emptied")],
+    )
+    def test_an_empty_side_of_the_pair_compares_with_nothing(self, emptied: str):
+        """A seat an erasure or a Widerspruch emptied leaves the row editable."""
+
+        sent = self.block(**{"ansprechperson": person("Ida"), "trainer_ist_zugleich": "ansprechperson", emptied: None})
+
+        assert FLPatchSaisonTeamKontaktePayload.model_validate(sent).kontakte is not None
+
+    @pytest.mark.parametrize(
+        ("field", "value", "message"),
+        [
+            pytest.param("email", "IDA@example.com", "E-Mail-Adressen", id="one mailbox on the sign-in fold"),
+            pytest.param("telefon", "+49 151 10000001", "Telefonnummern", id="one number however spelled"),
+        ],
+    )
+    def test_two_different_people_sharing_a_mailbox_or_a_number_are_refused(self, field: str, value: str, message: str):
+        with pytest.raises(ValidationError) as failure:
+            FLPatchSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), field: value}))
+
+        assert message in str(failure.value)
+
+    def test_an_empty_seat_shares_nothing(self):
+        """Two empty seats are not two people at one address."""
+
+        sent = self.block(ansprechperson=None, stellvertretung=None)
+
+        assert FLPatchSaisonTeamKontaktePayload.model_validate(sent).kontakte is not None
+
+
 class TestTheCompositionDecidesFromItsArguments:
     """The pure half, so every branch is pinned without a container."""
 
@@ -790,7 +862,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         write judging it would stop agreeing after a restart.
         """
 
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "01ec6d11e0df8edb7b016ac75de3e5eb1dab05df87833d9f2e4f8ff53bd9e428"
+        assert kontakte_stand_of(SEEDED_KONTAKTE) == "e33d7b4b681b6241cb2bcc37cd44e062e5be25bb3adcd14ae3af42d2eaefe86d"
 
     def test_a_row_predating_the_optional_fields_answers_the_token_of_one_spelling_them_null(self):
         """The whole reason the token is not taken over the document: `SEEDED_KONTAKTE` carries no `bestaetigt_am` key at all."""
