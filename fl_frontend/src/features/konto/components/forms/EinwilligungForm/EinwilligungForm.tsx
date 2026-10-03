@@ -14,6 +14,8 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
+import { WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
+
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { ActionFailure } from "@/shared/types/types";
 import type { Key } from "@heroui/react/rac";
@@ -23,10 +25,6 @@ type Umfang = FLEinwilligung["umfang"];
 
 /** The chips in the order a reader meets them: the wider publication first, as the confirmation pages ask it. */
 const UMFANG_REIHENFOLGE: readonly Umfang[] = ["kader_oeffentlich", "intern"];
-
-export const WAHL_GESPEICHERT = "Deine Wahl ist gespeichert";
-
-export const WAHL_NICHT_GESPEICHERT = "Deine Wahl wurde nicht gespeichert";
 
 /** The two choices one record holds; a contact seat's record holds no publication choice, so `umfang` is absent there. */
 export type EinwilligungWahl = { readonly umfang?: Umfang; readonly medien: boolean };

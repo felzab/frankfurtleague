@@ -19,7 +19,8 @@ import type { EinwilligungAntwort, EinwilligungWahl, EinwilligungWorte } from ".
 const { raised } = doubleToasts();
 const { track, answered } = answersInFlight();
 
-const { EinwilligungForm, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } = await import("./EinwilligungForm.tsx");
+const { EinwilligungForm } = await import("./EinwilligungForm.tsx");
+const { SEITE_VERALTET, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } = await import("../../../einwilligung.ts");
 
 /** Words written for the suite rather than read from the registry: the component renders whatever it is handed. */
 const WORTE: EinwilligungWorte = {
@@ -174,7 +175,7 @@ describe("what a press sends", () => {
   /* The page shows what the league holds: a refused press leaves the stored choice standing, and the toast
      carries the action's own sentence. */
   it("shows a refused press's sentence and goes back to the stored choice", async () => {
-    answer = { success: false, error: "Diese Seite ist nicht mehr aktuell. Lade sie neu und wähle erneut." };
+    answer = { success: false, error: SEITE_VERALTET };
     const { user } = renderForm();
 
     await user.click(screen.getByRole("radio", { name: "Nur Nummer und Position" }));
