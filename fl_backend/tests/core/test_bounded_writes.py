@@ -102,6 +102,7 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/spieler/admin_router.py :: add_the_player",
             "app/api/spieler/admin_router.py :: move_the_player",
             "app/api/spieler/admin_router.py :: bring_the_player_back",
+            "app/api/spieler/person_router.py :: edit_the_row",
         }
     ),
     "_refuse_an_out_of_order_beginn": frozenset({"app/api/spieltage/admin_router.py :: redate_the_matchday"}),

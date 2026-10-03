@@ -391,9 +391,11 @@ SYSTEM_WRITES = [
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
-# place of `bind_actor`: the header names a person, recorded under a pseudonym. Empty until a router
-# serving a person is mounted.
-PERSON_WRITES: list[tuple[str, str]] = []
+# place of `bind_actor`: the header names a person, recorded under a pseudonym.
+PERSON_WRITES: list[tuple[str, str]] = [
+    ("/api/v0/spieler/kader/{team_id:objectid}/{saison_id}/{spieler_id:objectid}", "PATCH"),
+    ("/api/v0/spieler/kader/{team_id:objectid}/{saison_id}/{spieler_id:objectid}", "DELETE"),
+]
 
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.
 MUTATIONS = sorted(
@@ -434,7 +436,7 @@ def test_every_person_write_binds_a_person_in_place_of_an_administrator():
     """What earns a write its place outside `MUTATIONS`.
 
     `tests/api/test_admin_guard.py :: PERSON_OPERATIONS` is held to the same routes, so the two lists
-    agree. Not parametrised: the list is empty until a person's router is mounted.
+    agree. Not parametrised, so one failure names every unearned write at once.
     """
     unearned = [
         operation
@@ -443,6 +445,15 @@ def test_every_person_write_binds_a_person_in_place_of_an_administrator():
     ]
 
     assert unearned == [], f"{unearned} leaves `MUTATIONS` without being a mounted write that binds a person"
+
+
+def test_a_person_write_binds_no_administrator_beside_the_person():
+    """In PLACE of `bind_actor`, never beside it: the administrator's binder refuses every person's token, so the write would serve nobody."""
+
+    beside = [operation for operation in PERSON_WRITES if operation in ROUTES_BY_OPERATION and binds_an_actor(ROUTES_BY_OPERATION[operation])]
+
+    assert PERSON_WRITES, "the list is empty, so the comparison below holds of nothing"
+    assert beside == [], f"{beside} binds the administrator's actor beside a person's"
 
 
 @pytest.mark.parametrize(("path", "method"), PUBLIC_WRITES, ids=lambda value: value)
@@ -850,7 +861,7 @@ class TestThePersonBinder:
         assert during[0] == lower_during[0]
 
     def test_the_log_row_carries_the_pseudonym_and_no_address(self):
-        """Driven through the variable the binder sets and the recorder reads, since no route declares the binder yet."""
+        """Driven through the variable the binder sets and the recorder reads, so no database write is needed to read the row."""
         log = _LogDouble()
 
         async def _one_write() -> None:
@@ -900,7 +911,7 @@ def _probe() -> dict[str, bool]:
 
 
 def person_client(*, barred: frozenset[str] | None = frozenset({BARRED_PERSON})) -> TestClient:
-    """The real application and one route declaring a person's binder, which no router mounts yet.
+    """The real application and one probe route declaring a person's binder, its handler reading no database.
 
     The ban read is answered from `barred`, or left real where it is `None`, which reaches the missing database.
     """

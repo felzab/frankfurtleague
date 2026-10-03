@@ -13,7 +13,7 @@ from app.api.teams.admin_router import post_team
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import AGGREGATES
-from app.main import SYSTEM_ROUTERS, WRITE_ROUTERS
+from app.main import PERSON_ROUTERS, SYSTEM_ROUTERS, WRITE_ROUTERS
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
@@ -953,7 +953,7 @@ def creations() -> tuple[list[Creation], frozenset[str]]:
 
     found: list[Creation] = []
     unreadable: set[str] = set()
-    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS):
+    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS, *PERSON_ROUTERS):
         for route in router.routes:
             found_endpoint: Callable[..., Any] | None = getattr(route, "endpoint", None)
             if found_endpoint is None:

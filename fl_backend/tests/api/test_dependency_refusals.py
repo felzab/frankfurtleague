@@ -4,9 +4,9 @@ TESTS · the refusals a dependency answers before any handler, probed on every o
 `app/main.py :: DEPENDENCY_REFUSALS` publishes each dependency's code on the operations running it,
 so the table is held against what a request actually meets: every operation is asked without a key,
 with a wrong one, with its own and no actor, with its own and an administrator, with its own and an
-actor who is none, with its own and a forged actor, and with its own and an administrator signed in
-past the step-up window, against an application holding no database, where each dependency
-answers before the handler runs.
+actor who is none, with its own and a forged actor, with its own and an administrator signed in
+past the step-up window, and with its own and a signed-in person, barred and not, against an
+application holding no database, where each dependency answers before the handler runs.
 """
 
 import ast
@@ -23,21 +23,48 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.core.exception_handlers import refused_codes
 from app.core.exceptions import BaseAPIException, DocumentNotFoundException, WriteRefusalException
-from app.core.security import ACTOR_HEADER, STEP_UP_WINDOW_S, verify_access_admin, verify_access_base, verify_access_system
+from app.core.security import (
+    ACTOR_HEADER,
+    STEP_UP_WINDOW_S,
+    BanLookup,
+    get_ban_lookup,
+    verify_access_admin,
+    verify_access_base,
+    verify_access_system,
+)
 from app.main import DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, create_app, dependency_refusals
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
 from tests.config import ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
 from tests.grants import admit
 
-# Its actor check answered without a database, so a request naming a non-administrator meets its
-# refusal there rather than the missing database behind it.
-APP = admit(create_app(build_test_config()))
+# Barred on the list `APP` answers a person's ban check from.
+BARRED_PERSON = "gesperrt@beispielschule.de"
+
+
+def _ban_answered_from_the_set(app: FastAPI) -> FastAPI:
+    """`app`, a person route's ban read answered from `BARRED_PERSON` alone, as `tests/grants.py :: admit` answers the grants."""
+
+    def answered_from_the_set() -> BanLookup:
+        async def is_gesperrt(identifier: str) -> bool:
+            return identifier == BARRED_PERSON
+
+        return is_gesperrt
+
+    app.dependency_overrides[get_ban_lookup] = answered_from_the_set
+
+    return app
+
+
+# Its actor check and a person's ban check answered without a database, so a request naming a
+# non-administrator or a barred person meets its refusal there rather than the missing database behind it.
+APP = _ban_answered_from_the_set(admit(create_app(build_test_config())))
 
 TIER_KEYS: Mapping[Any, Mapping[str, str]] = {verify_access_base: BASE_AUTH, verify_access_admin: ADMIN_KEY, verify_access_system: SYSTEM_AUTH}
 WRONG_KEY = {"Authorization": "Bearer wrong"}
@@ -46,6 +73,9 @@ ACTOR = SignedActor("admin@example.com")
 NOT_AN_ADMINISTRATOR = SignedActor("schueler@example.com")
 # Shaped like a token and signed under a key nobody configured, so it fails verification.
 FORGED_ACTOR = {ACTOR_HEADER: sign(actor_claims("admin@example.com"), private_key=FOREIGN_SIGNING_KEY)}
+# The person lane's two: one the ban list holds, and one it does not, who passes to the missing database.
+A_PERSON = SignedActor("schueler@example.com", lane="person")
+A_BARRED_PERSON = SignedActor(BARRED_PERSON, lane="person")
 
 
 class _StaleActor(Mapping[str, str]):
@@ -279,7 +309,7 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
         own = _guard_key(route)
         for method in sorted(route.methods or ()):
             answers = found.setdefault((route.path_format, method.lower()), set())
-            actors = (ACTOR, NOT_AN_ADMINISTRATOR, FORGED_ACTOR, STALE_ACTOR)
+            actors = (ACTOR, NOT_AN_ADMINISTRATOR, FORGED_ACTOR, STALE_ACTOR, A_PERSON, A_BARRED_PERSON)
             for headers in ({}, WRONG_KEY, own, *({**own, **actor} for actor in actors)):
                 response = client.request(method, _url(route), headers=headers)
                 if response.status_code in PROBED_STATUSES:

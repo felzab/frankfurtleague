@@ -156,6 +156,9 @@ ADMIN_READS = [
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,
     # their date of birth -- `READ-CONTACT-001`'s subject, as the two `bewerbungen` reads are.
     ("/api/v0/registrierungen", "get"),
+    # A team's squad with every surname whole, served to its own seat holders: a revert to
+    # `verify_access_base` hands it to every visitor, past the initial `READ-PUPIL-001` keeps for them.
+    ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),
 ]
 
 
@@ -197,9 +200,14 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
 
 
 # The operations a signed-in person reaches on the admin key through `PERSON_ACTOR_BINDERS`, whose actor
-# is a person no grant names: the one exemption from the check below, by name. Empty until the
-# first router serving a person is mounted.
-PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset()
+# is a person no grant names: the one exemption from the check below, by name.
+PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),
+        ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "patch"),
+        ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "delete"),
+    }
+)
 
 # Derived from the guard, as every tier here is, so a router added later is swept without being listed.
 ADMIN_TIER_OPERATIONS = [
@@ -233,7 +241,7 @@ def test_every_person_operation_binds_a_person_after_the_key():
     """What earns an operation its exemption from the grants check.
 
     `tests/api/test_actor_binding.py :: PERSON_WRITES` is held to the same routes, so the two lists
-    agree. Not parametrised: the list is empty until a person's router is mounted.
+    agree. Not parametrised, so one failure names every unearned exemption at once.
     """
     unearned = []
     for operation in sorted(PERSON_OPERATIONS):

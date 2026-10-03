@@ -39,6 +39,7 @@ from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
+from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.router import router as spieler_router
 from app.api.spielorte.admin_router import router as spielorte_admin_router
 from app.api.spielorte.router import router as spielorte_router
@@ -141,6 +142,10 @@ SYSTEM_ROUTERS = (
     identitaet_router,
     berechtigungen_sweep_router,
 )
+# Its own group, as the two above are: a signed-in person's routers read and write on the admin key
+# with a person's binder in place of `bind_actor`, which no tuple above describes. A sweep walking
+# the writers walks these too.
+PERSON_ROUTERS = (spieler_person_router,)
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
 # published so the two can be compared (`docs/backend/spec.md :: I190`).
@@ -501,7 +506,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)
 
     app.include_router(system_router)
-    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_ROUTERS):
+    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_ROUTERS, *PERSON_ROUTERS):
         app.include_router(router)
 
     # The published prose is the decorator's rather than the docstring's: a docstring cannot

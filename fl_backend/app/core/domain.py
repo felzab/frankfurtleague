@@ -106,7 +106,7 @@ OPERATION_SEPARATOR = " · "
 
 @dataclass(frozen=True)
 class Rule:
-    """One refusal a write path performs."""
+    """One refusal an endpoint performs, on a write path or on a person's read refused a seat it does not hold."""
 
     code: str
     #: What it answers, with no default, so no rule takes a status by omission; the status its check
@@ -775,8 +775,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "rules.erlaubte_stufen",
         Editability.EDITABLE,
         "narrowing is safe at any time, a finished season included: it bounds what the administrator's squad FORM offers and "
-        "never what a stored squad row holds. A pupil's own registration is REFUSED at it (`REQ-REGISTRIERUNG-003`), so "
-        "narrowing mid-window closes the season to a Stufe from that moment while every row already stored stays valid",
+        "never what a stored squad row holds. A pupil's own registration is REFUSED at it (`REQ-REGISTRIERUNG-003`), and so "
+        "is a representative's edit moving a row to a Stufe outside it (`REQ-SQUAD-005`), so narrowing mid-window closes the "
+        "season to a Stufe from that moment while every row already stored stays valid and editable",
     ),
     FieldPolicy(
         Collection.SPIELTAGE,
@@ -930,7 +931,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "stufe",
         Editability.CONDITIONAL,
         "held to the league's closed set by the validator, to the season's `erlaubte_stufen` by what the administrator's form "
-        "offers, and to that same list by a refusal where a pupil registers themselves (`REQ-REGISTRIERUNG-003`)",
+        "offers, and to that same list by a refusal where a pupil registers themselves (`REQ-REGISTRIERUNG-003`) and where a "
+        "team's representative edits the row (`REQ-SQUAD-005`), which lets through the value the row already holds",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
@@ -1958,7 +1960,8 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
-            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
+            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate · "
+            "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}"
         ),
         aggregate="Saison",
         summary="a squad holds each `rolle` at most once among its live rows",
@@ -2403,6 +2406,27 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.einwilligung.services.find_fassung_refusal",
         tested_by="tests/api/test_einwilligung_fassung.py::TestTheLabelAWriteStamps",
     ),
+    Rule(
+        code="REQ-FUNKTION-001",
+        status=HTTPStatus.FORBIDDEN,
+        operation=(
+            "GET /spieler/kader/{team_id}/{saison_id} · PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id} · "
+            "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}"
+        ),
+        aggregate="Saison",
+        summary="a team's panel is read and changed only by a person holding a contact seat on that team in an `active` or `future` season",
+        implemented_by="app.api.identitaet.services.find_funktion_refusal",
+        tested_by="tests/api/test_kader_person.py::TestASeatNotHeld",
+    ),
+    Rule(
+        code="REQ-SQUAD-005",
+        status=HTTPStatus.CONFLICT,
+        operation="PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}",
+        aggregate="Saison",
+        summary="a representative's edit writes a `stufe` the season's `erlaubte_stufen` offers, none, or the one the row already holds",
+        implemented_by="app.api.spieler.services.find_kader_stufe_refusal",
+        tested_by="tests/api/test_kader_person.py::TestAStufeTheSeasonDoesNotOffer",
+    ),
 )
 
 
@@ -2428,14 +2452,14 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "A shirt number is worn rather than assigned, and the league already fields four goalkeepers "
             "in one squad all wearing 1 -- so refusing the state would make live rows uneditable and, once "
             "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
-            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). NOTHING REPORTS "
-            "IT EITHER: no read compares one squad row's number against another's, and the create form and the "
-            "editor's squad section judge `nummer` on its format alone. A comparison built later reads the stored "
-            "string as typed: `07` is a shirt somebody had printed and is not `7`, so a numeric reading that merges "
-            "the two makes a judgement this rule declines. Every squad list prints the figures, so a "
-            "person can read two of them as equal, but no surface names that as a state -- and whether one should "
-            "is open rather than settled, the same state covering a squad's keepers and a late entry colliding "
-            "with a shirt somebody already wears."
+            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). It is REPORTED "
+            "rather than refused, and on one read alone: a team's own representative is served `nummer_doppelt` on "
+            "every live row whose number another live row of the squad wears (`app.api.spieler.services.shared_nummern`), "
+            "an ausgetragen row wearing nothing. The comparison reads the stored string as typed: `07` is a shirt "
+            "somebody had printed and is not `7`, so a numeric reading that merges the two makes a judgement this "
+            "rule declines. The administrator's create form and squad section judge `nummer` on its format alone, "
+            "and the public squad list names no state either -- whether either should is open rather than settled, "
+            "the same state covering a squad's keepers and a late entry colliding with a shirt somebody already wears."
         ),
         near=("REQ-SQUAD-001",),
         proven_by="tests/core/test_unenforced.py::TestASharedSquadNumber",

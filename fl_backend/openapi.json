@@ -8088,6 +8088,241 @@
         "x-fl-tier": "system"
       }
     },
+    "/api/v0/spieler/kader/{team_id}/{saison_id}": {
+      "get": {
+        "summary": "Read a team's squad as its seat holder",
+        "description": "The squad of one team in one season, for a person holding any contact seat on it.\n\nEvery row, ausgetragen ones included and marked by `inactive_since`; each surname whole, and no\ne-mail address or telephone number of anybody. `nummer_doppelt` marks a live row whose number\nanother live row of the squad wears, compared as stored. `erlaubte_stufen` is what the season's\nrules offer an edit. Refused `REQ-FUNKTION-001` where the signed-in person holds no seat on this\nteam in this season, a seat on a `past` season holding none.",
+        "operationId": "get_kader_api_v0_spieler_kader__team_id___saison_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKaderResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}": {
+      "patch": {
+        "summary": "Update a squad entry as its team's seat holder",
+        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live\nrow for the player in this season: another team's pupil and an ausgetragen row answer alike, and\nnothing is written. Refused `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the\nseason's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`\nfor a `rolle` another live row of the squad holds. A shared `nummer` is permitted.",
+        "operationId": "patch_kader_zeile_api_v0_spieler_kader__team_id___saison_id___spieler_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchKaderZeilePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKaderZeileResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SQUAD-004.REQ-SQUAD-005"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "delete": {
+        "summary": "Take a Spieler out of the squad as its team's seat holder (austragen)",
+        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.\n\nStamps the row's `inactive_since`; the person stays in the league, and only an administrator\nbrings the row back. 404 where this team holds no live row for the player in this season,\nanother team's pupil and an ausgetragen row alike. Refused `REQ-FUNKTION-001` without a seat.",
+        "operationId": "delete_kader_zeile_api_v0_spieler_kader__team_id___saison_id___spieler_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKaderZeileResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -12752,6 +12987,309 @@
         "title": "FLGruppenTeam",
         "description": "One row of a league table: what a standing shows and nothing more.\n\nNarrower than `FLTeam` on purpose: a public CLIENT component renders this, so every field is\nserialised into the page, and a club's address is a school's street."
       },
+      "FLKaderResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "erlaubte_stufen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "E1",
+                "E2",
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            },
+            "type": "array",
+            "title": "Erlaubte Stufen"
+          },
+          "kader": {
+            "items": {
+              "$ref": "#/components/schemas/FLKaderZeile"
+            },
+            "type": "array",
+            "title": "Kader"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "saison_id",
+          "erlaubte_stufen",
+          "kader"
+        ],
+        "title": "FLKaderResponse",
+        "description": "A team's squad for one season, live and ausgetragen rows alike, with the Stufen the season's rules offer."
+      },
+      "FLKaderZeile": {
+        "properties": {
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kapitaen",
+                  "co_kapitaen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolle"
+          },
+          "ist_nachnominiert": {
+            "type": "boolean",
+            "title": "Ist Nachnominiert"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "nummer_doppelt": {
+            "type": "boolean",
+            "title": "Nummer Doppelt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "vorname",
+          "nachname",
+          "nummer",
+          "position",
+          "stufe",
+          "rolle",
+          "ist_nachnominiert",
+          "inactive_since",
+          "nummer_doppelt"
+        ],
+        "title": "FLKaderZeile",
+        "description": "One squad row as its team's seat holder reads it (`READ-KADER-001`).\n\nDeclared from nothing rather than a public model unmasked, so the whole surname reaches no\nbase-tier model, and no address or telephone number reaches this one."
+      },
+      "FLKaderZeileResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kapitaen",
+                  "co_kapitaen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolle"
+          },
+          "ist_nachnominiert": {
+            "type": "boolean",
+            "title": "Ist Nachnominiert"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "nummer_doppelt": {
+            "type": "boolean",
+            "title": "Nummer Doppelt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "vorname",
+          "nachname",
+          "nummer",
+          "position",
+          "stufe",
+          "rolle",
+          "ist_nachnominiert",
+          "inactive_since",
+          "nummer_doppelt"
+        ],
+        "title": "FLKaderZeileResponse",
+        "description": "The row as a representative's edit or austragen left it, its shirt marker judged against the squad after the write."
+      },
       "FLKontakt": {
         "properties": {
           "telefon": {
@@ -13209,6 +13747,83 @@
           "verwaltung"
         ],
         "title": "FLPatchBerechtigungPayload"
+      },
+      "FLPatchKaderZeilePayload": {
+        "properties": {
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{1,4}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kapitaen",
+                  "co_kapitaen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolle"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "nummer",
+          "position",
+          "stufe",
+          "rolle"
+        ],
+        "title": "FLPatchKaderZeilePayload",
+        "description": "What a team's seat holder may change on a live squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason.\n\nNever `_SaisonSpielerPayload`'s child, which carries `team_id`: a representative moves no pupil\nto another team, and `extra=\"forbid\"` refuses that key."
       },
       "FLPatchSaisonPayload": {
         "properties": {
@@ -20722,6 +21337,30 @@
           }
         }
       },
+      "403.REQ-AUTH-008.REQ-FUNKTION-001": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-008",
+                        "REQ-FUNKTION-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-BEWERBUNG-018": {
         "description": "Forbidden",
         "content": {
@@ -21857,6 +22496,31 @@
                         "REQ-SQUAD-001",
                         "REQ-SQUAD-003",
                         "REQ-SQUAD-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-SQUAD-004.REQ-SQUAD-005": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-SQUAD-004",
+                        "REQ-SQUAD-005"
                       ]
                     }
                   }

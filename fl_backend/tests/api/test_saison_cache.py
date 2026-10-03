@@ -25,7 +25,7 @@ from app.api.saisons.cache import (
 from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
 from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
-from app.main import SYSTEM_ROUTERS, WRITE_ROUTERS
+from app.main import PERSON_ROUTERS, SYSTEM_ROUTERS, WRITE_ROUTERS
 from tests.core.app_source import APP_ROOT, parsed
 from tests.documents import rules_document
 
@@ -493,9 +493,9 @@ def _season_write_handlers() -> dict[str, Any]:
     """
 
     handlers: dict[str, Any] = {}
-    # Both tiers, the rule being about writing a season rather than about who may: the retention
-    # sweep stamps every season from a router of its own, which an admin-only walk cannot see.
-    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS):
+    # Every group that writes, the rule being about writing a season rather than about who may: the
+    # retention sweep and a representative's squad edit each write one from a router of their own.
+    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS, *PERSON_ROUTERS):
         for route in router.routes:
             endpoint = getattr(route, "endpoint", None)
             if endpoint is None or not getattr(route, "methods", set()) & WRITE_METHODS:
@@ -511,7 +511,7 @@ SEASON_WRITE_HANDLERS = _season_write_handlers()
 # Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
 # set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
 # shrink the sweep and still report success.
-SEASON_WRITE_HANDLER_FLOOR = 13
+SEASON_WRITE_HANDLER_FLOOR = 14
 
 # Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
 # naming what to look at when the recognition stops matching.

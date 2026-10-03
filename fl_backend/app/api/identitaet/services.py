@@ -7,11 +7,16 @@ so a judgement left beside a handle is one nothing stops from growing a read of 
 """
 
 from collections.abc import Iterable, Mapping, Sequence
+from http import HTTPStatus
 from typing import Any
 
+from bson import ObjectId
+
+from app.api.identitaet.schemas import FLSubjektSitz
 from app.api.kontakte.services import KONTAKT_SLOTS, same_address
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import build_real_referees_filter
+from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 
@@ -105,3 +110,34 @@ def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
     """
 
     return saison_status in ("active", "future")
+
+
+# The first refusal every person endpoint on a team's panel raises: who the caller is, so a 403
+# rather than a 409, whatever the team's own state.
+FUNKTION_NICHT_GEHALTEN = "REQ-FUNKTION-001"
+
+
+def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id: str) -> bool:
+    """Whether any of these seats, already narrowed to a season granting a panel, sits on this team in this season.
+
+    Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does, so no slot is read here.
+    """
+
+    return any(sitz.team_id == team_id and sitz.saison_id == saison_id for sitz in sitze)
+
+
+def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, saison_id: str) -> WriteRefusal | None:
+    """`REQ-FUNKTION-001`: the signed-in person holds no seat on this team in this season.
+
+    One answer for another team, another season and a `past` one, so the refusal tells a stranger
+    nothing about which teams or seasons exist.
+    """
+
+    if holds_a_seat(sitze, team_id=team_id, saison_id=saison_id):
+        return None
+
+    return WriteRefusal(
+        error_code=FUNKTION_NICHT_GEHALTEN,
+        status=HTTPStatus.FORBIDDEN,
+        message="the signed-in person holds no seat on this team in this season, so its panel is not theirs to read or change",
+    )

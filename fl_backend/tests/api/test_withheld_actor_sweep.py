@@ -100,6 +100,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spiele/list/admin": "fixtures",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
     "/api/v0/spiele/{spiel_id:objectid}/admin": "one fixture",
+    "/api/v0/spieler/kader/{team_id:objectid}/{saison_id}": "one team's squad as its seat holders read it, which carries nobody's address",
     "/api/v0/spieler/memberships": f"players and their squad rows, {_PERSON_RECORDS}",
     "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
     "/api/v0/spieltage/list/admin": "matchdays",

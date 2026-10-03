@@ -332,3 +332,57 @@ class FLSpielerMembershipsResponse(BaseAPIResponse):
     """Every player, retired ones included, each with their squad rows. Sorted by name."""
 
     spieler: list[FLSpielerWithMemberships]
+
+
+class FLKaderZeile(BaseModel):
+    """One squad row as its team's seat holder reads it (`READ-KADER-001`).
+
+    Declared from nothing rather than a public model unmasked, so the whole surname reaches no
+    base-tier model, and no address or telephone number reaches this one.
+    """
+
+    spieler_id: CustomObjectId
+    vorname: CustomNonEmptyString
+    # Whole: the initial protects a pupil from strangers, never from their own team's representative.
+    nachname: str | None
+    # As stored, for `FLSaisonSpielerRow.nummer`'s reason: a read refusing a hand-edited number would
+    # answer 500 for the whole squad.
+    nummer: str | None
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
+    rolle: FLSpielerRolle | None
+    ist_nachnominiert: bool
+    # Set, the row is ausgetragen and read-only to a representative: only the administrator brings it back.
+    inactive_since: CustomOptionalDateString
+    # Composed on read and stored nowhere, so it cannot go stale beside the rows it compares.
+    nummer_doppelt: bool
+
+
+class FLKaderResponse(BaseAPIResponse):
+    """A team's squad for one season, live and ausgetragen rows alike, with the Stufen the season's rules offer."""
+
+    team_id: CustomObjectId
+    saison_id: str
+    # What the editor may offer, the PATCH refusing anything else it was not already holding (`REQ-SQUAD-005`).
+    erlaubte_stufen: list[FLSpielerStufe]
+    kader: list[FLKaderZeile]
+
+
+class FLKaderZeileResponse(FLKaderZeile, BaseAPIResponse):
+    """The row as a representative's edit or austragen left it, its shirt marker judged against the squad after the write."""
+
+
+class FLPatchKaderZeilePayload(BaseModel):
+    """What a team's seat holder may change on a live squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason.
+
+    Never `_SaisonSpielerPayload`'s child, which carries `team_id`: a representative moves no pupil
+    to another team, and `extra="forbid"` refuses that key.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Tightened on the write side alone, as `_SaisonSpielerPayload.nummer` is.
+    nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
+    rolle: FLSpielerRolle | None
