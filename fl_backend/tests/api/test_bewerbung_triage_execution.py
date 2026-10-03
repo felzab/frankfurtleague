@@ -1757,6 +1757,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
             {"token": token, "antwort": "abgelehnt", "geburtsdatum": None, "whatsapp": False, "text_version": "v1", **answer}
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=client,

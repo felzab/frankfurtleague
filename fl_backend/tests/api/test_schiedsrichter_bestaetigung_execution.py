@@ -324,7 +324,7 @@ class TestTheCreateIsTheInvitation:
             created = await create(database, client)
             accepted = await angenommen_zustellung(
                 angenommen_data=FLZustellungAngenommenPayload.model_validate(
-                    {"ziel": "schiedsrichter", "ziel_id": str(created.created_id), "nachricht_id": MESSAGE_ID, "am": ACCEPTED_AT}
+                    {"ziel": "schiedsrichter", "ziel_id": str(created.created_id), "rollen": [], "nachricht_id": MESSAGE_ID, "am": ACCEPTED_AT}
                 ),
                 db=database,
                 db_client=client,

@@ -155,6 +155,7 @@ async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = Non
     return await get_einwilligung_ansicht(
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         sperrliste=ban_list(database),
         today=TODAY,
@@ -167,6 +168,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     return await post_einwilligung(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=client,

@@ -686,6 +686,7 @@ STEP_UP_WRITES = [
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
     pytest.param("delete", "/api/v0/spieler/{spieler_id}/erasure", id="a player's erasure"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
+    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen", id="a contact seat's fresh link"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),
     pytest.param("delete", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", id="a club's link revoked"),
 ]
