@@ -504,17 +504,20 @@ def _judged(setup: str, key: str, env: str) -> str:
 def test_the_runbooks_command_writes_a_pair_the_check_passes() -> None:
     """Run as the runbook prints it, over the fixture's own `fl_backend/.env`: Git Bash's `openssl` is the carriage-return case."""
     text = RUNBOOKS.read_text(encoding="utf-8")
-    generate = next(line for line in text.splitlines() if line.startswith("(umask 077 && mkdir -p secrets && openssl genpkey"))
+    generate = next(line for line in text.splitlines() if line.startswith('t="$(mktemp -d)" && (umask 077 && openssl genpkey'))
     # The development machine's placing step, the server's being `sudo install` to a uid this host may not have.
-    placed = re.findall(r"`(mv secrets/fl_actor_signing_key\.new secrets/fl_actor_signing_key)`", text)
+    placed = re.findall(r"`(\(umask 077 && mkdir -p secrets && mv \"\$t/key\" secrets/fl_actor_signing_key\); rm -rf \"\$t\")`", text)
     assert len(placed) == 1, placed
-    command = f"{generate}\n{placed[0]}"
+    # The server's `secrets/` is root's, so the generating line writes nothing there: counted between the two steps.
+    inside = 'printf "inside=%s\\n" "$(ls -A secrets 2>/dev/null | wc -l | tr -d \' \')"'
+    command = f"{generate}\n{inside}\n{placed[0]}"
     # Counted, never printed: each file's carriage returns, which the runbook promises it writes none of.
     counted = "printf \"cr=%s\\n\" \"$(cat secrets/fl_actor_signing_key fl_backend/.env | tr -cd '\\r' | wc -c | tr -d ' ')\""
     output = _judged(f"{command}\n{counted}", "secrets/fl_actor_signing_key", "fl_backend/.env")
 
     assert "check=0" in output, output
     assert "cr=0" in output, output
+    assert "inside=0" in output, output
 
 
 def test_a_matching_pair_passes() -> None:
