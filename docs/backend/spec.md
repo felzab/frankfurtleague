@@ -510,7 +510,7 @@ bug and answers 500 `SRV-FAIL-001`
 ### 1.5 Environment
 
 Read in two halves by `fl_backend/app/core/config.py :: get_config`: the variables below from the
-process environment and the two dotenv files (`fl_backend/app/core/config.py :: BackendEnvironment`),
+process environment and the package's dotenv file (`fl_backend/app/core/config.py :: BackendEnvironment`),
 then one file per credential out of the directory `SECRETS_DIR` names
 (`fl_backend/app/core/config.py :: BackendSecrets`). Every consumer reads the two joined as
 `fl_backend/app/core/config.py :: BackendConfig`, which reads no source of its own. Fields without a
@@ -547,11 +547,12 @@ every missing or blank one follows as `; Invalid secret files: <FILES>`
 part of a key. **The file names are the same on the host, in the container and in development**,
 which is why the database login carries its service's prefix: the frontend's is `frontend_mongodb_uri`.
 
-**A credential's old variable name is declared nowhere**, so a line of one in `fl_backend/.env`
-refuses the boot by name like any other undeclared name (below), its value printed nowhere, and the
-same variable in the process environment is read by nothing. Before a container holds such a line,
-the deploy's and the local stack's preflight refuse it in either package's file
-([`docs/ops/spec.md`](../ops/spec.md) §1.5). **In development the files live in the checkout's `secrets/`**, and `fastapi dev` reaches them
+**A credential's old variable name is declared nowhere**, so where a process reads
+`fl_backend/.env` as a file — `fastapi dev`, and the deploy's name check — a line of one refuses by
+name like any other undeclared name (below), its value printed nowhere. A container is handed the
+file's lines as variables and boots past one, the process environment's undeclared names being read
+by nothing; what keeps such a line out of a container is the deploy's and the local stack's preflight,
+which refuse it in either package's file ([`docs/ops/spec.md`](../ops/spec.md) §1.5). **In development the files live in the checkout's `secrets/`**, and `fastapi dev` reaches them
 as `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py`, run in Git Bash from `fl_backend/`.
 `SECRETS_DIR` never goes in `fl_backend/.env`: compose hands that file to the container, and a
 development path there turns the container away from its mounts.

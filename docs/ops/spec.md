@@ -464,12 +464,13 @@ because `fl_frontend/.env` also reaches the frontend container, where a path wri
 turn the frontend away from the secret's mount (I472) and its boot refuses.
 
 **A line naming a value `secrets/` holds, or the retired administrator list `ALLOWED_ADMIN_EMAILS`,
-refuses the deploy and the local stack before compose reads either package file** (I548), at exit 2, naming each such line in any letter case and any form compose
-reads a name in — `NAME=value`, the YAML-style `NAME: value` and a bare
-pass-through name included — and never its value: compose would hand it to the container as a
-variable, which `docker inspect` prints (I508). On a deploy the pulled images' own readers of the
-package files refuse it again as an undeclared name, the backend's only where the line holds a
-value; the local stack runs neither, so there this is the only check. Each machine holds its own files and keys: they
+refuses a deploy or a local start before its first compose call** (I548), at exit 2, naming each
+such line in any letter case and any form compose reads a name in — `NAME=value`, the YAML-style
+`NAME: value` and a bare pass-through name — and never its value: compose would hand it to the
+container as a variable, which `docker inspect` prints (I508). `deploy.sh --status` and
+`local.sh --down` create no container and ask compose without it. This check is the only one such a
+line meets: the deploy stops here before the pulled images' own name checks run, and the local stack
+runs neither. Each machine holds its own files and keys: they
 authenticate one machine's processes to each other, so a development machine generates fresh ones
 rather than copying production's ([`runbooks.md`](runbooks.md) §16).
 
@@ -485,12 +486,12 @@ preflight judges a key with the pulled backend image's own validator**, in the b
 remedy is a new key ([`runbooks.md`](runbooks.md) §16).
 
 **Every value in the three files is held to the spellings those readers agree on** (I487), a URL
-being no value an alphabet could narrow: `deploy.sh` and `local.sh` refuse, before any compose call
-reads the file, a `$` anywhere, which each reader substitutes its own way and Next's inside single
+being no value an alphabet could narrow: a deploy and a local start refuse, before their first
+compose call, a `$` anywhere, which each reader substitutes its own way and Next's inside single
 quotes too; a `#` with no space before it in a bare value; a `\` inside quotes; a leading
 backtick; and a line written `NAME: value`, which compose and Next take while python-dotenv and
-`parseEnv` skip it (`scripts/lib/_lib.sh :: check_env_spellings`). A matched pair of quotes is left alone,
-every reader stripping it alike. A URL writes `$` and `#` percent-encoded.
+`parseEnv` skip it (`scripts/lib/_lib.sh :: check_env_spellings`). A matched pair of quotes is left
+alone, every reader stripping it alike. A URL writes `$` and `#` percent-encoded.
 
 **The local stack points both application services at its own database through one inline
 config**, `docker-compose.local.yml :: local_mongodb_uri`, mounted where each reads its login: it
@@ -1300,7 +1301,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I471 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                                                      | `scripts/checks/check_compose_model.py :: networks`, over the models `docker compose config` renders                                                                                                                                                                                                    |
 | I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: secret_holders` and `:: secrets_directory`, over the models `docker compose config` renders                                                                                                                                                                   |
 | I473 | Before containers start, both preflights refuse a signing key the frontend cannot read or a mismatched public half, printing no value; an unrunnable check warns              | `scripts/lib/_lib.sh :: check_actor_key`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py` runs its snippet for real                                                                                                                                |
-| I487 | No value in an `.env` compose reads holds a spelling its readers take differently: a `$`, an unspaced `#`, a quoted `\`, a leading backtick, a `NAME: value` line             | `scripts/lib/_lib.sh :: check_env_spellings`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh` before any compose call reads the file; `scripts/tests/test_deploy_streams.py`                                                                                                               |
+| I487 | No `.env` line compose reads is spelled so its readers differ: a `$`, an unspaced `#`, a quoted `\`, a leading backtick, `NAME:`                                              | `scripts/lib/_lib.sh :: check_env_spellings`, called by a deploy and a local start before their first compose call; `scripts/tests/test_deploy_streams.py`                                                                                                                                              |
 | I507 | Every service in both stacks drops every capability and sets `no-new-privileges`; `nginx` alone adds any back, `CHOWN`, `SETUID`, `SETGID` and `DAC_OVERRIDE`                 | `scripts/checks/check_compose_model.py :: privileges`, over the models `docker compose config` renders; `nginx/edge_test.sh` starts both edges with them                                                                                                                                                |
 | I508 | Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/`                                    | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`; the local stack's login-free database URI `:: config_holders`                                                                                                                                                       |
 | I509 | No service's `environment:` names a value a secret file holds, in any letter case                                                                                             | `scripts/checks/check_compose_model.py :: moved_names`, over the models `docker compose config` renders                                                                                                                                                                                                 |
@@ -1311,7 +1312,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I533 | The deploy and the local stack refuse to start while a `.env` stands beside the compose file, printing none of it                                                             | `scripts/lib/_lib.sh :: refuse_compose_dotenv`, called by both scripts before any mode asks compose; `scripts/tests/test_deploy_streams.py`                                                                                                                                                             |
 | I540 | A stopped backend container lets every request it accepted end inside its bound, aborts included, before the engine kills it                                                  | `fl_backend/Dockerfile :: CMD` and `docker-compose.yml`'s `stop_grace_period`; `fl_backend/tests/core/test_request_deadline.py :: TestAStoppedContainerOutlastsEveryRequest`                                                                                                                            |
 | I547 | A stopped frontend container lets every request it accepted, and the work behind each answer, end inside its bound before the engine kills it                                 | `docker-compose.yml`'s `stop_grace_period` against `fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS` and `:: AFTER_RESPONSE_DEADLINE_MS`; `fl_frontend/src/core/requestScope.test.ts`                                                                                                       |
-| I548 | No package's `.env` the stack reads names a value a secret file holds or `ALLOWED_ADMIN_EMAILS`, in any letter case or form compose reads a name in                           | `scripts/lib/_lib.sh :: refuse_credential_lines`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh` before any compose call reads either file; `scripts/tests/test_deploy_streams.py`                                                                                                        |
+| I548 | No package's `.env` names a secret file's value or `ALLOWED_ADMIN_EMAILS`, in any letter case or form compose reads a name in                                                 | `scripts/lib/_lib.sh :: refuse_credential_lines`, called by a deploy and a local start before their first compose call; `scripts/tests/test_deploy_streams.py`                                                                                                                                          |
 
 ## 3. Violation → remedy
 

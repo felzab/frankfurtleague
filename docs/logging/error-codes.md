@@ -261,9 +261,10 @@ demand a tree spell every code below.
   one outside them is a server bug and answers the server fault it is.
 - **`SRV-BOOT-008`** — a warning the boot went past: a credential's old variable name, or the
   administrator list the grants replaced, was still set in the backend's environment. No such name
-  is declared, so a line of one in `fl_backend/.env` refuses the boot as an undeclared variable.
-- **`FE-BOOT-002`** — the same warning on the frontend's boot. The schema declares none of those
-  names, so the deploy refuses a `fl_frontend/.env` carrying one as undeclared.
+  is declared, so a container boots past one in silence; the deploy's and the local stack's
+  preflight refuse the line before a container holds it.
+- **`FE-BOOT-002`** — the same warning on the frontend's boot, which now boots past such a variable
+  in silence too, the same preflight refusing the line.
 - **`FE-AUTH-001`** — a sign-in library reported an access denial. The send gate is this
   repository's own and answers a refused address by returning rather than by raising
   (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so nothing on that path has a denial to report.

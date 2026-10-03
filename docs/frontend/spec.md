@@ -760,8 +760,9 @@ deploy's rollback read.
 readSecretFiles` reads them before the schema runs, trims the whitespace around each value, a shared key's alphabet
 refusing any character the backend's Python `strip()` treats otherwise (I504), and hands the schema
 the file's value under its key. A variable of the same name neither stands in for a missing file nor
-wins over a present one, and the schema declares none, so the deploy refuses a host's file carrying
-one as undeclared. A missing file is the schema's to judge; one the process
+wins over a present one, and the schema declares none; a host's file carrying one is refused by the
+deploy's credential check at exit 2, before the image's name check would see it
+([`docs/ops/spec.md`](../ops/spec.md) §1.5). A missing file is the schema's to judge; one the process
 cannot read — a directory at its path, bytes that are not UTF-8, a `SECRETS_DIR` that is no
 directory — refuses the boot as `Unreadable secret files: <PATH> (<ERRNO>)`, and a value the schema
 refuses is named by its file as `Invalid secret files: <FILES>`, both `FE-BOOT-004` and worded as

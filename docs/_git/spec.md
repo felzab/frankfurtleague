@@ -296,8 +296,8 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   inherits.
 - **Secret scanning matches known provider token formats**, so it catches neither an internal API
   key nor `auth_secret`. What protects those is `secrets/`, where each is a file, being gitignored
-  and outside both Docker build contexts, and `.env*`, which may still carry their retired lines,
-  being gitignored and excluded from both.
+  and outside both Docker build contexts, and `.env*`, where a development machine may still hold
+  a credential's old line, being gitignored and excluded from both.
 - **The Dependabot toggles are separate from `.github/dependabot.yml`**, which governs only routine
   scheduled version updates; without them a published advisory produces no notification at all. Version
   updates need no toggle of their own — that file's presence on the default branch enables them.

@@ -770,9 +770,9 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# Each environment file reaches a service through compose and a dev server through that package's own
-# reader, which read five spellings differently (`docs/ops/spec.md :: I487`). Read as text before any
-# compose call; prints names and line numbers, never a value.
+# Compose and each package's dev server read an environment file, five spellings apart
+# (`docs/ops/spec.md :: I487`). Judged as text before a start's first compose call; names and line
+# numbers only, never a value.
 check_env_spellings() { # $1 the file
   local line number=0 name value IFS=' '
   local -a wrong=()
@@ -965,9 +965,9 @@ whether it would boot. Its own answer is above."
   fi
 }
 
-# Compose hands an environment file's every line to the container as a variable, which
-# `docker inspect` prints, so a credential's name, or the retired administrator list's, is refused
-# with any value or none (`docs/ops/spec.md :: I508`). Names only, folded as the backend folds them.
+# Compose hands a container every line of its environment file as a variable, which
+# `docker inspect` prints, so a credential's or the retired administrator list's name is refused
+# with any value or none (`docs/ops/spec.md :: I508`). Names only.
 refuse_credential_lines() { # $@ the environment files
   # A space, not this file's newline, joins one file's names onto its own line of the refusal.
   local file line name moved IFS=' '
