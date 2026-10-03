@@ -31,7 +31,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_team_document
+from tests.documents import saison_document, saison_team_document
 from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
@@ -211,6 +211,8 @@ def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             # The other season FIRST: `find_one_and_update` takes natural order, so this is the row a
             # filter that forgot `saison_id` would write to.
+            # Read by the save, which mints no link for a season that has ended.
+            await database[Collection.SAISONS].insert_many([saison_document(OTHER_SAISON_ID, "past"), saison_document(SAISON_ID, "active")])
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(OTHER_SAISON_ID, None))
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, seeded))
 
@@ -235,6 +237,7 @@ async def write_kontakte(
         saison_id=saison_id,
         kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "kontakte_stand": stand}),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
+        saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
         db=database.client,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,

@@ -62,6 +62,7 @@ from app.api.teams.services import (
     find_gruppe_move_refusal,
     find_kontakt_sitz_gesperrt_refusal,
     find_kontakt_sitz_refusal,
+    find_kontakt_zeile_refusal,
     find_kontakte_precondition_refusal,
     find_replacement_pair_refusal,
     find_replacement_refusal,
@@ -70,6 +71,7 @@ from app.api.teams.services import (
     in_declaration_order,
     links_owed,
     mint_answer,
+    row_takes_links,
     seats_one_link_answers,
     voids_a_live_link,
 )
@@ -576,6 +578,7 @@ async def patch_saison_team_kontakte(
     saison_id: str,
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
@@ -596,9 +599,9 @@ async def patch_saison_team_kontakte(
     **Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the
     caller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person
     keeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing
-    live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A save minting a link,
-    or voiding one its person could still answer, is refused `REQ-AUTH-009` as the clearing is; a save doing neither is
-    not.
+    live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A row of a `past`
+    season, or of a team that has left it, is minted no link at all. A save minting a link, or voiding one its person
+    could still answer, is refused `REQ-AUTH-009` as the clearing is; a save doing neither is not.
     """
 
     if kontakte_data.kontakte is None:
@@ -617,14 +620,20 @@ async def patch_saison_team_kontakte(
         # erasure (`app/api/kontakte/admin_router.py :: erase_kontaktperson`) committing between the
         # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
         stored = await pull_one_from_db(
-            collection=saison_teams_collection, db_filter=db_filter, projection=["kontakte", "bestaetigungen", "name"], session=session
+            collection=saison_teams_collection,
+            db_filter=db_filter,
+            projection=["kontakte", "bestaetigungen", "name", "austritt"],
+            session=session,
         )
 
         refuse(find_kontakte_precondition_refusal(erwartet=payload["kontakte_stand"], stored=stored.get("kontakte")))
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
-        owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
+        # In session, as the precondition is: a rollover closing the season beside this save mails no link for it.
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+        nimmt_links = row_takes_links(saison_status=saison_raw.get("status"), austritt=stored.get("austritt"))
+        owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte")) if nimmt_links else []
         # In the transaction, so whether a link exists answers the ban as it stands at the write; a ban
         # landing after it is the confirmation press's to refuse (`docs/backend/spec.md :: I505`).
         barred = await adressen_gesperrt(
@@ -842,6 +851,7 @@ async def einladen_kontakt(
     saison_id: str,
     seat: str,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -853,10 +863,10 @@ async def einladen_kontakt(
     the previous link stops opening anything, the delivery state of the message it went out in goes with it, and the
     deadline restarts from today. A seat stored before links were minted, which holds none, is sent its first.
 
-    Refused where the seat holds nobody or its person has already confirmed it (`REQ-KONTAKT-002`), and where its
-    address is on the ban list (`REQ-KONTAKT-003`). 404 for a team and season holding no row, and for a path naming no
-    seat. Every call mints, so every call from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused
-    `REQ-AUTH-009`.
+    Refused where the season has ended or the team has left it (`REQ-KONTAKT-005`), where the seat holds nobody or its
+    person has already confirmed it (`REQ-KONTAKT-002`), and where its address is on the ban list (`REQ-KONTAKT-003`).
+    404 for a team and season holding no row, and for a path naming no seat. Every call mints, so every call from a
+    sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
     """
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -875,8 +885,14 @@ async def einladen_kontakt(
         """Judge the seat, ask the ban, then replace the link. Everything judged is read in-session, so a retry re-judges it."""
 
         stored = await pull_one_from_db(
-            collection=saison_teams_collection, db_filter=db_filter, projection=["kontakte", "bestaetigungen", "name"], session=session
+            collection=saison_teams_collection,
+            db_filter=db_filter,
+            projection=["kontakte", "bestaetigungen", "name", "austritt"],
+            session=session,
         )
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+        refuse(find_kontakt_zeile_refusal(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")))
+
         kontakte = stored.get("kontakte")
         refuse(find_kontakt_sitz_refusal(kontakte=kontakte, seat=rolle))
         assert isinstance(kontakte, Mapping)

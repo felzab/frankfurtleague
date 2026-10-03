@@ -3778,7 +3778,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat\nis stored as entered administratively.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing\nlive. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A save minting a link,\nor voiding one its person could still answer, is refused `REQ-AUTH-009` as the clearing is; a save doing neither is\nnot.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat\nis stored as entered administratively.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing\nlive. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A row of a `past`\nseason, or of a team that has left it, is minted no link at all. A save minting a link, or voiding one its person\ncould still answer, is refused `REQ-AUTH-009` as the clearing is; a save doing neither is not.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -3938,7 +3938,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": {
       "post": {
         "summary": "Send one contact seat a fresh confirmation link",
-        "description": "Mint a fresh confirmation link for one contact seat and answer it raw once, for the caller to mail.\n\nIt replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:\nthe previous link stops opening anything, the delivery state of the message it went out in goes with it, and the\ndeadline restarts from today. A seat stored before links were minted, which holds none, is sent its first.\n\nRefused where the seat holds nobody or its person has already confirmed it (`REQ-KONTAKT-002`), and where its\naddress is on the ban list (`REQ-KONTAKT-003`). 404 for a team and season holding no row, and for a path naming no\nseat. Every call mints, so every call from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused\n`REQ-AUTH-009`.",
+        "description": "Mint a fresh confirmation link for one contact seat and answer it raw once, for the caller to mail.\n\nIt replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:\nthe previous link stops opening anything, the delivery state of the message it went out in goes with it, and the\ndeadline restarts from today. A seat stored before links were minted, which holds none, is sent its first.\n\nRefused where the season has ended or the team has left it (`REQ-KONTAKT-005`), where the seat holds nobody or its\nperson has already confirmed it (`REQ-KONTAKT-002`), and where its address is on the ban list (`REQ-KONTAKT-003`).\n404 for a team and season holding no row, and for a path naming no seat. Every call mints, so every call from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.",
         "operationId": "einladen_kontakt_api_v0_teams__team_id__saisons__saison_id__kontakte__seat__bestaetigung_einladen_post",
         "security": [
           {
@@ -3990,7 +3990,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-KONTAKT-002.REQ-KONTAKT-003"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-KONTAKT-002.REQ-KONTAKT-003.REQ-KONTAKT-005"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -24022,7 +24022,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-KONTAKT-002.REQ-KONTAKT-003": {
+      "409.DB-COMMON-002.REQ-KONTAKT-002.REQ-KONTAKT-003.REQ-KONTAKT-005": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -24037,7 +24037,8 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-KONTAKT-002",
-                        "REQ-KONTAKT-003"
+                        "REQ-KONTAKT-003",
+                        "REQ-KONTAKT-005"
                       ]
                     }
                   }

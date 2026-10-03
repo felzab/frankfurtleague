@@ -33,7 +33,12 @@ from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.teams.admin_router import einladen_kontakt, patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
-from app.api.teams.services import KONTAKT_SITZ_GESPERRT, KONTAKT_SITZ_OHNE_BESTAETIGUNG, compose_kontakt_bestaetigung
+from app.api.teams.services import (
+    KONTAKT_SITZ_GESPERRT,
+    KONTAKT_SITZ_OHNE_BESTAETIGUNG,
+    KONTAKT_ZEILE_OHNE_SAISON,
+    compose_kontakt_bestaetigung,
+)
 from app.core.collections import Collection
 from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
 from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S, get_step_up_check
@@ -129,21 +134,29 @@ def junction(
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, kontakte: Any = None, rows: list[dict[str, Any]] | None = None) -> Any:
-    """The running season, its club, and the club's row holding `kontakte`; `rows` seeded FIRST, so a filter missing the row reaches them."""
+def on_a_league(
+    url: str,
+    body: Body,
+    *,
+    kontakte: Any = None,
+    rows: list[dict[str, Any]] | None = None,
+    saison_status: str = "active",
+    row_fields: Mapping[str, Any] | None = None,
+) -> Any:
+    """The season, its club, and the club's row holding `kontakte`; `rows` seeded FIRST, so a filter missing the row reaches them."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             # A ban entered through its route re-judges its actor's grant (`docs/backend/spec.md :: I450`).
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
             for team_id, name, shorthand in ((TEAM_OID, TEAM_NAME, "AD"), (OTHER_TEAM_OID, "Falken", "FA"), (INCOMING_TEAM_OID, "Eulen", "EU")):
                 await database[Collection.TEAMS].insert_one(
                     documents.team_document(team_id, name, shorthand, website_url=None, schulform="gymnasium_g9")
                 )
             for row in rows or []:
                 await database[Collection.SAISON_TEAMS].insert_one(row)
-            await database[Collection.SAISON_TEAMS].insert_one(junction(ROW_OID, TEAM_OID, kontakte))
+            await database[Collection.SAISON_TEAMS].insert_one(junction(ROW_OID, TEAM_OID, kontakte, **(row_fields or {})))
 
             return await body(database, client)
 
@@ -170,6 +183,7 @@ async def save(
             {"kontakte": kontakte, "kontakte_stand": kontakte_stand_of(row.get("kontakte"))}
         ),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
+        saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
         db=database.client,
         refuse_unconfirmed=step_up,
@@ -183,6 +197,7 @@ async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> A
         saison_id=SAISON_ID,
         seat=seat,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
         db=database.client,
         today=today,
@@ -839,3 +854,50 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
 
         assert (view.quelle, view.schule, view.rolle) == ("bewerbung", TEAM_NAME, "trainer")
         assert (answered.quelle, answered.ergebnis) == ("bewerbung", "bestaetigt")
+
+
+class TestARowNoLongerInTheSeason:
+    """A link asks a person to confirm a seat for a season, which neither a `past` season nor a withdrawn team offers."""
+
+    @pytest.mark.parametrize(
+        ("saison_status", "row_fields"),
+        [
+            pytest.param("past", {}, id="a season that has ended"),
+            pytest.param(
+                "active", {"austritt": {"type": "rueckzug", "grund": "Keine Mannschaft mehr", "datum": "2026-03-01"}}, id="a team that left"
+            ),
+        ],
+    )
+    def test_a_save_seating_new_people_mints_nothing(self, mongo_replica_set_url: str, saison_status: str, row_fields: dict[str, Any]):
+        """The correction itself lands: such a row's contacts stay correctable, and nobody is mailed for it."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            return await save(database, THREE), await row_now(database)
+
+        response, row = on_a_league(mongo_replica_set_url, body, saison_status=saison_status, row_fields=row_fields)
+
+        assert response.bestaetigungen == []
+        assert row["kontakte"]["trainer"]["email"] == "ida@example.com", "the save did not land, so this case proves nothing"
+        assert row["bestaetigungen"] == dict.fromkeys(SEATS)
+
+    @pytest.mark.parametrize(
+        ("saison_status", "row_fields"),
+        [
+            pytest.param("past", {}, id="a season that has ended"),
+            pytest.param(
+                "active", {"austritt": {"type": "rueckzug", "grund": "Keine Mannschaft mehr", "datum": "2026-03-01"}}, id="a team that left"
+            ),
+        ],
+    )
+    def test_a_resend_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, saison_status: str, row_fields: dict[str, Any]):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            before = await row_now(database)
+
+            return await refused(resend(database, "trainer")), before, await row_now(database)
+
+        code, before, after = on_a_league(
+            mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED, saison_status=saison_status, row_fields=row_fields
+        )
+
+        assert code == KONTAKT_ZEILE_OHNE_SAISON
+        assert after == before

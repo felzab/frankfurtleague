@@ -1670,6 +1670,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_kontakt_bestaetigung.py::TestTheDeadline",
     ),
     Rule(
+        code="REQ-KONTAKT-005",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen",
+        aggregate="Saison",
+        summary="no confirmation link is sent for a season that has ended or a team that has left it",
+        implemented_by="app.api.teams.services.find_kontakt_zeile_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestARowNoLongerInTheSeason",
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /teams/{team_id}",

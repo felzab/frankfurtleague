@@ -1129,6 +1129,15 @@ def voids_a_live_link(*, stored_kontakte: Any, stored_bestaetigungen: Any, besta
     return False
 
 
+def row_takes_links(*, saison_status: Any, austritt: Any) -> bool:
+    """Whether a link minted on this row asks anything.
+
+    Its mail asks to confirm a seat for the season, which neither a `past` season nor a withdrawn team holds open.
+    """
+
+    return saison_status != "past" and austritt is None
+
+
 def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
     """The stored link block with the minted seats replaced, every other seat as it stood."""
 
@@ -1168,6 +1177,25 @@ def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktRolle) -> tuple[FLKo
 KONTAKTE_MOVED_UNDER_THE_SAVE = "REQ-KONTAKT-001"
 KONTAKT_SITZ_OHNE_BESTAETIGUNG = "REQ-KONTAKT-002"
 KONTAKT_SITZ_GESPERRT = "REQ-KONTAKT-003"
+KONTAKT_ZEILE_OHNE_SAISON = "REQ-KONTAKT-005"
+
+
+def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
+    """`REQ-KONTAKT-005`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
+
+    Judged before the seat, as `app/api/einladungen/services.py :: find_saison_vorbei_refusal` is: no seat repairs the row.
+    """
+
+    if row_takes_links(saison_status=saison_status, austritt=austritt):
+        return None
+
+    message = (
+        "this season has ended, and a confirmation link for one of its seats would ask about a season that is over"
+        if saison_status == "past"
+        else "this team has left the season, and a confirmation link for one of its seats would ask about a place it no longer holds"
+    )
+
+    return WriteRefusal(error_code=KONTAKT_ZEILE_OHNE_SAISON, status=HTTPStatus.CONFLICT, message=message)
 
 
 def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | None:
