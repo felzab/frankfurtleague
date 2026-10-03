@@ -67,7 +67,10 @@ export interface RegistrierungNotizEmailData {
  */
 export type RegistrierungAbsageGrund = "andere_person" | null;
 
-/** What the decline note is addressed with. Like the season-end note it carries no link: the decision is the team's and stands. */
+/**
+ * What the decline note is addressed with. Like the season-end note it carries no confirmation link,
+ * only the league's landing: the decision is the team's and stands.
+ */
 export interface RegistrierungAbsageEmailData extends RegistrierungNotizEmailData {
   readonly grund: RegistrierungAbsageGrund;
 }
