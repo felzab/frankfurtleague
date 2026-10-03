@@ -610,8 +610,9 @@ only as a token that key signed (I477). **The two halves move together**: one re
 answers every admin-tier request `REQ-AUTH-007`, its log line naming `unknown kid`, so a rotation
 replaces both and one deploy recreates both containers. A token lives a minute, so none outlives
 the deploy that retires its key. **It is also the variable a rollback past this release trips on**:
-an older backend image declares no such name and refuses to boot on a `fl_backend/.env` carrying it
-(`model_config`'s `extra="forbid"`, below), so that rollback takes the line out of the file first.
+an older backend image declares no such name, so the older build's deploy name check, reading
+`fl_backend/.env` as a file, refuses it (`model_config`'s `extra="forbid"`, below), and that
+rollback takes the line out of the file first.
 
 **Who may act on the admin tier is stored rather than configured**: a grant in `berechtigungen`,
 read on every request (I383), so a grant or a revoke needs no redeploy. The frontend reads the same
@@ -634,8 +635,9 @@ not here — it is a constant of the code (`fl_backend/app/core/config.py :: API
 names the failing variables and never their values (`docs/ops/spec.md :: I179`), so the value to
 look at is the one the log does not print.
 
-**A name this table does not list fails the boot when the package's `.env` carries it, and is never
-read at all from the process environment**
+**A name this table does not list is refused wherever a process reads the package's `.env` as a
+file — `fastapi dev` and the deploy's name check — and is never read at all from the process
+environment**, which is all a container is handed
 (`fl_backend/app/core/config.py :: BackendEnvironment.model_config`): only the
 dotenv source hands the class an extra, and `extra="forbid"` is what stops a typo reading as an
 omission. **The one it does not catch carries an empty value** — the dotenv source drops such a name
