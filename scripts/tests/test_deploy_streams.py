@@ -457,6 +457,17 @@ def test_a_spelling_the_readers_disagree_on_refuses_naming_the_line_never_the_va
     assert "judged-clean" not in output, output
 
 
+@pytest.mark.parametrize("line", ["LOG_FORMAT: json", "  LOG_FORMAT :json", "export LOG_FORMAT: json"], ids=["bare", "spaced", "export"])
+def test_a_line_written_with_a_colon_refuses_naming_the_line_never_the_value(line: str) -> None:
+    """Compose and `@next/env` take it, python-dotenv and `parseEnv` skip it: each was driven over such a line."""
+    code, output = _env_spellings(f"FIRST=1\n{line}\n")
+
+    assert code == 2, output
+    assert "line 2: LOG_FORMAT is written with a colon" in output, output
+    assert "json" not in output.replace("LOG_FORMAT", ""), output
+    assert "judged-clean" not in output, output
+
+
 @pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
 def test_every_file_is_judged_before_the_first_compose_call_that_reads_it(script: Path) -> None:
     """Compose and the dev server read each file their own way, so the spellings are judged before either does."""

@@ -771,7 +771,7 @@ require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
 # Each environment file reaches a service through compose and a dev server through that package's own
-# reader, which read four spellings differently (`docs/ops/spec.md :: I487`). Read as text before any
+# reader, which read five spellings differently (`docs/ops/spec.md :: I487`). Read as text before any
 # compose call; prints names and line numbers, never a value.
 check_env_spellings() { # $1 the file
   local line number=0 name value IFS=' '
@@ -780,7 +780,13 @@ check_env_spellings() { # $1 the file
     number=$(( number + 1 ))
     line="${line%$'\r'}"
     [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
-    # A line no reader takes as NAME=value is compose's to refuse, which it does by name.
+    # Compose and Next's reader take `NAME: value`; python-dotenv and `parseEnv` skip it and the
+    # deploy's frontend checker cannot parse it, so no name check sees what the container is handed.
+    if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*: ]]; then
+      wrong+=("line ${number}: ${BASH_REMATCH[2]} is written with a colon, which only compose and Next's reader take")
+      continue
+    fi
+    # Any other line no reader takes as NAME=value is compose's to refuse, which it does by name.
     [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
     name="${BASH_REMATCH[2]}"; value="${BASH_REMATCH[3]}"
     if [[ "$value" == *'$'* ]]; then
@@ -798,7 +804,8 @@ check_env_spellings() { # $1 the file
 each be handed a different one:
 $(printf '  %s\n' "${wrong[@]}")
 In a URL, write the character percent-encoded (\$ as %24, # as %23); any other value, generate
-again without it. A trailing comment counts too: move it to a line of its own.
+again without it. A trailing comment counts too: move it to a line of its own. A line written with
+a colon is written NAME=value instead.
 NOTHING was asked of compose or of either service."
   fi
 }
