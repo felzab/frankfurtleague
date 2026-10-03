@@ -1120,11 +1120,22 @@ def test_a_multi_line_quoted_value_the_readers_disagree_on_refuses(text: str, sa
     assert said in output, output
 
 
-def test_a_spelling_behind_a_byte_order_mark_refuses() -> None:
-    code, output = _env_spellings("﻿API_URL=http://backend:8000/$base\n")
+def test_a_byte_order_mark_refuses_as_a_spelling_and_the_line_is_still_judged() -> None:
+    """Compose, python-dotenv 1.2.4 and `@next/env` 16.3.8 drop the mark; `parseEnv`, driven, keeps it in the first name."""
+    code, output = _env_spellings("﻿API_URL=http://backend:8000/$base\nLOG_FORMAT=json\n")
 
     assert code == 2, output
+    assert "line 1 opens with a byte-order mark" in output, output
     assert "line 1: API_URL holds a $" in output, output
+    assert "backend:8000" not in output, output
+
+
+def test_a_byte_order_mark_alone_refuses() -> None:
+    code, output = _env_spellings("﻿LOG_FORMAT=json\n")
+
+    assert code == 2, output
+    assert "line 1 opens with a byte-order mark" in output, output
+    assert "json" not in output.replace("LOG_FORMAT", ""), output
 
 
 def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> None:

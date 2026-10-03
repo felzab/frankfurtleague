@@ -794,8 +794,12 @@ check_env_spellings() { # $1 the file
   while IFS= read -r line || [[ -n "$line" ]]; do
     number=$(( number + 1 ))
     line="${line%$'\r'}"
-    # Compose drops a byte-order mark before parsing, so the first line is judged without it too.
-    (( number > 1 )) || line="${line#$'\xEF\xBB\xBF'}"
+    # Compose, python-dotenv and Next's reader drop a byte-order mark; `parseEnv` reads it into the
+    # first name and the deploy's frontend checker cannot parse the line. Refused, the line judged without it.
+    if (( number == 1 )) && [[ "$line" == $'\xEF\xBB\xBF'* ]]; then
+      wrong+=("line 1 opens with a byte-order mark, which some readers take as part of the first name")
+      line="${line#$'\xEF\xBB\xBF'}"
+    fi
     # A quoted value's later lines are its data, judged for what the readers decode and never as a
     # declaration (`fl_frontend/scripts/check-environment-names.mjs :: scanNames`).
     if [[ -n "$open" ]]; then
@@ -840,7 +844,7 @@ each be handed a different one:
 $(printf '  %s\n' "${wrong[@]}")
 In a URL, write the character percent-encoded (\$ as %24, # as %23); any other value, generate
 again without it. A trailing comment counts too: move it to a line of its own. A line written with
-a colon is written NAME=value instead.
+a colon is written NAME=value instead. A byte-order mark goes by saving the file as UTF-8 without one.
 NOTHING was asked of compose or of either service."
   fi
 }
