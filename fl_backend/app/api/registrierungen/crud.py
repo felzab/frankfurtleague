@@ -16,6 +16,7 @@ from app.api.registrierungen.services import (
     SUBMITTED,
     WITHOUT_TOKEN_HASHES,
     build_adressen_filter,
+    build_offene_filter,
     build_registrierungen_sort,
 )
 from app.core.crud import aggregate_many_from_db, pull_one_from_db
@@ -45,7 +46,7 @@ async def pull_offene_registrierungen(
     return await aggregate_many_from_db(
         collection=registrierungen_collection,
         pipeline=[
-            {"$match": {"saison_id": saison_id, "team_id": team_id, "status": SUBMITTED}},
+            {"$match": build_offene_filter(saison_id=saison_id, team_id=team_id)},
             {"$sort": dict(build_registrierungen_sort(sort_by="eingereicht_am", order=order))},
             {"$limit": limit + 1},
             # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
