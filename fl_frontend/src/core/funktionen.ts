@@ -37,6 +37,14 @@ export function grantsAPanel(status: FLSubjektSitz["saison_status"]): boolean {
 }
 
 /**
+ * A contact seat on exactly this team in exactly this season, the one predicate a team page and a
+ * person's write both judge by: a seat on last season's team opens nothing in this one's.
+ */
+export function isSeatAt(funktion: Funktion, teamId: string, saisonId: string): funktion is KontaktFunktion {
+  return funktion.art === "kontakt" && funktion.team_id === teamId && funktion.saison_id === saisonId;
+}
+
+/**
  * The season is the one narrowing applied here. Confirmation is the lookup's alone, so `unbestaetigt`
  * is passed through rather than recomputed: a second test of it would be a second definition of
  * "confirmed" for the two tiers to part on.

@@ -1,0 +1,63 @@
+import { funktionenOf, isSeatAt } from "@/core/funktionen";
+import { logger } from "@/core/logging";
+import { getSubjectSession } from "@/core/subject";
+
+import { SITZ_WEG } from "./actionError";
+import { runGuardedMutation } from "./adminMutation";
+import { KONTO_FORBIDDEN } from "./kontoMutation";
+
+import type { Funktion } from "@/core/funktionen";
+import type { SubjectSession } from "@/core/subject";
+import type { ActionFailure } from "@/shared/types/types";
+
+/** The team and season a person's write claims a seat on, as the action's own argument carries them. */
+export type SeatClaim = { readonly team_id: string; readonly saison_id: string };
+
+/** What a guarded body runs for: the person the spine resolved, and every seat they hold at the claimed address. */
+export type PersonHeld = {
+  readonly subject: SubjectSession;
+  readonly seats: readonly [Extract<Funktion, { art: "kontakt" }>, ...Extract<Funktion, { art: "kontakt" }>[]];
+};
+
+/** Why the spine turned a write away, as its log line names it. */
+type Verweigerung = "keine_sitzung" | "kein_sitz";
+
+/**
+ * A person's server action's spine. The seat is derived here from the session rather than named by the
+ * caller, so no action can skip the check; the backend judges the same request again in its transaction.
+ */
+export async function runPersonMutation<T extends { success: boolean }>(
+  mutationName: string,
+  claimed: SeatClaim,
+  fn: (held: PersonHeld) => Promise<T>,
+): Promise<T | ActionFailure> {
+  const verdict: { grund: Verweigerung } = { grund: "keine_sitzung" };
+
+  // A request can hand a server action anything at all, so the claim is read as possibly absent: an
+  // address it does not carry holds no seat.
+  const address: Partial<SeatClaim> | undefined = claimed;
+  const teamId = address?.team_id;
+  const saisonId = address?.saison_id;
+
+  const resolve = async (): Promise<PersonHeld | null> => {
+    const subject = await getSubjectSession();
+    const [erster, ...weitere] =
+      subject === null || typeof teamId !== "string" || typeof saisonId !== "string"
+        ? []
+        : funktionenOf(subject).funktionen.filter((funktion) => isSeatAt(funktion, teamId, saisonId));
+
+    if (subject !== null && erster !== undefined) return { subject: subject, seats: [erster, ...weitere] };
+
+    verdict.grund = subject === null ? "keine_sitzung" : "kein_sitz";
+    // Inside the request's scope, so the line carries its trace; the reason alone, never the address.
+    logger.info("funktion.verweigert", { operation: mutationName, grund: verdict.grund });
+    return null;
+  };
+
+  return runGuardedMutation(
+    mutationName,
+    // Each refusal in the words of its repair: a sign-in for a lapsed session, a reload for a seat gone.
+    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.grund === "keine_sitzung" ? KONTO_FORBIDDEN : SITZ_WEG) },
+    fn,
+  );
+}

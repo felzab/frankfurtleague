@@ -57,6 +57,18 @@ export class AdminReadWithoutAdministratorError extends Error {
 }
 
 /**
+ * A person-tier read made with no person signed in, or one barred: a caller outside a page's own seat
+ * check, which reads the session before it reads anything.
+ */
+export class PersonReadWithoutSubjectError extends Error {
+  override name = "PersonReadWithoutSubjectError";
+
+  constructor() {
+    super("A person-tier read was made with no person signed in.");
+  }
+}
+
+/**
  * A write the request's deadline refused before it was sent: nothing left, so it changed nothing, as
  * `fl_frontend/src/core/mail.ts :: MailUnsentError` says of a message. `FE-NET-001`, a call the network
  * never answered.

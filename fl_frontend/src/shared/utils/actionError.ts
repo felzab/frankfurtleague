@@ -23,6 +23,18 @@ import type { FieldErrors } from "./validation";
 export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
 
 /**
+ * What a person whose address was barred after their session was judged is told: the ban outlasts a
+ * retry and a sign-in alike, so neither is offered.
+ */
+export const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
+
+/**
+ * What a seat holder whose seat went after the page was drawn is told, by the person spine and by the
+ * backend's own seat check: a reload draws the page they still hold, or the forbidden panel.
+ */
+export const SITZ_WEG = "Du bist in dieser Saison nicht mehr in diesem Team eingetragen. Lade die Seite neu.";
+
+/**
  * Under a box whose value only the API refused. Never the form's own message for that box: the form's
  * rules passed the value, so each of those describes a rule it already met.
  */
@@ -52,6 +64,14 @@ const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurd
  */
 export function isRefusal(error: unknown): error is APIBadStatusError {
   return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500;
+}
+
+/**
+ * Whether the backend found the Funktion the request acts in not held (`REQ-FUNKTION-001`): a write
+ * answers it with `SITZ_WEG`, and a page reading for that seat renders the forbidden panel.
+ */
+export function isFunktionLost(error: unknown): error is APIBadStatusError {
+  return isRefusal(error) && error.serverErrorCode === "REQ-FUNKTION-001";
 }
 
 /**
@@ -237,6 +257,16 @@ function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
  * than the failure: the diagnosis is in the server log, and the toast's title says what became of the save.
  */
 export function toActionErrorResult(error: unknown, answering?: SentRequest): ActionFailure {
+  if (error instanceof APIBadStatusError) {
+    // Raised by the actor check before any handler, and by a write's transaction re-judging the
+    // grant before each attempt, so nothing was written: the grant went after the guard read it.
+    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
+    // The person binder reads the ban per request, so a ban entered since the session was judged.
+    if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
+  }
+  // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
+  if (isFunktionLost(error)) return { success: false, error: SITZ_WEG };
+
   if (isRefusal(error)) {
     const refused = refusedAnswer(error);
     if (refused !== null) return refused;
@@ -244,9 +274,6 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
   }
 
   if (error instanceof APIBadStatusError) {
-    // The actor check before any handler, so nothing was written: the grant went between the guard and this call.
-    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
-
     if (error.statusCode === 500 && error.serverErrorCode === "DB-FAIL-002") {
       // A commit went unanswered, or the deadline cut a write, so the write may stand: "try again"
       // would repeat it, and the retry then meets its own "already exists".

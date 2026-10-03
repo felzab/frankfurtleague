@@ -5,18 +5,21 @@ import z from "zod";
 
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
+import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 import type { APIBadStatusError } from "@/core/errors.ts";
 import type { KeyTier } from "@/core/keyTiers.ts";
 
-/* The admin spine's guard, and the refresh its step-up refusal makes, doubled before the `await import`s below. */
-doubleActionRequest();
+/* The admin spine's guard, the person spine's lookup holding a seat, and the refresh a step-up refusal
+   makes, doubled before the `await import`s below. */
+doubleActionRequest({ subject: person({ sitze: [sitz()] }) });
 
 const { NextRequest } = await import("next/server");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
-const { ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
+const { GESPERRT_KEINE_AENDERUNG, ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
+const { runPersonMutation } = await import("@/shared/utils/personMutation.ts");
 const { handlePublicRequest } = await import("@/shared/utils/publicRoute.ts");
 const { handleUndoRequest } = await import("@/shared/utils/undoRoute.ts");
 
@@ -71,7 +74,13 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
   "REQ-AUTH-007": {
     kind: "fallback",
     because:
-      "the guard signs the token only for a passkey session inside the administrator's window and made since its grant, so a refusal is the two services disagreeing on a key, a clock, that window or the grant read",
+      "each lane's guard signs the token only for a session its lane admits, an administrator's passkey session inside the window and made since its grant or a person's inside the person's lifetime, so a refusal is the two services disagreeing on a key, a clock, a window or the grant read",
+  },
+  "REQ-AUTH-008": {
+    kind: "worded",
+    words: GESPERRT_KEINE_AENDERUNG,
+    because:
+      "the person binder reads the ban on every request, so the address was barred after its session was judged, and no retry or sign-in lifts a ban",
   },
   "REQ-AUTH-009": {
     kind: "worded",
@@ -100,6 +109,12 @@ const PUBLISHED: readonly Published[] = publishedOperations().flatMap(({ operati
 /** RFC 9110's safe methods, which no write spine sends: a read hands every failure to its page's error boundary. */
 const READS = /^(?:GET|HEAD|OPTIONS) /;
 
+/**
+ * A person's route under the admin key, told apart by the refusal only the person binder raises: its
+ * writes are sent by a person's action alone, never by an admin action or an undo route.
+ */
+const PERSON_ROUTES = new Set(PUBLISHED.filter(({ code }) => code === "REQ-AUTH-008").map(({ operation }) => operation));
+
 const errorOf = (answer: unknown): unknown => (typeof answer === "object" && answer !== null && "error" in answer ? answer.error : answer);
 
 /** A same-origin request to a route, carrying an empty body for a spine that parses one. */
@@ -110,7 +125,14 @@ const routeRequest = (path: string) =>
  * What each of `tier`'s write spines answers the refusal with, its body throwing it as the API client
  * raises it: an admin write is sent by an action and replayed by an undo route, each answering itself.
  */
-async function shownBySpines(tier: KeyTier | null, refusal: APIBadStatusError): Promise<Readonly<Record<string, unknown>>> {
+async function shownBySpines(tier: KeyTier | null, isPerson: boolean, refusal: APIBadStatusError): Promise<Readonly<Record<string, unknown>>> {
+  // A person's write is sent by the person spine alone, for a seat the doubled lookup holds.
+  if (tier === "admin" && isPerson) {
+    const seat = { team_id: SITZ.team_id, saison_id: SITZ.saison_id };
+
+    return { "the person action spine": errorOf(await runPersonMutation("protocolCoverage", seat, () => Promise.reject(refusal))) };
+  }
+
   if (tier === "admin") {
     const undone = await handleUndoRequest(routeRequest("/api/admin/protocolCoverage/undo"), {
       mutationName: "protocolCoverage",
@@ -175,12 +197,14 @@ describe("every published credential and request-validation code against the ans
     const asked = new Set<string>();
     for (const { operation, code, status, tier } of PUBLISHED) {
       const answer = ANSWERED[code];
-      const key = `${code} at ${String(status)} under the ${String(tier)} key`;
+      const isPerson = PERSON_ROUTES.has(operation);
+      const key = `${code} at ${String(status)} under the ${String(tier)} key${isPerson ? " on a person's route" : ""}`;
       if (answer === undefined || answer.kind === "nobody" || tier === "system" || READS.test(operation) || asked.has(key)) continue;
       asked.add(key);
 
-      const shown = await shownBySpines(tier, refusedOn(operation, code, status));
-      const unclaimed = answer.kind === "worded" ? null : await shownBySpines(tier, refusedOn(operation, unclaimedBeside(code), status));
+      const shown = await shownBySpines(tier, isPerson, refusedOn(operation, code, status));
+      const unclaimed =
+        answer.kind === "worded" ? null : await shownBySpines(tier, isPerson, refusedOn(operation, unclaimedBeside(code), status));
       for (const [spine, words] of Object.entries(shown)) {
         assert.equal(words, answer.kind === "worded" ? answer.words : unclaimed?.[spine], `${key}, on ${spine}: ${answer.because}`);
       }

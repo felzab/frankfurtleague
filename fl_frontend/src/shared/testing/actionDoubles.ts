@@ -125,7 +125,8 @@ export function doubleActions({
  * sign-in store and its database driver into the render, which is most of such a suite's time.
  */
 export function doubleEveryAction(): ReturnType<typeof doubleActions> {
-  return doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/] });
+  // Both lanes' modules: a person's actions load the same sign-in store an administrator's do.
+  return doubleActions({ modules: [/\/src\/features\/\w+\/(?:actions|personActions)\.ts$/] });
 }
 
 /** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */
@@ -189,9 +190,22 @@ export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "next/headers": NEXT_HEADERS_DOUBLE,
 };
 
-/** Every refusal an action logs would otherwise reach the run's output as an error line. */
-const inert = (): undefined => undefined;
-const SILENT_LOGGER = { logger: { debug: inert, info: inert, warn: inert, error: inert } };
+/** One line an action logged: its level, its message, and the fields beside them. */
+export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown };
+
+/**
+ * Every line logged since the case began, `doubleActionRequest` emptying it before each case. Recorded
+ * rather than written: every refusal an action logs would otherwise reach the run's output as an error line.
+ */
+export const loggedLines: LoggedLine[] = [];
+
+const logAt =
+  (level: LoggedLine["level"]) =>
+  (message: string, ...rest: unknown[]): void => {
+    // `error` takes the thrown value before its fields, the other three their fields alone.
+    loggedLines.push({ level, message, meta: level === "error" ? rest[1] : rest[0] });
+  };
+const SILENT_LOGGER = { logger: { debug: logAt("debug"), info: logAt("info"), warn: logAt("warn"), error: logAt("error") } };
 
 /** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
 type AdminSessionDouble = { user: { email: string } } | null | Error;
@@ -293,8 +307,15 @@ const signInStore = (answers: SignInAnswers) => ({
  * calls the sign-in store this file replaces, and reads the doubled `auth` it cannot build.
  */
 const subjectLookup = (answers: Pick<SignInAnswers, "subject" | "subjectReads">) => ({
-  getSubjectSession: () => {
+  getSubjectSession: async () => {
     answers.subjectReads += 1;
+    // Recorded as the real lookup records it, so a person's admin-tier call goes out named rather than
+    // refused by the client; imported at the call, for `administratorOf`'s reason.
+    if (answers.subject !== null && !(answers.subject instanceof Error)) {
+      const { setRequestActor } = await import("@/core/requestScope.ts");
+      setRequestActor({ email: answers.subject.email, lane: "person", token: "doubled-person-token-not-a-credential" });
+    }
+
     return answering(answers.subject);
   },
 });
@@ -350,6 +371,7 @@ export function doubleActionRequest({
   // invalidations, and one after a case that signed out would run its write with no session.
   beforeEach(() => {
     cacheCalls.length = 0;
+    loggedLines.length = 0;
     setSession(session);
     setSubject(subject);
     answers.subjectReads = 0;
