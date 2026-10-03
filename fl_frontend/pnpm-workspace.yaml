@@ -31,6 +31,11 @@ verifyDepsBeforeRun: error
 # HeroUI's peer is HeroUI's one copy, and a HeroUI upgrade raising its range would otherwise
 # install past the app's range unseen.
 strictPeerDependencies: true
+# A release younger than a day is refused, the day `.github/dependabot.yml`'s cooldown waits. Strict
+# because pnpm 11's own default of the same age installs a younger release asked for by hand and
+# writes it into `minimumReleaseAgeExclude` here.
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
 patchedDependencies:
   # Aborts on the server a transaction whose commit failed, which no adapter release does, and logs
   # an abort that fails (`docs/frontend/spec.md :: I537`). A release aborting only while
