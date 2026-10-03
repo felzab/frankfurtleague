@@ -6,10 +6,12 @@ from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.services import folds_to
 from app.api.konto.schemas import FLKontoEinwilligungenResponse
 from app.api.konto.services import (
+    build_kontext_teams_pipeline,
     build_selbst_seat_pipeline,
     compose_schiedsrichter_selbst,
     compose_sitze_selbst,
     compose_spieler_selbst,
+    kontext_zeile,
 )
 from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, SELBST_FIELDS, build_selbst_referee_filter
 from app.api.spieler.services import build_selbst_pupil_pipeline
@@ -21,6 +23,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielerCollection,
+    TeamsCollection,
     get_german_date_str,
 )
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
@@ -44,6 +47,7 @@ async def get_einwilligungen(
     schiedsrichter_collection: SchiedsrichterCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    teams_collection: TeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLKontoEinwilligungenResponse:
@@ -54,7 +58,8 @@ async def get_einwilligungen(
 
     PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
     `spieler: null` and two empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
-    seat are served too, a withdrawal staying open wherever a consent stands; `erteilbar` says whether a grant is
+    seat are served too, a withdrawal staying open wherever a consent stands; `kontext` carries what the record's
+    confirmation page filled its words with, as those records stand today; `erteilbar` says whether a grant is
     admitted, `medien_angeboten` whether the media consent may be switched on. A record awaiting its person's
     confirmation is not served: there is nothing on it yet to change.
     """
@@ -86,15 +91,30 @@ async def get_einwilligungen(
         erteilbare_sitze = {(sitz.team_id, sitz.saison_id) for sitz in subjekt.sitze}
 
         pupil = next((row for row in pupils if is_confirmed(row.get("einwilligung"))), None)
+        zeile = None if pupil is None else kontext_zeile(pupil)
+        team_ids = [*([] if zeile is None else [zeile["team_id"]]), *(row["team_id"] for row in seat_rows)]
+        teams = {
+            team["_id"]: team
+            for team in await aggregate_many_from_db(
+                collection=teams_collection, pipeline=build_kontext_teams_pipeline(team_ids), session=session
+            )
+        }
 
         return FLKontoEinwilligungenResponse.model_validate(
             {
-                "spieler": None if pupil is None else compose_spieler_selbst(pupil, erteilbar=pupil["_id"] in erteilbare_spieler, today=today),
+                "spieler": None
+                if pupil is None
+                else compose_spieler_selbst(
+                    pupil,
+                    erteilbar=pupil["_id"] in erteilbare_spieler,
+                    today=today,
+                    team=None if zeile is None else teams.get(zeile["team_id"]),
+                ),
                 "schiedsrichter": [
                     compose_schiedsrichter_selbst(row, erteilbar=row["_id"] in erteilbare_schiedsrichter, today=today)
                     for row in referees
                     if folds_to((row.get("kontakt") or {}).get("email"), identifier) and is_confirmed(row.get(EINWILLIGUNG_FELD))
                 ],
-                "sitze": compose_sitze_selbst(seat_rows, identifier, erteilbar=erteilbare_sitze, today=today),
+                "sitze": compose_sitze_selbst(seat_rows, identifier, erteilbar=erteilbare_sitze, today=today, teams=teams),
             }
         )

@@ -28,7 +28,7 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_team_document, spieler_document
+from tests.documents import saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -143,6 +143,10 @@ def _kontakte(**seats: Any) -> dict[str, Any]:
 
 
 async def _seed(database: AsyncDatabase) -> None:
+    # The clubs as they are called today, apart from each season row's copy, so the `{schule}` fill is seen to be the club's.
+    await database[Collection.TEAMS].insert_many(
+        [team_document(TEAM_A_OID, "Helmholtz-Gymnasium Frankfurt", "HE"), team_document(TEAM_B_OID, "Lessing-Gymnasium", "LE")]
+    )
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
         [
@@ -357,6 +361,25 @@ class TestTheAccountPagesRead:
             (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False, SEAT_LABEL),
         ]
         assert all(sitz["medien_angeboten"] for sitz in body["sitze"])
+        assert [sitz["kontext"] for sitz in body["sitze"]] == [
+            {
+                "vorname": "Ortrud",
+                "team": ROW_NAME_B,
+                "schule": "Lessing-Gymnasium-Schule",
+                "saison": ACTIVE_SAISON,
+                "rolle": "stellvertretung",
+            },
+            {
+                "vorname": "Ortrud",
+                "team": ROW_NAME_A_PAST,
+                "schule": "Helmholtz-Gymnasium Frankfurt-Schule",
+                "saison": PAST_SAISON,
+                "rolle": "trainer",
+            },
+        ]
+        # A pupil with no squad row names nothing but themselves; the referee's one name is cut to its first part.
+        assert body["spieler"]["kontext"] == {"vorname": "Ortrud", "team": None, "schule": None, "saison": None}
+        assert body["schiedsrichter"][0]["kontext"] == {"vorname": "Ortrud"}
 
     def test_an_address_holding_nothing_is_answered_empty_rather_than_refused(self, mongo_replica_set_url: str):
         """The account page renders for every signed-in person."""

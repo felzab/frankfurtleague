@@ -435,6 +435,18 @@ class FLSpielerSelbstKaderZeile(BaseModel):
     inactive_since: CustomOptionalDateString
 
 
+class FLSpielerKontext(BaseModel):
+    """What the pupil confirmation page's slots name for this record today, so its agreed words render whole.
+
+    Null where no squad row names a team and season; the words then render without them.
+    """
+
+    vorname: CustomNonEmptyString
+    team: str | None
+    schule: str | None
+    saison: str | None
+
+
 class FLSpielerSelbst(_SpielerPerson):
     """One pupil record as its own person reads it: the whole surname, the birthdate and the consent record, never masked."""
 
@@ -451,6 +463,7 @@ class FLSpielerSelbst(_SpielerPerson):
     erteilbar: bool
     medien_angeboten: bool
     kader: list[FLSpielerSelbstKaderZeile]
+    kontext: FLSpielerKontext
 
 
 class FLSpielerSelbstResponse(BaseAPIResponse):

@@ -8,12 +8,14 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.crud import funktionen_of
 from app.api.konto.services import (
     KONTO_SEITE_SPIELER,
+    build_kontext_teams_pipeline,
     compose_selbst_einwilligung_move,
     compose_spieler_selbst,
     erteilt_etwas,
     find_eigener_eintrag_refusal,
     find_konto_fassung_refusal,
     find_selbst_medien_refusal,
+    kontext_zeile,
 )
 from app.api.spieler.schemas import (
     FLSpielerSelbstEinwilligungPayload,
@@ -29,6 +31,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielerCollection,
+    TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -57,6 +60,7 @@ async def get_selbst(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
+    teams_collection: TeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielerSelbstResponse:
@@ -90,7 +94,14 @@ async def get_selbst(
         # The derivation the PATCH authorises a grant against, never a copy of its rule.
         erteilbar = any(eintrag.spieler_id == row["_id"] for eintrag in subjekt.spieler)
 
-        return FLSpielerSelbstResponse.model_validate({"spieler": compose_spieler_selbst(row, erteilbar=erteilbar, today=today)})
+        zeile = kontext_zeile(row)
+        teams = await aggregate_many_from_db(
+            collection=teams_collection, pipeline=build_kontext_teams_pipeline([] if zeile is None else [zeile["team_id"]]), session=session
+        )
+
+        return FLSpielerSelbstResponse.model_validate(
+            {"spieler": compose_spieler_selbst(row, erteilbar=erteilbar, today=today, team=teams[0] if teams else None)}
+        )
 
 
 @router.patch(

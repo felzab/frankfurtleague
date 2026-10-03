@@ -7,6 +7,17 @@ from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
 
+class FLSitzKontext(BaseModel):
+    """What the contact confirmation page's slots name for this seat today; `rolle` the first held slot's."""
+
+    vorname: str | None
+    team: str
+    # The club's own name, today; null where its document is gone.
+    schule: str | None
+    saison: str
+    rolle: FLKontaktRolle
+
+
 class FLKontoSitzEinwilligung(BaseModel):
     """One team season on which the address holds a confirmed contact seat, with its media choice.
 
@@ -23,6 +34,7 @@ class FLKontoSitzEinwilligung(BaseModel):
     medien: bool
     medien_angeboten: bool
     erteilbar: bool
+    kontext: FLSitzKontext
 
 
 class FLKontoEinwilligungenResponse(BaseAPIResponse):

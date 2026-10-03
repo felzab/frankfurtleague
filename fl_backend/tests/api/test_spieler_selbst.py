@@ -429,3 +429,18 @@ class TestTheAppendedRecord:
 
         assert response.status_code == 200, response.text
         assert after[PUPIL_OID]["einwilligung"][VERLAUF] == EARLIER_ENTRIES
+
+
+@pytest.mark.db
+class TestTheWordsContext:
+    """The agreed words render with what the record names today: the club as it is called now, never the season row's copy."""
+
+    def test_the_newest_seasons_squad_row_names_the_team_school_and_season(self, mongo_replica_set_url: str):
+        kontext = served(mongo_replica_set_url, _read(IDENTIFIER)).json()["spieler"]["kontext"]
+
+        assert kontext == {"vorname": "Ortrud", "team": CLUB_NAME_A_NOW, "schule": f"{CLUB_NAME_A_NOW}-Schule", "saison": ACTIVE_SAISON}
+
+    def test_a_record_with_no_squad_row_names_its_person_alone(self, mongo_replica_set_url: str):
+        kontext = served(mongo_replica_set_url, _read(YOUNG)).json()["spieler"]["kontext"]
+
+        assert kontext == {"vorname": "Jonas", "team": None, "schule": None, "saison": None}

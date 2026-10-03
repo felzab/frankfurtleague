@@ -13,6 +13,7 @@ from typing import Any, Final
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, seat_is_confirmed, seats_naming
 from app.api.kontakte.services import KONTAKT_SLOTS, same_address
+from app.api.schiedsrichter.services import vorname_of
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import Seite
@@ -158,8 +159,31 @@ def find_selbst_medien_refusal(*, geburtsdatum: Any, medien_erteilt: bool, today
 # withdrawal staying open on every record a consent stands on.
 
 
-def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: str) -> dict[str, Any]:
-    """One pupil row, as `app/api/spieler/services.py :: build_selbst_pupil_pipeline` reads it, in the shape both reads serve."""
+def kontext_zeile(row: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """The squad row naming a pupil record's team and season: the newest season's, live or ausgetragen.
+
+    Nothing stores the season a record was confirmed for; each admission rewrites the record, so only an
+    administrator's later entry is misread.
+    """
+
+    kader = row.get("kader") or []
+
+    return kader[0] if kader else None
+
+
+def build_kontext_teams_pipeline(team_ids: Collection[Any]) -> list[Mapping[str, Any]]:
+    """The clubs the records' slots name, read today: the two names a confirmation page fills `{team}` and `{schule}` from."""
+
+    return [{"$match": {"_id": {"$in": sorted(set(team_ids))}}}, {"$project": {"name": 1, "full_name": 1}}]
+
+
+def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
+    """One pupil row, as `app/api/spieler/services.py :: build_selbst_pupil_pipeline` reads it, in the shape both reads serve.
+
+    `team` is the club document of `kontext_zeile`'s row, as it stands today.
+    """
+
+    zeile = kontext_zeile(row)
 
     return {
         "spieler_id": row["_id"],
@@ -172,6 +196,12 @@ def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: st
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         "kader": row["kader"],
+        "kontext": {
+            "vorname": row["vorname"],
+            "team": None if team is None else team.get("name"),
+            "schule": None if team is None else team.get("full_name"),
+            "saison": None if zeile is None else zeile["saison_id"],
+        },
     }
 
 
@@ -189,6 +219,8 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
+        # The one stored name, cut as the referee's confirmation page cut it.
+        "kontext": {"vorname": vorname_of(row.get("name"))},
     }
 
 
@@ -205,7 +237,7 @@ def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "geburtsdatum", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
             }
         },
         {"$sort": {"saison_id": -1, "name": 1, "team_id": 1}},
@@ -213,7 +245,12 @@ def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def compose_sitze_selbst(
-    rows: Sequence[Mapping[str, Any]], identifier: str, *, erteilbar: Collection[tuple[Any, str]], today: str
+    rows: Sequence[Mapping[str, Any]],
+    identifier: str,
+    *,
+    erteilbar: Collection[tuple[Any, str]],
+    today: str,
+    teams: Mapping[Any, Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     """One entry per season row on which this address holds a confirmed seat.
 
@@ -237,6 +274,14 @@ def compose_sitze_selbst(
                 "medien": any(seat["einwilligung"].get("medien") is True for seat in held),
                 "medien_angeboten": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
                 "erteilbar": (row["team_id"], row["saison_id"]) in erteilbar,
+                # The first held slot's, as `rollen` orders them: one person holding two answers by one name.
+                "kontext": {
+                    "vorname": held[0].get("vorname"),
+                    "team": row["name"],
+                    "schule": (teams.get(row["team_id"]) or {}).get("full_name"),
+                    "saison": row["saison_id"],
+                    "rolle": rollen[0],
+                },
             }
         )
 

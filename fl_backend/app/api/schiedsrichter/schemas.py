@@ -229,6 +229,12 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     schiedsrichter: FLSchiedsrichter
 
 
+class FLSchiedsrichterKontext(BaseModel):
+    """What the referee confirmation page's slots name for this record today: the one stored name's first part."""
+
+    vorname: str | None
+
+
 class FLSchiedsrichterSelbst(BaseModel):
     """One referee record as its own person reads it: their contact details and consent, never the fee or the link's bookkeeping."""
 
@@ -245,6 +251,7 @@ class FLSchiedsrichterSelbst(BaseModel):
     # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     erteilbar: bool
     medien_angeboten: bool
+    kontext: FLSchiedsrichterKontext
 
 
 class FLSchiedsrichterSelbstResponse(BaseAPIResponse):
