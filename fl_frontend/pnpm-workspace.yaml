@@ -32,7 +32,7 @@ verifyDepsBeforeRun: error
 # install past the app's range unseen.
 strictPeerDependencies: true
 patchedDependencies:
-  # Aborts on the server a transaction whose commit failed, saying so where that abort fails, and
-  # lets the commit's own error through where the driver's refusal of the adapter's abort replaced
-  # it (`docs/frontend/spec.md :: I537`); no adapter release does either.
+  # Aborts on the server a transaction whose commit failed, which no adapter release does, and logs
+  # an abort that fails (`docs/frontend/spec.md :: I537`). A release aborting only while
+  # `session.inTransaction()` holds still sends none after a commit.
   "@better-auth/mongo-adapter@1.7.7": patches/@better-auth__mongo-adapter@1.7.7.patch
