@@ -53,8 +53,12 @@ const { buildCodeEmail } = await import("./authEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
 const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
-const { buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } =
-  await import("./registrierungEmail.ts");
+const {
+  buildRegistrierungAbsageEmail,
+  buildRegistrierungBestaetigungEmail,
+  buildRegistrierungErinnerungEmail,
+  buildRegistrierungSaisonendeEmail,
+} = await import("./registrierungEmail.ts");
 const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
@@ -215,6 +219,14 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildRegistrierungSaisonendeEmail: (origin) =>
     buildRegistrierungSaisonendeEmail({ vorname: "Mira", teamName: "Ernst-Reuter-Schule", saisonId: "2627", origin: origin }),
+  buildRegistrierungAbsageEmail: (origin) =>
+    buildRegistrierungAbsageEmail({
+      vorname: "Mira",
+      teamName: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      origin: origin,
+      grund: "andere_person",
+    }),
   buildSchiedsrichterBestaetigungEmail: (origin) =>
     buildSchiedsrichterBestaetigungEmail({ origin: origin, vorname: "Anna", token: "beispiel-fuenf", fristText: "05.10.2026" }),
   buildSperreEmail: (origin) =>

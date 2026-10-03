@@ -62,6 +62,17 @@ export interface RegistrierungNotizEmailData {
 }
 
 /**
+ * Why a team declined, as the decline stores it: the backend's fixed choice, never free text. Spelled
+ * here because `core` may not import the slice's mirror, which is passed in and so checked against this.
+ */
+export type RegistrierungAbsageGrund = "andere_person" | null;
+
+/** What the decline note is addressed with. Like the season-end note it carries no link: the decision is the team's and stands. */
+export interface RegistrierungAbsageEmailData extends RegistrierungNotizEmailData {
+  readonly grund: RegistrierungAbsageGrund;
+}
+
+/**
  * One control, as the sign-in message carries one (`fl_frontend/src/core/authEmail.ts :: aktionen`):
  * the message exists for this link alone, and a second destination competes with the one press a
  * reader came for.
@@ -251,6 +262,59 @@ export function buildRegistrierungSaisonendeEmail(data: RegistrierungNotizEmailD
     }),
     text: [
       stuffSignatureDelimiter([`${BRAND_NAME}: Registrierung gelöscht`, "", anrede ?? "", "", geloescht ?? "", "", naechste ?? ""].join("\n")),
+      ...textFooter(site, [ANTWORT_SATZ_TEXT]),
+    ].join("\n"),
+  };
+}
+
+/**
+ * What the pupil is asked to do after a decline, by its reason. A team answering that the address
+ * belongs to somebody else has refused the address rather than the pupil, so that note sends them
+ * back with one of their own.
+ */
+const ABSAGE_WEITER: Readonly<Record<NonNullable<RegistrierungAbsageGrund> | "keiner", string>> = {
+  andere_person:
+    "Unter dieser E-Mail-Adresse ist schon eine andere Person eingetragen. Registriere Dich bitte erneut über den Link Deines Teams, mit Deiner eigenen E-Mail-Adresse.",
+  keiner: "Hast Du Fragen zu dieser Entscheidung, sprich bitte mit Deinem Team.",
+};
+
+const absageSaetze = ({ vorname, teamName, saisonId, grund }: RegistrierungAbsageEmailData): readonly string[] => [
+  `Hallo ${vorname}, ${teamName} hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} nicht angenommen.`,
+  ABSAGE_WEITER[grund ?? "keiner"],
+  "Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung.",
+];
+
+/**
+ * The one note after a team declines a registration.
+ *
+ * **It names no other person**: the reason it states is the stored choice, so whoever holds the
+ * mailbox learns that an address is taken and never by whom.
+ */
+export function buildRegistrierungAbsageEmail(data: RegistrierungAbsageEmailData): RegistrierungEmail {
+  const site = mailOrigin(data.origin);
+  const [anrede, weiter, loeschung] = absageSaetze(data);
+
+  return {
+    subject: `Deine Registrierung bei ${data.teamName}`,
+    html: renderKarte({
+      titel: `${BRAND_NAME}: Registrierung nicht angenommen`,
+      ueberschrift: escapeHtml("Registrierung nicht angenommen"),
+      bloecke: [
+        paragraph(
+          `Hallo ${strong(escapeHtml(data.vorname))}, ${strong(escapeHtml(data.teamName))} hat Deine Registrierung für die ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} nicht angenommen.`,
+        ),
+        paragraph(escapeHtml(weiter ?? "")),
+        paragraph(escapeHtml(loeschung ?? ""), "0", ASIDE_TEXT),
+      ],
+      // The league's landing, as the season-end note's: no record is left to press on.
+      aktionen: [{ href: site, label: "Zur Frankfurt League", ton: "outline" }],
+      fuss: ANTWORT_SATZ_HTML,
+      origin: site,
+    }),
+    text: [
+      stuffSignatureDelimiter(
+        [`${BRAND_NAME}: Registrierung nicht angenommen`, "", anrede ?? "", "", weiter ?? "", "", loeschung ?? ""].join("\n"),
+      ),
       ...textFooter(site, [ANTWORT_SATZ_TEXT]),
     ].join("\n"),
   };
