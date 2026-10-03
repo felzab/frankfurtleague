@@ -41,6 +41,7 @@ from app.api.bewerbungen.services import (
     parse_new_club,
     seat_named,
 )
+from app.api.einwilligung.services import find_fassung_refusal
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
@@ -528,7 +529,8 @@ async def besetze_kontakt_sitz(
     stepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored
     before the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another
     contact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds
-    (`REQ-BEWERBUNG-019`). A path naming no seat is a 404.
+    (`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person
+    seated being a new acceptance. A path naming no seat is a 404.
     """
 
     # Outside the transaction, as the correction reads both.
@@ -563,6 +565,8 @@ async def besetze_kontakt_sitz(
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
+        # A new acceptance on every seat it fills: the person seated holds no label of their own to keep.
+        refuse(find_fassung_refusal(seite="bewerbung", genannt=dict.fromkeys(seats, sitz_data.text_version)))
 
         raw, token_hash = mint_token()
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)

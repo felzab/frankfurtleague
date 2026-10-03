@@ -2422,7 +2422,8 @@ RULES: tuple[Rule, ...] = (
         code="REQ-EINWILLIGUNG-001",
         status=HTTPStatus.CONFLICT,
         operation=(
-            "POST /bewerbungen · POST /bewerbungen/einwilligung · POST /registrierungen/bestaetigung · "
+            "POST /bewerbungen · POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/kontakte/{seat} · "
+            "POST /registrierungen/bestaetigung · "
             "POST /schiedsrichter/bestaetigung · PATCH /teams/{team_id}/saisons/{saison_id}/kontakte · "
             "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
             "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"

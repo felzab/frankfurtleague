@@ -48,6 +48,7 @@ from app.api.bewerbungen.services import (
     seat_zustellung,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
@@ -1736,16 +1737,22 @@ RESEAT_PERSON: Mapping[str, Any] = {
     "telefon": "+49 69 7654321",
 }
 
-# A label the reseat carries as typed, never one this file reads from the registry
-# (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
-RESEAT_TEXT_VERSION = "liga-kenntnisnahme-2026-01"
+# The application form's running label, the only one a reseat is admitted under.
+RESEAT_TEXT_VERSION = LAUFENDE_FASSUNGEN["bewerbung"]
 
 
-async def reseat(database: AsyncDatabase, client: AsyncMongoClient, seat: str, *, email: str = RESEAT_PERSON["email"]) -> Any:
+async def reseat(
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    seat: str,
+    *,
+    email: str = RESEAT_PERSON["email"],
+    text_version: str = RESEAT_TEXT_VERSION,
+) -> Any:
     return await besetze_kontakt_sitz(
         bewerbung_id=RESEAT_BEWERBUNG,
         seat=seat,
-        sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": RESEAT_TEXT_VERSION}),
+        sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": text_version}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
         db=client,
@@ -2028,6 +2035,33 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         assert stored["bestaetigungsfrist"] == bestaetigungsfrist_from(today=TODAY)
         assert stored["bestaetigungsfrist"] > TODAY, "the new person is seated behind a link that already opens nothing"
+
+
+@pytest.mark.db
+class TestTheLabelAReseatNames:
+    """`REQ-EINWILLIGUNG-001`: the person seated is a new acceptance, so only the form's running label is admitted."""
+
+    @pytest.mark.parametrize(
+        "genannt",
+        [
+            pytest.param("2026-09-bestaetigung-4", id="a superseded form label"),
+            pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_kontakt"], id="the confirmation page's running label"),
+            pytest.param("liga-kenntnisnahme-2026-01", id="a label the registry never held"),
+        ],
+    )
+    def test_any_other_label_is_refused_and_seats_nobody(self, mongo_replica_set_url: str, genannt: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+            with pytest.raises(WriteRefusalException) as refused:
+                await reseat(database, client, "ansprechperson", text_version=genannt)
+
+            return refused.value, emptied, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        refusal, emptied, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        assert stored == emptied
 
 
 @pytest.mark.db
