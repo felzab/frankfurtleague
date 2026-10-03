@@ -329,7 +329,7 @@ export const FLSpielerSelbstSchema = z.object({
 export type FLSpielerSelbst = z.infer<typeof FLSpielerSelbstSchema>;
 
 export const FLSpielerSelbstResponseSchema = BaseAPIResponseSchema.extend({
-  spieler: z.array(FLSpielerSelbstSchema),
+  spieler: FLSpielerSelbstSchema,
 });
 export type FLSpielerSelbstResponse = z.infer<typeof FLSpielerSelbstResponseSchema>;
 

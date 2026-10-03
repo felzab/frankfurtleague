@@ -1,0 +1,112 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { createElement as h } from "react";
+
+import { render, screen, within } from "@testing-library/react";
+
+import { underNext } from "@/shared/testing/nextContexts.ts";
+
+import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas.ts";
+
+/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { SpielerSelbstView } = await import("./SpielerSelbstView.tsx");
+
+const LAUFEND: FLSpielerSelbstKaderZeile = {
+  team_id: "6890a1b2c3d4e5f607390041",
+  team_name: "Lessing Lions",
+  saison_id: "2026",
+  nummer: "07",
+  position: "Angriff",
+  stufe: "Q1",
+  rolle: "kapitaen",
+  ist_nachnominiert: true,
+  inactive_since: null,
+};
+
+/** The season before, under the name the club played it under, and left mid-season. */
+const AUSGETRAGEN: FLSpielerSelbstKaderZeile = {
+  ...LAUFEND,
+  team_name: "Lessing Löwen",
+  saison_id: "2025",
+  nummer: null,
+  position: null,
+  stufe: null,
+  rolle: null,
+  ist_nachnominiert: true,
+  inactive_since: "2026-03-14",
+};
+
+const SPIELERIN: FLSpielerSelbst = {
+  spieler_id: "6890a1b2c3d4e5f607390031",
+  vorname: "Alina",
+  nachname: "Fischer-Okafor",
+  geburtsdatum: "2008-05-02",
+  inactive_since: null,
+  einwilligung: {
+    umfang: "kader_oeffentlich",
+    erteilt_von: "volljaehrig",
+    datum: "2026-09-01",
+    bestaetigt_am: "2026-09-01",
+    text_version: "2026-09-spielerseite-3",
+    medien: false,
+  },
+  erteilbar: true,
+  medien_angeboten: true,
+  kader: [LAUFEND, AUSGETRAGEN],
+};
+
+const renderView = (spieler: FLSpielerSelbst = SPIELERIN) => render(underNext(h(SpielerSelbstView, { spieler })));
+
+describe("a pupil's own page", () => {
+  /* The person tier's read, read by the person it names: the surname whole, never the public initial. */
+  it("shows the whole name and the birthdate under one panel heading", () => {
+    renderView();
+
+    assert.equal(screen.getAllByRole("heading", { level: 2, name: "Deine Angaben" }).length, 1);
+    assert.ok(screen.getByText("Alina Fischer-Okafor"));
+    assert.ok(screen.getByText("02.05.2008"));
+  });
+
+  it("links each squad to the season it played in, under the name the club played it under", () => {
+    renderView();
+
+    const laufend = screen.getByRole("link", { name: "Kader von Lessing Lions ansehen" });
+    const frueher = screen.getByRole("link", { name: "Kader von Lessing Löwen ansehen" });
+    assert.equal(laufend.getAttribute("href"), `/dashboard/spieler/${LAUFEND.team_id}?saison_id=2026`);
+    assert.equal(frueher.getAttribute("href"), `/dashboard/spieler/${AUSGETRAGEN.team_id}?saison_id=2025`);
+  });
+
+  /* The administrator's squad list grades the two facts so: a row taken out of the squad says when,
+     and its late entry no longer matters to anyone reading it. */
+  it("marks a squad left mid-season with its date, in place of the late entry", () => {
+    renderView();
+
+    const [laufend, frueher] = screen.getAllByRole("listitem");
+    assert.ok(laufend !== undefined && frueher !== undefined, "the page lists fewer than the two squads");
+    assert.ok(within(laufend).getByText("Nachnominiert"));
+    assert.ok(within(laufend).getByText("Nummer 07 · Angriff · Q1 · Kapitän"));
+    assert.ok(within(frueher).getByText("Ausgetragen seit 14.03.2026"));
+    assert.equal(within(frueher).queryAllByText("Nachnominiert").length, 0, "a squad left mid-season still reads as entered late");
+    assert.ok(within(frueher).getByText("Ohne Nummer · Ohne Position"));
+  });
+
+  /* The stamped wording names the account page as the place a consent is changed, so this page offers
+     no control of its own and sends the reader there. */
+  it("offers no consent control and links the account page", () => {
+    renderView();
+
+    assert.equal(screen.queryAllByRole("switch").length + screen.queryAllByRole("radiogroup").length, 0);
+    assert.equal(screen.getByRole("link", { name: "Konto" }).getAttribute("href"), "/bereich/konto");
+  });
+
+  it("leaves the squad section out for a pupil in no squad", () => {
+    renderView({ ...SPIELERIN, kader: [] });
+
+    assert.equal(screen.queryAllByRole("heading", { level: 3 }).length, 0);
+    assert.equal(screen.queryAllByRole("listitem").length, 0);
+  });
+});

@@ -111,19 +111,14 @@ export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKad
   });
 }
 
-// The pupil's own press, under the person lane's actor: the record is named in the path because one
-// address may hold several pupil rows, each with its own consent.
+// The pupil's own press, under the person lane's actor. No id in the path: an address holds at most
+// one pupil row, so the signed-in person names the record.
 export async function patchSpielerSelbstEinwilligung(
-  spielerId: string,
   payload: FLSpielerSelbstEinwilligungPayload,
 ): Promise<FLSpielerSelbstEinwilligungResponse> {
-  return apiClient<FLSpielerSelbstEinwilligungResponse>(
-    `/spieler/selbst/${spielerId}/einwilligung`,
-    FLSpielerSelbstEinwilligungResponseSchema,
-    {
-      method: "PATCH",
-      authType: "admin",
-      body: JSON.stringify(payload),
-    },
-  );
+  return apiClient<FLSpielerSelbstEinwilligungResponse>("/spieler/selbst/einwilligung", FLSpielerSelbstEinwilligungResponseSchema, {
+    method: "PATCH",
+    authType: "admin",
+    body: JSON.stringify(payload),
+  });
 }
