@@ -223,6 +223,22 @@ describe("what a removal costs, and what it refuses", () => {
     }
   });
 
+  /* Enrolments at once can leave an account past the cap (`docs/frontend/spec.md` §4), and every row
+     it holds stays the holder's to remove. */
+  it("removes a row past the cap, the seventh of seven", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    const held = Array.from({ length: 7 }, (_, index) => seedPasskey(row.userId, String(index + 1)));
+    const seventh = held.at(-1);
+    assert.ok(seventh !== undefined);
+    arriveAs(cookie);
+
+    assert.equal((await removePasskeyAction(seventh.id)).success, true);
+    assert.deepEqual(
+      store.passkey.map((entry) => entry.id),
+      held.slice(0, 6).map((entry) => entry.id),
+    );
+  });
+
   /* A mail that went out records a write of its own, so only a withheld one leaves the removal's own
      record as the page's reason to refresh: the sign-in store's writes are recorded by no client. */
   it("refreshes the page after a removal whose notice was withheld", async () => {

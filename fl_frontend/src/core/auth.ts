@@ -1273,25 +1273,26 @@ export async function removePasskey(holder: { readonly id: string; readonly verw
   }
 
   async function removeInside(
-    held: Pick<DBTransactionAdapter, "findMany" | "update" | "delete" | "deleteMany">,
+    held: Pick<DBTransactionAdapter, "findOne" | "count" | "update" | "delete" | "deleteMany">,
   ): Promise<Exclude<PasskeyRemoval, "conflict">> {
     // The adapter hands itself back where it opens no transaction, and there the claim below
     // conflicts with nothing: refused rather than admitted unguarded.
     if (held === adapter) throw new RemovalOutsideTransaction();
 
-    const rows = await held.findMany<{ id: string; credentialID: string }>({
+    // By the holder's id as well, so another account's identifier is absent rather than taken; by no
+    // window, since enrolments at once can leave more rows than the cap (`docs/frontend/spec.md` §4).
+    const removed = await held.findOne<{ credentialID: string }>({
       model: "passkey",
-      where: [{ field: "userId", value: holder.id }],
-      limit: PASSKEY_LIMIT + 1,
+      where: [
+        { field: "id", value: id },
+        { field: "userId", value: holder.id },
+      ],
     });
-
-    // Read off the holder's own rows, so another account's identifier is absent rather than taken.
-    const removed = rows.find((row) => row.id === id);
-    if (removed === undefined) return "absent";
+    if (removed === null) return "absent";
     // By the grant the account page's guard read, which throws on an unread one before any removal:
     // an administrator's last passkey is their only way into the administration, while a person
     // holding none signs in by code again.
-    if (holder.verwaltung && rows.length <= 1) return "last";
+    if (holder.verwaltung && (await held.count({ model: "passkey", where: [{ field: "userId", value: holder.id }] })) <= 1) return "last";
 
     await claimAccount(held, holder.id);
     await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });
