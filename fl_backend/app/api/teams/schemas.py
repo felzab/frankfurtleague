@@ -833,6 +833,29 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     ausgetragene_squad_rows: int
 
 
+class FLTeamSitz(BaseModel):
+    """One seat as the people beside it see it: who holds it and whether they answered their link.
+
+    No address, telephone number or birthdate: the contact page promises that only administrators
+    see those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
+    """
+
+    rolle: FLKontaktRolle
+    # Null for an empty slot, which is answered rather than omitted: a missing line reads as a team
+    # with two seats rather than one with a seat unfilled.
+    name: str | None
+    # Composed from the stamp and never the stamp itself, so no date about another person crosses.
+    bestaetigt: bool
+
+
+class FLTeamSitzeResponse(BaseAPIResponse):
+    """A team's three seats in one season, in the order `app/api/kontakte/services.py :: KONTAKT_SLOTS` reads them."""
+
+    team_id: CustomObjectId
+    saison_id: str
+    sitze: list[FLTeamSitz]
+
+
 FLTeamsResponse = Annotated[
     FLTeamsListResponse | FLTeamsGroupedResponse,
     Field(discriminator="format"),

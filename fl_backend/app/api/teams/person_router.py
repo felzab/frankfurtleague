@@ -2,18 +2,16 @@ from collections.abc import Mapping
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
-from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.services import find_funktion_refusal, seat_is_confirmed
 from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.teams.schemas import FLTeamSitz, FLTeamSitzeResponse
 from app.core.config import API_VERSION
 from app.core.crud import refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SchiedsrichterCollection, SpielerCollection
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
-from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.custom import CustomRouteObjectId
 
 # The person lane's binder, as `app/api/registrierungen/person_router.py` declares it and for its reason.
 router = APIRouter(
@@ -22,29 +20,6 @@ router = APIRouter(
 )
 
 Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
-
-
-class FLTeamSitz(BaseModel):
-    """One seat as the people beside it see it: who holds it and whether they answered their link.
-
-    No address, telephone number or birthdate: the contact page promises that only administrators
-    see those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
-    """
-
-    rolle: FLKontaktRolle
-    # Null for an empty slot, which is answered rather than omitted: a missing line reads as a team
-    # with two seats rather than one with a seat unfilled.
-    name: str | None
-    # Composed from the stamp and never the stamp itself, so no date about another person crosses.
-    bestaetigt: bool
-
-
-class FLTeamSitzeResponse(BaseAPIResponse):
-    """A team's three seats in one season, in the order `app/api/kontakte/services.py :: KONTAKT_SLOTS` reads them."""
-
-    team_id: CustomObjectId
-    saison_id: str
-    sitze: list[FLTeamSitz]
 
 
 def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
