@@ -249,6 +249,13 @@ class TestTheRegistryOfWordings:
             for text in (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values()):
                 assert text and text == text.strip(), f"{label} holds an empty or padded text"
 
+    def test_no_word_holds_a_line_break(self):
+        """The digest joins its texts with newlines, so a paragraph holding one digests as two paragraphs would."""
+
+        for label, fassung in FASSUNGEN.items():
+            for text in (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente, *fassung.bedienelemente.values()):
+                assert "\n" not in text and "\r" not in text, f"{label} holds a line break"
+
     def test_every_label_fits_the_length_a_record_may_cite(self):
         for label in FASSUNGEN:
             assert len(label) <= EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, label
