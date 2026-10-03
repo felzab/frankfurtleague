@@ -86,6 +86,8 @@ export function personStructureFor(eintraege: ReadonlySet<PersonEintrag>): Sidem
 /** `TeamIconName` is derived from this, so an `iconName` typo below is a compile error. */
 export const TEAM_SIDEMENU_ICONS = {
   House,
+  // The squad is the pupil's record, so it wears that record's glyph here as on the two „Spieler“ entries.
+  PersonPencil,
 } as const satisfies Record<string, React.ElementType>;
 
 export type TeamIconName = keyof typeof TEAM_SIDEMENU_ICONS;
@@ -121,6 +123,14 @@ export const TEAM_SIDEMENU_ENTRIES = [
     iconName: "House",
     hint: {
       lead: "Dein Team in dieser Saison und Deine Funktion darin.",
+    },
+  },
+  {
+    id: "kader",
+    label: "Kader",
+    iconName: "PersonPencil",
+    hint: {
+      lead: "Der Kader Deines Teams in dieser Saison.",
     },
   },
 ] as const satisfies readonly SidemenuStructureSubOption<TeamIconName>[];

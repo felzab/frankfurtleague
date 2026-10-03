@@ -239,3 +239,60 @@ export const FLSpielerNachnominierungResponseSchema = BaseAPIResponseSchema.exte
   nachnominierung: z.boolean(),
 });
 export type FLSpielerNachnominierungResponse = z.infer<typeof FLSpielerNachnominierungResponseSchema>;
+
+/**
+ * Mirrors `FLKaderZeile`, a squad row as its team's seat holder reads it: the surname whole, never the
+ * public initial. A key added for an address or a telephone number reaches every seat holder of the team.
+ */
+export const FLKaderZeileSchema = z.object({
+  spieler_id: CustomObjectIdStringSchema,
+  vorname: z.string().nonempty(),
+  nachname: z.string().nullable(),
+  nummer: z.string().nullable(),
+  position: FLSpielerPositionSchema.nullable(),
+  stufe: FLSpielerStufeSchema.nullable(),
+  rolle: FLSpielerRolleSchema.nullable(),
+  ist_nachnominiert: z.boolean(),
+  // Set on a row taken out of the squad, which a seat holder reads and never edits.
+  inactive_since: CustomDateStringSchema.nullable(),
+  // Composed by the backend over the squad's live rows, comparing the stored strings: „07“ is not „7“.
+  nummer_doppelt: z.boolean(),
+});
+export type FLKaderZeile = z.infer<typeof FLKaderZeileSchema>;
+
+/** Mirrors `FLKaderResponse`: the squad, and the levels the season admits, which are all its form may offer. */
+export const FLKaderResponseSchema = BaseAPIResponseSchema.extend({
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string(),
+  erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1),
+  kader: z.array(FLKaderZeileSchema),
+});
+export type FLKaderResponse = z.infer<typeof FLKaderResponseSchema>;
+
+/** Mirrors `FLKaderZeileResponse`: the row as a seat holder's write left it. */
+export const FLKaderZeileResponseSchema = BaseAPIResponseSchema.extend(FLKaderZeileSchema.shape);
+export type FLKaderZeileResponse = z.infer<typeof FLKaderZeileResponseSchema>;
+
+/** The three ids a squad row is addressed by on a seat holder's write, all of them in the PATH. */
+const kaderZeileKeyFields = {
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string().length(SAISON_ID_LENGTH, { error: "Bitte wähle eine Saison." }),
+  spieler_id: CustomObjectIdStringSchema,
+};
+
+/**
+ * Mirrors `FLPatchKaderZeilePayload`, wholesale: an omitted field would erase a stored one. The club
+ * and the Nachnominierung are the stored row's, and a seat holder's write names neither.
+ */
+export const FLPatchKaderZeilePayloadSchema = z.object({
+  ...kaderZeileKeyFields,
+  nummer: z.string().regex(SQUAD_NUMMER_REGEX, { error: NUMMER_MUST_BE_DIGITS }).nullable(),
+  position: FLSpielerPositionSchema.nullable(),
+  stufe: FLSpielerStufeSchema.nullable(),
+  rolle: FLSpielerRolleSchema.nullable(),
+});
+export type FLPatchKaderZeilePayload = z.infer<typeof FLPatchKaderZeilePayloadSchema>;
+
+/** The austragen's whole argument: the row's three ids, every one in the path, and no request body. */
+export const FLKaderZeileKeyPayloadSchema = z.object(kaderZeileKeyFields);
+export type FLKaderZeileKeyPayload = z.infer<typeof FLKaderZeileKeyPayloadSchema>;

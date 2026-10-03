@@ -10,6 +10,7 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 doubleActionRequest();
 
 const { answerSettled } = await import("@/shared/testing/publishedRefusals.ts");
+const { isFunktionLost } = await import("@/shared/utils/actionError.ts");
 const { replayRefusal } = await import("@/shared/utils/undoRoute.ts");
 const berechtigungen = await import("@/features/berechtigungen/refusals.ts");
 const bewerbungen = await import("@/features/bewerbungen/refusals.ts");
@@ -82,6 +83,11 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   // Written by the undo route's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
   "DELETE /spieler/{spieler_id}/erasure": spieler.mapErasureRefusal,
+  // A read's refusal reaches no action: the squad pages render the forbidden panel for it, by the one
+  // predicate the shared reader words it by for a write.
+  "GET /spieler/kader/{team_id}/{saison_id}": (error) => (isFunktionLost(error) ? "the forbidden panel, in the page's stead" : null),
+  "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
+  "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,
   "POST /spieler/{spieler_id}/saisons": (error) => spieler.mapSquadRefusal(error) ?? spieler.mapAlreadyInSaisonRefusal(error),
   "PATCH /spieler/{spieler_id}/saisons/{saison_id}": spieler.mapSquadRefusal,
   "DELETE /spieler/{spieler_id}/saisons/{saison_id}": SHARED_READER,

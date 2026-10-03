@@ -291,6 +291,34 @@ const FORMS: Record<string, FormCase> = {
     },
     expected: ["rostered name vorname", "unrostered name vorname", "unrostered star Team suppressed"],
   },
+  "a seat holder's squad row editor": {
+    module: "features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx",
+    marks: async () => {
+      const { KaderZeileEditForm } = await import("@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx");
+      return marksOf(
+        h(KaderZeileEditForm, {
+          teamId: TEAM_A.teamId,
+          saisonId: "2026",
+          zeile: {
+            spieler_id: "68c1f0a2b3c4d5e6f7a8b9c0",
+            vorname: "Lena",
+            nachname: "Meier",
+            nummer: "10",
+            position: null,
+            stufe: null,
+            rolle: null,
+            ist_nachnominiert: false,
+            inactive_since: null,
+            nummer_doppelt: false,
+          },
+          erlaubteStufen: ["Q1"],
+          heldRollen: {},
+          kaderHref: `/bereich/team/${TEAM_A.teamId}/2026/kader`,
+        } as never),
+      );
+    },
+    expected: [],
+  },
   "the club editor": {
     module: "features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx",
     marks: async () => {

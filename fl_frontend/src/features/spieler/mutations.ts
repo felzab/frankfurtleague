@@ -1,10 +1,18 @@
 import { apiClient } from "@/core/api";
 
-import { FLSaisonSpielerResponseSchema, FLSpielerAdminSingleResponseSchema, FLSpielerErasureResponseSchema } from "./schemas";
+import {
+  FLKaderZeileResponseSchema,
+  FLSaisonSpielerResponseSchema,
+  FLSpielerAdminSingleResponseSchema,
+  FLSpielerErasureResponseSchema,
+} from "./schemas";
 
 import type {
   FLDeleteSpielerPayload,
   FLEraseSpielerPayload,
+  FLKaderZeileKeyPayload,
+  FLKaderZeileResponse,
+  FLPatchKaderZeilePayload,
   FLPatchSaisonSpielerPayload,
   FLPatchSpielerPayload,
   FLPostSaisonSpielerPayload,
@@ -78,6 +86,24 @@ export async function deleteSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpi
 export async function reactivateSaisonSpieler({ spieler_id, saison_id }: FLSaisonSpielerKeyPayload): Promise<FLSaisonSpielerResponse> {
   return apiClient<FLSaisonSpielerResponse>(`/spieler/${spieler_id}/saisons/${saison_id}/reactivate`, FLSaisonSpielerResponseSchema, {
     method: "POST",
+    authType: "admin",
+  });
+}
+
+// A seat holder's write rides the admin key under the person lane's actor, which the backend checks
+// the seat against: the club stays the stored row's, so the path's team is the address and no field.
+export async function patchKaderZeile({ team_id, saison_id, spieler_id, ...body }: FLPatchKaderZeilePayload): Promise<FLKaderZeileResponse> {
+  return apiClient<FLKaderZeileResponse>(`/spieler/kader/${team_id}/${saison_id}/${spieler_id}`, FLKaderZeileResponseSchema, {
+    method: "PATCH",
+    authType: "admin",
+    body: JSON.stringify(body),
+  });
+}
+
+// Soft, as the administrator's own is: the row stays, and only the administrator's reactivate brings it back.
+export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKaderZeileKeyPayload): Promise<FLKaderZeileResponse> {
+  return apiClient<FLKaderZeileResponse>(`/spieler/kader/${team_id}/${saison_id}/${spieler_id}`, FLKaderZeileResponseSchema, {
+    method: "DELETE",
     authType: "admin",
   });
 }

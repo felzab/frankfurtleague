@@ -3,10 +3,16 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { runAdminRead } from "@/shared/utils/adminRead";
+import { runPersonRead } from "@/shared/utils/personRead";
 
-import { FLSpielerListResponseSchema, FLSpielerMembershipsResponseSchema, FLSpielerNachnominierungResponseSchema } from "./schemas";
+import {
+  FLKaderResponseSchema,
+  FLSpielerListResponseSchema,
+  FLSpielerMembershipsResponseSchema,
+  FLSpielerNachnominierungResponseSchema,
+} from "./schemas";
 
-import type { FLSpielerListResponse, FLSpielerMembershipsResponse, FLSpielerNachnominierungResponse } from "./schemas";
+import type { FLKaderResponse, FLSpielerListResponse, FLSpielerMembershipsResponse, FLSpielerNachnominierungResponse } from "./schemas";
 import type { FLSpielerFilterParams } from "./types";
 
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
@@ -47,4 +53,13 @@ export const getSpielerNachnominierung = cache(async (saisonId: string): Promise
       authType: "admin",
     }),
   ),
+);
+
+/**
+ * One team's squad as its seat holder reads it, refused `REQ-FUNKTION-001` where the backend does not
+ * find the seat the page's own check found.
+ */
+// Never `"use cache"`, for `getSpielerMemberships`' reason: what it answers is the reading person's.
+export const getKader = cache(async (teamId: string, saisonId: string): Promise<FLKaderResponse> =>
+  runPersonRead(() => apiClient<FLKaderResponse>(`/spieler/kader/${teamId}/${saisonId}`, FLKaderResponseSchema, { authType: "admin" })),
 );

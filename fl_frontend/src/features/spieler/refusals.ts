@@ -1,7 +1,7 @@
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
-import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT } from "./constants";
+import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT, STUFE_NICHT_ZUGELASSEN } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -40,6 +40,20 @@ export function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?:
       }),
     };
   }
+  return null;
+}
+
+/**
+ * A seat holder's squad edit, worded for a repair they can make. The cap is absent: a live row moved
+ * inside its own squad never crosses it. A lost seat and a ban are the shared reader's.
+ */
+export function mapKaderZeileRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!isRefusal(error)) return null;
+
+  if (error.serverErrorCode === "REQ-SQUAD-004") return { error: SQUAD_ROLLE_TAKEN };
+  // On the picker as well as in the sentence: the form offers the season's levels, so only a season
+  // narrowed under the open page reaches this, and the picker is where it is repaired.
+  if (error.serverErrorCode === "REQ-SQUAD-005") return { error: STUFE_NICHT_ZUGELASSEN, fieldErrors: { stufe: STUFE_NICHT_ZUGELASSEN } };
   return null;
 }
 

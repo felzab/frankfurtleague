@@ -10,11 +10,22 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleSubjectLookup } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { callPage, clearSteps, pageBody, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
+import {
+  answerReadsWith,
+  callPage,
+  clearSteps,
+  EMPTIEST_ANSWER,
+  pageBody,
+  readsOf,
+  redirectTarget,
+  renderPage,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
@@ -27,8 +38,11 @@ doubleEveryAction();
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: TeamLayout } = await import("@/app/bereich/team/[team_id]/[saison_id]/layout.tsx");
 const { default: TeamStartPage } = await import("@/app/bereich/team/[team_id]/[saison_id]/page.tsx");
+const { default: KaderPage } = await import("@/app/bereich/team/[team_id]/[saison_id]/kader/page.tsx");
+const { default: KaderZeilePage } = await import("@/app/bereich/team/[team_id]/[saison_id]/kader/[spieler_id]/page.tsx");
 const { KONTO_HREF } = await import("@/core/kontoHref.ts");
 const { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } = await import("@/features/funktionen/constants.ts");
+const { KADER_LEER, NUMMER_DOPPELT, ausgetragenSeit } = await import("@/features/spieler/constants.ts");
 
 const TEAM_A = SITZ.team_id;
 const TEAM_B = "6890a1b2c3d4e5f607250012";
@@ -36,7 +50,7 @@ const TEAM_B = "6890a1b2c3d4e5f607250012";
 const TEAM_DIR = path.resolve(import.meta.dirname, "..", "..", "app", "bereich", "team", "[team_id]", "[saison_id]");
 
 /** Every page under the team area, read off the tree; the catch-all answers not-found for everyone. */
-const TEAM_PAGES = filesUnder(TEAM_DIR, (name) => name === "page.tsx", 1).filter(
+const TEAM_PAGES = filesUnder(TEAM_DIR, (name) => name === "page.tsx", 3).filter(
   (file) => !/^\[\.\.\..+\]$/.test(path.basename(path.dirname(file))),
 );
 
@@ -238,5 +252,219 @@ describe("what a person meets at an address they hold no seat on", () => {
 
     assert.ok(shown.includes(TEAM_SHELL_REFUSAL.hint.lead), "the bar over the forbidden panel does not say the person is not entered");
     assert.ok(!shown.includes(TEAM_SHELL_FALLBACK.hint.lead), "the bar over the forbidden panel reads as a missing page");
+  });
+});
+
+const LENA = "68c1f0a2b3c4d5e6f7a8b931";
+const MIA = "68c1f0a2b3c4d5e6f7a8b932";
+const NOAH = "68c1f0a2b3c4d5e6f7a8b933";
+const AUSGETRAGEN_AM = "2026-03-01";
+
+/** One squad row as the backend serves it to a seat holder. */
+const zeile = (spieler_id: string, vorname: string, nachname: string, fields: Record<string, unknown> = {}) => ({
+  spieler_id,
+  vorname,
+  nachname,
+  nummer: "7",
+  position: "Tor",
+  stufe: "Q1",
+  rolle: null,
+  ist_nachnominiert: false,
+  inactive_since: null,
+  nummer_doppelt: true,
+  // Never served: written here so the cases below prove the page carries nothing of the kind on.
+  email: "lena@example.org",
+  telefon: "0151 2345678",
+  ...fields,
+});
+
+/** Team A's squad this season: two live rows sharing one shirt, a captain among them, and one ausgetragen row. */
+const KADER = {
+  acknowledged: 1,
+  team_id: TEAM_A,
+  saison_id: "2526",
+  erlaubte_stufen: ["Q2", "E1"],
+  kader: [
+    zeile(LENA, "Lena", "Meier-Lüdenscheid", { rolle: "kapitaen", ist_nachnominiert: true }),
+    zeile(MIA, "Mia", "Schmidt"),
+    zeile(NOAH, "Noah", "Becker", { nummer: "9", nummer_doppelt: false, inactive_since: AUSGETRAGEN_AM }),
+  ],
+};
+
+const KADER_ENDPOINT = `/spieler/kader/${TEAM_A}/2526`;
+const KADER_HREF = `/bereich/team/${TEAM_A}/2526/kader`;
+
+/** The backend's answer to a read naming a seat it does not find held. */
+const seatLost = (endpoint: string) =>
+  new APIBadStatusError({
+    message: "refused",
+    url: `http://backend/api/v0${endpoint}`,
+    statusCode: 403,
+    serverErrorCode: "REQ-FUNKTION-001",
+    endpoint: endpoint,
+    method: "GET",
+    readOnly: true,
+    traceId: "0",
+  });
+
+/** The squad read answered with `kader`, every other read with the emptiest body. */
+const answeringKader = (kader: unknown) =>
+  answerReadsWith((endpoint, schema, params) => (endpoint === KADER_ENDPOINT ? kader : EMPTIEST_ANSWER(endpoint, schema, params)));
+
+/** What a browser holds once one of the squad's pages has run at team A this season, and what it read. */
+async function renderedKader(spielerId?: string): Promise<{ markup: string; text: string; reads: string[] }> {
+  const address = { team_id: TEAM_A, saison_id: "2526" };
+  const searchParams = Promise.resolve({});
+  clearSteps();
+  const page =
+    spielerId === undefined
+      ? h(KaderPage, { params: Promise.resolve(address), searchParams })
+      : h(KaderZeilePage, { params: Promise.resolve({ ...address, spieler_id: spielerId }), searchParams });
+  const markup = await renderPage(underNext(page, { pathname: spielerId === undefined ? KADER_HREF : `${KADER_HREF}/${spielerId}` }));
+
+  return { markup, text: textOf(markup, " ").replace(/\s+/g, " "), reads: readsOf(steps).map(({ endpoint }) => endpoint) };
+}
+
+/** Every key at any depth of `value`, which is what a payload handed a page or a component could carry on. */
+const keysOf = (value: unknown): string[] =>
+  typeof value !== "object" || value === null ? [] : Object.entries(value).flatMap(([key, inner]) => [key, ...keysOf(inner)]);
+
+/** A key naming a way to reach a person, in either language. */
+const CONTACT_KEY = /mail|telefon|phone/i;
+
+describe("the team's squad, as a seat holder reads it", () => {
+  /* A Trainer-only seat, the narrowest there is: whatever an Ansprechperson reads, it reads too. */
+  it("lists every row with its whole surname, the shirt marker on both rows of a pair, and each live row's editor", async () => {
+    setSubject(person({ sitze: [sitz({ rolle: "trainer" })] }));
+    answeringKader(KADER);
+    try {
+      const { markup, text, reads } = await renderedKader();
+
+      assert.deepEqual(reads, [KADER_ENDPOINT]);
+      for (const name of ["Lena Meier-Lüdenscheid", "Mia Schmidt", "Noah Becker"])
+        assert.ok(text.includes(name), `${name} is not listed whole`);
+      assert.equal(text.split(NUMMER_DOPPELT).length - 1, 2, "the shirt marker is not on exactly the two rows sharing a number");
+      assert.ok(text.includes("Kapitän") && text.includes("Nachnominiert"), text);
+      assert.ok(text.includes(ausgetragenSeit(AUSGETRAGEN_AM)), "the ausgetragen row does not say since when");
+      assert.deepEqual(
+        linksIn(markup)
+          .map((link) => link.href)
+          .filter((href) => href.startsWith(KADER_HREF)),
+        [`${KADER_HREF}/${LENA}`, `${KADER_HREF}/${MIA}`],
+        "an ausgetragen row offers its editor, or a live row offers none",
+      );
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  /* The squad's answer carries an address and a number here, as a backend leak would: the page's
+     schema is what keeps either off the page and out of every prop a client component is handed. */
+  it("carries no way to reach a pupil, in the markup or in what the page hands its components", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answeringKader(KADER);
+    try {
+      const { markup } = await renderedKader();
+      const listed = await pageBody(KaderPage, {
+        params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }),
+        searchParams: Promise.resolve({}),
+      });
+      const editing = await pageBody(KaderZeilePage, {
+        params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526", spieler_id: LENA }),
+        searchParams: Promise.resolve({}),
+      });
+
+      assert.ok(!markup.includes("@") && !markup.includes("0151"), "the squad page renders a pupil's address or number");
+      for (const [page, element] of [
+        ["the squad page", listed],
+        ["the row's page", editing],
+      ] as const) {
+        assert.deepEqual(
+          keysOf(element.props).filter((key) => CONTACT_KEY.test(key)),
+          [],
+          `${page} hands a component a way to reach a pupil`,
+        );
+      }
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  it("says no squad is entered yet where the season holds none", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answeringKader({ ...KADER, kader: [] });
+    try {
+      const { text } = await renderedKader();
+
+      assert.ok(text.includes(KADER_LEER), text);
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  /* The page's own check found the seat and the backend's, a moment later, did not: the page answers as
+     the shell does for a seat not held, rather than as a crash. */
+  for (const spielerId of [undefined, LENA]) {
+    it(`renders the forbidden panel where the seat went between the check and the read, on the ${spielerId === undefined ? "squad" : "row's"} page`, async () => {
+      setSubject(person({ sitze: [sitz()] }));
+      answerReadsWith((endpoint, schema, params) => {
+        if (endpoint === KADER_ENDPOINT) throw seatLost(endpoint);
+        return EMPTIEST_ANSWER(endpoint, schema, params);
+      });
+      try {
+        const { markup, text } = await renderedKader(spielerId);
+
+        assert.ok(markup.includes(FORBIDDEN_BADGE) && text.includes("Hier bist Du nicht eingetragen."), text);
+        assert.ok(!text.includes(KADER_LEER) && !text.includes("Lena"), "the squad renders beside the forbidden panel");
+      } finally {
+        answerReadsWith(EMPTIEST_ANSWER);
+      }
+    });
+  }
+});
+
+describe("one squad row, as a seat holder opens it", () => {
+  it("opens a live row in its editor, the austragen beside the four fields", async () => {
+    setSubject(person({ sitze: [sitz({ rolle: "trainer" })] }));
+    answeringKader(KADER);
+    try {
+      const { markup, text } = await renderedKader(LENA);
+
+      assert.match(markup, /<h2[^>]*>Lena Meier-Lüdenscheid<\/h2>/, "the editor is not headed by the pupil's whole name");
+      assert.ok(markup.includes('name="nummer"'), "the editor renders no number field");
+      assert.ok(text.includes("Aus Kader 2526 austragen"), text);
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  /* Read-only: the representative's austragen is one-way, the administrator's reactivate the way back. */
+  it("opens an ausgetragen row read-only, with its day and neither an editor nor an austragen", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answeringKader(KADER);
+    try {
+      const { markup, text } = await renderedKader(NOAH);
+
+      assert.ok(text.includes(ausgetragenSeit(AUSGETRAGEN_AM)), text);
+      assert.ok(!markup.includes('name="nummer"'), "an ausgetragen row renders its editor");
+      assert.ok(!text.includes("austragen"), "an ausgetragen row offers the austragen again");
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  it("answers a pupil the squad does not hold with the area's 404", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answeringKader(KADER);
+    try {
+      const { thrown } = await callPage(KaderZeilePage, {
+        params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526", spieler_id: "68c1f0a2b3c4d5e6f7a8b9ff" }),
+        searchParams: Promise.resolve({}),
+      });
+
+      assert.ok(thrown.some((error) => (error as { digest?: unknown } | null)?.digest === "NEXT_HTTP_ERROR_FALLBACK;404"));
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
   });
 });

@@ -44,6 +44,8 @@ const { FormEinladungSection } = await import("@/features/teams/components/forms
 const { AdminBewerbungView } = await import("@/features/bewerbungen/components/views/AdminBewerbungView.tsx");
 const { FormRolloverSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx");
 const { FormAustragenSection } = await import("@/features/spieler/components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
+const { KaderZeileEditForm } = await import("@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx");
+const { KaderZeileAusgetragen } = await import("@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen.tsx");
 const { AdminKontakteEditView } = await import("@/features/kontakte/components/views/AdminKontakteEditView.tsx");
 const { deriveKontakteDraftStatus } = await import("@/features/kontakte/kontakteDraftStatus.ts");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
@@ -412,6 +414,31 @@ const rollover = (saisonStatus: "future" | "active") =>
 
 const austragen = (rowInactiveSince: string | null) =>
   h(FormAustragenSection, { spielerId: SP_A, saisonId: "2026", rowInactiveSince, rowReturn: "open", banners: [], isDirty: false });
+
+/** One squad row as its seat holder's page draws it: the editor while live, read-only once ausgetragen. */
+const KADER_ZEILE = {
+  spieler_id: SP_A,
+  vorname: "Lena",
+  nachname: "Meier",
+  nummer: "10",
+  position: null,
+  stufe: null,
+  rolle: null,
+  ist_nachnominiert: false,
+  inactive_since: null,
+  nummer_doppelt: false,
+};
+const KADER_HREF = `/bereich/team/${TEAM_A}/2026/kader`;
+const kaderZeileEditor = () =>
+  h(KaderZeileEditForm, {
+    teamId: TEAM_A,
+    saisonId: "2026",
+    zeile: KADER_ZEILE,
+    erlaubteStufen: ["Q1"],
+    heldRollen: {},
+    kaderHref: KADER_HREF,
+  });
+const kaderZeileAusgetragen = () => h(KaderZeileAusgetragen, { zeile: { ...KADER_ZEILE, inactive_since: RETIRED_ON }, kaderHref: KADER_HREF });
 
 const GRACE = kontaktperson("Grace", "grace@example.org", "2026-03-14");
 /** The club's contacts editor, its draft status as the page derives it, one seat holding a person with an address. */
@@ -926,6 +953,14 @@ const LANDINGS: Record<string, Landing> = {
     after: () => austragen(null),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Aus Kader 2026 austragen" }),
+  },
+  /* The seat holder's austragen has no return to draw in its stead: the row turns read-only, its panel the landing. */
+  "a seat holder's austragen of a squad row, on the read-only row's heading": {
+    before: kaderZeileEditor,
+    press: (user) => user.click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" })),
+    after: kaderZeileAusgetragen,
+    remount: true,
+    lands: () => heading("Kadereintrag"),
   },
   /* The editor is drawn anew with nobody stored, the control standing again closed: its overlay is the stop. */
   "a season's cleared contacts, on the closed control drawn anew": {
