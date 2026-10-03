@@ -86,6 +86,7 @@ SECOND_IMPLEMENTER: Mapping[tuple[str, str], str] = {
             "PATCH /spieler/selbst/einwilligung",
             "GET /schiedsrichter/selbst",
             "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
         )
     },
 }

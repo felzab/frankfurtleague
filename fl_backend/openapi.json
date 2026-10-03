@@ -8628,6 +8628,86 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/person/einwilligung": {
+      "patch": {
+        "summary": "Change a seat holder's own media consent on one team's season",
+        "description": "Set the signed-in person's media consent on every seat they hold on this team's season row, and on nothing else.\n\nOne answer for all of them: a person holding two of the row's slots answers once. No other slot of the row, no\nother row and the seats' contact scope are written; a press moving no seat writes nothing. A GRANT (`medien` to\n`true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat, or a grant where the row grants no\npanel (`REQ-FUNKTION-001`); a `text_version` naming no version of the account page's seat control, or a grant\nnaming any but its running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where a held seat's stored\nbirthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes\nnothing.",
+        "operationId": "patch_einwilligung_api_v0_teams__team_id__saisons__saison_id__person_einwilligung_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSaisonTeamPersonEinwilligungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonTeamPersonEinwilligungResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-EINWILLIGUNG-002.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/spieler/selbst": {
       "get": {
         "summary": "A signed-in pupil's own record",
@@ -13231,7 +13311,11 @@
           },
           "ueber": {
             "type": "string",
-            "const": "POST /schiedsrichter/bestaetigung",
+            "enum": [
+              "POST /schiedsrichter/bestaetigung",
+              "PATCH /spieler/selbst/einwilligung",
+              "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"
+            ],
             "title": "Ueber"
           },
           "umfang": {
@@ -14157,7 +14241,8 @@
             "type": "string",
             "enum": [
               "POST /bewerbungen",
-              "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
+              "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
+              "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
             ],
             "title": "Ueber"
           },
@@ -18327,6 +18412,74 @@
         ],
         "title": "FLSaisonTeamKontaktePayload",
         "description": "The write side of the three, with the empty slot an erasure leaves.\n\nThree whole people is the editor's own guarantee\n(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection.tsx`)."
+      },
+      "FLSaisonTeamPersonEinwilligungPayload": {
+        "properties": {
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "medien",
+          "text_version"
+        ],
+        "title": "FLSaisonTeamPersonEinwilligungPayload",
+        "description": "A seat holder's own media answer for every seat they hold on one team's season row.\n\nNo `umfang`: a seat's scope is its contact scope, which this write leaves alone."
+      },
+      "FLSaisonTeamPersonEinwilligungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "saison_id",
+          "rollen",
+          "medien"
+        ],
+        "title": "FLSaisonTeamPersonEinwilligungResponse",
+        "description": "Which of the row's seats the press reached, and the media answer they now all hold."
       },
       "FLSaisonTeamResponse": {
         "properties": {

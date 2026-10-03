@@ -900,7 +900,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "only the person moves its two choices, `umfang` and `medien`, through `PATCH /spieler/selbst/einwilligung`, every "
         "other member standing: `bestaetigt_am` is what the panel and the publication mask read, and `text_version` names "
         "the wording the person confirmed. An administrator can neither state a consent nor overwrite one",
-        "app.api.konto.services.compose_selbst_einwilligung_update",
+        "app.api.konto.services.compose_selbst_einwilligung_move",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -2419,7 +2419,10 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-EINWILLIGUNG-001",
         status=HTTPStatus.CONFLICT,
-        operation=("POST /bewerbungen · PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"),
+        operation=(
+            "POST /bewerbungen · PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+        ),
         aggregate="Bewerbung",
         summary="a consent label a write stamps names a version of that write's page, and a new acceptance the running one",
         implemented_by="app.api.einwilligung.services.find_fassung_refusal",
@@ -2433,7 +2436,8 @@ RULES: tuple[Rule, ...] = (
             "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id} · GET /registrierungen/kader/{team_id}/{saison_id} · "
             "POST /registrierungen/{registrierung_id}/aufnehmen · POST /registrierungen/{registrierung_id}/ablehnen · "
             "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
-            "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"
+            "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
         ),
         aggregate="Saison",
         summary=(
@@ -2491,7 +2495,10 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-EINWILLIGUNG-002",
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        operation="PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+        operation=(
+            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+        ),
         aggregate="Spieler",
         summary="a person's own media consent is switched on only where their stored birthdate reaches the media age",
         implemented_by="app.api.konto.services.find_selbst_medien_refusal",

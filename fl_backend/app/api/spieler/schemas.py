@@ -39,7 +39,12 @@ FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsu
 
 # The operations appending to a person's consent record, spelled as `app/core/domain.py :: RULES`
 # spells one. Never narrowed: a stored entry names its write for good.
-FLEinwilligungWeg = Literal["POST /schiedsrichter/bestaetigung"]
+FLEinwilligungWeg = Literal[
+    "POST /schiedsrichter/bestaetigung",
+    # The person's own presses on the account page.
+    "PATCH /spieler/selbst/einwilligung",
+    "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+]
 
 
 class FLEinwilligungEintrag(BaseModel):

@@ -527,6 +527,10 @@ BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
 EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1}
 
 
+# The operation the referee's own press records on its entry.
+SELBST_WEG_SCHIEDSRICHTER: Final[FLEinwilligungWeg] = "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"
+
+
 def build_selbst_referee_filter(identifier: str, *, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
     """The referee rows that may be this address's own, retired ones included: a withdrawal reaches them too.
 

@@ -23,6 +23,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.einwilligung_verlauf import VERLAUF
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
@@ -99,6 +100,12 @@ def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict
     }
 
 
+def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
+    """The block without its entries, which the cases on the appended record assert by themselves."""
+
+    return {key: value for key, value in einwilligung.items() if key != VERLAUF}
+
+
 def _running_label() -> str:
     return LAUFENDE_FASSUNGEN[KONTO_SEITE_SCHIEDSRICHTER]
 
@@ -145,10 +152,18 @@ async def _seed(database: AsyncDatabase) -> None:
                 TEAM_A_OID,
                 ROW_NAME_A_PAST,
                 "HE",
-                kontakte=_kontakte(trainer=_seat(REFEREE_STORED), ansprechperson=_seat(REFEREE_STORED), trainer_ist_zugleich="ansprechperson"),
+                kontakte=_kontakte(
+                    trainer=_seat(REFEREE_STORED, medien=True),
+                    ansprechperson=_seat(REFEREE_STORED, medien=True),
+                    trainer_ist_zugleich="ansprechperson",
+                ),
             ),
             saison_team_document(
-                ACTIVE_SAISON, TEAM_B_OID, ROW_NAME_B, "LE", kontakte=_kontakte(stellvertretung=_seat(REFEREE_STORED, medien=True))
+                ACTIVE_SAISON,
+                TEAM_B_OID,
+                ROW_NAME_B,
+                "LE",
+                kontakte=_kontakte(trainer=_seat(BYSTANDER, medien=True), stellvertretung=_seat(REFEREE_STORED, medien=True)),
             ),
             # Awaiting its person's confirmation: nothing on it to change yet.
             saison_team_document(
@@ -232,7 +247,10 @@ class TestTheTwoChoices:
         response, before, after, spiele = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
-        assert after[REFEREE_OID]["einwilligung"] == {**before[REFEREE_OID]["einwilligung"], "umfang": "intern"}
+        assert _block(after[REFEREE_OID]["einwilligung"]) == {**before[REFEREE_OID]["einwilligung"], "umfang": "intern"}
+        assert [(entry["akt"], entry["ueber"], entry["text_version"]) for entry in after[REFEREE_OID]["einwilligung"][VERLAUF]] == [
+            ("widerrufen", "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung", _running_label())
+        ]
         assert {key: value for key, value in after.items() if key != REFEREE_OID} == {
             key: value for key, value in before.items() if key != REFEREE_OID
         }
@@ -246,7 +264,8 @@ class TestTheTwoChoices:
         response, after = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
-        assert after[REFEREE_OID]["einwilligung"] == _einwilligung(medien=True)
+        assert _block(after[REFEREE_OID]["einwilligung"]) == _einwilligung(medien=True)
+        assert [entry["akt"] for entry in after[REFEREE_OID]["einwilligung"][VERLAUF]] == ["erteilt"]
 
 
 @pytest.mark.db
@@ -335,7 +354,7 @@ class TestTheAccountPagesRead:
             for sitz in body["sitze"]
         ] == [
             (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True, SEAT_LABEL),
-            (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], False, False, SEAT_LABEL),
+            (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False, SEAT_LABEL),
         ]
         assert all(sitz["medien_angeboten"] for sitz in body["sitze"])
 
@@ -361,3 +380,100 @@ class TestTheAccountPagesRead:
         body = served(mongo_replica_set_url, steps).json()
 
         assert [(record["schiedsrichter_id"], record["erteilbar"]) for record in body["schiedsrichter"]] == [(str(RETIRED_OID), False)]
+
+
+SEAT_RUNNING_LABEL = "2026-10-konto-kontakt"
+SEAT_WEG = "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+
+
+def _seat_path(team_id: ObjectId, saison_id: str) -> str:
+    return f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+
+
+async def _rows(database: AsyncDatabase) -> dict[Any, Any]:
+    return {
+        (row["team_id"], row["saison_id"]): row["kontakte"]
+        async for row in database[Collection.SAISON_TEAMS].find({}, {"team_id": 1, "saison_id": 1, "kontakte": 1})
+    }
+
+
+def _seat_press(email: str, team_id: ObjectId, saison_id: str, medien: bool, *, label: str = SEAT_RUNNING_LABEL, before=None):
+    async def steps(http: AsyncClient, database: AsyncDatabase) -> tuple[Any, dict[Any, Any], dict[Any, Any]]:
+        if before is not None:
+            await before(database)
+        stored = await _rows(database)
+        response = await http.patch(_seat_path(team_id, saison_id), json={"medien": medien, "text_version": label}, headers=_person(email))
+        return response, stored, await _rows(database)
+
+    return steps
+
+
+@pytest.mark.db
+class TestTheSeatsMediaChoice:
+    def test_a_withdrawal_moves_the_askers_seats_on_that_row_and_no_other_seat_or_row(self, mongo_replica_set_url: str):
+        """The case that goes red the day the write reaches every seat of the row rather than the asker's."""
+
+        response, before, after = served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, False))
+
+        assert response.status_code == 200, response.text
+        assert response.json()["rollen"] == ["stellvertretung"]
+        row_before, row_after = before[(TEAM_B_OID, ACTIVE_SAISON)], after[(TEAM_B_OID, ACTIVE_SAISON)]
+        assert _block(row_after["stellvertretung"]["einwilligung"]) == {**row_before["stellvertretung"]["einwilligung"], "medien": False}
+        assert row_after["stellvertretung"]["einwilligung"][VERLAUF] == [
+            {
+                "am": "2026-10-03T10:00:00+00:00",
+                "akt": "widerrufen",
+                "ueber": SEAT_WEG,
+                "umfang": "kontaktdaten",
+                "medien": False,
+                "text_version": SEAT_RUNNING_LABEL,
+                "erfasst_von": "person",
+            }
+        ]
+        assert row_after["trainer"] == row_before["trainer"]
+        assert {key: value for key, value in after.items() if key != (TEAM_B_OID, ACTIVE_SAISON)} == {
+            key: value for key, value in before.items() if key != (TEAM_B_OID, ACTIVE_SAISON)
+        }
+
+    def test_a_past_seasons_seats_take_a_withdrawal_each_and_refuse_a_grant(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            body = {"medien": False, "text_version": SEAT_RUNNING_LABEL}
+            withdrawn = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
+            granted = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json={**body, "medien": True}, headers=_person(IDENTIFIER))
+            return withdrawn, granted, await _rows(database)
+
+        withdrawn, granted, after = served(mongo_replica_set_url, steps)
+
+        assert withdrawn.status_code == 200, withdrawn.text
+        assert sorted(withdrawn.json()["rollen"]) == ["ansprechperson", "trainer"]
+        assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        for slot in ("trainer", "ansprechperson"):
+            seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
+            assert (seat["medien"], [entry["akt"] for entry in seat[VERLAUF]]) == (False, ["widerrufen"])
+
+    @pytest.mark.parametrize(("email", "team_id"), [(IDENTIFIER, TEAM_A_OID), (NOBODY, TEAM_B_OID)], ids=["unconfirmed-seat", "no-seat"])
+    def test_a_row_holding_no_confirmed_seat_of_the_address_is_refused_and_unwritten(
+        self, mongo_replica_set_url: str, email: str, team_id: ObjectId
+    ):
+        response, before, after = served(mongo_replica_set_url, _seat_press(email, team_id, ACTIVE_SAISON, False))
+
+        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert after == before
+
+    def test_a_grant_below_the_media_age_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+        async def young_and_off(database: AsyncDatabase) -> None:
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
+                {"$set": {"kontakte.stellvertretung.geburtsdatum": SEVENTEEN_BIRTHDATE, "kontakte.stellvertretung.einwilligung.medien": False}},
+            )
+
+        response, before, after = served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=young_and_off))
+
+        assert (response.status_code, response.json()["error_code"]) == (422, SELBST_MEDIEN_ALTER)
+        assert after == before
+
+    def test_the_seat_confirmations_label_is_no_version_of_the_control(self, mongo_replica_set_url: str):
+        response, before, after = served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, False, label=SEAT_LABEL))
+
+        assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
+        assert after == before

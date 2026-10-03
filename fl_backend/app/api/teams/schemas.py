@@ -171,7 +171,12 @@ FLKontaktKenntnisnahmeQuelle = Literal["person", "administrativ"]
 # The operations appending to a contact seat's record, spelled as `app/core/domain.py :: RULES`
 # spells one. Never narrowed: a stored entry names its write for good, and the first entry's is what
 # tells an applicant-named seat from one an administrator filled.
-FLKontaktKenntnisnahmeWeg = Literal["POST /bewerbungen", "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"]
+FLKontaktKenntnisnahmeWeg = Literal[
+    "POST /bewerbungen",
+    "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
+    # A seat holder's own press on the account page.
+    "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
+]
 
 
 class FLKontaktKenntnisnahmeEintrag(BaseModel):
@@ -631,6 +636,19 @@ class FLPatchSaisonTeamKontaktePayload(BaseModel):
     kontakte_stand: str
 
 
+class FLSaisonTeamPersonEinwilligungPayload(BaseModel):
+    """A seat holder's own media answer for every seat they hold on one team's season row.
+
+    No `umfang`: a seat's scope is its contact scope, which this write leaves alone.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    medien: bool
+    # The label of the account page's seat control the press was given under, recorded on its entry.
+    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+
+
 class FLReplaceSaisonTeamPayload(BaseModel):
     """Which club takes this season's row over. The path names the club going OUT."""
 
@@ -854,6 +872,15 @@ class FLTeamSitzeResponse(BaseAPIResponse):
     team_id: CustomObjectId
     saison_id: str
     sitze: list[FLTeamSitz]
+
+
+class FLSaisonTeamPersonEinwilligungResponse(BaseAPIResponse):
+    """Which of the row's seats the press reached, and the media answer they now all hold."""
+
+    team_id: CustomObjectId
+    saison_id: str
+    rollen: list[FLKontaktRolle]
+    medien: bool
 
 
 FLTeamsResponse = Annotated[

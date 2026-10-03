@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -7,8 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.crud import funktionen_of
 from app.api.konto.services import (
     KONTO_SEITE_SPIELER,
-    bewegt_etwas,
-    compose_selbst_einwilligung_update,
+    compose_selbst_einwilligung_move,
     compose_spieler_selbst,
     erteilt_etwas,
     find_eigener_eintrag_refusal,
@@ -20,7 +20,7 @@ from app.api.spieler.schemas import (
     FLSpielerSelbstEinwilligungResponse,
     FLSpielerSelbstResponse,
 )
-from app.api.spieler.services import build_selbst_pupil_filter, build_selbst_pupil_pipeline
+from app.api.spieler.services import SELBST_WEG_SPIELER, build_selbst_pupil_filter, build_selbst_pupil_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -30,8 +30,10 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielerCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import is_confirmed
@@ -106,6 +108,7 @@ async def patch_einwilligung(
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLSpielerSelbstEinwilligungResponse:
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
@@ -153,18 +156,22 @@ async def patch_einwilligung(
             )
         )
 
-        if not bewegt_etwas(gespeichert=gespeichert, umfang=einwilligung_data.umfang, medien=einwilligung_data.medien):
+        update = compose_selbst_einwilligung_move(
+            bloecke=(("einwilligung", gespeichert),),
+            umfang=einwilligung_data.umfang,
+            medien=einwilligung_data.medien,
+            ueber=SELBST_WEG_SPIELER,
+            am=log_stamp(germany_now),
+            text_version=einwilligung_data.text_version,
+        )
+        # A press moving neither choice is no act, so nothing is written and no entry appended.
+        if update is None:
             return FLSpielerSelbstEinwilligungResponse.model_validate({"spieler_id": row["_id"], "einwilligung": gespeichert})
 
         updated = await patch_one_in_db(
             collection=spieler_collection,
-            # The row judged, by id: the address it was found by is unique.
             db_filter={"_id": row["_id"]},
-            update=compose_selbst_einwilligung_update(
-                pfade=("einwilligung",),
-                umfang=einwilligung_data.umfang,
-                medien=einwilligung_data.medien,
-            ),
+            update=update,
             session=session,
             return_document=ReturnDocument.AFTER,
         )

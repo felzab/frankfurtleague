@@ -1,9 +1,9 @@
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
-from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
+from app.api.spieler.schemas import FLEinwilligungWeg, FLSpielerFilterParams, FLSpielerRolle
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -428,6 +428,9 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erl
 
 # --- The pupil's OWN record. What its consent PATCH shares with the referee's and a seat's is
 # `app/api/konto/services.py`'s.
+
+# The operation the pupil's press records on its entry.
+SELBST_WEG_SPIELER: Final[FLEinwilligungWeg] = "PATCH /spieler/selbst/einwilligung"
 
 
 def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:

@@ -16,6 +16,7 @@ from app.api.kontakte.services import KONTAKT_SLOTS, same_address
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import Seite
+from app.shared.einwilligung_verlauf import FLEinwilligungAkt, compose_record_move
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # What the code refuses is `fl_backend/app/core/domain.py :: RULES`. One code for all three records, so
@@ -63,19 +64,41 @@ def bewegt_etwas(*, gespeichert: Mapping[str, Any], umfang: str | None, medien: 
     return (umfang is not None and gespeichert.get("umfang") != umfang) or bool(gespeichert.get("medien", False)) != medien
 
 
-def compose_selbst_einwilligung_update(*, pfade: Sequence[str], umfang: str | None, medien: bool) -> Mapping[str, Any]:
-    """The two choices and nothing else, dotted at each block the PATCH moves.
+def compose_selbst_einwilligung_move(
+    *, bloecke: Sequence[tuple[str, Mapping[str, Any]]], umfang: str | None, medien: bool, ueber: str, am: str, text_version: str
+) -> dict[str, dict[str, Any]] | None:
+    """One update moving a press's choices and appending an entry per block moved; `None` where none moves.
 
-    Never `bestaetigt_am`, which `funktionen_of` and the publication mask read, nor `text_version`, the
-    CONFIRMED wording the account page shows: a press's label is its history entry's alone.
+    Never `bestaetigt_am`, read by the panel and the publication mask, nor the block's CONFIRMED
+    `text_version`: the press's label is its entry's.
     """
 
-    return {
-        "$set": {
-            **{f"{pfad}.medien": medien for pfad in pfade},
-            **({} if umfang is None else {f"{pfad}.umfang": umfang for pfad in pfade}),
+    update: dict[str, dict[str, Any]] = {"$set": {}, "$push": {}}
+    for pfad, gespeichert in bloecke:
+        moved = {
+            field: value
+            for field, value, stored in (
+                ("umfang", umfang, gespeichert.get("umfang")),
+                ("medien", medien, bool(gespeichert.get("medien", False))),
+            )
+            if value is not None and value != stored
         }
-    }
+        if not moved:
+            continue
+        # One entry per act: a press widening either choice is a grant, its other half visible in the
+        # choices the entry records.
+        akt: FLEinwilligungAkt = "erteilt" if erteilt_etwas(gespeichert=gespeichert, umfang=umfang, medien=medien) else "widerrufen"
+        step = compose_record_move(pfad=pfad, stored=gespeichert, moved=moved, akt=akt, ueber=ueber, am=am, text_version=text_version)
+        update["$set"].update(step["$set"])
+        update["$push"].update(step["$push"])
+
+    return update if update["$push"] else None
+
+
+def gehaltene_sitze(row: Mapping[str, Any], identifier: str) -> list[str]:
+    """The slots of one season row whose confirmed person is this address, in `KONTAKT_SLOTS` order."""
+
+    return [slot for gefunden, slot in seats_naming([row], identifier) if seat_is_confirmed(gefunden, slot)]
 
 
 def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
@@ -200,7 +223,7 @@ def compose_sitze_selbst(
 
     sitze = []
     for row in rows:
-        rollen = [slot for gefunden, slot in seats_naming([row], identifier) if seat_is_confirmed(gefunden, slot)]
+        rollen = gehaltene_sitze(row, identifier)
         if not rollen:
             continue
         held = [row["kontakte"][slot] for slot in rollen]

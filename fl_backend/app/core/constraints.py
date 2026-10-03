@@ -81,8 +81,18 @@ _KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
 _EINWILLIGUNG_AKTE = ["erteilt", "bestaetigt", "widerrufen"]
 # Mirror `app/api/spieler/schemas.py :: FLEinwilligungWeg` and `app/api/teams/schemas.py ::
 # FLKontaktKenntnisnahmeWeg`. Only ever widened: a stored entry names its write for good.
-_EINWILLIGUNG_WEGE = ["POST /schiedsrichter/bestaetigung"]
-_KONTAKT_KENNTNISNAHME_WEGE = ["POST /bewerbungen", "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"]
+_EINWILLIGUNG_WEGE = [
+    "POST /schiedsrichter/bestaetigung",
+    # The person's own presses on the account page.
+    "PATCH /spieler/selbst/einwilligung",
+    "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+]
+_KONTAKT_KENNTNISNAHME_WEGE = [
+    "POST /bewerbungen",
+    "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
+    # A seat holder's own press on the account page.
+    "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
+]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
