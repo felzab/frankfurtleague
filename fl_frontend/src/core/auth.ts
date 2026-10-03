@@ -158,10 +158,13 @@ class SessionFromUnlistedPath extends Error {
 // Set to "preferred" and both halves relax together, which is what WebAuthn Level 3 §7.2 conditions
 // the check on.
 
-// The assertion's ask travels through `patches/@better-auth__passkey@1.7.7.patch`, whose hunk in
-// `generatePasskeyAuthenticationOptions` a release reading `authenticatorSelection` there retires;
-// the check is ours either way, both verifiers being called with `requireUserVerification` off.
+// The plugin asks the enrolment through `authenticatorSelection` and hardcodes "preferred" into the
+// assertion's options, so the after hook below writes this into those; the check is ours either way,
+// both verifiers being called with `requireUserVerification` off.
 const USER_VERIFICATION: "required" | "preferred" = "required";
+
+/** The assertion's options, whose answer the after hook rewrites to carry `USER_VERIFICATION`. */
+const PASSKEY_ASSERTION_OPTIONS_PATH = "/passkey/generate-authenticate-options";
 
 /** Both ceremonies, at the point the plugin reaches before it writes a row or mints a session. */
 function refuseUnverified(userVerified: boolean): void {
@@ -641,9 +644,9 @@ function codeSignInAddress(body: unknown): string | null {
 // What a browser of this league calls: `fl_frontend/src/core/authClient.ts`'s two ceremonies, four
 // paths. The sign-in, the sign-out and every guard run in process instead.
 
-// Two spellings come from the constants the stamp and the enrolment refusal compare, so a release
-// that renamed either would 404 the real ceremony rather than let it through unjudged.
-const BROWSER_PATHS: ReadonlySet<string> = new Set([...ENROLMENT_PATHS, "/passkey/generate-authenticate-options", PASSKEY_ASSERTION_PATH]);
+// Three spellings come from the constants the stamp, the enrolment refusal and the assertion's ask
+// compare, so a release that renamed one would 404 the real ceremony rather than let it through unjudged.
+const BROWSER_PATHS: ReadonlySet<string> = new Set([...ENROLMENT_PATHS, PASSKEY_ASSERTION_OPTIONS_PATH, PASSKEY_ASSERTION_PATH]);
 
 // The library's own switch, which refuses before a route is matched or a body read.
 
@@ -1004,6 +1007,11 @@ const authOptions = (origin: URL, client: MongoClient) =>
           await unlessUnsettled(() => settleCodeAttempt(ctx.context, own, ctx.context.returned));
         }
 
+        const offered: unknown = ctx.context.returned;
+        if (ctx.path === PASSKEY_ASSERTION_OPTIONS_PATH && !isAPIError(offered) && typeof offered === "object" && offered !== null) {
+          return ctx.json({ ...offered, userVerification: USER_VERIFICATION });
+        }
+
         if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
 
         // Left standing where the ceremony was refused, or a refusal is answered as a success.
@@ -1091,8 +1099,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
       // `rpName` is what the browser's own passkey prompt shows, and the plugin's default names the
       // library rather than this league.
 
-      // `authenticatorSelection` carries the ask into both ceremonies' options; the library verifies
-      // the flag on neither response, so `afterVerification` below is the whole of the check.
+      // `authenticatorSelection` carries the ask into the enrolment's options, the after hook into the
+      // assertion's; the library verifies the flag on neither response, so `afterVerification` below is
+      // the whole of the check.
       passkey({
         rpName: BRAND_NAME,
         // Named rather than left to the plugin's own derivation, which answers this same host off

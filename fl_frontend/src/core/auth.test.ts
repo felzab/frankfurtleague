@@ -1360,7 +1360,7 @@ describe("whose passkey may answer a signed-in page's challenge", () => {
 });
 
 describe("what the passkey ceremony has to prove before it mints anything", () => {
-  /* The asking half, which the patched plugin carries: a ceremony told "preferred" may answer with
+  /* The asking half, which the after hook writes in: a ceremony told "preferred" may answer with
      the flag unset, and the arm below would then refuse the only passkey the administrator has. */
   it("asks the authenticator to verify the user before it will take an assertion", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
