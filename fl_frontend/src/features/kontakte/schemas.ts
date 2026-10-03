@@ -6,7 +6,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
-import { addressSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 /**
  * The address IS the identity: nothing joins one season's Trainer to the next, so the request names
@@ -83,6 +83,22 @@ export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
 export type FLPatchSaisonTeamKontaktePayload = z.infer<typeof FLPatchSaisonTeamKontaktePayloadSchema>;
 
 /**
+ * Mirrors `FLKontaktMint` — one link minted for one person, with everything its message names. The raw
+ * token is answered here and nowhere else: unmailed, it exists in no inbox and the seat never confirms.
+ */
+export const FLKontaktMintSchema = z.object({
+  token: z.string(),
+  // Two where the Trainer also holds the seat named: one person, one link.
+  rollen: z.array(FLKontaktRolleSchema),
+  // The address the mint's own transaction stored, never the one a caller sent.
+  email: z.string(),
+  vorname: z.string(),
+  schule: z.string(),
+  frist: CustomDateStringSchema,
+});
+export type FLKontaktMint = z.infer<typeof FLKontaktMintSchema>;
+
+/**
  * Mirrors `FLPatchSaisonTeamKontakteResponse` — the block as stored after the write, and no other
  * field of the row. The endpoint answers about the seats it moved, so the group and the Austritt
  * beside them are not its to echo.
@@ -90,8 +106,30 @@ export type FLPatchSaisonTeamKontaktePayload = z.infer<typeof FLPatchSaisonTeamK
 export const FLPatchSaisonTeamKontakteResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   team_id: CustomObjectIdStringSchema,
+  // The delivery record's `ziel_id`: the row is the record a contact seat's message is about.
+  saison_team_id: CustomObjectIdStringSchema,
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // The token of the block this save left, which is the only precondition an undo of it can carry.
   kontakte_stand: z.string(),
+  bestaetigungen: z.array(FLKontaktMintSchema),
+  // Seats this save newly wrote whose address the ban list holds: stored, and minted no link.
+  gesperrt: z.array(FLKontaktRolleSchema),
 });
 export type FLPatchSaisonTeamKontakteResponse = z.infer<typeof FLPatchSaisonTeamKontakteResponseSchema>;
+
+/** Which seat of which season row the re-send names. All three travel in the path, so the request carries no body. */
+export const FLKontaktEinladenPayloadSchema = z.object({
+  team_id: CustomObjectIdStringSchema,
+  saison_id: FLPatchSaisonTeamKontaktePayloadSchema.shape.saison_id,
+  rolle: FLKontaktRolleSchema,
+});
+export type FLKontaktEinladenPayload = z.infer<typeof FLKontaktEinladenPayloadSchema>;
+
+/** Mirrors `FLKontaktEinladenResponse` — the link the re-send minted, replacing the seat's earlier one whole. */
+export const FLKontaktEinladenResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  team_id: CustomObjectIdStringSchema,
+  saison_team_id: CustomObjectIdStringSchema,
+  bestaetigung: FLKontaktMintSchema,
+});
+export type FLKontaktEinladenResponse = z.infer<typeof FLKontaktEinladenResponseSchema>;

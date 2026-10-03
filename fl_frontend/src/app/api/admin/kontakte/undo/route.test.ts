@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
+import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -8,19 +10,55 @@ import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } fro
 
 /** The stored block the press replays, and the token the save left, as the editor builds them. */
 const BODY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "9f2c" };
+const SAISON_TEAM_ID = "6890a1b2c3d4e5f6071f0001";
+
+/** An earlier person put back on the Ansprechperson seat, under the running label. */
+const ZURUECK = {
+  ...BODY,
+  kontakte: {
+    trainer: null,
+    ansprechperson: {
+      vorname: "Ada",
+      nachname: "Byron",
+      email: "ada@example.org",
+      telefon: "069 111",
+      einwilligung: { umfang: "kontaktdaten", text_version: "2026-08", datum: "2026-03-12" },
+    },
+    stellvertretung: null,
+    trainer_ist_zugleich: null,
+  },
+};
+
+/** The link the replay minted for the person it put back. */
+const MINT = {
+  token: "zurueck",
+  rollen: ["ansprechperson"],
+  email: "ada@example.org",
+  vorname: "Ada",
+  schule: "Lessing-Kolleg",
+  frist: "2026-10-17",
+};
 
 /** The replay's answer as the backend sends it: the row's block, and the token the replay left. */
-const replayed = (acknowledged: 0 | 1) => ({
+const replayed = (acknowledged: 0 | 1, bestaetigungen: unknown[] = []) => ({
   acknowledged,
   team_id: BODY.team_id,
   saison_id: BODY.saison_id,
+  saison_team_id: SAISON_TEAM_ID,
   kontakte: null,
   kontakte_stand: "a1b2",
+  bestaetigungen,
+  gesperrt: [],
 });
 
-/* The real route and the save's own mutation, called: the request it runs in and the backend client are the doubles. */
+/* The real route, the save's own mutation and the link mailer, called: the request it runs in, the
+   backend client and the mail transport are the doubles. */
 const { setFresh } = doubleRouteRequest();
-const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
+const mail = doubleSendMail();
+registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
+const { answerWith, calls } = doubleApiAnswers(({ endpoint }) =>
+  Promise.resolve(endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : replayed(1)),
+);
 const { POST } = await import("./route.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 
@@ -115,6 +153,37 @@ describe("the contacts save's undo", () => {
         "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde. " +
         "Die Rücknahme wurde nicht ausgeführt, damit sie die neueren Angaben nicht überschreibt.",
     });
+  });
+
+  /* Putting an earlier person back seats them anew, which the endpoint mints for: unmailed, the token
+     exists in the database alone, and the undo has mailed a person, which the toast must say. */
+  it("mails the link a replay minted, to the address the mint names, and says so", async () => {
+    answerWith(({ endpoint }) =>
+      Promise.resolve(endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : replayed(1, [MINT])),
+    );
+
+    const answer = await undo(POST, ZURUECK);
+
+    assert.equal(answer.success, true, String(answer.error));
+    assert.deepEqual(
+      mail.sent.map(({ to, tags }) => [to, tags?.ziel, tags?.rollen]),
+      [["ada@example.org", "kontakt", "ansprechperson"]],
+    );
+    assert.match(JSON.stringify(answer), /Der Bestätigungslink ging an ada@example\.org\./);
+  });
+
+  /* The replay is a save: one seating a person the row does not hold mints, so a stale session is asked
+     for the passkey before it, as the save's own action asks (`docs/frontend/spec.md :: I432`). */
+  it("refuses a replay seating someone the row does not hold from a session past the window", async () => {
+    setFresh(false);
+    answerWith(({ endpoint }) => Promise.resolve(endpoint === "/teams/memberships" ? { acknowledged: 1, teams: [] } : replayed(1)));
+
+    assert.deepEqual(await undo(POST, ZURUECK), { ...stepUpRequired() });
+    assert.deepEqual(
+      requestsOf(calls).filter(({ method }) => method !== undefined),
+      [],
+      "the minting replay reached the backend for a session past the window",
+    );
   });
 
   /* It may still have landed, so it is titled unclear and never says the change stands. */

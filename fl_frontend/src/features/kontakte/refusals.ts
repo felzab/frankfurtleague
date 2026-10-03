@@ -1,5 +1,26 @@
+import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
+
+/**
+ * The re-send's refusal, or `null` when the refusal is something else. The editor offers the press
+ * only on a filled, unconfirmed seat, so each code here is that seat moving after the page was read.
+ */
+export function mapEinladenRefusal(error: unknown): string | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-KONTAKT-002":
+      return buildRefusal({
+        reason: "Dieser Sitz ist inzwischen leer oder schon bestätigt",
+        repair: "Lade die Seite neu, um den aktuellen Stand zu sehen",
+      });
+    case "REQ-KONTAKT-003":
+      return SPERRLISTE_ADRESSE_GESPERRT;
+    default:
+      return null;
+  }
+}
 
 /**
  * The stale-block refusal, or `null` when the refusal is something else. It lands on no field: the whole

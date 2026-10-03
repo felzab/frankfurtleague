@@ -30,7 +30,16 @@ let stored: FLSaisonTeamKontakte | null = null;
 function antwortFuer(endpoint: string): unknown {
   return endpoint === "/teams/memberships"
     ? { teams: [{ id: TEAM_ID, memberships: [{ saison_id: SAISON_ID, kontakte: stored, kontakte_stand: "stand" }] }] }
-    : { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, kontakte: null, kontakte_stand: "neu" };
+    : {
+        acknowledged: 1,
+        saison_id: SAISON_ID,
+        team_id: TEAM_ID,
+        saison_team_id: "c".repeat(24),
+        kontakte: null,
+        kontakte_stand: "neu",
+        bestaetigungen: [],
+        gesperrt: [],
+      };
 }
 
 const storedSeat = (vorname: string, textVersion: string): FLKontaktperson => ({

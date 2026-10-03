@@ -1,5 +1,8 @@
+import { kontakteMayMint } from "@/features/kontakte/linkMint";
 import { patchSaisonTeamKontakte } from "@/features/kontakte/mutations";
+import { describeKontaktVersand, mailKontaktLink } from "@/features/kontakte/notifications";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
+import { getTeamMemberships } from "@/features/teams/queries";
 import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { handleUndoRequest, refusedReplay, replayRefusal } from "@/shared/utils/undoRoute";
 
@@ -38,13 +41,44 @@ export async function POST(request: NextRequest) {
         return stale === undefined ? refusedReplay(error, REPLAY_REFUSALS) : { refusal: stale };
       }
 
-      return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten." };
+      if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten." };
+
+      // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
+      // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
+      const versendet = await Promise.all(
+        operation.bestaetigungen.map(async (mint) => ({
+          email: mint.email,
+          versand: await mailKontaktLink({
+            operation: "undoAdminKontakteEdit",
+            saisonTeamId: operation.saison_team_id,
+            saisonId: operation.saison_id,
+            mint: mint,
+            anlass: "erneut",
+          }),
+        })),
+      );
+      const versandSatz = describeKontaktVersand(versendet, operation.gesperrt, operation.kontakte);
+
+      // A cost either way: the undo mailed a person, which is a fact about them rather than about the
+      // rows it put back.
+      return versandSatz === null ? {} : { cost: versandSatz };
     },
     // Nothing to clear, for the reason `fl_frontend/src/features/kontakte/actions.ts :: patchSaisonTeamKontakteAction`
     // states at the save this replays: no cached read holds a contact person. The screen is refreshed
     // by the caller instead.
     invalidate: () => undefined,
-    // Undoing a first entry clears the block, the step-up write the clearing panel asks for.
-    stepUp: (payload) => payload.kontakte === null,
+    // The replay is a save, judged as the save's own action judges one (`docs/frontend/spec.md :: I432`):
+    // undoing a first entry clears the block, and putting an earlier person back mints them a link.
+    stepUp: async ({ team_id, saison_id, kontakte }) => {
+      if (kontakte === null) return true;
+      // Judged against nobody first, so a replay seating nobody costs no read.
+      if (!kontakteMayMint(null, kontakte)) return false;
+
+      const { teams } = await getTeamMemberships();
+      const gespeichert =
+        teams.find(({ id }) => id === team_id)?.memberships.find((membership) => membership.saison_id === saison_id)?.kontakte ?? null;
+
+      return kontakteMayMint(gespeichert, kontakte);
+    },
   });
 }

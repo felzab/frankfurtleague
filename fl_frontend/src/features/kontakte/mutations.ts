@@ -1,8 +1,15 @@
 import { apiClient } from "@/core/api";
 
-import { FLKontaktErasureAnsichtResponseSchema, FLKontaktErasureResponseSchema, FLPatchSaisonTeamKontakteResponseSchema } from "./schemas";
+import {
+  FLKontaktEinladenResponseSchema,
+  FLKontaktErasureAnsichtResponseSchema,
+  FLKontaktErasureResponseSchema,
+  FLPatchSaisonTeamKontakteResponseSchema,
+} from "./schemas";
 
 import type {
+  FLKontaktEinladenPayload,
+  FLKontaktEinladenResponse,
   FLKontaktErasureAnsichtResponse,
   FLKontaktErasurePayload,
   FLKontaktErasureResponse,
@@ -50,6 +57,21 @@ export async function patchSaisonTeamKontakte({
       method: "PATCH",
       authType: "admin",
       body: JSON.stringify(body),
+    },
+  );
+}
+
+/**
+ * The token is ANSWERED rather than mailed by the backend, as the save's are: every message this app
+ * sends is composed here. The seat's earlier link stops opening anything.
+ */
+export async function einladeKontakt({ team_id, saison_id, rolle }: FLKontaktEinladenPayload): Promise<FLKontaktEinladenResponse> {
+  return apiClient<FLKontaktEinladenResponse>(
+    `/teams/${team_id}/saisons/${saison_id}/kontakte/${rolle}/bestaetigung/einladen`,
+    FLKontaktEinladenResponseSchema,
+    {
+      method: "POST",
+      authType: "admin",
     },
   );
 }

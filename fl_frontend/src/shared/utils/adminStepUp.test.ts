@@ -86,7 +86,31 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
       removed_spiele: 0,
     };
   }
-  return { ...key, saison_id: "2526", kontakte: null, kontakte_stand: "a1b2" };
+  // No club on file, so every seat a contacts save names is a person the row does not hold.
+  if (endpoint === "/teams/memberships") return { acknowledged: 1, teams: [] };
+  if (endpoint.endsWith("/bestaetigung/einladen")) {
+    return {
+      ...key,
+      saison_team_id: "c".repeat(24),
+      bestaetigung: {
+        token: "t",
+        rollen: ["ansprechperson"],
+        email: STORED_EMAIL,
+        vorname: "Anna",
+        schule: "Lessing-Kolleg",
+        frist: "2026-10-17",
+      },
+    };
+  }
+  return {
+    ...key,
+    saison_id: "2526",
+    saison_team_id: "c".repeat(24),
+    kontakte: null,
+    kontakte_stand: "a1b2",
+    bestaetigungen: [],
+    gesperrt: [],
+  };
 }
 
 const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolve(landed(call)));
@@ -294,6 +318,40 @@ describe("an administrator write the server holds to the step-up window", () => 
     // A valid edit, so the answer is past the payload's parse and never the parse's own refusal.
     assert.notDeepEqual(await patch({ ...key, kontakte: emptySeats }), refused, "a stale session was refused an edit of the contacts");
     assert.ok(calls.length > sent, "the edit stopped short of the backend");
+  });
+
+  /* A save seating a person the row does not hold mints them a bearer link, so it asks; the same save
+     from inside the window does not, and the stored row decides only for a session past it. */
+  it("refuses a contacts save seating somebody new, and never one from inside the window", async () => {
+    const patch = await action("patchSaisonTeamKontakteAction");
+    const seated = {
+      team_id: TEAM_ID,
+      saison_id: "2526",
+      kontakte_stand: "9f2c",
+      kontakte: {
+        trainer: null,
+        ansprechperson: {
+          vorname: "Anna",
+          nachname: "Körner",
+          email: STORED_EMAIL,
+          telefon: "069 1234567",
+          einwilligung: { umfang: "kontaktdaten", text_version: LIGA_KENNTNISNAHME.textVersion, datum: "2026-10-03" },
+        },
+        stellvertretung: null,
+        trainer_ist_zugleich: null,
+      },
+    };
+
+    setFresh(false);
+    const sent = calls.length;
+    assert.deepEqual(await patch(seated), refused, "a stale session seated a new contact person");
+    assert.ok(
+      calls.slice(sent).every(({ method }) => method === undefined),
+      "the minting save reached the backend for a session past the window",
+    );
+
+    setFresh(true);
+    assert.notDeepEqual(await patch(seated), refused, "a fresh session was refused a save seating a new contact person");
   });
 
   /* A mint ends the standing link, which nothing restores; the first mint ends nothing, and a stale
@@ -519,10 +577,15 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   },
   "POST /saisons/{saison_id}/einladungen/versand": { name: "postEinladungVersandAction", payload: { id: SAISON_ID } },
   "POST /kontakte/erasure": { name: "eraseKontaktpersonAction", payload: { email: "berta@example.de" } },
-  // Clearing the block, the one call of the contacts save the backend steps up.
+  // Clearing the block, one of the two calls of the contacts save the backend steps up, the other
+  // being a save that seats somebody new.
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": {
     name: "patchSaisonTeamKontakteAction",
     payload: { team_id: TEAM_ID, saison_id: "2526", kontakte: null, kontakte_stand: "9f2c" },
+  },
+  "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": {
+    name: "einladeKontaktAction",
+    payload: { team_id: TEAM_ID, saison_id: "2526", rolle: "ansprechperson" },
   },
   "POST /saisons": { name: "postSaisonAction", payload: NEW_SAISON },
   "POST /saisons/{saison_id}/activate": { name: "activateSaisonAction", payload: { id: SAISON_ID } },
