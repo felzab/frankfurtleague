@@ -501,23 +501,39 @@ def _judged(setup: str, key: str, env: str) -> str:
     return output
 
 
-def _placing_step(text: str) -> list[str]:
-    """The development machine's placing step, the server's being `sudo install` to a uid this host may not have."""
-    placed = re.findall(r"`(\(umask 077 && mkdir -p secrets && mv \"\$t/key\" secrets/fl_actor_signing_key\) && rm -rf \"\$t\")`", text)
-    assert len(placed) == 1, placed
-    return placed
+PLACING_STEPS: Final[dict[str, str]] = {
+    "server": r"`(sudo install -o 1001 -g 1001 -m 400 \"\$t/key\" secrets/fl_actor_signing_key && rm -rf \"\$t\")`",
+    "development": r"`(\(umask 077 && mkdir -p secrets && mv \"\$t/key\" secrets/fl_actor_signing_key\) && rm -rf \"\$t\")`",
+}
 
 
-def test_a_placing_step_that_fails_keeps_the_only_key() -> None:
+def _placing_step(text: str, machine: str) -> str:
+    """One machine's placing step as the runbook prints it, found exactly once."""
+    placed = re.findall(PLACING_STEPS[machine], text)
+    assert len(placed) == 1, (machine, placed)
+    return placed[0]
+
+
+# What makes each step fail where it stands: a `sudo` refusing on PATH for the server's, which this host
+# could not run as written anyway, and a file where the development step's directory goes.
+FAILING_UNDER: Final[dict[str, str]] = {
+    "server": (
+        "mkdir refusing && printf '#!/usr/bin/env bash\\nexit 1\\n' > refusing/sudo && chmod +x refusing/sudo"
+        ' && export PATH="$PWD/refusing:$PATH"'
+    ),
+    "development": ": > secrets",
+}
+
+
+@pytest.mark.parametrize("machine", sorted(PLACING_STEPS))
+def test_a_placing_step_that_fails_keeps_the_only_key(machine: str) -> None:
     """The temporary directory holds the one copy of the private half, so a failed placing must leave it there."""
     text = RUNBOOKS.read_text(encoding="utf-8")
     generate = next(line for line in text.splitlines() if line.startswith('t="$(mktemp -d)" && (umask 077 && openssl genpkey'))
-    # A file where the directory goes, so the step's `mkdir -p secrets` fails.
-    blocked = ": > secrets"
     # In a shell of its own, as a person pastes it: the harness's `errexit` would stop at the failure.
-    step = f"t=\"$t\" bash -c '{_placing_step(text)[0]}' || true"
+    step = f"t=\"$t\" bash -c '{_placing_step(text, machine)}' || true"
     kept = 'printf "kept=%s\\n" "$(test -f "$t/key" && echo 1 || echo 0)"; rm -rf "$t"'
-    code, output, _ = _run(f"{generate}\n{blocked}\n{step}\n{kept}")
+    code, output, _ = _run(f"{generate}\n{FAILING_UNDER[machine]}\n{step}\n{kept}")
 
     assert code == 0, output
     assert "kept=1" in output, output
@@ -528,10 +544,10 @@ def test_the_runbooks_command_writes_a_pair_the_check_passes() -> None:
     text = RUNBOOKS.read_text(encoding="utf-8")
     generate = next(line for line in text.splitlines() if line.startswith('t="$(mktemp -d)" && (umask 077 && openssl genpkey'))
     # The development machine's placing step, the server's being `sudo install` to a uid this host may not have.
-    placed = _placing_step(text)
+    placed = _placing_step(text, "development")
     # The server's `secrets/` is root's, so the generating line writes nothing there: counted between the two steps.
     inside = 'printf "inside=%s\\n" "$(ls -A secrets 2>/dev/null | wc -l | tr -d \' \')"'
-    command = f"{generate}\n{inside}\n{placed[0]}"
+    command = f"{generate}\n{inside}\n{placed}"
     # Counted, never printed: each file's carriage returns, which the runbook promises it writes none of.
     counted = "printf \"cr=%s\\n\" \"$(cat secrets/fl_actor_signing_key fl_backend/.env | tr -cd '\\r' | wc -c | tr -d ' ')\""
     output = _judged(f"{command}\n{counted}", "secrets/fl_actor_signing_key", "fl_backend/.env")
