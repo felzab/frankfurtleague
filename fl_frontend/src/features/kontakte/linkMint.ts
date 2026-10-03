@@ -1,6 +1,9 @@
+import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+
 import type { FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload } from "@/features/teams/schemas";
 
-const SITZE = ["trainer", "ansprechperson", "stellvertretung"] as const;
+/** The three seats, off the one list every seat control renders. */
+export const SITZE = KONTAKT_ROLLEN.map(({ value }) => value);
 
 /**
  * Whether a contacts save may mint a seat a link (`docs/frontend/spec.md :: I432`): a SUPERSET of

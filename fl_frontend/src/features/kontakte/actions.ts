@@ -9,7 +9,7 @@ import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutatio
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { kontakteMayMint } from "./linkMint";
+import { kontakteMayMint, SITZE } from "./linkMint";
 import { einladeKontakt, eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
 import { describeKontaktVersand, mailKontaktLink } from "./notifications";
 import { mapEinladenRefusal, mapStaleBlockRefusal } from "./refusals";
@@ -223,8 +223,6 @@ export async function readKontaktErasureAnsichtAction(
     return { success: true, ansicht: await readKontaktErasureAnsicht(validated.data) };
   });
 }
-
-const SITZE = ["trainer", "ansprechperson", "stellvertretung"] as const;
 
 /**
  * The one read serving a stored block, memoised for the request. A block moving between it and the
