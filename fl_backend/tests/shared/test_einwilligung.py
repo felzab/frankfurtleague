@@ -1,6 +1,7 @@
 import dataclasses
 import hashlib
 from collections.abc import Mapping
+from datetime import date
 from typing import Any, Final, cast
 
 import pytest
@@ -57,6 +58,119 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
 }
 
 
+# What the digest leaves out, frozen beside it for the digest's reason: a label moved to another page
+# is admitted on that page by the judgement, and a page reading its sections by key loses a renamed one.
+FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]] = {
+    "2026-08": ("bewerbung", date(2026, 8, 31), None),
+    "2026-09-bestaetigung": ("bewerbung", date(2026, 9, 4), None),
+    "2026-09-bestaetigung-2": ("bewerbung", date(2026, 9, 7), None),
+    "2026-09-bestaetigung-3": ("bewerbung", date(2026, 9, 7), None),
+    "2026-09-bestaetigung-4": ("bewerbung", date(2026, 9, 21), None),
+    "2026-09-bestaetigung-5": ("bewerbung", date(2026, 9, 24), None),
+    "2026-09-bestaetigungsseite": ("bestaetigung_kontakt", date(2026, 9, 4), None),
+    "2026-09-bestaetigungsseite-2": ("bestaetigung_kontakt", date(2026, 9, 5), None),
+    "2026-09-bestaetigungsseite-3": ("bestaetigung_kontakt", date(2026, 9, 7), None),
+    "2026-09-bestaetigungsseite-4": ("bestaetigung_kontakt", date(2026, 9, 9), None),
+    "2026-09-bestaetigungsseite-5": ("bestaetigung_kontakt", date(2026, 9, 21), None),
+    "2026-09-bestaetigungsseite-6": (
+        "bestaetigung_kontakt",
+        date(2026, 9, 24),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "rechtsgrundlage",
+            "nichtOeffentlich",
+            "fristAbgelehnt",
+            "fristAngenommen",
+            "fristUnvollstaendig",
+            "fristOhneEntscheidung",
+            "ablehnen",
+            "ablehnenFolge",
+            "widerruf",
+            "art21",
+            "whatsapp",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickHinweise",
+            "keineEinwilligung",
+        ),
+    ),
+    "2026-09-schiedsrichterseite": ("bestaetigung_schiedsrichter", date(2026, 9, 22), None),
+    "2026-09-schiedsrichterseite-2": ("bestaetigung_schiedsrichter", date(2026, 9, 24), None),
+    "2026-09-schiedsrichterseite-3": (
+        "bestaetigung_schiedsrichter",
+        date(2026, 10, 3),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "veroeffentlichung",
+            "medien",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickEinwilligung",
+            "klickHinweise",
+        ),
+    ),
+    "2026-09-spielerseite": ("bestaetigung_spieler", date(2026, 9, 22), None),
+    "2026-09-spielerseite-2": ("bestaetigung_spieler", date(2026, 9, 24), None),
+    "2026-09-spielerseite-3": (
+        "bestaetigung_spieler",
+        date(2026, 10, 3),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "veroeffentlichung",
+            "medien",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickEinwilligung",
+            "klickHinweise",
+        ),
+    ),
+    "2026-10-konto-spieler": (
+        "konto_spieler",
+        date(2026, 10, 3),
+        (
+            "veroeffentlichung",
+            "medien",
+            "widerruf",
+        ),
+    ),
+    "2026-10-konto-schiedsrichter": (
+        "konto_schiedsrichter",
+        date(2026, 10, 3),
+        (
+            "veroeffentlichung",
+            "medien",
+            "widerruf",
+        ),
+    ),
+    "2026-10-konto-kontakt": (
+        "konto_kontakt",
+        date(2026, 10, 3),
+        (
+            "medien",
+            "widerruf",
+        ),
+    ),
+}
+
+
 def fassung_digest(fassung: Fassung) -> str:
     """Every word the label freezes, joined as the frontend's digest joins them: the paragraphs, the switch, each control."""
 
@@ -71,6 +185,18 @@ class TestTheRegistryOfWordings:
 
         assert sorted(FASSUNG_DIGESTS) == sorted(FASSUNGEN), "a label has no frozen digest, or the reverse"
         assert {label: fassung_digest(fassung) for label, fassung in FASSUNGEN.items()} == FASSUNG_DIGESTS
+
+    def test_every_label_keeps_the_page_the_day_and_the_section_keys_it_was_given(self):
+        """Both directions, as the digests: a label is pinned here before it lands, and a pin whose label is gone fails."""
+
+        assert {
+            label: (
+                fassung.seite,
+                fassung.gilt_ab,
+                None if fassung.absaetze_nach_schluessel is None else tuple(fassung.absaetze_nach_schluessel),
+            )
+            for label, fassung in FASSUNGEN.items()
+        } == FASSUNG_STAMMDATEN
 
     def test_every_page_runs_a_label_of_its_own(self):
         for seite, label in LAUFENDE_FASSUNGEN.items():
