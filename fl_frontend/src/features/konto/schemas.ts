@@ -16,8 +16,8 @@ export const FLKontoSitzEinwilligungSchema = z.object({
   saison_id: z.string(),
   rollen: z.array(FLKontaktRolleSchema).nonempty(),
   text_version: z.string().nullable(),
-  // The label the person confirmed, which the account page shows beside the control: the block's own
-  // label above is the latest press's once one has been made.
+  // The label whose words the account page shows beside the control: the backend names which stored
+  // label the person confirmed, so the page never decides it from the record's shape.
   bestaetigt_text_version: z.string().nullable(),
   medien: z.boolean(),
   medien_angeboten: z.boolean(),
