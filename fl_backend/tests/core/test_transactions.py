@@ -1,5 +1,6 @@
 import ast
 import asyncio
+import contextlib
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
@@ -13,16 +14,20 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
+from starlette.requests import Request
 from starlette.types import Message, Scope
 
+from app.core import security
 from app.core.collections import Collection
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
+from app.core.security import admin_judge, bind_actor
 from app.core.transactions import ABORT_GRACE_S, UNJUDGED_KINDS, actor_judge_var, drain, transaction_session
 from app.main import create_app
-from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config
+from tests.actor_tokens import verified_actor
+from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, app_calls, callee, parsed
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -535,6 +540,116 @@ class TestAFailureAfterTheCommitRaisesNoAlarm:
         # The control: this helper's abort, answered; a helper sending nothing would also log nothing.
         assert (aborts.answered, stored) == ([TRANSACTION_COMMITTED], 1)
         assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
+
+
+JUDGE_DATABASE_NAME = worker_database("fl_transactions_judge_test")
+
+ACTING, OTHER = grants_for_the_suite()[1], grants_for_the_suite()[2]
+
+
+class _GrantUpdates(monitoring.CommandListener):
+    """The `_id` each update the client sends to the grants filters on, in the order sent: a write aborted after it still shows here."""
+
+    def __init__(self) -> None:
+        self.filtered_on: list[Any] = []
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        if event.command_name == "update" and event.command.get("update") == Collection.BERECHTIGUNGEN:
+            self.filtered_on.extend(update["q"].get("_id") for update in event.command["updates"])
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        """Required by the listener interface; a write is judged by what was sent."""
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        """Required by the listener interface; a write is judged by what was sent."""
+
+
+def _judged_by_the_administrators_judge(url: str, *, fails: bool) -> tuple[list[Any], int]:
+    """One transaction under `app/core/security.py :: admin_judge`, its callback writing another grant row.
+
+    Answers the rows each grant update named, as sent, and the actor's row's `bounded_writes` once it ends.
+    """
+
+    updates = _GrantUpdates()
+
+    async def body() -> int:
+        async with a_clean_database(url, JUDGE_DATABASE_NAME) as (_, database):
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
+            watched = AsyncMongoClient(url, event_listeners=[updates])
+            grants = watched[JUDGE_DATABASE_NAME][Collection.BERECHTIGUNGEN]
+
+            async def write(session: AsyncClientSession) -> None:
+                await grants.update_one({"_id": OTHER["_id"]}, {"$set": {"erteilt_von": "PROBE"}}, session=session)
+                if fails:
+                    raise _FailedInTheCallback
+
+            judge = admin_judge(verified_actor(ACTING["adresse"]), build_test_config().model_copy(update={"db_base_name": JUDGE_DATABASE_NAME}))
+            actor_token, judge_token = actor_var.set(Actor(kind="admin_session", email=ACTING["adresse"])), actor_judge_var.set(judge)
+            try:
+                async with transaction_session(watched) as session:
+                    await session.with_transaction(write)
+            except _FailedInTheCallback:
+                pass
+            finally:
+                actor_var.reset(actor_token)
+                actor_judge_var.reset(judge_token)
+                await watched.close()
+
+            stored = await database[Collection.BERECHTIGUNGEN].find_one({"_id": ACTING["_id"]})
+            assert stored is not None
+            return int(stored.get("bounded_writes", 0))
+
+    return updates.filtered_on, on_the_seed_loop(body())
+
+
+@pytest.mark.db
+class TestTheAdministratorsJudgeOverARealGrant:
+    """`app/core/security.py :: admin_judge` itself, against the grants a database holds rather than a stub."""
+
+    def test_a_transaction_that_wrote_anchors_the_actors_own_grant_after_its_write(self, mongo_replica_set_url: str):
+        """The control for the case below: the anchor is sent, last, on the actor's row and no other, and commits with the write."""
+
+        assert _judged_by_the_administrators_judge(mongo_replica_set_url, fails=False) == ([OTHER["_id"], ACTING["_id"]], 1)
+
+    def test_a_failing_callback_sends_no_anchor(self, mongo_replica_set_url: str):
+        """Sent and aborted would leave the grant as it was, so only what reached the server shows an anchor written regardless."""
+
+        assert _judged_by_the_administrators_judge(mongo_replica_set_url, fails=True) == ([OTHER["_id"]], 0)
+
+
+class _RecordedJudge:
+    """What `bind_actor` is handed in place of `app/core/security.py :: admin_judge`, and the judge it answers with."""
+
+    def __init__(self) -> None:
+        self.called_with: list[tuple[Any, Any]] = []
+        self.judge = object()
+
+    def __call__(self, actor: Any, config: Any) -> object:
+        self.called_with.append((actor, config))
+        return self.judge
+
+
+class TestTheAdministratorsBinderBindsTheirJudge:
+    def test_the_judge_built_off_the_verified_actor_is_bound_for_the_request_alone(self, monkeypatch: pytest.MonkeyPatch):
+        """Read off the variable the hook reads: an end-to-end refusal could be any judge's, or the check before the handler."""
+
+        recorded = _RecordedJudge()
+        monkeypatch.setattr(security, "admin_judge", recorded)
+        claims, config = verified_actor(ACTING["adresse"]), build_test_config()
+        request = Request({"type": "http", "method": "PATCH", "path": "/api/v0/spielorte", "headers": [], "query_string": b""})
+
+        async def bound() -> tuple[object, object]:
+            binder = bind_actor(request, claims, config)
+            await anext(binder)
+            during = actor_judge_var.get()
+            with contextlib.suppress(StopAsyncIteration):
+                await anext(binder)
+
+            return during, actor_judge_var.get()
+
+        assert asyncio.run(bound()) == (recorded.judge, None)
+        assert recorded.called_with == [(claims, config)]
 
 
 def _is_a_snapshot(call: ast.Call) -> bool:
