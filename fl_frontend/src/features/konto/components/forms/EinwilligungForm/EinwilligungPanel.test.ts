@@ -58,6 +58,17 @@ describe("the account page's consent section", () => {
     assert.equal(screen.getAllByRole("switch").length, 2);
   });
 
+  /* Every seat's switch carries the same stamped words, so the group around each is what tells a
+     screen reader which team season a press moves. */
+  it("names each record's controls as a group by the record's title", () => {
+    renderPanel([eintrag("a", "Erster Eintrag", null), eintrag("b", "Zweiter Eintrag", null)]);
+
+    for (const titel of ["Erster Eintrag", "Zweiter Eintrag"]) {
+      const gruppe = screen.getByRole("group", { name: titel });
+      assert.equal(within(gruppe).getAllByRole("switch").length, 1, `the group „${titel}“ holds no switch of its own`);
+    }
+  });
+
   /* What was agreed stands apart from what the control now says, read-only and out of the way until asked for. */
   it("shows the confirmed words read-only behind their own disclosure", async () => {
     const user = userEvent.setup();

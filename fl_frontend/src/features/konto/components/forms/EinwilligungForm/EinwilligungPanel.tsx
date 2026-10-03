@@ -40,10 +40,18 @@ export function EinwilligungPanel({ eintraege }: { eintraege: readonly Einwillig
       </div>
       <div className={panel.body()}>
         {eintraege.map(({ id, titel, bestaetigt, ...control }) => (
+          // A group named by its title: every seat's switch carries the same stamped words, and only the
+          // group says which team season a press moves.
           <section
             key={id}
+            role="group"
+            aria-labelledby={`einwilligung-${id}`}
             className="flex w-full flex-col gap-y-4">
-            <h3 className={FORM_SECTION_HEADING_CLASSES}>{titel}</h3>
+            <h3
+              id={`einwilligung-${id}`}
+              className={FORM_SECTION_HEADING_CLASSES}>
+              {titel}
+            </h3>
             <EinwilligungForm {...control} />
             {bestaetigt !== null && (
               <Disclosure>
