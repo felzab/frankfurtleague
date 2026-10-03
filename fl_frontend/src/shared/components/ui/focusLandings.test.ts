@@ -9,6 +9,7 @@ import { Fragment, createElement as h, useState } from "react";
 import { act, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
@@ -455,6 +456,7 @@ const kontakteEditor = (kontakte: Kontakte | null) =>
   h(DraftStatusProvider, {
     status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
     children: h(AdminKontakteEditView, {
+      laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
       team: { id: TEAM_A, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
       saison: {
         saisonId: "2026",

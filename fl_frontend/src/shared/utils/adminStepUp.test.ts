@@ -340,7 +340,7 @@ describe("an administrator write the server holds to the step-up window", () => 
           nachname: "Körner",
           email: STORED_EMAIL,
           telefon: "069 1234567",
-          einwilligung: { umfang: "kontaktdaten", text_version: LIGA_KENNTNISNAHME.textVersion, datum: "2026-10-03" },
+          einwilligung: { umfang: "kontaktdaten", text_version: FORM_LABEL, datum: "2026-10-03" },
         },
         stellvertretung: null,
         trainer_ist_zugleich: null,

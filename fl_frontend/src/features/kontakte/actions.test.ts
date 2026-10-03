@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
@@ -66,6 +67,7 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
       h(DraftStatusProvider, {
         status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
         children: h(FormKontakteSection, {
+          laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
           value: kontakte,
           stored: kontakte,
           teamId: "507f1f77bcf86cd799439011",

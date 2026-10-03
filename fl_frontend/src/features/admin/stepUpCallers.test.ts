@@ -13,6 +13,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -218,6 +219,7 @@ const SWAP = { teams: [], playedKnockoutSpiele: 0 };
 const kontakteEditor = () =>
   underNext(
     h(AdminKontakteEditForm, {
+      laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
       teamId: TEAM_ID,
       saison: {
         saisonId: "2627",

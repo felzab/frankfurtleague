@@ -59,10 +59,13 @@ const OHNE_NACHSTAND = buildRefusal({
  * editor's two-endpoint save does.
  */
 export function AdminKontakteEditForm({
+  laufendesLabel,
   teamId,
   saison,
   pageHeader,
 }: {
+  /** The label the application form runs, read by the page per request: a seat opened blank stamps it. */
+  laufendesLabel: string;
   teamId: string;
   /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;
@@ -241,6 +244,7 @@ export function AdminKontakteEditForm({
             />
           }>
           <FormKontakteSection
+            laufendesLabel={laufendesLabel}
             value={kontakte}
             stored={storedKontakte}
             teamId={teamId}

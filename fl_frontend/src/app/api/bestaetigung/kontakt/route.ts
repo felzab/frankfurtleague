@@ -1,6 +1,6 @@
 import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
+import { getLaufendesLabel } from "@/core/einwilligung";
 import { logger } from "@/core/logging";
 import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
@@ -85,7 +85,9 @@ export async function POST(request: NextRequest) {
       // Judged BEFORE the parse, by the check every confirmation handler shares: a page opened
       // before a deploy moved the label posts the words its reader saw, and only the mail's link
       // reopens the page on the running ones.
-      if (!nenntLaufendeFassung(body, BESTAETIGUNG_KENNTNISNAHME.textVersion)) return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
+      if (!nenntLaufendeFassung(body, await getLaufendesLabel("bestaetigung_kontakt"))) {
+        return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
+      }
 
       const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(body);
 

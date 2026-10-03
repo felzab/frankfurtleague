@@ -1,7 +1,7 @@
 "use server";
 
 import { isFreshlySignedIn } from "@/core/auth";
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { getLaufendesLabel } from "@/core/einwilligung";
 import { BEWERBUNG_VERALTET, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -238,11 +238,14 @@ async function gespeicherteKontakte({ team_id, saison_id }: Pick<FLPatchSaisonTe
  * back under its own, a confirmed one under the confirmation page's.
  */
 async function nenntZugelasseneFassungen({ team_id, saison_id, kontakte }: FLPatchSaisonTeamKontaktePayload): Promise<boolean> {
-  const laufend = LIGA_KENNTNISNAHME.textVersion;
   const gesendet = SITZE.flatMap((rolle) => {
     const sitz = kontakte?.[rolle];
     return sitz ? [{ rolle, einwilligung: sitz.einwilligung }] : [];
   });
+
+  // No label is read for a block naming nobody, which stamps none: clearing a block never waits on it.
+  if (gesendet.length === 0) return true;
+  const laufend = await getLaufendesLabel("bewerbung");
 
   // No read where nothing needs one: a block of new seats is judged by the running label alone.
   if (gesendet.every(({ einwilligung }) => nenntLaufendeFassung(einwilligung, laufend))) return true;

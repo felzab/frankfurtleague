@@ -11,6 +11,7 @@ import { act, createElement as h } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -351,6 +352,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminKontakteEditForm, {
+          laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",

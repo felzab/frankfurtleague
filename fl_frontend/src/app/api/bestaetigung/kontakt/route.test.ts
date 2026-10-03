@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
@@ -23,7 +24,6 @@ const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG } });
 
 const { POST } = await import("./route.ts");
-const { BESTAETIGUNG_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { alterAusserhalb } = await import("@/features/bewerbungen/constants.ts");
@@ -35,6 +35,13 @@ const { rollenText, rolleText } = await import("@/features/bewerbungen/notificat
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 
 const WRITE = "/bewerbungen/einwilligung";
+const SEITEN = "/einwilligung/seiten";
+
+/** The label the backend runs on the contact page, off the registry it generated. */
+const LAUFEND = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+
+/** What the backend runs on each page in this case: the registry's own answer unless a case moves it. */
+let seitenAntwort: () => unknown = () => einwilligungAnswer(SEITEN);
 const ANSICHT_ENDPOINT = "/bewerbungen/einwilligung/ansicht";
 
 /** The link's own view, open, at a floor above the league's own so a case can tell whose it states. */
@@ -47,7 +54,7 @@ const ANSICHT = {
   rolle: "ansprechperson",
   zugleich_rolle: null,
   vorname: "Käthe",
-  text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+  text_version: LAUFEND,
   mindestalter: 18,
 };
 
@@ -78,7 +85,7 @@ const gueltigerKoerper = {
   antwort: "erteilt",
   geburtsdatum: "1984-05-09",
   whatsapp: false,
-  text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+  text_version: LAUFEND,
 };
 
 function aRequest(body: unknown) {
@@ -90,6 +97,7 @@ let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 let ansichtAntwort: () => unknown = () => ANSICHT;
 
 function antwortFuer({ endpoint, body }: ApiCall): unknown {
+  if (endpoint === SEITEN) return seitenAntwort();
   // The delivery report the sent message files, applied to every seat it names as the endpoint applies it.
   if (endpoint.startsWith("/bewerbungen/zustellung"))
     return { acknowledged: 1, angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen };
@@ -103,6 +111,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 
 beforeEach(() => {
   logs.length = 0;
+  seitenAntwort = () => einwilligungAnswer(SEITEN);
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });
@@ -110,11 +119,25 @@ beforeEach(() => {
 describe("the contact seat's confirmation handler", () => {
   /* A page opened before a deploy moved the label shows words the running build does not serve, and
      filing the answer under the new label would record a Kenntnisnahme of a text nobody was shown. */
-  it("refuses a label other than the one this server renders, before the endpoint", async () => {
+  it("refuses a label other than the one the backend runs, before the endpoint", async () => {
     const answer = await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
 
     assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
-    assert.deepEqual(calls, []);
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      [SEITEN],
+    );
+  });
+
+  /* The running label is the backend's and is read per request: a frontend recreated before the backend
+     would otherwise judge by a label the backend has not reached yet, or has left. */
+  it("judges the label against the one the backend runs on this request, whatever this build last saw", async () => {
+    seitenAntwort = () => ({ acknowledged: 1, laufende_fassungen: { bestaetigung_kontakt: "2026-09-bestaetigungsseite-5" } });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
+    assert.notEqual(LAUFEND, "2026-09-bestaetigungsseite-5", "the case moves nothing: the registry already runs that label");
   });
 
   /* Judged before the parse, so an older page gets the one sentence as its whole answer rather than
@@ -127,7 +150,10 @@ describe("the contact seat's confirmation handler", () => {
 
       assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN }, JSON.stringify(fassung));
     }
-    assert.deepEqual(calls, []);
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      [SEITEN, SEITEN, SEITEN],
+    );
   });
 
   /* The one refusal that spends no token, worded at the floor the link's own view answers: a
@@ -175,7 +201,7 @@ describe("the contact seat's confirmation handler", () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const geschrieben = calls.find((call) => call.endpoint === WRITE);
 
-    assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
+    assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, LAUFEND);
     assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: false });
   });
 });
@@ -263,8 +289,8 @@ describe("a seat an administrator typed onto a team's season row", () => {
     assert.deepEqual(mails, []);
     assert.deepEqual(
       calls.map((call) => call.endpoint),
-      [WRITE, WRITE],
-      "the handler reached past the write it was asked for",
+      [SEITEN, WRITE, SEITEN, WRITE],
+      "the handler reached past the label and the write it was asked for",
     );
   });
 

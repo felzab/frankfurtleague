@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 
 import { render } from "@testing-library/react";
 
+import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
@@ -172,6 +173,7 @@ answerReadsWith((endpoint, schema, params) => {
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: league });
   if (endpoint === "/teams/memberships") return answer(schema, endpoint, { teams: [club(league)] });
   if (endpoint === "/spieler/memberships") return answer(schema, endpoint, { spieler: [spieler(league)] });
+  if (endpoint.startsWith("/einwilligung/")) return einwilligungAnswer(endpoint);
 
   return EMPTIEST_ANSWER(endpoint, schema, params);
 }, withTrackedRows);

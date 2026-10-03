@@ -9,7 +9,7 @@ import { act, createElement as h } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
@@ -177,8 +177,12 @@ const editorElement = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): 
 
 const editorTree = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): string => renderTree(editorElement(node, kontakte));
 
+/** The application form's running words, off the registry the backend generated, as the page reads them. */
+const FORM = publishedLaufendeFassung("bewerbung");
+
 const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true): ReactNode =>
   h(FormKontakteSection, {
+    laufendesLabel: FORM.text_version,
     value: kontakte,
     stored: kontakte,
     teamId: "507f1f77bcf86cd799439011",
@@ -200,6 +204,7 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte | null, isMember = true): 
 /** `teamId` is the payload's own field: a save is judged against the mirror, which refuses a short id. */
 const viewElement = (kontakte: FLSaisonTeamKontakte | null, hasRow = true, teamId = "t1"): ReactNode =>
   h(AdminKontakteEditView, {
+    laufendesLabel: FORM.text_version,
     team: { id: teamId, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
     saison: {
       saisonId: "2526",
@@ -306,6 +311,8 @@ let storedBlock: FLSaisonTeamKontakte = BLOCK;
 const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
 
 answerReadsWith((endpoint, schema, params) => {
+  const einwilligung = einwilligungAnswer(endpoint);
+  if (einwilligung !== undefined) return einwilligung;
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
   if (endpoint === "/teams/memberships") {
     const club = answer(FLTeamWithMembershipsSchema, endpoint, {
@@ -1078,28 +1085,26 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
 });
 
 describe("which wording a record cites", () => {
-  /* The version NAMES the text. Kept apart, a rewording without a bump leaves every earlier record
-     citing a text nobody was shown. */
-  it("keeps a version and the wording it names, both filled in", () => {
-    // That the two are one object is this file's type error; what no type can say is that neither
-    // half is a placeholder.
-    assert.notEqual(LIGA_KENNTNISNAHME.textVersion, "", "the version is empty, so every record cites nothing");
-    assert.ok(LIGA_KENNTNISNAHME.absaetze.length > 0, "the version names no wording at all");
-    for (const wordingParagraph of LIGA_KENNTNISNAHME.absaetze) assert.notEqual(wordingParagraph, "", "the wording carries an empty paragraph");
-    assert.notEqual(LIGA_KENNTNISNAHME.schalter, "", "the wording carries no sentence for the switch to agree to");
+  /* The version NAMES the text. A running label naming no words leaves every new record citing a
+     text nobody was shown. */
+  it("runs a version on the form whose wording is filled in", () => {
+    assert.notEqual(FORM.text_version, "", "the version is empty, so every record cites nothing");
+    assert.ok(FORM.absaetze.length > 0, "the version names no wording at all");
+    for (const wordingParagraph of FORM.absaetze) assert.notEqual(wordingParagraph, "", "the wording carries an empty paragraph");
+    assert.notEqual(FORM.schalter, "", "the wording carries no sentence for the switch to agree to");
   });
 
-  /* Both surfaces gather the SAME Kenntnisnahme, so a copy per feature is two texts that drift and two
-     versions that disagree about which one a record cites. */
-  it("stamps that one version on a new record from either surface", () => {
+  /* Both surfaces gather the SAME Kenntnisnahme, so each stamps the label its page read rather than
+     one of its own: two versions would disagree about which one a record cites. */
+  it("stamps the label its page read on a new record from either surface", () => {
     assert.equal(
-      buildEmptyKontaktperson().einwilligung.text_version,
-      LIGA_KENNTNISNAHME.textVersion,
+      buildEmptyKontaktperson(FORM.text_version).einwilligung.text_version,
+      FORM.text_version,
       "the admin editor stamps its own version",
     );
     assert.equal(
-      buildEmptyBewerbungKontaktperson().einwilligung.text_version,
-      LIGA_KENNTNISNAHME.textVersion,
+      buildEmptyBewerbungKontaktperson(FORM.text_version).einwilligung.text_version,
+      FORM.text_version,
       "the public form stamps its own version",
     );
   });

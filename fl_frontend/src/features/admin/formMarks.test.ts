@@ -366,8 +366,10 @@ const FORMS: Record<string, FormCase> = {
     module: "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx",
     marks: async () => {
       const { AdminKontakteEditForm } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx");
+      const { publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
       const editor = (kontakte: unknown) =>
         h(AdminKontakteEditForm, {
+          laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",

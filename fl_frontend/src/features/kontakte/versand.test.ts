@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
@@ -17,6 +18,9 @@ const mail = doubleSendMail();
 const ORIGIN = "http://localhost:3000";
 registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: ORIGIN } } } });
 
+/** The label the backend runs on the application form, off the registry it generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+
 const TEAM_ID = "6890a1b2c3d4e5f607182932";
 const SAISON_TEAM_ID = "6890a1b2c3d4e5f6071f0001";
 
@@ -28,6 +32,7 @@ let memberships: Answer;
 const zustellung: Record<string, unknown>[] = [];
 
 function answerFor({ endpoint, body }: ApiCall): unknown {
+  if (endpoint === "/einwilligung/seiten") return einwilligungAnswer(endpoint);
   if (endpoint.startsWith("/zustellung/")) {
     zustellung.push(JSON.parse(body ?? "{}") as Record<string, unknown>);
     return { acknowledged: 1, angewendet: true };
@@ -48,7 +53,6 @@ const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
-const { LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 const aRefusal = (serverErrorCode: string, statusCode = 409) =>
@@ -72,7 +76,7 @@ const sitz = (vorname: string, email: string) => ({
   nachname: "Meier",
   email,
   telefon: TELEFON[vorname] ?? "069 1234567",
-  einwilligung: { umfang: "kontaktdaten" as const, text_version: LIGA_KENNTNISNAHME.textVersion, datum: "2026-10-03" },
+  einwilligung: { umfang: "kontaktdaten" as const, text_version: FORM_LABEL, datum: "2026-10-03" },
 });
 
 /** The same seat as the read model stores it, unconfirmed. */

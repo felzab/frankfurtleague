@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -15,19 +16,22 @@ doubleActionRequest();
 
 const { patchSaisonTeamKontakteAction } = await import("./actions.ts");
 const { BEWERBUNG_VERALTET } = await import("@/features/bewerbungen/utils.ts");
-const { BESTAETIGUNG_KENNTNISNAHME, LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 
 const TEAM_ID = `${"a".repeat(23)}1`;
 const SAISON_ID = "2526";
-const LAUFEND = LIGA_KENNTNISNAHME.textVersion;
-/** A label an older build stamped, which the running one still resolves. */
+const LAUFEND = publishedLaufendeFassung("bewerbung").text_version;
+/** A label an older build stamped, whose words the backend still holds. */
 const AELTER = "2026-09-bestaetigung-4";
 /** What the person's own confirmation page stores, which is never the running application label. */
-const BESTAETIGT = BESTAETIGUNG_KENNTNISNAHME.textVersion;
+const BESTAETIGT = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
 
 let stored: FLSaisonTeamKontakte | null = null;
 
+/** What the backend runs on each page in this case: the registry's own answer unless a case moves it. */
+let seiten: () => unknown = () => einwilligungAnswer("/einwilligung/seiten");
+
 function antwortFuer(endpoint: string): unknown {
+  if (endpoint === "/einwilligung/seiten") return seiten();
   return endpoint === "/teams/memberships"
     ? { teams: [{ id: TEAM_ID, memberships: [{ saison_id: SAISON_ID, kontakte: stored, kontakte_stand: "stand" }] }] }
     : {
@@ -71,6 +75,7 @@ const wrote = (): boolean => calls.some(({ method }) => method === "PATCH");
 beforeEach(() => {
   calls.length = 0;
   stored = null;
+  seiten = () => einwilligungAnswer("/einwilligung/seiten");
 });
 
 describe("the labels a contacts save may carry", () => {
@@ -87,12 +92,24 @@ describe("the labels a contacts save may carry", () => {
     assert.equal(answer.success, true, JSON.stringify(answer));
     assert.deepEqual(
       calls.map(({ endpoint }) => endpoint),
-      [`/teams/${TEAM_ID}/saisons/${SAISON_ID}/kontakte`],
+      ["/einwilligung/seiten", `/teams/${TEAM_ID}/saisons/${SAISON_ID}/kontakte`],
     );
   });
 
+  /* Read per request: a frontend recreated before the backend would otherwise admit new seats under a
+     label the backend has not reached yet, or has left. */
+  it("judges a new seat's label against the one the backend runs on this request", async () => {
+    seiten = () => ({ acknowledged: 1, laufende_fassungen: { bewerbung: AELTER } });
+
+    const answer = await save({ trainer: sentSeat("Ada", LAUFEND), ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null });
+
+    assert.notEqual(LAUFEND, AELTER, "the case moves nothing: the registry already runs that label");
+    assert.deepEqual(answer, { success: false, error: BEWERBUNG_VERALTET });
+    assert.equal(wrote(), false);
+  });
+
   /* A page opened before a deploy moved the label: the new person would be recorded under words the
-     running build does not serve. */
+     backend does not run. */
   it("refuses a new seat under an older label, writing nothing", async () => {
     stored = { trainer: null, ansprechperson: storedSeat("Grace", BESTAETIGT), stellvertretung: null, trainer_ist_zugleich: null };
 

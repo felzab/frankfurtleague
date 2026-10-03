@@ -386,13 +386,15 @@ its effective date and each page's running label are
 `fl_backend/tests/shared/test_einwilligung.py` and served by
 `GET /einwilligung/fassungen/{text_version}` and `GET /einwilligung/seiten`, recorded for the
 frontend's tests in `fl_backend/einwilligung.json`; the frontend renders the words those reads serve
-and holds no copy of its own. The backend judges the label of one write alone, the application's
+(`fl_frontend/src/core/einwilligung.ts :: getLaufendeFassung`) and holds no copy of its own. The backend judges the label of one write alone, the application's
 (`fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal`); every other write accepts
 any non-empty
 `text_version` (the confirmation payloads beside
 `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungPayload`), so
 `docs/frontend/spec.md :: I148` is held for those writes by route handlers and server actions ahead of
-the backend call (`fl_frontend/src/features/bewerbungen/utils.ts :: nenntLaufendeFassung`,
+the backend call, against the label read per request
+(`fl_frontend/src/core/einwilligung.ts :: getLaufendesLabel`,
+`fl_frontend/src/features/bewerbungen/utils.ts :: nenntLaufendeFassung`,
 `fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`).
 
 **The record is one embedded block, rewritten in place.** A contact seat's confirmation replaces the
@@ -441,7 +443,8 @@ product; major and minor versions, since any change of words is a new label here
 **Traps:**
 
 - A page places its sections by key (`fl_backend/app/shared/einwilligung.py :: Fassung`'s
-  `absaetze_nach_schluessel`) while a label freezes them by position, and a reader's own facts fill
+  `absaetze_nach_schluessel`, placed by `fl_frontend/src/core/einwilligungSeiten.ts :: gekeyteFassung`)
+  while a label freezes them by position, and a reader's own facts fill
   `{slots}` (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
   What the backend serves carries both, or the keyed words stay in a second place.
 - The administrative contact edit admits a seat's own stored label beside the running one

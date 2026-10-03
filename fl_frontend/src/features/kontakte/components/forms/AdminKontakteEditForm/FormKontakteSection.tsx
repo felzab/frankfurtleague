@@ -76,6 +76,7 @@ function toCalendarDate(stored: string): CalendarDate | null {
  * accepts and an erasure leaves.
  */
 export function FormKontakteSection({
+  laufendesLabel,
   value,
   stored,
   teamId,
@@ -88,6 +89,8 @@ export function FormKontakteSection({
   isDirty,
   onValidateSelection,
 }: {
+  /** The label the application form runs, read by the page per request: a seat opened blank stamps it. */
+  laufendesLabel: string;
   value: SaisonTeamKontakteDraft | null;
   /** The block as the row holds it: a link goes to the person stored on a seat, never to one only typed. */
   stored: FLSaisonTeamKontakte | null;
@@ -116,7 +119,7 @@ export function FormKontakteSection({
 
   /* A block to work against whether one is stored yet or not: entering somebody is what creates
      it, and only the editor's deletion section takes it away again. */
-  const basis = value ?? buildEmptyKontakte();
+  const basis = value ?? buildEmptyKontakte(laufendesLabel);
 
   /** The seat the TRAINER tracks: it is the source, and the Trainer's boxes read whatever it holds. */
   const mirroredSeat = basis.trainer_ist_zugleich;
@@ -134,7 +137,7 @@ export function FormKontakteSection({
     const seat = basis[rolle];
     if (!present && seat !== null) abgelegt.current[rolle] = seat;
 
-    const { next, revalidate } = applySeatPresence(basis, rolle, present, present ? abgelegt.current[rolle] : undefined);
+    const { next, revalidate } = applySeatPresence(basis, rolle, present, laufendesLabel, present ? abgelegt.current[rolle] : undefined);
 
     onChange(next);
     if (revalidate) revalidateSeats(next);
