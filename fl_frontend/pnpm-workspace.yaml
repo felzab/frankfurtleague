@@ -35,8 +35,8 @@ patchedDependencies:
   # Aborts on the server a transaction whose commit failed, saying so where that abort fails, and
   # lets the commit's own error through where the driver's refusal of the adapter's abort replaced
   # it (`docs/frontend/spec.md :: I537`); no adapter release does either.
-  "@better-auth/mongo-adapter@1.7.5": patches/@better-auth__mongo-adapter@1.7.5.patch
+  "@better-auth/mongo-adapter@1.7.7": patches/@better-auth__mongo-adapter@1.7.7.patch
   # The assertion asks for the user verification `authenticatorSelection` asks of the enrolment,
   # until a release reads it there itself; every registration runs in the transaction
   # `fl_frontend/src/core/auth.ts :: claimAccount` needs, which nothing upstream offers.
-  "@better-auth/passkey@1.7.5": patches/@better-auth__passkey@1.7.5.patch
+  "@better-auth/passkey@1.7.7": patches/@better-auth__passkey@1.7.7.patch

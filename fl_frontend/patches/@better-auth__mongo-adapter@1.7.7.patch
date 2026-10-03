@@ -1,5 +1,5 @@
 diff --git a/dist/index.mjs b/dist/index.mjs
-index c63a7dc804dacc99c70eb067a370796d5d8ec31a..881f830e7d99a3cc3b63be2a16f969b7fb073853 100644
+index 66a7907a652c784ae74995d34f09a7689adc7930..c57ed83b886e3b5d4cb06f8e3d48eab129190f77 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -1,5 +1,6 @@
@@ -9,7 +9,7 @@ index c63a7dc804dacc99c70eb067a370796d5d8ec31a..881f830e7d99a3cc3b63be2a16f969b7
  import { ObjectId, UUID } from "mongodb";
  //#region src/query-builders.ts
  /**
-@@ -490,6 +491,7 @@ const mongodbAdapter = (db, config) => {
+@@ -489,6 +490,7 @@ const mongodbAdapter = (db, config) => {
  			transaction: config?.client && (config?.transaction ?? true) ? async (cb) => {
  				if (!config.client) return cb(lazyAdapter(lazyOptions));
  				const session = config.client.startSession();
@@ -17,7 +17,7 @@ index c63a7dc804dacc99c70eb067a370796d5d8ec31a..881f830e7d99a3cc3b63be2a16f969b7
  				try {
  					session.startTransaction();
  					const result = await cb(createAdapterFactory({
-@@ -499,10 +501,22 @@ const mongodbAdapter = (db, config) => {
+@@ -498,10 +500,22 @@ const mongodbAdapter = (db, config) => {
  						},
  						adapter: createCustomAdapter(db, session)
  					})(lazyOptions));

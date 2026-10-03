@@ -393,7 +393,7 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
     return { error: VERSUCHE_ES_ERNEUT_SATZ };
   } catch {
     // Thrown only by the options request, ahead of the ceremony: the plugin's client answers every
-    // later failure on `error` (`@better-auth/passkey` 1.7.5, read 2026-09-24).
+    // later failure on `error` (`@better-auth/passkey` 1.7.7, read 2026-10-03).
     return { error: VERSUCHE_ES_ERNEUT_SATZ };
   }
 }

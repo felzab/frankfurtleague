@@ -1372,7 +1372,7 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     assert.equal(options.userVerification, "required", "the assertion asks for less than the verifier below demands");
   });
 
-  /* 1.7.5 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
+  /* 1.7.7 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
      prompt sets is checked here or nowhere. */
   it("refuses an assertion the authenticator did not verify, and mints no session for it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -1387,7 +1387,7 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     assert.ok(store.session.includes(row), "a refused assertion signed its caller out");
   });
 
-  /* The registration half of the same requirement, which the card's first step runs: 1.7.5 hardcodes
+  /* The registration half of the same requirement, which the card's first step runs: 1.7.7 hardcodes
      the flag off in this verifier too, so a passkey with no PIN and no biometric enrols unjudged. */
   it("refuses an enrolment the authenticator did not verify, and writes no passkey for it", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);

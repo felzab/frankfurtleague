@@ -158,7 +158,7 @@ class SessionFromUnlistedPath extends Error {
 // Set to "preferred" and both halves relax together, which is what WebAuthn Level 3 §7.2 conditions
 // the check on.
 
-// The assertion's ask travels through `patches/@better-auth__passkey@1.7.5.patch`, whose hunk in
+// The assertion's ask travels through `patches/@better-auth__passkey@1.7.7.patch`, whose hunk in
 // `generatePasskeyAuthenticationOptions` a release reading `authenticatorSelection` there retires;
 // the check is ours either way, both verifiers being called with `requireUserVerification` off.
 const USER_VERIFICATION: "required" | "preferred" = "required";
@@ -312,7 +312,7 @@ async function refuseEnrolment(
 
   // The plugin takes the rows already held for an `excludeCredentials` hint, which the BROWSER
   // honours and no server checks: the same authenticator enrolled twice leaves the administrator two
-  // rows nothing on the page tells apart (driven against 1.7.5).
+  // rows nothing on the page tells apart (driven against 1.7.7).
   if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
 }
 
@@ -732,7 +732,7 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid errorCallbackURL", "auth.callback_refused"],
   ["Invalid newUserCallbackURL", "auth.callback_refused"],
   ["Blocked cross-site navigation login attempt", "auth.cross_site_login_blocked"],
-  // The adapter's own line, `fl_frontend/patches/@better-auth__mongo-adapter@1.7.5.patch` (`docs/frontend/spec.md :: I537`).
+  // The adapter's own line, `fl_frontend/patches/@better-auth__mongo-adapter@1.7.7.patch` (`docs/frontend/spec.md :: I537`).
   ["Transaction left open", "auth.transaction_left_open"],
 ];
 
@@ -1112,7 +1112,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             // a session this enrolment mints would otherwise name whichever passkey its caller chose.
             if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
 
-            // The transaction `patches/@better-auth__passkey@1.7.5.patch` opens around every
+            // The transaction `patches/@better-auth__passkey@1.7.7.patch` opens around every
             // registration. Outside one the claim below conflicts with nothing, so an enrolment
             // arriving without it is refused rather than admitted unguarded.
             const adapter = await getCurrentAdapter(ctx.context.adapter);

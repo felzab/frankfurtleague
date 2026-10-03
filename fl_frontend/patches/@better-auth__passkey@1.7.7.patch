@@ -1,5 +1,5 @@
 diff --git a/dist/index.mjs b/dist/index.mjs
-index e22a1ce93080807b06d818dd03074add11f39e16..916a8558c5ed3d6f66c4b292e6a9d2ba936f0a7f 100644
+index 723ce75155576ab5940e9eb843d16966b717a7a3..623b2401c4e643e8015c73cbb878c2d1c2ba57db 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -275,7 +275,7 @@ const generatePasskeyAuthenticationOptions = (opts, { maxAgeInSeconds }) => crea
