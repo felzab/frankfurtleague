@@ -790,6 +790,24 @@ def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
     )
 
 
+def saison_link_pair(*, kontakte: Any, bestaetigungen: Any, seat: str, token_hash: str) -> FLKontaktRolle | None:
+    """The other seat this season-row link was minted for, still unconfirmed, or `None`.
+
+    Never `paired_seat`: a Trainer confirmed before taking a second seat is minted a link for that seat
+    alone, and answering both overwrites the earlier stamp.
+    """
+
+    other = claimed_pair_seat(kontakte=kontakte, seat=seat)
+    if other is None or not seat_stands(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=other):
+        return None
+
+    entry = bestaetigungen[other]
+    if entry.get(SAISON_TOKEN_FIELD) != token_hash or _seat_is_confirmed(kontakte, other):
+        return None
+
+    return other
+
+
 def compose_saison_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
     """A Widerspruch empties the person's slots and records the day on the link entry beside each, where the emptying cannot reach."""
 

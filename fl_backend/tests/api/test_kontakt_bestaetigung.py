@@ -398,6 +398,24 @@ class TestABarredAddressIsMintedNoLink:
         assert row["kontakte"]["ansprechperson"]["email"] == "jonas@example.com"
         assert row["bestaetigungen"]["ansprechperson"] is None
 
+    def test_a_seat_handed_to_a_barred_address_loses_the_live_link_it_held(self, mongo_replica_set_url: str):
+        """`compose_bestaetigungen_nach`'s other branch: the newcomer is minted nothing, and the person who left keeps nothing live."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            first = await save(database, THREE)
+            await ban(database, client, "lea@example.com")
+            handed = await save(database, {**THREE, "ansprechperson": person("Lea")})
+            old_token = next(mint.token for mint in first.bestaetigungen if mint.rollen == ["ansprechperson"])
+
+            return handed, await refused(ansicht(database, old_token)), await row_now(database)
+
+        handed, code, row = on_a_league(mongo_replica_set_url, body)
+
+        assert (handed.gesperrt, handed.bestaetigungen) == (["ansprechperson"], [])
+        assert code == BEWERBUNG_TOKEN_UNKNOWN
+        assert row["kontakte"]["ansprechperson"]["email"] == "lea@example.com"
+        assert row["bestaetigungen"]["ansprechperson"] is None
+
     def test_a_ban_entered_beside_the_save_is_read_by_it(self, mongo_replica_set_url: str):
         """The ban committed once the editor was open and before the save landed: the mint asks it in its own transaction."""
 
@@ -557,6 +575,37 @@ class TestTheLinkConfirms:
         row = on_a_league(mongo_replica_set_url, body)
 
         assert [row["kontakte"][seat]["einwilligung"]["bestaetigt_am"] for seat in SEATS] == [TODAY, None, TODAY]
+
+    @pytest.mark.parametrize(
+        ("confirmed", "newly"),
+        [
+            pytest.param("trainer", "stellvertretung", id="the Trainer confirmed, the seat they come to hold not"),
+            pytest.param("stellvertretung", "trainer", id="the seat they also hold confirmed, the Trainer's not"),
+        ],
+    )
+    def test_a_half_confirmed_pair_confirms_only_the_seat_its_link_was_minted_for(self, mongo_replica_set_url: str, confirmed: str, newly: str):
+        """The earlier answer stands: its stamp, its date and its scope are the person's own, given on another day."""
+
+        before = {**STORED_UNCONFIRMED, confirmed: stored("Ida", bestaetigt_am="2026-03-20"), newly: stored("Lea")}
+        spent = compose_kontakt_bestaetigung(token_hash=hash_token("the-link-already-answered"), today="2026-03-10")
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            response = await save(database, PAIRED)
+            await answer(database, response.bestaetigungen[0].token)
+
+            return response, await row_now(database)
+
+        response, row = on_a_league(
+            mongo_replica_set_url,
+            body,
+            kontakte=before,
+            row_fields={"bestaetigungen": {seat: spent if seat == confirmed else None for seat in SEATS}},
+        )
+
+        assert [mint.rollen for mint in response.bestaetigungen] == [[newly]]
+        held = row["kontakte"][confirmed]
+        assert (held["einwilligung"]["bestaetigt_am"], held["einwilligung"]["umfang"]) == ("2026-03-20", "kontaktdaten")
+        assert row["kontakte"][newly]["einwilligung"]["bestaetigt_am"] == TODAY, "the press confirmed nothing, so this case proves nothing"
 
     def test_a_widerspruch_empties_the_seat_records_it_and_redacts_the_rows_log(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:

@@ -35,6 +35,7 @@ from app.api.bewerbungen.services import (
     mindestalter_for,
     paired_seat,
     saison_frist_of,
+    saison_link_pair,
     saison_zustand_of,
     seat_adressen,
     seat_holding,
@@ -93,7 +94,7 @@ async def _saison_ansicht(
     slot = (row.get("kontakte") or {}).get(seat)
     einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
 
-    zugleich = paired_seat(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seat=seat)
+    zugleich = saison_link_pair(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seat=seat, token_hash=token_hash)
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
     gesperrt = await adressen_gesperrt(sperrliste, seat_adressen(kontakte=row.get("kontakte"), seats=seats))
@@ -234,7 +235,7 @@ async def post_einwilligung(
         refuse(find_saison_frist_refusal(frist=saison_frist_of(bestaetigungen=bestaetigungen, seat=seat), today=today))
         refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat))
 
-        other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat)
+        other = saison_link_pair(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat, token_hash=token_hash)
         seats = (seat,) if other is None else (seat, other)
 
         if antwort_data.antwort == "erteilt":
