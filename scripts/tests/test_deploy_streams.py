@@ -1077,6 +1077,24 @@ def test_a_credential_line_in_any_form_compose_reads_refuses(line: str) -> None:
     assert "credential-lines-passed" not in output, output
 
 
+def test_a_credential_line_behind_a_byte_order_mark_refuses() -> None:
+    """Compose drops the mark before parsing (compose-go `dotenv/godotenv.go :: parseWithLookup`, read 2026-10-03)."""
+    code, output, _ = _run(
+        "printf '\\xef\\xbb\\xbfAUTH_SECRET=a value no case reads\\n' > fl_backend/.env\nrefuse_credential_lines fl_backend/.env\n"
+    )
+
+    assert code == 2, output
+    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "a value no case reads" not in output, output
+
+
+def test_a_spelling_behind_a_byte_order_mark_refuses() -> None:
+    code, output = _env_spellings("﻿API_URL=http://backend:8000/$base\n")
+
+    assert code == 2, output
+    assert "line 1: API_URL holds a $" in output, output
+
+
 def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> None:
     """No credential, but no service reads it either, and on the local stack no other reader names it before `docker inspect` prints it."""
     body = (

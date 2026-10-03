@@ -779,6 +779,8 @@ check_env_spellings() { # $1 the file
   while IFS= read -r line || [[ -n "$line" ]]; do
     number=$(( number + 1 ))
     line="${line%$'\r'}"
+    # Compose drops a byte-order mark before parsing, so the first line is judged without it too.
+    (( number > 1 )) || line="${line#$'\xEF\xBB\xBF'}"
     [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
     # Compose and Next's reader take `NAME: value`; python-dotenv and `parseEnv` skip it and the
     # deploy's frontend checker cannot parse it, so no name check sees what the container is handed.
@@ -970,14 +972,18 @@ whether it would boot. Its own answer is above."
 # with any value or none (`docs/ops/spec.md :: I508`). Names only.
 refuse_credential_lines() { # $@ the environment files
   # A space, not this file's newline, joins one file's names onto its own line of the refusal.
-  local file line name moved IFS=' '
+  local file line name moved number IFS=' '
   local -a held found=()
   for file in "$@"; do
-    held=()
+    held=(); number=0
     while IFS= read -r line || [[ -n "$line" ]]; do
+      number=$(( number + 1 ))
+      line="${line%$'\r'}"
+      # Compose drops a byte-order mark before parsing, which would otherwise hide the first name here.
+      (( number > 1 )) || line="${line#$'\xEF\xBB\xBF'}"
       # Every form compose's parser ends a name at: `=`, the YAML-style `:`, and a bare name, its
       # pass-through form, which hands the container the shell's own value.
-      [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$) ]] || continue
+      [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$) ]] || continue
       name="${BASH_REMATCH[2]}"
       for moved in "${MOVED_ENV_NAMES[@]}" "${RETIRED_ENV_NAMES[@]}"; do
         if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
