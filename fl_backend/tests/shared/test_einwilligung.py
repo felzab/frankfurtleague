@@ -50,6 +50,10 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-09-spielerseite": "e3b95487516031a6f42bd6eba653ee1b3e7e32708a226d2cdf5067c2119b76d9",
     "2026-09-spielerseite-2": "eae0481230b89f7c1c21b53cca87acc81058bde375544b98b2907e880e16cdeb",
     "2026-09-spielerseite-3": "08810bd6501bdde29d871b01a4878f77b2e25d2562bb63e5b8d6ef8d4db74a48",
+    # The account page's three, minted over the backend's words: no frontend copy of them ever existed.
+    "2026-10-konto-spieler": "c1935b5a8d6cf4c2b3a2dd5ec82e8530460813206b68a306ad0944da1f3fa456",
+    "2026-10-konto-schiedsrichter": "ce42b5fbac90d520a1aa204e169ecc3c211502287bf9e94b9022331e6bb72e21",
+    "2026-10-konto-kontakt": "5ce576610f7d3131202dd6d9c5c99e7dd531fe3de7bd7fc4194e78e28c4b4526",
 }
 
 

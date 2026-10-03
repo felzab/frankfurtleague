@@ -275,6 +275,62 @@ _SPIELERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
+# The account page's three controls, each a page of its own: a press there is no confirmation, so
+# it never stamps a confirmation page's label, and the words beside the switch say what it does now.
+_KONTO_SPIELER: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "veroeffentlichung": (
+            "Hier entscheidest Du, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website "
+            "erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mit „intern“ "
+            "stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am "
+            "Mitspielen ändert diese Wahl nichts."
+        ),
+        "medien": (
+            "Unabhängig davon entscheidest Du ab {medienMinAlter} Jahren, ob Fotos, Videos und Interviews, die im "
+            "Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden "
+            "dürfen. Bist Du jünger, ist dieser Schalter aus und lässt sich nicht einschalten."
+        ),
+        "widerruf": (
+            "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin veröffentlicht wurde, bleibt "
+            "rechtmäßig (Art. 7 Abs. 3 DSGVO). Bist Du nicht mehr in der Liga aktiv, kannst Du eine Erlaubnis hier nur "
+            "noch zurücknehmen, nicht neu erteilen."
+        ),
+    }
+)
+
+_KONTO_SCHIEDSRICHTER: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "veroeffentlichung": (
+            "Hier entscheidest Du, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste Teil "
+            "Deines Namens und vom nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da. "
+            "Mit „intern“ steht dort „anonym“. Am Leiten von Spielen ändert diese Wahl nichts."
+        ),
+        "medien": _KONTO_SPIELER["medien"],
+        "widerruf": (
+            "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin veröffentlicht wurde, bleibt "
+            "rechtmäßig (Art. 7 Abs. 3 DSGVO). Setzt die Verwaltung Dich nicht mehr ein, kannst Du eine Erlaubnis hier "
+            "nur noch zurücknehmen, nicht neu erteilen."
+        ),
+    }
+)
+
+_KONTO_KONTAKT: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "medien": (
+            "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Trainerinnen, Trainer und "
+            "Ansprechpersonen zu sehen sind, und führt Interviews. Ab {medienMinAlter} Jahren entscheidest Du hier für "
+            "{team} in der Saison {saison}, ob Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf unserer "
+            "Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Deine Kontaktdaten werden davon nicht "
+            "berührt und nirgends veröffentlicht."
+        ),
+        "widerruf": (
+            "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin veröffentlicht wurde, bleibt "
+            "rechtmäßig (Art. 7 Abs. 3 DSGVO). Für eine vergangene Saison kannst Du die Erlaubnis hier nur noch "
+            "zurücknehmen, nicht neu erteilen."
+        ),
+    }
+)
+
 # A stored record cites its label alone, so an entry here is never reworded or removed: either leaves a
 # record claiming words nobody was shown. Different words are a new label.
 FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
@@ -1157,6 +1213,41 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 }
             ),
         ),
+        "2026-10-konto-spieler": Fassung(
+            seite="konto_spieler",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_KONTO_SPIELER.values()),
+            absaetze_nach_schluessel=_KONTO_SPIELER,
+            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
+                    "intern": "Intern: nur Nummer und Position, ohne Namen",
+                }
+            ),
+        ),
+        "2026-10-konto-schiedsrichter": Fassung(
+            seite="konto_schiedsrichter",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_KONTO_SCHIEDSRICHTER.values()),
+            absaetze_nach_schluessel=_KONTO_SCHIEDSRICHTER,
+            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
+                    "intern": "Intern: dort steht „anonym“",
+                }
+            ),
+        ),
+        # No `umfang` control: a seat's scope is its contact scope, which the account page leaves alone.
+        "2026-10-konto-kontakt": Fassung(
+            seite="konto_kontakt",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_KONTO_KONTAKT.values()),
+            absaetze_nach_schluessel=_KONTO_KONTAKT,
+            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            bedienelemente=MappingProxyType({}),
+        ),
     }
 )
 
@@ -1173,5 +1264,8 @@ LAUFENDE_FASSUNGEN: Final[Mapping[str, str]] = MappingProxyType(
         "bestaetigung_kontakt": "2026-09-bestaetigungsseite-6",
         "bestaetigung_spieler": "2026-09-spielerseite-3",
         "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
+        "konto_spieler": "2026-10-konto-spieler",
+        "konto_schiedsrichter": "2026-10-konto-schiedsrichter",
+        "konto_kontakt": "2026-10-konto-kontakt",
     }
 )
