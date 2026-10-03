@@ -55,6 +55,7 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-konto-spieler": "c1935b5a8d6cf4c2b3a2dd5ec82e8530460813206b68a306ad0944da1f3fa456",
     "2026-10-konto-schiedsrichter": "ce42b5fbac90d520a1aa204e169ecc3c211502287bf9e94b9022331e6bb72e21",
     "2026-10-konto-kontakt": "5ce576610f7d3131202dd6d9c5c99e7dd531fe3de7bd7fc4194e78e28c4b4526",
+    "2026-10-bestaetigungsseite-verwaltung": "31ee5b3c9b17f8c270366bac62fce94975593e81f9330f012cbad508b6c3fc87",
 }
 
 
@@ -168,6 +169,31 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "widerruf",
         ),
     ),
+    "2026-10-bestaetigungsseite-verwaltung": (
+        "bestaetigung_kontakt_verwaltung",
+        date(2026, 10, 3),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "rechtsgrundlage",
+            "nichtOeffentlich",
+            "fristAbgelehnt",
+            "fristAngenommen",
+            "fristUnvollstaendig",
+            "fristOhneEntscheidung",
+            "ablehnen",
+            "ablehnenFolge",
+            "widerruf",
+            "art21",
+            "whatsapp",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickHinweise",
+            "keineEinwilligung",
+        ),
+    ),
 }
 
 
@@ -245,8 +271,21 @@ class TestTheRegistryOfWordings:
     def test_every_running_label_a_page_places_by_key_carries_its_keys(self):
         """The three confirmation pages render by key; a running label of theirs without keys leaves the page nothing to place."""
 
-        for seite in ("bestaetigung_kontakt", "bestaetigung_spieler", "bestaetigung_schiedsrichter"):
+        for seite in ("bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_spieler", "bestaetigung_schiedsrichter"):
             assert FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze_nach_schluessel is not None, seite
+
+    def test_the_seated_persons_page_differs_from_the_applicants_by_its_opening_alone(self):
+        """Both are one page to the person reading it; a sentence reworded on one side only would tell two people two rules."""
+
+        bewerbung = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]]
+        verwaltung = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt_verwaltung"]]
+        assert bewerbung.absaetze_nach_schluessel is not None and verwaltung.absaetze_nach_schluessel is not None
+
+        anders = {key for key, text in verwaltung.absaetze_nach_schluessel.items() if bewerbung.absaetze_nach_schluessel.get(key) != text}
+
+        assert list(verwaltung.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
+        assert anders == {"worum"}
+        assert (verwaltung.schalter, dict(verwaltung.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
 
     def test_no_word_is_empty_or_padded(self):
         for label, fassung in FASSUNGEN.items():

@@ -30,6 +30,7 @@ def is_confirmed(einwilligung: Any) -> bool:
 Seite = Literal[
     "bewerbung",
     "bestaetigung_kontakt",
+    "bestaetigung_kontakt_verwaltung",
     "bestaetigung_spieler",
     "bestaetigung_schiedsrichter",
     "konto_spieler",
@@ -138,6 +139,20 @@ _BESTAETIGUNGSSEITE_6: Final[Mapping[str, str]] = MappingProxyType(
         "keineEinwilligung": (
             "Eine Einwilligung ist das nicht, und wir holen hier auch keine ein. Du bestätigst, was in der Bewerbung "
             "steht, und ergänzt Dein Geburtsdatum; die Grundlage dafür steht oben."
+        ),
+    }
+)
+
+# The same page for a person the administration seated, whom no applicant named: only the opening,
+# which would tell them otherwise, is its own.
+_BESTAETIGUNGSSEITE_VERWALTUNG: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        **_BESTAETIGUNGSSEITE_6,
+        "worum": (
+            "Die Verwaltung der Frankfurt League hat Dich für die Schule {schule} in der Saison {saison} als {rolle} "
+            "eingetragen und dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu "
+            "dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst "
+            "hören möchten, dass es stimmt."
         ),
     }
 )
@@ -887,6 +902,14 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
             bedienelemente=MappingProxyType({}),
         ),
+        "2026-10-bestaetigungsseite-verwaltung": Fassung(
+            seite="bestaetigung_kontakt_verwaltung",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG.values()),
+            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG,
+            schalter="Die Liga darf mich auch über WhatsApp erreichen.",
+            bedienelemente=MappingProxyType({}),
+        ),
         "2026-09-schiedsrichterseite": Fassung(
             seite="bestaetigung_schiedsrichter",
             gilt_ab=date(2026, 9, 22),
@@ -1271,6 +1294,7 @@ LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
     {
         "bewerbung": "2026-09-bestaetigung-5",
         "bestaetigung_kontakt": "2026-09-bestaetigungsseite-6",
+        "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung",
         "bestaetigung_spieler": "2026-09-spielerseite-3",
         "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
         "konto_spieler": "2026-10-konto-spieler",
