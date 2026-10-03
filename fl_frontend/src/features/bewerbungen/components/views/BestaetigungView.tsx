@@ -3,11 +3,9 @@
 import { useState } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { joinUnd } from "@/core/joinUnd";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
-import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, rollenLangform } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -53,13 +51,8 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   unlesbar: "Link nicht geprüft",
 };
 
-/**
- * Every seat one answer on this link writes, as one phrase: in the table's order and joined as
- * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` joins them, so the page names
- * the reader what the mail that brought them here named them.
- */
-const rollenLangform = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string =>
-  joinUnd(KONTAKT_ROLLEN.filter((eintrag) => eintrag.value === rolle || eintrag.value === zugleich_rolle).map((eintrag) => eintrag.langform));
+/** Every seat one answer on this link writes, so the page names the reader what the mail that brought them here named them. */
+const linkRollen = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string => rollenLangform([rolle, zugleich_rolle]);
 
 /** The press's answer folded into the page's state, carrying the read that the panel still names the person from. */
 function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet): Stand {
@@ -107,7 +100,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             zeilen={[
               { label: "Schule", wert: stand.ansicht.schule, unbegrenzt: true },
               { label: "Saison", wert: stand.ansicht.saison_id },
-              { label: "Deine Rolle", wert: rollenLangform(stand.ansicht) },
+              { label: "Deine Rolle", wert: linkRollen(stand.ansicht) },
             ]}
           />
         )}
@@ -128,7 +121,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           vorname={stand.ansicht.vorname}
           schule={stand.ansicht.schule}
           saison={stand.ansicht.saison_id}
-          rolle={rollenLangform(stand.ansicht)}
+          rolle={linkRollen(stand.ansicht)}
           istSaison={saisonRow}
           mindestalter={stand.ansicht.mindestalter}
           onAbschluss={(abschluss) => {

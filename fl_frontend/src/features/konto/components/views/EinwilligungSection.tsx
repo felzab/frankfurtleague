@@ -1,6 +1,6 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { getEinwilligungFassung, getLaufendeFassung } from "@/core/einwilligung";
-import { ABLEHNEN_LABEL } from "@/features/bewerbungen/constants";
+import { ABLEHNEN_LABEL, rollenLangform } from "@/features/bewerbungen/constants";
 import { patchSitzEinwilligungAction } from "@/features/kontakte/personActions";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER, SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_MIN_ALTER, SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants";
@@ -9,7 +9,7 @@ import { patchSpielerEinwilligungAction } from "@/features/spieler/personActions
 
 import { getKontoEinwilligungen } from "../../queries";
 import { EinwilligungPanel } from "../forms/EinwilligungForm/EinwilligungPanel";
-import { bestaetigteWorte, personWorte, sitzMindestalter, sitzRollenText, sitzTitel, sitzWorte } from "../forms/EinwilligungForm/kontoWorte";
+import { bestaetigteWorte, personWorte, sitzMindestalter, sitzTitel, sitzWorte } from "../forms/EinwilligungForm/kontoWorte";
 
 import type { EinwilligungEintrag } from "../forms/EinwilligungForm/EinwilligungPanel";
 import type { Fuellung } from "../forms/EinwilligungForm/kontoWorte";
@@ -81,7 +81,7 @@ export async function EinwilligungSection() {
           ...KONSTANTEN,
           ...sitz.kontext,
           // Every seat held on the row, as the contact page named them and judged the age.
-          rolle: sitzRollenText(sitz.rollen),
+          rolle: rollenLangform(sitz.rollen),
           minAlter: String(sitzMindestalter(sitz.rollen)),
           ablehnen: ABLEHNEN_LABEL,
         }),

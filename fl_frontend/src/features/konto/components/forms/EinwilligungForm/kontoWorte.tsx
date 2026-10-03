@@ -1,9 +1,7 @@
 import { gekeyteFassung } from "@/core/einwilligungSeiten";
-import { joinUnd } from "@/core/joinUnd";
 import { ABSATZ_CLASSES, Gefuellt } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import type { FLEinwilligungFassung } from "@/core/schemas";
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
@@ -96,10 +94,6 @@ export function bestaetigteWorte(fassung: FLEinwilligungFassung, fuellung: Fuell
  */
 export const sitzMindestalter = (rollen: readonly FLKontaktRolle[]): number =>
   Math.max(...rollen.map((rolle) => (rolle === "trainer" ? BEWERBUNG_MIN_ALTER : VERTRETUNG_MIN_ALTER)));
-
-/** Every seat held on the row as one phrase, in the order and words the contact page names them by. */
-export const sitzRollenText = (rollen: readonly FLKontaktRolle[]): string =>
-  joinUnd(KONTAKT_ROLLEN.filter((eintrag) => rollen.includes(eintrag.value)).map((eintrag) => eintrag.langform));
 
 /** A seat's record title, which names the team season the control moves; the switch's own words are the same on every seat. */
 export const sitzTitel = (sitz: { readonly team_name: string; readonly saison_id: string }): string =>
