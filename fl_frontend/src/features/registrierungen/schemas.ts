@@ -300,7 +300,7 @@ export const FLRegistrierungAufnahmeResponseSchema = BaseAPIResponseSchema.exten
 export type FLRegistrierungAufnahmeResponse = z.infer<typeof FLRegistrierungAufnahmeResponseSchema>;
 
 /** A fixed choice and never free text: the decline note picks its sentence from it, and nothing a team types reaches the pupil. */
-export const FLRegistrierungAblehnungsgrundSchema = z.enum(["andere_person"]);
+export const FLRegistrierungAblehnungsgrundSchema = z.enum(["andere_person"], { error: "Diesen Grund kennen wir nicht. Lade die Seite neu." });
 export type FLRegistrierungAblehnungsgrund = z.infer<typeof FLRegistrierungAblehnungsgrundSchema>;
 
 export const FLRegistrierungAblehnenPayloadSchema = z.object({
