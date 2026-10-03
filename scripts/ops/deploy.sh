@@ -778,6 +778,8 @@ section "preflight"
 step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
+# Before the spellings, whose remedy would have a credential's line rewritten rather than deleted.
+refuse_credential_lines fl_frontend/.env fl_backend/.env
 check_env_spellings "fl_frontend/.env"
 check_env_spellings "fl_backend/.env"
 # Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
@@ -794,7 +796,6 @@ signing_key_mode_advisory
 for secret_file in $(printf '%s\n' "${FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "A service reads it at /run/secrets/${secret_file}. Write it as docs/ops/runbooks.md §16 says."
 done
-refuse_credential_lines fl_frontend/.env fl_backend/.env
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
 
