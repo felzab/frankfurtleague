@@ -263,6 +263,8 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
         text_version: FORM_LABEL,
         datum: "2026-09-01",
         bestaetigt_am: null,
+        medien: false,
+        verlauf: [],
       },
     },
     stellvertretung: null,

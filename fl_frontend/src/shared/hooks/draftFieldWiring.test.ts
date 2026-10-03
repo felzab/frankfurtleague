@@ -105,6 +105,8 @@ const kontakt = (vorname: string, email: string) => ({
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: null,
+    medien: false,
+    verlauf: [],
   },
 });
 

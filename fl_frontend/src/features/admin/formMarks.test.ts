@@ -127,6 +127,8 @@ const PERSON = (vorname: string, email: string) => ({
     text_version: "1",
     datum: "2026-03-12",
     bestaetigt_am: "2026-03-14",
+    medien: false,
+    verlauf: [],
   },
 });
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
@@ -187,6 +189,8 @@ const staende = async () => {
       text_version: "1",
       datum: "2026-09-01",
       bestaetigt_am: null,
+      medien: false,
+      verlauf: [],
     },
   });
   const offen = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };

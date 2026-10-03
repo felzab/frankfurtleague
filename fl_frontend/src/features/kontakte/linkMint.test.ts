@@ -11,7 +11,15 @@ const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
   email,
   telefon: "069 501",
   geburtsdatum: null,
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "administrativ", text_version: "1", datum: "2026-10-03", bestaetigt_am: null },
+  einwilligung: {
+    umfang: "kontaktdaten",
+    erfasst_von: "administrativ",
+    text_version: "1",
+    datum: "2026-10-03",
+    bestaetigt_am: null,
+    medien: false,
+    verlauf: [],
+  },
 });
 const gesendet = (vorname: string, email: string, telefon = "069 501"): FLKontaktpersonPayload => ({
   vorname,
@@ -49,7 +57,10 @@ describe("whether a contacts save may move a seat's link", () => {
     const anna = gespeichert("Anna", "anna@schule.example");
     const bestaetigt = {
       ...STORED,
-      ansprechperson: { ...anna, einwilligung: { ...anna.einwilligung, erfasst_von: "person" as const, bestaetigt_am: "2026-10-03" } },
+      ansprechperson: {
+        ...anna,
+        einwilligung: { ...anna.einwilligung, erfasst_von: "person" as const, bestaetigt_am: "2026-10-03" },
+      },
     };
 
     assert.equal(kontakteMayMoveLinks(bestaetigt, block(null)), false);

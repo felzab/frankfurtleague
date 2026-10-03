@@ -264,6 +264,8 @@ export const buildEmptyKontaktperson = (textVersion: string): KontaktpersonDraft
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
     // has none and the blank is the truth rather than a value still to be filled in.
     bestaetigt_am: null,
+    medien: false,
+    verlauf: [],
   },
 });
 

@@ -34,6 +34,8 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
       text_version: "2026-09-bestaetigungsseite",
       datum: "2026-09-01",
       bestaetigt_am: bestaetigtAm,
+      medien: false,
+      verlauf: [],
     },
   };
 }

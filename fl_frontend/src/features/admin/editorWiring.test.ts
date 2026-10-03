@@ -129,7 +129,15 @@ const PERSON = (vorname: string, email: string, telefon: string): FLKontaktperso
   email,
   telefon,
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
+  einwilligung: {
+    umfang: "kontaktdaten",
+    erfasst_von: "person",
+    text_version: "1",
+    datum: "2026-03-12",
+    bestaetigt_am: "2026-03-14",
+    medien: false,
+    verlauf: [],
+  },
 });
 
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };

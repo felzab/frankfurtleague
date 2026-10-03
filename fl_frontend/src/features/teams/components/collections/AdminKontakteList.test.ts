@@ -7,19 +7,22 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
+import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas.ts";
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types.ts";
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminKontakteList } = await import("./AdminKontakteList.tsx");
 
-const KENNTNISNAHME = {
+const KENNTNISNAHME: FLKontaktKenntnisnahme = {
   umfang: "kontaktdaten",
   erfasst_von: "administrativ",
   text_version: "kontakte-1",
   datum: "2026-05-01",
   bestaetigt_am: null,
-} as const;
+  medien: false,
+  verlauf: [],
+};
 
 /**
  * One person per seat, each field distinct from every other seat's, so an assertion reaching a name

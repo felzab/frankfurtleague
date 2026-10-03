@@ -139,6 +139,7 @@ const BESTAETIGT = {
   bestaetigt_am: "2026-09-22",
   text_version: "2026-09-schiedsrichterseite",
   medien: false,
+  verlauf: [],
 };
 const retiredReferee = (answered: boolean) => ({
   id: REFEREE_ID,
@@ -164,6 +165,8 @@ const seat = (vorname: string, email: string, bestaetigtAm: string | null = null
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
+    medien: false,
+    verlauf: [],
   },
 });
 const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };

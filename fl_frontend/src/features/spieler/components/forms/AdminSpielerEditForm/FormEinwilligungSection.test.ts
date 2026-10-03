@@ -32,6 +32,7 @@ const UEBERNOMMEN: FLEinwilligung = {
   bestaetigt_am: null,
   text_version: null,
   medien: false,
+  verlauf: [],
 };
 
 /** A consent the registration flow collected: dated, confirmed, and citing the wording its person was shown. */
@@ -42,6 +43,7 @@ const ERTEILT: FLEinwilligung = {
   bestaetigt_am: "2026-03-04",
   text_version: FASSUNG,
   medien: true,
+  verlauf: [],
 };
 
 /** The panel as the page hands it over, which resolves the stored label through the words read. */

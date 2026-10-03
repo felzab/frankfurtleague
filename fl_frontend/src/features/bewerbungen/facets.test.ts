@@ -416,7 +416,15 @@ const SEAT_ROWS = KONTAKT_ROLLEN.map(({ value }, index): AdminBewerbungRow => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null },
+    einwilligung: {
+      umfang: "kontaktdaten",
+      erfasst_von: "person",
+      text_version: "2026-08",
+      datum: "2026-08-01",
+      bestaetigt_am: null,
+      medien: false,
+      verlauf: [],
+    },
   };
 
   return {

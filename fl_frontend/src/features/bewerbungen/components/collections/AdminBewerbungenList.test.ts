@@ -29,6 +29,8 @@ function person(vorname: string, nachname: string, email: string, bestaetigtAm: 
       text_version: "kontakte-1",
       datum: "2026-05-01",
       bestaetigt_am: bestaetigtAm,
+      medien: false,
+      verlauf: [],
     },
   };
 }

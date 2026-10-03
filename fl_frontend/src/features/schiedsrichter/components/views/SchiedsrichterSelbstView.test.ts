@@ -29,6 +29,7 @@ const SCHIEDSRICHTERIN: FLSchiedsrichterSelbst = {
     bestaetigt_am: "2026-09-01",
     text_version: "2026-09-schiedsrichterseite-3",
     medien: false,
+    verlauf: [],
   },
   bestaetigt_text_version: "2026-09-schiedsrichterseite-3",
   kontext: { vorname: "Mara" },

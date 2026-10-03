@@ -91,7 +91,15 @@ function person(email: string): FLKontaktperson {
     email: email,
     telefon: "0151 12345678",
     geburtsdatum: "1990-04-01",
-    einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "v1", datum: "2026-04-01", bestaetigt_am: "2026-04-02" },
+    einwilligung: {
+      umfang: "kontaktdaten",
+      erfasst_von: "person",
+      text_version: "v1",
+      datum: "2026-04-01",
+      bestaetigt_am: "2026-04-02",
+      medien: false,
+      verlauf: [],
+    },
   };
 }
 

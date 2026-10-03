@@ -55,7 +55,15 @@ const storedSeat = (vorname: string, textVersion: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@schule.example`,
   telefon: TELEFON[vorname] ?? "069 3333333",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: textVersion, datum: "2026-09-01", bestaetigt_am: "2026-09-02" },
+  einwilligung: {
+    umfang: "kontaktdaten",
+    erfasst_von: "person",
+    text_version: textVersion,
+    datum: "2026-09-01",
+    bestaetigt_am: "2026-09-02",
+    medien: false,
+    verlauf: [],
+  },
 });
 
 /** A seat as the editor sends it, under whichever label it carries. */

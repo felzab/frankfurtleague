@@ -93,7 +93,15 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
+  einwilligung: {
+    umfang: "kontaktdaten",
+    erfasst_von: "person",
+    text_version: "1",
+    datum: "2026-03-12",
+    bestaetigt_am: "2026-03-14",
+    medien: false,
+    verlauf: [],
+  },
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */

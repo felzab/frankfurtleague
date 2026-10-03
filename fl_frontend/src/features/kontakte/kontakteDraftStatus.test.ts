@@ -15,7 +15,15 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
+  einwilligung: {
+    umfang: "kontaktdaten",
+    erfasst_von: "person",
+    text_version: "2025-08",
+    datum: "2025-09-01",
+    bestaetigt_am: "2025-09-02",
+    medien: false,
+    verlauf: [],
+  },
   ...overrides,
 });
 
@@ -136,7 +144,17 @@ describe("deriveKontakteDraftStatus", () => {
     const status = deriveKontakteDraftStatus({
       stored: EMPTY,
       draft: block({
-        trainer: person({ einwilligung: { umfang: "kontaktdaten", erfasst_von: null, text_version: "", datum: "", bestaetigt_am: null } }),
+        trainer: person({
+          einwilligung: {
+            umfang: "kontaktdaten",
+            erfasst_von: null,
+            text_version: "",
+            datum: "",
+            bestaetigt_am: null,
+            medien: false,
+            verlauf: [],
+          },
+        }),
       }),
       fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },
     });

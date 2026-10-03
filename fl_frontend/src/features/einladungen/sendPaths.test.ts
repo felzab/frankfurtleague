@@ -81,6 +81,8 @@ const seat = (email: string, bestaetigtAm: string | null) => ({
     text_version: "2026-08-01",
     datum: "2026-08-02",
     bestaetigt_am: bestaetigtAm,
+    medien: false,
+    verlauf: [],
   },
 });
 

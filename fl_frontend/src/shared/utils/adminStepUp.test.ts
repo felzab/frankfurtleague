@@ -57,6 +57,7 @@ const referee = () => ({
         bestaetigt_am: "2026-01-02",
         text_version: "2026-09-schiedsrichterseite",
         medien: false,
+        verlauf: [],
       }
     : null,
   bestaetigung: null,
