@@ -1,6 +1,7 @@
 import asyncio
-import json
+import re
 from copy import deepcopy
+from typing import Any
 
 import pytest
 
@@ -63,17 +64,35 @@ class TestTheLabelAWriteStamps:
         assert refusal.error_code == FASSUNG_UNZULAESSIG
 
 
-class TestTheWordsRead:
-    def test_every_label_answers_its_own_words(self):
-        for label, fassung in FASSUNGEN.items():
-            served = asyncio.run(get_fassung(label)).fassung
+def as_registered(label: str) -> dict[str, Any]:
+    """One label as the registry holds it, spelled field by field here rather than through the read's own mapping.
 
-            assert (served.text_version, served.seite, served.absaetze, served.schalter) == (
-                label,
-                fassung.seite,
-                list(fassung.absaetze),
-                fassung.schalter,
-            )
+    The read and the document are both built by `served_fassung`, so a field it dropped or mistook
+    would agree with itself in both; only the registry is a second witness.
+    """
+
+    fassung = FASSUNGEN[label]
+    texts = (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values())
+
+    return {
+        "text_version": label,
+        "seite": fassung.seite,
+        "gilt_ab": fassung.gilt_ab.isoformat(),
+        "absaetze": list(fassung.absaetze),
+        "schalter": fassung.schalter,
+        "bedienelemente": dict(fassung.bedienelemente),
+        "absaetze_nach_schluessel": None if fassung.absaetze_nach_schluessel is None else dict(fassung.absaetze_nach_schluessel),
+        "platzhalter": sorted({slot for text in texts for slot in re.findall(r"\{(\w+)\}", text)}),
+    }
+
+
+class TestTheWordsRead:
+    def test_every_label_answers_every_field_the_registry_holds_for_it(self):
+        for label in FASSUNGEN:
+            served = asyncio.run(get_fassung(label)).fassung.model_dump(mode="json")
+
+            assert set(served) == set(as_registered(label)), "the read serves a field this comparison does not name"
+            assert served == as_registered(label), label
 
     @pytest.mark.parametrize("label", ["2026-07", "", "2026-09"], ids=["an earlier month", "empty", "a prefix of real labels"])
     def test_a_label_the_registry_does_not_hold_answers_nothing(self, label: str):
@@ -104,14 +123,15 @@ class TestTheCommittedDocument:
 
         assert committed == built, f"{DOCUMENT_PATH.name} has drifted.\n{describe_drift(committed, built)}\n{DRIFT_REPAIR}"
 
-    def test_every_label_is_recorded_as_the_words_read_serves_it(self):
-        """The document is what the read answers, so a frontend test parsing one parses the other."""
+    def test_the_document_records_every_label_and_page_as_the_registry_holds_them(self):
+        """Against the registry and never against the read, which shares its builder with the document."""
 
-        recorded = read_document()["fassungen"]
+        recorded = read_document()
 
-        assert list(recorded) == list(FASSUNGEN)
+        assert list(recorded["fassungen"]) == list(FASSUNGEN)
         for label in FASSUNGEN:
-            assert recorded[label] == json.loads(asyncio.run(get_fassung(label)).fassung.model_dump_json()), label
+            assert recorded["fassungen"][label] == as_registered(label), label
+        assert recorded["laufende_fassungen"] == dict(LAUFENDE_FASSUNGEN)
 
     def test_a_word_changed_in_the_document_alone_is_named_as_drift(self):
         built = build_document()
