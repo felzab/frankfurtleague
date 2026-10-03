@@ -97,6 +97,16 @@ export function mapRegistrierungSubmitRefusal(
           repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
+    // The same press, replayed after the team admitted it: the key outlives the registration on the
+    // squad row, so the answer is the admission rather than a second registration.
+    case "REQ-REGISTRIERUNG-016":
+      return {
+        schonAngekommen: true,
+        error: buildRefusal({
+          reason: "Deine Registrierung ist schon angekommen, und Dein Team hat Dich aufgenommen",
+          repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
+        }),
+      };
     // Neutral, and under the address it was judged on: a stranger learns nothing about a list, and
     // the person it does concern already knows why.
     case "REQ-REGISTRIERUNG-009":

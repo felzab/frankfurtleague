@@ -157,8 +157,9 @@ describe("what one refused submission shows", () => {
   });
 
   // The mark the panel titles by: the registration arrived, so „nicht abgeschickt“ would be false.
-  it("marks the repeated press's refusal as arrived, and no other refusal", () => {
+  it("marks the repeated press's refusals as arrived, and no other refusal", () => {
     assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-011"))?.schonAngekommen, true);
+    assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-016"))?.schonAngekommen, true);
     for (const code of ["REQ-EINLADUNG-003", "REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-008", "REQ-REGISTRIERUNG-009"]) {
       assert.equal(mapRegistrierungSubmitRefusal(refusal(code))?.schonAngekommen, undefined, code);
     }
@@ -171,6 +172,7 @@ describe("what one refused submission shows", () => {
     const mapped = [
       "REQ-EINLADUNG-003",
       "REQ-REGISTRIERUNG-011",
+      "REQ-REGISTRIERUNG-016",
       "REQ-REGISTRIERUNG-001",
       "REQ-REGISTRIERUNG-002",
       "REQ-REGISTRIERUNG-003",
