@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import shutil
 from pathlib import Path
 from typing import Final
 
@@ -466,18 +467,6 @@ def test_a_line_written_with_a_colon_refuses_naming_the_line_never_the_value(lin
     assert "line 2: LOG_FORMAT is written with a colon" in output, output
     assert "json" not in output.replace("LOG_FORMAT", ""), output
     assert "judged-clean" not in output, output
-
-
-@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
-def test_every_file_is_judged_before_the_first_compose_call_that_reads_it(script: Path) -> None:
-    """Compose and the dev server read each file their own way, so the spellings are judged before either does."""
-    text = script.read_text(encoding="utf-8")
-    readers = ("\ncheck_compose_config\n", "docker compose build", "\ncheck_actor_key ")
-    first_read = min(text.index(marker) for marker in readers if marker in text)
-
-    for package in ("fl_frontend", "fl_backend"):
-        judged = text.index(f'\ncheck_env_spellings "{package}/.env"')
-        assert text.index(f'\nrequire_file "{package}/.env"') < judged < first_read, (script.name, package)
 
 
 # --- the actor token's key pair ---------------------------------------------------------------------------
@@ -1104,43 +1093,84 @@ def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> No
     assert "credential-lines-passed" not in output, output
 
 
-def _top_level_compose_lines(script: Path) -> tuple[list[str], list[int]]:
-    """The script's unindented lines, and the indexes of those asking compose, directly or through a function.
+# --- each start mode, run whole over an environment file a preflight refuses ------------------------------
 
-    Derived rather than named, so the case below sees a compose call a later change puts first.
+# Records each call's arguments, one call a line, and answers every one, `version` included, as a
+# daemon that is up would: what the case asserts is which calls were made before the refusal.
+RECORDING_DOCKER: Final = '#!/usr/bin/env bash\nprintf \'%s\\n\' "$*" >> "${FL_DOCKER_CALLS}"\nexit 0\n'
+
+# `require_platform` reads `uname -s`, so each script runs here as on its own target machine.
+UNAME: Final = "#!/usr/bin/env bash\nprintf '%s\\n' \"${FL_UNAME}\"\n"
+
+# Every mode that goes on to start or recreate containers, each with the platform it requires. The
+# status and stop modes ask compose before the preflight and create no container.
+START_MODES: Final = [
+    pytest.param("deploy.sh", "Linux", (), id="deploy"),
+    pytest.param("deploy.sh", "Linux", ("sha-0123abc",), id="deploy-pinned"),
+    pytest.param("local.sh", "MINGW64_NT-10.0", (), id="local"),
+    pytest.param("local.sh", "MINGW64_NT-10.0", ("--fresh",), id="local-fresh"),
+    pytest.param("local.sh", "MINGW64_NT-10.0", ("--seed",), id="local-seed"),
+]
+
+
+def _start(script: str, uname: str, args: tuple[str, ...], frontend_env: str) -> tuple[int, str, list[str]]:
+    """One start mode, run whole from a checkout of its own.
+
+    Copied, because `_lib.sh` roots every path at its own checkout; the compose files need only
+    exist, the stand-in `docker` reading neither.
     """
-    bodies: dict[str, str] = {}
-    for source in (LIB, script):
-        for found in re.finditer(r"^([a-z_][a-z0-9_]*)\(\) \{.*?^\}", source.read_text(encoding="utf-8"), flags=re.MULTILINE | re.DOTALL):
-            bodies[found.group(1)] = found.group(0)
-    asking = {name for name, body in bodies.items() if "docker compose" in body}
-    while grown := {name for name, body in bodies.items() if name not in asking and any(re.search(rf"\b{n}\b", body) for n in asking)}:
-        asking |= grown
-    lines, inside = [], False
-    for line in script.read_text(encoding="utf-8").splitlines():
-        if re.match(r"^[a-z_][a-z0-9_]*\(\) \{", line):
-            inside = True
-        if not inside and line and not line[0].isspace() and not line.startswith("#"):
-            lines.append(line)
-        if inside and line == "}":
-            inside = False
-    composing = [i for i, line in enumerate(lines) if "docker compose" in line or line.split(" ", 1)[0] in asking]
-    return lines, composing
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root = new_root("fl-start-")
+    for rel in ("lib/_lib.sh", "ops/deploy.sh", "ops/local.sh"):
+        (root / "scripts" / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(SCRIPTS / rel, root / "scripts" / rel)
+    for rel, text in (
+        ("docker-compose.yml", "services: {}\n"),
+        ("docker-compose.local.yml", "services: {}\n"),
+        ("fl_frontend/.env", frontend_env),
+        ("fl_backend/.env", "LOG_FORMAT=json\n"),
+    ):
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_bytes(text.encode())
+    stubs = root / "stubs"
+    stubs.mkdir()
+    os.chmod(write_shell(stubs / "docker", RECORDING_DOCKER), 0o755)
+    os.chmod(write_shell(stubs / "uname", UNAME), 0o755)
+    calls = root / "docker-calls.txt"
+    environment = base_env() | {
+        "PATH": str(stubs) + os.pathsep + os.environ["PATH"],
+        "FL_DOCKER_CALLS": str(calls),
+        "FL_UNAME": uname,
+    }
+    done = run_shell(BASH, root / "scripts" / "ops" / script, *args, env=environment, cwd=root)
+    recorded = calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
+    return done.returncode, done.stdout + done.stderr, recorded
 
 
-@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
-def test_each_script_runs_the_check_over_both_files_before_a_start_asks_compose(script: Path) -> None:
-    """On the local stack this is the only reader between a credential's line and a container.
+@pytest.mark.parametrize(("script", "uname", "args"), START_MODES)
+def test_a_credential_line_stops_every_start_before_compose_is_asked_anything(script: str, uname: str, args: tuple[str, ...]) -> None:
+    """Written with a colon, the one form the spelling check also refuses, so its remedy reaching the operator first fails this too."""
+    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAUTH_SECRET: a value no case reads\n")
 
-    The status and stop modes ask compose earlier but create no container, so the count starts at
-    the preflight.
-    """
-    lines, composing = _top_level_compose_lines(script)
-    call = "refuse_credential_lines fl_frontend/.env fl_backend/.env"
-    start = lines.index('section "preflight"')
+    assert code == 2, output
+    assert "these lines name a value no service reads from its environment" in output, output
+    assert "fl_frontend/.env: AUTH_SECRET" in output, output
+    assert "a value no case reads" not in output, output
+    # The stand-in answered the daemon check, so a compose call made before the refusal is one it recorded.
+    assert any(call.startswith("version") for call in calls), calls
+    assert [call for call in calls if call.startswith("compose")] == [], calls
 
-    assert lines.count(call) == 1, script.name
-    assert start < lines.index(call) < min(i for i in composing if i > start), (script.name, [lines[i] for i in composing])
+
+@pytest.mark.parametrize(("script", "uname", "args"), START_MODES)
+def test_a_spelling_the_readers_disagree_on_stops_every_start_before_compose_is_asked_anything(
+    script: str, uname: str, args: tuple[str, ...]
+) -> None:
+    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n")
+
+    assert code == 2, output
+    assert "line 2: API_URL holds a $" in output, output
+    assert any(call.startswith("version") for call in calls), calls
+    assert [call for call in calls if call.startswith("compose")] == [], calls
 
 
 def test_a_file_holding_no_credential_line_passes_in_silence() -> None:
