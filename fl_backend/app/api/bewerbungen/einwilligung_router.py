@@ -23,6 +23,7 @@ from app.api.bewerbungen.services import (
     ansprechperson_mailbox,
     ausstehende_seats,
     bewerbung_kontakt_seite,
+    bewerbung_schule,
     build_angenommene_bewerbung_filter,
     build_saison_token_filter,
     build_token_filter,
@@ -42,6 +43,7 @@ from app.api.bewerbungen.services import (
     saison_frist_of,
     saison_kontakt_seite,
     saison_link_pair,
+    saison_schule,
     saison_zustand_of,
     seat_adressen,
     seat_holding,
@@ -80,13 +82,12 @@ router = APIRouter(
 async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: TeamsCollection) -> str:
     """The school's name as submitted, or the picked club's own."""
 
-    schule = bewerbung_raw.get("schule")
-    if isinstance(schule, Mapping):
-        return str(schule.get("team_name") or "")
+    if isinstance(bewerbung_raw.get("schule"), Mapping):
+        return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=None)
 
     team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": bewerbung_raw.get("team_id")}, projection=["name"])
 
-    return str(team_raw.get("name") or "")
+    return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=team_raw.get("name"))
 
 
 async def _saison_seite(
@@ -132,7 +133,7 @@ async def _saison_ansicht(
         quelle="saison",
         zustand=saison_zustand_of(row=row, seat=seat, today=today, gesperrt=bool(gesperrt)),
         saison_id=str(row["saison_id"]),
-        schule=str(row.get("name") or ""),
+        schule=saison_schule(row),
         rolle=seat,
         zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,

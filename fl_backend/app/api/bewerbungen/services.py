@@ -965,6 +965,24 @@ def compose_confirmation_update(
     return {"$set": written, "$push": appended}
 
 
+# The two pages' own fills: the account page states a seat's words with these too, so each confirmation
+# page and the account page fill `{schule}` alike.
+def saison_schule(row: Mapping[str, Any]) -> str:
+    """What the season row's confirmation page fills `{schule}` with: the name the club carries that season."""
+
+    return str(row.get("name") or "")
+
+
+def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str:
+    """What the application's confirmation page fills `{schule}` with: the school as submitted, or the picked club's own name."""
+
+    schule = bewerbung_raw.get("schule")
+    if isinstance(schule, Mapping):
+        return str(schule.get("team_name") or "")
+
+    return str(club_name or "")
+
+
 # The two pages a contact seat's link opens, named as the registry names them.
 KontaktSeite = Literal["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung"]
 

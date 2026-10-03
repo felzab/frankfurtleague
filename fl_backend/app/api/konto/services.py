@@ -10,6 +10,7 @@ from collections.abc import Collection, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
+from app.api.bewerbungen.services import bewerbung_schule, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, seat_is_confirmed, seats_naming
 from app.api.kontakte.services import KONTAKT_SLOTS, same_address
@@ -254,22 +255,6 @@ def auf_der_saison_bestaetigt(row: Mapping[str, Any], slot: str) -> bool:
     entry = (row.get("bestaetigungen") or {}).get(slot)
 
     return isinstance(entry, Mapping) and isinstance(entry.get("verschickt_am"), str)
-
-
-def saison_schule(row: Mapping[str, Any]) -> str:
-    """What the season row's confirmation page fills `{schule}` with: the name the club carries that season."""
-
-    return str(row.get("name") or "")
-
-
-def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str:
-    """What the application's confirmation page fills `{schule}` with: the school as submitted, or the picked club's own name."""
-
-    schule = bewerbung_raw.get("schule")
-    if isinstance(schule, Mapping):
-        return str(schule.get("team_name") or "")
-
-    return str(club_name or "")
 
 
 def build_angenommene_bewerbungen_pipeline(team_ids: Collection[Any]) -> list[Mapping[str, Any]]:
