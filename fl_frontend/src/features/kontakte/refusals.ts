@@ -9,7 +9,8 @@ export function mapStaleBlockRefusal(error: unknown): string | null {
   if (!isRefusal(error) || error.serverErrorCode !== "REQ-KONTAKT-001") return null;
 
   return buildRefusal({
-    reason: "Die Kontakte dieser Saison wurden inzwischen geändert, meistens durch das Löschen einer Kontaktperson",
+    reason:
+      "Die Kontakte dieser Saison wurden inzwischen geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde",
     repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
   });
 }

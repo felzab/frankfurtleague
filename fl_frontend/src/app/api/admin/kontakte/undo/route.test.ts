@@ -112,8 +112,8 @@ describe("the contacts save's undo", () => {
     assert.deepEqual(answer, {
       success: false,
       error:
-        "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, meistens durch das Löschen einer Kontaktperson. " +
-        "Die Rücknahme wurde nicht ausgeführt, damit die gelöschten Angaben nicht wieder eingetragen werden.",
+        "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde. " +
+        "Die Rücknahme wurde nicht ausgeführt, damit sie die neueren Angaben nicht überschreibt.",
     });
   });
 
