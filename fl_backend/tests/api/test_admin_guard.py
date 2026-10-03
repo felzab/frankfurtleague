@@ -299,6 +299,20 @@ def test_every_admin_tier_write_runs_in_a_transaction_judging_its_actor(path: st
     )
 
 
+# The writes `PERSON_OPERATIONS` exempts from the sweep above, which binding a person earns them
+# (`test_every_person_operation_binds_a_person_after_the_key`) and which a write outside the helper would not.
+PERSON_LANE_WRITES = sorted(operation for operation in PERSON_OPERATIONS if operation[1] != "get")
+
+
+@pytest.mark.parametrize(("path", "method"), PERSON_LANE_WRITES, ids=lambda value: value)
+def test_every_person_lane_write_runs_in_a_transaction_judging_its_person(path: str, method: str):
+    """`docs/backend/spec.md :: I922`: the binder reads the ban once before the handler; the transaction reads it again in each attempt."""
+
+    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
+        f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no person"
+    )
+
+
 def test_the_transaction_sweep_follows_a_helper_and_can_refuse():
     """Every case above passes, so only these two show the reader reaching past the endpoint's body and answering no at all.
 
