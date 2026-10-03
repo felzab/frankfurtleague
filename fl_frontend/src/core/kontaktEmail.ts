@@ -15,22 +15,9 @@ import {
   stuffSignatureDelimiter,
   textFooter,
 } from "./emailShell";
+import { kontaktBestaetigungsLink } from "./kontaktLink";
 
 import type { Aktion } from "./emailShell";
-
-// The page an application's seat opens too, whose answers the backend resolves against either record.
-// `fl_frontend/src/features/bewerbungen/bestaetigungLink.ts` spells the same path beyond the layer
-// boundary, so the two move together.
-export const KONTAKT_BESTAETIGUNG_PATH = "/bestaetigung/kontakt";
-
-/**
- * The season row's seat link. `token` is the parameter name because
- * `nginx/shared/http.conf :: $credential_free_uri` matches that name; a second spelling reaches the
- * access line and the referer unredacted.
- */
-export function kontaktBestaetigungsLink(origin: string, token: string): string {
-  return `${origin}${KONTAKT_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
-}
 
 const UEBERSCHRIFT = "Dein Eintrag als Kontaktperson";
 

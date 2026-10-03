@@ -44,7 +44,7 @@ const client = doubleApiAnswers(async (call) => {
 
 const { einladeKontaktAction, patchSaisonTeamKontakteAction } = await import("./actions.ts");
 const { describeLinkMail } = await import("@/features/schiedsrichter/notifications.ts");
-const { kontaktBestaetigungsLink } = await import("@/core/kontaktEmail.ts");
+const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");

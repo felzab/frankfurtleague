@@ -1,6 +1,6 @@
-// The one place a link is spelled. `token` is the parameter name because
-// `nginx/shared/http.conf :: $credential_free_uri` matches that name; a second spelling reaches the access
-// line and the referer unredacted, and one module keeps a rename one edit.
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
+
+// The page a season row's seat link opens too, so both are spelled by one function.
 export function bestaetigungsLink(origin: string, token: string): string {
-  return `${origin}/bestaetigung/kontakt?token=${encodeURIComponent(token)}`;
+  return kontaktBestaetigungsLink(origin, token);
 }

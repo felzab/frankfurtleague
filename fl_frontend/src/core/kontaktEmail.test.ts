@@ -9,7 +9,8 @@ const ORIGIN = "http://localhost:3000";
 
 registerDoubles();
 
-const { buildKontaktBestaetigungEmail, kontaktBestaetigungsLink, KONTAKT_BESTAETIGUNG_PATH } = await import("./kontaktEmail.ts");
+const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
+const { kontaktBestaetigungsLink, KONTAKT_BESTAETIGUNG_PATH } = await import("./kontaktLink.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
 
 const TOKEN = "abc123";
