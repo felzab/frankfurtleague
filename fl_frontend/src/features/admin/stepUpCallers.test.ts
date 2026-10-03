@@ -77,6 +77,8 @@ const { EinladungLinkHolder } = await import("@/features/einladungen/components/
 const { FormEinladungSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx");
 const { FormSaisonSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+const { AdminKontakteEditForm } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx");
+const { FormKontaktEinladen } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx");
 
 /** Every step-up write a module imports from any slice's actions module, read off its syntax tree. */
 function importedStepUpWrites(file: string): string[] {
@@ -209,6 +211,35 @@ const moveAddress = async (user: User) => {
 const TEAM_ID = "a".repeat(24);
 const SWAP = { teams: [], playedKnockoutSpiele: 0 };
 
+/** One unconfirmed Ansprechperson and two empty seats, so the editor draws one address box and one re-send. */
+const kontakteEditor = () =>
+  underNext(
+    h(AdminKontakteEditForm, {
+      teamId: TEAM_ID,
+      saison: {
+        saisonId: "2627",
+        saisonStatus: "future",
+        membership: {
+          gruppe: "A",
+          austritt: null,
+          trikot_farbe: null,
+          kontakte: { ansprechperson: seat("Anna", "anna@schule.example"), stellvertretung: null, trainer: null, trainer_ist_zugleich: null },
+          kontakte_stand: "9f2c",
+        },
+      },
+      pageHeader: { title: "SG Alpha" },
+    }),
+    { router: nextRouter(), search: "saison_id=2627" },
+  );
+
+/** Typed over what the box held and left, as the editor judges a typed field. */
+const retype = (label: string, value: string) => async (user: User) => {
+  const box = screen.getByRole<HTMLInputElement>("textbox", { name: label });
+  await user.clear(box);
+  await user.paste(value);
+  await act(async () => box.blur());
+};
+
 /** Every one-press caller of the registry, and a case of the conditional ones on a call that asks nothing. */
 const DRIVES: Record<string, Drive[]> = {
   "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: einwilligungErneutSendenAction": [
@@ -288,6 +319,24 @@ const DRIVES: Record<string, Drive[]> = {
       press: "Reaktivieren",
       asks: unanswered,
     })),
+  ],
+  // A save seating somebody new mints them a link; one correcting a telephone mints nothing and asks nothing.
+  "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx :: patchSaisonTeamKontakteAction": [
+    { render: kontakteEditor, reach: retype("E-Mail", "anna@neu.example"), press: "Speichern", asks: true },
+    { render: kontakteEditor, reach: retype("Telefon", "069 7654321"), press: "Speichern", asks: false },
+  ],
+  "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx :: einladeKontaktAction": [
+    {
+      render: () =>
+        underNext(
+          h(FormKontaktEinladen, { teamId: TEAM_ID, saisonId: "2627", rolle: "ansprechperson", label: "Ansprechperson", isDirty: false }),
+          {
+            router: nextRouter(),
+          },
+        ),
+      press: "Link erneut senden an Ansprechperson",
+      asks: true,
+    },
   ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx :: patchSchiedsrichterAction": [
     { render: () => refereeEditor(false), reach: moveAddress, press: "Speichern", asks: true },

@@ -31,11 +31,12 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import { FormKontaktEinladen } from "./FormKontaktEinladen";
 import { FormKontaktErasure } from "./FormKontaktErasure";
 
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLTrainerZugleich } from "@/features/teams/schemas";
+import type { FLSaisonTeamKontakte, FLTrainerZugleich } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -54,6 +55,17 @@ const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
  */
 const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
 
+/**
+ * Whether the stored seat takes a re-send: a person who has not confirmed, on the seat that holds them.
+ * A paired Trainer is that seat's person, whose one link the seat's own press already replaces.
+ */
+function istEinladbar(stored: FLSaisonTeamKontakte | null, rolle: KontaktRolle): boolean {
+  const person = stored?.[rolle] ?? null;
+  if (person === null || person.einwilligung.bestaetigt_am !== null) return false;
+
+  return !(rolle === "trainer" && stored?.trainer_ist_zugleich != null);
+}
+
 /** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
 function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
@@ -65,6 +77,9 @@ function toCalendarDate(stored: string): CalendarDate | null {
  */
 export function FormKontakteSection({
   value,
+  stored,
+  teamId,
+  saisonId,
   isMember,
   teamHref,
   banners,
@@ -74,6 +89,10 @@ export function FormKontakteSection({
   onValidateSelection,
 }: {
   value: SaisonTeamKontakteDraft | null;
+  /** The block as the row holds it: a link goes to the person stored on a seat, never to one only typed. */
+  stored: FLSaisonTeamKontakte | null;
+  teamId: string;
+  saisonId: string;
   /** The club holds a junction row for this season. Without one there is nothing here to write to. */
   isMember: boolean;
   /** The club's own page, where the season membership these seats hang off is entered. */
@@ -177,6 +196,17 @@ export function FormKontakteSection({
                 />
               ) : null
             }
+            einladen={
+              istEinladbar(stored, rolle) ? (
+                <FormKontaktEinladen
+                  teamId={teamId}
+                  saisonId={saisonId}
+                  rolle={rolle}
+                  label={label}
+                  isDirty={isDirty}
+                />
+              ) : null
+            }
             isDirty={isDirty}
             onPresenceChange={(present) => setPresence(rolle, present)}
             onChange={(person) => applyPerson(rolle, person)}
@@ -228,6 +258,7 @@ function KontaktpersonFields({
   person,
   isMirrored,
   zugleich,
+  einladen,
   isDirty,
   onPresenceChange,
   onChange,
@@ -241,6 +272,8 @@ function KontaktpersonFields({
   isMirrored: boolean;
   /** The claim's picker, on the Trainer seat alone. `null` on the two seats the claim can name. */
   zugleich: ReactNode;
+  /** The re-send, on a stored seat whose person has not confirmed; `null` everywhere else. */
+  einladen: ReactNode;
   isDirty: boolean;
   onPresenceChange: (present: boolean) => void;
   onChange: (next: KontaktpersonDraft) => void;
@@ -287,6 +320,8 @@ function KontaktpersonFields({
             onFieldLeft={onFieldLeft}
           />
         )}
+
+        {einladen}
 
         {/* On the seat that HOLDS the person, never the mirrored copy: the claim points two seats at
             one record, and offering the erasure twice would read as two people. */}

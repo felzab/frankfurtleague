@@ -171,6 +171,9 @@ const editorTree = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): str
 const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true): ReactNode =>
   h(FormKontakteSection, {
     value: kontakte,
+    stored: kontakte,
+    teamId: "507f1f77bcf86cd799439011",
+    saisonId: "2526",
     isMember,
     teamHref: "/bereich/admin/teams/t1?saison_id=2526",
     banners: [],

@@ -64,6 +64,9 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
         status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
         children: h(FormKontakteSection, {
           value: kontakte,
+          stored: kontakte,
+          teamId: "507f1f77bcf86cd799439011",
+          saisonId: "2526",
           isMember: true,
           teamHref: "/bereich/admin/teams/t1?saison_id=2526",
           banners: [],
