@@ -41,9 +41,10 @@ the machine is outside the repository. What it does tell you:
   `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
   checks each before anything is pulled. What each secret file holds, who owns it and how it is
   made, is §16.
-- **A line naming a value a secret file holds refuses the deploy at exit 2 before compose is asked
-  anything**, naming the line and never its value (`scripts/lib/_lib.sh :: refuse_credential_lines`):
-  delete it, the value being its file's (§16).
+- **A line naming a value a secret file holds, or `ALLOWED_ADMIN_EMAILS`, refuses the deploy at exit
+  2 before compose is asked anything**, naming the line and never its value
+  (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
+  and the administrator list read by nothing.
 - **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
   `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
   `git status` never shows it; move it out of the checkout, keeping it only if it holds something
@@ -1402,7 +1403,7 @@ not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that li
 `fl_backend/.env` into a comment by putting `#` in front of it; its frontend also requires an
 `ALLOWED_ADMIN_EMAILS` line in `fl_frontend/.env`, put back from the password manager. Rolling
 forward restores the `ACTOR_TOKEN_PUBLIC_KEY` line and deletes the `ALLOWED_ADMIN_EMAILS` one, which
-the newer deploy refuses as undeclared.
+the newer deploy refuses.
 
 ## 17. Clearing an address's code lock
 

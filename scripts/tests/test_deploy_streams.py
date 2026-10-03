@@ -1086,6 +1086,22 @@ def test_a_credential_line_in_any_form_compose_reads_refuses(line: str) -> None:
     assert "credential-lines-passed" not in output, output
 
 
+def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> None:
+    """No credential, but no service reads it either, and on the local stack no other reader names it before `docker inspect` prints it."""
+    body = (
+        "mkdir -p fl_frontend\n"
+        "printf 'APP_ENV=local\\nALLOWED_ADMIN_EMAILS=vorstand@schule.de\\n' > fl_frontend/.env\n"
+        "refuse_credential_lines fl_frontend/.env\necho credential-lines-passed\n"
+    )
+    code, output, _ = _run(body)
+
+    assert code == 2, output
+    assert "fl_frontend/.env: ALLOWED_ADMIN_EMAILS" in output, output
+    assert "vorstand@schule.de" not in output, output
+    assert "APP_ENV" not in output, output
+    assert "credential-lines-passed" not in output, output
+
+
 @pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
 def test_each_script_runs_the_check_over_both_files_before_compose_reads_either(script: Path) -> None:
     """The local stack runs neither image's name check, so there this is the one reader standing between a credential's line and a container."""

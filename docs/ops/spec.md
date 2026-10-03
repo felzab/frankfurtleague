@@ -463,8 +463,8 @@ to the checkout's `secrets/fl_actor_signing_key` and `SECRETS_DIR` to the checko
 because `fl_frontend/.env` also reaches the frontend container, where a path written there would
 turn the frontend away from the secret's mount (I472) and its boot refuses.
 
-**A line naming a value `secrets/` holds refuses the deploy and the local stack before compose reads
-either package file** (I548), at exit 2, naming each such line in any letter case and any form compose
+**A line naming a value `secrets/` holds, or the retired administrator list `ALLOWED_ADMIN_EMAILS`,
+refuses the deploy and the local stack before compose reads either package file** (I548), at exit 2, naming each such line in any letter case and any form compose
 reads a name in — `NAME=value`, the YAML-style `NAME: value` and a bare
 pass-through name included — and never its value: compose would hand it to the container as a
 variable, which `docker inspect` prints (I508). On a deploy the pulled images' own readers of the
@@ -1311,7 +1311,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I533 | The deploy and the local stack refuse to start while a `.env` stands beside the compose file, printing none of it                                                             | `scripts/lib/_lib.sh :: refuse_compose_dotenv`, called by both scripts before any mode asks compose; `scripts/tests/test_deploy_streams.py`                                                                                                                                                             |
 | I540 | A stopped backend container lets every request it accepted end inside its bound, aborts included, before the engine kills it                                                  | `fl_backend/Dockerfile :: CMD` and `docker-compose.yml`'s `stop_grace_period`; `fl_backend/tests/core/test_request_deadline.py :: TestAStoppedContainerOutlastsEveryRequest`                                                                                                                            |
 | I547 | A stopped frontend container lets every request it accepted, and the work behind each answer, end inside its bound before the engine kills it                                 | `docker-compose.yml`'s `stop_grace_period` against `fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS` and `:: AFTER_RESPONSE_DEADLINE_MS`; `fl_frontend/src/core/requestScope.test.ts`                                                                                                       |
-| I548 | No package's `.env` the stack reads names a value a secret file holds, in any letter case or form compose reads a name in                                                     | `scripts/lib/_lib.sh :: refuse_credential_lines`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh` before any compose call reads either file; `scripts/tests/test_deploy_streams.py`                                                                                                        |
+| I548 | No package's `.env` the stack reads names a value a secret file holds or `ALLOWED_ADMIN_EMAILS`, in any letter case or form compose reads a name in                           | `scripts/lib/_lib.sh :: refuse_credential_lines`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh` before any compose call reads either file; `scripts/tests/test_deploy_streams.py`                                                                                                        |
 
 ## 3. Violation → remedy
 

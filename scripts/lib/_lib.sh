@@ -895,6 +895,10 @@ LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_
 # it; `scripts/tests/test_check_compose_model.py` holds the two equal.
 MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
 
+# The administrator list the stored grants replaced: read by no service, and its addresses are what
+# `docker inspect` would print.
+RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS)
+
 # By the list the image's own schema emitted, so a file a release starts requiring is asked for by
 # the build requiring it (`fl_frontend/scripts/check-environment-names.mjs`'s `--secret-files`). The
 # backend's files are its boot check's.
@@ -962,8 +966,8 @@ whether it would boot. Its own answer is above."
 }
 
 # Compose hands an environment file's every line to the container as a variable, which
-# `docker inspect` prints, so a credential's name is refused with any value or none
-# (`docs/ops/spec.md :: I508`). Names only, folded as the backend folds them.
+# `docker inspect` prints, so a credential's name, or the retired administrator list's, is refused
+# with any value or none (`docs/ops/spec.md :: I508`). Names only, folded as the backend folds them.
 refuse_credential_lines() { # $@ the environment files
   # A space, not this file's newline, joins one file's names onto its own line of the refusal.
   local file line name moved IFS=' '
@@ -975,18 +979,17 @@ refuse_credential_lines() { # $@ the environment files
       # pass-through form, which hands the container the shell's own value.
       [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$) ]] || continue
       name="${BASH_REMATCH[2]}"
-      for moved in "${MOVED_ENV_NAMES[@]}"; do
+      for moved in "${MOVED_ENV_NAMES[@]}" "${RETIRED_ENV_NAMES[@]}"; do
         if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
       done
     done < "$file"
     if (( ${#held[@]} )); then found+=("${file}: ${held[*]}"); fi
   done
   (( ${#found[@]} )) || return 0
-  refuse "these lines name a credential, which each service reads from its file under secrets/ and never
-from its environment:
+  refuse "these lines name a value no service reads from its environment: a credential, which is its
+file's under secrets/, or the administrator list the stored grants replaced:
 $(printf '  %s\n' "${found[@]}")
-Delete them; the value is its file's (docs/ops/runbooks.md §16). NOTHING was asked of compose or of
-either service."
+Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
 }
 
 # Compose loads a `.env` here unasked, for its `COMPOSE_*` settings and a bare `NAME` line's value:
