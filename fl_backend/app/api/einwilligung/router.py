@@ -43,4 +43,4 @@ async def get_seiten() -> FLEinwilligungSeitenResponse:
     A deploy moves it, so a reader caching it refuses its own visitors' presses until the cache expires.
     """
 
-    return FLEinwilligungSeitenResponse(laufende_fassungen=dict(LAUFENDE_FASSUNGEN))
+    return FLEinwilligungSeitenResponse(laufende_fassungen={seite: label for seite, label in LAUFENDE_FASSUNGEN.items()})

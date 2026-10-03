@@ -6,7 +6,7 @@ from typing import Final
 
 from app.api.einwilligung.schemas import FLEinwilligungFassung
 from app.core.exceptions import WriteRefusal
-from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung
+from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite
 
 # What the code refuses is `fl_backend/app/core/domain.py :: RULES`. One code for every write that
 # stamps a label, so a page's form maps one refusal however many writes share its page.
@@ -17,7 +17,7 @@ _PLATZHALTER: Final = re.compile(r"\{([A-Za-z]+)\}")
 
 
 def find_fassung_refusal(
-    *, seite: str, genannt: Mapping[str, str], gespeichert: Mapping[str, str | None] = MappingProxyType({})
+    *, seite: Seite, genannt: Mapping[str, str], gespeichert: Mapping[str, str | None] = MappingProxyType({})
 ) -> WriteRefusal | None:
     """Why a write may not stamp the labels it names, keyed by where each is stamped, or `None`.
 
@@ -42,7 +42,7 @@ def find_fassung_refusal(
     return None
 
 
-def _version_of(label: str, *, seite: str) -> bool:
+def _version_of(label: str, *, seite: Seite) -> bool:
     fassung = FASSUNGEN.get(label)
 
     return fassung is not None and fassung.seite == seite

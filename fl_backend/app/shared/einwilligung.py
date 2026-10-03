@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from types import MappingProxyType
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 # `is_confirmed`'s "no" as a filter term: `None` alone matches a null and a missing path but never a
 # stored `""`, so a filter spelled with it passes over rows the predicate calls unconfirmed
@@ -25,12 +25,26 @@ def is_confirmed(einwilligung: Any) -> bool:
     return isinstance(stamp, str) and stamp != ""
 
 
+# Every page that stamps a label: a name outside it is a type error at the caller rather than a
+# `KeyError` answered as a 500. The wire serves it as a plain string, so a page added here moves no
+# published schema.
+Seite = Literal[
+    "bewerbung",
+    "bestaetigung_kontakt",
+    "bestaetigung_spieler",
+    "bestaetigung_schiedsrichter",
+    "konto_spieler",
+    "konto_schiedsrichter",
+    "konto_kontakt",
+]
+
+
 @dataclass(frozen=True, kw_only=True)
 class Fassung:
     """One wording a person was shown, under the label (`text_version`) a record stamps to name it."""
 
-    # A key of `LAUFENDE_FASSUNGEN`: a write judges a label against its own page's versions alone.
-    seite: str
+    # A write judges a label against its own page's versions alone.
+    seite: Seite
     # The German day the label's pull request merged into `main`, read off git, never a deploy's day.
     gilt_ab: date
     # The order the label freezes, and the order `tests/shared/test_einwilligung.py` digests.
@@ -1253,9 +1267,8 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
 
 
 # The label each page stamps on a new acceptance, the one
-# `fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal` admits; a page is declared by
-# its entry here and nowhere else.
-LAUFENDE_FASSUNGEN: Final[Mapping[str, str]] = MappingProxyType(
+# `fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal` admits, one for every `Seite`.
+LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
     {
         # Moved alone, this refuses every submission the form stamps from its own copy
         # (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHME`), which

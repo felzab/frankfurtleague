@@ -2,11 +2,11 @@ import dataclasses
 import hashlib
 from collections.abc import Mapping
 from datetime import date
-from typing import Any, Final, cast
+from typing import Any, Final, cast, get_args
 
 import pytest
 
-from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, is_confirmed
+from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite, is_confirmed
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
 
 STAMP = "2026-02-01"
@@ -202,6 +202,11 @@ class TestTheRegistryOfWordings:
         for seite, label in LAUFENDE_FASSUNGEN.items():
             assert label in FASSUNGEN, f"{seite} runs {label}, which the registry does not hold"
             assert FASSUNGEN[label].seite == seite, f"{seite} runs {label}, a version of another page"
+
+    def test_every_declared_page_runs_a_label(self):
+        """The type names a page and the mapping runs one: a page added to either alone fails here."""
+
+        assert set(get_args(Seite)) == set(LAUFENDE_FASSUNGEN)
 
     def test_every_label_belongs_to_a_declared_page(self):
         """A label of an undeclared page could never be stamped, and a write judging it would find no running label."""
