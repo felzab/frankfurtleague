@@ -894,11 +894,13 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.SPIELER,
         "einwilligung",
-        Editability.CONTROL_ONLY,
-        "written by the admission alone, which copies the registration's freshly confirmed record onto the person it writes or "
-        "matches: the confirmation page promises renewal under the words just read. No payload carries the field, so an "
-        "administrator can neither state a consent nor overwrite one",
-        "app.api.registrierungen.services.compose_person_update",
+        Editability.COMPOSED,
+        "on no administrative payload: the admission writes it whole, copying the registration's freshly confirmed record "
+        "onto the person it writes or matches (`app/api/registrierungen/services.py :: compose_person_update`), and afterwards "
+        "only the person moves its two choices, `umfang` and `medien`, through `PATCH /spieler/selbst/einwilligung`, every "
+        "other member standing: `bestaetigt_am` is what the panel and the publication mask read, and `text_version` names "
+        "the wording the person confirmed. An administrator can neither state a consent nor overwrite one",
+        "app.api.konto.services.compose_selbst_einwilligung_update",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -1129,10 +1131,12 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "einwilligung",
         Editability.COMPOSED,
-        "on no payload and written by `POST /schiedsrichter/bestaetigung` alone, from the scope and the media answer the person "
-        "chose: the server stamps `bestaetigt_am` and `datum` with the day it lands and fills `erteilt_von` with `volljaehrig`, "
-        "nobody else being permitted to answer for a referee. It is written once -- a second press is refused "
-        "(`REQ-SCHIEDSRICHTER-004`) -- and an erasure deletes the document rather than nulling it",
+        "on no administrative payload and written whole by `POST /schiedsrichter/bestaetigung` alone, from the scope and the "
+        "media answer the person chose: the server stamps `bestaetigt_am` and `datum` with the day it lands and fills "
+        "`erteilt_von` with `volljaehrig`, nobody else being permitted to answer for a referee. It is written whole once -- a "
+        "second press is refused (`REQ-SCHIEDSRICHTER-004`) -- and afterwards only the person moves its two choices through "
+        "`PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`, every other member standing, `text_version` "
+        "included. An erasure deletes the document rather than nulling it",
         "app.api.schiedsrichter.services.find_already_confirmed_refusal",
     ),
     FieldPolicy(
@@ -2399,7 +2403,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-EINWILLIGUNG-001",
         status=HTTPStatus.CONFLICT,
-        operation="POST /bewerbungen",
+        operation=("POST /bewerbungen · PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"),
         aggregate="Bewerbung",
         summary="a consent label a write stamps names a version of that write's page, and a new acceptance the running one",
         implemented_by="app.api.einwilligung.services.find_fassung_refusal",
@@ -2412,10 +2416,14 @@ RULES: tuple[Rule, ...] = (
             "GET /spieler/kader/{team_id}/{saison_id} · PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id} · "
             "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id} · GET /registrierungen/kader/{team_id}/{saison_id} · "
             "POST /registrierungen/{registrierung_id}/aufnehmen · POST /registrierungen/{registrierung_id}/ablehnen · "
-            "GET /teams/{team_id}/saisons/{saison_id}/person/sitze"
+            "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
+            "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"
         ),
         aggregate="Saison",
-        summary="a team's panel is read and changed only by a person holding a contact seat on that team in an `active` or `future` season",
+        summary=(
+            "a team's panel is read and changed only by a person holding a contact seat on that team in an `active` or `future` "
+            "season, and a person's own consent record only from the address it was confirmed under"
+        ),
         implemented_by="app.api.identitaet.services.find_funktion_refusal",
         tested_by="tests/api/test_kader_person.py::TestASeatNotHeld",
     ),
@@ -2463,6 +2471,15 @@ RULES: tuple[Rule, ...] = (
         summary="a submission replayed after its registration was admitted stores nothing",
         implemented_by="app.api.registrierungen.services.find_schon_aufgenommen_refusal",
         tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
+    ),
+    Rule(
+        code="REQ-EINWILLIGUNG-002",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+        aggregate="Spieler",
+        summary="a person's own media consent is switched on only where their stored birthdate reaches the media age",
+        implemented_by="app.api.konto.services.find_selbst_medien_refusal",
+        tested_by="tests/api/test_spieler_selbst.py::TestTheMediaAge",
     ),
 )
 

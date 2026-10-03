@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapte
 # The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
 # names, so the referee's carrier declares the application's model rather than a twin of it.
 from app.api.bewerbungen.schemas import FLBewerbungZustellung
-from app.api.spieler.schemas import FLEinwilligung
+from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -227,3 +227,38 @@ class FLSchiedsrichterWriteResponse(BaseAPIResponse):
 
 class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     schiedsrichter: FLSchiedsrichter
+
+
+class FLSchiedsrichterSelbst(BaseModel):
+    """One referee record as its own person reads it: their contact details and consent, never the fee or the link's bookkeeping."""
+
+    schiedsrichter_id: CustomObjectId
+    name: CustomNonEmptyString
+    schule: str | None
+    kontakt: FLKontakt
+    geburtsdatum: CustomOptionalDateString = None
+    inactive_since: CustomOptionalDateString
+    # Required: only a confirmed record is served.
+    einwilligung: FLEinwilligung
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    bestaetigt_text_version: str | None
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    erteilbar: bool
+    medien_angeboten: bool
+
+
+class FLSchiedsrichterSelbstResponse(BaseAPIResponse):
+    """Every confirmed referee record the signed-in address holds, the ghost never among them."""
+
+    schiedsrichter: list[FLSchiedsrichterSelbst]
+
+
+class FLSchiedsrichterSelbstEinwilligungPayload(SelbstEinwilligungPayload):
+    pass
+
+
+class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
+    """The record as it stands after the write, everything the person did not move unchanged."""
+
+    schiedsrichter_id: CustomObjectId
+    einwilligung: FLEinwilligung

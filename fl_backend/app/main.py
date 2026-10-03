@@ -26,6 +26,7 @@ from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellu
 from app.api.einwilligung.router import router as einwilligung_router
 from app.api.identitaet.router import router as identitaet_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
+from app.api.konto.router import router as konto_router
 from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
 from app.api.registrierungen.public_router import router as registrierungen_public_router
@@ -35,6 +36,7 @@ from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
 from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
+from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
@@ -42,6 +44,7 @@ from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
 from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.router import router as spieler_router
+from app.api.spieler.selbst_router import router as spieler_selbst_router
 from app.api.spielorte.admin_router import router as spielorte_admin_router
 from app.api.spielorte.router import router as spielorte_router
 from app.api.spieltage.admin_router import router as spieltage_admin_router
@@ -147,7 +150,14 @@ SYSTEM_ROUTERS = (
 # Its own group, as the two above are: a signed-in person's routers read and write on the admin key
 # with a person's binder in place of `bind_actor`, which no tuple above describes. A sweep walking
 # the writers walks these too.
-PERSON_ROUTERS = (spieler_person_router, registrierungen_person_router, teams_person_router)
+PERSON_ROUTERS = (
+    spieler_person_router,
+    registrierungen_person_router,
+    teams_person_router,
+    spieler_selbst_router,
+    schiedsrichter_person_router,
+    konto_router,
+)
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
 # published so the two can be compared (`docs/backend/spec.md :: I190`).

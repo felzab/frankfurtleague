@@ -79,6 +79,15 @@ SECOND_IMPLEMENTER: Mapping[tuple[str, str], str] = {
     ("REQ-BEWERBUNG-011", "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"): (
         "the reseat raises it through `app/api/bewerbungen/services.py :: find_reseat_refusal`"
     ),
+    **{
+        ("REQ-FUNKTION-001", operation): "a person's own record is refused through `app/api/konto/services.py :: find_eigener_eintrag_refusal`"
+        for operation in (
+            "GET /spieler/selbst",
+            "PATCH /spieler/selbst/einwilligung",
+            "GET /schiedsrichter/selbst",
+            "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+        )
+    },
 }
 
 PREFIX = f"/api/v{API_VERSION}"

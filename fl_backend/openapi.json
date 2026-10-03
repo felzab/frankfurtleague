@@ -8628,6 +8628,256 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/spieler/selbst": {
+      "get": {
+        "summary": "A signed-in pupil's own record",
+        "description": "Answer the signed-in address's own pupil record with every squad row it holds.\n\nPERSON TIER: the whole surname, the birthdate and the consent record, never masked, and never the sign-in address\nitself. A retired record is served too, its consent being the person's to withdraw; `erteilbar` says whether a\ngrant is admitted on it, and `medien_angeboten` whether the media consent may be switched on.\n\nRefuses an address holding no confirmed pupil record (`REQ-FUNKTION-001`).",
+        "operationId": "get_selbst_api_v0_spieler_selbst_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerSelbstResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spieler/selbst/einwilligung": {
+      "patch": {
+        "summary": "Change a signed-in pupil's own publication and media consent",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, and nothing else: the confirmation day, the day given, who gave it and the\nwording they confirmed stand, and no other document is written. A PATCH moving neither choice writes\nnothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a\nwithdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `text_version` naming no version of the account page's pupil control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where the stored birthdate\ndoes not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "operationId": "patch_einwilligung_api_v0_spieler_selbst_einwilligung_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielerSelbstEinwilligungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerSelbstEinwilligungResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-EINWILLIGUNG-002.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/schiedsrichter/selbst": {
+      "get": {
+        "summary": "A signed-in referee's own records",
+        "description": "Answer every confirmed referee record the signed-in address holds, with its contact details and consent record.\n\nPERSON TIER: never the fee or the confirmation link's bookkeeping. A retired record is served too, its consent being\nthe person's to withdraw; `erteilbar` says whether a grant is admitted on it, and `medien_angeboten` whether the\nmedia consent may be switched on.\n\nRefuses an address holding no confirmed referee record (`REQ-FUNKTION-001`).",
+        "operationId": "get_selbst_api_v0_schiedsrichter_selbst_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterSelbstResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": {
+      "patch": {
+        "summary": "Change a signed-in referee's own publication and media consent",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, and nothing else: the confirmation day, the day given, who gave it and\nthe wording they confirmed stand, and no fixture is written -- the fixture list reads the scope\non this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to\n`true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `text_version` naming no version of the account page's referee control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where the stored birthdate does\nnot reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**: it serves the referee's name by this scope,\nand nothing here can.",
+        "operationId": "patch_einwilligung_api_v0_schiedsrichter_selbst__schiedsrichter_id__einwilligung_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Schiedsrichter Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSchiedsrichterSelbstEinwilligungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterSelbstEinwilligungResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-EINWILLIGUNG-002.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/konto/einwilligungen": {
+      "get": {
+        "summary": "A signed-in person's own consent records",
+        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and two empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `erteilbar` says whether a grant is\nadmitted, `medien_angeboten` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
+        "operationId": "get_einwilligungen_api_v0_konto_einwilligungen_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKontoEinwilligungenResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -14177,6 +14427,115 @@
         ],
         "title": "FLKontaktpersonPayload"
       },
+      "FLKontoEinwilligungenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerSelbst"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLSchiedsrichterSelbst"
+            },
+            "type": "array",
+            "title": "Schiedsrichter"
+          },
+          "sitze": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontoSitzEinwilligung"
+            },
+            "type": "array",
+            "title": "Sitze"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler",
+          "schiedsrichter",
+          "sitze"
+        ],
+        "title": "FLKontoEinwilligungenResponse",
+        "description": "Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.\n\nThe referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not."
+      },
+      "FLKontoSitzEinwilligung": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "bestaetigt_text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Text Version"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "medien_angeboten": {
+            "type": "boolean",
+            "title": "Medien Angeboten"
+          },
+          "erteilbar": {
+            "type": "boolean",
+            "title": "Erteilbar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "saison_id",
+          "rollen",
+          "bestaetigt_text_version",
+          "medien",
+          "medien_angeboten",
+          "erteilbar"
+        ],
+        "title": "FLKontoSitzEinwilligung",
+        "description": "One team season on which the address holds a confirmed contact seat, with its media choice.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both."
+      },
       "FLOffeneRegistrierung": {
         "properties": {
           "registrierung_id": {
@@ -18565,6 +18924,176 @@
         "title": "FLSchiedsrichterReactivateResponse",
         "description": "The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint."
       },
+      "FLSchiedsrichterSelbst": {
+        "properties": {
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "schule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schule"
+          },
+          "kontakt": {
+            "$ref": "#/components/schemas/FLKontakt"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          },
+          "bestaetigt_text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Text Version"
+          },
+          "erteilbar": {
+            "type": "boolean",
+            "title": "Erteilbar"
+          },
+          "medien_angeboten": {
+            "type": "boolean",
+            "title": "Medien Angeboten"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id",
+          "name",
+          "schule",
+          "kontakt",
+          "inactive_since",
+          "einwilligung",
+          "bestaetigt_text_version",
+          "erteilbar",
+          "medien_angeboten"
+        ],
+        "title": "FLSchiedsrichterSelbst",
+        "description": "One referee record as its own person reads it: their contact details and consent, never the fee or the link's bookkeeping."
+      },
+      "FLSchiedsrichterSelbstEinwilligungPayload": {
+        "properties": {
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "umfang",
+          "medien",
+          "text_version"
+        ],
+        "title": "FLSchiedsrichterSelbstEinwilligungPayload"
+      },
+      "FLSchiedsrichterSelbstEinwilligungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id",
+          "einwilligung"
+        ],
+        "title": "FLSchiedsrichterSelbstEinwilligungResponse",
+        "description": "The record as it stands after the write, everything the person did not move unchanged."
+      },
+      "FLSchiedsrichterSelbstResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLSchiedsrichterSelbst"
+            },
+            "type": "array",
+            "title": "Schiedsrichter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter"
+        ],
+        "title": "FLSchiedsrichterSelbstResponse",
+        "description": "Every confirmed referee record the signed-in address holds, the ghost never among them."
+      },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
           "acknowledged": {
@@ -20395,6 +20924,283 @@
         "title": "FLSpielerPublic",
         "description": "One squad row as the BASE TIER serves it -- all an anonymous visitor may read.\n\n`build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the\n`stufe` is gone (`READ-PUPIL-002`), and the consent record with it."
       },
+      "FLSpielerSelbst": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          },
+          "bestaetigt_text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Text Version"
+          },
+          "erteilbar": {
+            "type": "boolean",
+            "title": "Erteilbar"
+          },
+          "medien_angeboten": {
+            "type": "boolean",
+            "title": "Medien Angeboten"
+          },
+          "kader": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielerSelbstKaderZeile"
+            },
+            "type": "array",
+            "title": "Kader"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname",
+          "spieler_id",
+          "inactive_since",
+          "einwilligung",
+          "bestaetigt_text_version",
+          "erteilbar",
+          "medien_angeboten",
+          "kader"
+        ],
+        "title": "FLSpielerSelbst",
+        "description": "One pupil record as its own person reads it: the whole surname, the birthdate and the consent record, never masked."
+      },
+      "FLSpielerSelbstEinwilligungPayload": {
+        "properties": {
+          "umfang": {
+            "type": "string",
+            "enum": [
+              "kader_oeffentlich",
+              "intern"
+            ],
+            "title": "Umfang"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "umfang",
+          "medien",
+          "text_version"
+        ],
+        "title": "FLSpielerSelbstEinwilligungPayload"
+      },
+      "FLSpielerSelbstEinwilligungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "einwilligung"
+        ],
+        "title": "FLSpielerSelbstEinwilligungResponse",
+        "description": "The record as it stands after the write, everything the person did not move unchanged."
+      },
+      "FLSpielerSelbstKaderZeile": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "rolle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kapitaen",
+                  "co_kapitaen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolle"
+          },
+          "ist_nachnominiert": {
+            "type": "boolean",
+            "title": "Ist Nachnominiert",
+            "default": false
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "saison_id",
+          "nummer",
+          "position",
+          "stufe",
+          "inactive_since"
+        ],
+        "title": "FLSpielerSelbstKaderZeile",
+        "description": "One squad row as its own pupil reads it, with the name the club played that season under."
+      },
+      "FLSpielerSelbstResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler": {
+            "$ref": "#/components/schemas/FLSpielerSelbst"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler"
+        ],
+        "title": "FLSpielerSelbstResponse",
+        "description": "The signed-in address's own pupil record: one at most, `spieler.email` being unique."
+      },
       "FLSpielerSingleResponse": {
         "properties": {
           "acknowledged": {
@@ -21444,7 +22250,7 @@
           "bestaetigt"
         ],
         "title": "FLTeamSitz",
-        "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: the contact page promises that only administrators\nsee those (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`)."
+        "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: the contact page promises that only administrators\nsee those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`)."
       },
       "FLTeamSitzeResponse": {
         "properties": {
@@ -22275,6 +23081,29 @@
           }
         }
       },
+      "403.REQ-AUTH-008": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-008"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-AUTH-008.REQ-FUNKTION-001": {
         "description": "Forbidden",
         "content": {
@@ -23065,6 +23894,30 @@
           }
         }
       },
+      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-EINWILLIGUNG-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.DB-COMMON-002.REQ-ENTER-001.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-005": {
         "description": "Conflict",
         "content": {
@@ -23711,6 +24564,30 @@
                         "REQ-RULES-008",
                         "REQ-RULES-010",
                         "REQ-RULES-013",
+                        "REQ-VAL-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "422.REQ-EINWILLIGUNG-002.REQ-VAL-001": {
+        "description": "Unprocessable Content",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-EINWILLIGUNG-002",
                         "REQ-VAL-001"
                       ]
                     }

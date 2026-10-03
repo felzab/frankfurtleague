@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.shared.einwilligung_verlauf import FLEinwilligungAkt
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
@@ -412,3 +412,68 @@ class FLPatchKaderZeilePayload(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     rolle: FLSpielerRolle | None
+
+
+class FLSpielerSelbstKaderZeile(BaseModel):
+    """One squad row as its own pupil reads it, with the name the club played that season under."""
+
+    team_id: CustomObjectId
+    # The season row's own name and never the club's current one (`docs/backend/spec.md :: I13`): a
+    # squad left two seasons ago is listed as it was played.
+    team_name: str
+    saison_id: str
+    nummer: str | None
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
+    rolle: FLSpielerRolle | None = None
+    ist_nachnominiert: bool = False
+    inactive_since: CustomOptionalDateString
+
+
+class FLSpielerSelbst(_SpielerPerson):
+    """One pupil record as its own person reads it: the whole surname, the birthdate and the consent record, never masked."""
+
+    spieler_id: CustomObjectId
+    geburtsdatum: CustomOptionalDateString = None
+    inactive_since: CustomOptionalDateString
+    # Required: only a confirmed record is served, so the block is always there.
+    einwilligung: FLEinwilligung
+    # The block's `text_version` under the name the account page reads it by: the words shown read-only
+    # beside the control are the ones confirmed, never an account-page press's.
+    bestaetigt_text_version: str | None
+    # Served rather than derived on the page, which would judge a grant with a second copy of the
+    # rule the PATCH refuses by.
+    erteilbar: bool
+    medien_angeboten: bool
+    kader: list[FLSpielerSelbstKaderZeile]
+
+
+class FLSpielerSelbstResponse(BaseAPIResponse):
+    """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
+
+    spieler: FLSpielerSelbst
+
+
+class SelbstEinwilligungPayload(BaseModel):
+    """One declaration under two published names, the pupil's and the referee's, so the two endpoints cannot drift apart."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # No member defaulted: a default would let a page that forgot one reset the person's other choice.
+
+    # `FLEinwilligung.umfang`'s set again, held equal to it by
+    # `fl_backend/tests/api/test_spieler_selbst.py :: test_the_payload_offers_the_scopes_the_record_stores`.
+    umfang: Literal["kader_oeffentlich", "intern"]
+    medien: bool
+    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+
+
+class FLSpielerSelbstEinwilligungPayload(SelbstEinwilligungPayload):
+    pass
+
+
+class FLSpielerSelbstEinwilligungResponse(BaseAPIResponse):
+    """The record as it stands after the write, everything the person did not move unchanged."""
+
+    spieler_id: CustomObjectId
+    einwilligung: FLEinwilligung

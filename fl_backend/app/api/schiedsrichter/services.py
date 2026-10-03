@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
+from app.api.kontakte.services import same_address
 from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
 from app.api.spieler.schemas import FLEinwilligungWeg
@@ -524,3 +525,28 @@ BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
 
 # What the re-send judges, and the address it hashes against the ban list.
 EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1}
+
+
+def build_selbst_referee_filter(identifier: str, *, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
+    """The referee rows that may be this address's own, retired ones included: a withdrawal reaches them too.
+
+    A pre-filter: a stored address keeps its typed case, so the caller keeps the rows
+    `app/api/identitaet/services.py :: folds_to` confirms.
+    """
+
+    return {
+        "kontakt.email": same_address(identifier),
+        **(build_real_referees_filter() if schiedsrichter_id is None else build_referee_filter(schiedsrichter_id)),
+    }
+
+
+# An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason: the fee and the link's hash stay off a
+# person-tier read.
+SELBST_FIELDS: Mapping[str, int] = {
+    "name": 1,
+    "schule": 1,
+    "kontakt": 1,
+    "geburtsdatum": 1,
+    "inactive_since": 1,
+    EINWILLIGUNG_FELD: 1,
+}

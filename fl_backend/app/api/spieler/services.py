@@ -424,3 +424,68 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erl
         status=HTTPStatus.CONFLICT,
         message="this season's rules do not offer that Stufe; pick one of the season's erlaubte_stufen",
     )
+
+
+# --- The pupil's OWN record. What its consent PATCH shares with the referee's and a seat's is
+# `app/api/konto/services.py`'s.
+
+
+def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
+    """The one pupil row this address holds, retired or not, a withdrawal reaching it either way.
+
+    The `$type` term is the unique index's partial filter, which an equality alone does not imply.
+    """
+
+    return {"email": {"$eq": identifier, "$type": "string"}}
+
+
+def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """This address's pupil row with every squad row it holds and the name each club played that season under.
+
+    An allow-list: the sign-in address is the caller's own and still not served back.
+    """
+
+    return [
+        {"$match": build_selbst_pupil_filter(identifier)},
+        {"$project": {"vorname": 1, "nachname": 1, "geburtsdatum": 1, "inactive_since": 1, "einwilligung": 1}},
+        {
+            "$lookup": {
+                "from": Collection.SAISON_SPIELER,
+                "localField": "_id",
+                "foreignField": "spieler_id",
+                "pipeline": [
+                    {
+                        "$lookup": {
+                            "from": Collection.SAISON_TEAMS,
+                            "let": {"team_id": "$team_id", "saison_id": "$saison_id"},
+                            "pipeline": [
+                                {"$match": {"$expr": {"$and": [{"$eq": ["$team_id", "$$team_id"]}, {"$eq": ["$saison_id", "$$saison_id"]}]}}},
+                                {"$project": {"_id": 0, "name": 1}},
+                            ],
+                            "as": "saison_team",
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "team_id": 1,
+                            "team_name": {"$first": "$saison_team.name"},
+                            "saison_id": 1,
+                            "nummer": 1,
+                            "position": 1,
+                            "stufe": 1,
+                            "rolle": 1,
+                            # Either stored spelling, as `build_spieler_memberships_pipeline` reads it
+                            # (`docs/backend/spec.md :: I302`).
+                            "ist_nachnominiert": {"$ifNull": ["$ist_nachnominiert", {"$ifNull": ["$is_nachgetragen", "$$REMOVE"]}]},
+                            "inactive_since": 1,
+                        }
+                    },
+                    # The season a person is playing first: the list is read for what they hold now.
+                    {"$sort": {"saison_id": -1, "team_name": 1}},
+                ],
+                "as": "kader",
+            }
+        },
+        {"$sort": {"_id": 1}},
+    ]

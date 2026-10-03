@@ -166,6 +166,11 @@ ADMIN_READS = [
     # base tier never serves; the seat lines name three people who agreed to administrators alone.
     ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
     ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/sitze", "get"),
+    # A person's own records: a birthdate and a consent record, and on a referee's the contact
+    # details (`READ-CONTACT-001`), each served to that person alone.
+    ("/api/v0/spieler/selbst", "get"),
+    ("/api/v0/schiedsrichter/selbst", "get"),
+    ("/api/v0/konto/einwilligungen", "get"),
 ]
 
 
@@ -217,6 +222,11 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/registrierungen/{registrierung_id}/aufnehmen", "post"),
         ("/api/v0/registrierungen/{registrierung_id}/ablehnen", "post"),
         ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/sitze", "get"),
+        ("/api/v0/spieler/selbst", "get"),
+        ("/api/v0/spieler/selbst/einwilligung", "patch"),
+        ("/api/v0/schiedsrichter/selbst", "get"),
+        ("/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung", "patch"),
+        ("/api/v0/konto/einwilligungen", "get"),
     }
 )
 

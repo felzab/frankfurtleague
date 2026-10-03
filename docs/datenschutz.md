@@ -764,16 +764,13 @@ the `Entry` column carries a token only where one still resolves in that file.
   address it was taken from while the reason beside it may name its subject outright. The bound is
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure for the lookup
   is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
-- **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
-  as easy as giving, for the Datenschutzexperte.** A pupil's consent record is written by their own
-  confirmation (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`) and
-  carried on no payload any route accepts afterwards, so giving it is a form and taking it back is
-  either the erasure that removes the person outright or a hand edit in the database console
-  ([`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)).
-  The same holds for a referee's record and for the media consent on either. I ruled on 2026-09-21
-  that a control a person reaches themselves is built with the account tiers; until then the notice's
-  e-mail route and the runbook's step stand. The question to put is whether a withdrawal performed by
-  hand inside Art. 12 (3)'s period satisfies that article at this scale meanwhile.
+- **A referee's withdrawal changes no fixture page until the fixture read joins the record, for the
+  Datenschutzexperte.** A pupil and a referee each move their own record on the account page
+  (`fl_backend/app/api/spieler/selbst_router.py :: patch_einwilligung`,
+  `fl_backend/app/api/schiedsrichter/person_router.py :: patch_einwilligung`), and a pupil's squad
+  lists read the record they move; the fixture list still serves the name its own copy of the
+  referee holds. The question to put is whether that gap, until the fixture read joins the record,
+  needs the e-mail route kept open for referees meanwhile.
 - **The Ansprechperson's and the Stellvertretung's eighteen as contractual capacity rather than a
   consent, for the Datenschutzexperte.** [Section 2](#2-consent-comes-from-the-person-from-16-or-18)
   argues it, and `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS` performs it. The

@@ -76,6 +76,7 @@ SERVICE_PACKAGES: frozenset[str] = frozenset(
         "einladungen",
         "einwilligung",
         "identitaet",
+        "konto",
         "kontakte",
         "registrierungen",
         "saisons",
