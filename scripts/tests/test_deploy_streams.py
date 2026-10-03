@@ -501,13 +501,34 @@ def _judged(setup: str, key: str, env: str) -> str:
     return output
 
 
+def _placing_step(text: str) -> list[str]:
+    """The development machine's placing step, the server's being `sudo install` to a uid this host may not have."""
+    placed = re.findall(r"`(\(umask 077 && mkdir -p secrets && mv \"\$t/key\" secrets/fl_actor_signing_key\) && rm -rf \"\$t\")`", text)
+    assert len(placed) == 1, placed
+    return placed
+
+
+def test_a_placing_step_that_fails_keeps_the_only_key() -> None:
+    """The temporary directory holds the one copy of the private half, so a failed placing must leave it there."""
+    text = RUNBOOKS.read_text(encoding="utf-8")
+    generate = next(line for line in text.splitlines() if line.startswith('t="$(mktemp -d)" && (umask 077 && openssl genpkey'))
+    # A file where the directory goes, so the step's `mkdir -p secrets` fails.
+    blocked = ": > secrets"
+    # In a shell of its own, as a person pastes it: the harness's `errexit` would stop at the failure.
+    step = f"t=\"$t\" bash -c '{_placing_step(text)[0]}' || true"
+    kept = 'printf "kept=%s\\n" "$(test -f "$t/key" && echo 1 || echo 0)"; rm -rf "$t"'
+    code, output, _ = _run(f"{generate}\n{blocked}\n{step}\n{kept}")
+
+    assert code == 0, output
+    assert "kept=1" in output, output
+
+
 def test_the_runbooks_command_writes_a_pair_the_check_passes() -> None:
     """Run as the runbook prints it, over the fixture's own `fl_backend/.env`: Git Bash's `openssl` is the carriage-return case."""
     text = RUNBOOKS.read_text(encoding="utf-8")
     generate = next(line for line in text.splitlines() if line.startswith('t="$(mktemp -d)" && (umask 077 && openssl genpkey'))
     # The development machine's placing step, the server's being `sudo install` to a uid this host may not have.
-    placed = re.findall(r"`(\(umask 077 && mkdir -p secrets && mv \"\$t/key\" secrets/fl_actor_signing_key\); rm -rf \"\$t\")`", text)
-    assert len(placed) == 1, placed
+    placed = _placing_step(text)
     # The server's `secrets/` is root's, so the generating line writes nothing there: counted between the two steps.
     inside = 'printf "inside=%s\\n" "$(ls -A secrets 2>/dev/null | wc -l | tr -d \' \')"'
     command = f"{generate}\n{inside}\n{placed[0]}"

@@ -1362,11 +1362,11 @@ the deploying user cannot write there on the server, where the directory is root
 Then put the private half in place, from the same shell, which still holds `$t`:
 
 - **On the server**, owned by the frontend's user and readable by it alone:
-  `sudo install -o 1001 -g 1001 -m 400 "$t/key" secrets/fl_actor_signing_key; rm -rf "$t"`.
+  `sudo install -o 1001 -g 1001 -m 400 "$t/key" secrets/fl_actor_signing_key && rm -rf "$t"`.
   `install` replaces a key the deploying user cannot write, which is what an earlier pair left
   behind. `deploy.sh` warns where the key's mode lets any other account reach it.
 - **On a development machine**:
-  `(umask 077 && mkdir -p secrets && mv "$t/key" secrets/fl_actor_signing_key); rm -rf "$t"`.
+  `(umask 077 && mkdir -p secrets && mv "$t/key" secrets/fl_actor_signing_key) && rm -rf "$t"`.
 - **For `pnpm dev`**, write nothing more: the `dev` script names the file itself
   ([`spec.md`](spec.md) §1.5). Never name it in `fl_frontend/.env`, which the frontend container
   reads too: it would look for the key at that path rather than at its mount, and refuse to start.
