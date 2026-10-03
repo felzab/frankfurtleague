@@ -1,14 +1,19 @@
 import asyncio
 import re
 from copy import deepcopy
+from http import HTTPStatus
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.api.einwilligung.router import get_fassung, get_seiten
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, find_fassung_refusal
+from app.core.config import API_VERSION
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.main import create_app
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
+from tests.config import BASE_AUTH, build_test_config
 from tests.einwilligung_document import DOCUMENT_PATH, DRIFT_REPAIR, REGENERATE, build_document, read_document
 from tests.openapi_document import describe_drift
 
@@ -110,6 +115,36 @@ class TestTheWordsRead:
 
     def test_the_pages_read_answers_every_running_label(self):
         assert asyncio.run(get_seiten()).laufende_fassungen == dict(LAUFENDE_FASSUNGEN)
+
+
+# Over HTTP, as a caller meets them: the handler cases above skip the response model's
+# serialisation and the failure body.
+CLIENT = TestClient(create_app(build_test_config()), raise_server_exceptions=False)
+PREFIX = f"/api/v{API_VERSION}/einwilligung"
+
+
+class TestTheReadsOverHttp:
+    """A missing or wrong key is `tests/api/test_dependency_refusals.py`'s, which probes every operation."""
+
+    def test_every_label_is_answered_as_the_registry_holds_it(self):
+        for label in FASSUNGEN:
+            response = CLIENT.get(f"{PREFIX}/fassungen/{label}", headers=BASE_AUTH)
+
+            assert response.status_code == HTTPStatus.OK, label
+            assert response.json() == {"acknowledged": 1, "fassung": as_registered(label)}, label
+
+    def test_a_label_the_registry_does_not_hold_is_the_not_found_body(self):
+        response = CLIENT.get(f"{PREFIX}/fassungen/2026-07", headers=BASE_AUTH)
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert response.json()["error_code"] == DOCUMENT_NOT_FOUND
+        assert set(response.json()) == {"error_code", "trace_id"}
+
+    def test_the_pages_are_answered_with_their_running_labels(self):
+        response = CLIENT.get(f"{PREFIX}/seiten", headers=BASE_AUTH)
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {"acknowledged": 1, "laufende_fassungen": dict(LAUFENDE_FASSUNGEN)}
 
 
 class TestTheCommittedDocument:
