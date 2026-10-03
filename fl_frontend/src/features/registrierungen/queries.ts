@@ -1,9 +1,32 @@
+import { cache } from "react";
+
+import { apiClient } from "@/core/api";
+import { runPersonRead } from "@/shared/utils/personRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postBestaetigungAnsicht, postEinladungAnsicht } from "./mutations";
+import { FLOffeneRegistrierungenResponseSchema } from "./schemas";
 import { einladungZustand, mapRegistrierungAnsichtRefusal } from "./utils";
 
+import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { FLOffeneRegistrierungenResponse } from "./schemas";
 import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
+
+/**
+ * A team's pending registrations, from one end of the queue: a capped read keeps the newest, so the
+ * page offers the other end where `vollstaendig` is false. Never cached, the read being the person's
+ * own; memoised per render pass.
+ */
+export const getOffeneRegistrierungen = cache(
+  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> =>
+    runPersonRead(() =>
+      apiClient<FLOffeneRegistrierungenResponse>(
+        `/registrierungen/kader/${encodeURIComponent(teamId)}/${encodeURIComponent(saisonId)}`,
+        FLOffeneRegistrierungenResponseSchema,
+        { authType: "admin", params: { order: order } },
+      ),
+    ),
+);
 
 /**
  * One invite's standing, read on every open and stored nowhere: a read records nothing, not even a

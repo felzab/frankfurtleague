@@ -1170,9 +1170,17 @@ const SCOPED_BANS = [
   // takes the directive per function, which a module-wide ban would refuse.
   [
     {
-      files: ["admin", "aktionen", "bewerbungen", "einladungen", "funktionen", "schiedsrichter", "sperrliste", "spielorte"].map(
-        (slice) => `src/features/${slice}/queries.ts`,
-      ),
+      files: [
+        "admin",
+        "aktionen",
+        "bewerbungen",
+        "einladungen",
+        "funktionen",
+        "registrierungen",
+        "schiedsrichter",
+        "sperrliste",
+        "spielorte",
+      ].map((slice) => `src/features/${slice}/queries.ts`),
       selector:
         "ExpressionStatement[directive=/^use cache/], :matches(CallExpression > Identifier.callee, CallExpression > MemberExpression.callee > Identifier.property, ImportSpecifier > Identifier.imported)[name=/^(?:cacheTag|cacheLife)$/], CallExpression > MemberExpression.callee[computed=true] > Literal.property[value=/^(?:cacheTag|cacheLife)$/]",
       message:

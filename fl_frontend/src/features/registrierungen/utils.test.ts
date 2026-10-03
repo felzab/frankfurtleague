@@ -13,9 +13,12 @@ import { alterAusserhalb } from "./constants.ts";
 import {
   einladungZustand,
   formularZustand,
+  mapAblehnungRefusal,
+  mapAufnahmeRefusal,
   mapBestaetigungRefusal,
   mapRegistrierungAnsichtRefusal,
   mapRegistrierungSubmitRefusal,
+  REGISTRIERUNG_SCHON_ENTSCHIEDEN,
   registrierungPayload,
 } from "./utils.ts";
 
@@ -348,6 +351,55 @@ describe("what a refused READ says about a link", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-ROUTE-002", 405)), null);
     for (const operation of ["POST /registrierungen/einladung/ansicht", "POST /registrierungen/bestaetigung/ansicht"]) {
       assert.equal(mapRegistrierungAnsichtRefusal(refusedOn(operation, "REQ-VAL-002")), null, operation);
+    }
+  });
+});
+
+const AUFNEHMEN_OPERATION = "POST /registrierungen/{registrierung_id}/aufnehmen";
+const ABLEHNEN_OPERATION = "POST /registrierungen/{registrierung_id}/ablehnen";
+
+describe("what a refused decision on a registration shows a seat holder", () => {
+  /* The admission's own rules are the slice's words; a lost seat, a ban on the seat holder and the
+     unique index are the person spine's, which a seat holder meets alike on every person route. */
+  it("words every rule the admission publishes and leaves the spine's codes to the spine", () => {
+    const own = [
+      "DB-COMMON-001",
+      "REQ-REGISTRIERUNG-003",
+      "REQ-REGISTRIERUNG-009",
+      "REQ-REGISTRIERUNG-013",
+      "REQ-REGISTRIERUNG-014",
+      "REQ-REGISTRIERUNG-015",
+      "REQ-SQUAD-003",
+    ];
+
+    for (const code of publishedRefusals(AUFNEHMEN_OPERATION)) {
+      const worded = mapAufnahmeRefusal(refusedOn(AUFNEHMEN_OPERATION, code));
+      assert.equal(worded !== null, own.includes(code), `${code} is ${worded === null ? "not worded" : "worded"} by the slice`);
+    }
+  });
+
+  /* A team is never told that a pupil's address is barred: the admission's ban refusal says no more
+     than that the league has to look at it. */
+  it("tells a seat holder nothing about a ban", () => {
+    const sentence = mapAufnahmeRefusal(refusedOn(AUFNEHMEN_OPERATION, "REQ-REGISTRIERUNG-009")) ?? "";
+
+    assert.notEqual(sentence, "");
+    for (const verboten of [/sperr/i, /liste/i, /blockiert/i, /E-Mail/i]) assert.doesNotMatch(sentence, verboten, sentence);
+  });
+
+  // The administrator's remedy for a full squad raises the cap, which no seat holder can.
+  it("sends a seat holder with a full squad to the league rather than to the season's rules", () => {
+    const sentence = mapAufnahmeRefusal(refusedOn(AUFNEHMEN_OPERATION, "REQ-SQUAD-003")) ?? "";
+
+    assert.match(sentence, /Liga/);
+    assert.doesNotMatch(sentence, /Kadergröße|Saisonregeln/);
+  });
+
+  it("answers a row another seat decided first alike on both decisions, and leaves the decline's other codes to the spine", () => {
+    assert.equal(mapAufnahmeRefusal(refusedOn(AUFNEHMEN_OPERATION, "DB-COMMON-001")), REGISTRIERUNG_SCHON_ENTSCHIEDEN);
+    assert.equal(mapAblehnungRefusal(refusedOn(ABLEHNEN_OPERATION, "DB-COMMON-001")), REGISTRIERUNG_SCHON_ENTSCHIEDEN);
+    for (const code of publishedRefusals(ABLEHNEN_OPERATION).filter((code) => code !== "DB-COMMON-001")) {
+      assert.equal(mapAblehnungRefusal(refusedOn(ABLEHNEN_OPERATION, code)), null, `${code} is worded by the slice rather than the spine`);
     }
   });
 });

@@ -4,6 +4,8 @@ import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import {
   FLEinladungAnsichtResponseSchema,
   FLPostRegistrierungResponseSchema,
+  FLRegistrierungAblehnungResponseSchema,
+  FLRegistrierungAufnahmeResponseSchema,
   FLRegistrierungBestaetigungAnsichtResponseSchema,
   FLRegistrierungBestaetigungResponseSchema,
   FLRegistrierungSweepResponseSchema,
@@ -14,6 +16,10 @@ import type {
   FLEinladungAnsichtResponse,
   FLPostRegistrierungPayload,
   FLPostRegistrierungResponse,
+  FLRegistrierungAblehnenPayload,
+  FLRegistrierungAblehnungResponse,
+  FLRegistrierungAufnahmeResponse,
+  FLRegistrierungAufnehmenPayload,
   FLRegistrierungBestaetigungAnsichtPayload,
   FLRegistrierungBestaetigungAnsichtResponse,
   FLRegistrierungBestaetigungPayload,
@@ -70,6 +76,30 @@ export async function postSpielerBestaetigung(payload: FLRegistrierungBestaetigu
     authType: "base",
     body: JSON.stringify(payload),
   });
+}
+
+/** Admits one registration; the id goes in the path and the body names whom it is admitted into. */
+export async function postRegistrierungAufnehmen(
+  registrierungId: string,
+  payload: FLRegistrierungAufnehmenPayload,
+): Promise<FLRegistrierungAufnahmeResponse> {
+  return apiClient<FLRegistrierungAufnahmeResponse>(
+    `/registrierungen/${encodeURIComponent(registrierungId)}/aufnehmen`,
+    FLRegistrierungAufnahmeResponseSchema,
+    { method: "POST", authType: "admin", body: JSON.stringify(payload) },
+  );
+}
+
+/** Declines one registration under a fixed reason. */
+export async function postRegistrierungAblehnen(
+  registrierungId: string,
+  payload: FLRegistrierungAblehnenPayload,
+): Promise<FLRegistrierungAblehnungResponse> {
+  return apiClient<FLRegistrierungAblehnungResponse>(
+    `/registrierungen/${encodeURIComponent(registrierungId)}/ablehnen`,
+    FLRegistrierungAblehnungResponseSchema,
+    { method: "POST", authType: "admin", body: JSON.stringify(payload) },
+  );
 }
 
 /**

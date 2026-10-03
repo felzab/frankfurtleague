@@ -52,6 +52,7 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 const { FormGruppenSwapSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx");
 const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
 const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
+const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -561,6 +562,27 @@ const STEP_UP_DUE = sicherheit({ passkeys: [passkey("laptop", "Laptop")], enrolm
 
 /** A sign-in's control, named by the minute it began, which is what tells two rows apart. */
 const abmelden = (minute: string) => new RegExp(`vom 25\\. September 2026, ${minute} abmelden$`);
+
+/** One confirmed pending registration on team A, as the seat holder's read serves it. */
+const registrierung = (registrierung_id: string, vorname: string, nachname: string) => ({
+  registrierung_id,
+  eingereicht_am: "2026-09-20",
+  vorname,
+  nachname,
+  nummer: null,
+  position: null,
+  stufe: null,
+  aufnehmbar: true,
+  nummer_doppelt: false,
+  person: null,
+  vorschlaege: [],
+});
+const REG_LENA = registrierung("68c1f0a2b3c4d5e6f7a8b941", "Lena", "Meier");
+const REG_MIA = registrierung("68c1f0a2b3c4d5e6f7a8b942", "Mia", "Schmidt");
+
+/** Team A's registrations page holding `rows`, whatever the refresh after a decision left. */
+const registrierungen = (rows: readonly ReturnType<typeof registrierung>[]) =>
+  h(RegistrierungenView, { registrierungen: rows, adresse: { team_id: TEAM_A, saison_id: "2026" }, unvollstaendig: null });
 
 const LANDINGS: Record<string, Landing> = {
   "a venue row's reactivation, on the retirement replacing it": {
@@ -1072,6 +1094,18 @@ const LANDINGS: Record<string, Landing> = {
     after: () => teamEditor(null),
     remount: true,
     lands: () => heading("SG Alpha"),
+  },
+  "a registration's admission, on the next row's admission": {
+    before: () => registrierungen([REG_LENA, REG_MIA]),
+    press: (user) => pressTwice(user, { resting: "Lena Meier aufnehmen", armed: "Ja, aufnehmen" }),
+    after: () => registrierungen([REG_MIA]),
+    lands: () => screen.getByRole("button", { name: "Mia Schmidt aufnehmen" }),
+  },
+  "a registration's decline, the last row, on the queue's heading": {
+    before: () => registrierungen([REG_LENA]),
+    press: (user) => pressTwice(user, { resting: "Registrierung von Lena Meier ablehnen", armed: "Ja, ablehnen" }),
+    after: () => registrierungen([]),
+    lands: () => heading("Offene Registrierungen"),
   },
 };
 

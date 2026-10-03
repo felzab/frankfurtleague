@@ -59,6 +59,16 @@ describe("what the team shell lists", () => {
     }
   });
 
+  // Named literally for the squad case's reason above.
+  it("lists the registrations page for every seat, a Trainer-only seat included", () => {
+    for (const rolle of ["ansprechperson", "trainer", "stellvertretung"] as const) {
+      assert.ok(
+        listedAt([seat({ rolle: rolle })], TEAM_A, "2526").includes("registrierungen"),
+        `a ${rolle} seat is not shown the registrations`,
+      );
+    }
+  });
+
   /* A pupil's row or a referee's is no seat on any team, even one carrying the address's own team and
      season, which none carries today and a later Funktion may: only the `art` tells it from a seat. */
   it("lists nothing for a Funktion that is no seat", () => {

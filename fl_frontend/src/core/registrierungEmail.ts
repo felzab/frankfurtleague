@@ -268,9 +268,8 @@ export function buildRegistrierungSaisonendeEmail(data: RegistrierungNotizEmailD
 }
 
 /**
- * What the pupil is asked to do after a decline, by its reason. A team answering that the address
- * belongs to somebody else has refused the address rather than the pupil, so that note sends them
- * back with one of their own.
+ * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
+ * refused the address rather than the pupil, so that note sends them back with one of their own.
  */
 const ABSAGE_WEITER: Readonly<Record<NonNullable<RegistrierungAbsageGrund> | "keiner", string>> = {
   andere_person:

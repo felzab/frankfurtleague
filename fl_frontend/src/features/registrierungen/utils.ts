@@ -184,6 +184,83 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
   }
 }
 
+/** The registrations page with nothing pending: a decided queue and one nobody joined read alike. */
+export const REGISTRIERUNGEN_LEER = "Keine offenen Registrierungen.";
+
+/** Why an unconfirmed row offers no admission: its address is unverified until the pupil's own link is followed. */
+export const NOCH_NICHT_BESTAETIGT = "Aufnehmen kannst Du erst, wenn die Person ihren Link bestätigt hat.";
+
+/**
+ * The same-person question. It names the stored person and never the differing values: the stored
+ * birthdate was promised to the administrators alone.
+ */
+export const ANGABEN_WEICHEN_AB = "Die Angaben weichen von einem früheren Eintrag ab.";
+export const dieselbePerson = (name: string): string => `Ist das dieselbe Person wie ${name}?`;
+
+/** „Vorname Nachname“ of a stored person, whose surname may be missing on a record entered before it was asked. */
+export function personName({ vorname, nachname }: { vorname: string; nachname: string | null }): string {
+  return nachname === null ? vorname : `${vorname} ${nachname}`;
+}
+
+/** A registration another seat decided since the page was drawn: the press meets no pending row. */
+export const REGISTRIERUNG_SCHON_ENTSCHIEDEN = buildRefusal({
+  reason: "Diese Registrierung ist schon entschieden",
+  repair: "Lade die Seite neu",
+});
+
+/**
+ * A refused admission as the registrations page words it to a seat holder, or `null` for a code the
+ * person spine answers. **The ban's refusal is neutral**: a team is never told that a pupil's address is barred.
+ */
+export function mapAufnahmeRefusal(error: unknown): string | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    case "DB-COMMON-001":
+      return REGISTRIERUNG_SCHON_ENTSCHIEDEN;
+    // The list marks the row and offers no press, so only a page older than the pupil's state sends this.
+    case "REQ-REGISTRIERUNG-013":
+      return buildRefusal({
+        reason: "Diese Registrierung ist noch nicht bestätigt",
+        repair: "Nimm sie auf, sobald die Person ihren Link bestätigt hat",
+      });
+    case "REQ-REGISTRIERUNG-009":
+      return buildRefusal({ reason: "Diese Registrierung kann nicht aufgenommen werden", repair: "Wende Dich an die Liga" });
+    case "REQ-REGISTRIERUNG-003":
+      return buildRefusal({
+        reason: "Diese Stufe ist in dieser Saison nicht zugelassen",
+        repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
+      });
+    // The page sends exactly the person the read resolved or proposed, so this is a page older than
+    // the stored person it names.
+    case "REQ-REGISTRIERUNG-014":
+      return buildRefusal({
+        reason: "Wen diese Registrierung meint, hat sich seit dem Laden der Seite geändert",
+        repair: "Lade die Seite neu und entscheide erneut",
+      });
+    case "REQ-REGISTRIERUNG-015":
+      return buildRefusal({
+        reason: "Diese Person steht in dieser Saison schon in einem Kader",
+        repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
+      });
+    // The administrator's remedy, raising the cap, is no seat holder's: the league is.
+    case "REQ-SQUAD-003":
+      return buildRefusal({
+        reason: "Der Kader Deines Teams ist für diese Saison voll",
+        repair: "Wende Dich an die Liga, wenn noch jemand dazukommen soll",
+      });
+    default:
+      return null;
+  }
+}
+
+/** A refused decline as the registrations page words it, or `null` for a code the person spine answers. */
+export function mapAblehnungRefusal(error: unknown): string | null {
+  if (!isRefusal(error)) return null;
+
+  return error.serverErrorCode === "DB-COMMON-001" ? REGISTRIERUNG_SCHON_ENTSCHIEDEN : null;
+}
+
 /**
  * A refused read as the panel it renders, or `null` where the read failed instead.
  *

@@ -225,3 +225,99 @@ export const FLRegistrierungSweepResponseSchema = BaseAPIResponseSchema.extend({
   redigierte_aktionen: z.int().nonnegative(),
 });
 export type FLRegistrierungSweepResponse = z.infer<typeof FLRegistrierungSweepResponseSchema>;
+
+/**
+ * The stored person a confirmed registration's address resolves to. `weicht_ab` is all the read says
+ * about a difference: the stored birthdate was promised to administrators alone, so no value travels.
+ */
+export const FLRegistrierungPersonSchema = z.object({
+  spieler_id: CustomObjectIdStringSchema,
+  vorname: z.string(),
+  nachname: z.string().nullable(),
+  weicht_ab: z.boolean(),
+});
+export type FLRegistrierungPerson = z.infer<typeof FLRegistrierungPersonSchema>;
+
+/** A stored person holding no address whose name matches: proposed, never resolved, a typed name being a weaker key than an address. */
+export const FLRegistrierungVorschlagSchema = z.object({
+  spieler_id: CustomObjectIdStringSchema,
+  vorname: z.string(),
+  nachname: z.string().nullable(),
+});
+export type FLRegistrierungVorschlag = z.infer<typeof FLRegistrierungVorschlagSchema>;
+
+/** One pending registration as a team's seat reads it: no address, no birthdate and no consent at any depth. */
+export const FLOffeneRegistrierungSchema = z.object({
+  registrierung_id: CustomObjectIdStringSchema,
+  eingereicht_am: CustomDateStringSchema,
+  vorname: z.string(),
+  nachname: z.string(),
+  nummer: z.string().nullable(),
+  position: FLSpielerPositionSchema.nullable(),
+  stufe: FLSpielerStufeSchema.nullable(),
+  // The pupil's own confirmation, which is what verified the address: an unconfirmed row is listed so
+  // a team can tell "nobody registered" from "somebody has not answered", and admits nobody.
+  aufnehmbar: z.boolean(),
+  nummer_doppelt: z.boolean(),
+  person: FLRegistrierungPersonSchema.nullable(),
+  vorschlaege: z.array(FLRegistrierungVorschlagSchema),
+});
+export type FLOffeneRegistrierung = z.infer<typeof FLOffeneRegistrierungSchema>;
+
+export const FLOffeneRegistrierungenResponseSchema = BaseAPIResponseSchema.extend({
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string(),
+  registrierungen: z.array(FLOffeneRegistrierungSchema),
+  // False where the read served one end of a longer queue: the page then offers the other end.
+  vollstaendig: z.boolean(),
+});
+export type FLOffeneRegistrierungenResponse = z.infer<typeof FLOffeneRegistrierungenResponseSchema>;
+
+/**
+ * Whom the registration is admitted into: `null` makes a new person or takes the one its address
+ * resolves to under the same name, an id is the representative's yes to that person or to a proposal.
+ */
+export const FLRegistrierungAufnehmenPayloadSchema = z.object({
+  spieler_id: CustomObjectIdStringSchema.nullable(),
+});
+export type FLRegistrierungAufnehmenPayload = z.infer<typeof FLRegistrierungAufnehmenPayloadSchema>;
+
+export const FLRegistrierungAufnahmeResponseSchema = BaseAPIResponseSchema.extend({
+  registrierung_id: CustomObjectIdStringSchema,
+  spieler_id: CustomObjectIdStringSchema,
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string(),
+  vorname: z.string(),
+  nachname: z.string(),
+  nummer: z.string().nullable(),
+  position: FLSpielerPositionSchema.nullable(),
+  stufe: FLSpielerStufeSchema.nullable(),
+  ist_nachnominiert: z.boolean(),
+});
+export type FLRegistrierungAufnahmeResponse = z.infer<typeof FLRegistrierungAufnahmeResponseSchema>;
+
+/** A fixed choice and never free text: the decline note picks its sentence from it, and nothing a team types reaches the pupil. */
+export const FLRegistrierungAblehnungsgrundSchema = z.enum(["andere_person"]);
+export type FLRegistrierungAblehnungsgrund = z.infer<typeof FLRegistrierungAblehnungsgrundSchema>;
+
+export const FLRegistrierungAblehnenPayloadSchema = z.object({
+  grund: FLRegistrierungAblehnungsgrundSchema.nullable(),
+});
+export type FLRegistrierungAblehnenPayload = z.infer<typeof FLRegistrierungAblehnenPayloadSchema>;
+
+/**
+ * The decline's echo. `email` is the address as typed, answered for the server-side mailer alone: the
+ * action hands the browser none of it.
+ */
+export const FLRegistrierungAblehnungResponseSchema = BaseAPIResponseSchema.extend({
+  registrierung_id: CustomObjectIdStringSchema,
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string(),
+  team: z.string(),
+  vorname: z.string(),
+  email: z.string(),
+  // Whether the address was ever verified, which decides whether the decline is mailed at all.
+  bestaetigt: z.boolean(),
+  grund: FLRegistrierungAblehnungsgrundSchema.nullable(),
+});
+export type FLRegistrierungAblehnungResponse = z.infer<typeof FLRegistrierungAblehnungResponseSchema>;
