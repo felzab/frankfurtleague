@@ -170,8 +170,9 @@ const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
 
 const kontaktePayload = (overrides: Record<string, unknown> = {}) => ({
   trainer: kontaktpersonPayload(),
-  ansprechperson: kontaktpersonPayload({ vorname: "Max" }),
-  stellvertretung: kontaktpersonPayload({ vorname: "Lena" }),
+  // Each seat its own person: two seats sharing an address or a number are refused as one person twice.
+  ansprechperson: kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" }),
+  stellvertretung: kontaktpersonPayload({ vorname: "Lena", email: "lena@beispiel.de", telefon: "069 2345678" }),
   trainer_ist_zugleich: null,
   ...overrides,
 });
@@ -211,6 +212,44 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
     assert.deepEqual(
       pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "erika@ab-.de" }) })),
       ["trainer.email"],
+    );
+  });
+
+  /* The application's two rules, which the API applies to this block too: refused there they arrive as
+     a 422 naming the block, so they are judged here, each on the box of the later seat. */
+  it("refuses two seats sharing an address or a number, on the later seat's box", () => {
+    assert.deepEqual(
+      pathsRefused(
+        FLSaisonTeamKontaktePayloadSchema,
+        kontaktePayload({ stellvertretung: kontaktpersonPayload({ vorname: "Lena", email: "MAX@beispiel.de", telefon: "069 2345678" }) }),
+      ),
+      ["stellvertretung.email"],
+    );
+    assert.deepEqual(
+      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ telefon: "+49 69 7654321" }) })),
+      ["trainer.telefon"],
+    );
+  });
+
+  /* An empty seat holds nobody to compare, so a row an erasure emptied never fails on the person gone. */
+  it("compares no seat an erasure emptied", () => {
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ ansprechperson: null, stellvertretung: null })), []);
+  });
+
+  /* The paired Trainer IS the named seat's person: sharing everything is the point, and a difference is a drift. */
+  it("compares a paired Trainer as one person with the seat it holds", () => {
+    const max = kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" });
+
+    assert.deepEqual(
+      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: max, trainer_ist_zugleich: "ansprechperson" })),
+      [],
+    );
+    assert.deepEqual(
+      pathsRefused(
+        FLSaisonTeamKontaktePayloadSchema,
+        kontaktePayload({ trainer: { ...max, vorname: "Maximilian" }, trainer_ist_zugleich: "ansprechperson" }),
+      ),
+      ["ansprechperson.vorname"],
     );
   });
 });

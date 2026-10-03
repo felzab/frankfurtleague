@@ -63,12 +63,15 @@ const aRefusal = (serverErrorCode: string, statusCode = 409) =>
     traceId: "0",
   });
 
+/** A number per person: two seats sharing one are refused as one person entered twice. */
+const TELEFON: Record<string, string> = { Anna: "069 501", Bernd: "069 502", Clara: "069 503" };
+
 /** One seat as an administrator types it into the editor, under the running label. */
 const sitz = (vorname: string, email: string) => ({
   vorname,
   nachname: "Meier",
   email,
-  telefon: "069 1234567",
+  telefon: TELEFON[vorname] ?? "069 1234567",
   einwilligung: { umfang: "kontaktdaten" as const, text_version: LIGA_KENNTNISNAHME.textVersion, datum: "2026-10-03" },
 });
 

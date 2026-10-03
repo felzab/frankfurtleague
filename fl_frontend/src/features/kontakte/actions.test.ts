@@ -31,11 +31,14 @@ const { FormKontakteSection } = await import("./components/forms/AdminKontakteEd
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { default: AdminKontaktePage } = await import("@/app/bereich/admin/kontakte/page.tsx");
 
+/** A number per person: two seats sharing one are refused as one person entered twice. */
+const TELEFON: Record<string, string> = { Ada: "069 111", Grace: "069 222", Alan: "069 333" };
+
 const person = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
   vorname,
   nachname,
   email,
-  telefon: "069 111",
+  telefon: TELEFON[vorname] ?? "069 444",
   geburtsdatum: "1990-12-10",
   einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
 });

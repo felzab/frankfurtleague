@@ -121,11 +121,12 @@ async function saveThrough(user: UserEvent): Promise<void> {
 
 const ADDRESS = { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" };
 
-const PERSON = (vorname: string, email: string): FLKontaktperson => ({
+// A number per person: two seats sharing one are refused as one person entered twice.
+const PERSON = (vorname: string, email: string, telefon: string): FLKontaktperson => ({
   vorname,
   nachname: "Meier",
   email,
-  telefon: "069 111",
+  telefon,
   geburtsdatum: "1990-12-10",
   einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
 });
@@ -357,9 +358,9 @@ const EDITORS: Record<string, Editor> = {
               austritt: null,
               trikot_farbe: null,
               kontakte: {
-                ansprechperson: PERSON("Grace", "grace@example.org"),
-                stellvertretung: PERSON("Alan", "alan@example.org"),
-                trainer: PERSON("Ada", "ada@example.org"),
+                ansprechperson: PERSON("Grace", "grace@example.org", "069 111"),
+                stellvertretung: PERSON("Alan", "alan@example.org", "069 222"),
+                trainer: PERSON("Ada", "ada@example.org", "069 333"),
                 trainer_ist_zugleich: null,
               },
               kontakte_stand: "stand",

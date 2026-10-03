@@ -42,11 +42,14 @@ function antwortFuer(endpoint: string): unknown {
       };
 }
 
+/** A number per person: two seats sharing one are refused as one person entered twice. */
+const TELEFON: Record<string, string> = { Ada: "069 501", Grace: "069 502", Alan: "069 503" };
+
 const storedSeat = (vorname: string, textVersion: string): FLKontaktperson => ({
   vorname,
   nachname: "Muster",
   email: `${vorname.toLowerCase()}@schule.example`,
-  telefon: "069 3333333",
+  telefon: TELEFON[vorname] ?? "069 3333333",
   geburtsdatum: "1990-12-10",
   einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: textVersion, datum: "2026-09-01", bestaetigt_am: "2026-09-02" },
 });
@@ -56,7 +59,7 @@ const sentSeat = (vorname: string, textVersion: string): FLKontaktpersonPayload 
   vorname,
   nachname: "Muster",
   email: `${vorname.toLowerCase()}@schule.example`,
-  telefon: "069 3333333",
+  telefon: TELEFON[vorname] ?? "069 3333333",
   einwilligung: { umfang: "kontaktdaten", text_version: textVersion, datum: "2026-09-01" },
 });
 

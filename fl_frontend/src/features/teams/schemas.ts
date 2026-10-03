@@ -27,6 +27,7 @@ import {
   TEAM_NAME_MAX_LENGTH,
   TEAM_WEBSITE_URL_MAX_LENGTH,
 } from "./constants";
+import { kontaktePersonenRegeln } from "./kontaktePersonen";
 
 /**
  * A club's website, or none. **`null` is the one spelling of absence and `""` is not admitted** —
@@ -205,17 +206,34 @@ export const FLSaisonTeamKontakteSchema = z.object({
 });
 export type FLSaisonTeamKontakte = z.infer<typeof FLSaisonTeamKontakteSchema>;
 
+const SITZE_LESBAR_ODER_LEER = z.object({
+  ansprechperson: z.object({}).nullable(),
+  stellvertretung: z.object({}).nullable(),
+  trainer: z.object({}).nullable(),
+});
+
 /**
  * Mirrors `FLSaisonTeamKontaktePayload` — the write side of the three, with the editor's German and
  * the empty slot an erasure leaves. Three whole people in a NEW block is the form's guarantee.
  */
-export const FLSaisonTeamKontaktePayloadSchema = z.object({
-  // Empty is what an erasure leaves; accepting it here is what keeps such a row editable at all.
-  trainer: FLKontaktpersonPayloadSchema.nullable(),
-  ansprechperson: FLKontaktpersonPayloadSchema.nullable(),
-  stellvertretung: FLKontaktpersonPayloadSchema.nullable(),
-  trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
-});
+export const FLSaisonTeamKontaktePayloadSchema = z
+  .object({
+    // Empty is what an erasure leaves; accepting it here is what keeps such a row editable at all.
+    trainer: FLKontaktpersonPayloadSchema.nullable(),
+    ansprechperson: FLKontaktpersonPayloadSchema.nullable(),
+    stellvertretung: FLKontaktpersonPayloadSchema.nullable(),
+    trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
+  })
+  // The application's two rules, so a refusal lands on the box rather than on a 422 naming the block.
+  .superRefine(
+    kontaktePersonenRegeln({
+      email: FLKontaktpersonPayloadSchema.shape.email,
+      telefon: FLKontaktpersonPayloadSchema.shape.telefon,
+      zugleich: FLTrainerZugleichSchema,
+    }),
+    // Asked rather than zod's default, which skips a refinement once any check in the block aborts.
+    { when: ({ value }) => SITZE_LESBAR_ODER_LEER.safeParse(value).success },
+  );
 export type FLSaisonTeamKontaktePayload = z.infer<typeof FLSaisonTeamKontaktePayloadSchema>;
 
 export const FLTeamStatistikSchema = z.object({

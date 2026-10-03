@@ -132,7 +132,16 @@ const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>):
   });
 
 /** One stored seat. The ADDRESS is what decides whether that seat offers the person's erasure. */
-const seatPerson = (vorname: string, nachname: string, email: string): FLKontaktperson => ({ ...ADA, vorname, nachname, email });
+/** A number per person: two seats sharing one are refused as one person entered twice. */
+const TELEFON: Record<string, string> = { Ada: "069 501", Grace: "069 502", Alan: "069 503" };
+
+const seatPerson = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
+  ...ADA,
+  vorname,
+  nachname,
+  email,
+  telefon: TELEFON[vorname] ?? ADA.telefon,
+});
 
 /** Three seats filled in, which is the state most of the renders below are about. */
 const BLOCK: FLSaisonTeamKontakte = {
@@ -427,6 +436,28 @@ describe("the editor's shape", () => {
     await user.tab();
     assert.equal(refused().length, 1, "leaving a seat's field judges nothing");
   });
+
+  /* The backend refuses two seats sharing a person's address or number with a 422 naming the block,
+     which lands on no box: judged here, it lands on the seat the administrator just typed into. */
+  for (const [label, wert, satz] of [
+    ["E-Mail", "Grace@Example.org", "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen."],
+    ["Telefon", "+49 (0)69 502", "Diese Telefonnummer ist schon bei einer anderen Person eingetragen."],
+  ] as const) {
+    it(`refuses the Ansprechperson's ${label} on the Stellvertretung's box when it is left`, async () => {
+      const user = userEvent.setup({ delay: null });
+      render(editorElement(viewElement(BLOCK), BLOCK));
+      // Seats render Ansprechperson, Stellvertretung, Trainer; the second is the one typed into.
+      const box = screen.getAllByRole("textbox", { name: label })[1] ?? assert.fail(`the seats render no second ${label} box`);
+
+      await user.clear(box);
+      await user.paste(wert);
+      await user.tab();
+
+      const beschrieben = screen.queryAllByRole("textbox", { name: label, description: satz });
+      assert.equal(beschrieben.length, 1, `the refusal is on ${String(beschrieben.length)} ${label} boxes, not one`);
+      assert.ok(beschrieben[0] === box, `the refusal landed on a ${label} box other than the Stellvertretung's`);
+    });
+  }
 
   /* The claim is honoured at the ONE compose site. Written into the draft it overwrites whichever of
      two real people it does not name, on the first keystroke and with no undo — a stored row can hold
