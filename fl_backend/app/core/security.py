@@ -110,7 +110,7 @@ ACTOR_TOKEN_REFUSED = "REQ-AUTH-007"
 PERSON_BARRED = "REQ-AUTH-008"
 CONFIRMATION_REQUIRED = "REQ-AUTH-009"
 
-# The methods that record nothing (`app/core/exception_handlers.py` reads them).
+# The methods that record nothing (`tests/api/test_actor_binding.py` splits its write inventory by them).
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
