@@ -86,6 +86,7 @@ _EINWILLIGUNG_WEGE = [
     # The person's own presses on the account page.
     "PATCH /spieler/selbst/einwilligung",
     "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+    "POST /registrierungen/bestaetigung",
 ]
 _KONTAKT_KENNTNISNAHME_WEGE = [
     "POST /bewerbungen",

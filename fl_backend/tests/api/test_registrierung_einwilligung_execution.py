@@ -1,5 +1,7 @@
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -7,6 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload, FLRegistrierungBestaetigungPayload
 from app.api.registrierungen.services import (
@@ -22,6 +25,7 @@ from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
 from tests.bans import ban_list
@@ -36,6 +40,9 @@ DATABASE_NAME = worker_database("fl_registrierung_einwilligung_test")
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
+# The press's instant, and the UTC spelling its entry records it under.
+NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+AM = "2026-04-01T10:30:00+00:00"
 YESTERDAY = "2026-03-31"
 TOMORROW = "2026-04-02"
 
@@ -68,7 +75,8 @@ A_DAY_SHORT = "2010-04-02"
 # (`app/api/registrierungen/services.py :: find_medien_refusal`): a record no write could store proves nothing.
 A_RETURNING_PUPILS_BIRTHDATE = "2007-07-14"
 
-THIS_SEASONS_LABEL = "2026-09-spielerseite"
+# The label the pupil page runs, the one a new acceptance must name.
+THIS_SEASONS_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_spieler"]
 AN_OLDER_LABEL = "2025-09-spielerseite"
 
 
@@ -181,6 +189,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
+        germany_now=NOW,
     )
 
 
@@ -315,6 +324,17 @@ class TestWhatAConfirmationWrites:
             "bestaetigt_am": TODAY,
             "text_version": THIS_SEASONS_LABEL,
             "medien": False,
+            "verlauf": [
+                {
+                    "am": AM,
+                    "akt": "bestaetigt",
+                    "ueber": "POST /registrierungen/bestaetigung",
+                    "umfang": "kader_oeffentlich",
+                    "medien": False,
+                    "text_version": THIS_SEASONS_LABEL,
+                    "erteilt_von": "volljaehrig",
+                }
+            ],
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["bestaetigung"]["token_hash"] == TOKEN_HASH
@@ -381,6 +401,34 @@ class TestWhatAConfirmationWrites:
 
         assert registrierung_document()["nachname"] not in rendered and TYPED_EMAIL not in rendered
         assert TOKEN_HASH not in rendered and RAW not in rendered
+
+
+class TestTheLabelAPressNames:
+    """`REQ-EINWILLIGUNG-001`: a new acceptance names the pupil page's running label and nothing else."""
+
+    @pytest.mark.parametrize(
+        "genannt",
+        [
+            pytest.param("2026-09-spielerseite-2", id="a superseded label of the pupil page"),
+            pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"], id="the referee page's running label"),
+            pytest.param(AN_OLDER_LABEL, id="the label the returning pupil's stored record names"),
+        ],
+    )
+    def test_any_other_label_is_refused_and_spends_nothing(self, mongo_replica_set_url: str, genannt: str):
+        """The stored record's own label among them: the press is a new acceptance, never one the person already holds."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as conflict:
+                await answer(database, client, RAW, text_version=genannt)
+
+            return conflict.value, await ansicht(database, RAW), await stored(database), await log_rows(database)
+
+        refusal, view, document, rows = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID)])
+
+        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        assert view.zustand == "gueltig"
+        assert document == registrierung_document()
+        assert rows == []
 
 
 class TestTheLinkIsSpentByTheStamp:

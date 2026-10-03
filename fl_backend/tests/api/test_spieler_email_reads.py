@@ -85,9 +85,14 @@ async def seed(database: AsyncDatabase) -> ObjectId:
                 bestaetigung=compose_bestaetigung(token_hash=hash_token(TOKEN), today="2026-03-30", frist="2026-04-06"),
                 today="2026-03-30",
             ),
-            **compose_confirmation_update(geburtsdatum="2009-05-04", umfang="intern", medien=False, text_version="2026-09", today="2026-03-31")[
-                "$set"
-            ],
+            **compose_confirmation_update(
+                geburtsdatum="2009-05-04",
+                umfang="intern",
+                medien=False,
+                text_version="2026-09",
+                today="2026-03-31",
+                am="2026-03-31T08:00:00+00:00",
+            )["$set"],
         }
     )
 

@@ -28,10 +28,12 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.api.sperrliste.services import withheld_actor
+from app.api.spieler.schemas import FLEinwilligungWeg
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
+from app.shared.einwilligung_verlauf import compose_born_record
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -548,28 +550,36 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
     )
 
 
-def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str) -> Mapping[str, Any]:
+# The pupil's own answer, which the record's first entry names.
+BESTAETIGUNG_WEG: Final[FLEinwilligungWeg] = "POST /registrierungen/bestaetigung"
+
+
+def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str, am: str) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
     `docs/backend/spec.md :: I141` rests on the two landing together, and between two writes the row
     would hold a birthdate nobody had yet consented to the league keeping.
     """
 
-    return {
-        "$set": {
-            "geburtsdatum": geburtsdatum,
-            # `datum` and `bestaetigt_am` are one day here: the submission stores no record at all,
-            # so this press is both the giving of the consent and the confirming of it.
-            "einwilligung": {
-                "umfang": umfang,
-                "erteilt_von": REGISTRIERUNG_ERTEILT_VON,
-                "datum": today,
-                "bestaetigt_am": today,
-                "text_version": text_version,
-                "medien": medien,
-            },
-        }
-    }
+    # Born whole rather than moved: the submission stores no record and a second press is refused, so
+    # no earlier act stands on this block; the admission carries its entry onto the person.
+    record = compose_born_record(
+        block={
+            "umfang": umfang,
+            "erteilt_von": REGISTRIERUNG_ERTEILT_VON,
+            # `datum` and `bestaetigt_am` are one day here: this press is both the giving of the
+            # consent and the confirming of it.
+            "datum": today,
+            "bestaetigt_am": today,
+            "text_version": text_version,
+            "medien": medien,
+        },
+        akt="bestaetigt",
+        ueber=BESTAETIGUNG_WEG,
+        am=am,
+    )
+
+    return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": record}}
 
 
 # --- The retention SWEEP. Each clock is a pure predicate over one document and `today`.

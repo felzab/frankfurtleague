@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -5,6 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung.services import find_fassung_refusal
 from app.api.registrierungen.schemas import (
     FLRegistrierungBestaetigungAnsichtPayload,
     FLRegistrierungBestaetigungAnsichtResponse,
@@ -38,8 +40,10 @@ from app.core.dependencies import (
     SpielerCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
+from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -142,6 +146,7 @@ async def post_bestaetigung(
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungBestaetigungResponse:
     """
     Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.
@@ -151,10 +156,11 @@ async def post_bestaetigung(
     given under older words is renewed under the words this person just read.
 
     Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
-    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), a link mailed to
-    an address the ban list holds now, whenever the link was minted (`-012`), an age below the floor (`-007`), and a
-    media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged before
-    anything is written, so a mistyped year spends nothing and the pupil keeps the link.
+    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but
+    the pupil page's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever
+    the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor (`-007`), and a media consent from a pupil
+    below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the label and the last two judged before anything is
+    written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the link.
 
     The registration stays pending after this: an admission is a later decision, and nothing here writes a person
     or a squad row.
@@ -179,6 +185,8 @@ async def post_bestaetigung(
 
         refuse(find_expired_token_refusal(bestaetigung=raw.get("bestaetigung"), status=raw.get("status"), today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
+        # A new acceptance: the running label alone, so a page loaded before a deploy is told to reload.
+        refuse(find_fassung_refusal(seite="bestaetigung_spieler", genannt={"einwilligung": antwort_data.text_version}))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         gesperrt = await adressen_gesperrt(
@@ -197,6 +205,7 @@ async def post_bestaetigung(
                 medien=antwort_data.medien,
                 text_version=antwort_data.text_version,
                 today=today,
+                am=log_stamp(germany_now),
             ),
             session=session,
             return_document=ReturnDocument.BEFORE,

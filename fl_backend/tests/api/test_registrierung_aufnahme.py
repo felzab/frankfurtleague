@@ -38,6 +38,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.main import create_app
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -210,9 +211,14 @@ def registrierung_document(
     }
     if confirmed:
         document.update(
-            compose_confirmation_update(geburtsdatum=geburtsdatum, umfang="intern", medien=False, text_version="2026-09", today="2026-03-31")[
-                "$set"
-            ]
+            compose_confirmation_update(
+                geburtsdatum=geburtsdatum,
+                umfang="intern",
+                medien=False,
+                text_version="2026-09",
+                today="2026-03-31",
+                am="2026-03-31T08:00:00+00:00",
+            )["$set"]
         )
 
     return {**document, **fields}
@@ -375,12 +381,17 @@ class TestWhatAnAdmissionWrites:
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await post_bestaetigung(
                 antwort_data=FLRegistrierungBestaetigungPayload(
-                    token=TOKEN, geburtsdatum=GEBURTSDATUM, umfang="intern", medien=False, text_version="2026-09"
+                    token=TOKEN,
+                    geburtsdatum=GEBURTSDATUM,
+                    umfang="intern",
+                    medien=False,
+                    text_version=LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
                 ),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 sperrliste=ban_list(database),
                 db=client,
                 today=TODAY,
+                germany_now=NOW,
             )
             imaged = await database[Collection.AKTIONEN].count_documents(
                 {"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id, "before": {"$ne": None}}

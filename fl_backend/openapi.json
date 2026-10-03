@@ -7180,7 +7180,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), a link mailed to\nan address the ban list holds now, whenever the link was minted (`-012`), an age below the floor (`-007`), and a\nmedia consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged before\nanything is written, so a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe pupil page's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever\nthe link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor (`-007`), and a media consent from a pupil\nbelow `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the label and the last two judged before anything is\nwritten, so a reloaded page or a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7207,7 +7207,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-REGISTRIERUNG-004"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-REGISTRIERUNG-006"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-VAL-001"
@@ -13319,7 +13319,8 @@
             "enum": [
               "POST /schiedsrichter/bestaetigung",
               "PATCH /spieler/selbst/einwilligung",
-              "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"
+              "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+              "POST /registrierungen/bestaetigung"
             ],
             "title": "Ueber"
           },
@@ -24215,6 +24216,31 @@
           }
         }
       },
+      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-EINWILLIGUNG-001",
+                        "REQ-REGISTRIERUNG-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.DB-COMMON-002.REQ-ENTER-001.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-005": {
         "description": "Conflict",
         "content": {
@@ -24392,30 +24418,6 @@
                         "REQ-REGISTRIERUNG-014",
                         "REQ-REGISTRIERUNG-015",
                         "REQ-SQUAD-003"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-REGISTRIERUNG-006": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-REGISTRIERUNG-006"
                       ]
                     }
                   }

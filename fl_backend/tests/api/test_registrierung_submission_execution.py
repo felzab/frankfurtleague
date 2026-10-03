@@ -284,7 +284,9 @@ async def ansicht(database: AsyncDatabase, *, token: str = TOKEN) -> Any:
 async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: Any) -> None:
     """The pupil's confirmation and a confirmed seat beside it, then the team's own admission through its handler."""
 
-    confirmation = compose_confirmation_update(geburtsdatum="2009-05-04", umfang="intern", medien=False, text_version="2026-09", today=TODAY)
+    confirmation = compose_confirmation_update(
+        geburtsdatum="2009-05-04", umfang="intern", medien=False, text_version="2026-09", today=TODAY, am="2026-03-31T08:00:00+00:00"
+    )
     await database[Collection.REGISTRIERUNGEN].update_one({"_id": registrierung_id}, dict(confirmation))
     seat = documents.kontaktperson_document("Anna", bestaetigt_am=TODAY)
     await database[Collection.SAISON_TEAMS].update_one(

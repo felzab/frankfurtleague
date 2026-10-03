@@ -53,6 +53,7 @@ RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 
 A_LABEL = "2026-09-spielerseite"
+AM = "2026-04-01T08:00:00+00:00"
 
 
 def einwilligung(**overrides: Any) -> dict[str, Any]:
@@ -438,7 +439,7 @@ class TestWhatAConfirmationWrites:
     """One `$set`, so `docs/backend/spec.md :: I141`'s pairing cannot land in halves."""
 
     def test_the_date_and_the_whole_record_land_in_one_set(self):
-        update = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=True, text_version=A_LABEL, today=TODAY)
+        update = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=True, text_version=A_LABEL, today=TODAY, am=AM)
 
         assert update == {
             "$set": {
@@ -450,6 +451,18 @@ class TestWhatAConfirmationWrites:
                     "bestaetigt_am": TODAY,
                     "text_version": A_LABEL,
                     "medien": True,
+                    # Born with its one act: no record stood on the registration before this press.
+                    "verlauf": [
+                        {
+                            "am": AM,
+                            "akt": "bestaetigt",
+                            "ueber": "POST /registrierungen/bestaetigung",
+                            "umfang": "intern",
+                            "medien": True,
+                            "text_version": A_LABEL,
+                            "erteilt_von": "volljaehrig",
+                        }
+                    ],
                 },
             }
         }
@@ -457,16 +470,16 @@ class TestWhatAConfirmationWrites:
     def test_the_record_it_writes_carries_every_key_the_validator_requires(self):
         """A record short of one is refused by mongod at the write rather than by anything here, which is a 500 on the page."""
 
-        update = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=True, text_version=A_LABEL, today=TODAY)
+        update = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=True, text_version=A_LABEL, today=TODAY, am=AM)
 
         assert set(_EINWILLIGUNG["required"]) <= set(update["$set"]["einwilligung"])
 
     def test_both_answers_the_person_gave_are_stored_as_given(self):
         """Publication and media are two consents under one record, so neither may be derived from the other."""
 
-        narrow = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=False, text_version=A_LABEL, today=TODAY)
+        narrow = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=False, text_version=A_LABEL, today=TODAY, am=AM)
         wide = compose_confirmation_update(
-            geburtsdatum="2009-05-09", umfang="kader_oeffentlich", medien=True, text_version=A_LABEL, today=TODAY
+            geburtsdatum="2009-05-09", umfang="kader_oeffentlich", medien=True, text_version=A_LABEL, today=TODAY, am=AM
         )
 
         assert (narrow["$set"]["einwilligung"]["umfang"], narrow["$set"]["einwilligung"]["medien"]) == ("intern", False)
