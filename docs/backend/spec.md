@@ -46,7 +46,7 @@ router, `system` alone excepted (I7).
 | GET    | `/bewerbungen/kuerzel/{shorthand}`       | `bewerbungen/public_router.py` | Whether any club holds that two-letter code. One boolean, naming no club and no retirement — `READ-BEWERBUNG-001`                                                                           |
 | GET    | `/bewerbungen/trikotfarben/{saison_id}`  | `bewerbungen/public_router.py` | The SET of kit colours that season has assigned, naming no club — `READ-BEWERBUNG-001`. Off `saison_teams.trikot_farbe`, never a wish; 404 outside the window (I47)                         |
 | GET    | `/einwilligung/fassungen/{text_version}` | `einwilligung/router.py`       | The words one consent label names, immutable and so cacheable; a label the registry does not hold 404s (I549)                                                                               |
-| GET    | `/einwilligung/seiten`                   | `einwilligung/router.py`       | The label each page stamps on a new acceptance today; a deploy moves it, so no reader caches it (I550)                                                                                      |
+| GET    | `/einwilligung/seiten`                   | `einwilligung/router.py`       | The label each page stamps on a new acceptance today, the one the judgement admits (I550); a deploy moves it                                                                                |
 
 **Every route that serves matches runs one aggregation**, the admin reads below included, because
 each side of a fixture carries an `austritt_type` joined from `saison_teams` rather than embedded

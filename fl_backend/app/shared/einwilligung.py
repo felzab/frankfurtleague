@@ -1270,9 +1270,6 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
 # `fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal` admits, one for every `Seite`.
 LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
     {
-        # Moved alone, this refuses every submission the form stamps from its own copy
-        # (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHME`), which
-        # `fl_backend/tests/shared/test_frontend_mirrors.py` fails on first.
         "bewerbung": "2026-09-bestaetigung-5",
         "bestaetigung_kontakt": "2026-09-bestaetigungsseite-6",
         "bestaetigung_spieler": "2026-09-spielerseite-3",

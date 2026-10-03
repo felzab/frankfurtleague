@@ -368,7 +368,7 @@ written at the reader's line. Every property asserted today is still asserted an
 afterwards, and an answer resting on practice outside this repository cites a public repository a
 reader can open.
 
-### `eq3t-4e3f` · Which wording a person agreed to is defined only in the frontend, and the record of it is overwritten rather than kept
+### `eq3t-4e3f` · Most writes stamp a consent label the backend does not judge, and the record of it is overwritten rather than kept
 
 | Status | Depends on |
 | ------ | ---------- |
@@ -380,16 +380,15 @@ agreed?" This entry is that design, sized for this site. The one race that could
 application retried across a deploy that moved its label, is already held by the backend's judgement
 of the label after the replay's key lookup (`fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal`).
 
-**The backend holds the registry, and the frontend still renders and stamps its own copy.** Every
-label's words, its page, its effective date and each page's running label are
+**The backend holds the registry and judges one write's label.** Every label's words, its page,
+its effective date and each page's running label are
 `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and `:: LAUFENDE_FASSUNGEN`, pinned by
-`fl_backend/tests/shared/test_einwilligung.py` with the frontend's digests and served by
+`fl_backend/tests/shared/test_einwilligung.py` and served by
 `GET /einwilligung/fassungen/{text_version}` and `GET /einwilligung/seiten`, recorded for the
-frontend's tests in `fl_backend/einwilligung.json`. The pages still read the words from
-`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN` and stamp the labels read off it, and
-the backend judges the label of one write alone, the application's
-(`fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal`, its form's label held equal
-by `fl_backend/tests/shared/test_frontend_mirrors.py`); every other write accepts any non-empty
+frontend's tests in `fl_backend/einwilligung.json`; the frontend renders the words those reads serve
+and holds no copy of its own. The backend judges the label of one write alone, the application's
+(`fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal`); every other write accepts
+any non-empty
 `text_version` (the confirmation payloads beside
 `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungPayload`), so
 `docs/frontend/spec.md :: I148` is held for those writes by route handlers and server actions ahead of
@@ -413,8 +412,8 @@ then lose whether and when a consent was withdrawn.
 Guidelines 05/2020 (paragraph 108) name "a copy of the information that was presented to the data
 subject at that time"; the DSK's Kurzpapier Nr. 20 asks that the wording itself be documented. A
 contact seat's record rests on Art. 6 (1) (f) rather than consent, and Art. 5 (2) asks the same
-demonstrability of what that person was told. Today the proof of a label's words is frontend source
-and its history, reached only through a build or a checkout.
+demonstrability of what that person was told. The words a label names are the backend's, served
+and pinned there; what the record still cannot show is when each act happened and what it replaced.
 
 **The design is what the regulators' guidance and the established consent systems share, and no
 more:**
@@ -441,8 +440,8 @@ product; major and minor versions, since any change of words is a new label here
 
 **Traps:**
 
-- A page places its sections by key (`fl_frontend/src/core/einwilligung.ts :: SPIELER_EINWILLIGUNG`'s
-  `absaetzeNachSchluessel`) while a label freezes them by position, and a reader's own facts fill
+- A page places its sections by key (`fl_backend/app/shared/einwilligung.py :: Fassung`'s
+  `absaetze_nach_schluessel`) while a label freezes them by position, and a reader's own facts fill
   `{slots}` (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
   What the backend serves carries both, or the keyed words stay in a second place.
 - The administrative contact edit admits a seat's own stored label beside the running one

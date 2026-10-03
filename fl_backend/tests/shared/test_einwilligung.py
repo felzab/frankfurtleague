@@ -29,9 +29,9 @@ def test_a_stamp_confirms():
     assert is_confirmed({"umfang": "kontaktdaten", "bestaetigt_am": STAMP}) is True
 
 
-# Copied verbatim from `fl_frontend/src/core/einwilligung.test.ts :: FASSUNG_DIGESTS`, minted over
-# the frontend's words: equal digests over the identical join make the port word for word. Frozen
-# once a deployed build served the label; moved words are a new label.
+# Ported once with the words from the frontend's own pin, equal digests over the identical join
+# proving the port; this is now their only pin. Frozen once a deployed build served a label: moved
+# words are a new label.
 FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-08": "5ee0fd132685f067dfcb5efd9a85e1df36fabdfcb5dab451c98d760a262c4dc8",
     "2026-09-bestaetigung": "2b7227c1252f386e7c9f68967f049fa78a353540dfd309d3fc5bdce3e4c0d7fa",
