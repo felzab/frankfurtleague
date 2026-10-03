@@ -782,10 +782,10 @@ check_env_spellings() { # $1 the file
     # Compose drops a byte-order mark before parsing, so the first line is judged without it too.
     (( number > 1 )) || line="${line#$'\xEF\xBB\xBF'}"
     [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
-    # Compose and Next's reader take `NAME: value`; python-dotenv and `parseEnv` skip it and the
-    # deploy's frontend checker cannot parse it, so no name check sees what the container is handed.
+    # Compose takes `NAME:value` in every spacing, Next's reader only with a space after the colon;
+    # python-dotenv and `parseEnv` skip it, and the deploy's frontend checker cannot parse it.
     if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*: ]]; then
-      wrong+=("line ${number}: ${BASH_REMATCH[2]} is written with a colon, which only compose and Next's reader take")
+      wrong+=("line ${number}: ${BASH_REMATCH[2]} is written with a colon, which compose reads as NAME=value and python-dotenv skips")
       continue
     fi
     # Any other line no reader takes as NAME=value is compose's to refuse, which it does by name.
