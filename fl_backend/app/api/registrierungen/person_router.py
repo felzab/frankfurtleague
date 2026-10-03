@@ -351,7 +351,7 @@ async def aufnehmen(
             )
         else:
             # The retired row and never a second one: `uniq_spieler_id_saison_id` keeps one row per
-            # player per season, a retired one included (`docs/backend/spec.md :: I20`).
+            # player per season, a retired one included (`docs/backend/spec.md :: I954`).
             await patch_one_in_db(
                 collection=saison_spieler_collection,
                 db_filter={"_id": kader_raw["_id"]},

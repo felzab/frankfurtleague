@@ -1163,8 +1163,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "status",
         Editability.CONTROL_ONLY,
         "written `eingereicht` at create by `POST /registrierungen`, which takes it from no payload, and moved to `abgelehnt` "
-        "by the decline a later programme builds; the admission writes no third member, deleting the row in the transaction "
-        "that writes the person and the squad row instead",
+        "by the team's decline (`POST /registrierungen/{registrierung_id}/ablehnen`); the admission writes no third member, "
+        "deleting the row in the transaction that writes the person and the squad row instead",
         "app.api.registrierungen.services.compose_registrierung",
     ),
     FieldPolicy(
@@ -1192,8 +1192,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "geburtsdatum",
         Editability.COMPOSED,
         "on no admin payload: the pupil answers on the confirmation page, which shows the date back where the league already "
-        "holds that person -- matched on the folded address AND the folded name, a shared mailbox standing behind more than one "
-        "pupil -- and the write lands in the same `$set` as the consent record it is checked for (`REQ-REGISTRIERUNG-007`). No "
+        "holds that person -- matched on the folded address AND the folded name, so a sibling registering from a mailbox shared "
+        "anyway is not shown the stored person's date -- and the write lands in the same `$set` as the consent record it is "
+        "checked for (`REQ-REGISTRIERUNG-007`). No "
         "control puts it back, so a mistyped date is corrected by registering again",
         "app.api.registrierungen.services.find_alter_refusal",
     ),
