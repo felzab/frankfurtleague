@@ -377,23 +377,24 @@ reader can open.
 **My question of 2026-09-24, in my words:** "What would be the absolute mature best practice approach
 that a major company would implement for this WHOLE system of keeping track to which version somebody
 agreed?" This entry is that design, sized for this site. The one race that could not wait, an
-application retried across a deploy that moved its label, is already held by the application's own
-check (`fl_backend/app/api/bewerbungen/services.py :: find_veraltete_fassung_refusal`).
+application retried across a deploy that moved its label, is already held by the backend's judgement
+of the label after the replay's key lookup (`fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal`).
 
-**The registry of wordings and the running label of each page live in the frontend.** Every label's
-words are in `fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`, the label each of the four
-pages stamps is read off it (`:: LIGA_KENNTNISNAHME`, `:: BESTAETIGUNG_KENNTNISNAHME`,
-`:: SPIELER_EINWILLIGUNG`, `:: SCHIEDSRICHTER_EINWILLIGUNG`), and the words are pinned only by a
-frontend test (`fl_frontend/src/core/einwilligung.test.ts :: FASSUNG_DIGESTS`). The backend, which
-stores the record, holds a copy of the application form's running label alone
-(`fl_backend/app/api/bewerbungen/services.py :: BEWERBUNG_LAUFENDE_FASSUNG`, held equal by
-`fl_backend/tests/shared/test_frontend_mirrors.py`) and accepts any non-empty `text_version` on every
-other write (the confirmation payloads beside
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungPayload`). So
+**The backend holds the registry, and the frontend still renders and stamps its own copy.** Every
+label's words, its page, its effective date and each page's running label are
+`fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and `:: LAUFENDE_FASSUNGEN`, pinned by
+`fl_backend/tests/shared/test_einwilligung.py` with the frontend's digests and served by
+`GET /einwilligung/fassungen/{text_version}` and `GET /einwilligung/seiten`, recorded for the
+frontend's tests in `fl_backend/einwilligung.json`. The pages still read the words from
+`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN` and stamp the labels read off it, and
+the backend judges the label of one write alone, the application's
+(`fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal`, its form's label held equal
+by `fl_backend/tests/shared/test_frontend_mirrors.py`); every other write accepts any non-empty
+`text_version` (the confirmation payloads beside
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungPayload`), so
 `docs/frontend/spec.md :: I148` is held for those writes by route handlers and server actions ahead of
 the backend call (`fl_frontend/src/features/bewerbungen/utils.ts :: nenntLaufendeFassung`,
-`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`). The system of record
-cannot say which labels exist, which one a page runs, or what words a stored label names.
+`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`).
 
 **The record is one embedded block, rewritten in place.** A contact seat's confirmation replaces the
 applicant's label and provenance with its own

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       const body: unknown = await request.json().catch(() => null);
 
       // No label check here, unlike the confirmation handlers: the backend judges the label after
-      // its replay lookup, and one here would refuse a retry whose first press is stored (`REQ-BEWERBUNG-016`).
+      // its replay lookup, and one here would refuse a retry whose first press is stored (`REQ-EINWILLIGUNG-001`).
       const parsed = FLPostBewerbungPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, BEWERBUNG_VERALTET) };

@@ -14,7 +14,6 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
-from app.api.bewerbungen.services import BEWERBUNG_LAUFENDE_FASSUNG
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
@@ -38,6 +37,7 @@ from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
 from app.core.routing import OBJECT_ID_REGEX
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
 from app.shared.schemas.custom import (
@@ -488,7 +488,7 @@ def test_the_form_stamps_the_label_the_submission_admits():
     label = re.search(rf'^const {pointer["name"]} = "(?P<label>[^"]+)";$', source, re.MULTILINE)
 
     assert label is not None, f"{module} no longer declares {pointer['name']} as one string"
-    assert label["label"] == BEWERBUNG_LAUFENDE_FASSUNG, f"{record} stamps a label `find_veraltete_fassung_refusal` refuses"
+    assert label["label"] == LAUFENDE_FASSUNGEN["bewerbung"], f"{record} stamps a label `find_fassung_refusal` refuses"
 
 
 class ModelBound(NamedTuple):

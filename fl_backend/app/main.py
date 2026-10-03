@@ -23,6 +23,7 @@ from app.api.bewerbungen.public_router import router as bewerbungen_public_route
 from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
+from app.api.einwilligung.router import router as einwilligung_router
 from app.api.identitaet.router import router as identitaet_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
@@ -104,6 +105,7 @@ READ_ROUTERS = (
     schiedsrichter_router,
     bewerbungen_router,
     registrierungen_router,
+    einwilligung_router,
 )
 WRITE_ROUTERS = (
     spiele_admin_router,

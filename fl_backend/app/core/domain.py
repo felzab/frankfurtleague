@@ -2093,15 +2093,6 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheSubmissionKey",
     ),
     Rule(
-        code="REQ-BEWERBUNG-016",
-        status=HTTPStatus.CONFLICT,
-        operation="POST /bewerbungen",
-        aggregate="Bewerbung",
-        summary="a new submission names on every seat the consent wording the form now shows, a stored key being replayed whatever it names",
-        implemented_by="app.api.bewerbungen.services.find_veraltete_fassung_refusal",
-        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheWordingTheFormShows",
-    ),
-    Rule(
         code="REQ-BEWERBUNG-018",
         status=HTTPStatus.FORBIDDEN,
         operation="POST /bewerbungen",
@@ -2367,6 +2358,15 @@ RULES: tuple[Rule, ...] = (
         summary="a link mailed to an address the ban list now holds confirms no registration, whenever it was minted",
         implemented_by="app.api.registrierungen.services.find_bestaetigung_gesperrt_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestALinkToABarredAddress",
+    ),
+    Rule(
+        code="REQ-EINWILLIGUNG-001",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="a consent label a write stamps names a version of that write's page, and a new acceptance the running one",
+        implemented_by="app.api.einwilligung.services.find_fassung_refusal",
+        tested_by="tests/api/test_einwilligung_fassung.py::TestTheLabelAWriteStamps",
     ),
 )
 

@@ -22,13 +22,12 @@ from app.api.bewerbungen.schemas import (
     normalise_telefon,
 )
 from app.api.bewerbungen.services import (
-    BEWERBUNG_FASSUNG_VERALTET,
     BEWERBUNG_FENSTER_GESCHLOSSEN,
-    BEWERBUNG_LAUFENDE_FASSUNG,
     BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    KONTAKT_SEATS,
     SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
     build_wiederholung_filter,
@@ -38,16 +37,17 @@ from app.api.bewerbungen.services import (
     find_picked_club_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
-    find_veraltete_fassung_refusal,
     find_window_refusal,
     payload_fingerabdruck,
     saison_nimmt_bewerbungen_an,
     season_has_ended,
     window_is_running,
 )
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, find_fassung_refusal
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, FLPostTeamPayload, FLTeam, FLTeamRecord, FLTrikotFarbe
 from app.core.exceptions import DocumentNotFoundException
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.addresses import FLAddressPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
@@ -397,31 +397,28 @@ class TestTheProposedKuerzel:
         assert refusal.error_code == BEWERBUNG_SHORTHAND_TAKEN
 
 
-def labelled(**labels: str) -> dict[str, Any]:
-    """The three seats as the payload dumps them, each naming the running label unless the case names another."""
+def labelled(**labels: str) -> dict[str, str]:
+    """The label each seat names, the running one unless the case names another."""
 
-    return {
-        seat: {"einwilligung": {"text_version": labels.get(seat, BEWERBUNG_LAUFENDE_FASSUNG), "erteilt": True}}
-        for seat in ("trainer", "ansprechperson", "stellvertretung")
-    }
+    return {seat: labels.get(seat, LAUFENDE_FASSUNGEN["bewerbung"]) for seat in KONTAKT_SEATS}
 
 
 class TestTheWordingTheFormShows:
-    """`REQ-BEWERBUNG-016`: a stored record cites the words its seat was shown, so a new one names the running label."""
+    """`REQ-EINWILLIGUNG-001` on the form: a stored record cites the words its seat was shown, so a new one names the running label."""
 
     def test_every_seat_naming_the_running_label_passes(self):
         """The floor: without it the case below would pass on a check that refuses everything."""
 
-        assert find_veraltete_fassung_refusal(kontakte=labelled()) is None
+        assert find_fassung_refusal(seite="bewerbung", genannt=labelled()) is None
 
-    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
+    @pytest.mark.parametrize("seat", KONTAKT_SEATS)
     def test_one_seat_naming_an_earlier_label_is_refused(self, seat: str):
         """Each seat alone: the form stamps one label per seat, so a check reading one of them passes a stale label on another."""
 
-        refusal = find_veraltete_fassung_refusal(kontakte=labelled(**{seat: "2026-09-bestaetigung-4"}))
+        refusal = find_fassung_refusal(seite="bewerbung", genannt=labelled(**{seat: "2026-09-bestaetigung-4"}))
 
         assert refusal is not None
-        assert refusal.error_code == BEWERBUNG_FASSUNG_VERALTET
+        assert refusal.error_code == FASSUNG_UNZULAESSIG
         assert seat in refusal.message
 
 

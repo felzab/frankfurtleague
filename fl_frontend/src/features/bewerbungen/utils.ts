@@ -193,7 +193,7 @@ export function mapBewerbungSubmitRefusal(
     // page from before a data reset, or a crafted body, sends it, and the reload fetches the window open now.
     case "DB-COMMON-001":
     // A seat names words other than the form's, which only a page loaded before a deploy sends.
-    case "REQ-BEWERBUNG-016":
+    case "REQ-EINWILLIGUNG-001":
       return { error: BEWERBUNG_VERALTET };
     default:
       return null;

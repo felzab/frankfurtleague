@@ -227,7 +227,7 @@ describe("the application handler's consent label", () => {
   /* A new press under that label is the write's to refuse, and the page's reload is the answer. */
   it("answers the write's refusal of an earlier label with the page's reload, mailing nothing", async () => {
     schreibAntwort = () => {
-      throw aRefusal("REQ-BEWERBUNG-016");
+      throw aRefusal("REQ-EINWILLIGUNG-001");
     };
 
     const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledThroughout("2026-09-bestaetigung-4")));

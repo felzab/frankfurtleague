@@ -48,7 +48,6 @@ BEWERBUNG_KONTAKT_ALTER = "REQ-BEWERBUNG-012"
 BEWERBUNG_KONTAKTE_UNCONFIRMED = "REQ-BEWERBUNG-013"
 BEWERBUNG_KONTAKT_EMAIL_TAKEN = "REQ-BEWERBUNG-014"
 BEWERBUNG_SCHLUESSEL_ABWEICHEND = "REQ-BEWERBUNG-015"
-BEWERBUNG_FASSUNG_VERALTET = "REQ-BEWERBUNG-016"
 BEWERBUNG_TOKEN_PAST_DEADLINE = "REQ-BEWERBUNG-017"
 BEWERBUNG_ADRESSE_GESPERRT = "REQ-BEWERBUNG-018"
 BEWERBUNG_KONTAKT_GESPERRT = "REQ-BEWERBUNG-019"
@@ -295,31 +294,6 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
             error_code=BEWERBUNG_SHORTHAND_TAKEN,
             status=HTTPStatus.CONFLICT,
             message="the shorthand this submission proposes already belongs to a club; choose another",
-        )
-
-    return None
-
-
-# The label of the wording the public form shows, a copy of the one it stamps on every seat
-# (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHME`): moved there alone, the copy
-# refuses every submission, which `tests/shared/test_frontend_mirrors.py` fails on first.
-BEWERBUNG_LAUFENDE_FASSUNG: Final = "2026-09-bestaetigung-5"
-
-
-def find_veraltete_fassung_refusal(*, kontakte: Mapping[str, Any]) -> WriteRefusal | None:
-    """Why this submission may not be stored under the wording its seats name, or `None`.
-
-    A page loaded before a deploy moved the label names words the form does not show, and the stored
-    record would cite them.
-    """
-
-    veraltet = [seat for seat in KONTAKT_SEATS if kontakte[seat]["einwilligung"]["text_version"] != BEWERBUNG_LAUFENDE_FASSUNG]
-
-    if veraltet:
-        return WriteRefusal(
-            error_code=BEWERBUNG_FASSUNG_VERALTET,
-            status=HTTPStatus.CONFLICT,
-            message=f"the consent wording named on {', '.join(veraltet)} is not the one the form now shows; reload the form and submit again",
         )
 
     return None

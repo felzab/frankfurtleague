@@ -1,8 +1,12 @@
-from typing import Any
+import dataclasses
+import hashlib
+from collections.abc import Mapping
+from typing import Any, Final, cast
 
 import pytest
 
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, is_confirmed
+from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
 
 STAMP = "2026-02-01"
 
@@ -22,3 +26,111 @@ def test_a_stamp_confirms():
     """The control: without it every case above passes on a predicate answering no to everything."""
 
     assert is_confirmed({"umfang": "kontaktdaten", "bestaetigt_am": STAMP}) is True
+
+
+# Copied verbatim from `fl_frontend/src/core/einwilligung.test.ts :: FASSUNG_DIGESTS`, minted over
+# the frontend's words: equal digests over the identical join make the port word for word. Frozen
+# once a deployed build served the label; moved words are a new label.
+FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
+    "2026-08": "5ee0fd132685f067dfcb5efd9a85e1df36fabdfcb5dab451c98d760a262c4dc8",
+    "2026-09-bestaetigung": "2b7227c1252f386e7c9f68967f049fa78a353540dfd309d3fc5bdce3e4c0d7fa",
+    "2026-09-bestaetigung-2": "061b910a47324eb91c9c6b81191804b44b015ee5153b6c8843c884422d02f811",
+    "2026-09-bestaetigung-3": "694d9949915bbb999214f6e0f276a20020e464bdd28955152d58c19edc803a22",
+    "2026-09-bestaetigung-4": "6cd1ecde85282bb369a0e3437915752bf0ac4fe1dc35b0fe8b4ba2b15f84ecf3",
+    "2026-09-bestaetigung-5": "f111318b2d71ef2a8cddaa0eb98fe525f18d0c754408e450e397a77a4ffb1d09",
+    "2026-09-bestaetigungsseite": "0f43376babe1890edc2e38e482300d940b50de65c75b2f8bdeb4393be1a459f6",
+    "2026-09-bestaetigungsseite-2": "a3f63055cde360a1a547f6e04e547101d90af2de71b89058e4a684d5e1f4ed2f",
+    "2026-09-bestaetigungsseite-3": "d14ba6338194b3ba562ab09a76472af2bd7b7834e9a4b7956046025b8c8f3f19",
+    "2026-09-bestaetigungsseite-4": "5bd721936cf000ca996d98013728b06af2d116d0e19b69d9c29771965a40a411",
+    "2026-09-bestaetigungsseite-5": "8d3de56751483fe06311f894784b4562908e9d133386e004e9702db6e631215a",
+    "2026-09-bestaetigungsseite-6": "1227f765f47568c1ef105d9ccddeee88732e5bf37b768eaa285b2717f236c905",
+    "2026-09-schiedsrichterseite": "21e9351ead79fce150e6dc1c822b0912ae630c493935fb901992a17948d893f0",
+    "2026-09-schiedsrichterseite-2": "57f8835d93222b31f07fcc344d7e49825dff32e042d3f08203c26e4e5ea1acd2",
+    "2026-09-schiedsrichterseite-3": "42a7cb76d1b0c7f89fff39ed3c16431e1bae66463ce6a71572ddb684d4426807",
+    "2026-09-spielerseite": "e3b95487516031a6f42bd6eba653ee1b3e7e32708a226d2cdf5067c2119b76d9",
+    "2026-09-spielerseite-2": "eae0481230b89f7c1c21b53cca87acc81058bde375544b98b2907e880e16cdeb",
+    "2026-09-spielerseite-3": "08810bd6501bdde29d871b01a4878f77b2e25d2562bb63e5b8d6ef8d4db74a48",
+}
+
+
+def fassung_digest(fassung: Fassung) -> str:
+    """Every word the label freezes, joined as the frontend's digest joins them: the paragraphs, the switch, each control."""
+
+    controls = [f"{key}={fassung.bedienelemente[key]}" for key in sorted(fassung.bedienelemente)]
+
+    return hashlib.sha256("\n".join([*fassung.absaetze, fassung.schalter, *controls]).encode("utf-8")).hexdigest()
+
+
+class TestTheRegistryOfWordings:
+    def test_every_label_still_holds_the_words_its_digest_was_minted_over(self):
+        """Both directions: a new label fails until its own digest is minted, and a digest whose label is gone fails."""
+
+        assert sorted(FASSUNG_DIGESTS) == sorted(FASSUNGEN), "a label has no frozen digest, or the reverse"
+        assert {label: fassung_digest(fassung) for label, fassung in FASSUNGEN.items()} == FASSUNG_DIGESTS
+
+    def test_every_page_runs_a_label_of_its_own(self):
+        for seite, label in LAUFENDE_FASSUNGEN.items():
+            assert label in FASSUNGEN, f"{seite} runs {label}, which the registry does not hold"
+            assert FASSUNGEN[label].seite == seite, f"{seite} runs {label}, a version of another page"
+
+    def test_every_label_belongs_to_a_declared_page(self):
+        """A label of an undeclared page could never be stamped, and a write judging it would find no running label."""
+
+        assert {fassung.seite for fassung in FASSUNGEN.values()} == set(LAUFENDE_FASSUNGEN)
+
+    def test_each_page_runs_its_latest_label(self):
+        """Pins WHICH label runs, which the digests do not: a running label moved back to an earlier one passes every other case."""
+
+        for seite, label in LAUFENDE_FASSUNGEN.items():
+            latest = max(fassung.gilt_ab for fassung in FASSUNGEN.values() if fassung.seite == seite)
+
+            assert FASSUNGEN[label].gilt_ab == latest, f"{seite} runs {label}, older than a label of its own page"
+
+    def test_a_later_label_of_a_page_never_took_effect_before_an_earlier_one(self):
+        """In registry order, which is the order each page's labels were minted in."""
+
+        for seite in LAUFENDE_FASSUNGEN:
+            days = [fassung.gilt_ab for fassung in FASSUNGEN.values() if fassung.seite == seite]
+
+            assert days == sorted(days), f"{seite}'s labels took effect out of the order they were minted in"
+
+    def test_keyed_paragraphs_are_the_frozen_ones_in_order(self):
+        """The page places its sections by key and the label freezes them by position, so the two may never part."""
+
+        keyed = {
+            label: (tuple(fassung.absaetze_nach_schluessel.values()), fassung.absaetze)
+            for label, fassung in FASSUNGEN.items()
+            if fassung.absaetze_nach_schluessel is not None
+        }
+
+        assert keyed, "no label carries keyed paragraphs, so this case compares nothing"
+        for label, (nach_schluessel, absaetze) in keyed.items():
+            assert nach_schluessel == absaetze, label
+
+    def test_every_running_label_a_page_places_by_key_carries_its_keys(self):
+        """The three confirmation pages render by key; a running label of theirs without keys leaves the page nothing to place."""
+
+        for seite in ("bestaetigung_kontakt", "bestaetigung_spieler", "bestaetigung_schiedsrichter"):
+            assert FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze_nach_schluessel is not None, seite
+
+    def test_no_word_is_empty_or_padded(self):
+        for label, fassung in FASSUNGEN.items():
+            assert fassung.absaetze, f"{label} holds no paragraph"
+            for text in (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values()):
+                assert text and text == text.strip(), f"{label} holds an empty or padded text"
+
+    def test_every_label_fits_the_length_a_record_may_cite(self):
+        for label in FASSUNGEN:
+            assert len(label) <= EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, label
+
+    def test_no_reader_can_reword_a_label_in_place(self):
+        """Read-only all the way down: a caller writing into a served mapping would reword it for every later request."""
+
+        fassung = FASSUNGEN["2026-09-spielerseite-3"]
+        mappings = ((FASSUNGEN, "2026-09-spielerseite-3"), (LAUFENDE_FASSUNGEN, "bewerbung"), (fassung.bedienelemente, "intern"))
+
+        for mapping, key in (*mappings, (fassung.absaetze_nach_schluessel, "worum")):
+            with pytest.raises(TypeError):
+                cast(Any, mapping)[key] = "anders"
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            cast(Any, fassung).schalter = "anders"

@@ -34,7 +34,6 @@ from app.api.bewerbungen.services import (
     find_picked_club_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
-    find_veraltete_fassung_refusal,
     find_window_refusal,
     mint_token,
     payload_fingerabdruck,
@@ -42,6 +41,7 @@ from app.api.bewerbungen.services import (
     saison_nimmt_bewerbungen_an,
     season_has_ended,
 )
+from app.api.einwilligung.services import find_fassung_refusal
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hashes_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
@@ -353,7 +353,7 @@ async def post_bewerbung(
     An address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press and on a
     replay alike, before any link is minted.
 
-    A seat naming a consent wording other than the one the form now shows is refused (`REQ-BEWERBUNG-016`),
+    A seat naming a consent wording other than the one the form now shows is refused (`REQ-EINWILLIGUNG-001`),
     and only once the key has been looked up: a stored key is answered whatever wording it names.
     """
 
@@ -392,7 +392,9 @@ async def post_bewerbung(
 
         # After the lookup and never ahead of it: a retry across a deploy that moved the label resends
         # the first press's words, and refusing it here would have its reload store a second application.
-        refuse(find_veraltete_fassung_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
+        refuse(
+            find_fassung_refusal(seite="bewerbung", genannt={seat: getattr(kontakte, seat).einwilligung.text_version for seat in KONTAKT_SEATS})
+        )
 
         # The season first, so a submission arriving after the deadline is refused before anything about
         # the applicant is looked up. The window is read under the same projection the public GET uses.
