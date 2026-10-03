@@ -29,7 +29,7 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, saison_document, saison_team_document, spieler_document, team_document
+from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, spieler_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -70,6 +70,15 @@ UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607850014")
 BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607850019")
 
 CONFIRMATION_LABEL = "2026-09-schiedsrichterseite-3"
+
+# A fixture the referee leads, embedding their name: the copy a withdrawal would be fanned out onto.
+SPIEL = spiel_document(
+    spiel_id=ObjectId("6890a1b2c3d4e5f607850041"),
+    saison_id="2026",
+    spiel_nr=1,
+    spieltag_id=ObjectId("6890a1b2c3d4e5f607850042"),
+    schiedsrichter={"schiedsrichter_id": REFEREE_OID, "name": "Ortrud Zwiebelmayer", "payment": 20},
+)
 ADULT_BIRTHDATE = "2000-05-09"
 SEVENTEEN_BIRTHDATE = "2008-10-04"
 
@@ -176,6 +185,7 @@ async def _seed(database: AsyncDatabase) -> None:
             ),
         ]
     )
+    await database[Collection.SPIELE].insert_one(dict(SPIEL))
     await database[Collection.SPIELER].insert_one(
         spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=IDENTIFIER, geburtsdatum=ADULT_BIRTHDATE, einwilligung=_einwilligung())
     )
@@ -247,7 +257,7 @@ class TestTheTwoChoices:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
             response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
-            return response, before, await _records(database), await database[Collection.SPIELE].count_documents({})
+            return response, before, await _records(database), await database[Collection.SPIELE].find({}).to_list()
 
         response, before, after, spiele = served(mongo_replica_set_url, steps)
 
@@ -259,7 +269,8 @@ class TestTheTwoChoices:
         assert {key: value for key, value in after.items() if key != REFEREE_OID} == {
             key: value for key, value in before.items() if key != REFEREE_OID
         }
-        assert spiele == 0
+        # No copy of the verdict on the fixture naming the referee, held byte for byte.
+        assert spiele == [SPIEL]
 
     def test_moving_the_media_answer_leaves_the_scope(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
