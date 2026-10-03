@@ -41,8 +41,8 @@ import { mapStaleBlockRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
-import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
-import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
+import type { FLAustritt, FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { AdminKontakteRow, AdminKontaktSeat, TeamSaisonMembership } from "@/features/teams/types";
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import type { FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
@@ -180,13 +180,14 @@ const editorTree = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): str
 /** The application form's running words, off the registry the backend generated, as the page reads them. */
 const FORM = publishedLaufendeFassung("bewerbung");
 
-const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true): ReactNode =>
+const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true, nimmtLinks = true): ReactNode =>
   h(FormKontakteSection, {
     laufendesLabel: FORM.text_version,
     value: kontakte,
     stored: kontakte,
     teamId: "507f1f77bcf86cd799439011",
     saisonId: "2526",
+    nimmtLinks,
     isMember,
     teamHref: "/bereich/admin/teams/t1?saison_id=2526",
     banners: [],
@@ -197,19 +198,24 @@ const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true):
   });
 
 /** The seats as the admin meets them, in the state each case names. */
-const sectionMarkup = (kontakte: FLSaisonTeamKontakte | null, isMember = true): string =>
-  editorTree(sectionElement(kontakte, isMember), kontakte);
+const sectionMarkup = (kontakte: FLSaisonTeamKontakte | null, isMember = true, nimmtLinks = true): string =>
+  editorTree(sectionElement(kontakte, isMember, nimmtLinks), kontakte);
 
 /** The whole editor a reader meets: the view renders the form, and the form the seats and the deletion. */
 /** `teamId` is the payload's own field: a save is judged against the mirror, which refuses a short id. */
-const viewElement = (kontakte: FLSaisonTeamKontakte | null, hasRow = true, teamId = "t1"): ReactNode =>
+const viewElement = (
+  kontakte: FLSaisonTeamKontakte | null,
+  hasRow = true,
+  teamId = "t1",
+  { saisonStatus = "active", austritt = null }: { saisonStatus?: TeamSaisonMembership["saisonStatus"]; austritt?: FLAustritt | null } = {},
+): ReactNode =>
   h(AdminKontakteEditView, {
     laufendesLabel: FORM.text_version,
     team: { id: teamId, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
     saison: {
       saisonId: "2526",
-      saisonStatus: "active",
-      membership: hasRow ? { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" } : null,
+      saisonStatus,
+      membership: hasRow ? { gruppe: "A", austritt, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" } : null,
     },
   });
 
@@ -538,19 +544,37 @@ describe("the editor's shape", () => {
      its two seats, so a half-confirmed pair is never left with none. */
   it("offers the re-send on every unconfirmed person once, a half-confirmed pair included", () => {
     const offen = (person: FLKontaktperson): FLKontaktperson => ({ ...person, einwilligung: { ...person.einwilligung, bestaetigt_am: null } });
-    const offers = (kontakte: FLSaisonTeamKontakte): string[] =>
-      [...sectionMarkup(kontakte).matchAll(/aria-label="[^"]*senden an ([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
+    const offers = (kontakte: FLSaisonTeamKontakte, nimmtLinks = true): string[] =>
+      [...sectionMarkup(kontakte, true, nimmtLinks).matchAll(/aria-label="[^"]*senden an ([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
     const grace = BLOCK.ansprechperson ?? assert.fail("the block seats no Ansprechperson");
     const ada = BLOCK.trainer ?? assert.fail("the block seats no Trainer");
 
     assert.deepEqual(offers(BLOCK), [], "a confirmed seat offers a re-send");
     assert.deepEqual(offers({ ...BLOCK, stellvertretung: offen(BLOCK.stellvertretung ?? grace) }), ["Stellvertretung"]);
+    // A season that is over, or a team that has left it, takes no link, so nothing offers one.
+    assert.deepEqual(offers({ ...BLOCK, stellvertretung: offen(BLOCK.stellvertretung ?? grace) }, false), []);
     // Both seats of the pair open: one person, one press, on the named seat.
     assert.deepEqual(offers({ ...BLOCK, ansprechperson: offen(grace), trainer: offen(grace), trainer_ist_zugleich: "ansprechperson" }), [
       "Ansprechperson",
     ]);
     // The named seat confirmed and the Trainer's not: the press moves to the Trainer rather than vanishing.
     assert.deepEqual(offers({ ...BLOCK, ansprechperson: grace, trainer: offen(ada), trainer_ist_zugleich: "ansprechperson" }), ["Trainer"]);
+  });
+
+  /* Read off the season and the row the page holds, never the seat: a season that is over and a team
+     that has left it take no link (`REQ-KONTAKT-005`), so the editor offers none rather than a refusal. */
+  it("offers no re-send on a past season or a row whose team has left it", () => {
+    const stellvertretung = BLOCK.stellvertretung ?? assert.fail("the block seats no Stellvertretung");
+    const offen: FLSaisonTeamKontakte = {
+      ...BLOCK,
+      stellvertretung: { ...stellvertretung, einwilligung: { ...stellvertretung.einwilligung, bestaetigt_am: null } },
+    };
+    const offers = (row: Parameters<typeof viewElement>[3]): number =>
+      [...editorTree(viewElement(offen, true, "t1", row), offen).matchAll(/aria-label="[^"]*senden an /g)].length;
+
+    assert.equal(offers({}), 1, "an open seat on a running row offers no re-send, so the absences below prove nothing");
+    assert.equal(offers({ saisonStatus: "past" }), 0, "a past season's row offers a re-send");
+    assert.equal(offers({ austritt: { type: "rueckzug", grund: "x", datum: "2026-03-12" } }), 0, "a withdrawn team's row offers a re-send");
   });
 
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field

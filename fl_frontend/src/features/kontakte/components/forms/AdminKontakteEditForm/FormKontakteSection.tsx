@@ -85,6 +85,7 @@ export function FormKontakteSection({
   stored,
   teamId,
   saisonId,
+  nimmtLinks,
   isMember,
   teamHref,
   banners,
@@ -100,6 +101,8 @@ export function FormKontakteSection({
   stored: FLSaisonTeamKontakte | null;
   teamId: string;
   saisonId: string;
+  /** The row still takes confirmation links: its season is not over and its team has not left it. */
+  nimmtLinks: boolean;
   /** The club holds a junction row for this season. Without one there is nothing here to write to. */
   isMember: boolean;
   /** The club's own page, where the season membership these seats hang off is entered. */
@@ -204,7 +207,7 @@ export function FormKontakteSection({
               ) : null
             }
             einladen={
-              istEinladbar(stored, rolle) ? (
+              nimmtLinks && istEinladbar(stored, rolle) ? (
                 <FormKontaktEinladen
                   teamId={teamId}
                   saisonId={saisonId}
