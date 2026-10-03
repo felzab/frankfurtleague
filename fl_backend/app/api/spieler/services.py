@@ -359,7 +359,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
             }
         },
         # Strict: the erasure removes a person's squad rows before the person, in one transaction,
-        # so a row with no person is a hand edit and never something a representative may name.
+        # so a row with no person is a hand edit, left off the squad and answered 404 to a write naming it.
         {"$unwind": "$person"},
         {
             "$project": {

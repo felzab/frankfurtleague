@@ -342,6 +342,28 @@ class TestAnotherTeamsPupil:
         assert untouched
 
 
+# A live row of team A whose `spieler` record a hand edit removed.
+ORPHAN = ObjectId("6890a1b2c3d4e5f607920021")
+
+
+class TestARowWhosePersonIsGone:
+    """Answered as a missed row rather than a server fault, the transaction undoing the write it follows."""
+
+    @pytest.mark.parametrize(("method", "body"), [("PATCH", PAYLOAD), ("DELETE", None)], ids=["PATCH", "DELETE"])
+    def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[tuple[int, str | None], bool]:
+            await database[Collection.SAISON_SPIELER].insert_one(_row(ORPHAN, TEAM_A, nummer="5"))
+            before = await stored(database)
+            response = await send(mongo_replica_set_url, method, row_url(ORPHAN), ANSPRECH, body)
+
+            return answered(response), before == await stored(database)
+
+        answer, untouched = on_a_league(mongo_replica_set_url, run)
+
+        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert untouched
+
+
 class TestAnAusgetragenRow:
     """Read-only to a representative: only the administrator's reactivate brings it back."""
 
