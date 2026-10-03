@@ -69,7 +69,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
   const aufnahme = useTwoPressConfirm();
   const ablehnung = useTwoPressConfirm();
   const name = `${registrierung.vorname} ${registrierung.nachname}`;
-  const { person, vorschlaege } = registrierung;
+  const { person, vorschlag } = registrierung;
   const ziel = { ...adresse, registrierung_id: registrierung.registrierung_id };
 
   /** Both decisions take the row off the list, so the press's place is read now and landed on once the write succeeded. */
@@ -106,8 +106,8 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
   // The address resolved to somebody whose details differ: the yes names that person, and the no is a
   // decline telling the pupil to register under an address of their own.
   const gefragt = person !== null && person.weicht_ab;
-  // A proposal is answered per candidate, and the armed press is then the no to all of them.
-  const vorgeschlagen = person === null && vorschlaege.length > 0;
+  // A proposal has its own yes, and the armed press is then its no: the pupil becomes a new person.
+  const vorgeschlagen = person === null ? vorschlag : null;
 
   return (
     <li
@@ -150,26 +150,23 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               registrieren.
             </p>
           )}
-          {vorgeschlagen &&
-            vorschlaege.map((vorschlag) => (
-              <div
-                key={vorschlag.spieler_id}
-                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="fluid-sm text-pretty text-foreground">{dieselbePerson(personName(vorschlag))}</p>
-                {/* The admission's place: a decided row hands the focus to the next row's admission. */}
-                <FocusSlot name={AUFNEHMEN}>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    isPending={aufnahme.isPending}
-                    onPress={() => aufnehmen(vorschlag.spieler_id)}
-                    className={formButton({ intent: "cancel", stacks: true })}>
-                    {`Ja, das ist ${personName(vorschlag)}`}
-                  </Button>
-                </FocusSlot>
-              </div>
-            ))}
-          {!gefragt && !vorgeschlagen && (
+          {vorgeschlagen !== null && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="fluid-sm text-pretty text-foreground">{dieselbePerson(personName(vorgeschlagen))}</p>
+              {/* The admission's place: a decided row hands the focus to the next row's admission. */}
+              <FocusSlot name={AUFNEHMEN}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  isPending={aufnahme.isPending}
+                  onPress={() => aufnehmen(vorgeschlagen.spieler_id)}
+                  className={formButton({ intent: "cancel", stacks: true })}>
+                  {`Ja, das ist ${personName(vorgeschlagen)}`}
+                </Button>
+              </FocusSlot>
+            </div>
+          )}
+          {!gefragt && vorgeschlagen === null && (
             <p className="fluid-sm text-pretty text-foreground">{registrierung.vorname} kommt in den Kader dieser Saison.</p>
           )}
         </ConfirmReveal>
@@ -187,7 +184,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               confirm={aufnahme}
               reason={null}
               resting="Aufnehmen"
-              armed={vorgeschlagen ? "Nein, als neue Person aufnehmen" : "Ja, aufnehmen"}
+              armed={vorgeschlagen === null ? "Ja, aufnehmen" : "Nein, als neue Person aufnehmen"}
               running="Nimmt auf..."
               icon={
                 <SealCheck

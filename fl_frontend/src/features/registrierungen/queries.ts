@@ -18,12 +18,12 @@ import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
  * own; memoised per render pass.
  */
 export const getOffeneRegistrierungen = cache(
-  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> =>
+  async (teamId: string, saisonId: string, filters: { order?: Leserichtung }): Promise<FLOffeneRegistrierungenResponse> =>
     runPersonRead(() =>
       apiClient<FLOffeneRegistrierungenResponse>(
         `/registrierungen/kader/${encodeURIComponent(teamId)}/${encodeURIComponent(saisonId)}`,
         FLOffeneRegistrierungenResponseSchema,
-        { authType: "admin", params: { order: order } },
+        { authType: "admin", params: filters },
       ),
     ),
 );

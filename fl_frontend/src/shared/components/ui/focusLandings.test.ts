@@ -575,7 +575,7 @@ const registrierung = (registrierung_id: string, vorname: string, nachname: stri
   aufnehmbar: true,
   nummer_doppelt: false,
   person: null,
-  vorschlaege: [],
+  vorschlag: null,
 });
 const REG_LENA = registrierung("68c1f0a2b3c4d5e6f7a8b941", "Lena", "Meier");
 const REG_MIA = registrierung("68c1f0a2b3c4d5e6f7a8b942", "Mia", "Schmidt");

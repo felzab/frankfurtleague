@@ -238,7 +238,10 @@ export const FLRegistrierungPersonSchema = z.object({
 });
 export type FLRegistrierungPerson = z.infer<typeof FLRegistrierungPersonSchema>;
 
-/** A stored person holding no address whose name matches: proposed, never resolved, a typed name being a weaker key than an address. */
+/**
+ * The one stored person holding no address whose name matches: proposed, never resolved, a typed name
+ * being a weaker key than an address. Two namesakes propose neither, the read serving nothing to tell them apart.
+ */
 export const FLRegistrierungVorschlagSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
   vorname: z.string(),
@@ -260,7 +263,7 @@ export const FLOffeneRegistrierungSchema = z.object({
   aufnehmbar: z.boolean(),
   nummer_doppelt: z.boolean(),
   person: FLRegistrierungPersonSchema.nullable(),
-  vorschlaege: z.array(FLRegistrierungVorschlagSchema),
+  vorschlag: FLRegistrierungVorschlagSchema.nullable(),
 });
 export type FLOffeneRegistrierung = z.infer<typeof FLOffeneRegistrierungSchema>;
 

@@ -49,7 +49,7 @@ const zeile = (registrierung_id: string, vorname: string, nachname: string, fiel
   aufnehmbar: true,
   nummer_doppelt: false,
   person: null,
-  vorschlaege: [],
+  vorschlag: null,
   ...fields,
 });
 
@@ -260,7 +260,7 @@ describe("deciding a registration", () => {
   });
 
   it("admits into a proposed person on that person's yes, and as a new person on the armed press", async () => {
-    viewWith({ vorschlaege: [{ spieler_id: VORSCHLAG, vorname: "Lena", nachname: "Meier" }] });
+    viewWith({ vorschlag: { spieler_id: VORSCHLAG, vorname: "Lena", nachname: "Meier" } });
     await armedThen(userEvent.setup(), "Ja, das ist Lena Meier");
     assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: VORSCHLAG } });
 
