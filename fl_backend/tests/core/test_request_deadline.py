@@ -121,7 +121,7 @@ SERVICE = re.compile(r"^  (\w+):$", re.MULTILINE)
 COMMAND_OVERRIDES = re.compile(r"""^    ["']?(command|entrypoint|<<)["']?\s*:""", re.MULTILINE)
 
 # uvicorn notices the signal on a 0.1 s tick and pauses 0.1 s after closing its connections before its
-# wait starts (its `Server.shutdown`, read in uvicorn 0.53), so the engine's kill falls a whole second later.
+# wait starts (its `Server.shutdown`, read in uvicorn 0.54), so the engine's kill falls a whole second later.
 UVICORN_STEPS_BEFORE_ITS_WAIT_S = 1
 
 
