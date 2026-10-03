@@ -1170,7 +1170,7 @@ const SCOPED_BANS = [
   // takes the directive per function, which a module-wide ban would refuse.
   [
     {
-      files: ["admin", "aktionen", "bewerbungen", "einladungen", "schiedsrichter", "sperrliste", "spielorte"].map(
+      files: ["admin", "aktionen", "bewerbungen", "einladungen", "funktionen", "schiedsrichter", "sperrliste", "spielorte"].map(
         (slice) => `src/features/${slice}/queries.ts`,
       ),
       selector:

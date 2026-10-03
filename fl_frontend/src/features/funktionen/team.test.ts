@@ -47,6 +47,9 @@ const { KADER_LEER, NUMMER_DOPPELT, ausgetragenSeit } = await import("@/features
 const TEAM_A = SITZ.team_id;
 const TEAM_B = "6890a1b2c3d4e5f607250012";
 
+/** The landing's one read: the three seats of the address's team and season. */
+const SITZE_ENDPOINT = `/teams/${TEAM_A}/saisons/2526/person/sitze`;
+
 const TEAM_DIR = path.resolve(import.meta.dirname, "..", "..", "app", "bereich", "team", "[team_id]", "[saison_id]");
 
 /** Every page under the team area, read off the tree; the catch-all answers not-found for everyone. */
@@ -119,7 +122,7 @@ describe("what a seat holder meets at their team's address", () => {
     setSubject(person({ sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" })] }));
     const { markup, text, reads } = await rendered(TEAM_A, "2526");
 
-    assert.deepEqual(reads, [], "the landing and its shell read past the session, which they are rendered from");
+    assert.deepEqual(reads, [SITZE_ENDPOINT], "the landing reads anything but its own team's seats, or the shell reads at all");
     assert.ok(markup.includes("data-app-shell"), "the landing renders outside the team shell");
     assert.equal(heading(markup), "Übersicht");
     assert.match(markup, /<h2[^>]*>Goethe-Gymnasium<\/h2>/, "the landing's heading does not name the team");
@@ -132,7 +135,7 @@ describe("what a seat holder meets at their team's address", () => {
     setSubject(person({ sitze: [sitz()] }));
     const { markup, text, reads } = await rendered(TEAM_A, "2526");
 
-    assert.deepEqual(reads, [], "the landing and its shell read past the session, which they are rendered from");
+    assert.deepEqual(reads, [SITZE_ENDPOINT], "the landing reads anything but its own team's seats, or the shell reads at all");
     assert.ok(text.includes("Saison 2526"), "the shell names no season");
     assert.deepEqual(
       linksIn(markup).filter((link) => link.href.includes("?")),
@@ -463,6 +466,79 @@ describe("one squad row, as a seat holder opens it", () => {
       });
 
       assert.ok(thrown.some((error) => (error as { digest?: unknown } | null)?.digest === "NEXT_HTTP_ERROR_FALLBACK;404"));
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+});
+
+/** The three seats as the backend serves them, carrying an address and a number as a leak would. */
+const SITZE = {
+  acknowledged: 1,
+  team_id: TEAM_A,
+  saison_id: "2526",
+  sitze: [
+    { rolle: "trainer", name: "Tom Becker", bestaetigt: false, email: "tom@sitz.invalid", telefon: "0151 2345678" },
+    { rolle: "ansprechperson", name: "Pia Klein", bestaetigt: true, kontakt: { email: "klein@sitz.invalid" } },
+    { rolle: "stellvertretung", name: null, bestaetigt: false },
+  ],
+};
+
+/** The seat read answered with `sitze`, every other read with the emptiest body. */
+const answeringSitze = (sitze: unknown = SITZE) =>
+  answerReadsWith((endpoint, schema, params) => (endpoint === SITZE_ENDPOINT ? sitze : EMPTIEST_ANSWER(endpoint, schema, params)));
+
+describe("the landing's seat lines", () => {
+  /* A Trainer-only seat, the narrowest there is: whatever an Ansprechperson reads, it reads too. */
+  it("names each of the three seats, one pending, and an emptied slot as unfilled rather than leaving it out", async () => {
+    setSubject(person({ sitze: [sitz({ rolle: "trainer" })] }));
+    answeringSitze();
+    try {
+      const { text } = await rendered(TEAM_A, "2526");
+
+      assert.ok(text.includes("Pia Klein · Ansprechperson · bestätigt"), text);
+      assert.ok(text.includes("Tom Becker · Trainerin oder Trainer · noch nicht bestätigt"), text);
+      assert.ok(text.includes("Stellvertretung: nicht besetzt"), text);
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  /* The read's answer carries an address and a number here, as a backend leak would: the page's schema is
+     what keeps either off the landing and out of every prop the page hands its view. */
+  it("carries no way to reach a seat holder, in the markup or in what the page hands its view", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answeringSitze();
+    try {
+      const { markup } = await rendered(TEAM_A, "2526");
+      const body = await pageBody(TeamStartPage, {
+        params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }),
+        searchParams: Promise.resolve({}),
+      });
+
+      assert.ok(!markup.includes("sitz.invalid") && !markup.includes("0151"), "the landing renders a seat holder's address or number");
+      assert.deepEqual(
+        keysOf(body.props).filter((key) => CONTACT_KEY.test(key)),
+        [],
+        "the landing hands its view a way to reach a seat holder",
+      );
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  /* The page's own check found the seat and the backend's, a moment later, did not. */
+  it("renders the forbidden panel where the seat went between the check and the read", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === SITZE_ENDPOINT) throw seatLost(endpoint);
+      return EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+    try {
+      const { markup, text } = await rendered(TEAM_A, "2526");
+
+      assert.ok(markup.includes(FORBIDDEN_BADGE) && text.includes("Hier bist Du nicht eingetragen."), text);
+      assert.ok(!text.includes("Kontaktpersonen"), "the seat lines render beside the forbidden panel");
     } finally {
       answerReadsWith(EMPTIEST_ANSWER);
     }

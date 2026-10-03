@@ -122,7 +122,7 @@ export const TEAM_SIDEMENU_ENTRIES = [
     label: "Übersicht",
     iconName: "House",
     hint: {
-      lead: "Dein Team in dieser Saison und Deine Funktion darin.",
+      lead: "Dein Team in dieser Saison, Deine Funktion darin und wer die anderen Funktionen hat.",
     },
   },
   {
