@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
-import { kontakteMayMint } from "@/features/kontakte/linkMint";
+import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
 import {
   describeUnrestorableKontakte,
@@ -164,8 +164,9 @@ export function AdminKontakteEditForm({
   };
 
   const writeAfterBlock = () => {
-    // A save seating somebody new mints them a link, a step-up write (`docs/frontend/spec.md :: I432`).
-    stepUp.confirmThen(kontakteMayMint(storedKontakte, buildPayload().kontakte), () =>
+    // A save seating, removing or replacing a person mints or voids a link, a step-up write
+    // (`docs/frontend/spec.md :: I432`).
+    stepUp.confirmThen(kontakteMayMoveLinks(storedKontakte, buildPayload().kontakte), () =>
       startSaving(async () => {
         // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
         // the toast that replays it outlives this component.
@@ -208,10 +209,10 @@ export function AdminKontakteEditForm({
             warn: res.versandFehlgeschlagen === true,
             fallback: "Die Kontakte wurden aktualisiert.",
             unrestorable,
-            // Clearing the block, or putting back a person this save replaced, is a step-up write the undo
+            // Clearing the block, or putting back a person this save replaced or removed, is a step-up write the undo
             // route refuses a session past the window, so the press asks first.
             stepUp:
-              undoPayload.kontakte === null || kontakteMayMint(res.saison_team?.kontakte ?? null, undoPayload.kontakte)
+              undoPayload.kontakte === null || kontakteMayMoveLinks(res.saison_team?.kontakte ?? null, undoPayload.kontakte)
                 ? stepUp.page
                 : undefined,
             router,

@@ -56,8 +56,12 @@ const replayed = (acknowledged: 0 | 1, bestaetigungen: unknown[] = []) => ({
 const { setFresh } = doubleRouteRequest();
 const mail = doubleSendMail();
 registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
+/** The stored rows a stale replay is judged against: none, so only a replay seating somebody moves a link. */
+const NO_CLUB = { acknowledged: 1, teams: [] };
 const { answerWith, calls } = doubleApiAnswers(({ endpoint }) =>
-  Promise.resolve(endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : replayed(1)),
+  Promise.resolve(
+    endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : endpoint === "/teams/memberships" ? NO_CLUB : replayed(1),
+  ),
 );
 const { POST } = await import("./route.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");

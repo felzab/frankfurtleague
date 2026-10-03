@@ -275,6 +275,18 @@ describe("a contacts save from a session past the step-up window", () => {
     );
   });
 
+  /* Emptying a seat voids the link its person holds, which is a step-up write as much as a mint. */
+  it("is refused where the draft empties a seat the row holds, reaching no write", async () => {
+    setFresh(false);
+
+    assert.deepEqual(await patchSaisonTeamKontakteAction({ ...PAYLOAD, kontakte: { ...BLOCK, stellvertretung: null } }), stepUpRequired());
+    assert.deepEqual(
+      requestsOf(client.calls).filter(({ method }) => method !== undefined),
+      [],
+      "the voiding write was sent for a session past the window",
+    );
+  });
+
   /* The same people with a corrected telephone mint nothing, so the edit keeps its undo and asks nothing. */
   it("is let through where every seat keeps its person", async () => {
     setFresh(false);

@@ -308,9 +308,10 @@ describe("an administrator write the server holds to the step-up window", () => 
     }
   });
 
-  /* The cleared block alone is irreversible: an edit of the seats keeps its undo, and asking for the
-     passkey there would ask on every save of the contact editor. */
-  it("refuses clearing a team's contacts, and never an edit of them", async () => {
+  /* Clearing the block voids every link on the row; an edit moving no link keeps its undo, and asking
+     for the passkey there would ask on every save of the contact editor. The row holds nobody here,
+     so an empty block moves nothing. */
+  it("refuses clearing a team's contacts, and never an edit moving no link", async () => {
     const patch = await action("patchSaisonTeamKontakteAction");
     const key = { team_id: TEAM_ID, saison_id: "2526", kontakte_stand: "9f2c" };
     const emptySeats = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
@@ -321,7 +322,7 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.equal(calls.length, sent, "the clearing reached the backend for a session past the window");
 
     // A valid edit, so the answer is past the payload's parse and never the parse's own refusal.
-    assert.notDeepEqual(await patch({ ...key, kontakte: emptySeats }), refused, "a stale session was refused an edit of the contacts");
+    assert.notDeepEqual(await patch({ ...key, kontakte: emptySeats }), refused, "a stale session was refused an edit moving no link");
     assert.ok(calls.length > sent, "the edit stopped short of the backend");
   });
 

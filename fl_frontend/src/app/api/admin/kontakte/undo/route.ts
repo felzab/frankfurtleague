@@ -1,4 +1,4 @@
-import { kontakteMayMint } from "@/features/kontakte/linkMint";
+import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { patchSaisonTeamKontakte } from "@/features/kontakte/mutations";
 import { describeKontaktVersand, mailKontaktLink } from "@/features/kontakte/notifications";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
@@ -68,17 +68,15 @@ export async function POST(request: NextRequest) {
     // by the caller instead.
     invalidate: () => undefined,
     // The replay is a save, judged as the save's own action judges one (`docs/frontend/spec.md :: I432`):
-    // undoing a first entry clears the block, and putting an earlier person back mints them a link.
+    // undoing a first entry clears the block, and putting an earlier person back mints a link and voids one.
     stepUp: async ({ team_id, saison_id, kontakte }) => {
       if (kontakte === null) return true;
-      // Judged against nobody first, so a replay seating nobody costs no read.
-      if (!kontakteMayMint(null, kontakte)) return false;
 
       const { teams } = await getTeamMemberships();
       const gespeichert =
         teams.find(({ id }) => id === team_id)?.memberships.find((membership) => membership.saison_id === saison_id)?.kontakte ?? null;
 
-      return kontakteMayMint(gespeichert, kontakte);
+      return kontakteMayMoveLinks(gespeichert, kontakte);
     },
   });
 }

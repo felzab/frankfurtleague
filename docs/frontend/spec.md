@@ -209,13 +209,13 @@ panel, a one-press control, a create and an undo all ask through
 `fl_frontend/src/shared/hooks/useStepUp.ts :: useStepUp` (I431). A confirmation is a sign-in, so the
 session it makes restarts the window. The server holds the line whatever the page asked (I432): an
 action whose every call is a step-up write declares `stepUp` to `runAdminMutation`, and one whose
-calls differ — clearing a club's `kontakte` or seating a new person in it, a mint over a standing
-link, a replacing draw, a referee's save or return that mints a link — decides in its body. An undo
-route's replay is that save again and is held alike, declaring `stepUp` over its payload: the
-contacts undo clearing a block or putting a replaced person back, and the referee's undo moving an
-unanswered referee's address back. Each such judgement is a superset of the backend's, read off the
-stored row only for a session past the window
-(`fl_frontend/src/features/kontakte/linkMint.ts :: kontakteMayMint`).
+calls differ — clearing a club's `kontakte` or seating, removing or replacing a person in it, a
+mint over a standing link, a replacing draw, a referee's save or return that mints a link — decides
+in its body. An undo route's replay is that save again and is held alike, declaring `stepUp` over
+its payload: the contacts undo clearing a block or putting a replaced or removed person back, and
+the referee's undo moving an unanswered referee's address back. Each such judgement is a superset
+of the backend's, read off the stored row only for a session past the window
+(`fl_frontend/src/features/kontakte/linkMint.ts :: kontakteMayMoveLinks`).
 A refusal re-renders the page, which then asks (I433). The backend holds every step-up write to the
 same window on the same calls (`docs/backend/spec.md :: I524`, and `:: I489` for the grants), and its
 refusal is answered as the spine's own (I493).

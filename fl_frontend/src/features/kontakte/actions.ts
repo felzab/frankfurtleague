@@ -9,7 +9,7 @@ import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutatio
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { kontakteMayMint, SITZE } from "./linkMint";
+import { kontakteMayMoveLinks, SITZE } from "./linkMint";
 import { einladeKontakt, eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
 import { describeKontaktVersand, mailKontaktLink } from "./notifications";
 import { mapEinladenRefusal, mapStaleBlockRefusal } from "./refusals";
@@ -90,16 +90,14 @@ export async function patchSaisonTeamKontakteAction(
       };
     }
 
-    // Clearing the block and a save seating somebody new are step-up writes; an edit seating nobody
-    // keeps its undo (`docs/frontend/spec.md :: I432`). The stored row is read only for a session
-    // past the window, the backend refusing the rest.
-    const mayMint =
+    // Clearing the block and a save seating, removing or replacing a person are step-up writes, each
+    // minting or voiding a link; an edit moving no link keeps its undo (`docs/frontend/spec.md :: I432`).
+    // The stored row is read only for a session past the window, the backend refusing the rest.
+    const movesLinks =
       validated.data.kontakte !== null &&
       !isFreshlySignedIn(session) &&
-      // Judged against nobody first, so a block seating nobody costs no read.
-      kontakteMayMint(null, validated.data.kontakte) &&
-      kontakteMayMint(await gespeicherteKontakte(validated.data), validated.data.kontakte);
-    const unconfirmed = validated.data.kontakte === null || mayMint ? refuseUnconfirmed(session) : null;
+      kontakteMayMoveLinks(await gespeicherteKontakte(validated.data), validated.data.kontakte);
+    const unconfirmed = validated.data.kontakte === null || movesLinks ? refuseUnconfirmed(session) : null;
     if (unconfirmed !== null) return unconfirmed;
 
     // After the parse, where the application's check comes before it: only a parsed payload names
