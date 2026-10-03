@@ -27,6 +27,7 @@ from app.api.einwilligung.router import router as einwilligung_router
 from app.api.identitaet.router import router as identitaet_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
+from app.api.registrierungen.person_router import router as registrierungen_person_router
 from app.api.registrierungen.public_router import router as registrierungen_public_router
 from app.api.registrierungen.router import router as registrierungen_router
 from app.api.registrierungen.sweep_router import router as registrierungen_sweep_router
@@ -47,6 +48,7 @@ from app.api.spieltage.admin_router import router as spieltage_admin_router
 from app.api.spieltage.router import router as spieltage_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
+from app.api.teams.person_router import router as teams_person_router
 from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
 from app.core.actor_token import ActorTokenKey
@@ -145,7 +147,7 @@ SYSTEM_ROUTERS = (
 # Its own group, as the two above are: a signed-in person's routers read and write on the admin key
 # with a person's binder in place of `bind_actor`, which no tuple above describes. A sweep walking
 # the writers walks these too.
-PERSON_ROUTERS = (spieler_person_router,)
+PERSON_ROUTERS = (spieler_person_router, registrierungen_person_router, teams_person_router)
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
 # published so the two can be compared (`docs/backend/spec.md :: I190`).

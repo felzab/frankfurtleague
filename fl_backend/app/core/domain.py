@@ -2410,7 +2410,9 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.FORBIDDEN,
         operation=(
             "GET /spieler/kader/{team_id}/{saison_id} · PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id} · "
-            "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}"
+            "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id} · GET /registrierungen/kader/{team_id}/{saison_id} · "
+            "POST /registrierungen/{registrierung_id}/aufnehmen · POST /registrierungen/{registrierung_id}/ablehnen · "
+            "GET /teams/{team_id}/saisons/{saison_id}/person/sitze"
         ),
         aggregate="Saison",
         summary="a team's panel is read and changed only by a person holding a contact seat on that team in an `active` or `future` season",

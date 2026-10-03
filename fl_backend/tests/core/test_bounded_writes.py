@@ -95,6 +95,7 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/spieler/admin_router.py :: add_the_player",
             "app/api/spieler/admin_router.py :: move_the_player",
             "app/api/spieler/admin_router.py :: bring_the_player_back",
+            "app/api/registrierungen/person_router.py :: admit_the_pupil",
         }
     ),
     "refuse_a_taken_rolle": frozenset(

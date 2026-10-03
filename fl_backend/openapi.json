@@ -1325,6 +1325,9 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -1380,6 +1383,9 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -2784,7 +2790,7 @@
       },
       "post": {
         "summary": "Register through a team's link",
-        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since\n(`REQ-REGISTRIERUNG-009`), before any link is minted.",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since\n(`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since\nadmitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.",
         "operationId": "post_registrierung_api_v0_registrierungen_post",
         "security": [
           {
@@ -2835,7 +2841,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-EINLADUNG-003"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-REGISTRIERUNG-001.REQ-REGISTRIERUNG-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-008"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-REGISTRIERUNG-001.REQ-REGISTRIERUNG-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-008.REQ-REGISTRIERUNG-016"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-REGISTRIERUNG-011.REQ-VAL-001"
@@ -4533,6 +4539,9 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -7117,7 +7126,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: an address is taken for one person but enforced as one nowhere,\nand matched on the address alone a mailbox shared anyway would show one pupil another's birthdate. All three are null wherever\nthat match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: an address holds one stored person, and matched on the address\nalone a mailbox shared anyway would show a sibling that person's birthdate. All three are null wherever no stored person\nmatches both.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -8300,6 +8309,302 @@
           },
           "409": {
             "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
+      "get": {
+        "summary": "A team's pending registrations for one season",
+        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers, or else the one stored person holding no address whose name is the registration's. A typed name is a\nweaker key than a shorthand, so a name only ever proposes. An unconfirmed row names neither: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody.\n`vollstaendig` is false where more pending rows exist than `limit` serves.",
+        "operationId": "get_offene_registrierungen_api_v0_registrierungen_kader__team_id___saison_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "desc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLOffeneRegistrierungenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/registrierungen/{registrierung_id}/aufnehmen": {
+      "post": {
+        "summary": "Admit a registration into the team's squad",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name, its confirmed birthdate and\nits freshly confirmed consent record. Where that person's name or birthdate differs, `spieler_id` must name them\n(the team said it is the same person). With no such person, `spieler_id` is null for a new one, or names the\naddressless namesake the read proposed, who then takes the registration's address. A retired person comes back.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban\nlist holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no\nlonger offers (`REQ-REGISTRIERUNG-003`), a `spieler_id` that is not the person this registration may be admitted\ninto (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a\nfull squad (`REQ-SQUAD-003`). Nothing is written on any of them.",
+        "operationId": "aufnehmen_api_v0_registrierungen__registrierung_id__aufnehmen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "registrierung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registrierung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLRegistrierungAufnehmenPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungAufnahmeResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-013.REQ-REGISTRIERUNG-014.REQ-REGISTRIERUNG-015.REQ-SQUAD-003"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001.REQ-REGISTRIERUNG-009"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/registrierungen/{registrierung_id}/ablehnen": {
+      "post": {
+        "summary": "Decline a registration",
+        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The answer carries the address the pupil's link\nwent to, for the decline mail and nothing else, and whether that address was ever confirmed.\n\nRefuses no pending registration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).",
+        "operationId": "ablehnen_api_v0_registrierungen__registrierung_id__ablehnen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "registrierung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Registrierung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLRegistrierungAblehnenPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungAblehnungResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/person/sitze": {
+      "get": {
+        "summary": "A team's seats in one season",
+        "description": "The team's three seats in this season, each with its holder's name and whether that person has confirmed it.\n\nAlways three lines, an empty slot answered with no name. No seat's address, telephone number, birthdate or\nconfirmation date is served, whoever asks.",
+        "operationId": "get_team_sitze_api_v0_teams__team_id__saisons__saison_id__person_sitze_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLTeamSitzeResponse"
+                }
+              }
+            }
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -13730,6 +14035,161 @@
         ],
         "title": "FLKontaktpersonPayload"
       },
+      "FLOffeneRegistrierung": {
+        "properties": {
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "eingereicht_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Eingereicht Am"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Nachname"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "aufnehmbar": {
+            "type": "boolean",
+            "title": "Aufnehmbar"
+          },
+          "nummer_doppelt": {
+            "type": "boolean",
+            "title": "Nummer Doppelt"
+          },
+          "person": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLRegistrierungPerson"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLRegistrierungVorschlag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "eingereicht_am",
+          "vorname",
+          "nachname",
+          "nummer",
+          "position",
+          "stufe",
+          "aufnehmbar",
+          "nummer_doppelt",
+          "person",
+          "vorschlag"
+        ],
+        "title": "FLOffeneRegistrierung",
+        "description": "One pending registration as the team deciding it reads it."
+      },
+      "FLOffeneRegistrierungenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "registrierungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLOffeneRegistrierung"
+            },
+            "type": "array",
+            "title": "Registrierungen"
+          },
+          "vollstaendig": {
+            "type": "boolean",
+            "title": "Vollstaendig"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "saison_id",
+          "registrierungen",
+          "vollstaendig"
+        ],
+        "title": "FLOffeneRegistrierungenResponse",
+        "description": "One team's pending registrations for one season, and whether that is the whole of them."
+      },
       "FLPatchBerechtigungPayload": {
         "properties": {
           "verwaltung": {
@@ -15894,6 +16354,225 @@
         "title": "FLRegistrierung",
         "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nThe submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and\n`einwilligung`, and a decline writes `status` and `entscheidung`."
       },
+      "FLRegistrierungAblehnenPayload": {
+        "properties": {
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "andere_person"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "grund"
+        ],
+        "title": "FLRegistrierungAblehnenPayload",
+        "description": "Why the team declines, from a closed set or not at all."
+      },
+      "FLRegistrierungAblehnungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          },
+          "bestaetigt": {
+            "type": "boolean",
+            "title": "Bestaetigt"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "andere_person"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "team_id",
+          "saison_id",
+          "team",
+          "vorname",
+          "email",
+          "bestaetigt",
+          "grund"
+        ],
+        "title": "FLRegistrierungAblehnungResponse",
+        "description": "What the decline mail needs, answered to the frontend's server and never further."
+      },
+      "FLRegistrierungAufnahmeResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Nachname"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "ist_nachnominiert": {
+            "type": "boolean",
+            "title": "Ist Nachnominiert"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registrierung_id",
+          "spieler_id",
+          "team_id",
+          "saison_id",
+          "vorname",
+          "nachname",
+          "nummer",
+          "position",
+          "stufe",
+          "ist_nachnominiert"
+        ],
+        "title": "FLRegistrierungAufnahmeResponse",
+        "description": "The squad entry the admission wrote, and the person it belongs to."
+      },
+      "FLRegistrierungAufnehmenPayload": {
+        "properties": {
+          "spieler_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spieler Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spieler_id"
+        ],
+        "title": "FLRegistrierungAufnehmenPayload",
+        "description": "The team's answer to the question the read asked: the person this registration is admitted into, or none."
+      },
       "FLRegistrierungBestaetigung": {
         "properties": {
           "verschickt_am": {
@@ -16203,6 +16882,43 @@
         "title": "FLRegistrierungEntscheidungZeile",
         "description": "A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address."
       },
+      "FLRegistrierungPerson": {
+        "properties": {
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "weicht_ab": {
+            "type": "boolean",
+            "title": "Weicht Ab"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "vorname",
+          "nachname",
+          "weicht_ab"
+        ],
+        "title": "FLRegistrierungPerson",
+        "description": "The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one."
+      },
       "FLRegistrierungSweepBenachrichtigung": {
         "properties": {
           "registrierung_id": {
@@ -16339,6 +17055,38 @@
         ],
         "title": "FLRegistrierungSweepResponse",
         "description": "One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes.\n\nThe ordering that makes those three true is `docs/backend/spec.md :: I297`."
+      },
+      "FLRegistrierungVorschlag": {
+        "properties": {
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLRegistrierungVorschlag",
+        "description": "The one stored person holding no address whose name is the registration's: proposed, never resolved.\n\n\"A typed name is a weaker key than a shorthand\", so a name only ever proposes."
       },
       "FLRegistrierungenListResponse": {
         "properties": {
@@ -20520,6 +21268,78 @@
         "title": "FLTeamRecord",
         "description": "The club document as it is STORED, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet."
       },
+      "FLTeamSitz": {
+        "properties": {
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "bestaetigt": {
+            "type": "boolean",
+            "title": "Bestaetigt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rolle",
+          "name",
+          "bestaetigt"
+        ],
+        "title": "FLTeamSitz",
+        "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: the contact page promises that only administrators\nsee those (`fl_frontend/src/core/einwilligung.ts :: BESTAETIGUNG_ABSAETZE`)."
+      },
+      "FLTeamSitzeResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "sitze": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamSitz"
+            },
+            "type": "array",
+            "title": "Sitze"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "saison_id",
+          "sitze"
+        ],
+        "title": "FLTeamSitzeResponse",
+        "description": "A team's three seats in one season, in the order `app/api/kontakte/services.py :: KONTAKT_SLOTS` reads them."
+      },
       "FLTeamStatistik": {
         "properties": {
           "anzahl_gespielte_spiele": {
@@ -21328,6 +22148,31 @@
                       "enum": [
                         "REQ-AUTH-008",
                         "REQ-FUNKTION-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-AUTH-008.REQ-FUNKTION-001.REQ-REGISTRIERUNG-009": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-008",
+                        "REQ-FUNKTION-001",
+                        "REQ-REGISTRIERUNG-009"
                       ]
                     }
                   }
@@ -22207,7 +23052,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-REGISTRIERUNG-001.REQ-REGISTRIERUNG-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-008": {
+      "409.DB-COMMON-002.REQ-REGISTRIERUNG-001.REQ-REGISTRIERUNG-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-008.REQ-REGISTRIERUNG-016": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -22224,7 +23069,36 @@
                         "REQ-REGISTRIERUNG-001",
                         "REQ-REGISTRIERUNG-002",
                         "REQ-REGISTRIERUNG-003",
-                        "REQ-REGISTRIERUNG-008"
+                        "REQ-REGISTRIERUNG-008",
+                        "REQ-REGISTRIERUNG-016"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-013.REQ-REGISTRIERUNG-014.REQ-REGISTRIERUNG-015.REQ-SQUAD-003": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-REGISTRIERUNG-003",
+                        "REQ-REGISTRIERUNG-013",
+                        "REQ-REGISTRIERUNG-014",
+                        "REQ-REGISTRIERUNG-015",
+                        "REQ-SQUAD-003"
                       ]
                     }
                   }

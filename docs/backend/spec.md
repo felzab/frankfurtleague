@@ -239,9 +239,10 @@ application, and `POST /kontakte/erasure` writes `saison_teams`, `bewerbungen` a
 Neither is addressed anywhere but at what it decides — the one application, the one person — and
 what follows from that decision travels in its transaction (I42, I51) rather than in its path.
 
-#### `spieler` person router — admin key, a person's binder
+#### The person routers — admin key, a person's binder
 
-A team's contact seats act on their own squad here. The router carries the admin key and binds
+A team's contact seats act on their own squad, its registrations and its landing here. Each router
+carries the admin key and binds
 `fl_backend/app/core/security.py :: PERSON_ACTOR_BINDERS`' `kontakt` binder in place of `bind_actor`
 and the grants check (I41), and every handler re-derives the seat itself (I901).
 
@@ -250,6 +251,10 @@ and the grants check (I41), and every handler re-derives the seat itself (I901).
 | GET    | `/spieler/kader/{team_id}/{saison_id}`              | The squad, ausgetragen rows included, with the season's `erlaubte_stufen` and the shirt marker (`READ-KADER-001`); `REQ-FUNKTION-001` refuses |
 | PATCH  | `/spieler/kader/{team_id}/{saison_id}/{spieler_id}` | A live row's `nummer`, `position`, `stufe` and `rolle`, wholesale (I902); `REQ-FUNKTION-001`, `REQ-SQUAD-005` and `REQ-SQUAD-004` refuse      |
 | DELETE | `/spieler/kader/{team_id}/{saison_id}/{spieler_id}` | Austragen: stamps the live row's `inactive_since`, which only the administrator's reactivate clears (I902); `REQ-FUNKTION-001` refuses        |
+| GET    | `/registrierungen/kader/{team_id}/{saison_id}`      | The pending registrations, each marked admissible, with the person its address resolves to or a sole addressless namesake (I951, I952, I955)  |
+| POST   | `/registrierungen/{registrierung_id}/aufnehmen`     | Admits into the resolved person or a new one, erasing the registration in the same transaction (I953, I954)                                   |
+| POST   | `/registrierungen/{registrierung_id}/ablehnen`      | `status` and `entscheidung` and nothing else, the reason from a closed set (I957); 404 once decided                                           |
+| GET    | `/teams/{team_id}/saisons/{saison_id}/person/sitze` | The landing's three seat lines, a name and a confirmed flag each, an empty slot answered empty (I955)                                         |
 
 #### `system` router — mixed guards
 

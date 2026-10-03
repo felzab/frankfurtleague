@@ -511,7 +511,7 @@ SEASON_WRITE_HANDLERS = _season_write_handlers()
 # Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
 # set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
 # shrink the sweep and still report success.
-SEASON_WRITE_HANDLER_FLOOR = 14
+SEASON_WRITE_HANDLER_FLOOR = 17
 
 # Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
 # naming what to look at when the recognition stops matching.
@@ -522,6 +522,14 @@ assert len(SEASON_WRITE_HANDLERS) >= SEASON_WRITE_HANDLER_FLOOR, (
 
 
 class TestEverySeasonWriteDropsIt:
+    def test_the_admission_is_among_the_season_writers(self):
+        """Named, because the floor alone lets the sweep lose it while another writer joins.
+
+        The admission writes the season through the squad cap's anchor, a module away from its handler.
+        """
+
+        assert "aufnehmen" in SEASON_WRITE_HANDLERS
+
     @pytest.mark.parametrize("handler", sorted(SEASON_WRITE_HANDLERS))
     def test_a_handler_writing_a_season_runs_it_inside_the_drop(self, handler: str):
         """A source sweep, because the call leaves no trace on the wire: an execution test could only observe it through a stale read."""

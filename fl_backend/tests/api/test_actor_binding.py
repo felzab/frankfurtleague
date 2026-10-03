@@ -395,6 +395,8 @@ SYSTEM_WRITES = [
 PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/spieler/kader/{team_id:objectid}/{saison_id}/{spieler_id:objectid}", "PATCH"),
     ("/api/v0/spieler/kader/{team_id:objectid}/{saison_id}/{spieler_id:objectid}", "DELETE"),
+    ("/api/v0/registrierungen/{registrierung_id:objectid}/aufnehmen", "POST"),
+    ("/api/v0/registrierungen/{registrierung_id:objectid}/ablehnen", "POST"),
 ]
 
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.

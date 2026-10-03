@@ -92,6 +92,7 @@ _PERSON_RECORDS = "a person's own record, whose address a ban withholds nowhere:
 # Each read no answer of which names an administrator, and what it serves instead.
 NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/kontakte/erasure/ansicht": "the seats an erasure would clear, by name and season and with no address",
+    "/api/v0/registrierungen/kader/{team_id:objectid}/{saison_id}": "a team's pending registrations, no decision among them",
     "/api/v0/saisons/list/admin": "seasons and their rules",
     "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": f"the teams a mailing would reach, their seats being {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
@@ -109,6 +110,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spielorte/{spielort_id:objectid}": "one venue",
     "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
     "/api/v0/teams/memberships": "clubs and their seasons",
+    "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/sitze": "one team's seat holders by name, as the seat holders read them",
 }
 
 
