@@ -1,5 +1,6 @@
 import ast
 import asyncio
+import functools
 import logging
 import re
 import subprocess
@@ -1050,11 +1051,6 @@ class TestAccessLine:
         assert "/api/v0/spiele?limit=5" in paths
 
 
-# The shipped stack around two routes that fail, built at module level for `APP`'s reason; an app of
-# its own, `APP` being every module's.
-CRASHING_APP = create_app(build_test_config())
-
-
 async def crash() -> None:
     raise KeyError("verwaltung")
 
@@ -1067,8 +1063,26 @@ async def break_after_the_status() -> StreamingResponse:
     return StreamingResponse(body())
 
 
-CRASHING_APP.add_api_route("/crash", crash)
-CRASHING_APP.add_api_route("/broken-stream", break_after_the_status)
+@functools.cache
+def _crashing_app() -> FastAPI:
+    """The shipped stack around two routes that fail: an app of its own, `APP` being every module's.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    crashing = create_app(build_test_config())
+    crashing.add_api_route("/crash", crash)
+    crashing.add_api_route("/broken-stream", break_after_the_status)
+
+    return crashing
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _built_before_any_case() -> None:
+    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
+
+    _crashing_app()
+
 
 CRASHES = [
     pytest.param("/crash", 500, id="a crash no handler answers"),
@@ -1080,7 +1094,7 @@ def _crashed(caplog: pytest.LogCaptureFixture, path: str) -> tuple[Response, lis
     # The filter the console handler stamps each line with, so a record carries the ids the sink would read.
     caplog.handler.addFilter(TraceContextFilter())
     with caplog.at_level(logging.INFO, logger="frankfurtleague"):
-        response = TestClient(CRASHING_APP, raise_server_exceptions=False).get(path, headers={"traceparent": TRACEPARENT})
+        response = TestClient(_crashing_app(), raise_server_exceptions=False).get(path, headers={"traceparent": TRACEPARENT})
 
     return response, caplog.records
 

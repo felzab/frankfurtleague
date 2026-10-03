@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
@@ -322,8 +322,11 @@ describe("the address correction", () => {
     ]) {
       const { unmount } = renderStrip();
       answerWith(() => Promise.resolve(answer));
+      const before = raised.length;
 
       await correctClara(user, "clara.neu@schule.example{Enter}");
+      // Its answer reported before the strip goes, so each arm's toast is its own.
+      await waitFor(() => assert.equal(raised.length, before + 1));
       unmount();
     }
 
@@ -364,9 +367,10 @@ describe("two re-sends running at once", () => {
     assert.deepEqual([send("Stellvertretung")?.textContent, send("Trainer")?.textContent], ["Sendet...", "Sendet..."]);
 
     await settle({ success: true, message: "Der neue Link ging an bernd@schule.example." });
-    assert.equal(send("Stellvertretung")?.textContent, "Link erneut senden", "a settled write left its seat held");
+    await waitFor(() => assert.equal(send("Stellvertretung")?.textContent, "Link erneut senden", "a settled write left its seat held"));
     assert.equal(send("Trainer")?.textContent, "Sendet...", "the first write's answer lifted the second seat's hold");
     await settle({ success: true, message: "Der neue Link ging an clara@schule.example." });
+    await waitFor(() => assert.equal(send("Trainer")?.textContent, "Link erneut senden"));
   });
 });
 
@@ -403,6 +407,7 @@ describe("a write whose answer never arrives", () => {
 
       await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
+      await waitFor(() => assert.equal(raised.length, 1, "the press was answered nowhere"));
       assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
       assert.equal(seen.refresh, readAgain[arm], "a rejection left the row as it was, or an answer read it twice");
       assert.deepEqual(unknowns(), [
@@ -422,9 +427,12 @@ describe("a write whose answer never arrives", () => {
 
     answerWith(() => Promise.resolve({ success: false, error: "Die Bewerbung ist entschieden." }));
     await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
+    // The second press waits for the first answer, as the held control makes the reader's own wait.
+    await waitFor(() => assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]));
     answerWith(() => Promise.resolve({ success: true, message: "Der neue Link ging raus." }));
     await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
+    await waitFor(() => assert.deepEqual(titles("success"), ["Link erneut gesendet"]));
     assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]);
     assert.deepEqual(unknowns(), [], "a refusal was raised as a write of unknown outcome");
     assert.deepEqual(titles("success"), ["Link erneut gesendet"]);
@@ -440,6 +448,7 @@ describe("a write whose answer never arrives", () => {
 
       await correctClara(user, "clara.neu@schule.example{Enter}");
 
+      await waitFor(() => assert.equal(raised.length, 1, "the press was answered nowhere"));
       assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
       assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
       assert.equal(seen.refresh, 0, "the page was read again over the box's typed entry");
@@ -459,6 +468,7 @@ describe("a write whose answer never arrives", () => {
 
       await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
 
+      await waitFor(() => assert.equal(raised.length, 1, "the press was answered nowhere"));
       assert.ok(screen.getByRole("button", { name: "Neu besetzen und Link senden" }), "the rejected write left „Sendet...“ standing");
       assert.equal(
         screen.getByRole<HTMLInputElement>("textbox", { name: "Vorname" }).value,
@@ -607,8 +617,10 @@ describe("seating another person where one stepped out", () => {
     ]) {
       const { unmount } = renderStrip({ stands: standsOf(claraStieAus) });
       answerWith(() => Promise.resolve(answer));
+      const before = raised.length;
 
       await seatSomebody(user, "Trainer", "doreen@schule.example{Enter}");
+      await waitFor(() => assert.equal(raised.length, before + 1));
       unmount();
     }
 

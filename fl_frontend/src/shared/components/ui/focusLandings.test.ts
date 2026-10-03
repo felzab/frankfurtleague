@@ -22,7 +22,7 @@ import type { ReactNode } from "react";
 const CEREMONY = () => Promise.resolve({ data: {}, error: null });
 registerDoubles({ modules: { "core/authClient.ts": { authClient: { passkey: { addPasskey: CEREMONY }, signIn: { passkey: CEREMONY } } } } });
 
-const { calls, answerWith } = doubleEveryAction();
+const { calls, answerWith, answered } = doubleEveryAction();
 doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -1060,6 +1060,8 @@ describe("where the focus lands once a write takes its control off the page", ()
       const view = renderUnderWrite(page(landing.before()));
 
       await landing.press(user);
+      // Every write the press set off answered first, a confirmation's own check among them.
+      await act(answered);
       await view.answered();
       await view.refresh(page(landing.after(), landing.afterSearch), { remount: landing.remount ?? false });
 

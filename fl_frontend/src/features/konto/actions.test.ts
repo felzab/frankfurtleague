@@ -261,6 +261,29 @@ describe("what the sign-in list hands the page", () => {
       "a key or a credential reached the page",
     );
   });
+
+  /* Enrolments made at once can pass the cap (`docs/frontend/spec.md` §4), and a passkey past the adapter's
+     default page of 100 would be a card the holder can neither see nor remove. */
+  it("hands the page every passkey, past the adapter's default page of 100", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    for (let seeded = 1; seeded <= 101; seeded += 1) {
+      store.passkey.push({
+        id: `passkey-${String(seeded)}`,
+        userId: row.userId,
+        credentialID: `credential-${String(seeded)}`,
+        publicKey: "fabricated-public-key",
+        counter: 0,
+        deviceType: "multiDevice",
+        backedUp: true,
+        aaguid: "00000000-0000-0000-0000-000000000000",
+        createdAt: new Date(),
+      });
+    }
+
+    const { passkeys, kannHinzufuegen } = await sicherheitAs(cookie);
+
+    assert.deepEqual([passkeys.length, kannHinzufuegen], [101, false]);
+  });
 });
 
 describe("ending one sign-in", () => {

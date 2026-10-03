@@ -1,5 +1,5 @@
 /**
- * The assertion's session-creating path, read off `@better-auth/passkey` 1.7.5 on 2026-09-20: its
+ * The assertion's session-creating path, read off `@better-auth/passkey` 1.7.7 on 2026-10-03: its
  * `signIn.passkey` is a client helper over two endpoints rather than a route. The one spelling both
  * `fl_frontend/src/core/auth.ts` and `fl_frontend/src/core/passkeyLastUse.ts` match on.
  */

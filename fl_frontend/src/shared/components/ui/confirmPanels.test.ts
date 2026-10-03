@@ -7,7 +7,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { createElement as h, useState } from "react";
+import { act, createElement as h, useState } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -35,7 +35,7 @@ const COUNTED_ROW = overridingModule(ROW_URL, {
 // By the specifier the panels import it under, so the real row the double wraps loads by its own url.
 registerDoubles({ specifiers: { "@/shared/components/ui/ConfirmActionRow": COUNTED_ROW } });
 
-const { answerWith, calls } = doubleEveryAction();
+const { answerWith, calls, answered } = doubleEveryAction();
 doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -531,6 +531,8 @@ describe("one reveal and one action row per panel, whatever it offers", () => {
 
         const reveals = screen.getAllByRole("alert").length;
         const rows = document.querySelectorAll("[data-confirm-row]").length;
+        // A read the arming started lands inside this case, or in the case after it.
+        await act(answered);
         unmount();
 
         assert.equal(reveals, 1, "the armed panel shows a reveal count other than one");
@@ -651,10 +653,13 @@ describe("every administrator panel past the step-up window", () => {
           asks ? "a stale session armed without asking for the passkey" : "a reversible write asked for the passkey",
         );
         const control = armed ?? screen.getAllByRole("button").find((button) => button.textContent.startsWith("Ja,"));
+        // A panel arming over a read holds its press until that read has landed, as a reader's own press waits.
+        await act(answered);
         const sent = calls.length;
         t.mock.timers.tick(DOUBLE_PRESS_MS);
         await user.click(control ?? assert.fail("the armed panel offers no control to confirm with"));
         await waitFor(() => assert.ok(calls.length > sent, "the confirmed press sent nothing"));
+        await act(answered);
         unmount();
 
         const actions = calls.slice(sent).map((call) => call.action);

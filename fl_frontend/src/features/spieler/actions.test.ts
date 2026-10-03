@@ -4,9 +4,9 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -35,7 +35,7 @@ const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const SAISON_ID = "2026";
 
 /* Every write answers as landed; this file still reads the real module's text. */
-const { calls } = doubleActions({
+const { calls, answered } = doubleActions({
   modules: ["/src/features/spieler/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID }),
 });
@@ -261,6 +261,7 @@ describe("the erasure's copy", () => {
     });
 
     assert.deepEqual(erasures(), [{ id: SPIELER_ID }], "the armed press writes nothing, or writes for another person");
+    await act(answered);
   });
 });
 
@@ -285,7 +286,13 @@ describe("the erasure's gate and its exit", () => {
 
     await pressTwice(user, { resting: ERASE_LABEL, armed: `Ja, ${ERASE_LABEL}` });
 
-    assert.deepEqual(seen.replaced, [withSaisonId("/bereich/admin/spieler", SAISON_ID)], "the erasure does not leave the page it just emptied");
+    await waitFor(() =>
+      assert.deepEqual(
+        seen.replaced,
+        [withSaisonId("/bereich/admin/spieler", SAISON_ID)],
+        "the erasure does not leave the page it just emptied",
+      ),
+    );
     assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
   });
 
@@ -537,11 +544,9 @@ describe("the reactivate's gate on the editor", () => {
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" }));
     rerender(underNext(h(FormAustragenSection, { ...props, key: "ausgetragen", rowInactiveSince: RETIRED_ON })));
-    // One tick: the landing watches the page for the pressed control to go, and an observer reports a
-    // commit a microtask after it.
-    await Promise.resolve();
-
-    assert.ok(document.activeElement === screen.getByRole("button", { name: ROW_REACTIVATE }), "focus fell to the page");
+    // Waited for: the landing watches the page for the pressed control to go once the write has
+    // answered, which a loaded machine delivers after the refresh it brings.
+    await waitFor(() => assert.ok(document.activeElement === screen.getByRole("button", { name: ROW_REACTIVATE }), "focus fell to the page"));
   });
 });
 
@@ -638,6 +643,7 @@ describe("the reactivate's gate on the list", () => {
         `\u201e${control}\u201c reaches the wrong endpoint`,
       );
       assert.deepEqual(calls[0]?.payload, payload, `\u201e${control}\u201c sends the wrong key`);
+      await act(answered);
       unmount();
     }
   });
@@ -814,6 +820,7 @@ describe("the late-entry marker, which the backend derives", () => {
       ["postSaisonSpielerAction"],
     );
     assert.ok(!Object.hasOwn(calls[0]?.payload ?? {}, "ist_nachnominiert"), "the entry sends a marker the payload refuses");
+    await act(answered);
   });
 
   it("saves an edit without sending the stored marker back", async () => {
@@ -831,6 +838,7 @@ describe("the late-entry marker, which the backend derives", () => {
       "the edit never reached its write, so the payload below is judged over nothing",
     );
     assert.ok(!Object.hasOwn(calls[0]?.payload ?? {}, "ist_nachnominiert"), "the edit sends a marker the payload refuses");
+    await act(answered);
   });
 
   /* The banner is raised on the entry branch alone, so a player holding a row costs no read. */

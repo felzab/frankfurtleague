@@ -1,10 +1,12 @@
 import asyncio
+import functools
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, get_args
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
@@ -21,7 +23,8 @@ from app.main import create_app
 from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
 from tests.bans import ban_list
-from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
+from tests.config import BASE_AUTH, SYSTEM_AUTH
+from tests.core.app_source import application
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, ban_document, rules_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
@@ -31,10 +34,6 @@ from .conftest import config_for
 DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identitaet/subjekt"
-
-CONFIG = build_test_config()
-
-APP = create_app(CONFIG)
 
 # The folded form a caller sends, and the spellings the league stores it under. Deliberately
 # unusual, so a hit in a seeded corpus cannot be a coincidence.
@@ -477,7 +476,7 @@ def test_every_person_slot_the_block_declares_is_a_published_role():
 def test_the_operation_is_unreachable_without_a_bearer_token():
     """The guard runs ahead of the payload's own validation, so a malformed body still answers the guard's code rather than a 422."""
 
-    response = TestClient(APP, raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
+    response = TestClient(application(), raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
 
     assert response.status_code == 401
     assert response.json()["error_code"] == MISSING_TOKEN
@@ -486,10 +485,20 @@ def test_the_operation_is_unreachable_without_a_bearer_token():
 def test_the_base_key_draws_the_system_guard_s_own_code():
     """`WRONG_BASE_KEY` here would mean `verify_access_base` is on this route; each guard answers its own code, whatever key arrives."""
 
-    response = TestClient(APP, raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": IDENTIFIER})
+    response = TestClient(application(), raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": IDENTIFIER})
 
     assert response.status_code == 401
     assert response.json()["error_code"] == WRONG_SYSTEM_KEY
+
+
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(config_for(DATABASE_NAME))
 
 
 def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
@@ -498,7 +507,7 @@ def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
     on_a_league(url, _no_body)
 
     async def _answered() -> Response:
-        async with app_client(url, config=config_for(DATABASE_NAME)) as http:
+        async with app_client(url, app=_served()) as http:
             return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
     return asyncio.run(_answered())

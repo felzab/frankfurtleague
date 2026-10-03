@@ -408,8 +408,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   came from. It also records when it was last used, to within the interval a session waits before
   its row is refreshed (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`), and the
   account page shows that as „Zuletzt aktiv“ beside each sign-in
-  (`fl_frontend/src/features/konto/sicherheit.ts`). A `user` row's `updatedAt` records when that account, or any of its passkeys, last
-  changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`), and where a ban
+  (`fl_frontend/src/features/konto/sicherheit.ts`). A `user` row's `updatedAt` records when that account last changed or last
+  had a passkey removed (`fl_frontend/src/core/auth.ts :: claimAccount`), and where a ban
   ended the account's sessions, the row keeps when it did (`fl_frontend/src/core/auth.ts :: endSessionsOfAddress`), so that no session made before it
   is served again once the ban is lifted. **A session and a sign-in code each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a

@@ -133,6 +133,13 @@ describe("the season's bulk invite send", () => {
     });
 
     assert.deepEqual(sent("postEinladungVersandAction"), [{ id: SAISON_ID, erneut: false }]);
+    // Its answer lands inside this case, or its toast is the next case's first.
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => toast.title),
+        ["Registrierungslinks gesendet"],
+      ),
+    );
   });
 
   /* A preview the edge cut wrote nothing, so it is the failed read it is: uncaught in the preview's
@@ -356,6 +363,12 @@ describe("the season's bulk invite send", () => {
     });
 
     assert.deepEqual(sent("postEinladungVersandAction"), [{ id: SAISON_ID, erneut: true }]);
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => toast.title),
+        ["Registrierungslinks gesendet"],
+      ),
+    );
   });
 
   it("answers a season with no admitted team with an empty state rather than an armed press", async () => {

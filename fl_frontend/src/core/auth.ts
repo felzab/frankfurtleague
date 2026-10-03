@@ -27,7 +27,7 @@ import { MailBarredError, MailWithheldError, sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
-import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
+import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { oncePerRequest, setRequestActor } from "./requestScope";
 import {
   ADMIN_LIFETIME,
@@ -158,10 +158,13 @@ class SessionFromUnlistedPath extends Error {
 // Set to "preferred" and both halves relax together, which is what WebAuthn Level 3 §7.2 conditions
 // the check on.
 
-// The assertion's ask travels through `patches/@better-auth__passkey@1.7.5.patch`, whose hunk in
-// `generatePasskeyAuthenticationOptions` a release reading `authenticatorSelection` there retires;
-// the check is ours either way, both verifiers being called with `requireUserVerification` off.
+// The plugin asks the enrolment through `authenticatorSelection` and hardcodes "preferred" into the
+// assertion's options, so the after hook below writes this into those; the check is ours either way,
+// both verifiers being called with `requireUserVerification` off.
 const USER_VERIFICATION: "required" | "preferred" = "required";
+
+/** The assertion's options, whose answer the after hook rewrites to carry `USER_VERIFICATION`. */
+const PASSKEY_ASSERTION_OPTIONS_PATH = "/passkey/generate-authenticate-options";
 
 /** Both ceremonies, at the point the plugin reaches before it writes a row or mints a session. */
 function refuseUnverified(userVerified: boolean): void {
@@ -312,13 +315,21 @@ async function refuseEnrolment(
 
   // The plugin takes the rows already held for an `excludeCredentials` hint, which the BROWSER
   // honours and no server checks: the same authenticator enrolled twice leaves the administrator two
-  // rows nothing on the page tells apart (driven against 1.7.5).
+  // rows nothing on the page tells apart (driven against 1.7.7).
   if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
 }
 
 // The server's code for a write refused over another transaction's write to the same document; the
 // driver exports no name for it.
 const WRITE_CONFLICT = 112;
+
+// The server's code for an insert a unique index refused; the driver exports no name for it either.
+const DUPLICATE_KEY = 11000;
+
+/** A second row for a credential `fl_frontend/src/core/authIndexes.ts` already holds one of. */
+function isDuplicateCredential(failed: unknown): boolean {
+  return failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "credentialID" in (failed.keyPattern ?? {});
+}
 
 function isWriteConflict(failed: unknown): boolean {
   // The code, not the `TransientTransactionError` label: the driver labels a lost connection and a
@@ -327,35 +338,30 @@ function isWriteConflict(failed: unknown): boolean {
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
-class EnrolmentOutsideTransaction extends Error {
-  override name = "EnrolmentOutsideTransaction";
-}
-
-/** Named for the same reason as the class above. */
 class ClaimMatchedNoAccount extends Error {
   override name = "ClaimMatchedNoAccount";
 }
 
-/** Named for the same reason as `EnrolmentOutsideTransaction`, whose removal twin this is. */
+/** Named for the same reason as `ClaimMatchedNoAccount`. */
 class RemovalOutsideTransaction extends Error {
   override name = "RemovalOutsideTransaction";
 }
 
 /**
- * The write every enrolment and every removal of one administrator makes, inside the transaction
- * holding its count and its passkey write: the database refuses the second of two, where the count
- * alone admits both (`docs/frontend/spec.md :: I341`).
+ * The write every removal of one administrator's passkeys makes, inside the transaction holding its
+ * count and its delete: the database refuses the second of two, where the count alone admits both
+ * (`docs/frontend/spec.md :: I341`).
  */
 async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userId: string): Promise<void> {
   // Any field of the account's own row conflicts; `updatedAt` is one the row already carries, so the
   // claim stores nothing new about the administrator.
   const claimed = await adapter.update({ model: "user", where: [{ field: "id", value: userId }], update: { updatedAt: new Date() } });
 
-  // A claim on no row conflicts with nothing, which is the enrolment the transaction exists to refuse.
+  // A claim on no row conflicts with nothing, which is the removal the transaction exists to refuse.
   if (claimed === null) throw new ClaimMatchedNoAccount();
 }
 
-/** Named for the same reason as `EnrolmentOutsideTransaction`. */
+/** Named for the same reason as `ClaimMatchedNoAccount`. */
 class CeremonyNamedNoCredential extends Error {
   override name = "CeremonyNamedNoCredential";
 }
@@ -444,6 +450,7 @@ async function endEarlierSiblings(
       { field: "userId", value: minted.userId },
       { field: REPLACED_SESSION_FIELD, value: lineage },
     ],
+    limit: EVERY_ROW,
   });
 
   // Every hook keeps the latest it sees and ends the rest, its own row included: the last hook to run
@@ -641,9 +648,9 @@ function codeSignInAddress(body: unknown): string | null {
 // What a browser of this league calls: `fl_frontend/src/core/authClient.ts`'s two ceremonies, four
 // paths. The sign-in, the sign-out and every guard run in process instead.
 
-// Two spellings come from the constants the stamp and the enrolment refusal compare, so a release
-// that renamed either would 404 the real ceremony rather than let it through unjudged.
-const BROWSER_PATHS: ReadonlySet<string> = new Set([...ENROLMENT_PATHS, "/passkey/generate-authenticate-options", PASSKEY_ASSERTION_PATH]);
+// Three spellings come from the constants the stamp, the enrolment refusal and the assertion's ask
+// compare, so a release that renamed one would 404 the real ceremony rather than let it through unjudged.
+const BROWSER_PATHS: ReadonlySet<string> = new Set([...ENROLMENT_PATHS, PASSKEY_ASSERTION_OPTIONS_PATH, PASSKEY_ASSERTION_PATH]);
 
 // The library's own switch, which refuses before a route is matched or a body read.
 
@@ -732,11 +739,14 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid errorCallbackURL", "auth.callback_refused"],
   ["Invalid newUserCallbackURL", "auth.callback_refused"],
   ["Blocked cross-site navigation login attempt", "auth.cross_site_login_blocked"],
-  // The adapter's own line, `fl_frontend/patches/@better-auth__mongo-adapter@1.7.5.patch` (`docs/frontend/spec.md :: I537`).
+  // The adapter's own line, `fl_frontend/patches/@better-auth__mongo-adapter@1.7.7.patch` (`docs/frontend/spec.md :: I537`).
   ["Transaction left open", "auth.transaction_left_open"],
 ];
 
 const LIBRARY_EVENT_UNKNOWN = "auth.library_failed";
+
+/** The passkey plugin's line for a registration that failed past its verifier, which its error names. */
+const REGISTRATION_FAILED = "Failed to verify registration";
 
 const sessionOptions = {
   expiresIn: SESSION_EXPIRES_IN_SECONDS,
@@ -893,6 +903,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
+        // One authenticator enrolled twice at once: the credential index refuses the second row, inside a set-up's
+        // transaction as a write conflict. Any conflict there maps here, so a write added to that transaction joins it.
+        if (message.startsWith(REGISTRATION_FAILED) && (isDuplicateCredential(raised) || isWriteConflict(raised))) {
+          logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
+          return;
+        }
+
         logger.error(event, undefined, { error_code: "FE-AUTH-003", name: raised?.name ?? "unknown" });
       },
     },
@@ -1004,6 +1021,11 @@ const authOptions = (origin: URL, client: MongoClient) =>
           await unlessUnsettled(() => settleCodeAttempt(ctx.context, own, ctx.context.returned));
         }
 
+        const offered: unknown = ctx.context.returned;
+        if (ctx.path === PASSKEY_ASSERTION_OPTIONS_PATH && !isAPIError(offered) && typeof offered === "object" && offered !== null) {
+          return ctx.json({ ...offered, userVerification: USER_VERIFICATION });
+        }
+
         if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
 
         // Left standing where the ceremony was refused, or a refusal is answered as a success.
@@ -1091,8 +1113,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
       // `rpName` is what the browser's own passkey prompt shows, and the plugin's default names the
       // library rather than this league.
 
-      // `authenticatorSelection` carries the ask into both ceremonies' options; the library verifies
-      // the flag on neither response, so `afterVerification` below is the whole of the check.
+      // `authenticatorSelection` carries the ask into the enrolment's options, the after hook into the
+      // assertion's; the library verifies the flag on neither response, so `afterVerification` below is
+      // the whole of the check.
       passkey({
         rpName: BRAND_NAME,
         // Named rather than left to the plugin's own derivation, which answers this same host off
@@ -1112,11 +1135,10 @@ const authOptions = (origin: URL, client: MongoClient) =>
             // a session this enrolment mints would otherwise name whichever passkey its caller chose.
             if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
 
-            // The transaction `patches/@better-auth__passkey@1.7.5.patch` opens around every
-            // registration. Outside one the claim below conflicts with nothing, so an enrolment
-            // arriving without it is refused rather than admitted unguarded.
+            // The transaction the plugin opens around a set-up that signs in, where one is open, so the
+            // count below reads the snapshot the row is written in. Two enrolments at once may both
+            // stand (`docs/frontend/spec.md` §4).
             const adapter = await getCurrentAdapter(ctx.context.adapter);
-            if (adapter === ctx.context.adapter) throw new EnrolmentOutsideTransaction();
 
             // Judged again here, the last point before the row is written, and reached by an `auth.api`
             // call the hook lets through; off the hook's carried read, and nothing where it carried none.
@@ -1131,20 +1153,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
               enrolling === null ? null : asStepUpCaller(enrolling, enrolmentGrant(carriedOrRefuse(ctx, enrolling.user.id))),
               verification.registrationInfo?.credential.id,
             );
-
-            try {
-              await claimAccount(adapter, user.id);
-            } catch (failed) {
-              if (!isWriteConflict(failed)) throw failed;
-
-              // The line is the record: under a stolen mailbox racing the administrator, this refusal
-              // is the only trace that a second enrolment ran.
-              logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
-              throw new APIError("CONFLICT", {
-                code: ENROLMENT_CONFLICT,
-                message: "Another change to this account's passkeys ran at the same time.",
-              });
-            }
           },
         },
         authentication: { afterVerification: ({ verification }) => refuseUnverified(verification.authenticationInfo.userVerified) },
@@ -1204,7 +1212,7 @@ export type LiveSessionRow = {
 };
 
 /**
- * Every live row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
+ * Every row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
  * missing from the list a holder searches for a device they do not know (`docs/frontend/spec.md :: I425`).
  */
 const EVERY_ROW = Number.MAX_SAFE_INTEGER;
@@ -1248,7 +1256,8 @@ export async function endSessionOf(userId: string, id: string): Promise<number> 
  */
 export async function passkeysOf(userId: string): Promise<Passkey[]> {
   const { adapter } = await auth.$context;
-  return adapter.findMany<Passkey>({ model: "passkey", where: [{ field: "userId", value: userId }] });
+  // Enrolments made at once can pass the cap, and a passkey past the default 100 is a card nobody can remove.
+  return adapter.findMany<Passkey>({ model: "passkey", where: [{ field: "userId", value: userId }], limit: EVERY_ROW });
 }
 
 /** What a removal found inside its transaction, each answered differently by the one caller. */
@@ -1284,25 +1293,26 @@ export async function removePasskey(holder: { readonly id: string; readonly verw
   }
 
   async function removeInside(
-    held: Pick<DBTransactionAdapter, "findMany" | "update" | "delete" | "deleteMany">,
+    held: Pick<DBTransactionAdapter, "findOne" | "count" | "update" | "delete" | "deleteMany">,
   ): Promise<Exclude<PasskeyRemoval, "conflict">> {
     // The adapter hands itself back where it opens no transaction, and there the claim below
-    // conflicts with nothing: refused rather than admitted unguarded, as the enrolment is.
+    // conflicts with nothing: refused rather than admitted unguarded.
     if (held === adapter) throw new RemovalOutsideTransaction();
 
-    const rows = await held.findMany<{ id: string; credentialID: string }>({
+    // By the holder's id as well, so another account's identifier is absent rather than taken; by no
+    // window, since enrolments at once can leave more rows than the cap (`docs/frontend/spec.md` §4).
+    const removed = await held.findOne<{ credentialID: string }>({
       model: "passkey",
-      where: [{ field: "userId", value: holder.id }],
-      limit: PASSKEY_LIMIT + 1,
+      where: [
+        { field: "id", value: id },
+        { field: "userId", value: holder.id },
+      ],
     });
-
-    // Read off the holder's own rows, so another account's identifier is absent rather than taken.
-    const removed = rows.find((row) => row.id === id);
-    if (removed === undefined) return "absent";
+    if (removed === null) return "absent";
     // By the grant the account page's guard read, which throws on an unread one before any removal:
     // an administrator's last passkey is their only way into the administration, while a person
     // holding none signs in by code again.
-    if (holder.verwaltung && rows.length <= 1) return "last";
+    if (holder.verwaltung && (await held.count({ model: "passkey", where: [{ field: "userId", value: holder.id }] })) <= 1) return "last";
 
     await claimAccount(held, holder.id);
     await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });

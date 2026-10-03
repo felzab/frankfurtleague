@@ -1,4 +1,5 @@
 import asyncio
+import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -7,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -28,6 +30,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import WriteRefusalException
+from app.main import create_app
 from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 from tests import documents
@@ -629,10 +632,20 @@ class TestTheSubmissionKey:
         assert (len(ids), stored) == (1, 1)
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(WIRE_CONFIG)
+
+
 async def over_the_wire(url: str, *, schluessel: str | None) -> Response:
     """One registration as a request carries it, so the header is parsed as the route handler sends it; `None` sends none."""
 
-    async with app_client(url, config=WIRE_CONFIG, now=NOW) as http:
+    async with app_client(url, app=_served(), now=NOW) as http:
         sent = dict(BASE_AUTH) | ({} if schluessel is None else {"Idempotency-Key": schluessel})
         return await http.post(f"/api/v{API_VERSION}/registrierungen", json=payload(), headers=sent)
 

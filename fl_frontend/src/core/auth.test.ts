@@ -53,7 +53,7 @@ const LOGGING_DOUBLE = {
   logger: {
     debug: () => undefined,
     info: () => undefined,
-    warn: () => undefined,
+    warn: (message: string) => void warned.push(message),
     error: (message: string, error: unknown, meta: Record<string, unknown>) => void logged.push({ message, error, meta }),
   },
 };
@@ -193,6 +193,8 @@ type LogLine = { message: string; error: unknown; meta: Record<string, unknown> 
 
 const store = memoryStore("__flAuthStore");
 const logged: LogLine[] = [];
+/** The event of every warning the module wrote. */
+const warned: string[] = [];
 const adapterCalls = {
   databases: [] as string[],
   pairs: [] as { db: unknown; config?: { client?: unknown } }[],
@@ -1360,7 +1362,7 @@ describe("whose passkey may answer a signed-in page's challenge", () => {
 });
 
 describe("what the passkey ceremony has to prove before it mints anything", () => {
-  /* The asking half, which the patched plugin carries: a ceremony told "preferred" may answer with
+  /* The asking half, which the after hook writes in: a ceremony told "preferred" may answer with
      the flag unset, and the arm below would then refuse the only passkey the administrator has. */
   it("asks the authenticator to verify the user before it will take an assertion", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
@@ -1372,7 +1374,16 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     assert.equal(options.userVerification, "required", "the assertion asks for less than the verifier below demands");
   });
 
-  /* 1.7.5 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
+  // The sign-in page asks with no session at all, which is where most assertions start.
+  it("asks the same of an assertion started signed out", async () => {
+    const answer = await overHttp("/passkey/generate-authenticate-options");
+    assert.equal(answer.status, 200, `the sign-in page's assertion was refused: ${JSON.stringify(logged)}`);
+
+    const options = (await answer.json()) as { userVerification: string };
+    assert.equal(options.userVerification, "required", "the sign-in page's assertion asks for less than the verifier demands");
+  });
+
+  /* 1.7.7 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
      prompt sets is checked here or nowhere. */
   it("refuses an assertion the authenticator did not verify, and mints no session for it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -1387,7 +1398,7 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     assert.ok(store.session.includes(row), "a refused assertion signed its caller out");
   });
 
-  /* The registration half of the same requirement, which the card's first step runs: 1.7.5 hardcodes
+  /* The registration half of the same requirement, which the card's first step runs: 1.7.7 hardcodes
      the flag off in this verifier too, so a passkey with no PIN and no biometric enrols unjudged. */
   it("refuses an enrolment the authenticator did not verify, and writes no passkey for it", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
@@ -2333,6 +2344,26 @@ describe("what the library's own log stream reaches this application as", () => 
       assert.deepEqual(Object.keys(line.meta).sort(), ["error_code", "name"]);
     }
   });
+
+  /* The plugin words every registration that failed past its verifier alike; only a conflict between two
+     enrolments is a warning, so a store that failed the same insert for any other reason stays an error. */
+  it("keeps a registration the store failed for another reason an error, with no warning", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+    adapterCalls.refusing = (key, args) => key === "create" && (args[0] as { model?: unknown } | undefined)?.model === "passkey";
+    logged.length = 0;
+    warned.length = 0;
+
+    try {
+      assert.equal((await enrolPasskey(cookie)).status, 500);
+    } finally {
+      adapterCalls.refusing = undefined;
+    }
+
+    assert.deepEqual(
+      [logged.map((line) => [line.message, line.meta.error_code, line.meta.name]), warned],
+      [[["auth.library_failed", "FE-AUTH-003", "Error"]], []],
+    );
+  });
 });
 
 /* A filed message is the mailer's own `FE-MAIL-004` line alone: a failure line beside it reads every
@@ -3226,8 +3257,8 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
   });
 
   /* The registration's transaction opens after the before hook: a backend round trip inside it would
-     hold it open, and widen the window another change to the account's passkeys conflicts in
-     (`docs/frontend/spec.md :: I482`). The one read is the before hook's. */
+     hold it open for that call's length (`docs/frontend/spec.md :: I482`). The one read is the before
+     hook's. */
   it("reads the subject once for a set-up that signs in, ahead of the registration's transaction", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });

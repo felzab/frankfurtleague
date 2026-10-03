@@ -570,7 +570,7 @@ export function DatenschutzView() {
               Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, dass nur Du Deinen Bereich und nur berechtigte Personen die Verwaltung
               erreichen.
             </li>
-            {/* Typed: `@better-auth/passkey` (1.7.5, read 2026-09-24) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
+            {/* Typed: `@better-auth/passkey` (1.7.7, read 2026-10-03) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
                 300, which it neither exports nor takes as an option, and moves it without us. */}
             <li className={ABSATZ_CLASSES}>
               Auf der Anmeldeseite und während jemand einen Passkey einrichtet oder sich damit anmeldet, ein zweites Cookie, das diesen einen

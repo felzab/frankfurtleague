@@ -14,3 +14,8 @@ rules:
     # actionlint refuses `$/` as a `uses:` format, so taking zizmor's fix reddens
     # `scripts/gate/selfcheck.sh :: run_actionlint`. Re-open when actionlint accepts it.
     disable: true
+  dependabot-cooldown:
+    # One day, the wait `.github/dependabot.yml` sets in every ecosystem; the audit's own floor is
+    # seven. Re-open when that file's wait moves.
+    config:
+      days: 1

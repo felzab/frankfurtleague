@@ -1,10 +1,12 @@
 import asyncio
+import functools
 from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
 import pymongo
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
@@ -13,6 +15,7 @@ from app.core.config import API_VERSION
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.exceptions import DOCUMENT_NOT_FOUND
 from app.core.security import WRONG_ADMIN_KEY, WRONG_BASE_KEY
+from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, ADMINISTRATORS, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
@@ -73,9 +76,19 @@ def junction_row() -> dict[str, Any]:
     return documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BE", austritt=dict(AUSTRITT))
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(build_test_config())
+
+
 def answered(uri: str, path: str, headers: Mapping[str, str], *, admitting: Iterable[str] | None = None) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, admitting=admitting) as http:
+        async with app_client(uri, app=_served(), admitting=admitting) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
                 return await http.get(path, headers=dict(headers))
 

@@ -43,7 +43,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 1
     # Explicit: the default of 5 is reachable here, and hitting it silently stops version updates --
     # this ecosystem's only security route.
     open-pull-requests-limit: 10
@@ -65,7 +65,7 @@ updates:
     schedule:
       interval: monthly
     cooldown:
-      default-days: 7
+      default-days: 1
     open-pull-requests-limit: 5
     commit-message:
       prefix: "Frontend deps"
@@ -84,7 +84,7 @@ updates:
     schedule:
       interval: monthly
     cooldown:
-      default-days: 7
+      default-days: 1
     open-pull-requests-limit: 5
     commit-message:
       prefix: "Backend deps"
@@ -113,13 +113,13 @@ updates:
   # (`docs/ops/spec.md :: I511`, `:: I513`).
 
   # No security update reaches this ecosystem, so a Node or Python security release waits for this
-  # schedule and its cooldown: weekly, so two weeks at worst (`docs/ops/spec.md` §4).
+  # schedule and its cooldown: weekly, so eight days at worst (`docs/ops/spec.md` §4).
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 1
     commit-message:
       prefix: "Frontend image"
     groups:
@@ -132,7 +132,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 1
     commit-message:
       prefix: "Backend image"
     groups:
@@ -153,7 +153,7 @@ updates:
     schedule:
       interval: weekly
     cooldown:
-      default-days: 7
+      default-days: 1
     commit-message:
       prefix: "Ops"
     groups:

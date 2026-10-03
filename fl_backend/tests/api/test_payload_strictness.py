@@ -12,10 +12,8 @@ from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel
 from app.api.teams.schemas import FLPatchTeamPayload, FLTeam
-from app.main import create_app
 from app.shared.schemas.addresses import FLAddressPayload
-from tests.config import build_test_config
-from tests.core.app_source import api_routes
+from tests.core.app_source import api_routes, application
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
@@ -82,7 +80,7 @@ def _body_models() -> dict[type[BaseModel], str]:
     """
 
     bodies: dict[type[BaseModel], str] = {}
-    for route in api_routes(create_app(build_test_config())):
+    for route in api_routes(application()):
         # `methods` is optional on the Starlette base a route inherits from.
         where = f"{min(route.methods or (), default='?')} {route.path}"
         for param in route.dependant.body_params:

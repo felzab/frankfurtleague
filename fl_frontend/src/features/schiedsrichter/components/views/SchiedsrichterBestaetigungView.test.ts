@@ -386,7 +386,8 @@ describe("what a refused press does to the page", () => {
       await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
-      assert.ok(screen.getByRole("heading", { name: ueberschrift }), "the page kept the form the press cannot use again");
+      // The panel arrives with the action's answer, which a loaded machine delivers after the click resolves.
+      assert.ok(await screen.findByRole("heading", { name: ueberschrift }), "the page kept the form the press cannot use again");
       assert.ok(screen.queryByRole("button", { name: "Eintrag bestätigen" }) === null);
       assert.deepEqual(toasts, [], "a dead link was reported as a toast over a dead form");
     });
@@ -433,9 +434,11 @@ describe("what a refused press does to the page", () => {
     await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
-    assert.deepEqual(
-      toasts.map((toast) => [toast.variant, toast.title, toast.description]),
-      [["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
+      ),
     );
   });
 });

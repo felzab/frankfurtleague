@@ -16,7 +16,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types.ts";
 
-const { calls } = doubleActions({
+const { calls, answered } = doubleActions({
   modules: ["/src/features/spieltage/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Der Spieltag wurde aktualisiert." }),
 });
@@ -79,6 +79,8 @@ async function save(user: User): Promise<unknown[]> {
     await user.click(confirm);
     await act(async () => settled());
   }
+  // The write's answer lands inside the case that saved, or reaches the editor rendered after it.
+  await act(answered);
 
   return calls.filter((call) => call.action === "patchSpieltagAction").map((call) => call.payload);
 }

@@ -7,7 +7,7 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -41,7 +41,7 @@ registerDoubles({
   },
 });
 
-const { calls, answerWith } = doubleEveryAction();
+const { calls, answerWith, answered } = doubleEveryAction();
 doubleToasts();
 
 type User = ReturnType<typeof userEvent.setup>;
@@ -384,6 +384,8 @@ describe("a one-press caller of a step-up write past the window", () => {
             `${pair}: the press sent no ${action}`,
           ),
         );
+        // Its answer lands inside this case, or in the case after it.
+        await act(answered);
         unmount();
 
         assert.deepEqual(
@@ -448,6 +450,7 @@ describe("a one-press caller of a step-up write, while its prompt is open", () =
             `${pair}: the press sent no ${action}`,
           ),
         );
+        await act(answered);
         unmount();
       });
     }

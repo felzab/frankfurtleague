@@ -123,9 +123,11 @@ describe("the create form", () => {
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
 
-    assert.deepEqual(
-      raised.map((toast) => [toast.variant, toast.description, toast.options?.outcome]),
-      [["danger", "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.", "unknown"]],
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.description, toast.options?.outcome]),
+        [["danger", "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.", "unknown"]],
+      ),
     );
     assert.ok(screen.queryByRole("textbox", { name: "Name" }) !== null, "the rejection took the dialog off the page");
     assert.equal(onClose.mock.callCount(), 0, "the dialog closed over a write that may not have landed");
@@ -148,7 +150,7 @@ describe("the create form", () => {
       raised.map((toast) => [toast.variant, toast.description, toast.options?.outcome]),
       [["danger", error, "partial"]],
     );
-    assert.equal(onClose.mock.callCount(), 1, "the dialog stayed open over a record that stands");
+    await waitFor(() => assert.equal(onClose.mock.callCount(), 1, "the dialog stayed open over a record that stands"));
   });
 });
 

@@ -1,4 +1,5 @@
 import asyncio
+import functools
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -8,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -40,6 +42,7 @@ from app.core.exception_handlers import PAYLOAD_REFUSED
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
+from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.app_client import app_client
 from tests.bans import ban_list
@@ -770,6 +773,16 @@ class Submitted:
     log_rows: list[Mapping[str, Any]]
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(build_test_config())
+
+
 def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, str] | None = None, schluessel: str | None = None) -> Submitted:
     """One submission over the wire, so the guard, the actor binder and the response model all run."""
 
@@ -784,7 +797,7 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
         database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
         async def _submitted() -> Response:
-            async with app_client(url, now=NOW) as http:
+            async with app_client(url, app=_served(), now=NOW) as http:
                 sent = dict(BASE_AUTH if headers is None else headers)
                 # A fresh key unless the case names one, an empty one standing for none sent.
                 if schluessel != "":

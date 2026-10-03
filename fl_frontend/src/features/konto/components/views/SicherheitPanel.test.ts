@@ -353,6 +353,8 @@ describe("adding a passkey", () => {
 
     await waitFor(() => assert.deepEqual(sent(), [["endAnmeldungAction", "andere"]]));
     assert.ok(screen.queryByRole("dialog") === null, "a change inside the two hours asked for a confirmation");
+    // Its answer lands inside the case, so none is left pending into the next.
+    await waitFor(() => assert.equal(raised.length, 1));
   });
 
   /* The window closes while the page stands: the control turns back into the confirmation unpressed. */
@@ -392,20 +394,6 @@ describe("adding a passkey", () => {
     assert.ok(
       screen.queryByRole("button", { name: "Mit Passkey bestätigen" }) === null,
       "a confirmation is offered for an add the cap refuses",
-    );
-  });
-
-  it("names the loser of two changes at once", async () => {
-    const user = userEvent.setup();
-    ceremony.addPasskey = refused(409, "PASSKEY_ENROLMENT_CONFLICT");
-    open();
-
-    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
-
-    await waitFor(() =>
-      assert.deepEqual(toasts(), [
-        ["danger", "Passkey nicht hinzugefügt", `Gleichzeitig wurde ein anderer Passkey hinzugefügt oder gelöscht. ${VERSUCHE_ES_ERNEUT_SATZ}`],
-      ]),
     );
   });
 
@@ -486,6 +474,7 @@ describe("confirming by a code mailed to the holder", () => {
     assert.deepEqual(JSON.parse(String(init?.body)), { email: ADDRESS, code: "048213" });
     assert.deepEqual(reached, [], "the code path ran a passkey ceremony");
     assert.ok(seen.refresh >= 1, "the page kept what it drew off the session the code ended");
+    await waitFor(() => assert.equal(raised.length, 1, "the change the code waited for never answered"));
   });
 
   /* The holder check holds on this path too (`docs/frontend/spec.md :: I428`): a code whose sign-in is

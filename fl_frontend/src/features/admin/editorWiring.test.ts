@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { APIBadStatusError } from "@/core/errors.ts";
@@ -94,17 +94,28 @@ async function stepLastDay(user: UserEvent, key: "ArrowUp" | "ArrowDown"): Promi
 /** The press on Speichern, and the write's answer settling. */
 async function save(user: UserEvent): Promise<void> {
   await user.click(screen.getByRole("button", { name: "Speichern" }));
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+  await settled();
 }
 
 const confirmation = (): HTMLElement | null => screen.queryByRole("button", { name: "Trotzdem speichern" });
+
+/**
+ * Until the press has answered, the save's pending label gone. Waited for rather than one tick, since
+ * an answer arrives when its action does, as a loaded machine shows.
+ */
+async function settled(): Promise<void> {
+  await waitFor(() =>
+    assert.ok(screen.queryAllByRole("button", { name: "Speichert...", hidden: true }).length === 0, "the press is still pending"),
+  );
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+}
 
 /** The press on Speichern with every dialog it raises confirmed, and the write's answer settled. */
 async function saveThrough(user: UserEvent): Promise<void> {
   await save(user);
   const asked = confirmation();
   if (asked !== null) await user.click(asked);
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+  await settled();
 }
 
 const ADDRESS = { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" };
@@ -495,7 +506,7 @@ describe("an editor's save confirmation", () => {
       await save(user);
       assert.deepEqual(written(), [], "the press wrote beside raising the dialog, or never reached the gate");
       await user.click(confirmation() ?? assert.fail("the change raised no save confirmation, so nothing below is judged"));
-      await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+      await settled();
 
       assert.deepEqual(written(), [editor.write], "the confirmation wrote other than once");
       // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.

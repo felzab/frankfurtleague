@@ -8,7 +8,6 @@ import Plus from "@gravity-ui/icons/Plus";
 import { Button } from "@heroui/react/button";
 
 import { authClient } from "@/core/authClient";
-import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
 import { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { LETZTER_PASSKEY, PasskeyKarteView } from "@/features/passkeys/components/ui/PasskeyKarteView";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -42,12 +41,6 @@ const STEP_UP_HINT = "Für Änderungen an Passkeys und Anmeldungen fragen wir ku
 
 /** The cap's own sentence, which names the way forward rather than the number it refuses at. */
 const ZU_VIELE = "Mehr Passkeys gehen nicht. Lösche zuerst einen.";
-
-/**
- * The loser of two enrolments that ran at once (`docs/frontend/spec.md :: I341`): the other was an
- * enrolment or a removal, and nothing here tells which.
- */
-const GLEICHZEITIG = "Gleichzeitig wurde ein anderer Passkey hinzugefügt oder gelöscht.";
 
 /** The place the confirmation and the add control it opens share, so a landed confirmation hands the focus on. */
 const HINZUFUEGEN = "hinzufuegen";
@@ -380,10 +373,6 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
     const { error } = await authClient.passkey.addPasskey();
     if (error === null) return null;
 
-    // Read off the body rather than the type: a server's refusal arrives on the branch that declares
-    // no `code`, and its body has one.
-    if (Reflect.get(error, "code") === ENROLMENT_CONFLICT) return { error: `${GLEICHZEITIG} ${VERSUCHE_ES_ERNEUT_SATZ}` };
-
     if (error.status === 404) return enrolmentRefused();
 
     // A verification that never came back arrives as a 500 and an edge's answer as its own 5xx, and
@@ -393,7 +382,7 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
     return { error: VERSUCHE_ES_ERNEUT_SATZ };
   } catch {
     // Thrown only by the options request, ahead of the ceremony: the plugin's client answers every
-    // later failure on `error` (`@better-auth/passkey` 1.7.5, read 2026-09-24).
+    // later failure on `error` (`@better-auth/passkey` 1.7.7, read 2026-10-03).
     return { error: VERSUCHE_ES_ERNEUT_SATZ };
   }
 }

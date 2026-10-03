@@ -21,7 +21,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # in a production process environment.
 FROM base AS toolchain
 # `package.json :: packageManager` names the same pnpm (`docs/ops/spec.md :: I512`).
-ARG PNPM_VERSION=11.27.1
+ARG PNPM_VERSION=11.28.3
 
 # npm's cache is a mount, so none of it is written into the layer.
 RUN --mount=type=cache,id=npm,target=/root/.npm npm install -g pnpm@${PNPM_VERSION}

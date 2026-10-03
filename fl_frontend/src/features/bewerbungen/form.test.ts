@@ -6,7 +6,7 @@ import { beforeEach, describe, it, mock } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -198,10 +198,13 @@ async function submitApplication() {
 
   await fillIn(mounted.user, mounted.container, COMPLETE_DRAFT);
   await mounted.user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
-  await settle();
 
-  const receipt =
-    screen.queryByRole("status") ?? assert.fail(`the complete application left no receipt, the form refusing: ${refusalsShown().join(" | ")}`);
+  // Waited for: the receipt arrives with the route's answer, which a loaded machine sends later than a tick.
+  const receipt = await waitFor(
+    () =>
+      screen.queryByRole("status") ??
+      assert.fail(`the complete application left no receipt, the form refusing: ${refusalsShown().join(" | ")}`),
+  );
 
   return { ...mounted, receipt };
 }
@@ -279,9 +282,8 @@ describe("the public application form", () => {
 
     await fillIn(user, container, COMPLETE_DRAFT);
     await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
-    await settle();
 
-    assert.deepEqual(toastsOf("danger"), [["Unklar, ob es bei uns angekommen ist", BEWERBUNG_UNKLAR]]);
+    await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Unklar, ob es bei uns angekommen ist", BEWERBUNG_UNKLAR]]));
   });
 
   /* The request may have reached the route before the connection broke: one next step for every arm
@@ -292,9 +294,8 @@ describe("the public application form", () => {
 
     await fillIn(user, container, COMPLETE_DRAFT);
     await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
-    await settle();
 
-    assert.deepEqual(toastsOf("danger"), [["Unklar, ob es bei uns angekommen ist", BEWERBUNG_UNKLAR]]);
+    await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Unklar, ob es bei uns angekommen ist", BEWERBUNG_UNKLAR]]));
   });
 
   /* The contact block's distinct-address rule refuses the block as a whole, a path no control spells:
@@ -309,10 +310,9 @@ describe("the public application form", () => {
 
     await fillIn(user, container, COMPLETE_DRAFT);
     await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
-    await settle();
 
     // One toast in all: a second beside the failure's would announce the press twice.
-    assert.deepEqual(toastsOf("danger"), [["Bewerbung nicht abgeschickt", EIGENER_SATZ]]);
+    await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Bewerbung nicht abgeschickt", EIGENER_SATZ]]));
     assert.equal(raised.length, 1, "the press raised a second toast beside its one failure");
   });
 
@@ -327,9 +327,8 @@ describe("the public application form", () => {
 
     await fillIn(user, container, COMPLETE_DRAFT);
     await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
-    await settle();
 
-    assert.deepEqual(toastsOf("danger"), [["Bewerbung schon angekommen", SCHON_DA]]);
+    await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Bewerbung schon angekommen", SCHON_DA]]));
   });
 
   /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's HTML and
@@ -340,9 +339,10 @@ describe("the public application form", () => {
     const { user, kuerzel } = await renderNewSchool();
 
     await typeInto(user, kuerzel, "GG", { leaveBox: true });
-    await settle();
 
-    assert.deepEqual(toastsOf("warning"), [["Kürzel noch nicht geprüft", `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`]]);
+    await waitFor(() =>
+      assert.deepEqual(toastsOf("warning"), [["Kürzel noch nicht geprüft", `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`]]),
+    );
   });
 
   /* The route's `length(2)` refuses an incomplete code, and the check is rate-limited per address at an

@@ -10,6 +10,7 @@ carries none, and one holding the barred address would fail this sweep by design
 """
 
 import asyncio
+import functools
 import json
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -17,6 +18,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
@@ -25,6 +27,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exception_handlers import STORES_NOTHING_WHEN, stores_nothing
 from app.core.security import verify_access_admin
+from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
@@ -185,12 +188,22 @@ def _flags_set(value: Any) -> list[str]:
     ]
 
 
+@functools.cache
+def _served() -> FastAPI:
+    """One app for every case serving through it: building one costs more than the request a case sends through it.
+
+    Built on first use rather than at import, which every xdist worker pays at collection.
+    """
+
+    return create_app(CONFIG)
+
+
 def _answers(url: str) -> dict[str, tuple[int, str]]:
     """Every read naming an administrator, asked by the owner through the mounted app."""
 
     async def _asked() -> dict[str, tuple[int, str]]:
         answered: dict[str, tuple[int, str]] = {}
-        async with app_client(url, config=CONFIG) as http:
+        async with app_client(url, app=_served()) as http:
             for route, request in NAMES_AN_ADMINISTRATOR.items():
                 response = await http.get(request, headers=SignedActor(OWNER, ADMIN_KEY))
                 answered[route] = (response.status_code, response.text)

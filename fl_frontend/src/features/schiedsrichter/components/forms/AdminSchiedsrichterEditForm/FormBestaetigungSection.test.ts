@@ -6,7 +6,7 @@ import { afterEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
@@ -210,6 +210,8 @@ describe("the control that sends the link", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
 
     assert.deepEqual(calls, [{ action: "einladeSchiedsrichterAction", payload: { id: SCHIEDSRICHTER_ID } }]);
+    // Its answer lands inside this case, or its toast is the next case's first.
+    await waitFor(() => assert.equal(toasts.length, 1));
   });
 
   it("reports a refusal rather than leaving the press to look like it worked", async () => {
@@ -218,9 +220,11 @@ describe("the control that sends the link", () => {
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
 
-    assert.deepEqual(
-      toasts.map((raised) => [raised.variant, raised.title]),
-      [["danger", "Bestätigungslink nicht gesendet"]],
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map((raised) => [raised.variant, raised.title]),
+        [["danger", "Bestätigungslink nicht gesendet"]],
+      ),
     );
   });
 
@@ -242,9 +246,11 @@ describe("the control that sends the link", () => {
 
       await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
 
-      assert.deepEqual(
-        toasts.map((raised) => [raised.title, raised.description, raised.options?.outcome]),
-        [["Unklar, ob es gespeichert wurde", repair, "unknown"]],
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.map((raised) => [raised.title, raised.description, raised.options?.outcome]),
+          [["Unklar, ob es gespeichert wurde", repair, "unknown"]],
+        ),
       );
     });
   }
@@ -264,8 +270,11 @@ describe("the control that sends the link", () => {
       const { router, seen } = recordingRouter();
       answerWith(answer);
       const { unmount } = render(underNext(h(FormBestaetigungSection, { ...PROPS, bestaetigung: BLOCK }), { router }));
+      const before = toasts.length;
 
       await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+      // Read once every arm's answer has landed, each raising its one toast.
+      await waitFor(() => assert.equal(toasts.length, before + 1, `the ${arm} send was answered nowhere`));
       refreshes[arm] = seen.refresh;
       unmount();
     }

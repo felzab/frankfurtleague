@@ -6,7 +6,7 @@ import { beforeEach, describe, it, mock } from "node:test";
 
 import { createElement as h, useState } from "react";
 
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { GRUPPEN_OFF_RULES } from "@/features/saisons/constants.ts";
@@ -320,9 +320,11 @@ describe("the Spielplan panel on a drawn planned season", () => {
       await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
       await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
 
-      assert.deepEqual(
-        raised.map((toast) => [toast.variant, toast.title, toast.description]),
-        [[variant, title, ""]],
+      await waitFor(() =>
+        assert.deepEqual(
+          raised.map((toast) => [toast.variant, toast.title, toast.description]),
+          [[variant, title, ""]],
+        ),
       );
       raised.length = 0;
       unmount();

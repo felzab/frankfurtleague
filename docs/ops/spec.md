@@ -321,7 +321,7 @@ What decides that number, and what it risks, is at the zone in `nginx/shared/htt
 `limit_conn conn 50` on the narrow key, sized for HTTP/2 where nginx counts each concurrent request
 as a connection. **Its one rate zone pair keys on server actions alone**, `action`/`action48` over
 `nginx/shared/http.conf :: $action_limit_key`: a POST carrying a `Next-Action` header or either
-form content type, which is every post Next 16.3.6 runs as an action. Next takes an empty header for
+form content type, which is every post Next 16.3.8 runs as an action. Next takes an empty header for
 an action too, which nginx cannot tell from none, so the edge passes the header only where it holds
 a value (`nginx/shared/site.conf :: Next-Action`). Every other request's key is
 empty, so no page load or asset is metered; the pair is rated above any administrator's run of
@@ -1381,4 +1381,4 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
 | The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |
 | CI's Python can be another patch release than the image's         | Accepted — `actions/setup-python` resolves the series `fl_backend/.python-version` names, while the image holds the release its tag names until Dependabot moves it (I513)                         |
-| A runtime's security release waits for Dependabot's schedule      | Accepted — Dependabot has no base-image security updates, so a Node or Python fix waits for the weekly run and cooldown: two weeks at worst                                                        |
+| A runtime's security release waits for Dependabot's schedule      | Accepted — Dependabot has no base-image security updates, so a Node or Python fix waits for the weekly run and cooldown: eight days at worst                                                       |

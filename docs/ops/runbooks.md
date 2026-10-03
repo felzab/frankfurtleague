@@ -1345,27 +1345,28 @@ and a new one disarms them all in silence (§5). **A new `auth_secret` signs eve
 **Each machine also has its own actor token key pair** ([`spec.md`](spec.md) I472): an Ed25519
 private key the frontend signs with, and its public half the backend verifies with. In Git Bash on a
 development machine, or in a shell on the server, at the checkout root, this writes the private half
-to `secrets/fl_actor_signing_key.new`, readable by its writer alone, and appends the public half to
-`fl_backend/.env`, printing nothing:
+to a directory of its own that `mktemp -d` makes readable by its writer alone, and appends the public
+half to `fl_backend/.env`, printing nothing:
 
 ```bash
-(umask 077 && mkdir -p secrets && openssl genpkey -algorithm ed25519 | tr -d '\r' > secrets/fl_actor_signing_key.new) && printf '\nACTOR_TOKEN_PUBLIC_KEY=%s\n' "$(openssl pkey -in secrets/fl_actor_signing_key.new -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" >> fl_backend/.env
+t="$(mktemp -d)" && (umask 077 && openssl genpkey -algorithm ed25519 | tr -d '\r' > "$t/key") && printf '\nACTOR_TOKEN_PUBLIC_KEY=%s\n' "$(openssl pkey -in "$t/key" -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" >> fl_backend/.env
 ```
 
 The `tr` calls are there because Git Bash's `openssl` ends each line with a carriage return. The
 public half is the key's last 32 bytes in DER form, which is the raw Ed25519 key that
 `ACTOR_TOKEN_PUBLIC_KEY` holds. The newline before it keeps it off a last line that has none. The
 `umask` is what keeps the private half from ever existing under the shell's default mode, which
-lets every account on the host read a new file.
+lets every account on the host read a new file. **The key is written outside `secrets/`** because
+the deploying user cannot write there on the server, where the directory is root's.
 
-Then put the private half in place:
+Then put the private half in place, from the same shell, which still holds `$t`:
 
 - **On the server**, owned by the frontend's user and readable by it alone:
-  `sudo install -o 1001 -g 1001 -m 400 secrets/fl_actor_signing_key.new secrets/fl_actor_signing_key && rm secrets/fl_actor_signing_key.new`.
+  `sudo install -o 1001 -g 1001 -m 400 "$t/key" secrets/fl_actor_signing_key && rm -rf "$t"`.
   `install` replaces a key the deploying user cannot write, which is what an earlier pair left
   behind. `deploy.sh` warns where the key's mode lets any other account reach it.
 - **On a development machine**:
-  `mv secrets/fl_actor_signing_key.new secrets/fl_actor_signing_key`.
+  `(umask 077 && mkdir -p secrets && mv "$t/key" secrets/fl_actor_signing_key) && rm -rf "$t"`.
 - **For `pnpm dev`**, write nothing more: the `dev` script names the file itself
   ([`spec.md`](spec.md) §1.5). Never name it in `fl_frontend/.env`, which the frontend container
   reads too: it would look for the key at that path rather than at its mount, and refuse to start.

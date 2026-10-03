@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { APINetworkError } from "@/core/errors.ts";
@@ -43,11 +43,12 @@ const ANSICHT = { success: true, ansicht: { acknowledged: 1, saison_teams: [], b
 const RESTING = "Kontaktperson löschen";
 const ARMED = "Ja, Kontaktperson endgültig löschen";
 
-/** The read's answer arriving, and everything it sets off. */
-const settle = (): Promise<void> =>
-  act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
+/**
+ * Until the arming read has answered and released the confirming press. Waited for rather than
+ * one tick, since the read arrives when its action does, as a loaded machine shows.
+ */
+const readLanded = (): Promise<void> =>
+  waitFor(() => assert.notEqual(screen.getByRole("button", { name: ARMED }).getAttribute("data-pending"), "true", "the read is still running"));
 
 /** How often the write itself ran: the double records the panel's read under the same roster. */
 const erasures = (): number => calls.filter(({ action }) => action === "eraseKontaktpersonAction").length;
@@ -76,9 +77,8 @@ describe("the person's erasure over its arming read", () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole("button", { name: RESTING }));
-    await settle();
 
-    closedControl(ARMED, OHNE_VERBINDUNG);
+    await waitFor(() => closedControl(ARMED, OHNE_VERBINDUNG));
     assert.ok(
       screen.queryAllByText(OHNE_VERBINDUNG).some((sentence) => sentence.closest("[hidden]") === null),
       "the armed reveal says less than the closed press",
@@ -101,9 +101,8 @@ describe("the person's erasure over its arming read", () => {
     const { user } = renderPanel();
 
     await user.click(screen.getByRole("button", { name: RESTING }));
-    await settle();
 
-    closedControl(ARMED, OHNE_ANTWORT);
+    await waitFor(() => closedControl(ARMED, OHNE_ANTWORT));
     assert.equal(screen.queryAllByText(/ist unklar/).length, 0, "a read that stored nothing is worded as a write that may stand");
   });
 
@@ -141,6 +140,7 @@ describe("the person's erasure over its arming read", () => {
     await act(async () => {
       answer(ANSICHT);
     });
+    await readLanded();
     await user.click(confirm);
 
     assert.equal(erasures(), 1, "the press stays held over the names it is confirmed over");
@@ -164,14 +164,13 @@ describe("what an erasure reports once it has run", () => {
         resting: RESTING,
         armed: ARMED,
         whileArmed: async () => {
-          await settle();
+          await readLanded();
           // Swapped once the arming read has landed: one answer stands for every export the double replaces.
           answerWith(() => Promise.resolve({ success: true, cleared: cleared, message: "" }));
         },
       });
-      await settle();
 
-      assert.equal(toastsOf(variant), 1, `a write clearing ${String(cleared)} is reported as something else`);
+      await waitFor(() => assert.equal(toastsOf(variant), 1, `a write clearing ${String(cleared)} is reported as something else`));
       unmount();
     }
   });
