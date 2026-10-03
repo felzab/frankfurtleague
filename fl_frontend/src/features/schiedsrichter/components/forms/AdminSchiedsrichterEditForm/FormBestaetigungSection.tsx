@@ -41,7 +41,7 @@ import type { ReactNode } from "react";
  * A rejected action says nothing of whether the write committed. A second send is safe either way,
  * which is why this one invites it — and the previous link is dead on both readings.
  */
-const OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.";
+const OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
 
 /** Beside the deadline rather than in the right-hand cluster, which is about the delivery. */
 const LINK_ABGELAUFEN_LABEL = "abgelaufen";

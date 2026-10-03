@@ -38,7 +38,7 @@ const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahle
  * The same fault where the DRAW carried the numbers itself. `REQ-RULES-011` freezes them everywhere
  * else, so sending an admin to the rules panel would name a field they cannot type in.
  */
-const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Spielplan und lege ihn noch einmal neu an.`;
+const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Spielplan und lege ihn erneut an.`;
 
 /** A rules refusal as the message it should render, or `null` when the code is none of these. */
 export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {

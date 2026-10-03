@@ -46,7 +46,7 @@ const NICHT_ABGESCHICKT = "Deine Registrierung wurde nicht gespeichert. Versuche
  * A second press is safe from this panel alone, which holds the key the first one carried
  * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
  */
-const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
+const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
 
 const POSITION_OPTIONS = FLSpielerPositionSchema.options;
 
@@ -169,7 +169,7 @@ export function RegistrierungFormPanel({
         <p className="max-w-md muted-hint">
           Wir haben Dir eine E-Mail mit einem Link geschickt. Erst wenn Du dort bestätigst, kann Dein Team Dich in den Kader aufnehmen.
           Bestätigst Du nicht innerhalb von {String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen, löschen wir die Registrierung wieder. Keine
-          Mail bekommen? Prüfe die Adresse und registriere Dich einfach noch einmal.
+          Mail bekommen? Prüfe die Adresse und registriere Dich einfach erneut.
         </p>
       </BestaetigungErgebnis>
     );

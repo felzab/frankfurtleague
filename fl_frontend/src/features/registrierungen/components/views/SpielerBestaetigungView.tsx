@@ -283,7 +283,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
           panelRef={ergebnisRef}
           tone="hinweis">
           <p className={ABSATZ_CLASSES}>Dieser Link ist ungültig oder abgelaufen, und die Registrierung dazu haben wir gelöscht.</p>
-          <p className={ABSATZ_CLASSES}>Du kannst Dich über den Link Deines Teams einfach noch einmal registrieren.</p>
+          <p className={ABSATZ_CLASSES}>Du kannst Dich über den Link Deines Teams einfach erneut registrieren.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

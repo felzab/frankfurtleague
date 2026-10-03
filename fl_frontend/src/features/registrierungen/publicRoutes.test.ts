@@ -323,7 +323,7 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
     const worte = panel.textContent;
 
     assert.match(worte, new RegExp(String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)), "the answer page states no deadline, or one of its own");
-    assert.match(worte, /registriere Dich einfach noch einmal/, "the answer page offers no way back from a mistyped address");
+    assert.match(worte, /registriere Dich einfach erneut/, "the answer page offers no way back from a mistyped address");
     assert.equal(raised.length, 0, "a successful submission raised a failure toast");
   });
 
@@ -373,7 +373,7 @@ describe("what the two public pages tell a pupil whose write may have landed", (
 
     await screen.findByRole("button", { name: /Registrierung abschicken/ });
     assert.deepEqual(failureToasts(), [
-      ["Unklar, ob es bei uns angekommen ist", "Schick die Registrierung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht."],
+      ["Unklar, ob es bei uns angekommen ist", "Schick die Registrierung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht."],
     ]);
   });
 

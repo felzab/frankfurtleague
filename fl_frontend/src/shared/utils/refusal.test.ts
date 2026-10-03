@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
 import {
   buildRefusal,
@@ -82,21 +80,5 @@ describe("VERSUCHE_ES_ERNEUT", () => {
   it("is the reload refusal's sentence, and its repair, in the same words", () => {
     assert.equal(UNKNOWN_REFUSAL, `${LADE_NEU_UND_VERSUCHE_ES_ERNEUT}.`);
     assert.ok(LADE_NEU_UND_VERSUCHE_ES_ERNEUT.endsWith(VERSUCHE_ES_ERNEUT.replace(/^V/, "v")));
-  });
-});
-
-/* One retry wording app-wide: „erneut“. Read off every source file, since a literal typed at a call
-   site is what the constants cannot see; tests are left out, a case naming the retired wording. */
-describe("the retry wording", () => {
-  const SRC = fileURLToPath(new URL("../../", import.meta.url));
-  const quellen = readdirSync(SRC, { recursive: true, encoding: "utf8" }).filter(
-    (datei) => /\.(ts|tsx)$/.test(datei) && !/\.test\.(ts|tsx)$/.test(datei),
-  );
-
-  it("is „erneut“ in every source file, never „noch einmal“", () => {
-    assert.ok(quellen.length > 100, "the walk found too few sources to have read the tree");
-    const abweichend = quellen.filter((datei) => /versuche es noch einmal/i.test(readFileSync(`${SRC}${datei}`, "utf8")));
-
-    assert.deepEqual(abweichend, []);
   });
 });

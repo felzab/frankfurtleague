@@ -31,7 +31,7 @@ export type PublicEnvelope = {
  * spent link says so, and a live one takes the answer again.
  */
 export const ANTWORT_UNKLAR =
-  "Öffne den Link aus Deiner E-Mail noch einmal: Ist Deine Antwort angekommen, steht das dort, sonst antwortest Du dort noch einmal.";
+  "Öffne den Link aus Deiner E-Mail noch einmal: Ist Deine Antwort angekommen, steht das dort, sonst antwortest Du dort erneut.";
 
 /**
  * Whether this application answered at all. Nothing standing in front of it produces a field error,
@@ -53,7 +53,7 @@ export type PublicAnswer<T> =
 export const EDGE_RATE_LIMIT_STATUS = 429;
 
 /** The one cause the visitor can act on, which is why it keeps a sentence of its own. */
-const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann noch einmal.";
+const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
 
 /** The request reached no judgement, so nothing of what was typed may be named here. */
 const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
@@ -62,7 +62,7 @@ const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
  * Every other answer that was not this application's, an edge challenge among them. It claims
  * nothing about the request: a challenge can answer a POST this application has already written.
  */
-const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte einen Moment und versuche es dann noch einmal.";
+const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte einen Moment und versuche es dann erneut.";
 
 /**
  * The client half of `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`'s flow, and

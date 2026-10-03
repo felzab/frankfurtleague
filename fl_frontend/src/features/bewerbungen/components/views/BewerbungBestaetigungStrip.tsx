@@ -100,14 +100,13 @@ const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person 
  * A rejected action carries no status and no body, so it says nothing of whether the write
  * committed. A second re-send is safe either way, which is why this one invites it.
  */
-const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.";
+const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
 
 /** Unlike a re-send, a second correction to an address already stored is refused, so the row decides. */
-const KORREKTUR_OHNE_ANTWORT =
-  "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal.";
+const KORREKTUR_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie erneut.";
 
 /** Unlike a re-send, a second reseat over a seat already filled is refused, so the row, reloaded, decides. */
-const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal.";
+const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle erneut.";
 
 /** Which of the two editors one row has open. One at a time for the whole strip (`docs/frontend/spec.md :: I66`). */
 type Bearbeitung = "korrektur" | "neubesetzung";

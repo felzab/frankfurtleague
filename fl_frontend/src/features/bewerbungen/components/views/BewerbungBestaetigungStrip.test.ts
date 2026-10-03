@@ -417,7 +417,7 @@ describe("a write whose answer never arrives", () => {
       assert.deepEqual(unknowns(), [
         [
           "Unklar, ob es gespeichert wurde",
-          repairOn(arm, "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging."),
+          repairOn(arm, "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging."),
         ],
       ]);
       assert.equal(raised.length, 1, "one press raised more than one toast");
@@ -462,7 +462,7 @@ describe("a write whose answer never arrives", () => {
       assert.deepEqual(unknowns(), [
         [
           "Unklar, ob es gespeichert wurde",
-          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal."),
+          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie erneut."),
         ],
       ]);
       assert.equal(raised.length, 1, "one press raised more than one toast");
@@ -487,7 +487,7 @@ describe("a write whose answer never arrives", () => {
       assert.deepEqual(unknowns(), [
         [
           "Unklar, ob es gespeichert wurde",
-          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal."),
+          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle erneut."),
         ],
       ]);
       assert.equal(raised.length, 1, "one press raised more than one toast");

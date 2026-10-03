@@ -45,7 +45,7 @@ const NICHT_ABGESCHICKT = "Deine Bewerbung wurde nicht abgeschickt. Versuche es 
  * A second press is safe from this page alone, which holds the key the first one carried
  * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
  */
-const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
+const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
 
 // Composed, never restated: the field is already showing the promise from `utils`, and on a rate-limited blur
 // the two render together — one promise in two wordings reads as two different promises.

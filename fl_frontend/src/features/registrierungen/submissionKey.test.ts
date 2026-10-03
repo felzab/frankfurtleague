@@ -37,7 +37,7 @@ const ANSICHT: FLEinladungAnsichtResponse = {
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 /** What every arm that may have landed tells the pupil, spelled here so a rewording fails a case. */
-const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
+const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
 
 const UNKLAR = JSON.stringify({ success: false, error: "Ob die Änderung gespeichert wurde, ist unklar.", outcome: "unknown" });
 

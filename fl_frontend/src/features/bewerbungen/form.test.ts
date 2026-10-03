@@ -186,7 +186,7 @@ async function fillIn(user: User, container: HTMLElement, draft: BewerbungFormDr
 }
 
 /** What every arm that may have landed tells the applicant, spelled here so a rewording fails a case. */
-const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
+const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
 
 /** The requests the form made, by path and parsed body. */
 const requestsMade = () =>
