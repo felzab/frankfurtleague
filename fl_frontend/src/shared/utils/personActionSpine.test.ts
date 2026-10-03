@@ -11,12 +11,25 @@ import { cacheCalls, doubleActionRequest, loggedLines } from "@/shared/testing/a
    before the `await import`s below; the spine between them and the action is what is driven. */
 const { setSubject } = doubleActionRequest({ session: null });
 
-const { runPersonMutation } = await import("./personMutation.ts");
+const { runPersonMutation, runPersonRecordMutation } = await import("./personMutation.ts");
 const { runPersonRead } = await import("./personRead.ts");
 const { KONTO_FORBIDDEN } = await import("./kontoMutation.ts");
 const { SITZ_WEG } = await import("./actionError.ts");
 const { getRequestActor, markOutcomeUnknown, recordWriteSent } = await import("@/core/requestScope.ts");
-const { PersonReadWithoutSubjectError } = await import("@/core/errors.ts");
+const { APIBadStatusError, PersonReadWithoutSubjectError } = await import("@/core/errors.ts");
+
+/** The backend's refusal of a write naming a Funktion the person does not hold. */
+const refusedFunktion = () =>
+  new APIBadStatusError({
+    message: "refused",
+    url: "http://backend/api/v0/probe",
+    statusCode: 403,
+    serverErrorCode: "REQ-FUNKTION-001",
+    endpoint: "/probe",
+    method: "PATCH",
+    readOnly: false,
+    traceId: "0",
+  });
 
 const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
 const PERSON_ACTION_FILES = filesUnder(SLICES, (name) => name === "personActions.ts", 1).sort();
@@ -40,24 +53,37 @@ function countingBody() {
 }
 
 /**
- * Every export of every slice's person actions called with `argument`, by `<slice> :: <export>`, and
- * what each answered, against a network that refuses every call and counts it.
+ * The person actions claiming a record rather than a seat, by `<slice> :: <export>`; every other export
+ * claims a seat. Declared, never read off behaviour: an export behind the wrong entry then fails its
+ * kind instead of joining the other.
  */
-async function answerOfEveryPersonAction(argument: unknown): Promise<{ answers: Map<string, unknown>; sent: number }> {
+const CLAIMS_A_RECORD: ReadonlySet<string> = new Set<string>([]);
+
+type PersonAction = (argument: unknown) => Promise<unknown>;
+
+/** Every export of every slice's person actions, by `<slice> :: <export>`. */
+async function everyPersonAction(): Promise<Map<string, PersonAction>> {
+  const found = new Map<string, PersonAction>();
+  for (const file of PERSON_ACTION_FILES) {
+    const slice = path.basename(path.dirname(file));
+    const actions = Object.entries((await import(pathToFileURL(file).href)) as Record<string, unknown>);
+    assert.ok(actions.length > 0, `${slice}'s person actions module exports nothing, so nothing here holds it`);
+
+    for (const [name, action] of actions) {
+      assert.equal(typeof action, "function", `${slice} :: ${name} is exported from a "use server" module and is no action`);
+      found.set(`${slice} :: ${name}`, action as PersonAction);
+    }
+  }
+
+  return found;
+}
+
+/** What each action answered `argument` with, against a network that refuses every call and counts it. */
+async function answersOf(actions: Map<string, PersonAction>, argument: unknown): Promise<{ answers: Map<string, unknown>; sent: number }> {
   const answers = new Map<string, unknown>();
   const fetched = mock.method(globalThis, "fetch", () => Promise.reject(new Error("a person's action reached the network unguarded")));
-
   try {
-    for (const file of PERSON_ACTION_FILES) {
-      const slice = path.basename(path.dirname(file));
-      const actions = Object.entries((await import(pathToFileURL(file).href)) as Record<string, unknown>);
-      assert.ok(actions.length > 0, `${slice}'s person actions module exports nothing, so nothing here holds it`);
-
-      for (const [name, action] of actions) {
-        assert.equal(typeof action, "function", `${slice} :: ${name} is exported from a "use server" module and is no action`);
-        answers.set(`${slice} :: ${name}`, await (action as (argument: unknown) => Promise<unknown>)(argument));
-      }
-    }
+    for (const [name, action] of actions) answers.set(name, await action(argument));
   } finally {
     fetched.mock.restore();
   }
@@ -65,16 +91,59 @@ async function answerOfEveryPersonAction(argument: unknown): Promise<{ answers: 
   return { answers, sent: fetched.mock.callCount() };
 }
 
+/**
+ * Which entry an action ran behind, for a person seated on one team claiming another's: the seat entry
+ * refuses and logs why, the record entry admits the session and leaves the record to the backend.
+ */
+async function entryOf(action: PersonAction): Promise<"seat" | "record"> {
+  setSubject(person({ sitze: [sitz()] }));
+  loggedLines.length = 0;
+  const fetched = mock.method(globalThis, "fetch", () => Promise.reject(new Error("no network in this sweep")));
+  try {
+    await action({ team_id: OTHER_TEAM, saison_id: SITZ.saison_id });
+  } finally {
+    fetched.mock.restore();
+  }
+
+  const refused = loggedLines.some((line) => line.message === "funktion.verweigert");
+  return refused ? "seat" : "record";
+}
+
 describe("every person's server action", () => {
   it("is found at all, so the sweeps below sweep something", () => {
     assert.ok(PERSON_ACTION_FILES.length > 0, "no features/*/personActions.ts was found");
+  });
+
+  /* Two listings reached by different routes, the declaration above and what each export does,
+     required to agree: a seat export sent through the record entry, or a record export through the
+     seat entry, fails here by name. */
+  it("runs behind the entry its declared claim names", async () => {
+    const actions = await everyPersonAction();
+    const ran = new Map<string, string>();
+    for (const [name, action] of actions) ran.set(name, await entryOf(action));
+
+    assert.deepEqual(ran, new Map([...actions.keys()].map((name) => [name, CLAIMS_A_RECORD.has(name) ? "record" : "seat"])));
+    assert.deepEqual(
+      [...CLAIMS_A_RECORD].filter((name) => !actions.has(name)),
+      [],
+      "a record claim named here is exported nowhere",
+    );
+  });
+
+  /* The reader above held against one action of each kind, built on the two real entries: the tree may
+     hold exports of one kind alone, where agreement over the tree cannot show the reader tells them apart. */
+  it("tells the two entries apart", async () => {
+    const seatAction: PersonAction = (argument) => runPersonMutation("seatSample", argument as typeof HELD, countingBody().body);
+    const recordAction: PersonAction = () => runPersonRecordMutation("recordSample", countingBody().body);
+
+    assert.deepEqual([await entryOf(seatAction), await entryOf(recordAction)], ["seat", "record"]);
   });
 
   /* Each export called, never its source read: an action outside `runPersonMutation`, or one the spine
      does not guard, validates the missing payload or reaches the backend, and answers something else. */
   it("answers a caller with no person's session through the spine's guard, before any work", async () => {
     setSubject(null);
-    const { answers, sent } = await answerOfEveryPersonAction(undefined);
+    const { answers, sent } = await answersOf(await everyPersonAction(), undefined);
 
     assert.equal(sent, 0, "a person's action reached the network for a caller nobody signed in as");
     assert.deepEqual(answers, new Map([...answers.keys()].map((action) => [action, { success: false, error: KONTO_FORBIDDEN }])));
@@ -83,11 +152,64 @@ describe("every person's server action", () => {
   /* The seat the action claims is the one the spine derives and judges, never the caller's word: a
      person holding a seat on one team claims another's in the payload. */
   it("answers a claim on a seat the person does not hold with the lost seat's words, never reaching the network", async () => {
+    const seatActions = new Map([...(await everyPersonAction())].filter(([name]) => !CLAIMS_A_RECORD.has(name)));
     setSubject(person({ sitze: [sitz()] }));
-    const { answers, sent } = await answerOfEveryPersonAction({ team_id: OTHER_TEAM, saison_id: SITZ.saison_id });
+    const { answers, sent } = await answersOf(seatActions, { team_id: OTHER_TEAM, saison_id: SITZ.saison_id });
 
+    assert.ok(seatActions.size > 0, "no export claims a seat, so nothing here is asked");
     assert.equal(sent, 0, "a person's action reached the network for a seat its caller does not hold");
     assert.deepEqual(answers, new Map([...answers.keys()].map((action) => [action, { success: false, error: SITZ_WEG }])));
+  });
+});
+
+describe("the person spine's record entry", () => {
+  it("turns away a caller with no person's session before the body runs, logging why", async () => {
+    setSubject(null);
+    const { ran, body } = countingBody();
+
+    const answer = await runPersonRecordMutation("probeAction", body);
+
+    assert.deepEqual(answer, { success: false, error: KONTO_FORBIDDEN });
+    assert.equal(ran.count, 0, "the body ran for a caller nobody signed in as");
+    assert.deepEqual(loggedLines, [
+      { level: "info", message: "funktion.verweigert", meta: { operation: "probeAction", grund: "keine_sitzung" } },
+    ]);
+  });
+
+  /* A withdrawal must reach a past season's seat and a retired record, which no Funktion carries: the
+     entry judges the session alone, and the backend the record. */
+  it("runs the body for a person holding no Funktion at all, under the person lane's actor", async () => {
+    setSubject(person({ sitze: [sitz({ saison_status: "past" })] }));
+    let lane: unknown;
+
+    const answer = await runPersonRecordMutation("probeAction", () => {
+      lane = getRequestActor()?.lane;
+      return Promise.resolve({ success: true, message: "Gespeichert." });
+    });
+
+    assert.deepEqual(answer, { success: true, message: "Gespeichert." });
+    assert.equal(lane, "person");
+  });
+
+  it("answers the backend's refusal of the record in the shared reader's words", async () => {
+    setSubject(person());
+
+    const answer = await runPersonRecordMutation("probeAction", () => Promise.reject(refusedFunktion()));
+
+    assert.deepEqual(answer, { success: false, error: SITZ_WEG });
+  });
+
+  it("answers a write of unknown outcome as unanswered, and refreshes", async () => {
+    setSubject(person());
+
+    const answer = await runPersonRecordMutation("probeAction", () => {
+      recordWriteSent();
+      markOutcomeUnknown();
+      return Promise.resolve({ success: true, message: "Gespeichert." });
+    });
+
+    assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown", `a write of unknown outcome answered ${JSON.stringify(answer)}`);
+    assert.equal(refreshes(), 1);
   });
 });
 

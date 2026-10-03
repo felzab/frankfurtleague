@@ -61,3 +61,23 @@ export async function runPersonMutation<T extends { success: boolean }>(
     fn,
   );
 }
+
+/**
+ * The spine of a person's write claiming a record of their own rather than a seat: the session alone is
+ * judged here, and the backend authorises the record itself.
+ */
+export async function runPersonRecordMutation<T extends { success: boolean }>(
+  mutationName: string,
+  fn: (subject: SubjectSession) => Promise<T>,
+): Promise<T | ActionFailure> {
+  const resolve = async (): Promise<SubjectSession | null> => {
+    // Never narrowed through `funktionenOf`: a withdrawal must reach a past season's seat and a retired
+    // record, which no Funktion carries.
+    const subject = await getSubjectSession();
+    if (subject === null) logger.info("funktion.verweigert", { operation: mutationName, grund: "keine_sitzung" });
+
+    return subject;
+  };
+
+  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: KONTO_FORBIDDEN }, fn);
+}
