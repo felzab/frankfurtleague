@@ -22,7 +22,7 @@ describe("the consent writes' one mapper", () => {
     assert.ok(MEDIEN_ZU_JUNG.includes(`ab ${String(MEDIEN_MIN_ALTER)} Jahren`), MEDIEN_ZU_JUNG);
   });
 
-  /* A seat no longer held and a barred address are the person spine's, which words them once for every
+  /* A lost seat and a barred address are the person spine's, which words them once for every
      person write; answering them here would word them twice. */
   it("leaves every other refusal, and a failure that is no refusal, to the spine", () => {
     assert.equal(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-FUNKTION-001", 403)), null);

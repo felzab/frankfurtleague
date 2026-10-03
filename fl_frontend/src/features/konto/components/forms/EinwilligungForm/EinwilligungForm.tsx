@@ -46,9 +46,9 @@ export type EinwilligungWorte = {
 export type EinwilligungAntwort = EinwilligungWahl & { readonly text_version: string };
 
 /**
- * One consent record's controls: the publication chip pair and the media switch, each pressed on its
- * own and saved at once. Every record a person holds renders through this one component, so the
- * pupil's, the referee's and a contact seat's controls cannot drift apart in wording or behaviour.
+ * One consent record's controls, each saved by its own press. Every record a person holds renders
+ * through this one component, so the pupil's, the referee's and a seat's cannot drift apart in wording
+ * or behaviour (`docs/frontend/spec.md :: I891`).
  */
 export function EinwilligungForm({
   worte,
@@ -139,9 +139,9 @@ export function EinwilligungForm({
       )}
 
       <div className="flex w-full flex-col gap-y-3">
-        {/* Offered while the stored record holds it on, whatever may be granted: a withdrawal stands open
-            on every record. The stored record, never the pressed value, so a switch just turned off keeps
-            the focus until the page is read again. */}
+        {/* Offered while the stored record holds it on, whatever may be granted (`docs/frontend/spec.md ::
+            I892`). The stored record, never the pressed value, so a switch just turned off keeps the focus
+            until the page is read again. */}
         {((erteilbar && medienAngeboten) || gespeichert.medien) && (
           <Switch
             className="flex w-full flex-col gap-y-1"

@@ -81,7 +81,7 @@ describe("a pupil's own page", () => {
   });
 
   /* The administrator's squad list grades the two facts so: a row taken out of the squad says when,
-     and its late entry no longer matters to anyone reading it. */
+     and its late entry then matters to nobody reading it. */
   it("marks a squad left mid-season with its date, in place of the late entry", () => {
     renderView();
 

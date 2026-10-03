@@ -14,9 +14,9 @@ export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu 
 export const MEDIEN_ZU_JUNG = `Fotos, Videos und Interviews kannst Du erst ab ${String(MEDIEN_MIN_ALTER)} Jahren erlauben.`;
 
 /**
- * The one mapper the three consent writes share, the pupil's, the referee's and a contact seat's: one
- * code set behind one control, so a refusal reads the same whichever record it refused. A seat no
- * longer held and a barred address are the person spine's to word, never this mapper's.
+ * The one mapper the three consent writes share: one code set behind one control, so a refusal reads
+ * the same whichever record it refused. A lost seat and a barred address are the person spine's to
+ * word, never this mapper's.
  */
 export function mapEinwilligungWahlRefusal(error: unknown): { error: string } | null {
   if (!isRefusal(error)) return null;
