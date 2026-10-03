@@ -24,7 +24,7 @@ from app.api.berechtigungen.crud import pull_the_list_to_judge
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
-from app.api.spieler.admin_router import _refuse_a_full_squad
+from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from tests.core.app_source import (
@@ -60,9 +60,16 @@ CHOKE_POINTS: tuple[tuple[Callable[..., Any], str, frozenset[str]], ...] = (
         frozenset({"app/api/teams/crud.py :: refuse_a_full_gruppe"}),
     ),
     (
-        _refuse_a_full_squad,
+        refuse_a_full_squad,
         "find_squad_capacity_refusal",
-        frozenset({"app/api/spieler/admin_router.py :: _refuse_a_full_squad"}),
+        frozenset({"app/api/spieler/crud.py :: refuse_a_full_squad"}),
+    ),
+    # Beside the cap rather than behind it: a representative's edit takes the captaincy alone, so
+    # this helper's own anchor is all that stands between two captains.
+    (
+        refuse_a_taken_rolle,
+        "find_squad_rolle_refusal",
+        frozenset({"app/api/spieler/crud.py :: refuse_a_taken_rolle"}),
     ),
     (
         _refuse_an_out_of_order_beginn,
@@ -83,7 +90,14 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
         }
     ),
-    "_refuse_a_full_squad": frozenset(
+    "refuse_a_full_squad": frozenset(
+        {
+            "app/api/spieler/admin_router.py :: add_the_player",
+            "app/api/spieler/admin_router.py :: move_the_player",
+            "app/api/spieler/admin_router.py :: bring_the_player_back",
+        }
+    ),
+    "refuse_a_taken_rolle": frozenset(
         {
             "app/api/spieler/admin_router.py :: add_the_player",
             "app/api/spieler/admin_router.py :: move_the_player",

@@ -130,7 +130,7 @@ export function buildSpielerBanners({
   }
 
   // Above the role, the order all three write paths ask the two questions in
-  // (`fl_backend/app/api/spieler/admin_router.py :: _refuse_a_full_squad`).
+  // (`fl_backend/app/api/spieler/admin_router.py :: add_the_player`).
   if (isSquadFull) {
     banners.push({
       id: "spieler.kader-voll",

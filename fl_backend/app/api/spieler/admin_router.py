@@ -5,10 +5,9 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
@@ -18,17 +17,12 @@ from app.api.spieler.schemas import (
     FLSpielerErasureResponse,
     FLSpielerMembershipsResponse,
     FLSpielerNachnominierungResponse,
-    FLSpielerRolle,
     FLSpielerWithMemberships,
 )
 from app.api.spieler.services import (
-    build_live_rolle_filter,
-    build_live_squad_filter,
     build_spieler_memberships_pipeline,
     find_erasure_refusal,
-    find_squad_capacity_refusal,
     find_squad_refusal,
-    find_squad_rolle_refusal,
 )
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
@@ -60,7 +54,7 @@ from app.core.recording import build_redaction_filter, build_redaction_update, l
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
-from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler",
@@ -95,80 +89,6 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         rolle=document.get("rolle"),
         inactive_since=document.get("inactive_since"),
     )
-
-
-async def _refuse_a_full_squad(
-    *,
-    saison_spieler_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    saison_id: str,
-    team_id: CustomObjectId,
-    spieler_id: CustomObjectId,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
-    # TypeError at the call rather than a silent reopening of it.
-    session: AsyncClientSession,
-) -> None:
-    """Refuse `REQ-SQUAD-003` when this team's squad for this season is already at the season's cap.
-
-    Shared by create, transfer and reactivate: the cap is a property of the DESTINATION squad, not
-    of the verb.
-    """
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
-
-    # A count is a read, which a snapshot re-validates nowhere, so two writers pass one figure
-    # unless something puts them in one write set.
-
-    # `patch_many_in_db`, not `patch_one_in_db`: this lands on every squad write, and that helper
-    # would log a whole season pre-image each time where this one logs a filter and a count.
-    await patch_many_in_db(
-        collection=saisons_collection,
-        db_filter={"_id": saison_id},
-        update={"$inc": {"bounded_writes": 1}},
-        session=session,
-    )
-
-    squad_size = await saison_spieler_collection.count_documents(
-        build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id), session=session
-    )
-
-    refuse(
-        find_squad_capacity_refusal(
-            squad_size=squad_size,
-            # Validated, not read raw: a season missing the key fails here rather than admitting a
-            # player against a bound nobody chose.
-            max_kadergroesse=FLSaisonRules.model_validate(saison_raw["rules"]).max_kadergroesse,
-        )
-    )
-
-
-async def _refuse_a_taken_rolle(
-    *,
-    saison_spieler_collection: AsyncCollection,
-    saison_id: str,
-    team_id: CustomObjectId,
-    spieler_id: CustomObjectId,
-    rolle: FLSpielerRolle | None,
-    session: AsyncClientSession,
-) -> None:
-    """Refuse `REQ-SQUAD-004` when another live row in this squad already holds `rolle`.
-
-    Shared by all three writes for the reason the cap is: the role belongs to the DESTINATION squad,
-    never to the verb.
-    """
-
-    if rolle is None:
-        return
-
-    taken = (
-        await saison_spieler_collection.count_documents(
-            build_live_rolle_filter(saison_id=saison_id, team_id=team_id, rolle=rolle, excluding_spieler_id=spieler_id),
-            limit=1,
-            session=session,
-        )
-    ) > 0
-
-    refuse(find_squad_rolle_refusal(rolle=rolle, taken=taken))
 
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
@@ -377,7 +297,7 @@ async def post_saison_spieler(
     """
 
     async def add_the_player(session: AsyncClientSession) -> dict[str, Any]:
-        """Judge, then write the row. Everything judged is read in-session, the squad's own count inside `_refuse_a_full_squad`."""
+        """Judge, then write the row. Everything judged is read in-session, the squad's own count inside `refuse_a_full_squad`."""
 
         # The club has to be in the season, and that fact lives in another collection.
         team_in_saison = (
@@ -388,7 +308,7 @@ async def post_saison_spieler(
         # Asked first: a cap on a squad the club does not have is not a fact worth reporting.
         refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
-        await _refuse_a_full_squad(
+        await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_spieler_data.saison_id,
@@ -399,8 +319,9 @@ async def post_saison_spieler(
 
         # Last of the three: a role is the least of a caller's problems where the club is not in the
         # season or the squad has no room.
-        await _refuse_a_taken_rolle(
+        await refuse_a_taken_rolle(
             saison_spieler_collection=saison_spieler_collection,
+            saisons_collection=saisons_collection,
             saison_id=saison_spieler_data.saison_id,
             team_id=saison_spieler_data.team_id,
             spieler_id=spieler_id,
@@ -426,7 +347,7 @@ async def post_saison_spieler(
     # Whatever field the refusal helper's own write moved: every season write drops the cache
     # (`docs/backend/spec.md :: I131`).
     with dropping_the_saison_cache():
-        # One transaction over the row and the season write inside `_refuse_a_full_squad`, which is what
+        # One transaction over the row and the season write inside `refuse_a_full_squad`, which is what
         # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
         # (`app/api/spieltage/admin_router.py :: _refuse_an_out_of_order_beginn` writes the same season).
         async with transaction_session(db) as session:
@@ -471,7 +392,7 @@ async def patch_saison_spieler(
 
         # The team the payload NAMES, never the one the row currently holds: a transfer is judged
         # against where the player is going.
-        await _refuse_a_full_squad(
+        await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
@@ -482,8 +403,9 @@ async def patch_saison_spieler(
 
         # Judged against the team the PAYLOAD names, as the cap is: a transfer takes the armband to
         # the squad it is joining.
-        await _refuse_a_taken_rolle(
+        await refuse_a_taken_rolle(
             saison_spieler_collection=saison_spieler_collection,
+            saisons_collection=saisons_collection,
             saison_id=saison_id,
             team_id=saison_spieler_data.team_id,
             spieler_id=spieler_id,
@@ -586,7 +508,7 @@ async def reactivate_saison_spieler(
         # about a club the season does not hold.
         refuse(find_squad_refusal(team_in_saison=team_in_saison))
 
-        await _refuse_a_full_squad(
+        await refuse_a_full_squad(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
@@ -596,8 +518,9 @@ async def reactivate_saison_spieler(
         )
 
         # `.get`, not a subscript: a row stored before the field existed carries no key at all.
-        await _refuse_a_taken_rolle(
+        await refuse_a_taken_rolle(
             saison_spieler_collection=saison_spieler_collection,
+            saisons_collection=saisons_collection,
             saison_id=saison_id,
             team_id=stored_raw["team_id"],
             spieler_id=spieler_id,

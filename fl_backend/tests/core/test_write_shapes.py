@@ -733,7 +733,7 @@ class TestEveryHelperTheTransactionReachesReadsInSession:
         assert {read for carrier in carriers if carrier.called == "pull_one_from_db" for read, _ in carrier.reads} == {"find_one"}
 
     def test_no_read_inside_one_is_left_off_the_session_it_was_handed(self):
-        """Drop `session=` from the count in `app/api/spieler/admin_router.py :: _refuse_a_taken_rolle` and this fails.
+        """Drop `session=` from the count in `app/api/spieler/crud.py :: refuse_a_taken_rolle` and this fails.
 
         The refusal then decides on what committed last while the write beside it is in the
         transaction, so the retry re-decides on that same stale count.
