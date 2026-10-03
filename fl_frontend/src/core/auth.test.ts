@@ -1372,6 +1372,15 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     assert.equal(options.userVerification, "required", "the assertion asks for less than the verifier below demands");
   });
 
+  // The sign-in page asks with no session at all, which is where most assertions start.
+  it("asks the same of an assertion started signed out", async () => {
+    const answer = await overHttp("/passkey/generate-authenticate-options");
+    assert.equal(answer.status, 200, `the sign-in page's assertion was refused: ${JSON.stringify(logged)}`);
+
+    const options = (await answer.json()) as { userVerification: string };
+    assert.equal(options.userVerification, "required", "the sign-in page's assertion asks for less than the verifier demands");
+  });
+
   /* 1.7.7 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
      prompt sets is checked here or nowhere. */
   it("refuses an assertion the authenticator did not verify, and mints no session for it", async () => {
