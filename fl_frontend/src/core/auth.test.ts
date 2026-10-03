@@ -53,7 +53,7 @@ const LOGGING_DOUBLE = {
   logger: {
     debug: () => undefined,
     info: () => undefined,
-    warn: () => undefined,
+    warn: (message: string) => void warned.push(message),
     error: (message: string, error: unknown, meta: Record<string, unknown>) => void logged.push({ message, error, meta }),
   },
 };
@@ -193,6 +193,8 @@ type LogLine = { message: string; error: unknown; meta: Record<string, unknown> 
 
 const store = memoryStore("__flAuthStore");
 const logged: LogLine[] = [];
+/** The event of every warning the module wrote. */
+const warned: string[] = [];
 const adapterCalls = {
   databases: [] as string[],
   pairs: [] as { db: unknown; config?: { client?: unknown } }[],
@@ -2341,6 +2343,26 @@ describe("what the library's own log stream reaches this application as", () => 
       assert.equal(line.error, undefined, "the library's own error object reached the writer");
       assert.deepEqual(Object.keys(line.meta).sort(), ["error_code", "name"]);
     }
+  });
+
+  /* The plugin words every registration that failed past its verifier alike; only a conflict between two
+     enrolments is a warning, so a store that failed the same insert for any other reason stays an error. */
+  it("keeps a registration the store failed for another reason an error, with no warning", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+    adapterCalls.refusing = (key, args) => key === "create" && (args[0] as { model?: unknown } | undefined)?.model === "passkey";
+    logged.length = 0;
+    warned.length = 0;
+
+    try {
+      assert.equal((await enrolPasskey(cookie)).status, 500);
+    } finally {
+      adapterCalls.refusing = undefined;
+    }
+
+    assert.deepEqual(
+      [logged.map((line) => [line.message, line.meta.error_code, line.meta.name]), warned],
+      [[["auth.library_failed", "FE-AUTH-003", "Error"]], []],
+    );
   });
 });
 
