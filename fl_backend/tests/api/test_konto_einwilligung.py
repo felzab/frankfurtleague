@@ -16,6 +16,7 @@ from bson import ObjectId
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.services import KONTO_SEITE_SCHIEDSRICHTER, SELBST_MEDIEN_ALTER
@@ -26,9 +27,9 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_verlauf import VERLAUF
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY
+from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_team_document, spieler_document, team_document
+from tests.documents import ADDRESS, saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -365,14 +366,14 @@ class TestTheAccountPagesRead:
             {
                 "vorname": "Ortrud",
                 "team": ROW_NAME_B,
-                "schule": "Lessing-Gymnasium-Schule",
+                "schule": None,
                 "saison": ACTIVE_SAISON,
                 "rolle": "stellvertretung",
             },
             {
                 "vorname": "Ortrud",
                 "team": ROW_NAME_A_PAST,
-                "schule": "Helmholtz-Gymnasium Frankfurt-Schule",
+                "schule": None,
                 "saison": PAST_SAISON,
                 "rolle": "trainer",
             },
@@ -500,3 +501,82 @@ class TestTheSeatsMediaChoice:
 
         assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
         assert after == before
+
+
+ANSICHT_PATH = f"/api/v{API_VERSION}/bewerbungen/einwilligung/ansicht"
+BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607850031")
+# The school as the application named it, apart from the club's and the season row's names, so a fill
+# taken from any of those two is seen to be wrong.
+BEWERBUNG_SCHULE = "Helmholtz, wie beworben"
+BEWERBUNG_TOKENS = {seat: f"bewerbungslink-{seat}" for seat in ("trainer", "ansprechperson", "stellvertretung")}
+SAISON_TOKEN = "saisonlink-stellvertretung"
+
+
+async def _both_homes(database: AsyncDatabase) -> None:
+    """The past row's seats confirmed through the admitted application, the active row's through a link the row minted."""
+
+    await database[Collection.BEWERBUNGEN].insert_one(
+        {
+            "_id": BEWERBUNG_OID,
+            "saison_id": PAST_SAISON,
+            "eingereicht_am": "2025-01-10",
+            "status": "angenommen",
+            "team_id": TEAM_A_OID,
+            "schule": {
+                "team_name": BEWERBUNG_SCHULE,
+                "full_name": f"{BEWERBUNG_SCHULE}-Schule",
+                "shorthand": "HW",
+                "schulform": None,
+                "address": dict(ADDRESS),
+                "website_url": None,
+            },
+            "kontakte": _kontakte(
+                trainer=_seat(REFEREE_STORED),
+                ansprechperson=_seat(REFEREE_STORED),
+                stellvertretung=_seat(BYSTANDER),
+                trainer_ist_zugleich="ansprechperson",
+            ),
+            "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
+            "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+            "wunschgegner": None,
+            "entscheidung": None,
+            "bestaetigungsfrist": "2025-01-24",
+            "bestaetigungen": compose_bestaetigungen(
+                hashes={seat: hash_token(token) for seat, token in BEWERBUNG_TOKENS.items()}, today="2025-01-10"
+            ),
+        }
+    )
+    link = {"token_hash": hash_token(SAISON_TOKEN), "verschickt_am": "2026-09-01", "frist": "2026-09-15", "abgelehnt_am": None}
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
+        {"$set": {"bestaetigungen": {"trainer": None, "ansprechperson": None, "stellvertretung": link}}},
+    )
+
+
+@pytest.mark.db
+class TestTheWordsAreFilledAsTheirPageFilledThem:
+    """A seat's fills are the ones the confirmation page of the home its person confirmed it through serves, read the same way."""
+
+    def test_each_seats_fills_equal_what_its_own_confirmation_page_serves(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _both_homes(database)
+            konto = await http.get(KONTO_PATH, headers=_person(IDENTIFIER))
+            bewerbung = await http.post(ANSICHT_PATH, json={"token": BEWERBUNG_TOKENS["trainer"]}, headers=BASE_AUTH)
+            saison = await http.post(ANSICHT_PATH, json={"token": SAISON_TOKEN}, headers=BASE_AUTH)
+            return konto, bewerbung, saison
+
+        konto, bewerbung, saison = served(mongo_replica_set_url, steps)
+
+        assert (konto.status_code, bewerbung.status_code, saison.status_code) == (200, 200, 200), (bewerbung.text, saison.text)
+        kontexte = {(entry["team_id"], entry["saison_id"]): entry["kontext"] for entry in konto.json()["sitze"]}
+
+        for (team_id, saison_id), page in (((TEAM_A_OID, PAST_SAISON), bewerbung.json()), ((TEAM_B_OID, ACTIVE_SAISON), saison.json())):
+            kontext = kontexte[(str(team_id), saison_id)]
+            assert (kontext["vorname"], kontext["schule"], kontext["saison"], kontext["rolle"]) == (
+                page["vorname"],
+                page["schule"],
+                page["saison_id"],
+                page["rolle"],
+            )
+        assert kontexte[(str(TEAM_A_OID), PAST_SAISON)]["schule"] == BEWERBUNG_SCHULE
+        assert kontexte[(str(TEAM_B_OID), ACTIVE_SAISON)]["schule"] == ROW_NAME_B

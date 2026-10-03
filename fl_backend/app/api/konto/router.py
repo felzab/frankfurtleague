@@ -6,6 +6,7 @@ from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.services import folds_to
 from app.api.konto.schemas import FLKontoEinwilligungenResponse
 from app.api.konto.services import (
+    build_angenommene_bewerbungen_pipeline,
     build_kontext_teams_pipeline,
     build_selbst_seat_pipeline,
     compose_schiedsrichter_selbst,
@@ -18,6 +19,7 @@ from app.api.spieler.services import build_selbst_pupil_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import (
+    BewerbungenCollection,
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
@@ -48,6 +50,7 @@ async def get_einwilligungen(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
+    bewerbungen_collection: BewerbungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLKontoEinwilligungenResponse:
@@ -99,6 +102,14 @@ async def get_einwilligungen(
                 collection=teams_collection, pipeline=build_kontext_teams_pipeline(team_ids), session=session
             )
         }
+        bewerbungen = {
+            (bewerbung["team_id"], bewerbung["saison_id"]): bewerbung
+            for bewerbung in await aggregate_many_from_db(
+                collection=bewerbungen_collection,
+                pipeline=build_angenommene_bewerbungen_pipeline([row["team_id"] for row in seat_rows]),
+                session=session,
+            )
+        }
 
         return FLKontoEinwilligungenResponse.model_validate(
             {
@@ -115,6 +126,8 @@ async def get_einwilligungen(
                     for row in referees
                     if folds_to((row.get("kontakt") or {}).get("email"), identifier) and is_confirmed(row.get(EINWILLIGUNG_FELD))
                 ],
-                "sitze": compose_sitze_selbst(seat_rows, identifier, erteilbar=erteilbare_sitze, today=today, teams=teams),
+                "sitze": compose_sitze_selbst(
+                    seat_rows, identifier, erteilbar=erteilbare_sitze, today=today, teams=teams, bewerbungen=bewerbungen
+                ),
             }
         )

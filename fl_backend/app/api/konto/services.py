@@ -238,10 +238,62 @@ def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "team_id": 1,
                 "name": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
+                **{f"bestaetigungen.{slot}.verschickt_am": 1 for slot in KONTAKT_SLOTS},
             }
         },
         {"$sort": {"saison_id": -1, "name": 1, "team_id": 1}},
     ]
+
+
+def auf_der_saison_bestaetigt(row: Mapping[str, Any], slot: str) -> bool:
+    """Whether this seat's person answered a link the season row minted, rather than the application's.
+
+    An admitted application's seats come over with no link: the row mints one only for a person a save newly writes.
+    """
+
+    entry = (row.get("bestaetigungen") or {}).get(slot)
+
+    return isinstance(entry, Mapping) and isinstance(entry.get("verschickt_am"), str)
+
+
+def saison_schule(row: Mapping[str, Any]) -> str:
+    """What the season row's confirmation page fills `{schule}` with: the name the club carries that season."""
+
+    return str(row.get("name") or "")
+
+
+def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str:
+    """What the application's confirmation page fills `{schule}` with: the school as submitted, or the picked club's own name."""
+
+    schule = bewerbung_raw.get("schule")
+    if isinstance(schule, Mapping):
+        return str(schule.get("team_name") or "")
+
+    return str(club_name or "")
+
+
+def build_angenommene_bewerbungen_pipeline(team_ids: Collection[Any]) -> list[Mapping[str, Any]]:
+    """The admitted applications that seated these clubs, whose pages an admitted seat was confirmed on."""
+
+    return [
+        {"$match": {"team_id": {"$in": sorted(set(team_ids))}, "status": "angenommen"}},
+        {"$project": {"team_id": 1, "saison_id": 1, "schule": 1}},
+    ]
+
+
+def _sitz_schule(
+    row: Mapping[str, Any], slot: str, *, teams: Mapping[Any, Mapping[str, Any]], bewerbungen: Mapping[tuple[Any, str], Mapping[str, Any]]
+) -> str | None:
+    """`{schule}` as the page this seat was confirmed on filled it; `None` where no stored application seated the club."""
+
+    if auf_der_saison_bestaetigt(row, slot):
+        return saison_schule(row)
+
+    bewerbung = bewerbungen.get((row["team_id"], row["saison_id"]))
+    if bewerbung is None:
+        return None
+
+    return bewerbung_schule(bewerbung_raw=bewerbung, club_name=(teams.get(row["team_id"]) or {}).get("name"))
 
 
 def compose_sitze_selbst(
@@ -251,6 +303,7 @@ def compose_sitze_selbst(
     erteilbar: Collection[tuple[Any, str]],
     today: str,
     teams: Mapping[Any, Mapping[str, Any]],
+    bewerbungen: Mapping[tuple[Any, str], Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     """One entry per season row on which this address holds a confirmed seat.
 
@@ -278,7 +331,7 @@ def compose_sitze_selbst(
                 "kontext": {
                     "vorname": held[0].get("vorname"),
                     "team": row["name"],
-                    "schule": (teams.get(row["team_id"]) or {}).get("full_name"),
+                    "schule": _sitz_schule(row, rollen[0], teams=teams, bewerbungen=bewerbungen),
                     "saison": row["saison_id"],
                     "rolle": rollen[0],
                 },
