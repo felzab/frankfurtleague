@@ -21,7 +21,8 @@ import type { FLBewerbung, FLBewerbungZustellstand, FLBewerbungZustellungEreigni
  * Which message a delivery event is about, as it rides the send. Its own vocabulary rather than the
  * operation names the log lines use: a tag value admits ASCII letters, digits, `_` and `-` alone.
  */
-export type ZustellAnlass = "eingang" | "empfang" | "erinnerung" | "erneut" | "vollstaendig" | "widerspruch" | "loeschung" | "einladung";
+export type ZustellAnlass =
+  "eingang" | "empfang" | "erinnerung" | "erneut" | "vollstaendig" | "widerspruch" | "loeschung" | "einladung" | "ablehnung";
 
 /** One message and every seat it answers for. A mirrored pair is one message naming two seats. */
 export type ZustellSendung = {

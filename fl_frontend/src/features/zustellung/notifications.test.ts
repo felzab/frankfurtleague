@@ -6,6 +6,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
+import type { ZustellAnlass } from "@/features/bewerbungen/zustellung.ts";
 import type { ZielAuftrag } from "./notifications.ts";
 
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
@@ -103,6 +104,26 @@ describe("the tags one message rides out with", () => {
       assert.match(name, /^[A-Za-z0-9_-]+$/, `the tag name ${name} is outside the provider's alphabet`);
       assert.match(value, /^[A-Za-z0-9_-]+$/, `the value of ${name} is outside the provider's alphabet`);
     }
+  });
+
+  /* Every occasion rides as a tag value: one spelled outside the alphabet is refused 422 and its message
+     never sent. The list is held whole by the type below it, so a new member fails `tsc` until listed. */
+  it("keeps every occasion's spelling inside that alphabet", () => {
+    const ANLAESSE = [
+      "eingang",
+      "empfang",
+      "erinnerung",
+      "erneut",
+      "vollstaendig",
+      "widerspruch",
+      "loeschung",
+      "einladung",
+      "ablehnung",
+    ] as const satisfies readonly ZustellAnlass[];
+    const vollstaendig: [Exclude<ZustellAnlass, (typeof ANLAESSE)[number]>] extends [never] ? true : false = true;
+
+    assert.ok(vollstaendig);
+    for (const anlass of ANLAESSE) assert.match(anlass, /^[A-Za-z0-9_-]+$/, `the occasion ${anlass} is outside the provider's alphabet`);
   });
 
   /* Every member has to survive the round trip, and a kind whose spelling carried a character the
