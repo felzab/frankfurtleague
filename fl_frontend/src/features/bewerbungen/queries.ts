@@ -157,7 +157,7 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
           ? ansicht.vorname === null
             ? { zustand: "ungueltig" as const }
             : { zustand: "gueltig" as const, ansicht: { ...ansicht, vorname: ansicht.vorname } }
-          : { zustand: ansicht.zustand },
+          : { zustand: ansicht.zustand, quelle: ansicht.quelle },
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.

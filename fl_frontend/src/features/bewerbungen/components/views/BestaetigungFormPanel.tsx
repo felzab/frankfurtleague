@@ -164,12 +164,15 @@ function BestaetigungAngaben({
  */
 function BestaetigungEntscheidung({
   absaetze,
+  istSaison,
   widerspruch,
   isPending,
   beschreibtId,
   onWiderspruch,
 }: {
   absaetze: KontaktFassung["absaetze"];
+  /** The seat sits on a team's season row, which no application stands behind. */
+  istSaison: boolean;
   /** The objection's two presses, which the confirmation's own flight is graded apart from. */
   widerspruch: TwoPressConfirm;
   /** The confirmation's own flight. */
@@ -223,7 +226,10 @@ function BestaetigungEntscheidung({
       {isConfirming && (
         <ConfirmReveal>
           <p className="fluid-xxs leading-normal font-medium text-foreground">
-            Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden. Deine Angaben oben brauchen wir für einen Widerspruch nicht.
+            {istSaison
+              ? "Ohne Deine Bestätigung bleibt Dein Eintrag unbestätigt."
+              : "Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden."}{" "}
+            Deine Angaben oben brauchen wir für einen Widerspruch nicht.
           </p>
           <WiderspruchFolge absaetze={absaetze} />
         </ConfirmReveal>
@@ -243,6 +249,7 @@ export function BestaetigungFormPanel({
   schule,
   saison,
   rolle,
+  istSaison = false,
   mindestalter,
   onAbschluss,
 }: {
@@ -254,6 +261,8 @@ export function BestaetigungFormPanel({
   saison: string;
   /** The seat's long label, resolved by the caller so this form renders no role table of its own. */
   rolle: string;
+  /** The seat sits on a team's season row, which no application stands behind and nobody submitted. */
+  istSaison?: boolean;
   /** The floor the answer will be judged by, answered by the link's own read for the seats it covers. */
   mindestalter: number;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
@@ -397,14 +406,17 @@ export function BestaetigungFormPanel({
             severity="warning"
             isAnnounced
             title="Mit diesem Geburtsdatum kannst Du keine Kontaktperson sein.">
-            Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es, sag der Person Bescheid, die die Bewerbung eingereicht hat: Diese
-            Person braucht an Deiner Stelle jemanden ab {String(mindestalter)}. Du kannst dem Eintrag auch widersprechen, dann entfernen wir
-            Deine Angaben.
+            Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es,{" "}
+            {istSaison
+              ? "sag der Verwaltung der Liga Bescheid: Sie braucht"
+              : "sag der Person Bescheid, die die Bewerbung eingereicht hat: Diese Person braucht"}{" "}
+            an Deiner Stelle jemanden ab {String(mindestalter)}. Du kannst dem Eintrag auch widersprechen, dann entfernen wir Deine Angaben.
           </Callout>
         )}
 
         <BestaetigungEntscheidung
           absaetze={fassung.absaetze}
+          istSaison={istSaison}
           widerspruch={widerspruch}
           isPending={isPending}
           beschreibtId={klickPunkteId}

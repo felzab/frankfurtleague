@@ -294,6 +294,17 @@ describe("a seat an administrator typed onto a team's season row", () => {
     );
   });
 
+  /* Spent for good past its own deadline, which only the administration's fresh link reopens: the
+     dead-link panel, which the page words for a season row by the source its read answered. */
+  it("answers a season row's link past its own deadline with the dead-link panel", async () => {
+    schreibAntwort = () => aRefusal("REQ-KONTAKT-004");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "abgelaufen" });
+    assert.deepEqual(mails, []);
+  });
+
   it("answers the browser the same echo an application's seat is answered", async () => {
     schreibAntwort = () => SAISON_GESCHRIEBEN;
 

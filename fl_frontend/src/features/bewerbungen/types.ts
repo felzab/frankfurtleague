@@ -103,4 +103,12 @@ export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig
 /** A link still open, and so a seat that still holds the person the page is about to name. */
 export type EinwilligungGeoeffnet = FLBewerbungEinwilligungAnsichtResponse & { vorname: string };
 
-export type EinwilligungAnsicht = { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet } | { zustand: LinkZustand };
+/** Which record a link opened: an application's seat, or a seat an administrator typed onto a team's season row. */
+export type EinwilligungQuelle = FLBewerbungEinwilligungAnsichtResponse["quelle"];
+
+/**
+ * A spent link keeps the record it opened where the read answered one, so its panel says what is true of
+ * that record; a link opening nothing names none.
+ */
+export type EinwilligungAnsicht =
+  { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet } | { zustand: LinkZustand; quelle?: EinwilligungQuelle };

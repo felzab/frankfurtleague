@@ -24,7 +24,7 @@ import {
   ZurLiga,
 } from "./BestaetigungPanels";
 
-import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
+import type { EinwilligungGeoeffnet, EinwilligungQuelle, LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 import type { KontaktFassung } from "./BestaetigungHinweise";
 
@@ -33,7 +33,8 @@ import type { KontaktFassung } from "./BestaetigungHinweise";
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
 export type BestaetigungStart =
-  { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string; fassung: KontaktFassung } | { zustand: LinkZustand | "unlesbar" };
+  | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string; fassung: KontaktFassung }
+  | { zustand: LinkZustand | "unlesbar"; quelle?: EinwilligungQuelle };
 
 type Stand =
   | BestaetigungStart
@@ -65,7 +66,13 @@ function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoe
   if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: ansicht };
   if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: ansicht };
 
-  return abschluss;
+  // The read that opened the page knew the record, which the spent link's panel words itself by.
+  return { ...abschluss, quelle: ansicht.quelle };
+}
+
+/** Whether the page is about a seat an administrator typed onto a team's season row, which no application stands behind. */
+function istSaison(stand: Stand): boolean {
+  return "ansicht" in stand ? stand.ansicht.quelle === "saison" : "quelle" in stand && stand.quelle === "saison";
 }
 
 /** Which states know a season, and so may wear the chip the public pages head a season's page with. */
@@ -84,6 +91,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
   if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   const saison = saisonVon(stand);
+  const saisonRow = istSaison(stand);
 
   return (
     <section className={SEITE_CLASSES}>
@@ -106,7 +114,10 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         {/* Said here because the stamped wording cannot say it: one press confirms both seats, and a
             Widerspruch empties both. */}
         {stand.zustand === "gueltig" && stand.ansicht.zugleich_rolle !== null && (
-          <p className={ABSATZ_CLASSES}>Du bist in dieser Bewerbung zweimal eingetragen, und Deine Antwort gilt für beide Einträge.</p>
+          <p className={ABSATZ_CLASSES}>
+            {saisonRow ? "Du bist für dieses Team zweimal eingetragen" : "Du bist in dieser Bewerbung zweimal eingetragen"}, und Deine Antwort
+            gilt für beide Einträge.
+          </p>
         )}
       </header>
 
@@ -118,6 +129,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           schule={stand.ansicht.schule}
           saison={stand.ansicht.saison_id}
           rolle={rollenLangform(stand.ansicht)}
+          istSaison={saisonRow}
           mindestalter={stand.ansicht.mindestalter}
           onAbschluss={(abschluss) => {
             beantwortet();
@@ -151,8 +163,9 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             ]}
           />
           <p className={ABSATZ_CLASSES}>
-            Sobald alle Kontaktpersonen bestätigt haben, ist die Bewerbung vollständig, und die Person, die sie eingereicht hat, bekommt eine
-            E-Mail. Du musst nichts weiter tun.
+            {saisonRow
+              ? "Du musst nichts weiter tun."
+              : "Sobald alle Kontaktpersonen bestätigt haben, ist die Bewerbung vollständig, und die Person, die sie eingereicht hat, bekommt eine E-Mail. Du musst nichts weiter tun."}
           </p>
           <p className={ABSATZ_CLASSES}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
@@ -164,12 +177,15 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>
-            Danke für Deine Antwort, <Wert>{stand.ansicht.vorname}</Wert>. Deine Angaben haben wir aus der Bewerbung entfernt und der Person
-            Bescheid gesagt, die sie eingereicht hat.
+            Danke für Deine Antwort, <Wert>{stand.ansicht.vorname}</Wert>.{" "}
+            {saisonRow
+              ? "Deine Angaben haben wir aus dem Eintrag entfernt."
+              : "Deine Angaben haben wir aus der Bewerbung entfernt und der Person Bescheid gesagt, die sie eingereicht hat."}
           </p>
           <p className={ABSATZ_CLASSES}>
-            Falls Du es Dir anders überlegst, kann Deine Schule Dich in einer neuen Bewerbung wieder eintragen. Du bekommst dann eine neue
-            E-Mail.
+            {saisonRow
+              ? "Falls Du es Dir anders überlegst, kann die Verwaltung der Liga Dich wieder eintragen. Du bekommst dann eine neue E-Mail."
+              : "Falls Du es Dir anders überlegst, kann Deine Schule Dich in einer neuen Bewerbung wieder eintragen. Du bekommst dann eine neue E-Mail."}
           </p>
           <ZurLiga />
         </BestaetigungErgebnis>
@@ -192,7 +208,8 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>
-            Über diesen Link wurde dem Eintrag schon widersprochen. Die Angaben sind aus der Bewerbung entfernt, und Du musst nichts weiter tun.
+            Über diesen Link wurde dem Eintrag schon widersprochen. Die Angaben sind aus {saisonRow ? "dem Eintrag" : "der Bewerbung"} entfernt,
+            und Du musst nichts weiter tun.
           </p>
           <ZurLiga />
         </BestaetigungErgebnis>
@@ -204,11 +221,21 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Eine Bewerbung, die bis
-            dahin nicht alle Bestätigungen hat, löschen wir mit allen Angaben.
-          </p>
-          <p className={ABSATZ_CLASSES}>Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link.</p>
+          {/* No application stands behind a season row's seat, so nothing is deleted with one, and only the administration re-sends its link. */}
+          {saisonRow ? (
+            <p className={ABSATZ_CLASSES}>
+              Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Einen neuen Link schickt
+              Dir die Verwaltung der Liga auf Wunsch.
+            </p>
+          ) : (
+            <>
+              <p className={ABSATZ_CLASSES}>
+                Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Eine Bewerbung, die
+                bis dahin nicht alle Bestätigungen hat, löschen wir mit allen Angaben.
+              </p>
+              <p className={ABSATZ_CLASSES}>Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link.</p>
+            </>
+          )}
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

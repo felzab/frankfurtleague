@@ -241,6 +241,9 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // both, the link being spent either way for this person.
     case "REQ-BEWERBUNG-010":
     case "REQ-BEWERBUNG-017":
+    // A season row's seat past its own deadline, spent for good: only a fresh link from the
+    // administration opens the seat again, so the same panel serves it.
+    case "REQ-KONTAKT-004":
       return { zustand: "abgelaufen" };
     // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
     // that it confirmed. Which way it went is the read's to say.
