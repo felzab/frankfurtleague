@@ -8,13 +8,13 @@ import { pathToFileURL } from "node:url";
 import { runAsTestFile } from "@/core/childTestRun.ts";
 import { person } from "@/core/subjectFixtures.ts";
 
-import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
+import { ANSWER_WAIT_MS, cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
 
 const { raised } = doubleToasts();
 
 /* One slice's real module, replaced whole: what the double has to derive is that module's own export
    list, so a stub written here would prove nothing about the derivation. */
-const { calls, answerWith, answerPending, leavePending } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
+const { calls, answerWith, answerPending, leavePending, answered } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
 const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // A module a real action writes through, which the double refuses rather than stands in for.
 doubleActions({ modules: ["/src/features/spielorte/mutations.ts"] });
@@ -124,6 +124,21 @@ it("leaves a write running", () => {
     assert.ok(run.output.includes("leaves a write running"), `the child ran no case of the fixture:\n${run.output}`);
     assert.equal(run.status, 1, `the file left a write running and exited ${String(run.status)}:\n${run.output}`);
     assert.ok(run.output.includes("the case left these actions pending"), run.output);
+  });
+
+  /* Unbounded, a case awaiting an answer it never gave hangs until the runner cancels its file, and every
+     case after it is cancelled too. Under a mocked clock, as the cases awaiting answers run under one. */
+  it("fails a wait on a write nobody answers, promptly and naming its action", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout", "setImmediate", "Date"] });
+    answerWith(() => new Promise(() => undefined));
+    void spieltage.patchSpieltagAction({ id: "s1", beginn: "2026-03-12", ende: "2026-03-12" });
+    const began = performance.now();
+
+    await assert.rejects(answered(), /still unanswered after \d+ ms: patchSpieltagAction;/);
+
+    const waited = performance.now() - began;
+    assert.ok(waited < 2 * ANSWER_WAIT_MS, `the wait failed only after ${String(Math.round(waited))} ms`);
+    answerPending({ success: true, message: "Gespeichert." });
   });
 
   it("lets a case that names why leave a write running", () => {

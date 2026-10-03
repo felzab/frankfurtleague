@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, beforeEach } from "node:test";
-import { setImmediate as nextTurn } from "node:timers/promises";
+// Imported rather than global: a case's mocked clock holds the globals, and would hold `answered` with them.
+import { setImmediate as nextTurn, setTimeout as wallClock } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
@@ -23,6 +24,12 @@ export type ActionCall = { action: string; payload: unknown };
  * spine would answer a press that wrote as one that did not; their doubles are the client's and the mailer's.
  */
 const WRITE_MODULE = /\/(?:mutations|notifications)\.ts$|\/core\/mail\.ts$/;
+
+/**
+ * A double settles within its microtasks, so only an answer nobody gives reaches this bound. Unbounded,
+ * the case awaiting that answer hangs until the runner cancels its file, naming nothing.
+ */
+export const ANSWER_WAIT_MS = 2_000;
 
 /**
  * Replaces an actions module, or a read module a real action calls, at the module boundary: a
@@ -108,12 +115,24 @@ export function doubleActions({
       mayLeavePending = true;
     },
     // For a case reading only what it sent: its answers land inside it, or in the case after it. A turn between
-    // rounds waits for a write an answer sets off; `setImmediate`, which no case's clock holds.
+    // rounds waits for a write an answer sets off.
     answered: async () => {
-      do {
-        await Promise.allSettled([...pending].map((entry) => entry.answered));
-        await nextTurn();
-      } while (pending.size > 0);
+      const lapse = new AbortController();
+      const lapsed = wallClock(ANSWER_WAIT_MS, true, { signal: lapse.signal, ref: false }).catch(() => false);
+      try {
+        do {
+          const settled = Promise.allSettled([...pending].map((entry) => entry.answered)).then(() => false);
+          if (await Promise.race([settled, lapsed])) {
+            const left = [...pending].map(({ action }) => action).join(", ");
+            assert.fail(
+              `still unanswered after ${String(ANSWER_WAIT_MS)} ms: ${left}; answer them with \`answerPending\` before awaiting \`answered\``,
+            );
+          }
+          await nextTurn();
+        } while (pending.size > 0);
+      } finally {
+        lapse.abort();
+      }
     },
   };
 }
