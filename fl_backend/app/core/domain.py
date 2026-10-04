@@ -306,7 +306,8 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary=(
             "One person's counted writes in one Funktion on one German day. Held true against nothing: it counts requests "
             "rather than documents, so it is in no boundary with what those writes changed, and it is raised outside their "
-            "transaction, a refused write spending its unit as surely as one that commits, and a retried attempt none more. Its key names the "
+            "transaction, a write refused after it was counted spending its unit as surely as one that commits, and a retried "
+            "attempt none more. Its key names the "
             "day, so a new day is a new row rather than a reset, and nothing but the TTL index removes one. It names the "
             "person by the action log's pseudonym and never an address, and no erasure reaches it: it outlives one at most "
             "until the German midnight ending its day plus the TTL monitor's lag (`docs/backend/spec.md :: I837`)."

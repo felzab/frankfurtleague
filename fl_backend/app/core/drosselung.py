@@ -76,8 +76,8 @@ def get_drossel(
         # `fl_backend/tests/api/test_drosselung.py` holds every route reaching here to a person's binder.
         assert isinstance(actor, PersonActor), "only a signed-in person's write is counted"
 
-        # Outside the write's transaction: a refused write spends its unit, and one person's concurrent
-        # writes never conflict over their count.
+        # Outside the write's transaction: a write refused after this spends its unit, and one person's
+        # concurrent writes never conflict over their count.
         gezaehlt = await drosselung_collection.find_one_and_update(
             {"_id": f"{actor.funktion}:{actor.pseudonym}:{germany_now.date().isoformat()}"},
             {"$inc": {"n": 1}, "$setOnInsert": {"ablauf": tagesende(germany_now)}},
