@@ -1,5 +1,5 @@
 """
-API · the reads a team's decision on a registration is judged against
+API · the reads a pupil's confirmation and a team's decision on a registration are judged against
 
 Here rather than in `services.py`, which decides from its arguments and names no handle
 (`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
@@ -20,9 +20,32 @@ from app.api.registrierungen.services import (
     build_registrierungen_sort,
 )
 from app.core.crud import aggregate_many_from_db, pull_one_from_db
+from app.shared.folding import sign_in_identifier
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
 PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "email")
+
+# What a confirmation link reads of a person: who they are and whether they confirmed, for the page,
+# and what the returning page shows back. No evidence: a base-tier read carries nothing it does not show.
+PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
+    *PERSON_IDENTITY_FIELDS,
+    "geburtsdatum",
+    "einwilligung.bestaetigt_am",
+    "einwilligung.umfang",
+    "einwilligung.medien",
+)
+
+
+async def person_at_the_address(
+    *, spieler_collection: AsyncCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None
+) -> Mapping[str, Any] | None:
+    """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
+
+    return await spieler_collection.find_one(
+        build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
+        projection=list(PERSON_ANSICHT_FIELDS),
+        session=session,
+    )
 
 
 async def pull_offene_registrierung(

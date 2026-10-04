@@ -408,10 +408,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   registration form and the application's contact seats — and in the published notice
   (`DatenschutzView.tsx :: Deine E-Mail-Adresse steht bei uns für Dich allein`). A mailbox shared
   anyway is one account: whoever reads it signs in, sees and changes every record under it, and an
-  erasure keyed on it takes them all. The registration confirmation still shows a stored birthdate
-  back only where the name matches as well
-  (`fl_backend/app/api/registrierungen/services.py :: persons_named`), the one place a shared
-  mailbox would otherwise show one pupil another's. Ruled 2026-09-27.
+  erasure keyed on it takes them all. The registration confirmation still opens the returning
+  pupil's page — the stored birthdate and consent shown back, no choice asked again — only where the
+  name matches as well and that person confirmed their record
+  (`fl_backend/app/api/registrierungen/services.py :: seite_of` over `:: persons_named`), the one
+  place a shared mailbox would otherwise show one pupil another's answers and leave their own
+  consent unasked. Ruled 2026-09-27.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox

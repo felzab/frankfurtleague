@@ -7102,7 +7102,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: an address holds one stored person, and matched on the address\nalone a mailbox shared anyway would show a sibling that person's birthdate. All three are null wherever no stored person\nmatches both.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and which of two pages the link opens.\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, so beside it the view\nserves the person's stored birthdate, publication scope and media switch, the birthdate null where none is\nstored. Matched on the address alone, a mailbox shared anyway would show a sibling that person's answers, so on\n`bestaetigung_spieler`, the new pupil's page, all three are null.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7156,7 +7156,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe pupil page's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever\nthe link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor (`-007`), and a media consent from a pupil\nbelow `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the label and the last two judged before anything is\nwritten, so a reloaded page or a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), choices that are not the ones that page\nasks -- both on the new pupil's, none on the returning pupil's (`REQ-REGISTRIERUNG-017`) -- a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7180,7 +7180,7 @@
             }
           },
           "422": {
-            "$ref": "#/components/responses/422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-VAL-001"
+            "$ref": "#/components/responses/422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-REGISTRIERUNG-017.REQ-VAL-001"
           },
           "default": {
             "$ref": "#/components/responses/default"
@@ -17256,7 +17256,7 @@
           "einwilligung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLEinwilligung"
+                "$ref": "#/components/schemas/FLRegistrierungEinwilligung"
               },
               {
                 "type": "null"
@@ -17631,16 +17631,13 @@
             "minLength": 1,
             "title": "Vorname"
           },
-          "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+          "seite": {
+            "type": "string",
+            "enum": [
+              "bestaetigung_spieler",
+              "bestaetigung_spieler_wiederkehrend"
             ],
-            "title": "Text Version"
+            "title": "Seite"
           },
           "mindestalter": {
             "type": "integer",
@@ -17696,7 +17693,7 @@
           "schule",
           "saison_id",
           "vorname",
-          "text_version",
+          "seite",
           "mindestalter",
           "medien_mindestalter",
           "geburtsdatum",
@@ -17720,15 +17717,29 @@
             "title": "Geburtsdatum"
           },
           "umfang": {
-            "type": "string",
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Umfang"
           },
           "medien": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Medien"
           },
           "text_version": {
@@ -17748,7 +17759,7 @@
           "text_version"
         ],
         "title": "FLRegistrierungBestaetigungPayload",
-        "description": "One pupil's own answer: their date of birth, and the two consents that stand under one record."
+        "description": "One pupil's own answer: their date of birth, and on the new pupil's page the two consents that stand under one record."
       },
       "FLRegistrierungBestaetigungResponse": {
         "properties": {
@@ -17772,15 +17783,29 @@
             "title": "Geburtsdatum"
           },
           "umfang": {
-            "type": "string",
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Umfang"
           },
           "medien": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Medien"
           }
         },
@@ -17793,6 +17818,96 @@
         ],
         "title": "FLRegistrierungBestaetigungResponse",
         "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time."
+      },
+      "FLRegistrierungEinwilligung": {
+        "properties": {
+          "umfang": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Umfang"
+          },
+          "erteilt_von": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "erziehungsberechtigt",
+                  "volljaehrig",
+                  "bestandsuebernahme"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erteilt Von"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "medien": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medien"
+          },
+          "nachweis": {
+            "$ref": "#/components/schemas/FLEinwilligungNachweise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bestaetigt_am"
+        ],
+        "title": "FLRegistrierungEinwilligung",
+        "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice (`docs/backend/spec.md :: I_NEW_KONTO-B3_1`)."
       },
       "FLRegistrierungEntscheidungZeile": {
         "properties": {
@@ -25333,7 +25448,7 @@
           }
         }
       },
-      "422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-VAL-001": {
+      "422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-REGISTRIERUNG-017.REQ-VAL-001": {
         "description": "Unprocessable Content",
         "content": {
           "application/json": {
@@ -25348,6 +25463,7 @@
                       "enum": [
                         "REQ-REGISTRIERUNG-007",
                         "REQ-REGISTRIERUNG-010",
+                        "REQ-REGISTRIERUNG-017",
                         "REQ-VAL-001"
                       ]
                     }
