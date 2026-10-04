@@ -191,6 +191,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       saisonId: "2627",
       token: "beispiel-sechs",
       fristText: "05.10.2026",
+      zeile: "offen",
     }),
   buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
   buildPasskeyHinzugefuegtEmail: (origin) =>

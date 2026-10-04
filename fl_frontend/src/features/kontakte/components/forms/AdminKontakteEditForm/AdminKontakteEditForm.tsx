@@ -10,6 +10,7 @@ import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/sche
 import {
   describeUnrestorableKontakte,
   emptiedSeatLabels,
+  kontaktZeile,
   mirrorKontakte,
   renamedConfirmedSeatLabels,
   teamPageHref,
@@ -250,9 +251,7 @@ export function AdminKontakteEditForm({
             stored={storedKontakte}
             teamId={teamId}
             saisonId={saison.saisonId}
-            // The backend sends no fresh link for a season that is over or a team that has left it
-            // (`REQ-KONTAKT-005`), so no seat offers the re-send there.
-            nimmtLinks={saison.saisonStatus !== "past" && storedMembership?.austritt == null}
+            nimmtLinks={kontaktZeile(saison.saisonStatus, storedMembership?.austritt ?? null) === "offen"}
             isMember={storedMembership !== null}
             teamHref={teamPageHref(teamId, saison.saisonId)}
             banners={banners}

@@ -8,8 +8,15 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 
+import type { KontaktZeile } from "@/core/kontaktEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLKontaktpersonPayload, FLSaisonTeamKontaktePayload, FLTeamMembership, FLTrainerZugleich } from "@/features/teams/schemas";
+import type {
+  FLAustritt,
+  FLKontaktpersonPayload,
+  FLSaisonTeamKontaktePayload,
+  FLTeamMembership,
+  FLTrainerZugleich,
+} from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { QueryResult } from "@/shared/types/types";
 import type { FLKontaktErasureAnsichtResponse, FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas";
@@ -213,6 +220,17 @@ export function teamPageHref(teamId: string, saisonId: string): string {
  * another season's row: the header names the selected one and a save writes onto it, so a fallback
  * would move three people between seasons.
  */
+/**
+ * The state that fixes what a link minted on the row opens: once its season is over or its team has
+ * left it, the backend mints a newcomer a link taking the Widerspruch alone and sends no fresh one
+ * (`REQ-KONTAKT-005`).
+ */
+export function kontaktZeile(saisonStatus: TeamSaisonMembership["saisonStatus"], austritt: FLAustritt | null): KontaktZeile {
+  if (saisonStatus === "past") return "saison_vorbei";
+
+  return austritt === null ? "offen" : "ausgetreten";
+}
+
 export function resolveTeamSaisonMembership(
   memberships: readonly FLTeamMembership[],
   saison: { id: string; status: TeamSaisonMembership["saisonStatus"] },

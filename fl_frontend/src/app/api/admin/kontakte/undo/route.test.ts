@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -61,12 +61,63 @@ const mail = doubleSendMail();
 registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
 /** The stored rows a stale replay is judged against: none, so only a replay seating somebody moves a link. */
 const NO_CLUB = { acknowledged: 1, teams: [] };
+/** The club holding the replayed season's row, its block empty: the row a closed season's state is read off. */
+const ROW_HELD = {
+  acknowledged: 1,
+  teams: [
+    {
+      id: BODY.team_id,
+      name: "Lessing-Kolleg",
+      shorthand: "LK",
+      full_name: "Lessing-Kolleg Frankfurt",
+      description: "",
+      website_url: null,
+      schulform: null,
+      inactive_since: null,
+      address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+      memberships: [{ saison_id: BODY.saison_id, gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "9f2c" }],
+    },
+  ],
+};
 type Answer = NonNullable<Parameters<typeof doubleApiAnswers>[0]>;
-/** `answer`, with the running labels read off the registry, which a replay seating somebody reads first. */
+/** The status the season list gives the replayed row's season; only the status is read. */
+let saisonStatus: "past" | "active" = "active";
+const saisonListe = () => ({
+  acknowledged: 1,
+  format: "list",
+  saisons: [
+    {
+      id: BODY.saison_id,
+      start_date: "2026-03-01",
+      end_date: "2026-07-01",
+      status: saisonStatus,
+      rules: {
+        win_points: 3,
+        draw_points: 1,
+        qualifiers_per_group: 2,
+        number_of_groups: 2,
+        teams_per_group: 4,
+        max_kadergroesse: 18,
+        tiebreak_order: "tordifferenz",
+        forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+        erlaubte_stufen: ["E1", "Q1"],
+      },
+      schedule: [],
+      spielplan: null,
+      bewerbung: null,
+      registrierung: null,
+    },
+  ],
+});
+/** `answer`, with the running labels and the season list a replay seating somebody reads first. */
 const mitSeiten =
   (answer: Answer): Answer =>
   (call) =>
-    call.endpoint === "/einwilligung/seiten" ? Promise.resolve(einwilligungAnswer(call.endpoint)) : answer(call);
+    call.endpoint === "/einwilligung/seiten"
+      ? Promise.resolve(einwilligungAnswer(call.endpoint))
+      : call.endpoint === "/saisons/list/admin"
+        ? Promise.resolve(saisonListe())
+        : answer(call);
 const doubled = doubleApiAnswers(
   mitSeiten(({ endpoint }) =>
     Promise.resolve(
@@ -93,6 +144,10 @@ const saveOf = ({ team_id, saison_id, ...block }: { team_id: string; saison_id: 
 const STALE_BLOCK = "REQ-KONTAKT-001";
 
 describe("the contacts save's undo", () => {
+  beforeEach(() => {
+    saisonStatus = "active";
+  });
+
   it("replays the save's own payload through the save's own write", async () => {
     const answer = await undo(POST, BODY);
 
@@ -194,7 +249,13 @@ describe("the contacts save's undo", () => {
      exists in the database alone, and the undo has mailed a person, which the toast must say. */
   it("mails the link a replay minted, to the address the mint names, and says so", async () => {
     answerWith(({ endpoint }) =>
-      Promise.resolve(endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : replayed(1, [MINT])),
+      Promise.resolve(
+        endpoint.startsWith("/zustellung/")
+          ? { acknowledged: 1, angewendet: true }
+          : endpoint === "/teams/memberships"
+            ? NO_CLUB
+            : replayed(1, [MINT]),
+      ),
     );
 
     const answer = await undo(POST, ZURUECK);
@@ -205,6 +266,27 @@ describe("the contacts save's undo", () => {
       [["ada@example.org", "kontakt", "ansprechperson"]],
     );
     assert.match(JSON.stringify(answer), /Der Bestätigungslink ging an ada@example\.org\./);
+  });
+
+  /* A replay seating somebody on a season that is over mints a link taking the Widerspruch alone, so
+     its message asks for no confirmation, as the save's own does. */
+  it("mails a person a replay put back on a season that is over the Widerspruch alone", async () => {
+    saisonStatus = "past";
+    answerWith(({ endpoint }) =>
+      Promise.resolve(
+        endpoint.startsWith("/zustellung/")
+          ? { acknowledged: 1, angewendet: true }
+          : endpoint === "/teams/memberships"
+            ? ROW_HELD
+            : replayed(1, [MINT]),
+      ),
+    );
+
+    const answer = await undo(POST, ZURUECK);
+
+    assert.equal(answer.success, true, String(answer.error));
+    assert.match(mail.sent[0]?.text ?? "", /Die Saison ist vorbei/);
+    assert.doesNotMatch(mail.sent[0]?.text ?? "", /Bitte bestätige/);
   });
 
   /* The replay is a save: one seating a person the row does not hold mints, so a stale session is asked

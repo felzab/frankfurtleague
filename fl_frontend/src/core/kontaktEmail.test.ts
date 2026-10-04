@@ -48,6 +48,7 @@ const daten = {
   saisonId: "2627",
   token: TOKEN,
   fristText: FRIST,
+  zeile: "offen" as const,
 };
 
 describe("the seat link this message spells", () => {
@@ -178,5 +179,35 @@ describe("the message a seated contact person is mailed", () => {
 
     assert.ok(fremd.html.includes(`https://beispiel.test${KONTAKT_BESTAETIGUNG_PATH}?token=${TOKEN}`));
     assert.ok(!fremd.text.includes(ORIGIN), "the text branch carries an origin nobody handed it");
+  });
+});
+
+/* A closed row's link opens a page taking the Widerspruch alone, so a message asking for a confirmation
+   sends its reader to a press that page does not have. */
+describe("the message a person seated on a closed season row is mailed", () => {
+  for (const [zeile, grund] of [
+    ["saison_vorbei", "Die Saison ist vorbei, deshalb kannst Du den Eintrag nicht bestätigen."],
+    ["ausgetreten", "Das Team spielt in dieser Saison nicht mehr mit, deshalb kannst Du den Eintrag nicht bestätigen."],
+  ] as const) {
+    it(`says why there is nothing to confirm and offers the Widerspruch alone, ${zeile}`, () => {
+      const mail = buildKontaktBestaetigungEmail({ ...daten, zeile });
+
+      for (const words of [readable(mail.html), flat(mail.text)]) {
+        assert.ok(words.includes(grund), `the message does not say why the page takes no confirmation: ${words}`);
+        assert.match(words, /Möchtest Du nicht eingetragen bleiben, kannst Du über den Link widersprechen\./);
+        assert.ok(words.includes(FRIST), "the message names no deadline for the Widerspruch");
+        assert.doesNotMatch(words, /Bitte bestätige|bestätigst Du|Eintrag bestätigen/, "the message asks for a confirmation the page refuses");
+        // The re-send is refused on such a row, so the message promises none.
+        assert.doesNotMatch(words, /schickt die Verwaltung Dir auf Wunsch einen neuen/);
+      }
+      assert.match(mail.html, />Zum Eintrag<\/a>/, "the control is named for a press the page does not offer");
+    });
+  }
+
+  it("still asks an open row's person to confirm, with the control that says so", () => {
+    const mail = buildKontaktBestaetigungEmail(daten);
+
+    assert.match(flat(mail.text), /Bitte bestätige, dass das stimmt:/);
+    assert.match(mail.html, />Eintrag bestätigen<\/a>/);
   });
 });

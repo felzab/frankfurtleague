@@ -42,6 +42,12 @@ const art21Satz = (adresse: string): string =>
 
 export type KontaktEmail = { subject: string; html: string; text: string };
 
+/**
+ * The season row's state at the mint. Once the season is over or the team has left it, the link's
+ * page takes the Widerspruch alone, so the message asks for no confirmation.
+ */
+export type KontaktZeile = "offen" | "saison_vorbei" | "ausgetreten";
+
 /** What one person an administrator seated on a team's season row is asked to confirm. */
 export interface KontaktBestaetigungData {
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
@@ -59,14 +65,25 @@ export interface KontaktBestaetigungData {
   token: string;
   /** The deadline as a German date, rendered by the caller for the reason `rollenText` is. */
   fristText: string;
+  zeile: KontaktZeile;
 }
 
 /** One control, as the referee's message carries one: the message exists for this link alone. */
-function aktionen(url: string): readonly Aktion[] {
-  return [{ href: url, label: "Eintrag bestätigen", ton: "primary" }];
+function aktionen(url: string, zeile: KontaktZeile): readonly Aktion[] {
+  // Named for what the page offers: a closed row's page has nothing to confirm.
+  return [{ href: url, label: zeile === "offen" ? "Eintrag bestätigen" : "Zum Eintrag", ton: "primary" }];
 }
 
-type Fakten = { vorname: string; rollen: string; schule: string; saisonId: string; frist: string; url: string; origin: string };
+type Fakten = {
+  vorname: string;
+  rollen: string;
+  schule: string;
+  saisonId: string;
+  frist: string;
+  url: string;
+  origin: string;
+  zeile: KontaktZeile;
+};
 
 function eintragSatz({ vorname, rollen, schule, saisonId }: Fakten, markup: boolean): string {
   const name = markup ? strong(escapeHtml(vorname)) : vorname;
@@ -87,21 +104,48 @@ const DANACH_SATZ = "Erst danach findest Du Dein Team nach der Anmeldung auf der
 const SEITE_SATZ =
   "Auf der Seite bestätigst Du den Eintrag mit Deinem Geburtsdatum, oder Du widersprichst ihm, dann entfernen wir Deine Angaben daraus.";
 
+/** Why a closed row's page offers no confirmation, in the page's own terms. */
+const GESCHLOSSEN_SATZ: Record<Exclude<KontaktZeile, "offen">, string> = {
+  saison_vorbei: "Die Saison ist vorbei, deshalb kannst Du den Eintrag nicht bestätigen.",
+  ausgetreten: "Das Team spielt in dieser Saison nicht mehr mit, deshalb kannst Du den Eintrag nicht bestätigen.",
+};
+
+// The one answer such a page takes, worded as the page words it.
+const WIDERSPRUCH_SATZ =
+  "Möchtest Du nicht eingetragen bleiben, kannst Du über den Link widersprechen. Dann entfernen wir Deine Angaben aus dem Eintrag.";
+
+/** The opening paragraph's ask, after the sentence naming the entry: a confirmation, or why there is none. */
+function bitteSatz(zeile: KontaktZeile, markup: boolean): string {
+  if (zeile !== "offen") return GESCHLOSSEN_SATZ[zeile];
+
+  return `${markup ? strong("Bitte bestätige, dass das stimmt") : "Bitte bestätige, dass das stimmt"}: ${DANACH_SATZ}`;
+}
+
+/**
+ * What the page takes and how long the link holds. No re-send on a closed row: the backend refuses
+ * one there (`REQ-KONTAKT-005`), so the message promises none.
+ */
+function linkSaetze(zeile: KontaktZeile, frist: string): readonly string[] {
+  const gueltig = `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`;
+
+  return zeile === "offen"
+    ? [SEITE_SATZ, gueltig, "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen."]
+    : [WIDERSPRUCH_SATZ, gueltig];
+}
+
 function renderHtml(fakten: Fakten): string {
   return renderKarte({
     titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     ueberschrift: escapeHtml(UEBERSCHRIFT),
     bloecke: [
-      paragraph(`${eintragSatz(fakten, true)} ${strong("Bitte bestätige, dass das stimmt")}: ${DANACH_SATZ}`),
-      paragraph(
-        `${SEITE_SATZ} Der Link ist bis zum ${strong(escapeHtml(fakten.frist))} gültig und funktioniert nur einmal. Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.`,
-      ),
+      paragraph(`${eintragSatz(fakten, true)} ${bitteSatz(fakten.zeile, true)}`),
+      paragraph(linkSaetze(fakten.zeile, strong(escapeHtml(fakten.frist))).join(" ")),
       // The address as a marked link: one a reader has to select and paste is not a route.
       paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
       ...fallbackBloecke([{ label: "", url: fakten.url }], FALLBACK_SATZ),
       paragraph(ignorierSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
     ],
-    aktionen: aktionen(fakten.url),
+    aktionen: aktionen(fakten.url, fakten.zeile),
     fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
     origin: fakten.origin,
   });
@@ -112,11 +156,9 @@ function renderText(fakten: Fakten): string {
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
     eintragSatz(fakten, false),
-    `Bitte bestätige, dass das stimmt: ${DANACH_SATZ}`,
+    bitteSatz(fakten.zeile, false),
     "",
-    SEITE_SATZ,
-    `Der Link ist bis zum ${fakten.frist} gültig und funktioniert nur einmal.`,
-    "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
+    ...linkSaetze(fakten.zeile, fakten.frist),
     "",
     art21Satz(KONTAKT_EMAIL),
     "",
@@ -140,6 +182,7 @@ export function buildKontaktBestaetigungEmail({
   saisonId,
   token,
   fristText,
+  zeile,
 }: KontaktBestaetigungData): KontaktEmail {
   const site = mailOrigin(origin);
   // Folded before either branch, and the subject with them: this message renders no fact panel, so
@@ -152,6 +195,7 @@ export function buildKontaktBestaetigungEmail({
     frist: einzeilig(fristText),
     url: kontaktBestaetigungsLink(site, token),
     origin: site,
+    zeile: zeile,
   };
 
   return {
