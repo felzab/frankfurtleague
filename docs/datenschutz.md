@@ -169,19 +169,19 @@ Every ruling below is the sign-up flow as it stands for the next season.
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
     tells a person whose address holds an account that the sign-in is barred.
 
-  **Two more refusals are taken by the code alone, and the notice does not yet name either as
-  one:**
+  **Two more refusals are taken by the code alone, and the notice names both with the way through
+  each leaves** (`DatenschutzView.tsx :: Zwei weitere Grenzen setzt die Website`):
   - Cloudflare's bot check on the sign-in code request, the application form and the pupil's
     registration form, which refuses a submission carrying no token or one Cloudflare judged against, before
     anything is written or mailed, and asks the person to confirm they are human
-    (`fl_frontend/src/core/turnstile.ts :: passesTurnstile`, `:: MENSCH_BESTAETIGEN`), a check
-    Cloudflare cannot answer letting the submission through
-    (`docs/frontend/spec.md :: I822`);
+    (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check Cloudflare cannot answer
+    letting the submission through (`docs/frontend/spec.md :: I822`);
   - the daily write ceiling, which refuses a signed-in person's counted writes past their
     Funktion's bound until German midnight (`REQ-DROSSELUNG-001`, `docs/backend/spec.md :: I831`)
     and never refuses a withdrawal (`:: I833`).
 
-  Whether the review the notice offers reaches either is not yet ruled.
+  The notice offers a person's review of both on request by mail, as the ruling above has it for
+  every refusal the code takes alone; whether that ruling reaches these two is not yet confirmed.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
