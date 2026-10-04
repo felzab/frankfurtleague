@@ -276,6 +276,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   stamp the expiry reads only where `fl_backend/app/core/recording.py :: record_write` wrote it, and
   nothing backfills one, so the rows standing before that writer shipped are expired by nothing and
   leave here instead (`docs/backend/spec.md :: I119`). Ruled 2026-09-04.
+- **The full reset stays although it takes the contact persons' earlier consent acts with it.** A
+  contact seat keeps one act per choice on its own record, the latest with its evidence
+  (`fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungNachweise`); every act it
+  superseded stands only in the log row its write left, so the reset loses those while each seat's
+  current proof stands on the seat. The pupils' and referees' earlier acts would be lost all the
+  same, their rows going at the moments recorded here. Ruled 2026-10-04.
 - **A referee's record is not on this clock, and the referee rows standing today go at a moment of
   their own.** A referee entered through the confirmation link is bound to no season
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The rows standing today carry no
