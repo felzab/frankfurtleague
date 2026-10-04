@@ -393,13 +393,20 @@ describe("the team's squad, as a seat holder reads it", () => {
     }
   });
 
-  it("says no squad is entered yet where the season holds none", async () => {
+  /* The registrations are the one way a pupil reaches the squad from the seat holder's side, so the empty
+     squad points there. */
+  it("says no squad is entered yet where the season holds none, and links to the team's registrations", async () => {
     setSubject(person({ sitze: [sitz()] }));
     answeringKader({ ...KADER, kader: [] });
     try {
-      const { text } = await renderedKader();
+      const { markup, text } = await renderedKader();
 
       assert.ok(text.includes(KADER_LEER), text);
+      assert.deepEqual(
+        linksIn(markup).filter((link) => link.href === `/bereich/team/${TEAM_A}/2526/registrierungen`),
+        [{ href: `/bereich/team/${TEAM_A}/2526/registrierungen`, text: "Registrierungen" }],
+        "the empty squad links nowhere a pupil comes from",
+      );
     } finally {
       answerReadsWith(EMPTIEST_ANSWER);
     }

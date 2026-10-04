@@ -31,6 +31,7 @@ export default async function KaderPage({ params }: NextPageProps<{ team_id: str
     <KaderView
       kader={kader.kader}
       kaderHref={`${teamHref(team_id, saison_id)}/kader`}
+      registrierungenHref={`${teamHref(team_id, saison_id)}/registrierungen`}
     />
   );
 }

@@ -198,7 +198,7 @@ export function kaderName({ vorname, nachname }: { vorname: string; nachname: st
  */
 export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zugelassen.";
 
-/** What a squad no seat holder has filled yet says, on the team panel's squad page. */
+/** What a squad nobody has filled yet says, on the public team page and the team panel's squad page alike. */
 export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
 
 /**

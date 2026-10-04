@@ -10,7 +10,7 @@ import { card } from "@/shared/components/ui/card";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { istNameZurueckgehalten, spielerAnzeigename, spielerInitialen } from "../../constants";
+import { istNameZurueckgehalten, KADER_LEER, spielerAnzeigename, spielerInitialen } from "../../constants";
 
 import type { FLSpielerPublic } from "../../schemas";
 
@@ -65,9 +65,7 @@ export function TeamSpielerView({
             <Table.Body
               renderEmptyState={() => (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                  <p className="muted-hint">
-                    {isFinishedSaison ? "Für dieses Team gibt es keinen Kader." : "Für dieses Team ist noch kein Kader eingetragen."}
-                  </p>
+                  <p className="muted-hint">{isFinishedSaison ? "Für dieses Team gibt es keinen Kader." : KADER_LEER}</p>
                 </div>
               )}>
               {teamSpieler.map((spielerData) => (
