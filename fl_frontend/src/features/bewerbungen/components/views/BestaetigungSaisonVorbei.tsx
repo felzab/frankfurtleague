@@ -82,9 +82,10 @@ export function BestaetigungSaisonVorbei({
 
   return (
     <BestaetigungAbschnitt titel="Deine Antwort">
+      {/* Both causes, where the mail names the one that applies: the view answers `saison_vorbei` for either. */}
       <p className={ABSATZ_CLASSES}>
-        Hallo <Wert>{ansicht.vorname}</Wert>. Die Saison <Wert>{ansicht.saison_id}</Wert> ist für das Team <Wert>{ansicht.schule}</Wert> vorbei,
-        oder das Team spielt in ihr nicht mehr mit. Deinen Eintrag kannst Du deshalb nicht mehr bestätigen.
+        Die Saison <Wert>{ansicht.saison_id}</Wert> ist für das Team <Wert>{ansicht.schule}</Wert> vorbei, oder das Team spielt in ihr nicht
+        mehr mit. Deinen Eintrag kannst Du deshalb nicht mehr bestätigen.
       </p>
       <p className={ABSATZ_CLASSES}>
         Möchtest Du dort nicht eingetragen bleiben, kannst Du widersprechen. Dann entfernen wir Deine Angaben aus dem Eintrag.

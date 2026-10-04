@@ -64,6 +64,8 @@ describe("a season row's link past its season", () => {
     const text = textOf(html);
 
     assert.ok(text.includes("Deinen Eintrag kannst Du deshalb nicht mehr bestätigen."), "the page does not say why nothing is confirmed");
+    // No greeting: the other confirmation pages open on their facts, and none says „Hallo“.
+    assert.ok(!text.includes("Hallo"), "the page opens on a greeting no sibling page has");
     assert.ok(text.includes(ABLEHNEN_LABEL), "the page offers no Widerspruch");
     assert.ok(!text.includes("Eintrag bestätigen"), "the page offers a confirmation the backend refuses");
     assert.ok(!html.includes('name="geburtsdatum"'), "the page asks a birthdate nothing will store");
