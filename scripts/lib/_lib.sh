@@ -944,7 +944,8 @@ RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS)
 check_frontend_secret_files() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
   local standing="$1" rc=0 said=""
   local -a flags=(--secret-files)
-  # Local sends no mail, so the schema demands its provider key of production alone.
+  # The schema demands the provider's two keys and the bot check's secret of production alone: the
+  # local stack sends no mail, is sent no provider event, and verifies with Cloudflare's test secret.
   if [[ "$2" == production ]]; then flags+=(--production); fi
   shift 2
   said="$("$@" frontend node check-environment-names.mjs "${flags[@]}" 2>&1)" || rc=$?

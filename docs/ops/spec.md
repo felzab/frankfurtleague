@@ -591,9 +591,10 @@ one is a line nobody did, so without it a release that makes a new name required
 the recreated container refuses to boot behind an edge already answering 502. **What
 `APP_ENV=production` alone demands is a file and never a variable**
 (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), since a reader would have to open a
-value to decide: the mail provider's sending key and its webhook's signing key, which the frontend's
-file reader asks for on the deploy, told `--production`, and never on the local stack, which sends no
-mail and is sent no event (I510). **The bare
+value to decide: the mail provider's sending key, its webhook's signing key and the bot check's
+secret, which the frontend's file reader asks for on the deploy, told `--production`, and never on
+the local stack, which sends no mail, is sent no event, and verifies the bot check with Cloudflare's
+published test secret (I510). **The bare
 pass-through `KEY` declares a name and satisfies no required one**: compose resolves that form's
 value from the shell that ran it, and failing that from compose's own `.env` beside the compose
 file (Docker's environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's
