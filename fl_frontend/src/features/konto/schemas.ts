@@ -3,7 +3,7 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { FLSchiedsrichterSelbstSchema } from "@/features/schiedsrichter/schemas";
-import { FLSpielerSelbstSchema } from "@/features/spieler/schemas";
+import { FLMedienStandSchema, FLSpielerSelbstSchema } from "@/features/spieler/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 /**
@@ -33,10 +33,31 @@ export const FLKontoSitzEinwilligungSchema = z.object({
   bestaetigt_text_version: z.string().nullable(),
   kontext: FLSitzKontextSchema,
   medien: z.boolean(),
+  // The consent press's precondition, for the reason `FLSpielerSelbstSchema` gives.
+  nachweis_stand: FLMedienStandSchema,
   medien_angeboten: z.boolean(),
   erteilbar: z.boolean(),
 });
 export type FLKontoSitzEinwilligung = z.infer<typeof FLKontoSitzEinwilligungSchema>;
+
+/**
+ * Mirrors `FLKontoBewerbungSitzEinwilligung`: one pending application on which the person holds a
+ * confirmed seat. Its media choice can only be withdrawn here; an accepted application's seats are
+ * listed under `sitze` instead.
+ */
+export const FLKontoBewerbungSitzEinwilligungSchema = z.object({
+  bewerbung_id: CustomObjectIdStringSchema,
+  // As served: the school the application names, or the picked club's name today.
+  schule: z.string(),
+  saison_id: z.string(),
+  rollen: z.array(FLKontaktRolleSchema).nonempty(),
+  // For `FLKontoSitzEinwilligungSchema`'s reason.
+  bestaetigt_text_version: z.string().nullable(),
+  medien: z.boolean(),
+  nachweis_stand: FLMedienStandSchema,
+  kontext: FLSitzKontextSchema,
+});
+export type FLKontoBewerbungSitzEinwilligung = z.infer<typeof FLKontoBewerbungSitzEinwilligungSchema>;
 
 /**
  * Mirrors `FLKontoEinwilligungenResponse`, the account page's one read of every confirmed consent the
@@ -46,5 +67,6 @@ export const FLKontoEinwilligungenResponseSchema = BaseAPIResponseSchema.extend(
   spieler: FLSpielerSelbstSchema.nullable(),
   schiedsrichter: z.array(FLSchiedsrichterSelbstSchema),
   sitze: z.array(FLKontoSitzEinwilligungSchema),
+  bewerbungen: z.array(FLKontoBewerbungSitzEinwilligungSchema),
 });
 export type FLKontoEinwilligungenResponse = z.infer<typeof FLKontoEinwilligungenResponseSchema>;

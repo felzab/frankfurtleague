@@ -15,8 +15,15 @@ const { patchSitzEinwilligungAction } = await import("./personActions.ts");
 const { EINTRAG_WEG, MEDIEN_ZU_JUNG, SEITE_VERALTET, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung";
-const WAHL = { medien: true, text_version: "2026-10-konto-kontakt" };
-const LANDED = { acknowledged: 1, team_id: SITZ.team_id, saison_id: SITZ.saison_id, rollen: ["trainer"], medien: true };
+const WAHL = { medien: true, text_version: "2026-10-konto-kontakt", nachweis_stand: { medien: null } };
+const LANDED = {
+  acknowledged: 1,
+  team_id: SITZ.team_id,
+  saison_id: SITZ.saison_id,
+  rollen: ["trainer"],
+  medien: true,
+  nachweis_stand: { medien: null },
+};
 
 /** Every invalidation the write made, by the export it called and what it handed it. */
 const invalidations = () => cacheCalls.map(({ name, args }) => [name, ...args]);

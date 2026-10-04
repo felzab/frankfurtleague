@@ -16,7 +16,12 @@ const { patchSchiedsrichterEinwilligungAction } = await import("./personActions.
 const { EINTRAG_WEG, MEDIEN_ZU_JUNG, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung";
-const WAHL = { umfang: "kader_oeffentlich" as const, medien: true, text_version: "2026-10-konto-schiedsrichter" };
+const WAHL = {
+  umfang: "kader_oeffentlich" as const,
+  medien: true,
+  text_version: "2026-10-konto-schiedsrichter",
+  nachweis_stand: { umfang: null, medien: null },
+};
 
 const LANDED = {
   acknowledged: 1,
@@ -30,6 +35,7 @@ const LANDED = {
     medien: true,
     nachweis: { umfang: null, medien: null },
   },
+  nachweis_stand: { umfang: null, medien: null },
 };
 
 /** Every invalidation the write made, by the export it called and what it handed it. */

@@ -3,6 +3,7 @@ import z from "zod";
 import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
+import { FLMedienStandPayloadSchema, FLMedienStandSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
@@ -772,6 +773,27 @@ export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema
   bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;
+
+/**
+ * Mirrors `FLBewerbungPersonEinwilligungPayload`: a seat holder's withdrawal of their media consent on a
+ * pending application, from the account page. Withdraw-only, a grant being the confirmation page's;
+ * the application travels in the path.
+ */
+export const FLBewerbungPersonEinwilligungPayloadSchema = z.object({
+  medien: z.literal(false, { error: "Hier kannst Du die Einwilligung nur widerrufen. Lade die Seite neu." }),
+  text_version: FLSpielerSelbstEinwilligungPayloadSchema.shape.text_version,
+  nachweis_stand: FLMedienStandPayloadSchema,
+});
+export type FLBewerbungPersonEinwilligungPayload = z.infer<typeof FLBewerbungPersonEinwilligungPayloadSchema>;
+
+/** Mirrors `FLBewerbungPersonEinwilligungResponse`: the application's seats the withdrawal reached. */
+export const FLBewerbungPersonEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
+  bewerbung_id: CustomObjectIdStringSchema,
+  rollen: z.array(FLKontaktRolleSchema),
+  medien: z.literal(false),
+  nachweis_stand: FLMedienStandSchema,
+});
+export type FLBewerbungPersonEinwilligungResponse = z.infer<typeof FLBewerbungPersonEinwilligungResponseSchema>;
 
 /**
  * Mirrors `FLBewerbungKontaktEmailPayload` — the one field of a submitted application an

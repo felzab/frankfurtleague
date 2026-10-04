@@ -4,7 +4,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLBewerbungZustellungSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
-import { FLEinwilligungSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
+import { FLEinwilligungSchema, FLEinwilligungStandSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import {
   CustomDateStringSchema,
@@ -303,6 +303,8 @@ export const FLSchiedsrichterSelbstSchema = z.object({
   einwilligung: FLEinwilligungSchema,
   // The words shown beside the account page's control, for the reason `FLSpielerSelbstSchema` gives.
   bestaetigt_text_version: z.string().nullable(),
+  // The consent press's precondition, for the reason `FLSpielerSelbstSchema` gives.
+  nachweis_stand: FLEinwilligungStandSchema,
   kontext: FLSchiedsrichterKontextSchema,
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),
@@ -321,5 +323,6 @@ export type FLSchiedsrichterSelbstEinwilligungPayload = z.infer<typeof FLSchieds
 export const FLSchiedsrichterSelbstEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
   schiedsrichter_id: CustomObjectIdStringSchema,
   einwilligung: FLEinwilligungSchema,
+  nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLSchiedsrichterSelbstEinwilligungResponse = z.infer<typeof FLSchiedsrichterSelbstEinwilligungResponseSchema>;

@@ -111,7 +111,12 @@ const { patchSpielerEinwilligungAction } = await import("./personActions.ts");
 const { EINTRAG_WEG, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
 
 const EINWILLIGUNG_OPERATION = "PATCH /spieler/selbst/einwilligung";
-const WAHL = { umfang: "intern" as const, medien: false, text_version: "2026-10-konto-spieler" };
+const WAHL = {
+  umfang: "intern" as const,
+  medien: false,
+  text_version: "2026-10-konto-spieler",
+  nachweis_stand: { umfang: null, medien: null },
+};
 
 /** The record as the backend answers a consent write that landed. */
 const EINWILLIGUNG_LANDED = {
@@ -126,6 +131,7 @@ const EINWILLIGUNG_LANDED = {
     medien: false,
     nachweis: { umfang: null, medien: null },
   },
+  nachweis_stand: { umfang: null, medien: null },
 };
 
 describe("a pupil's own consent write", () => {

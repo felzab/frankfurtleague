@@ -50,6 +50,27 @@ export const FLEinwilligungNachweiseSchema = z.object({
 export type FLEinwilligungNachweise = z.infer<typeof FLEinwilligungNachweiseSchema>;
 
 /**
+ * Mirrors `FLMedienStand` — the instant the media choice's evidence carried when the page was served,
+ * which a consent press sends back unchanged as its precondition: never derived here.
+ */
+export const FLMedienStandSchema = z.object({
+  medien: z.string().nullable(),
+});
+export type FLMedienStand = z.infer<typeof FLMedienStandSchema>;
+
+/** Mirrors `FLEinwilligungStand` — `FLMedienStand` for a control moving both choices. */
+export const FLEinwilligungStandSchema = FLMedienStandSchema.extend({
+  umfang: z.string().nullable(),
+});
+export type FLEinwilligungStand = z.infer<typeof FLEinwilligungStandSchema>;
+
+// The press echoes the stand as the read served it, so the payloads are the read shapes themselves.
+export const FLMedienStandPayloadSchema = FLMedienStandSchema;
+export type FLMedienStandPayload = z.infer<typeof FLMedienStandPayloadSchema>;
+export const FLEinwilligungStandPayloadSchema = FLEinwilligungStandSchema;
+export type FLEinwilligungStandPayload = z.infer<typeof FLEinwilligungStandPayloadSchema>;
+
+/**
  * Mirrors `FLEinwilligung` — what may be published about this person.
  *
  * `bestandsuebernahme` marks a backfilled record, which must stay distinguishable from consent
@@ -360,6 +381,9 @@ export const FLSpielerSelbstSchema = z.object({
   // The label whose words the account page shows beside the control: the backend names which stored
   // label the person confirmed, so the page never decides it from the record's shape.
   bestaetigt_text_version: z.string().nullable(),
+  // What the consent press sends back as its precondition, so a press from a page another tab has
+  // since moved is refused rather than undoing that tab's choice.
+  nachweis_stand: FLEinwilligungStandSchema,
   kontext: FLSpielerKontextSchema,
   // The backend's verdicts, never recomputed here: a second clock or a second reading of a panel would
   // offer a press the write refuses.
@@ -390,11 +414,14 @@ export const FLSpielerSelbstEinwilligungPayloadSchema = z.object({
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
     }),
+  nachweis_stand: FLEinwilligungStandPayloadSchema,
 });
 export type FLSpielerSelbstEinwilligungPayload = z.infer<typeof FLSpielerSelbstEinwilligungPayloadSchema>;
 
 export const FLSpielerSelbstEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
   spieler_id: CustomObjectIdStringSchema,
   einwilligung: FLEinwilligungSchema,
+  // The stand this press left, which the page's next press sends.
+  nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLSpielerSelbstEinwilligungResponse = z.infer<typeof FLSpielerSelbstEinwilligungResponseSchema>;

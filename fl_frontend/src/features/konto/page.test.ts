@@ -303,6 +303,7 @@ const SITZ = {
   saison_id: "2526",
   rollen: ["stellvertretung", "trainer"],
   bestaetigt_text_version: "2026-09-bestaetigungsseite-6",
+  nachweis_stand: { medien: null },
   kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526", rolle: "trainer" },
   medien: false,
   medien_angeboten: true,
@@ -328,6 +329,7 @@ const SPIELER = {
   inactive_since: null,
   einwilligung: EINWILLIGUNG,
   bestaetigt_text_version: "2026-09-spielerseite-3",
+  nachweis_stand: { umfang: null, medien: null },
   kontext: { vorname: "Alina", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
   erteilbar: true,
   medien_angeboten: true,
@@ -343,6 +345,7 @@ const SCHIEDSRICHTER = {
   inactive_since: null,
   einwilligung: { ...EINWILLIGUNG, text_version: "2026-09-schiedsrichterseite-3" },
   bestaetigt_text_version: "2026-09-schiedsrichterseite-3",
+  nachweis_stand: { umfang: null, medien: null },
   kontext: { vorname: "Mara" },
   erteilbar: true,
   medien_angeboten: true,
@@ -351,7 +354,8 @@ const SCHIEDSRICHTER = {
 /** The section's reads answered: the consent words off the backend's generated registry, the person's records as given. */
 function answeringKonto(konto: Record<string, unknown>): void {
   answerReadsWith((endpoint, schema, params) => {
-    if (endpoint === "/konto/einwilligungen") return { acknowledged: 1, spieler: null, schiedsrichter: [], sitze: [], ...konto };
+    if (endpoint === "/konto/einwilligungen")
+      return { acknowledged: 1, spieler: null, schiedsrichter: [], sitze: [], bewerbungen: [], ...konto };
     return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
   });
 }

@@ -56,6 +56,7 @@ const SPIELERIN: FLSpielerSelbst = {
     nachweis: { umfang: null, medien: null },
   },
   bestaetigt_text_version: "2026-09-spielerseite-3",
+  nachweis_stand: { umfang: null, medien: null },
   kontext: { vorname: "Alina", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2026" },
   erteilbar: true,
   medien_angeboten: true,

@@ -110,6 +110,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /spieler/selbst/einwilligung": konto.mapEigeneEinwilligungRefusal,
   "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": konto.mapEigeneEinwilligungRefusal,
   "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung": konto.mapEigeneEinwilligungRefusal,
   "GET /teams/{team_id}/saisons/{saison_id}/person/sitze": TEAM_FORBIDDEN_PANEL,
   "POST /spieler/{spieler_id}/saisons": (error) => spieler.mapSquadRefusal(error) ?? spieler.mapAlreadyInSaisonRefusal(error),
   "PATCH /spieler/{spieler_id}/saisons/{saison_id}": spieler.mapSquadRefusal,
