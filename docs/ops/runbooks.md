@@ -660,8 +660,8 @@ address that record holds:
   choice.
 
 **Taking a contact person off their seat is an erasure, unless the seat's own link still takes
-their Widerspruch.** Which of the three you are in is decided by that seat's own link, not by the
-person's role:
+their Widerspruch.** On an application, which of the three cases below you are in is decided by
+that seat's own link, not by the person's role; a seat on a team's season row is the fourth:
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
   page the link opens, empties the seat at once and tells the submitter so the school can name
@@ -682,6 +682,15 @@ person's role:
   each is a refusal the person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
   like any other.
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
+- **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it
+  is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
+  submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
+  again with „Bestätigungslink senden“ on that seat in the team's contacts editor
+  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
+  whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
+  ended or whose team has left it (`REQ-KONTAKT-005`, `docs/backend/spec.md :: I935`), though a link
+  such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
+  already answered, the route is `POST /kontakte/erasure`.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
 `PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it
