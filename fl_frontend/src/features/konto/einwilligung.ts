@@ -21,7 +21,7 @@ export const EINTRAG_WEG = "Diese Angaben sind nicht mehr bei Dir eingetragen. L
 export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du morgen wieder. Widerrufen geht jederzeit.";
 
 /**
- * The one mapper the three consent writes share: one code set behind one control, so a refusal reads
+ * The one mapper the four consent writes share: one code set behind one control, so a refusal reads
  * the same whichever record it refused. A lost seat and a barred address are the person spine's to
  * word, never this mapper's.
  */
@@ -44,8 +44,8 @@ export function mapEinwilligungWahlRefusal(error: unknown): { error: string } | 
 }
 
 /**
- * The pupil's and the referee's writes, which claim a record of their own rather than a seat: their
- * lost record is worded here, ahead of the shared reader.
+ * The consent writes', each claiming the person's own record rather than a seat: a lost record is
+ * worded here, ahead of the shared reader.
  */
 export function mapEigeneEinwilligungRefusal(error: unknown): { error: string } | null {
   if (isFunktionLost(error)) return { error: EINTRAG_WEG };

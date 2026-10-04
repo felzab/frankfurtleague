@@ -13,7 +13,7 @@ import {
   ZUSTIMMEN_MORGEN,
 } from "./einwilligung.ts";
 
-/** One of the three writes the mapper serves; the status is stated, so each code is put at two. */
+/** One of the four writes the mapper serves; the status is stated, so each code is put at two. */
 const PUPIL_WRITE = "PATCH /spieler/selbst/einwilligung";
 
 describe("the consent writes' one mapper", () => {

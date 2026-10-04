@@ -575,14 +575,14 @@ the other refuses.
 What the table cannot carry:
 
 - **The public application form's create is absent by rule**: every row but the `auth` pair, the
-  account page's six, a seat holder's two and the three consent writes is an admin mutation, which a write that authorizes
+  account page's six, a seat holder's two and the four consent writes is an admin mutation, which a write that authorizes
   nobody can never be, and it invalidates nothing — no cached read holds an application (§1.2).
 - **A seat holder's two run under `fl_frontend/src/shared/utils/personMutation.ts ::
 runPersonMutation`** — `patchKaderZeileAction` and `deleteKaderZeileAction` — the admin spine over a
   guard deriving the seat the action claims from the person's own session (I551). They live in
   the slice's `personActions.ts`, never its `actions.ts`, whose every export the admin spine's sweep
   holds to the administrator's guard.
-- **The three consent writes run under `fl_frontend/src/shared/utils/personMutation.ts ::
+- **The four consent writes run under `fl_frontend/src/shared/utils/personMutation.ts ::
 runPersonRecordMutation`**, each claiming the person's own record rather than a seat (I893).
 - **The account page's six run under `fl_frontend/src/shared/utils/kontoMutation.ts ::
 runKontoMutation`** — `renamePasskeyAction`, `removePasskeyAction`, `readPasskeyStandAction`,
