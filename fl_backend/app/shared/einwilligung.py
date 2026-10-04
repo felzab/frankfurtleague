@@ -187,8 +187,8 @@ _KONTAKT_MEDIEN: Final[Mapping[str, str]] = MappingProxyType(
             "Für alles genügt eine formlose E-Mail an {kontakt}."
         ),
         "medien": (
-            "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Trainerinnen, Trainer und "
-            "Ansprechpersonen zu sehen sind, und führt Interviews. Unabhängig von Deiner Bestätigung kannst Du ab "
+            "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Kontaktpersonen eines "
+            "Teams zu sehen sind, und führt Interviews. Unabhängig von Deiner Bestätigung kannst Du ab "
             "{medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf "
             "unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das "
             "nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine "
@@ -521,8 +521,8 @@ _KONTO_KONTAKT: Final[Mapping[str, str]] = MappingProxyType(
             "aus, erreichen wir Dich per E-Mail und, wenn es eilt, telefonisch."
         ),
         "medien": (
-            "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Trainerinnen, Trainer und "
-            "Ansprechpersonen zu sehen sind, und führt Interviews. Ab {medienMinAlter} Jahren entscheidest Du hier für "
+            "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Kontaktpersonen eines "
+            "Teams zu sehen sind, und führt Interviews. Ab {medienMinAlter} Jahren entscheidest Du hier für "
             "{team} in der Saison {saison}, ob Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf unserer "
             "Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Deine Kontaktdaten werden davon nicht "
             "berührt und nirgends veröffentlicht."
