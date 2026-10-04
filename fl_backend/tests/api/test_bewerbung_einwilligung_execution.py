@@ -539,6 +539,33 @@ class TestThePageALinkOpens:
         assert einwilligung["nachweis"]["umfang"]["text_version"] == VERWALTUNG_SEITE
         assert (view.zustand, view.laufende_fassung) == ("bestaetigt", VERWALTUNG_SEITE)
 
+    def test_a_link_answering_a_mixed_pair_shows_and_takes_one_page(self, mongo_replica_set_url: str):
+        """A Trainer the applicant named, holding a second seat the league filled: one link, one page, both seats answered.
+
+        Stored directly: no route seats one person in a pair across two writes on an application today,
+        and the judge must not depend on that staying so.
+        """
+
+        seeded = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
+        for slot, von in (("trainer", "bewerbung"), ("ansprechperson", "liga")):
+            seeded["kontakte"][slot]["einwilligung"] = {**seeded["kontakte"][slot]["einwilligung"], "eingetragen_von": von}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            view = await ansicht(database, RAW["trainer"])
+            with pytest.raises(WriteRefusalException) as conflict:
+                await answer(database, client, RAW["trainer"], text_version=BEWERBER_SEITE)
+            await answer(database, client, RAW["trainer"], text_version=view.laufende_fassung)
+
+            return view, conflict.value, await stored(database)
+
+        view, refusal, document = on_a_league(mongo_replica_set_url, body, documents=[seeded])
+
+        assert view.laufende_fassung == VERWALTUNG_SEITE
+        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        for slot in ("trainer", "ansprechperson"):
+            einwilligung = document["kontakte"][slot]["einwilligung"]
+            assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == (TODAY, VERWALTUNG_SEITE)
+
     def test_a_decline_names_no_label_and_is_judged_against_none(self, mongo_replica_set_url: str):
         """A Widerspruch stores no record, so the label it carries is never stored and never refused."""
 
