@@ -4,18 +4,23 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
+import { parseDate } from "@internationalized/date";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { laufendeKontaktSaisonFassung } from "@/shared/testing/einwilligungAnswers.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
+import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import { ABLEHNEN_LABEL, VERTRETUNG_MIN_ALTER } from "../../constants.ts";
 
 import type { BestaetigungStart } from "./BestaetigungView.tsx";
+
+const fetchMock = doubleFetch();
 
 const { BestaetigungView } = await import("./BestaetigungView.tsx");
 const { BestaetigungFormPanel } = await import("./BestaetigungFormPanel.tsx");
@@ -62,6 +67,52 @@ describe("the confirmation page for a seat on a team's season row", () => {
     assert.match(widersprochen, /Die Angaben sind aus dem Eintrag entfernt/);
     assert.doesNotMatch(widersprochen, NUR_BEWERBUNG);
   });
+
+  /* The row is a team's, and the page's own stamped words and the mail call it so: „Schule“ is the
+     application's word, for the school that applied. */
+  it("names the team as a team in the banner, where an application's page names the school", () => {
+    const offen = page({ zustand: "gueltig", ansicht: ANSICHT, token: "kein-echtes-token", fassung: KONTAKT });
+
+    assert.match(offen, /Team\s*Lessing-Kolleg/);
+    assert.doesNotMatch(offen, /Schule\s*Lessing-Kolleg/);
+    // The control: the application's own page keeps its school.
+    assert.match(
+      page({ zustand: "gueltig", ansicht: { ...ANSICHT, quelle: "bewerbung" }, token: "kein-echtes-token", fassung: KONTAKT }),
+      /Schule\s*Lessing-Kolleg/,
+    );
+  });
+
+  for (const [sitze, zugleich, satz] of [
+    ["one seat", null, /Dein Eintrag für das Team Lessing-Kolleg ist bestätigt\./],
+    ["a paired seat", "trainer", /Deine beiden Einträge für das Team Lessing-Kolleg sind bestätigt\./],
+  ] as const) {
+    it(`thanks ${sitze} for confirming an entry for the team, never for a school`, async () => {
+      fetchMock.mock.mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ success: true, ergebnis: "bestaetigt", geburtsdatum: "2000-01-01", whatsapp: false, medien: false }), {
+            status: 200,
+          }),
+        ),
+      );
+      const user = userEvent.setup();
+      const { container, unmount } = render(
+        h(BestaetigungView, {
+          start: { zustand: "gueltig", ansicht: { ...ANSICHT, zugleich_rolle: zugleich }, token: "kein-echtes-token", fassung: KONTAKT },
+        }),
+      );
+
+      const [jahr = "", monat = "", tag = ""] = parseDate(getGermanTodayStr()).subtract({ years: 30 }).toString().split("-");
+      await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+      await user.keyboard(`${tag}${monat}${jahr}`);
+      await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+      await act(fetchMock.answered);
+
+      const text = (container.textContent ?? "").replace(/\s+/g, " ");
+      assert.match(text, satz);
+      assert.doesNotMatch(text, /für die Schule/);
+      unmount();
+    });
+  }
 
   it("asks a paired seat once without calling the entry an application", () => {
     const offen = page({ zustand: "gueltig", ansicht: ANSICHT, token: "kein-echtes-token", fassung: KONTAKT });
