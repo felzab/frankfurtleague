@@ -200,6 +200,7 @@ async def save(
             {"kontakte": kontakte, "kontakte_stand": kontakte_stand_of(row.get("kontakte"))}
         ),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
+        saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
         db=database.client,
         refuse_unconfirmed=step_up,
@@ -394,8 +395,8 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
 
         response, row, everything = on_a_league(mongo_replica_set_url, body)
 
-        assert [(mint.rollen, mint.email, mint.frist, mint.vorname, mint.schule) for mint in response.bestaetigungen] == [
-            (["trainer"], "ida@example.com", FRIST, "Ida", TEAM_NAME)
+        assert [(mint.rollen, mint.email, mint.frist, mint.vorname, mint.schule, mint.zeile) for mint in response.bestaetigungen] == [
+            (["trainer"], "ida@example.com", FRIST, "Ida", TEAM_NAME, "offen")
         ]
         assert response.saison_team_id == ROW_OID
         token = response.bestaetigungen[0].token
@@ -1053,16 +1054,26 @@ class TestARowNoLongerInTheSeason:
     """Neither a `past` season nor a withdrawn team offers a seat to confirm, so a link there takes a Widerspruch alone."""
 
     @pytest.mark.parametrize(
-        ("saison_status", "row_fields"),
+        ("saison_status", "row_fields", "zeile"),
         [
-            pytest.param("past", {}, id="a season that has ended"),
+            pytest.param("past", {}, "saison_vorbei", id="a season that has ended"),
             pytest.param(
-                "active", {"austritt": {"type": "rueckzug", "grund": "Keine Mannschaft mehr", "datum": "2026-03-01"}}, id="a team that left"
+                "active",
+                {"austritt": {"type": "rueckzug", "grund": "Keine Mannschaft mehr", "datum": "2026-03-01"}},
+                "ausgetreten",
+                id="a team that left",
+            ),
+            # Past as well as left: the season's end is what the mail names.
+            pytest.param(
+                "past",
+                {"austritt": {"type": "rueckzug", "grund": "Keine Mannschaft mehr", "datum": "2026-03-01"}},
+                "saison_vorbei",
+                id="a team that left a season that has ended",
             ),
         ],
     )
     def test_a_person_the_save_newly_seats_is_minted_a_link_taking_their_widerspruch(
-        self, mongo_replica_set_url: str, saison_status: str, row_fields: dict[str, Any]
+        self, mongo_replica_set_url: str, saison_status: str, row_fields: dict[str, Any], zeile: str
     ):
         """The link is how a person entered there learns of it (Art. 14 (3)(a) GDPR), so the save mints one all the same."""
 
@@ -1076,7 +1087,11 @@ class TestARowNoLongerInTheSeason:
 
         response, view, consent, widerspruch, row = on_a_league(mongo_replica_set_url, body, saison_status=saison_status, row_fields=row_fields)
 
-        assert [mint.rollen for mint in response.bestaetigungen] == [["trainer"], ["ansprechperson"], ["stellvertretung"]]
+        assert [(mint.rollen, mint.zeile) for mint in response.bestaetigungen] == [
+            (["trainer"], zeile),
+            (["ansprechperson"], zeile),
+            (["stellvertretung"], zeile),
+        ]
         assert (view.zustand, consent, widerspruch.ergebnis) == ("saison_vorbei", KONTAKT_SAISON_VORBEI, "abgelehnt")
         assert row["kontakte"]["trainer"] is None
 
