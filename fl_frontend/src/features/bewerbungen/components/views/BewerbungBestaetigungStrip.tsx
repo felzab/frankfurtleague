@@ -15,10 +15,10 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { KONTAKT_EMAIL } from "@/core/brand";
 import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
+import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
 import {
   FLBewerbungKontaktEmailPayloadSchema,
@@ -772,7 +772,7 @@ function SitzNeuBesetzen({
             className="muted-meta">
             <Absatz
               text={neubesetzung.absaetze[schluessel]}
-              werte={{ kontakt: KONTAKT_EMAIL }}
+              werte={FESTE_WERTE}
             />
           </p>
         ))}

@@ -290,6 +290,7 @@ describe("what the security section tells its reader", () => {
 
 const { answerReadsWith, EMPTIEST_ANSWER, renderPage } = await import("@/shared/testing/pageHarness.ts");
 const { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
+const { FESTE_WERTE } = await import("@/features/bewerbungen/components/ui/Gefuellt.tsx");
 const { bestaetigteWorte, NUR_WIDERRUF_BIS_ZUSAGE, sitzMindestalter } = await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
@@ -411,7 +412,7 @@ describe("the account page's consent section", () => {
       ["Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
     ],
     ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
-    ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", "Konto löschen"]],
+    ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", FESTE_WERTE.loeschung, FESTE_WERTE.kontakt]],
   ] as const) {
     it(`fills every slot of ${art}'s confirmed words from the record`, async () => {
       setSubject(OHNE_FUNKTION);

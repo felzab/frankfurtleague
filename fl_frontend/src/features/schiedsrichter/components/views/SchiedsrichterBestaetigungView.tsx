@@ -13,7 +13,7 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { ABSATZ_CLASSES, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AdresseGesperrt,
@@ -105,9 +105,6 @@ const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
  * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
  */
 const EIGENE_SLOTS = new Set(["vorname"]);
-
-/** The words every reader's copy fills alike; the rest come off the record the page was opened with. */
-const KONSTANTEN = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen" } as const;
 
 /** A stamped sentence, filled as `:: Gefuellt` fills one. */
 function Absatz({ text, werte }: { text: string; werte: Slots }) {
@@ -278,7 +275,7 @@ function SchiedsrichterFormPanel({
   const panel = formPanel();
   const klickPunkteId = useId();
 
-  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter), vorname: vorname };
+  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter), vorname: vorname };
 
   // Built from the floor the link answered, never a module constant: a schema on a floor of its own
   // would let the press through at a number the endpoint refuses.

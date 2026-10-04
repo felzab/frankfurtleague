@@ -1,5 +1,4 @@
-import { KONTAKT_EMAIL } from "@/core/brand";
-import { ABSATZ_CLASSES, Gefuellt } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
@@ -14,11 +13,6 @@ type KontaktAbsaetze = KontaktFassung["absaetze"];
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
-
-// No `{minAlter}` here: two of the three seats answer it differently, so a constant would put a
-// number on the page that the press is not judged by.
-/** What fills a slot for every reader alike; the rest come off the record the page was opened with. */
-const KONSTANTEN = { kontakt: KONTAKT_EMAIL } as const;
 
 /**
  * The slots a record fills from the person who opened the link
@@ -59,7 +53,7 @@ export function BestaetigungHinweise({
   mindestalter: number;
   ablehnenLabel: string;
 }) {
-  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), schule: schule, saison: saison, rolle: rolle, ablehnen: ablehnenLabel };
+  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), schule: schule, saison: saison, rolle: rolle, ablehnen: ablehnenLabel };
 
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
@@ -171,7 +165,7 @@ export function WiderspruchFolge({ absaetze }: { absaetze: KontaktAbsaetze }) {
     <p className="fluid-xxs leading-normal font-medium text-foreground">
       <Absatz
         text={absaetze.ablehnenFolge}
-        werte={KONSTANTEN}
+        werte={FESTE_WERTE}
       />
     </p>
   );
@@ -183,7 +177,7 @@ export function WhatsappHinweis({ absaetze }: { absaetze: KontaktAbsaetze }) {
     <p className={ABSATZ_CLASSES}>
       <Absatz
         text={absaetze.whatsapp}
-        werte={KONSTANTEN}
+        werte={FESTE_WERTE}
       />
     </p>
   );
@@ -198,7 +192,7 @@ export function MedienHinweis({ absaetze, medienMindestalter }: { absaetze: Kont
     <p className={ABSATZ_CLASSES}>
       <Absatz
         text={absaetze.medien}
-        werte={{ ...KONSTANTEN, medienMinAlter: String(medienMindestalter) }}
+        werte={{ ...FESTE_WERTE, medienMinAlter: String(medienMindestalter) }}
       />
     </p>
   );
@@ -224,7 +218,7 @@ export function KlickBestaetigung({
   rolle: string;
   mindestalter: number;
 }) {
-  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), vorname: vorname, schule: schule, rolle: rolle };
+  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), vorname: vorname, schule: schule, rolle: rolle };
 
   return (
     <div

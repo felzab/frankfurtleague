@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { textLink } from "@/shared/components/ui/textLink";
 import { DATENSCHUTZ_SLOT, stueckeVon } from "@/shared/utils/stampedSlots";
 
@@ -9,6 +10,12 @@ import type { ReactNode } from "react";
 
 // Its own module, importing no hook: the account page, a Server Component, sets the stamped words
 // the confirmation pages set, and a module holding a hook cannot sit in its import graph.
+
+/**
+ * The slots every page setting stamped words fills alike: the league's address and the erasure
+ * control's own name. Never `{minAlter}`, which the contact page's seats answer differently.
+ */
+export const FESTE_WERTE = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen" } as const;
 
 /**
  * The one body step, stamped text and the page's own sentences alike: these are legal words a

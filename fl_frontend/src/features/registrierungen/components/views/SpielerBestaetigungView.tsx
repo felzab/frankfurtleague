@@ -13,7 +13,7 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { ABSATZ_CLASSES, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AdresseGesperrt,
@@ -372,10 +372,9 @@ function SpielerBestaetigungForm({
     saison: ansicht.saison_id,
     minAlter: String(ansicht.mindestalter),
     medienMinAlter: String(ansicht.medien_mindestalter),
-    kontakt: KONTAKT_EMAIL,
     // Filled rather than left standing: `Gefuellt` leaves an unfilled slot as written, so the
     // consent text would spell its own placeholder on the live page.
-    loeschung: "Konto löschen",
+    ...FESTE_WERTE,
   };
 
   const sende = () => {
