@@ -468,8 +468,20 @@ read_headers() {
     SENT_VALUE["$header_name"]="${header_line#*: }"
   done < "$1"
 }
+# The bot check's script and widget, which the sign-in and both public forms load: a policy losing
+# the origin from either directive breaks all three while every header still matches the file
+# (`docs/ops/spec.md` §1.4).
+BOT_CHECK_ORIGIN="https://challenges.cloudflare.com"
 grade_security_headers() { # $1 what the request was, the headers already read
-  local name
+  local name directive pattern
+  for directive in script-src frame-src; do
+    pattern=";[[:space:]]*${directive}[[:space:]]+([^;]*)"
+    if [[ ! "; ${SENT_VALUE[content-security-policy]:-}" =~ $pattern || " ${BASH_REMATCH[1]} " != *" ${BOT_CHECK_ORIGIN} "* ]]; then
+      fail "HEADER $1"
+      detail "expected the Content-Security-Policy's ${directive} to admit ${BOT_CHECK_ORIGIN}"
+      HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+    fi
+  done
   for name in "${!SECURITY_HEADERS[@]}"; do
     # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
     # restated beside the include -- for the CSP, a second enforcing policy.

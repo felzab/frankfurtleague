@@ -429,6 +429,15 @@ www redirect for it, and compares each header's value with that file's. A
 restated copy would be a second enforcing policy, which the
 [`.claude/rules/cross-surface.md`](../../.claude/rules/cross-surface.md) **csp** clause forbids.
 
+**Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
+no other directive**: the bot check on the sign-in and the two public forms loads its script from
+there and renders its widget in a frame of that origin
+([`docs/frontend/spec.md`](../frontend/spec.md) I821), so a policy losing it from either breaks all
+three while every location still sends the file's value. `nginx/edge_test.sh` fails a response
+whose policy does. Cloudflare's own list for the check adds `connect-src 'self'` for pre-clearance
+alone, which the widget does not use (https://developers.cloudflare.com/turnstile/reference/content-security-policy/,
+read 2026-10-04).
+
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
 hijacking, and `form-action 'self'` blocks exfiltration through a form post.
