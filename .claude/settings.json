@@ -166,6 +166,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash|Monitor|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/implementer-whole-suite.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [

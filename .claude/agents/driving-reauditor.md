@@ -87,7 +87,9 @@ agent, say so and stop.
 different tool, a container or an interpreter is a violation.
 
 11 BLAST RADIUS. Say what each change could break outside the files it touches, and test that, not
-only the change itself.
+only the change itself. A plant's red and green are yours to drive: CI never sees a plant, which is
+never committed, so a blast-radius question no drive of yours reaches is reported not established
+under section 13, never handed to CI.
 
 12 MEASURE. Interleave the arms and report a spread and what else was running; every figure is an
 upper bound.

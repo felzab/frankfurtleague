@@ -56,10 +56,19 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   `uv sync --project fl_backend --dev --frozen` at the root, and again after a rebase that moves a
   manifest or a lockfile. Never link either directory in from another tree. Run git in Bash, never
   PowerShell: the harness checks a PowerShell command's directory only, not where its git points.
-- Run the checks your items name, never `./scripts/gate/verify.sh`: the gate runs once, in the
-  coordinator's checkout, over the finished branch. `.claude/CLAUDE.md` §2's finished task -- branch
-  pushed, draft pull request open, every check concluded -- is the coordinator's. You are finished
-  when your commits are made and your report lands.
+- **Run the checks your items name and then your targeted set, never a whole suite.** The set is the
+  test files of every file you changed and of every module importing one, found by every import form
+  in use -- the `@/` alias, a relative path, a dotted Python module -- and the tests naming any
+  registry gaining a member, run as `pnpm run test:base <files>` and `uv run --frozen pytest
+<paths>`; `npx tsc --noEmit -p .` and eslint over the side you touched in `fl_frontend`, pyright
+  over the backend where you touched it; and every plant your items need. A whole suite,
+  `./scripts/gate/verify.sh` and `./scripts/ops/local.sh` are refused by
+  `.claude/hooks/implementer-whole-suite.sh`: CI runs every scope over the combined head once a batch
+  lands, and the gate runs once, in the coordinator's checkout, over the finished branch. A blast
+  radius your set cannot reach goes in (d).
+- `.claude/CLAUDE.md` §2's finished task -- branch pushed, draft pull request open, every check
+  concluded -- is the coordinator's. You are finished when your commits are made and your report
+  lands.
 
 6 SUB-AGENTS. None. `/docs:audit` fans out to auditors, sub-agents by another route, and
 `/docs:audit-pr` edits the branch in place: never run either. Where a question needs a fresh agent,

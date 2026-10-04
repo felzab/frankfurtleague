@@ -1494,7 +1494,7 @@ and every `pnpm run` and `pnpm exec` in that checkout runs it**, whatever Node t
 installed; `pnpm exec node --version` there prints the pinned release. A pull request moving the pin
 needs nothing more on a machine than the next `pnpm install`.
 
-**A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh` and
+**A bare `node` still runs the machine's own**, and the hooks under `.claude/hooks/` and
 `scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
 https://nodejs.org/en/download, and again whenever the pin moves: a machine left on an older release
 of the line keeps every security flaw fixed since.

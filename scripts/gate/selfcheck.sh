@@ -810,6 +810,96 @@ for (const [event, entry] of registered) {
   orphan_out="$(orphan_drive "")"
   if [[ -z "$orphan_out" ]]; then info 'orphan server hook: no netstat — silent, exit 0'
   else note_fail "orphan server hook: without netstat it must say nothing and exit 0, got '${orphan_out}'"; fi
+
+  # A registration whose matcher misses a tool runs its script for none of that tool's calls, and
+  # the script's own probes stay green.
+  check_hook_matcher() { # $1 the settings file · $2 event · $3 hook script · $4… each name its matcher must take
+    local missing rc=0 name IFS=' '
+    missing="$(node -e '
+const fs = require("fs");
+const [file, event, script, ...names] = process.argv.slice(1);
+const groups = ((JSON.parse(fs.readFileSync(file, "utf8")).hooks || {})[event] || []).filter((group) =>
+  (group.hooks || []).some((entry) => (entry.command || "").includes("/" + script)));
+// The harness reads a matcher of plain names as an exact list, and anything else as a pattern.
+const takes = (matcher, name) =>
+  matcher === "" || matcher === "*" ? true
+  : /^[A-Za-z0-9_\- ,|]+$/.test(matcher) ? matcher.split(/[|,]/).map((one) => one.trim()).includes(name)
+  : new RegExp(matcher).test(name);
+for (const name of names) if (!groups.some((group) => takes(group.matcher || "", name))) process.stdout.write(name + "\n");
+' "$1" "$2" "$3" "${@:4}" 2>/dev/null)" || rc=$?
+    if (( rc != 0 )); then
+      note_fail "${3}'s ${2} registration in ${1} could not be read (node exit ${rc}), so its matcher was not checked."
+      return 0
+    fi
+    if [[ -z "$missing" ]]; then
+      info "${3}: registered on ${2} for ${*:4}"
+      return 0
+    fi
+    while IFS= read -r name; do
+      note_fail "${1} registers ${3} on ${2} with no matcher taking ${name}, so the harness runs it for none of those calls."
+    done <<< "$missing"
+  }
+
+  # An implementer's whole run refused, and nothing else: a refusal that stopped firing and one that
+  # refuses a targeted run both read as the agent's own choice.
+  SUITE_HOOK="${REPO_ROOT}/.claude/hooks/implementer-whole-suite.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PreToolUse implementer-whole-suite.sh Bash Monitor PowerShell
+  suite_err="${SELFCHECK_TMP}/suite-hook.err"
+  suite_drive() { # $1 agent type, empty for the main session · $2 tool · $3 command — prints the exit status and stderr
+    local payload rc=0
+    payload="$(node -e '
+const [agent, tool, command] = process.argv.slice(1);
+const input = { session_id: "probe", hook_event_name: "PreToolUse", tool_name: tool, tool_input: { command } };
+if (agent) input.agent_type = agent;
+process.stdout.write(JSON.stringify(input));
+' "$1" "$2" "$3")"
+    printf '%s' "$payload" | bash "$SUITE_HOOK" >/dev/null 2>"$suite_err" || rc=$?
+    printf '%s %s' "$rc" "$(tr '\n' ' ' < "$suite_err")"
+  }
+  expect_refused() { # $1 tool · $2 command
+    local said
+    said="$(suite_drive implementer "$1" "$2")"
+    case "$said" in
+      "2 Refused by .claude/hooks/implementer-whole-suite.sh"*) info "whole-suite hook: ${1} '${2}' — refused" ;;
+      *) note_fail "whole-suite hook: ${1} '${2}' must exit 2 naming the hook, got '${said:0:200}'" ;;
+    esac
+  }
+  expect_let_through() { # $1 agent type · $2 tool · $3 command
+    local said
+    said="$(suite_drive "$1" "$2" "$3")"
+    if [[ "$said" == "0 " ]]; then info "whole-suite hook: ${1:-the main session} ${2} '${3}' — let through"
+    else note_fail "whole-suite hook: ${1:-the main session} ${2} '${3}' must exit 0 silently, got '${said:0:200}'"; fi
+  }
+  # One per refusal arm, then one per route a command reaches it by.
+  expect_refused Bash 'pnpm test'
+  expect_refused Bash 'pnpm run test -- --test-name-pattern one'
+  expect_refused Bash 'pnpm --dir fl_frontend run test:db'
+  expect_refused Bash 'pnpm run test:base'
+  expect_refused Bash 'node --import ./scripts/tsconfig-alias-hook.mjs --test'
+  expect_refused Bash 'uv run --frozen pytest -q'
+  expect_refused Bash 'uv run --project fl_backend --frozen python -m pytest -m db'
+  expect_refused Bash './scripts/gate/verify.sh --docs'
+  expect_refused Bash 'bash scripts/ops/local.sh --down'
+  expect_refused Bash 'cd fl_backend && uv run --frozen pytest > out.txt 2>&1'
+  expect_refused Bash 'bash -c "cd fl_frontend && pnpm test"'
+  expect_refused Monitor 'pnpm test 2>&1 | tail -5'
+  expect_refused PowerShell 'cd fl_frontend; pnpm test'
+  expect_let_through implementer Bash 'pnpm run test:base src/core/apiContract.test.ts'
+  expect_let_through implementer Bash 'node --test src/core/apiContract.test.ts'
+  expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
+  expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py'
+  expect_let_through implementer Bash 'uv run --frozen pytest --collect-only -q'
+  expect_let_through implementer Bash 'git log -- scripts/gate/verify.sh'
+  expect_let_through implementer Bash "git commit -F - <<'EOF'"$'\n''pnpm test'$'\n''EOF'
+  expect_let_through implementer Bash 'echo "an unterminated quote'
+  expect_let_through driving-reauditor Bash 'pnpm test'
+  expect_let_through '' Bash 'pnpm test'
+  # Without node the hook cannot read the call, and lets it through rather than refusing blind.
+  suite_rc=0
+  printf '{"agent_type":"implementer","tool_input":{"command":"pnpm test"}}' |
+    PATH=/nonexistent "$BASH" "$SUITE_HOOK" >/dev/null 2>&1 || suite_rc=$?
+  if (( suite_rc == 0 )); then info 'whole-suite hook: no node — let through'
+  else note_fail "whole-suite hook: without node it must let the call through, got exit ${suite_rc}"; fi
 fi
 
 step "13. Every deliberate non-run reaches the gate"
