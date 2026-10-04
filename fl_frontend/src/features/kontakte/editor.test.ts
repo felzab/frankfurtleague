@@ -32,7 +32,7 @@ import {
   saisonFields,
   steps,
 } from "@/shared/testing/pageHarness.ts";
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
@@ -393,10 +393,7 @@ describe("the contacts write against the codes its endpoint publishes", () => {
   it("words every refusal its endpoint publishes, at the save", () => {
     const published = publishedRefusals(KONTAKTE_OPERATION);
 
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      [LABEL_REFUSED, STALE_BLOCK, BARRED],
-    );
+    assert.deepEqual(published, [LABEL_REFUSED, STALE_BLOCK, BARRED]);
     for (const code of published) {
       assert.notEqual(answerShown(KONTAKTE_OPERATION, code, mapKontakteRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }

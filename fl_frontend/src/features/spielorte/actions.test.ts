@@ -58,10 +58,7 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
   /* A missed code reaches the shared reader's sentence about an existing entry, false for fixtures
      awaiting a result. Restated, so a code the endpoint retires fails here rather than leaving a dead arm. */
   it("answers every refusal the retirement publishes", async () => {
-    assert.deepEqual(
-      publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-RETIRE-003"],
-    );
+    assert.deepEqual(publishedRefusals(RETIRE_OPERATION), ["REQ-RETIRE-003"]);
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }

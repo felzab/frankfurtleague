@@ -139,10 +139,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   it("answers every code the decline publishes through the triage's mapper", async () => {
     const published = publishedRefusals(ABLEHNEN_OPERATION);
 
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-BEWERBUNG-001"],
-    );
+    assert.deepEqual(published, ["REQ-BEWERBUNG-001"]);
     for (const code of published) {
       assert.notEqual(
         answerShown(ABLEHNEN_OPERATION, code, declineMapped),

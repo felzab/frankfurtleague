@@ -294,10 +294,7 @@ describe("what one refused confirmation shows", () => {
       const own = await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", code), floorOf(16).lesen);
       assert.notEqual(own ?? answerShown("POST /registrierungen/bestaetigung", code, () => null), null, `${code} maps to nothing`);
     }
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      [...mapped].sort(),
-    );
+    assert.deepEqual(published, [...mapped].sort());
   });
 });
 
