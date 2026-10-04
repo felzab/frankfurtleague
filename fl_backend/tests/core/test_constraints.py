@@ -278,11 +278,11 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.AKTIONEN, ("actor",), "funktion", get_args(FLAktorPerson.model_fields["funktion"].annotation), False),
     # Derived from the roster rather than spelled out, so adding a collection widens this enum and
     # forgetting to widen the validator fails here rather than at the first write to the new one.
-    # A day's write count is never logged (`app/core/drosselung.py`).
     (
         Collection.AKTIONEN,
         (),
         "collection",
+        # A day's write count is never logged (`app/core/drosselung.py`).
         tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG}),
         False,
     ),
