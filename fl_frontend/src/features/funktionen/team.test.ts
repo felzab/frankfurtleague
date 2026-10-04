@@ -401,13 +401,17 @@ describe("the team's squad, as a seat holder reads it", () => {
     answeringKader({ ...KADER, kader: [] });
     try {
       const { markup, text } = await renderedKader();
+      document.body.innerHTML = markup;
+      // The panel the empty sentence stands in, so a link beside it rather than in it fails.
+      const panel = [...document.querySelectorAll("p")].find((p) => p.textContent === KADER_LEER)?.parentElement;
 
       assert.ok(text.includes(KADER_LEER), text);
       assert.deepEqual(
-        linksIn(markup).filter((link) => link.href === `/bereich/team/${TEAM_A}/2526/registrierungen`),
-        [{ href: `/bereich/team/${TEAM_A}/2526/registrierungen`, text: "Registrierungen" }],
-        "the empty squad links nowhere a pupil comes from",
+        [...(panel?.querySelectorAll("a") ?? [])].map((link) => [link.getAttribute("href"), link.textContent]),
+        [[`/bereich/team/${TEAM_A}/2526/registrierungen`, "Zu den Registrierungen"]],
+        "the empty squad's panel links nowhere a pupil comes from",
       );
+      document.body.innerHTML = "";
     } finally {
       answerReadsWith(EMPTIEST_ANSWER);
     }
