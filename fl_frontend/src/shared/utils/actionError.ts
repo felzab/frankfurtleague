@@ -8,7 +8,7 @@ import {
   RolledBackError,
 } from "@/core/errors";
 
-import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
+import { buildRefusal, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
 
 import type { SentRequest } from "@/core/errors";
@@ -291,7 +291,7 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     // or a proxy's own answer among them.
     if (error.statusCode >= 500 && error.serverErrorCode !== "DB-FAIL-001" && mayHaveWritten(error)) return { ...OUTCOME_UNKNOWN };
 
-    return { success: false, error: "Der Server hat mit einem Fehler geantwortet. Versuche es erneut." };
+    return { success: false, error: `Der Server hat mit einem Fehler geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}` };
   }
 
   if (error instanceof APINetworkError) {
@@ -302,7 +302,7 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     return {
       success: false,
       error: error.isTimeout
-        ? "Der Server hat zu lange nicht geantwortet. Versuche es erneut."
+        ? `Der Server hat zu lange nicht geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}`
         : "Der Server ist gerade nicht erreichbar. Versuche es später erneut.",
     };
   }
@@ -311,7 +311,7 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     // A 2xx whose body failed its schema: the write landed, and only its answer is unreadable.
     if (mayHaveWritten(error)) return { ...OUTCOME_UNKNOWN };
 
-    return { success: false, error: "Die Daten kamen fehlerhaft an. Versuche es erneut." };
+    return { success: false, error: `Die Daten kamen fehlerhaft an. ${VERSUCHE_ES_ERNEUT_SATZ}` };
   }
 
   // This application's own throw carries no request, so the one its caller answers stands in: thrown

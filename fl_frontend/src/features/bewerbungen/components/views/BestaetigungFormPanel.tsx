@@ -26,6 +26,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
@@ -53,7 +54,7 @@ type EinwilligungAntwort =
  */
 const WIDERSPRUCH_SENDEN = "Widerspruch senden";
 
-const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
+const NICHT_GESPEICHERT = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 // The floor is the person's rather than a seat's — one press answers for both seats of a mirrored
 // pair, and the link's read hands over the higher of the two.

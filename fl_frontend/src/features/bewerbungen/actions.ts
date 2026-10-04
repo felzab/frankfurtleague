@@ -152,7 +152,7 @@ export async function annehmenBewerbungAction(
     }
 
     if (!annahmeOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht angenommen", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht angenommen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // A club was created or entered, which is what the cached team reads answer. The granular tag
@@ -227,7 +227,7 @@ export async function ablehnenBewerbungAction(
     }
 
     if (!absageOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, unlike the acceptance: this moves the application's own `status` and
@@ -388,7 +388,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     }
 
     if (!erneutOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, as on the decline: this moves the application's own confirmation block
@@ -457,7 +457,7 @@ export async function kontaktEmailKorrigierenAction(
     }
 
     if (!korrekturOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, as on the decline: this moves the application's own contact block and
@@ -526,7 +526,7 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
     }
 
     if (!sitzOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Rolle wurde nicht neu besetzt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Rolle wurde nicht neu besetzt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, for the correction's reason: this writes the application's own contact block and

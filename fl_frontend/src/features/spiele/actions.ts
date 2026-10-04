@@ -3,7 +3,7 @@
 import { updateTag } from "next/cache";
 
 import { runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
@@ -55,7 +55,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     }
 
     if (!patch_operation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Spieldaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Spieldaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // Not redundant with the granular tags below: the default read path sends no `saison_id`, so

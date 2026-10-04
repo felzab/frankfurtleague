@@ -3,7 +3,7 @@
 import { updateTag } from "next/cache";
 
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchSpieltag } from "./mutations";
@@ -37,7 +37,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spieltag wurde nicht gespeichert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spieltag wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     invalidateSpieltage();

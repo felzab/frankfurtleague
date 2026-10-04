@@ -54,6 +54,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { GekeyteFassung, SchiedsrichterAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
@@ -96,7 +97,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
-const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
+const NICHT_GESPEICHERT = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /** This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here made. */
 const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";

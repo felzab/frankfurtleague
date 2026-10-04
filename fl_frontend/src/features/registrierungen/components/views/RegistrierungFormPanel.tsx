@@ -29,6 +29,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "../../constants";
 import { FLPostRegistrierungPayloadSchema } from "../../schemas";
@@ -40,7 +41,7 @@ import type { RegistrierungFormDraft } from "../../types";
 
 type RegistrierungAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: "ungueltig" });
 
-const NICHT_ABGESCHICKT = "Deine Registrierung wurde nicht gespeichert. Versuche es erneut.";
+const NICHT_ABGESCHICKT = `Deine Registrierung wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
  * A second press is safe from this panel alone, which holds the key the first one carried

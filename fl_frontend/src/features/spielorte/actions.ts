@@ -3,7 +3,7 @@
 import { updateTag } from "next/cache";
 
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
@@ -40,7 +40,7 @@ export async function postSpielortAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht angelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return { success: true, created_id: postOperation.created_id, message: "Spielort angelegt" };
@@ -73,7 +73,7 @@ export async function patchSpielortAction(
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Spielortdaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Spielortdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // A rename fans into every match embedding this venue, which is the one cached read it reaches.
@@ -110,7 +110,7 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return {
@@ -140,7 +140,7 @@ export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload)
 
     const reactivateOperation = await reactivateSpielort(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return {

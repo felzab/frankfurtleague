@@ -4,7 +4,7 @@ import { updateTag } from "next/cache";
 
 import { isFreshlySignedIn } from "@/core/auth";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants";
@@ -74,7 +74,7 @@ export async function postSchiedsrichterAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     const mint = postOperation.bestaetigung;
@@ -133,7 +133,7 @@ export async function patchSchiedsrichterAction(
     if (!postOperation.acknowledged) {
       return {
         success: false,
-        error: buildRefusal({ reason: "Die Schiedsrichterdaten wurden nicht gespeichert", repair: "Versuche es erneut" }),
+        error: buildRefusal({ reason: "Die Schiedsrichterdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }),
       };
     }
 
@@ -207,7 +207,7 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
     }
 
     if (!mintOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // The address the MINT read in its own transaction, never `email` above: this read is the older
@@ -256,7 +256,7 @@ export async function deleteSchiedsrichterAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return {
@@ -303,7 +303,7 @@ export async function reactivateSchiedsrichterAction(
     }
 
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // Non-null where the row came back unanswered: a retired referee's save mails nothing, so
@@ -360,7 +360,7 @@ export async function anonymiseSchiedsrichterAction(
     }
 
     if (!anonymiseOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // The repointed booking fans into every match as a rename does, so the same one cached read is

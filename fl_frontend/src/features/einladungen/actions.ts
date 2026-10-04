@@ -9,7 +9,7 @@ import { getTeamMemberships } from "@/features/teams/queries";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { einladungsLink } from "./einladungLink";
@@ -171,7 +171,7 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
 
       return {
         success: false,
-        error: buildRefusal({ reason: "Die E-Mail konnte nicht gesendet werden", repair: "Versuche es erneut" }),
+        error: buildRefusal({ reason: "Die E-Mail konnte nicht gesendet werden", repair: VERSUCHE_ES_ERNEUT }),
       };
     }
 

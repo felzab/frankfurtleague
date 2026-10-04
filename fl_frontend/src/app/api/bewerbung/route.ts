@@ -17,7 +17,7 @@ import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { NextRequest } from "next/server";
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       if (!eingang.acknowledged) {
         return {
           success: false as const,
-          error: buildRefusal({ reason: "Die Bewerbung wurde nicht gespeichert", repair: "Versuche es erneut" }),
+          error: buildRefusal({ reason: "Die Bewerbung wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }),
         };
       }
 

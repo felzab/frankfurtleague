@@ -4,7 +4,7 @@ import { updateTag } from "next/cache";
 
 import { toActionErrorResult } from "@/shared/utils/actionError";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
@@ -75,7 +75,7 @@ export async function postTeamAction(
       throw error;
     }
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht angelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // A refused entry leaves the club EXISTING in no season (`docs/backend/spec.md :: I11`), which the
@@ -133,7 +133,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
       throw error;
     }
     if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Teamdaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Teamdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // Base tags only: the rename and its fan-out into the embedded match copies touch EVERY season's
@@ -170,7 +170,7 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
       throw error;
     }
     if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // Base tag only: every list and by-id read of the club serves its `inactive_since`, whichever season
@@ -195,7 +195,7 @@ export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload):
 
     const reactivateOperation = await reactivateTeam(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     updateTag("teams");
@@ -313,7 +313,7 @@ export async function replaceSaisonTeamAction(
     }
 
     if (!replacement.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht ersetzt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht ersetzt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // BOTH pairs, as the group swap invalidates them: the league table now names another club, and

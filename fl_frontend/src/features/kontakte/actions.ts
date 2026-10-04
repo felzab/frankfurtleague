@@ -5,7 +5,7 @@ import { getLaufendesLabel } from "@/core/einwilligung";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { kontakteMayMoveLinks } from "./linkMint";
@@ -48,7 +48,7 @@ export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePaylo
 
     const erasure = await eraseKontaktperson(validated.data);
     if (!erasure.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Kontaktdaten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Kontaktdaten wurden nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves: no cached read holds a contact person.
@@ -114,7 +114,7 @@ export async function patchSaisonTeamKontakteAction(
     }
 
     if (!saisonTeam.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, for the erasure's reason above, and its list is uncached for the same reason.
@@ -177,7 +177,7 @@ export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload)
     }
 
     if (!mintOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     const mint = mintOperation.bestaetigung;

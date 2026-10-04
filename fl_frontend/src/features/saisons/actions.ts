@@ -3,7 +3,7 @@
 import { updateTag } from "next/cache";
 
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
@@ -93,7 +93,7 @@ export async function postSaisonAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht angelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // A create lands `future`, so nothing resolving the current season moves. Only the list does.
@@ -131,7 +131,7 @@ export async function patchSaisonAction(
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht gespeichert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     invalidateSaisonAndTable();
@@ -170,7 +170,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
     }
 
     if (!activateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht umgestellt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht umgestellt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     invalidateRollover();
@@ -212,7 +212,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
     }
 
     if (!swapOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Gruppen wurden nicht getauscht", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Gruppen wurden nicht getauscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // Both layers (`docs/frontend/spec.md` §1.4).
@@ -269,7 +269,7 @@ export async function generateSpielplanAction(
     }
 
     if (!generateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht angelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     invalidateSpielplan(validated.data.id);
@@ -317,7 +317,7 @@ export async function undrawSpielplanAction(
     }
 
     if (!undrawOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht zurückgenommen", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht zurückgenommen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // The draw's tag set, this removing exactly what that write created.

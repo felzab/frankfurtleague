@@ -64,8 +64,8 @@ describe("UNKNOWN_REFUSAL", () => {
   });
 });
 
-/* Spelled out once here; every reader's own case compares against the constant, so a reader that
-   keeps a copy of its own fails there the day the two drift. */
+/* The approved words, spelled out. A repair takes `VERSUCHE_ES_ERNEUT` and a closing retry sentence
+   appends `VERSUCHE_ES_ERNEUT_SATZ`; only a retry inside a longer sentence is written out at its site. */
 describe("VERSUCHE_ES_ERNEUT", () => {
   it("is the approved retry, as a repair and as a sentence", () => {
     assert.equal(VERSUCHE_ES_ERNEUT, "Versuche es erneut");

@@ -10,6 +10,7 @@ import { sendSignInCode, signOutHere } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -99,7 +100,7 @@ export async function signOutAction(): Promise<FormState> {
       // Narrowed rather than caught whole: anything the library did not raise is a defect here,
       // and answering it with a retry sentence is how one goes unseen.
       if (error instanceof APIError) {
-        return { success: false, error: "Versuche es erneut." };
+        return { success: false, error: VERSUCHE_ES_ERNEUT_SATZ };
       }
 
       throw error;

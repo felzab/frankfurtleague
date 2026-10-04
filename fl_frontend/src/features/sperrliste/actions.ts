@@ -8,7 +8,7 @@ import { MailWithheldError, sendSperreNotice } from "@/core/mail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPERRE_ERFOLG } from "./constants";
@@ -104,7 +104,7 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht gesperrt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht gesperrt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // AFTER the write is acknowledged, so nobody is signed out or told they are barred by a request
@@ -148,7 +148,7 @@ export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Pr
     const deleteOperation = await deleteSperre(validated.data);
 
     if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Sperre wurde nicht aufgehoben", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Sperre wurde nicht aufgehoben", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return { success: true, message: "Diese Adresse wird nicht mehr abgewiesen." };

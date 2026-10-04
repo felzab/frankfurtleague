@@ -11,6 +11,7 @@ import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { ABSATZ_CLASSES, BestaetigungAbschnitt, Wert } from "./BestaetigungPanels";
 
@@ -21,7 +22,7 @@ import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 
 type WiderspruchAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei" });
 
-const NICHT_GESPEICHERT = "Dein Widerspruch wurde nicht gespeichert. Versuche es erneut.";
+const NICHT_GESPEICHERT = `Dein Widerspruch wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
  * A season row's link once its season has ended or its team has left it: the backend takes no

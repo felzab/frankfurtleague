@@ -15,6 +15,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { FormEinwilligungSection, FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
 import { FormSchuleSection } from "./FormSchuleSection";
@@ -39,7 +40,7 @@ type BewerbungAntwort = PublicEnvelope & { message?: string };
 /** The availability check's answer, whose `vergeben` is present only where it could be judged. */
 type KuerzelAntwort = { success: boolean; vergeben?: boolean; rateLimited?: boolean };
 
-const NICHT_ABGESCHICKT = "Deine Bewerbung wurde nicht abgeschickt. Versuche es erneut.";
+const NICHT_ABGESCHICKT = `Deine Bewerbung wurde nicht abgeschickt. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
  * A second press is safe from this page alone, which holds the key the first one carried
