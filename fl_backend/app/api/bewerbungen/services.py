@@ -1087,8 +1087,8 @@ def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence
 def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str) -> KontaktSeite:
     """The page a season row's seat opens.
 
-    A seat stored before `eingetragen_von` opens the season row's own whoever named its person: the
-    applicant's page promises a deletion and a message that a season row's link never brings.
+    A seat stored before `eingetragen_von` opens the season row's own page, whoever named its person:
+    the applicant's page promises a deletion and a message that a season row's link never brings.
     """
 
     return kontakt_seite_of(
