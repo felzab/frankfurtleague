@@ -23,7 +23,7 @@ from app.core.exception_handlers import DATABASE_FAILED
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
-from app.core.security import admin_judge, bind_actor
+from app.core.security import admin_judge, bind_actor, person_judge
 from app.core.transactions import ABORT_GRACE_S, UNJUDGED_KINDS, actor_judge_var, drain, transaction_session
 from app.main import create_app
 from tests.actor_tokens import verified_actor
@@ -628,6 +628,101 @@ class _RecordedJudge:
     def __call__(self, actor: Any, config: Any) -> object:
         self.called_with.append((actor, config))
         return self.judge
+
+
+class _RecordedCursor:
+    """Every read's cursor: no row, whichever of the driver's chained calls a helper makes."""
+
+    def __init__(self, rows: list[Mapping[str, Any]]) -> None:
+        self.rows = rows
+
+    def sort(self, *_: Any, **__: Any) -> _RecordedCursor:
+        return self
+
+    def limit(self, *_: Any, **__: Any) -> _RecordedCursor:
+        return self
+
+    async def to_list(self, *_: Any, **__: Any) -> list[Mapping[str, Any]]:
+        return self.rows
+
+
+class _RecordedCollection:
+    """A collection recording, for every call a judge makes on it, the session that call carried."""
+
+    def __init__(self, database: _RecordedDatabase, name: str) -> None:
+        self.database = database
+        self.name = name
+
+    def _carried(self, method: str, kwargs: Mapping[str, Any]) -> None:
+        self.database.carried.append((self.name, method, kwargs.get("session")))
+
+    async def aggregate(self, *_: Any, **kwargs: Any) -> _RecordedCursor:
+        self._carried("aggregate", kwargs)
+        return _RecordedCursor(self.database.grants if self.name == Collection.BERECHTIGUNGEN else [])
+
+    def find(self, *_: Any, **kwargs: Any) -> _RecordedCursor:
+        self._carried("find", kwargs)
+        return _RecordedCursor([])
+
+    async def find_one(self, *_: Any, **kwargs: Any) -> None:
+        self._carried("find_one", kwargs)
+
+    async def update_many(self, *_: Any, **kwargs: Any) -> SimpleNamespace:
+        self._carried("update_many", kwargs)
+        return SimpleNamespace(modified_count=1)
+
+    async def insert_one(self, *_: Any, **kwargs: Any) -> SimpleNamespace:
+        self._carried("insert_one", kwargs)
+        return SimpleNamespace(inserted_id=ObjectId())
+
+
+class _RecordedDatabase:
+    def __init__(self, grants: list[Mapping[str, Any]]) -> None:
+        self.grants = grants
+        self.carried: list[tuple[str, str, Any]] = []
+
+    def __getitem__(self, name: str) -> _RecordedCollection:
+        return _RecordedCollection(self, name)
+
+
+def _sessions_a_judge_carried(judge: Any, grants: list[Mapping[str, Any]]) -> tuple[Any, list[tuple[str, str, Any]]]:
+    """One attempt through `judge` on a session whose client records every call: the session, and each call with the session it carried."""
+
+    database = _RecordedDatabase(grants)
+    session = SimpleNamespace(client={build_test_config().db_base_name: database})
+
+    async def attempt() -> None:
+        async with judge(session):
+            pass
+
+    asyncio.run(attempt())
+
+    return session, database.carried
+
+
+class TestEveryJudgeReadsInTheAttemptsSession:
+    """`docs/backend/spec.md :: I921`, `:: I922`: a judge's read left off the session judges what committed last, not the attempt's snapshot.
+
+    Entered through `JudgedSession`, which no in-session sweep over a callback's source reaches.
+    """
+
+    def test_the_administrators_reads_and_anchor_carry_it(self):
+        claims = verified_actor(ACTING["adresse"])
+        grant = {**ACTING, "angekuendigt": []}
+        session, carried = _sessions_a_judge_carried(admin_judge(claims, build_test_config()), [grant])
+
+        assert {(collection, method) for collection, method, _ in carried} >= {
+            (Collection.BERECHTIGUNGEN, "aggregate"),
+            (Collection.SPERRLISTE, "find"),
+            (Collection.BERECHTIGUNGEN, "update_many"),
+        }
+        assert [call for call in carried if call[2] is not session] == []
+
+    def test_the_persons_ban_read_carries_it(self):
+        session, carried = _sessions_a_judge_carried(person_judge(verified_actor(ACTING["adresse"]), build_test_config()), [])
+
+        assert (Collection.SPERRLISTE, "find") in {(collection, method) for collection, method, _ in carried}
+        assert [call for call in carried if call[2] is not session] == []
 
 
 class TestTheAdministratorsBinderBindsTheirJudge:
