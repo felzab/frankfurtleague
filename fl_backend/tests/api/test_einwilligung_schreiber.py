@@ -220,6 +220,7 @@ def _admission() -> Write:
     registrierung = {"vorname": "Ida", "nachname": "Musterfrau", "geburtsdatum": "2009-05-04", "einwilligung": fresh}
     update = compose_person_update(registrierung_raw=registrierung, gespeichert=stored["einwilligung"], adresse="ida@example.com")
     assert "einwilligung.umfang" in update["$set"], "the registration renewed no choice, so this case proves nothing"
+    assert "einwilligung.medien" not in update["$set"], "the media withdrawal, later than the registration, was renewed over"
     return stored, update, ("einwilligung",)
 
 
@@ -305,6 +306,8 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/konto/services.py::compose_sitze_selbst",
         "app/api/konto/services.py::compose_bewerbungssitze_selbst",
         "app/api/teams/services.py::_confirmation_held_by",
+        # Writers at their routes, each through a composer classed above, and each driven by its own
+        # route's suite: the pupil's confirmation and the person's own consent PATCHes.
         "app/api/registrierungen/einwilligung_router.py::post_bestaetigung",
         "app/api/registrierungen/einwilligung_router.py::answer_for_the_pupil",
         "app/api/schiedsrichter/person_router.py::patch_einwilligung",
