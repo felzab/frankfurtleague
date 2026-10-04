@@ -54,10 +54,16 @@ The exception types carrying them are declared in `fl_backend/app/core/exception
 **A code raised under `app/api/` is a domain rule, stated in full at
 `fl_backend/app/core/domain.py :: RULES` and published at its status on its operations in
 `fl_backend/openapi.json`, and it takes no row here; the protocol codes in `app/core/` describe who you
-are, whether a route serves the request, and whether the body parses.**
+are, whether a route serves the request, whether the body parses, and how much you have written
+today.**
 `fl_backend/tests/core/test_domain.py :: test_every_domain_rule_the_application_defines_is_declared` holds
 that correspondence in both directions, excusing the protocol codes by name, and
-`:: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the excused set.
+`:: test_the_protocol_codes_are_the_ones_outside_the_api_layer` pins the excused set. **No subject
+holds both a protocol code and a rule's**, since the frontend tells them apart by subject alone
+(`fl_frontend/src/core/errors.ts :: isRefusalCode`): a rule under a protocol subject is never worded
+by its slice, and a protocol code under a rule's subject is asked of every slice's mapper.
+`fl_backend/tests/core/test_domain.py :: test_no_class_holds_both_a_protocol_code_and_a_rule_s` holds
+the split, and `:: test_the_frontend_reads_the_protocol_classes` the frontend's copy of it.
 
 A domain refusal answers the status its check chose ([`docs/backend/spec.md`](../backend/spec.md)
 §1.4 holds the test), and a 409 wherever the same request would have succeeded against a different

@@ -132,10 +132,10 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * The protocol's classes: a credential, a request the API cannot take, a route it does not serve. None is
- * a rule refusing what the request asked for, and each class grows codes the backend adds to it.
+ * The protocol's classes: a credential, a request the API cannot take, a route it does not serve, a person's
+ * day ceiling. None is a rule refusing what was asked, and each class grows codes the backend adds to it.
  */
-const PROTOCOL_CLASS = /^REQ-(AUTH|VAL|ROUTE)-/;
+const PROTOCOL_CLASS = /^REQ-(AUTH|VAL|ROUTE|DROSSELUNG)-/;
 
 /**
  * Whether a code is one a slice's mapper words: a rule's, or the unique index's `DB-COMMON-002`. By the

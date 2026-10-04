@@ -1,6 +1,7 @@
 import ast
 import functools
 import importlib
+import re
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from types import ModuleType
@@ -50,6 +51,11 @@ from tests.core.app_source import Declaration, api_routes, declared, module_of, 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
+
+# The frontend's copy of the classes below, which it tells a rule's code from the protocol's by alone:
+# a code it misreads as a rule's is asked of every slice's mapper, and one misread the other way of none.
+FRONTEND_ERRORS = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "errors.ts"
+FRONTEND_PROTOCOL_CLASS = re.compile(r"^const PROTOCOL_CLASS = /\^REQ-\(([A-Z|]+)\)-/;$", re.MULTILINE)
 
 # One file, so the pairing below can be exact in both directions.
 UNENFORCED_TESTS = "tests/core/test_unenforced.py"
@@ -314,6 +320,27 @@ def test_the_protocol_codes_are_the_ones_outside_the_api_layer():
     in_core = _codes_in(APP_ROOT / "core") - {rule.code for rule in RULES}
 
     assert in_core == PROTOCOL_CODES
+
+
+def _class_of(code: str) -> str:
+    """`REQ-AUTH-001`'s `AUTH`."""
+
+    return code.split("-")[1]
+
+
+def test_no_class_holds_both_a_protocol_code_and_a_rule_s():
+    """What lets the frontend classify a code by its class alone (`fl_frontend/src/core/errors.ts :: isRefusalCode`)."""
+
+    rule_classes = {_class_of(rule.code) for rule in RULES if rule.code.startswith(_CODE_PATTERN)}
+
+    assert not {_class_of(code) for code in PROTOCOL_CODES} & rule_classes
+
+
+def test_the_frontend_reads_the_protocol_classes():
+    match = FRONTEND_PROTOCOL_CLASS.search(FRONTEND_ERRORS.read_text(encoding="utf-8"))
+
+    assert match is not None, f"{FRONTEND_ERRORS.name} no longer spells PROTOCOL_CLASS as this test reads it"
+    assert set(match[1].split("|")) == {_class_of(code) for code in PROTOCOL_CODES}
 
 
 def test_every_collection_is_declared_once():
