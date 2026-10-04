@@ -134,6 +134,8 @@ export const FLKontaktKenntnisnahmeEintragSchema = z.object({
     "POST /bewerbungen",
     "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
     "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
+    "POST /bewerbungen/einwilligung",
+    "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
   ]),
   umfang: kenntnisnahmeUmfang,
   medien: z.boolean(),

@@ -39,6 +39,7 @@ export const FLEinwilligungEintragSchema = z.object({
     "POST /schiedsrichter/bestaetigung",
     "PATCH /spieler/selbst/einwilligung",
     "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+    "POST /registrierungen/bestaetigung",
   ]),
   umfang: einwilligungUmfang,
   medien: z.boolean(),
