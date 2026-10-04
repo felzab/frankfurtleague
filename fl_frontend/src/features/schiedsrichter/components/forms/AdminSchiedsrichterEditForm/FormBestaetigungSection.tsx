@@ -17,6 +17,7 @@ import {
   SCHIEDSRICHTER_UMFANG_LABELS,
 } from "@/features/schiedsrichter/constants";
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
+import { Angabe } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -44,16 +45,6 @@ const LINK_ABGELAUFEN_TINT: PillTone = "warning";
 
 /** Closed on a person who answered: the endpoint refuses a second link, there being no page left to open. */
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
-
-/** One stored fact. A `<dl>` is its only valid parent: the pair is what makes the value a fact about the label. */
-function Angabe({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
-      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
 
 /** The act a choice stands on, under its value: the confirmation's day and label are another act's. */
 function Beleg({ children }: { children: ReactNode }) {

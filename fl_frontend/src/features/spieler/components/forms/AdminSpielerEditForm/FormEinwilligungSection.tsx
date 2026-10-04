@@ -7,6 +7,7 @@ import {
   EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
 } from "@/features/spieler/constants";
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
+import { Angabe } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -15,16 +16,6 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { ReactNode } from "react";
-
-/** One stored fact. A `<dl>` is its only valid parent: the pair is what makes the value a fact about the label. */
-function Angabe({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
-      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
 
 /** The act a choice stands on, under its value: the confirmation's day and label are another act's. */
 function Beleg({ children }: { children: ReactNode }) {
