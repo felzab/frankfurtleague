@@ -49,9 +49,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **Every participant answers for themselves through the website, and nobody consents on anybody
   else's behalf.** A pupil registers themselves; a referee is entered by an administrator and a
   contact person by whoever submits their school's application or by an administrator on a team's
-  season row, and each of them confirms their own entry through their own link. No route creates a
-  player and no payload carries a consent record, so an administrator can neither create one nor
-  assume, enter or transcribe a consent on anybody's behalf.
+  season row, and each of them confirms their own entry through their own link. No administrative
+  route creates a player and no administrative payload carries a consent choice, so an administrator
+  can neither create one nor assume, enter or transcribe a consent on anybody's behalf
+  (`docs/backend/spec.md :: I869`). The one write that creates a player is a team's admission of a
+  pupil's own confirmed registration, which carries that pupil's own answer onto the person
+  (`fl_backend/app/api/registrierungen/person_router.py :: aufnehmen`, `docs/backend/spec.md :: I951`,
+  `:: I953`).
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(f) rather than an
   Einwilligung, and the only consents their block holds are the optional WhatsApp scope and the media
@@ -450,16 +454,17 @@ Every ruling below is the sign-up flow as it stands for the next season.
   writes a `verification` row as well, for five minutes, on every view of the sign-in page and on
   every step-up: it holds the challenge and, where the visitor is already signed in, the id of their
   account, and nothing about a visitor who is not.
-- **No log row names a person as the one who wrote it today, and a person's own write is
-  recorded under a pseudonym rather than their address.** `fl_frontend/src/core/subject.ts :: getSubjectSession`
-  already folds the address of whoever opens a panel into the request's actor, and
-  `fl_frontend/src/core/api.ts` sends that actor to the backend on admin-tier calls alone, so no
-  `aktionen` row's actor is a person. An address in `actor.email` would sit outside the redaction
-  above, an exception taken for administrators and for the reason administrators give, so a
-  person's actor carries none: the binder a person's router declares
+- **A person's own write is recorded under a pseudonym rather than their address.** An address in
+  `actor.email` would sit outside the redaction above, an exception taken for administrators and
+  for the reason administrators give, so a person's actor carries none: the binder every router of
+  `fl_backend/app/main.py :: PERSON_ROUTERS` declares
   (`fl_backend/app/core/security.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
-  of the folded address as the ban list takes one, and the Funktion the write was authorised under.
-  No router declares it yet. Ruled 2026-09-21.
+  of the folded address as the ban list takes one, and the Funktion the write was authorised under,
+  and the log refuses a person's row carrying an address (`docs/backend/spec.md :: I384`). Ruled
+  2026-09-21. **No erasure reaches the pseudonym yet**: an erasure empties the images of the rows
+  naming the documents it removes (`docs/backend/spec.md :: I42`), while every row the person wrote
+  keeps their pseudonym until it expires twelve months after the write (`:: I119`), and this
+  controller holds the key that recomputes it from the address.
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
