@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getLaufendeFassung } from "@/core/einwilligung";
+import { getEinwilligungFassung } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
@@ -46,18 +46,17 @@ async function BestaetigungContent(props: NextPageProps) {
   // failed read is its own state: the dead-link panel there would call a live link void.
   if (typeof token !== "string" || token === "") return <BestaetigungView start={{ zustand: "ungueltig" }} />;
 
-  // Beside the link's read rather than after it, and settled to `null` so a dead link's panel never
-  // waits on words it does not show. Per request: a deploy moves the label the answer must stamp.
-  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt"))
-    .then((gelesen) => gekeyteFassung(gelesen, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL))
-    .catch(() => null);
-
   const start: BestaetigungStart = await getEinwilligungAnsicht(token).then(
     async (gelesen): Promise<BestaetigungStart> => {
       if (gelesen.zustand !== "gueltig") return gelesen;
 
+      // After the link's read, never beside it: the view names the label by how the seat was filled,
+      // and only a dead link's panel, which shows no words, is spared the wait.
+      const worte = await runWithIncomingTrace(() => getEinwilligungFassung(gelesen.ansicht.laufende_fassung))
+        .then((fassung) => (fassung === null ? null : gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL)))
+        .catch(() => null);
+
       // A page with no words to show is a page that cannot be answered, which the failed read's panel says.
-      const worte = await fassung;
       return worte === null ? { zustand: "unlesbar" } : { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
     },
     () => ({ zustand: "unlesbar" }),

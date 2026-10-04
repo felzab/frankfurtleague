@@ -8,6 +8,8 @@ import type { FLEinwilligungFassung } from "./schemas";
 export const EINWILLIGUNG_SEITEN = [
   "bewerbung",
   "bestaetigung_kontakt",
+  "bestaetigung_kontakt_verwaltung",
+  "bestaetigung_kontakt_saison",
   "bestaetigung_spieler",
   "bestaetigung_schiedsrichter",
   "konto_spieler",
@@ -18,7 +20,8 @@ export const EINWILLIGUNG_SEITEN = [
 export type EinwilligungSeite = (typeof EINWILLIGUNG_SEITEN)[number];
 
 // Each list is its page's whole set: a served map missing a key or holding one more fails
-// `gekeyteFassung` rather than rendering a gap or dropping a paragraph nobody then sees.
+// `gekeyteFassung` rather than rendering a gap or dropping a paragraph nobody then sees. Every contact
+// page shares the contact keys, so a link's page is placed by whichever label its view names.
 export const KONTAKT_ABSATZ_SCHLUESSEL = [
   "worum",
   "gespeichert",

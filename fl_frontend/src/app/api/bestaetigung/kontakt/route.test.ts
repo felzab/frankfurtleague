@@ -53,6 +53,7 @@ const ANSICHT = {
   zugleich_rolle: null,
   vorname: "Käthe",
   text_version: LAUFEND,
+  laufende_fassung: LAUFEND,
   mindestalter: 18,
   medien_mindestalter: 18,
 };

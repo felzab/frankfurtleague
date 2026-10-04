@@ -55,6 +55,11 @@ const { getEinwilligungFassung, getLaufendeFassung, getLaufendesLabel, istFassun
 const DOCUMENT = readEinwilligungDocument();
 const BEWERBUNG = publishedLaufendeFassung("bewerbung", DOCUMENT);
 const KONTAKT = publishedLaufendeFassung("bestaetigung_kontakt", DOCUMENT);
+/** The two contact pages beside the applicant's: a seat the administration filled, and one on a team's season row. */
+const KONTAKT_VERWALTUNG = publishedLaufendeFassung("bestaetigung_kontakt_verwaltung", DOCUMENT);
+const KONTAKT_SAISON = publishedLaufendeFassung("bestaetigung_kontakt_saison", DOCUMENT);
+/** Every contact page's running label, which the link's view picks among. */
+const KONTAKTSEITEN = [KONTAKT, KONTAKT_VERWALTUNG, KONTAKT_SAISON];
 const SPIELER = publishedLaufendeFassung("bestaetigung_spieler", DOCUMENT);
 const SCHIEDSRICHTER = publishedLaufendeFassung("bestaetigung_schiedsrichter", DOCUMENT);
 const UMFANG = ["kader_oeffentlich", "intern"] as const;
@@ -140,6 +145,8 @@ describe("the running label", () => {
     for (const [seite, fassung] of [
       ["bewerbung", BEWERBUNG],
       ["bestaetigung_kontakt", KONTAKT],
+      ["bestaetigung_kontakt_verwaltung", KONTAKT_VERWALTUNG],
+      ["bestaetigung_kontakt_saison", KONTAKT_SAISON],
       ["bestaetigung_spieler", SPIELER],
       ["bestaetigung_schiedsrichter", SCHIEDSRICHTER],
     ] as const) {
@@ -161,10 +168,10 @@ describe("a page's keyed words", () => {
      must hold exactly the page's keys, in the order and with the words its frozen array holds. */
   it("keys each page's running words under exactly that page's keys, in the frozen order", () => {
     for (const [fassung, schluessel, bedien] of [
-      [KONTAKT, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL],
-      [SPIELER, SPIELER_ABSATZ_SCHLUESSEL, UMFANG],
-      [SCHIEDSRICHTER, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG],
-    ] as const) {
+      ...KONTAKTSEITEN.map((kontakt) => [kontakt, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL] as const),
+      [SPIELER, SPIELER_ABSATZ_SCHLUESSEL, UMFANG] as const,
+      [SCHIEDSRICHTER, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG] as const,
+    ]) {
       const { absaetze } = gekeyteFassung(fassung, schluessel, bedien);
 
       assert.deepEqual(
@@ -216,8 +223,9 @@ describe("a page's keyed words", () => {
 describe("the wording the backend runs", () => {
   /* Nothing pins WHICH label is live but these cases: an earlier label states the fourteen days with
      no start, or with no carve-out for the reminder. */
-  it("points both live contact labels at a wording naming when the fourteen days start and what does not restart them", () => {
-    for (const { text_version, absaetze } of [BEWERBUNG, KONTAKT]) {
+  // The season row's page is no application's, so it states its link's own fourteen days instead.
+  it("points every live label of an application's contacts at a wording naming when the fourteen days start and what does not restart them", () => {
+    for (const { text_version, absaetze } of [BEWERBUNG, KONTAKT, KONTAKT_VERWALTUNG]) {
       const text = absaetze.join(" ");
 
       assert.ok(text.includes("dem Versand"), `${text_version} states the deadline without naming the day it starts`);
@@ -242,8 +250,8 @@ describe("the wording the backend runs", () => {
 
   /* The earlier labels rest participation on a contract a 16-year-old cannot enter alone, and offer
      the media switch from 16. */
-  it("points the three live confirmation labels at legitimate interest, and the two media pages at the media age", () => {
-    for (const { text_version, absaetze } of [KONTAKT, SPIELER, SCHIEDSRICHTER]) {
+  it("points every live confirmation label at legitimate interest, and at the media age", () => {
+    for (const { text_version, absaetze } of [...KONTAKTSEITEN, SPIELER, SCHIEDSRICHTER]) {
       const text = absaetze.join(" ");
 
       assert.ok(text.includes("Art. 6 Abs. 1 lit. f DSGVO"), `${text_version} names no legitimate interest`);
@@ -252,7 +260,7 @@ describe("the wording the backend runs", () => {
       assert.ok(!text.includes("lit. b"), `${text_version} still rests something on a contract`);
       assert.ok(text.includes("besonderen Situation"), `${text_version} states the objection without its condition`);
     }
-    for (const { text_version, absaetze } of [SPIELER, SCHIEDSRICHTER]) {
+    for (const { text_version, absaetze } of [...KONTAKTSEITEN, SPIELER, SCHIEDSRICHTER]) {
       assert.ok(absaetze.join(" ").includes("ab {medienMinAlter} Jahren"), `${text_version} offers media consent at no stated age`);
     }
   });
@@ -269,11 +277,17 @@ describe("the wording the backend runs", () => {
   });
 
   /* The same article asks the same separation of a page whose confirmation is no consent. */
-  it("gives the objection a paragraph of its own on the contact person's page", () => {
-    const { absaetze } = gekeyteFassung(KONTAKT, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
+  it("gives the objection a paragraph of its own on every contact person's page", () => {
+    for (const fassung of KONTAKTSEITEN) {
+      const { absaetze } = gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
 
-    assert.match(absaetze.art21, /^Der Verarbeitung Deiner Daten .* \(Art\. 21 DSGVO\)\.$/, "the contact page states no objection of its own");
-    assert.ok(!absaetze.widerruf.includes("Art. 21"), "the contact page folds the objection into the rights paragraph");
+      assert.match(
+        absaetze.art21,
+        /^Der Verarbeitung Deiner Daten .* \(Art\. 21 DSGVO\)\.$/,
+        `${fassung.text_version} states no objection of its own`,
+      );
+      assert.ok(!absaetze.widerruf.includes("Art. 21"), `${fassung.text_version} folds the objection into the rights paragraph`);
+    }
   });
 
   /* The form is the submitting Ansprechperson's first contact, so the same article asks the objection

@@ -641,6 +641,9 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   // alone: a dead link's panel has nobody to name and must not invent one.
   vorname: z.string().nullable(),
   text_version: z.string().nullable(),
+  // The label whose words the page renders and whose name the answer sends back: the backend picks the
+  // applicant's page or the administration's by how the seat was filled, so no page of this side's choosing.
+  laufende_fassung: z.string(),
   // The floor this link's person has to reach, over both their seats: the page bounds its date
   // control and words its own sentences from this rather than from a constant of its own.
   mindestalter: z.number().int(),

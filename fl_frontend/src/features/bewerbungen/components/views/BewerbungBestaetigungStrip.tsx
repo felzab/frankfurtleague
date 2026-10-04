@@ -113,7 +113,8 @@ type Bearbeitung = "korrektur" | "neubesetzung";
 
 /**
  * What a reseat writes and shows, read by the page per request: the label the application form runs,
- * which the new person's record stamps, and the confirmation page's words that person will be asked.
+ * which the new person's record stamps, and the words of the administration's confirmation page, which
+ * that person will be asked on.
  */
 export type Neubesetzung = { textVersion: string; absaetze: KontaktFassung["absaetze"] };
 

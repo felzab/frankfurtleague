@@ -10,7 +10,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
-import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
+import { laufendeKontaktSaisonFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { ABLEHNEN_LABEL, VERTRETUNG_MIN_ALTER } from "../../constants.ts";
@@ -20,7 +20,8 @@ import type { BestaetigungStart } from "./BestaetigungView.tsx";
 const { BestaetigungView } = await import("./BestaetigungView.tsx");
 const { BestaetigungFormPanel } = await import("./BestaetigungFormPanel.tsx");
 
-const KONTAKT = laufendeKontaktFassung();
+/** The season row's own page, which every link on a row opens unless the applicant named the person. */
+const KONTAKT = laufendeKontaktSaisonFassung();
 
 /** Every sentence a page about an application says and a season row's seat must not: nobody applied, nothing is deleted with an application. */
 const NUR_BEWERBUNG = /Bewerbung|eingereicht|Wird Deine Schule neu eingetragen/;
@@ -35,6 +36,7 @@ const ANSICHT = {
   zugleich_rolle: "trainer" as const,
   vorname: "Mira",
   text_version: KONTAKT.textVersion,
+  laufende_fassung: KONTAKT.textVersion,
   mindestalter: VERTRETUNG_MIN_ALTER,
   medien_mindestalter: MEDIEN_MIN_ALTER,
 };

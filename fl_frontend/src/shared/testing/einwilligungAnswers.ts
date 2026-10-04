@@ -20,10 +20,18 @@ export const laufendeSchiedsrichterFassung = () =>
     "intern",
   ] as const);
 
-/** What the admin application page hands its reseat: the form's running label and the contact page's running words. */
+/** The administration's contact page, which a person an administrator seated opens on. */
+export const laufendeKontaktVerwaltungFassung = () =>
+  gekeyteFassung(publishedLaufendeFassung("bestaetigung_kontakt_verwaltung"), KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
+
+/** The season row's contact page, which a person seated on a team's season row by the administration opens on. */
+export const laufendeKontaktSaisonFassung = () =>
+  gekeyteFassung(publishedLaufendeFassung("bestaetigung_kontakt_saison"), KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
+
+/** What the admin application page hands its reseat: the form's running label and the administration's contact page's running words. */
 export const laufendeNeubesetzung = () => ({
   textVersion: publishedLaufendeFassung("bewerbung").text_version,
-  absaetze: laufendeKontaktFassung().absaetze,
+  absaetze: laufendeKontaktVerwaltungFassung().absaetze,
 });
 
 /** The application form's running words, as its page hands them to the form. */

@@ -14,7 +14,7 @@ import { bestaetigungsStand } from "@/features/bewerbungen/bestaetigungStand.ts"
 import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/schemas.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
-import { laufendeKontaktFassung, laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { toFieldErrors } from "@/shared/utils/validation.ts";
 
@@ -526,7 +526,7 @@ describe("seating another person where one stepped out", () => {
     assert.ok(!reseat("Ansprechperson"), "one person's two seats each carry their own control");
   });
 
-  /* The person reads the confirmation page and never the form, whose words address the submitter. */
+  /* The person reads the administration's confirmation page and never the form, whose words address the submitter. */
   it("shows the confirmation page's opening words every person reads alike, in its order, and none of the form's", async () => {
     // Read off the page itself, rendered with a marker in every slot, so a paragraph the page adds,
     // drops or moves fails here rather than drifting from the box.
@@ -534,7 +534,7 @@ describe("seating another person where one stepped out", () => {
     const seite = render(
       underNext(
         h(BestaetigungHinweise, {
-          absaetze: laufendeKontaktFassung().absaetze,
+          absaetze: laufendeNeubesetzung().absaetze,
           schule: markiert,
           saison: markiert,
           rolle: markiert,

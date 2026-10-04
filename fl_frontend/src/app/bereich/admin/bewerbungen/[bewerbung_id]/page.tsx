@@ -51,7 +51,8 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
     getTeamMemberships(),
     // Per request, as every stamper reads the running label: a deploy moves it.
     runWithIncomingTrace(() => getLaufendesLabel("bewerbung")),
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt")),
+    // The administration's page, which a person an administrator seats is asked on.
+    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt_verwaltung")),
   ]);
 
   // Null where nothing carries the application's `saison_id`: the acceptance would 404, and the

@@ -13,13 +13,18 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
-import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { laufendeBewerbungFassung, laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
+import {
+  laufendeBewerbungFassung,
+  laufendeKontaktFassung,
+  laufendeKontaktSaisonFassung,
+  laufendeKontaktVerwaltungFassung,
+} from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, pageBody, renderPage } from "@/shared/testing/pageHarness.ts";
@@ -239,6 +244,7 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
         zugleich_rolle: zugleich_rolle,
         vorname: "Mira",
         text_version: KONTAKT_LABEL,
+        laufende_fassung: KONTAKT_LABEL,
         mindestalter: mindestalter,
         medien_mindestalter: MEDIEN_MIN_ALTER,
       },
@@ -919,6 +925,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     zugleich_rolle: null,
     vorname: "Mira",
     text_version: KONTAKT_LABEL,
+    laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
     medien_mindestalter: MEDIEN_MIN_ALTER,
   } as const;
@@ -1402,6 +1409,7 @@ describe("what a link to a barred address opens on", () => {
     zugleich_rolle: null,
     vorname: "Mira",
     text_version: KONTAKT_LABEL,
+    laufende_fassung: KONTAKT_LABEL,
     mindestalter: BEWERBUNG_MIN_ALTER,
     medien_mindestalter: MEDIEN_MIN_ALTER,
   } as const;
@@ -1472,16 +1480,25 @@ describe("the words the two contact pages are handed", () => {
     zugleich_rolle: null,
     vorname: "Mira",
     text_version: KONTAKT_LABEL,
+    laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
     medien_mindestalter: MEDIEN_MIN_ALTER,
   } as const;
 
-  /** Every read answered as the backend would, `laufend` overriding what it runs on each page and `scheitert` failing one endpoint. */
-  function backend({ laufend, scheitert }: { laufend?: Record<string, string>; scheitert?: string } = {}): void {
+  /**
+   * Every read answered as the backend would: `laufend` overriding what it runs on each page,
+   * `ansichtNennt` the label the link's view names, and `scheitert` failing one endpoint.
+   */
+  function backend({
+    laufend,
+    ansichtNennt,
+    scheitert,
+  }: { laufend?: Record<string, string>; ansichtNennt?: string; scheitert?: string } = {}): void {
     answerReadsWith((endpoint, schema, params) => {
       if (endpoint === scheitert) throw new Error(`the backend failed ${endpoint}`);
       if (endpoint === "/einwilligung/seiten" && laufend !== undefined) return { acknowledged: 1, laufende_fassungen: laufend };
-      if (endpoint === "/bewerbungen/einwilligung/ansicht") return GEOEFFNET;
+      if (endpoint === "/bewerbungen/einwilligung/ansicht")
+        return { ...GEOEFFNET, laufende_fassung: ansichtNennt ?? GEOEFFNET.laufende_fassung };
       if (endpoint === "/bewerbungen/fenster/2026") return FENSTER;
       return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
     });
@@ -1503,20 +1520,43 @@ describe("the words the two contact pages are handed", () => {
     return body.props.fassung;
   };
 
-  /* The words are the backend's, read per request for the label it runs: a page holding its own copy
-     renders a wording the backend may have moved past, under a label it does not stamp. */
-  it("hands an open link the words the backend serves for the label it runs on the contact page", async () => {
-    backend();
-    const start = await bestaetigungStart();
+  /* The backend picks the seat's page by how it was filled and where it sits, the applicant's, the
+     administration's on an application or on a season row, and the answer must name that page's label: words of this page's own choosing would be judged
+     against a label the seat does not run. */
+  it("hands an open link the words of the label its view names, on every contact page", async () => {
+    for (const fassung of [KONTAKT, laufendeKontaktVerwaltungFassung(), laufendeKontaktSaisonFassung()]) {
+      backend({ ansichtNennt: fassung.textVersion });
+      const start = await bestaetigungStart();
 
-    assert.equal(start.zustand, "gueltig", "an open link did not open");
-    assert.deepEqual(start.zustand === "gueltig" ? start.fassung : null, KONTAKT, "the page renders words other than the backend serves");
+      assert.equal(start.zustand, "gueltig", `an open link naming ${fassung.textVersion} did not open`);
+      assert.deepEqual(
+        start.zustand === "gueltig" ? start.fassung : null,
+        fassung,
+        `the page renders words other than ${fassung.textVersion}'s`,
+      );
+    }
   });
 
-  /* A label whose sections were never kept by key cannot be placed by this page: an open link then
-     reads as the failed read it is, never as a form missing paragraphs. */
-  it("opens a link on the failed read's panel where the backend runs a label the page cannot place", async () => {
-    backend({ laufend: { bestaetigung_kontakt: "2026-09-bestaetigungsseite-5" } });
+  /* The view names the label, so a page running list without the contact pages opens the link all the same. */
+  it("takes the label from the link's view rather than the running list", async () => {
+    backend({ laufend: {} });
+
+    assert.equal((await bestaetigungStart()).zustand, "gueltig", "the page asked the running list for the label its view names");
+  });
+
+  /* A label whose sections were never kept by key, or another page's, cannot be placed by this page:
+     an open link then reads as the failed read it is, never as a form missing paragraphs. */
+  it("opens a link on the failed read's panel where its view names a label the page cannot place", async () => {
+    for (const label of ["2026-09-bestaetigungsseite-5", publishedLaufendeFassung("bestaetigung_spieler").text_version]) {
+      backend({ ansichtNennt: label });
+
+      assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" }, label);
+    }
+  });
+
+  /* The registry holding no such label is a read that failed, never a dead link. */
+  it("opens a link on the failed read's panel where its view names a label the registry does not hold", async () => {
+    backend({ ansichtNennt: "eine-unbekannte-fassung" });
 
     assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
   });
