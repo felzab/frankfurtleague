@@ -1,97 +1,35 @@
 // The reader behind `.claude/hooks/implementer-whole-suite.sh`, which says why it refuses and why it
-// lets through what it cannot read. Word lists rather than grammars: a form missing here is a call
-// let through, the direction that hook fails in by choice.
+// lets through what it cannot read. It knows the common forms only, each one probed by
+// `scripts/gate/selfcheck.sh` step 12: a form missing here is a call let through, never permission.
 const REFUSE = [
   "Targeted forms: pnpm run test:base <files> in fl_frontend; uv run --frozen pytest <paths> in fl_backend,",
-  "and uv run --frozen pytest -m db <file> where your brief allows a database file.",
+  "and uv run --frozen pytest -m db <file>, one database file, where your brief allows database files.",
   "A question only a whole suite answers goes in your report under (d).",
 ].join(" ");
 const RULE =
   "An implementer runs its targeted set and never a whole suite, the gate or the local stack " +
   "(.claude/agents/implementer.md section 5): CI runs every scope over the combined head once a batch lands.";
 
-// Flags taking their value as the next word; an unknown flag is read as taking none, so its value
+// Flags taking their value as the next word. An unknown flag is read as taking none, so its value
 // counts as an operand and the call is let through.
-const NODE_VALUE = new Set([
-  "--import",
-  "--require",
-  "-r",
-  "--loader",
-  "--experimental-loader",
-  "--conditions",
-  "-C",
-  "--env-file",
-  "--disable-warning",
-  "--test-reporter",
-  "--test-reporter-destination",
-  "--test-name-pattern",
-  "--test-skip-pattern",
-  "--test-concurrency",
-  "--test-shard",
-  "--test-timeout",
-]);
-const PYTEST_VALUE = new Set([
-  "-m",
-  "-k",
-  "-p",
-  "-c",
-  "-o",
-  "-W",
-  "-n",
-  "-r",
-  "--maxfail",
-  "--tb",
-  "--rootdir",
-  "--basetemp",
-  "--confcutdir",
-  "--override-ini",
-  "--junitxml",
-  "--junit-xml",
-  "--deselect",
-  "--ignore",
-  "--ignore-glob",
-  "--durations",
-  "--durations-min",
-  "--log-level",
-  "--log-cli-level",
-  "--log-file",
-  "--import-mode",
-  "--capture",
-  "--color",
-  "--dist",
-  "--maxprocesses",
-  "--timeout",
-  "--cov",
-  "--cov-report",
-]);
-const UV_RUN_VALUE = new Set([
-  "--project",
-  "--directory",
-  "--with",
-  "--with-requirements",
-  "--python",
-  "-p",
-  "--package",
-  "--extra",
-  "--group",
-  "--only-group",
-  "--env-file",
-  "--index",
-  "--default-index",
-]);
-const PNPM_VALUE = new Set(["-C", "--dir", "--filter", "-F", "--reporter", "--loglevel"]);
-const PYTHON_VALUE = new Set(["-X", "-W"]);
+const NODE_VALUE = new Set(["--import", "--test-name-pattern"]);
+const PYTEST_VALUE = new Set(["-m", "-k"]);
+const UV_RUN_VALUE = new Set(["--project", "--directory"]);
+const PNPM_VALUE = new Set(["-C", "--dir", "--filter"]);
 const COLLECT_ONLY = new Set(["--collect-only", "--co"]);
-const WRAPPERS = new Set(["time", "nice", "nohup", "exec", "command", "builtin", "if", "while", "until", "do", "then", "else", "elif", "!"]);
+const WRAPPERS = new Set(["time", "exec", "command", "!", "if", "then", "else", "do", "while", "until"]);
+// Operands naming a whole test tree, which narrow nothing.
+const WHOLE_TREES = new Set(["", "tests", "fl_backend", "fl_backend/tests", "src", "fl_frontend", "fl_frontend/src"]);
 
 // Words of each simple command, quotes resolved and redirections dropped: a redirect target read as
-// an operand would let `pytest > log` through.
-function segments(text) {
+// an operand would let `pytest > log` through. PowerShell's backslash is a path separator, never an
+// escape.
+function segments(text, escapes) {
   const out = [];
   let words = [];
   let word = null;
   let drop = false;
-  let pendingHeredocs = [];
+  let heredocs = [];
   let i = 0;
   const push = () => {
     if (word !== null && !drop) words.push(word);
@@ -111,17 +49,16 @@ function segments(text) {
       i++;
       // A heredoc body is skipped: a commit message fed through one may name a whole-suite command
       // it never runs.
-      for (const { delim, strip } of pendingHeredocs) {
+      for (const delim of heredocs) {
         while (i < text.length) {
           let j = text.indexOf("\n", i);
           if (j === -1) j = text.length;
-          let line = text.slice(i, j).replace(/\r$/, "");
-          if (strip) line = line.replace(/^\t+/, "");
+          const line = text.slice(i, j).replace(/\r$/, "").replace(/^\t+/, "");
           i = j + 1;
           if (line === delim) break;
         }
       }
-      pendingHeredocs = [];
+      heredocs = [];
       continue;
     }
     if (c === " " || c === "\t" || c === "\r") {
@@ -144,7 +81,7 @@ function segments(text) {
       let j = i + 1;
       let s = "";
       while (j < text.length && text[j] !== '"') {
-        if (text[j] === "\\" && j + 1 < text.length) {
+        if (escapes && text[j] === "\\" && j + 1 < text.length) {
           s += text[j + 1];
           j += 2;
           continue;
@@ -156,49 +93,35 @@ function segments(text) {
       i = j + 1;
       continue;
     }
-    if (c === "\\" && i + 1 < text.length) {
-      if (text[i + 1] === "\n") {
-        i += 2;
-        continue;
-      }
-      word = (word ?? "") + text[i + 1];
+    if (escapes && c === "\\" && i + 1 < text.length) {
+      if (text[i + 1] !== "\n") word = (word ?? "") + text[i + 1];
       i += 2;
       continue;
     }
-    if (c === ">" || (c === "<" && text[i + 1] !== "<")) {
+    if (text.startsWith("<<", i)) {
+      push();
+      i += 2;
+      while (text[i] === "-" || text[i] === " " || text[i] === "\t") i++;
+      let delim = "";
+      while (i < text.length && !/[\s;&|<>()]/.test(text[i])) {
+        if (text[i] !== "'" && text[i] !== '"' && text[i] !== "\\") delim += text[i];
+        i++;
+      }
+      if (delim) heredocs.push(delim);
+      continue;
+    }
+    if (c === ">" || c === "<") {
       // A file descriptor written before the operator is no word of the command.
       if (word !== null && /^\d+$/.test(word)) word = null;
       push();
       i++;
-      while (text[i] === ">" || text[i] === "|") i++;
+      while (text[i] === ">") i++;
       if (text[i] === "&") {
         i++;
         while (i < text.length && /[0-9-]/.test(text[i])) i++;
         continue;
       }
       drop = true;
-      continue;
-    }
-    if (text.startsWith("<<<", i)) {
-      push();
-      i += 3;
-      continue;
-    }
-    if (text.startsWith("<<", i)) {
-      push();
-      i += 2;
-      let strip = false;
-      if (text[i] === "-") {
-        strip = true;
-        i++;
-      }
-      while (text[i] === " " || text[i] === "\t") i++;
-      let delim = "";
-      while (i < text.length && !/[\s;&|<>()]/.test(text[i])) {
-        if (text[i] !== "'" && text[i] !== '"' && text[i] !== "\\") delim += text[i];
-        i++;
-      }
-      if (delim) pendingHeredocs.push({ delim, strip });
       continue;
     }
     if (text.startsWith("$(", i)) {
@@ -219,13 +142,14 @@ function segments(text) {
 }
 
 const isAssignment = (w) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(w);
-const base = (w) =>
-  w
-    .replace(/\\/g, "/")
-    .split("/")
-    .pop()
-    .toLowerCase()
-    .replace(/\.(exe|cmd|ps1|bat)$/, "");
+const slashed = (w) => w.replace(/\\/g, "/");
+const base = (w) => slashed(w).split("/").pop().toLowerCase();
+const wholeTree = (w) =>
+  WHOLE_TREES.has(
+    slashed(w)
+      .replace(/^(\.\/)+|\/+$/g, "")
+      .replace(/^\.$/, ""),
+  ) || w.includes("**");
 
 // The words left once every wrapper in front of the command proper is gone.
 function unwrap(words) {
@@ -236,13 +160,11 @@ function unwrap(words) {
     const head = base(w[0]);
     if (head === "env" || head === "cross-env") {
       w.shift();
-      while (w.length && (isAssignment(w[0]) || w[0].startsWith("-"))) w.shift();
+      while (w.length && isAssignment(w[0])) w.shift();
       continue;
     }
     if (head === "timeout") {
-      w.shift();
-      while (w.length && w[0].startsWith("-")) w.shift();
-      w.shift();
+      w = w.slice(2);
       continue;
     }
     if (head === "uv" && w[1] === "run") {
@@ -253,84 +175,75 @@ function unwrap(words) {
       }
       continue;
     }
-    if ((head === "pnpm" && (w[1] === "exec" || w[1] === "dlx")) || head === "npx" || head === "pnpx") {
-      w = w.slice(head === "pnpm" ? 2 : 1);
+    if (head === "pnpm" && w[1] === "exec") {
+      w = w.slice(2);
       continue;
     }
     return w;
   }
 }
 
-// True where a word after the command is an operand rather than a flag or a flag value.
-function hasOperand(args, valueFlags) {
+// True where a word after the command narrows the run: an operand, neither a flag, a flag's value,
+// nor a whole test tree. `--` only ends the flags.
+function narrows(args, valueFlags) {
   for (let k = 0; k < args.length; k++) {
     const a = args[k];
-    if (a === "--") return k + 1 < args.length;
+    if (a === "--") continue;
     if (a.startsWith("-")) {
       if (!a.includes("=") && valueFlags.has(a)) k++;
       continue;
     }
-    return true;
+    if (!wholeTree(a)) return true;
   }
   return false;
 }
 
 // What one simple command would run whole, or null; `depth` bounds a `bash -c` inside a `bash -c`.
-function judge(words, depth) {
+function judge(words, depth, escapes) {
   const w = unwrap(words);
   if (!w.length) return null;
   const head = base(w[0]);
-  const path = w[0].replace(/\\/g, "/");
-  if ((head === "bash" || head === "sh") && w[1] === "-c" && w.length > 2 && depth < 3) {
-    for (const inner of segments(w[2])) {
-      const found = judge(inner, depth + 1);
+  if (head === "bash" || head === "sh") {
+    // `-c`, alone or in a cluster such as `-lc`, makes the next word the command line.
+    let k = 1;
+    let script = false;
+    while (k < w.length && /^-[a-z]+$/.test(w[k])) script ||= w[k++].includes("c");
+    if (!script) return judge(w.slice(1), depth, escapes);
+    if (k >= w.length || depth >= 3) return null;
+    for (const inner of segments(w[k], escapes)) {
+      const found = judge(inner, depth + 1, escapes);
       if (found) return found;
     }
     return null;
   }
-  if (head === "bash" || head === "sh") return judge(w.slice(1), depth);
-  if (path.endsWith("scripts/gate/verify.sh")) return "the gate";
-  if (path.endsWith("scripts/ops/local.sh")) return "the local stack";
-  if (head === "pnpm") {
+  if (slashed(w[0]).endsWith("scripts/gate/verify.sh")) return "the gate";
+  if (slashed(w[0]).endsWith("scripts/ops/local.sh")) return "the local stack";
+  if (head === "pnpm" || head === "npm") {
     let k = 1;
-    while (k < w.length && w[k].startsWith("-")) {
-      if (PNPM_VALUE.has(w[k])) k++;
-      k++;
-    }
-    let script = w[k];
-    if (script === "run" || script === "run-script") {
-      k++;
-      while (k < w.length && w[k].startsWith("-")) k++;
-      script = w[k];
-    }
+    while (k < w.length && w[k].startsWith("-")) k += PNPM_VALUE.has(w[k]) ? 2 : 1;
+    if (w[k] === "run") k++;
     // Both scripts put their own patterns in front of whatever follows, so no argument narrows them.
-    if (script === "test" || script === "t") return "the whole frontend suite";
-    if (script === "test:db") return "the whole frontend database tier";
-    if (script === "test:base" && !hasOperand(w.slice(k + 1), NODE_VALUE)) return "every test file node finds";
+    if (w[k] === "test") return "the whole frontend suite";
+    if (w[k] === "test:db") return "the whole frontend database tier";
+    if (w[k] === "test:base" && !narrows(w.slice(k + 1), NODE_VALUE)) return "every test file node finds";
     return null;
   }
-  if (head === "node") {
-    const at = w.findIndex((a) => a === "--test" || a.startsWith("--test="));
-    if (at === -1) return null;
-    const args = w.slice(1).filter((a) => a !== "--test");
-    if (!hasOperand(args, NODE_VALUE)) return "every test file node finds";
-    return null;
+  if (head === "node" && w.includes("--test")) {
+    return narrows(
+      w.slice(1).filter((a) => a !== "--test"),
+      NODE_VALUE,
+    )
+      ? null
+      : "every test file node finds";
   }
   let pytestArgs = null;
-  if (head === "pytest" || head === "py.test") pytestArgs = w.slice(1);
-  if (head.startsWith("python") || head === "py") {
-    let k = 1;
-    while (k < w.length && w[k].startsWith("-") && w[k] !== "-m") {
-      if (PYTHON_VALUE.has(w[k])) k++;
-      k++;
-    }
-    if (w[k] === "-m" && w[k + 1] === "pytest") pytestArgs = w.slice(k + 2);
+  if (head === "pytest") pytestArgs = w.slice(1);
+  if (head.startsWith("python")) {
+    const m = w.indexOf("-m");
+    if (m !== -1 && w[m + 1] === "pytest") pytestArgs = w.slice(m + 2);
   }
-  if (pytestArgs !== null) {
-    if (pytestArgs.some((a) => COLLECT_ONLY.has(a))) return null;
-    if (!hasOperand(pytestArgs, PYTEST_VALUE)) return "the whole backend suite";
-  }
-  return null;
+  if (pytestArgs === null || pytestArgs.some((a) => COLLECT_ONLY.has(a))) return null;
+  return narrows(pytestArgs, PYTEST_VALUE) ? null : "the whole backend suite, or its whole database tier";
 }
 
 let raw = "";
@@ -342,8 +255,9 @@ process.stdin
       if (j.agent_type !== "implementer") return;
       const command = j.tool_input && j.tool_input.command;
       if (typeof command !== "string") return;
-      for (const words of segments(command)) {
-        const what = judge(words, 0);
+      const escapes = j.tool_name !== "PowerShell";
+      for (const words of segments(command, escapes)) {
+        const what = judge(words, 0, escapes);
         if (what) {
           process.stderr.write(
             'Refused by .claude/hooks/implementer-whole-suite.sh: "' + words.join(" ") + '" runs ' + what + ". " + RULE + "\n" + REFUSE + "\n",

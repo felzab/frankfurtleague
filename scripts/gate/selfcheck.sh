@@ -870,27 +870,67 @@ process.stdout.write(JSON.stringify(input));
     if [[ "$said" == "0 " ]]; then info "whole-suite hook: ${1:-the main session} ${2} '${3}' — let through"
     else note_fail "whole-suite hook: ${1:-the main session} ${2} '${3}' must exit 0 silently, got '${said:0:200}'"; fi
   }
-  # One per refusal arm, then one per route a command reaches it by.
+  # One probe per arm of the reader, every member of its word lists included: an arm no probe reaches
+  # can be deleted with the step green. The runners and the operands that narrow nothing first.
   expect_refused Bash 'pnpm test'
+  expect_refused Bash 'npm test'
+  expect_refused Bash 'npm run test'
   expect_refused Bash 'pnpm run test -- --test-name-pattern one'
   expect_refused Bash 'pnpm --dir fl_frontend run test:db'
+  expect_refused Bash 'pnpm -C fl_frontend test'
+  expect_refused Bash 'pnpm --filter fl_frontend test'
   expect_refused Bash 'pnpm run test:base'
+  expect_refused Bash 'pnpm run test:base -- --test-name-pattern one'
+  for suite_tree in . ./src/ src fl_frontend fl_frontend/src '"**/*.test.ts"'; do
+    expect_refused Bash "pnpm run test:base ${suite_tree}"
+  done
   expect_refused Bash 'node --import ./scripts/tsconfig-alias-hook.mjs --test'
+  expect_refused Bash 'node --test --test-name-pattern one'
+  expect_refused Bash 'pnpm exec node --test'
+  expect_refused Bash 'pytest'
+  expect_refused Bash 'python3 -m pytest'
   expect_refused Bash 'uv run --frozen pytest -q'
+  expect_refused Bash 'uv run --frozen pytest -k spiele'
+  for suite_tree in tests ./tests/ fl_backend fl_backend/tests; do
+    expect_refused Bash "uv run --frozen pytest ${suite_tree}"
+  done
   expect_refused Bash 'uv run --project fl_backend --frozen python -m pytest -m db'
+  expect_refused Bash 'uv run --directory fl_backend pytest'
   expect_refused Bash './scripts/gate/verify.sh --docs'
   expect_refused Bash 'bash scripts/ops/local.sh --down'
+  # Then each route to a runner: a wrapper, a quote, a separator, a redirect, another shell.
+  expect_refused Bash 'CI=1 pnpm test'
+  expect_refused Bash 'env CI=1 pnpm test'
+  expect_refused Bash 'cross-env CI=1 pnpm test'
+  expect_refused Bash 'timeout 600 pnpm test'
+  for suite_word in 'time' 'exec' 'command' '!' 'if' 'then' 'else' 'do' 'while' 'until'; do
+    expect_refused Bash "${suite_word} pnpm test"
+  done
   expect_refused Bash 'cd fl_backend && uv run --frozen pytest > out.txt 2>&1'
+  expect_refused Bash 'uv run --frozen pytest < /dev/null'
+  expect_refused Bash "uv run --frozen \\"$'\n'"pytest"
+  expect_refused Bash "echo \$(uv run --frozen pytest)"
+  suite_tick='`'
+  expect_refused Bash "echo ${suite_tick}pnpm test${suite_tick}"
+  expect_refused Bash '(cd fl_frontend && pnpm test)'
+  expect_refused Bash '{ pnpm test; }'
   expect_refused Bash 'bash -c "cd fl_frontend && pnpm test"'
+  expect_refused Bash "sh -c 'pnpm test'"
+  expect_refused Bash 'bash -lc "pnpm test"'
   expect_refused Monitor 'pnpm test 2>&1 | tail -5'
   expect_refused PowerShell 'cd fl_frontend; pnpm test'
+  # PowerShell's backslash separates a path rather than escaping the character after it.
+  expect_refused PowerShell 'uv run --frozen pytest fl_backend\tests'
   expect_let_through implementer Bash 'pnpm run test:base src/core/apiContract.test.ts'
   expect_let_through implementer Bash 'node --test src/core/apiContract.test.ts'
   expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
+  expect_let_through implementer Bash 'uv run --frozen pytest tests/api'
   expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py'
   expect_let_through implementer Bash 'uv run --frozen pytest --collect-only -q'
+  expect_let_through implementer Bash 'uv run --frozen pytest --co'
   expect_let_through implementer Bash 'git log -- scripts/gate/verify.sh'
   expect_let_through implementer Bash "git commit -F - <<'EOF'"$'\n''pnpm test'$'\n''EOF'
+  expect_let_through implementer Bash 'true # ; pnpm test'
   expect_let_through implementer Bash 'echo "an unterminated quote'
   expect_let_through driving-reauditor Bash 'pnpm test'
   expect_let_through '' Bash 'pnpm test'

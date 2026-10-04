@@ -59,13 +59,14 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
 - **Run the checks your items name and then your targeted set, never a whole suite.** The set is the
   test files of every file you changed and of every module importing one, found by every import form
   in use -- the `@/` alias, a relative path, a dotted Python module -- and the tests naming any
-  registry gaining a member, run as `pnpm run test:base <files>` and `uv run --frozen pytest
-<paths>`; `npx tsc --noEmit -p .` and eslint over the side you touched in `fl_frontend`, pyright
-  over the backend where you touched it; and every plant your items need. A whole suite,
-  `./scripts/gate/verify.sh` and `./scripts/ops/local.sh` are refused by
-  `.claude/hooks/implementer-whole-suite.sh`: CI runs every scope over the combined head once a batch
-  lands, and the gate runs once, in the coordinator's checkout, over the finished branch. A blast
-  radius your set cannot reach goes in (d).
+  registry gaining a member, run as `pnpm run test:base <files>` and
+  `uv run --frozen pytest <paths>`; `npx tsc --noEmit -p .` and eslint over the side you touched in
+  `fl_frontend`, pyright over the backend where you touched it; and every plant your items need. CI
+  runs every scope over the combined head once a batch lands, and the gate runs once, in the
+  coordinator's checkout, over the finished branch, so never a whole suite, a whole test tree,
+  `./scripts/gate/verify.sh` or `./scripts/ops/local.sh`. `.claude/hooks/implementer-whole-suite.sh`
+  refuses their common forms; a form it lets through is no permission. A blast radius your set cannot
+  reach goes in (d).
 - **`fl_backend/openapi.json` and `fl_backend/einwilligung.json` are regenerated at landing, never
   committed by you**: agents regenerating one in parallel conflict across the whole document.
   Regenerate either to drive your own tests, then `git restore --source=HEAD -- <path>` before you
@@ -120,9 +121,11 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
 - Where the clean shape seems impossible -- a dependency patch, a hook compensating for a library bug,
   a stand-in for upstream behaviour -- stop and report with the evidence: each is the workaround
   `.claude/CLAUDE.md` §3 forbids.
-- Never the database tier whole, a formatter over a directory, or a check against an environment's
-  database, unless your brief names that exact command: the first holds a machine-wide lock, the
-  second rewrites files other agents own, the third reaches real data.
+- The database tier runs one file at a time, `uv run --frozen pytest -m db <file>`, and only where
+  your brief allows database files; never the tier whole, which holds a machine-wide lock and which
+  the hook refuses (`pytest -m db` with no path, `pnpm run test:db`). Never a formatter over a
+  directory, which rewrites files other agents own, or a check against an environment's database,
+  which reaches real data, unless your brief names that exact command.
 - An invariant row you add is numbered `I_NEW_<your agent name>_<n>`, never with a real number:
   agents allocating in parallel collide, so the coordinator numbers every new row once, at the end.
 - A programme's rulings are numbered in a register outside this public repository, so no ruling's
