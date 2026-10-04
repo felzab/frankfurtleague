@@ -16,6 +16,10 @@ export const MEDIEN_ZU_JUNG = `Fotos, Videos und Interviews kannst Du erst ab ${
 // The shared answer to a lost Funktion names a team, which a pupil's or a referee's own record has none of.
 export const EINTRAG_WEG = "Diese Angaben sind nicht mehr bei Dir eingetragen. Lade die Seite neu.";
 
+// A grant past the person's ceiling for the day (`REQ-DROSSELUNG-001`): the count starts again at
+// German midnight, and a withdrawal is never counted, so the page says both.
+export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du morgen wieder. Widerrufen geht jederzeit.";
+
 /**
  * The one mapper the three consent writes share: one code set behind one control, so a refusal reads
  * the same whichever record it refused. A lost seat and a barred address are the person spine's to
@@ -31,6 +35,9 @@ export function mapEinwilligungWahlRefusal(error: unknown): { error: string } | 
     // The switch is offered only from the floor, so this reaches a page drawn before a birthdate was corrected.
     case "REQ-EINWILLIGUNG-002":
       return { error: MEDIEN_ZU_JUNG };
+    // Only a grant is counted, so this reaches a press that would have switched a choice on.
+    case "REQ-DROSSELUNG-001":
+      return { error: ZUSTIMMEN_MORGEN };
     default:
       return null;
   }

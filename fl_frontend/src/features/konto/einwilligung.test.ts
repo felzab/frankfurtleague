@@ -4,7 +4,14 @@ import { describe, it } from "node:test";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { EINTRAG_WEG, mapEigeneEinwilligungRefusal, mapEinwilligungWahlRefusal, MEDIEN_ZU_JUNG, SEITE_VERALTET } from "./einwilligung.ts";
+import {
+  EINTRAG_WEG,
+  mapEigeneEinwilligungRefusal,
+  mapEinwilligungWahlRefusal,
+  MEDIEN_ZU_JUNG,
+  SEITE_VERALTET,
+  ZUSTIMMEN_MORGEN,
+} from "./einwilligung.ts";
 
 /** One of the three writes the mapper serves; the status is stated, so each code is put at two. */
 const PUPIL_WRITE = "PATCH /spieler/selbst/einwilligung";
@@ -16,6 +23,16 @@ describe("the consent writes' one mapper", () => {
       assert.deepEqual(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-EINWILLIGUNG-001", status)), { error: SEITE_VERALTET });
       assert.deepEqual(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-EINWILLIGUNG-003", status)), { error: SEITE_VERALTET });
       assert.deepEqual(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-EINWILLIGUNG-002", status)), { error: MEDIEN_ZU_JUNG });
+    });
+  }
+
+  /* Ahead of the person spine's ceiling sentence, which promises nothing about a withdrawal: here a
+     withdrawal is never counted, and the page says so. */
+  for (const status of [429, 409]) {
+    it(`words a grant past the day's ceiling at ${String(status)}, for every consent write`, () => {
+      const refusal = refusedOn(PUPIL_WRITE, "REQ-DROSSELUNG-001", status);
+      assert.deepEqual(mapEinwilligungWahlRefusal(refusal), { error: ZUSTIMMEN_MORGEN });
+      assert.deepEqual(mapEigeneEinwilligungRefusal(refusal), { error: ZUSTIMMEN_MORGEN });
     });
   }
 
