@@ -16,6 +16,7 @@ import { closedControl } from "@/shared/testing/closedControl.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
+import { EDGE_REFUSAL_BODY, ZU_VIELE_VERSUCHE } from "@/shared/utils/actionError.ts";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -121,6 +122,26 @@ describe("the sign-in card's address step", () => {
 
     assert.equal(calls.length - before, 1, "a second Enter during the send sent a second code");
   });
+
+  /* As Next's action client raises the edge's own 429: the body becomes the rejection's message. Read as
+     any other rejection, it would replace the card with the boundary's "not reachable". */
+  it("says the edge refused the send and when to try again, and keeps the address step", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error(EDGE_REFUSAL_BODY)));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
+
+    await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+    await act(codeSent);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ title, description }) => ({ title, description })),
+        [{ title: "Code nicht gesendet", description: ZU_VIELE_VERSUCHE }],
+      ),
+    );
+    assert.equal(screen.queryAllByRole("textbox", { name: "E-Mail-Adresse" }).length, 1, "the refused send took the address step down");
+    assert.equal(screen.queryAllByText("Die Website ist gerade nicht erreichbar.").length, 0, "the edge's refusal reached the boundary");
+  });
 });
 
 describe("the sign-in card's look", () => {
@@ -214,7 +235,9 @@ describe("the sign-in card's code step", () => {
   it("raises a toast for an answer the edge gave instead, and leaves nothing behind at the field", async () => {
     const user = userEvent.setup();
     const field = await atTheCodeStep(user);
-    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } })),
+    );
 
     await user.type(field, "048213");
     await act(fetchMock.answered);
@@ -252,7 +275,9 @@ describe("the sign-in card's code step", () => {
   it("hands the code field the focus once a pressed check is refused", async () => {
     const user = userEvent.setup();
     const field = await atTheCodeStep(user);
-    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } })),
+    );
     await user.type(field, "048213");
     await act(fetchMock.answered);
     await waitFor(() => assert.equal(raised.at(-1)?.title, "Nicht angemeldet"));

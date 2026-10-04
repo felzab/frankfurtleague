@@ -181,8 +181,22 @@ export const EDGE_REFUSAL_BODY = "Zu viele Versuche in kurzer Zeit. Warte einen 
 export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
   "Zu viele Versuche in kurzer Zeit. Die Änderung wurde nicht gespeichert. Warte einen Moment und versuche es dann erneut.";
 
+/**
+ * A send or a submission the edge's rate refused, under a title saying what did not happen: the meter
+ * refills within the minute. The public forms' answer to the same refusal too.
+ */
+export const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
+
 function isEdgeRefusal(error: unknown): boolean {
   return error instanceof Error && error.message === EDGE_REFUSAL_BODY;
+}
+
+/**
+ * A send's state where its action rejected with the edge's own refusal, which reached nothing past the
+ * edge; any other rejection is handed back unread, to whatever its caller answers it with.
+ */
+export function edgeRefusedSend(error: unknown): ActionFailure | null {
+  return isEdgeRefusal(error) ? { success: false, error: ZU_VIELE_VERSUCHE } : null;
 }
 
 /**
