@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
@@ -29,7 +29,8 @@ class FLKontoSitzEinwilligung(BaseModel):
     # The season row's own name (`docs/backend/spec.md :: I13`): a past season is listed as it was played.
     team_name: str
     saison_id: str
-    rollen: list[FLKontaktRolle]
+    # Never empty: an entry exists for a held seat alone, and the published floor is what the page parses against.
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
     # The first held slot's, for `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     bestaetigt_text_version: str | None
     medien: bool
@@ -50,7 +51,8 @@ class FLKontoBewerbungSitzEinwilligung(BaseModel):
     # The school as the application names it, or the picked club's own name today.
     schule: str
     saison_id: str
-    rollen: list[FLKontaktRolle]
+    # For `FLKontoSitzEinwilligung.rollen`'s reason.
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
     # For `FLKontoSitzEinwilligung`'s reasons.
     bestaetigt_text_version: str | None
     medien: bool

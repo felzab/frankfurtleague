@@ -14710,6 +14710,7 @@
               ]
             },
             "type": "array",
+            "minItems": 1,
             "title": "Rollen"
           },
           "bestaetigt_text_version": {
@@ -14825,6 +14826,7 @@
               ]
             },
             "type": "array",
+            "minItems": 1,
             "title": "Rollen"
           },
           "bestaetigt_text_version": {

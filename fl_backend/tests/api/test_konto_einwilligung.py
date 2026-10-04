@@ -14,11 +14,13 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import AsyncClient
+from pydantic import BaseModel, ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
+from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung
 from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SCHIEDSRICHTER
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -227,6 +229,18 @@ def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[
 
 async def _records(database: AsyncDatabase) -> dict[Any, Any]:
     return {row["_id"]: row async for row in database[Collection.SCHIEDSRICHTER].find({}, {"einwilligung": 1})}
+
+
+@pytest.mark.parametrize("model", [FLKontoSitzEinwilligung, FLKontoBewerbungSitzEinwilligung])
+def test_a_seat_entry_names_at_least_one_role_and_publishes_the_floor(model: type[BaseModel]):
+    """The page parses `rollen` as non-empty, and a contract compared past its bounds would not see the backend serve `[]`."""
+
+    assert model.model_json_schema()["properties"]["rollen"]["minItems"] == 1
+    with pytest.raises(ValidationError) as refused:
+        model.model_validate({**{field: None for field in model.model_fields}, "rollen": []})
+
+    # Among the other fields' refusals, the one this case is about.
+    assert ("too_short", ("rollen",)) in [(error["type"], error["loc"]) for error in refused.value.errors()]
 
 
 @pytest.mark.db
