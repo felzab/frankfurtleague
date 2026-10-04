@@ -760,6 +760,8 @@ SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     # With `saison_id`, the key of the accepted application a seat stored before its entries is asked about.
     "team_id": 1,
     "name": 1,
+    # A team that left the season holds no seat a consent could be given for.
+    "austritt": 1,
 }
 
 # The answer's read writes on the row, so it keys the patch on `_id`, and cuts each entry from the
@@ -775,11 +777,21 @@ def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:
     return entry.get("frist") if isinstance(entry, Mapping) else None
 
 
-def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt: bool) -> FLBewerbungEinwilligungZustand:
-    """What a reopened season-row link shows, ranked as an application's is; only its own deadline makes it over."""
+def row_takes_links(*, saison_status: Any, austritt: Any) -> bool:
+    """Whether a season row's seat still asks its person anything: not once its season ended or its team left it.
+
+    Such a seat grants no panel (`docs/backend/spec.md :: I375`), and a confirmation collects a birthdate for nothing.
+    """
+
+    return saison_status != "past" and austritt is None
+
+
+def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt: bool, saison_status: Any) -> FLBewerbungEinwilligungZustand:
+    """What a reopened season-row link shows, ranked as an application's is: over at its own deadline, or once its row closed."""
 
     bestaetigungen = row.get("bestaetigungen")
-    over = _deadline_passed(bestaetigungsfrist=saison_frist_of(bestaetigungen=bestaetigungen, seat=seat), today=today)
+    deadline_passed = _deadline_passed(bestaetigungsfrist=saison_frist_of(bestaetigungen=bestaetigungen, seat=seat), today=today)
+    over = deadline_passed or not row_takes_links(saison_status=saison_status, austritt=row.get("austritt"))
 
     return _zustand(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat, over=over, gesperrt=gesperrt)
 
@@ -802,6 +814,26 @@ def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
         error_code=KONTAKT_LINK_ABGELAUFEN,
         status=HTTPStatus.GONE,
         message="this link's confirmation deadline has passed; only a new link from the administration can confirm the seat",
+    )
+
+
+KONTAKT_SAISON_VORBEI = "REQ-KONTAKT-006"
+
+
+def find_saison_vorbei_einwilligung_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
+    """Why a season row's link takes no consent once its season has ended or its team left it, or `None`.
+
+    410: no write reopens a past season, and a Widerspruch is still taken, the person removing
+    themselves (`docs/backend/spec.md` §1.4).
+    """
+
+    if row_takes_links(saison_status=saison_status, austritt=austritt):
+        return None
+
+    return WriteRefusal(
+        error_code=KONTAKT_SAISON_VORBEI,
+        status=HTTPStatus.GONE,
+        message="this link's season has ended or its team has left it, so it confirms nothing; a Widerspruch is still taken",
     )
 
 

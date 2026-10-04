@@ -1774,6 +1774,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=client,

@@ -1684,6 +1684,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_kontakt_bestaetigung.py::TestARowNoLongerInTheSeason",
     ),
     Rule(
+        code="REQ-KONTAKT-006",
+        status=HTTPStatus.GONE,
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Saison",
+        summary="a season row's link takes no consent once its season has ended or its team has left it; a Widerspruch is still taken",
+        implemented_by="app.api.bewerbungen.services.find_saison_vorbei_einwilligung_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestALinkOutlivingItsSeason",
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /teams/{team_id}",

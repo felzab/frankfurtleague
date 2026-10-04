@@ -24,6 +24,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_LINK_ABGELAUFEN,
+    KONTAKT_SAISON_VORBEI,
     SEAT_MIN_AGE_YEARS,
     bestaetigungsfrist_from,
     compose_bestaetigungen,
@@ -214,6 +215,7 @@ async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) ->
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         sperrliste=ban_list(database),
         today=today,
@@ -240,6 +242,7 @@ async def answer(database: AsyncDatabase, token: str, *, antwort: str = "erteilt
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=database.client,
@@ -1004,6 +1007,50 @@ class TestARowNoLongerInTheSeason:
 
         assert code == KONTAKT_ZEILE_OHNE_SAISON
         assert after == before
+
+
+ITS_TEAM_LEFT: dict[str, Any] = {"$set": {"austritt": {"type": "rueckzug", "grund": "Keine Mannschaft mehr", "datum": "2026-04-01"}}}
+
+
+class TestALinkOutlivingItsSeason:
+    """A link minted while the season ran asks nothing once it has ended or the team left it (`docs/backend/spec.md :: I935`)."""
+
+    async def closed(self, database: AsyncDatabase, how: str) -> None:
+        if how == "past":
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
+        else:
+            await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, ITS_TEAM_LEFT)
+
+    @pytest.mark.parametrize("how", [pytest.param("past", id="the season ended"), pytest.param("austritt", id="the team left")])
+    def test_its_view_reads_as_over_and_its_consent_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, how: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            token = (await save(database, THREE)).bestaetigungen[0].token
+            await self.closed(database, how)
+            before = await row_now(database)
+
+            return await ansicht(database, token), await refused(answer(database, token)), before, await row_now(database)
+
+        view, code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert view.zustand == "abgelaufen"
+        assert code == KONTAKT_SAISON_VORBEI
+        assert after == before
+
+    @pytest.mark.parametrize("how", [pytest.param("past", id="the season ended"), pytest.param("austritt", id="the team left")])
+    def test_a_widerspruch_on_it_is_still_taken(self, mongo_replica_set_url: str, how: str):
+        """The person may always remove themselves, whatever became of the season."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            token = (await save(database, THREE)).bestaetigungen[0].token
+            await self.closed(database, how)
+            answered = await answer(database, token, antwort="abgelehnt")
+
+            return answered, await row_now(database)
+
+        answered, row = on_a_league(mongo_replica_set_url, body)
+
+        assert answered.ergebnis == "abgelehnt"
+        assert row["kontakte"]["trainer"] is None
 
 
 class TestTheLinkLookupWalksAnIndex:

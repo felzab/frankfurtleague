@@ -4,7 +4,7 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
-from app.api.bewerbungen.services import bestaetigungsfrist_from
+from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_links
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
@@ -1161,15 +1161,6 @@ def voids_a_live_link(*, stored_kontakte: Any, stored_bestaetigungen: Any, besta
             return True
 
     return False
-
-
-def row_takes_links(*, saison_status: Any, austritt: Any) -> bool:
-    """Whether a link minted on this row asks anything.
-
-    Its mail asks to confirm a seat for the season, which neither a `past` season nor a withdrawn team holds open.
-    """
-
-    return saison_status != "past" and austritt is None
 
 
 def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> dict[str, Any]:

@@ -249,6 +249,7 @@ async def ansicht(database: AsyncDatabase, token: str) -> Any:
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         sperrliste=ban_list(database),
         today=TODAY,

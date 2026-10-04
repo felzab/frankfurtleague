@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
-from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
+from app.api.bewerbungen.services import mint_token, row_takes_links, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
@@ -75,7 +75,6 @@ from app.api.teams.services import (
     kontakte_fassungen_genannt,
     links_owed,
     mint_answer,
-    row_takes_links,
     seats_one_link_answers,
     voids_a_live_link,
 )
@@ -645,7 +644,8 @@ async def patch_saison_team_kontakte(
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"), am=log_stamp(germany_now))
 
-        # In session, as the precondition is: a rollover closing the season beside this save mails no link for it.
+        # In session: the save mints nothing for a season it reads as closed. A rollover committing after this
+        # read is not seen, and the link it minted is refused at its press (`docs/backend/spec.md :: I935`).
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
         nimmt_links = row_takes_links(saison_status=saison_raw.get("status"), austritt=stored.get("austritt"))
         owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte")) if nimmt_links else []

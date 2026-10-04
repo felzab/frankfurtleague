@@ -35,6 +35,7 @@ from app.api.bewerbungen.services import (
     find_einwilligung_gesperrt_refusal,
     find_expired_token_refusal,
     find_saison_frist_refusal,
+    find_saison_vorbei_einwilligung_refusal,
     find_unknown_token_refusal,
     hash_token,
     hat_eintraege,
@@ -59,6 +60,7 @@ from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
     DBClient,
+    SaisonsCollection,
     SaisonTeamsCollection,
     TeamsCollection,
     get_german_date_str,
@@ -111,6 +113,7 @@ async def _saison_ansicht(
     *,
     token_hash: str,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     bewerbungen_collection: BewerbungenCollection,
     sperrliste: SperrlisteLookup,
     today: str,
@@ -129,10 +132,11 @@ async def _saison_ansicht(
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
     gesperrt = await adressen_gesperrt(sperrliste, seat_adressen(kontakte=row.get("kontakte"), seats=seats))
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": row["saison_id"]}, projection=["status"])
 
     return FLBewerbungEinwilligungAnsichtResponse(
         quelle="saison",
-        zustand=saison_zustand_of(row=row, seat=seat, today=today, gesperrt=bool(gesperrt)),
+        zustand=saison_zustand_of(row=row, seat=seat, today=today, gesperrt=bool(gesperrt), saison_status=saison_raw.get("status")),
         saison_id=str(row["saison_id"]),
         schule=saison_schule(row),
         rolle=seat,
@@ -156,6 +160,7 @@ async def get_einwilligung_ansicht(
     ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
@@ -175,8 +180,8 @@ async def get_einwilligung_ansicht(
     person nothing to press.
 
     The same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then
-    the name the club carries that season, and the link is over once its seat's own deadline has passed, nothing
-    deciding a season row.
+    the name the club carries that season, and the link is over once its seat's own deadline has passed, its season
+    has ended or its team has left it.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -188,6 +193,7 @@ async def get_einwilligung_ansicht(
         return await _saison_ansicht(
             token_hash=token_hash,
             saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
             bewerbungen_collection=bewerbungen_collection,
             sperrliste=sperrliste,
             today=today,
@@ -233,6 +239,7 @@ async def post_einwilligung(
     antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     aktionen_collection: AktionenCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -258,7 +265,9 @@ async def post_einwilligung(
     would hand one contact person another's address.
 
     A link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but
-    for `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from.
+    for `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its
+    own deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is
+    `REQ-KONTAKT-006`, a Widerspruch being taken all the same.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -286,6 +295,13 @@ async def post_einwilligung(
         if antwort_data.antwort == "erteilt":
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
+
+            # Every link minted while the season ran, one minted beside its rollover included, meets this
+            # here; never the Widerspruch below, which removes the person (`docs/backend/spec.md :: I935`).
+            saison_raw = await pull_one_from_db(
+                collection=saisons_collection, db_filter={"_id": row["saison_id"]}, projection=["status"], session=session
+            )
+            refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
 
             # Each seat against the page its own link opens, which is the page the view answered.
             for held in seats:
