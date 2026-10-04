@@ -889,8 +889,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "no payload carries the block: the contacts save mints an entry for each person it newly seats and voids the "
         "entry of a seat it empties or hands on, the per-seat re-send replaces one person's entries, a Widerspruch "
-        "stamps `abgelehnt_am`, and the clearing, the replacement and an erasure null it with the people. A client able "
-        "to name a `token_hash` is a client able to mint its own link",
+        "stamps `abgelehnt_am`, and the clearing, the replacement, an erasure and the retention sweep null it with the "
+        "people. A client able to name a `token_hash` is a client able to mint its own link",
     ),
     FieldPolicy(
         Collection.SAISON_TEAMS,

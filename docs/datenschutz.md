@@ -631,8 +631,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
   half of that). A delivery state is stored beside the record its message was
   sent about and goes with that record: an application's is erased with the application, a
-  registration's with the registration at whichever of its clocks takes it, and a referee's with
-  their row on request or with the link a re-send replaces; an invite's stays on the invite entry,
+  registration's with the registration at whichever of its clocks takes it, a referee's with
+  their row on request or with the link a re-send replaces, and a season contact person's with
+  their seat's link, which a re-send replaces and the seat's emptying, the row's clearing or
+  replacement and the season-and-one clock below each remove; an invite's stays on the invite entry,
   which nothing deletes (above), past the erasure of the contact person it was mailed to
   ([section 11](#11-open-and-owed-a-decision))
   (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
@@ -647,7 +649,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   permanent record that `docs/glossary.md :: Bewerbung`
   and `docs/backend/spec.md :: READ-CONTACT-001` describe. Ruled 2026-09-02.
 - **A season's contact persons follow the accepted application's clock**: their contact block is
-  cleared when the season after the one they were collected for ends. The consent text scopes
+  cleared when the season after the one they were collected for ends, and the confirmation links
+  beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes
   itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
   2026-09-02.
 - **A timer in the frontend process is what turns those clocks from an intention into a mechanism**

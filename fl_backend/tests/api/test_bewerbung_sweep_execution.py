@@ -969,6 +969,32 @@ class TestTheSeasonAndOneClock:
         assert (row["gruppe"], row["trikot_farbe"]) == ("B", "blau")
         assert junction_log and all(entry["before"] is None and entry["redacted_at"] == REDACTED_AT for entry in junction_log)
 
+    @pytest.mark.parametrize("people", [pytest.param(kontakte(), id="beside their people"), pytest.param(None, id="left by an older image")])
+    def test_the_rows_confirmation_links_and_their_delivery_records_go_too(self, mongo_replica_set_url: str, people: Any):
+        """A link's entry carries a token hash and the delivery record of its message, neither of which has a clock of its own."""
+
+        link = {
+            "token_hash": "a" * 64,
+            "verschickt_am": "2026-03-02",
+            "frist": "2026-03-16",
+            "abgelehnt_am": None,
+            "zustellung": {"nachricht_id": "msg-1", "stand": "zugestellt", "grund": None, "am": "2026-03-02T10:00:00+01:00"},
+        }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"_id": JUNCTION_OID},
+                {"$set": {"kontakte": people, "bestaetigungen": {"trainer": link, "ansprechperson": None, "stellvertretung": None}}},
+            )
+            response = await sweep(database, client)
+
+            return response.kontaktbloecke_geleert, await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+
+        geleert, row = on_a_league(mongo_replica_set_url, body, next_status="past")
+
+        assert geleert == 1
+        assert row is not None and (row["kontakte"], row["bestaetigungen"]) == (None, None)
+
     def test_a_season_with_no_successor_yet_keeps_everything(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
