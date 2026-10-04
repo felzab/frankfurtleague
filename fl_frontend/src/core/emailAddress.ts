@@ -40,6 +40,13 @@ const EMAIL_HOST_LABEL_REGEX = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
 /** Every delegated top-level domain ends in a letter, so this refuses a host that is an IP address without parsing one. */
 const EMAIL_HOST_TLD_REGEX = /[a-zA-Z]$/;
 
+/**
+ * IANA's special-use names as the API's `email_validator` lists them (`SPECIAL_USE_DOMAIN_NAMES`), each
+ * refused with every name under it. The library moves without us;
+ * `fl_backend/tests/shared/test_frontend_mirrors.py` holds this copy to the installed one.
+ */
+export const SPECIAL_USE_DOMAINS = ["arpa", "invalid", "local", "localhost", "onion", "test"] as const;
+
 // RFC 1035 2.3.4 and 2.3.1, in octets of the punycoded host: an umlaut label transmits longer than it reads.
 const EMAIL_HOST_MAX_OCTETS = 253;
 const EMAIL_HOST_LABEL_MAX_OCTETS = 63;
@@ -92,9 +99,24 @@ export function withAsciiDomain(address: string): string | undefined {
   return ascii === undefined ? undefined : `${address.slice(0, at)}@${ascii}`;
 }
 
-// The API's refusals that rest on a registry rather than on characters stay the API's: IDNA 2008's
-// code-point tables, RFC 5890's reserved labels, and IANA's special-use names.
-/** The API's address rule: the local part's alphabet, the host's, and the lengths it measures in octets. */
+/** Whether the punycoded host is a special-use name or under one, compared as the API compares its ASCII domain. */
+const isSpecialUseHost = (asciiHost: string): boolean =>
+  SPECIAL_USE_DOMAINS.some((name) => asciiHost === name || asciiHost.endsWith(`.${name}`));
+
+/**
+ * The one refusal of the API's resting on a list this rule can copy, and so the one its box can word.
+ * A host this rule cannot convert is left to the generic refusal.
+ */
+export function isSpecialUseAddress(value: string): boolean {
+  const host = value.slice(value.lastIndexOf("@") + 1);
+  const ascii = EMAIL_HOST_CHARS_REGEX.test(host) ? asAsciiHost(host) : undefined;
+
+  return ascii !== undefined && isSpecialUseHost(ascii);
+}
+
+// The API's refusals that rest on a registry this rule cannot copy stay the API's: IDNA 2008's
+// code-point tables and RFC 5890's reserved labels.
+/** The API's address rule: the local part's alphabet, the host's, its special-use names, and the lengths it measures in octets. */
 export function isDeliverableAddress(value: string): boolean {
   const at = value.lastIndexOf("@");
   if (at < 1 || !EMAIL_LOCAL_PART_REGEX.test(value.slice(0, at))) return false;
@@ -104,7 +126,7 @@ export function isDeliverableAddress(value: string): boolean {
 
   const punycoded = asAsciiHost(host);
   if (punycoded === undefined) return false;
-  if (punycoded.length > EMAIL_HOST_MAX_OCTETS || !EMAIL_HOST_TLD_REGEX.test(punycoded)) return false;
+  if (punycoded.length > EMAIL_HOST_MAX_OCTETS || !EMAIL_HOST_TLD_REGEX.test(punycoded) || isSpecialUseHost(punycoded)) return false;
 
   // email-validator holds the whole address to the ceiling in UTF-8 octets, as typed and with its host
   // punycoded, where an umlaut domain reaches it first. Its third form, a punycode-typed host decoded

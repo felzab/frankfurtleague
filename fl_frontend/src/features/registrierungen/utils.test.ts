@@ -56,7 +56,7 @@ const refusedAt = (...path: string[]) => refusedPayload([bodyField(path)], "/reg
 const DRAFT: RegistrierungFormDraft = {
   vorname: "Mira",
   nachname: "Kern",
-  email: "mira@beispiel.test",
+  email: "mira@beispiel.example",
   nummer: "",
   position: null,
   stufe: "Q1",

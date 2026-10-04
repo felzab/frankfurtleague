@@ -6,6 +6,8 @@ import { describe, it } from "node:test";
 
 import { z } from "zod";
 
+import { SPECIAL_USE_DOMAINS } from "@/core/emailAddress.ts";
+
 import {
   ADDRESS_HAUSNUMMER_MAX_LENGTH,
   ADDRESS_STADT_MAX_LENGTH,
@@ -249,7 +251,20 @@ describe("FLKontaktPayloadSchema", () => {
   it("rejects a missing field outright", () => {
     assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null }).success, false);
   });
+
+  // The placeholder sits under `.invalid`, a special-use name: the reserved domain's sentence would say
+  // nothing about what to type instead.
+  it("answers the placeholder address with its own sentence, never the reserved domain's", () => {
+    const refused = FLKontaktPayloadSchema.safeParse({ telefon: null, email: "adresse-fehlt@frankfurtleague.invalid" });
+
+    assert.deepEqual(
+      refused.error?.issues.map((issue) => issue.message),
+      ["Bitte gib statt des Platzhalters die echte E-Mail-Adresse ein."],
+    );
+  });
 });
+
+const RESERVIERT = "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.";
 
 describe("KontaktEmailSchema", () => {
   const refusals = (value: unknown): string[] => KontaktEmailSchema.safeParse(value).error?.issues.map((issue) => issue.message) ?? [];
@@ -323,6 +338,25 @@ describe("KontaktEmailSchema", () => {
         ["Diese Adresse können wir nicht nutzen: Vor dem @ dürfen keine Umlaute, kein ß, keine Akzente und keine anderen Schriften stehen."],
         email,
       );
+    }
+  });
+
+  // The API refuses these on IANA's list and answers the box with its generic field sentence, which names
+  // nothing to change; a domain under a name is as reserved as the name.
+  it("refuses, in a sentence of its own, a domain under every special-use name the API refuses", () => {
+    assert.ok(SPECIAL_USE_DOMAINS.length > 0, "no special-use name, so this case refuses nothing");
+
+    for (const name of SPECIAL_USE_DOMAINS) {
+      for (const email of [`trainer@example.${name}`, `Trainer@Schule.${name.toUpperCase()}`]) {
+        assert.deepEqual(refusals(email), [RESERVIERT], email);
+      }
+    }
+  });
+
+  // The library leaves these off its list, so the API stores them and a stricter copy refuses what the save takes.
+  it("takes the example domains the special-use names leave out", () => {
+    for (const email of ["trainer@example.com", "trainer@example.org", "trainer@example.net"]) {
+      assert.deepEqual(refusals(email), [], email);
     }
   });
 

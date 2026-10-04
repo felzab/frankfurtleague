@@ -245,14 +245,14 @@ describe("what the create tells the administrator", () => {
     assert.deepEqual(mail.sent, []);
   });
 
-  /* A reserved domain passes the form's rule and only the API refuses it: its 422 names the box, and
-     the create answers there rather than in a toast naming no field. */
+  /* A label RFC 5890 reserves passes the form's rule and only the API refuses it: its 422 names the box,
+     and the create answers there rather than in a toast naming no field. */
   it("puts an address only the API refuses on the address box, mailing nothing", async () => {
     create = () => {
       throw refusedPayload([bodyField(["kontakt", "email"])], "/schiedsrichter");
     };
 
-    const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: "anna@beispiel.test", telefon: null } });
+    const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: "anna@ab--cd.de", telefon: null } });
 
     assert.equal(res.success, false);
     assert.deepEqual(res.success ? undefined : res.fieldErrors, { "kontakt.email": FELD_ABGELEHNT });

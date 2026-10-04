@@ -66,7 +66,7 @@ const MIN_ALTER = 16;
 const MEDIEN_ALTER = 18;
 
 /** The address a pupil types. It reaches no server render, and the case below is what keeps it out. */
-const PUPIL_ADDRESS = "mira.kern@beispiel.test";
+const PUPIL_ADDRESS = "mira.kern@beispiel.example";
 
 const ANSICHT: FLEinladungAnsichtResponse = {
   acknowledged: 1,

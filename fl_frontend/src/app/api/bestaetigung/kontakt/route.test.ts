@@ -76,7 +76,7 @@ const GESCHRIEBEN = {
   rolle: "ansprechperson",
   vorname: "Käthe",
   bestaetigungsfrist: "2026-10-05",
-  ansprechperson_email: "kaethe@beispiel.test",
+  ansprechperson_email: "kaethe@beispiel.example",
   ansprechperson_rollen: ["ansprechperson"],
 };
 

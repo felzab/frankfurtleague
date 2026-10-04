@@ -37,7 +37,7 @@ const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const TOKEN = "abc123";
-const ADRESSE = "mira@beispiel.test";
+const ADRESSE = "mira@beispiel.example";
 
 const GESCHRIEBEN = {
   acknowledged: 1,

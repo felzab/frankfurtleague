@@ -1329,9 +1329,10 @@ rather than by the handler remembering to conceal one.
 | A ban past the list's read cap is unreachable                                 | Open — `GET /sperrliste` serves `LIST_LIMIT_DEFAULT` rows and takes no paging control, so past that count `anzahl_gesamt` alone reports a ban nothing reaches                                                                                                                      |
 
 - **An address only the API refuses is marked with the generic field sentence**
-  (`fl_frontend/src/shared/utils/actionError.ts :: FELD_ABGELEHNT`), never its reason: a reserved or
-  special-use domain (`.test`, `.local`) and a domain IDNA 2008 disallows pass the form's rule and
-  reach the box as a `kind` the page does not word. No real address falls in either class.
+  (`fl_frontend/src/shared/utils/actionError.ts :: FELD_ABGELEHNT`), never its reason: a domain IDNA
+  2008 disallows and a label RFC 5890 reserves pass the form's rule and reach the box as a `kind` the
+  page does not word. No real address falls in either class. The special-use names are the form's to
+  word (`fl_frontend/src/core/emailAddress.ts :: SPECIAL_USE_DOMAINS`).
 - **The two runtimes convert a Unicode domain on their own Unicode tables**, so a label holding a
   code point newer than one runtime's release converts on one side alone; no registry issues such a
   label yet, and `fl_backend/tests/shared/email_addresses.json` holds the two to one answer on the

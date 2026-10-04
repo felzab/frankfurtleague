@@ -8,6 +8,7 @@ from itertools import product
 from pathlib import Path
 from typing import Annotated, Any, Final, NamedTuple, get_args
 
+import email_validator
 import pytest
 from bson import ObjectId
 from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
@@ -37,6 +38,7 @@ from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
 from app.core.routing import OBJECT_ID_REGEX
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.folding import league_address
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
 from app.shared.schemas.custom import (
@@ -672,6 +674,29 @@ def test_the_frontend_names_seats_on_exactly_the_kinds_this_package_does():
     assert set(named) == zustellung_schemas.ZIELE_JE_SITZ, (
         f"{name} names seats on {sorted(named)}, where this package names them on {sorted(zustellung_schemas.ZIELE_JE_SITZ)}"
     )
+
+
+# The frontend's copy of the special-use names the address rule refuses through `email_validator`. A
+# name missing there passes the form and is refused at the save with no reason its box can word.
+SPECIAL_USE_NAMES: Final = ("core/emailAddress.ts", "SPECIAL_USE_DOMAINS")
+
+
+def test_the_frontend_refuses_the_special_use_names_the_installed_library_lists():
+    module, name = SPECIAL_USE_NAMES
+    copied = _declared_members(module, name)
+
+    assert copied, f"{module} no longer spells {name} as one list literal, so this case compares nothing"
+    assert sorted(copied) == sorted(email_validator.SPECIAL_USE_DOMAIN_NAMES), (
+        f"{name} lists {sorted(copied)}, where the installed email_validator lists {sorted(email_validator.SPECIAL_USE_DOMAIN_NAMES)}"
+    )
+
+
+@pytest.mark.parametrize("special", email_validator.SPECIAL_USE_DOMAIN_NAMES)
+def test_the_address_rule_refuses_a_domain_under_each_special_use_name(special: str):
+    """The library's list is what the rule consults: its test-environment switch, which spares `.test`, stays off."""
+
+    with pytest.raises(ValueError):
+        league_address(f"anna@schule.{special}")
 
 
 # The frontend's copy of the kind-to-origin mapping. `Record<FLAktor["kind"], AktionHerkunft>` refuses

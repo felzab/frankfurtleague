@@ -313,7 +313,7 @@ const FORMS: Record<string, PublicForm> = {
     submit: async (user) => {
       await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
       await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
-      await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), "mira.kern@beispiel.test");
+      await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), "mira.kern@beispiel.example");
       await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
     },
   },
