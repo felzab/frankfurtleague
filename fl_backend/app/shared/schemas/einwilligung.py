@@ -25,7 +25,7 @@ class FLEinwilligungNachweise(BaseModel):
 
 
 class FLMedienStand(BaseModel):
-    """The instant the media choice's evidence carried where the account page was served, null where it carried none.
+    """The media choice's stand where the account page was served, null where it carried no evidence.
 
     A consent PATCH's precondition, echoed back as served, never a secret (`docs/backend/spec.md :: I995`).
     """

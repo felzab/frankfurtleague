@@ -13,6 +13,8 @@ Invariants:
 See: docs/glossary.md
 """
 
+import hashlib
+import json
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time
 from typing import Any, Final, Literal
@@ -90,6 +92,13 @@ def compose_wahlen(
     return gesetzt_set
 
 
+def _nachweis_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> Mapping[str, Any] | None:
+    nachweise = block.get(NACHWEIS)
+    beleg = nachweise.get(wahl) if isinstance(nachweise, Mapping) else None
+
+    return beleg if isinstance(beleg, Mapping) else None
+
+
 def _am_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> datetime | None:
     nachweise = block.get(NACHWEIS)
     beleg = nachweise.get(wahl) if isinstance(nachweise, Mapping) else None
@@ -98,20 +107,21 @@ def _am_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> datetime | Non
 
 
 def nachweis_stand_of(*, bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligungWahl]) -> dict[str, str | None]:
-    """Per choice, the latest instant these blocks' evidence carries, as stored: what a consent PATCH echoes back.
+    """Per choice, a digest of each block's value and evidence; null where none carries evidence.
 
-    The latest over several blocks, because one press moves every block it is given and stamps them one instant.
+    Never the evidence's instant, stamped to the second: a page served between two acts in one second
+    would re-grant what the second withdrew.
     """
 
     stand: dict[str, str | None] = {}
     for wahl in wahlen:
-        latest: tuple[datetime, str] | None = None
-        for block in bloecke:
-            am = _am_of(block, wahl) if isinstance(block, Mapping) else None
-            if am is not None and (latest is None or am > latest[0]):
-                # Served as stored, so the echo compares equal to the very string the read found.
-                latest = (am, block[NACHWEIS][wahl]["am"])
-        stand[wahl] = None if latest is None else latest[1]
+        gesetzt = [[block.get(wahl), _nachweis_of(block, wahl)] for block in bloecke if isinstance(block, Mapping)]
+        if all(beleg is None for _, beleg in gesetzt):
+            stand[wahl] = None
+            continue
+        # Sorted keys and `sha256`, as `app/api/teams/schemas.py :: kontakte_stand_of` digests a block.
+        canonical = json.dumps(gesetzt, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+        stand[wahl] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     return stand
 

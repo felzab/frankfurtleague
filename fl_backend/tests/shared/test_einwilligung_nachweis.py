@@ -407,17 +407,34 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
 class TestTheStandAPressEchoes:
     """`nachweis_stand_of`, the one derivation the account read serves and a consent PATCH compares with."""
 
-    def test_a_record_answers_each_choices_instant_and_none_where_it_holds_no_evidence(self):
-        assert nachweis_stand_of(bloecke=[MEDIA_WITHDRAWN], wahlen=WAHLEN) == {"umfang": GIVEN_AT, "medien": WITHDRAWN_AT}
+    def test_a_record_holding_no_evidence_answers_none_for_each_choice(self):
         assert nachweis_stand_of(bloecke=[WITHOUT_EVIDENCE], wahlen=WAHLEN) == {"umfang": None, "medien": None}
 
-    def test_several_blocks_answer_the_latest_instant_as_it_was_stored(self):
-        """One press moves every held seat; the latest is compared as an instant and served in its own spelling."""
+    def test_a_record_answers_the_same_stand_for_the_same_content(self):
+        """The control under the cases below: a stand drawn fresh per call would refuse every press."""
 
-        spelt_otherwise = {**WITHOUT_EVIDENCE, "nachweis": {"medien": {"am": "2026-05-02T08:30:00+02:00", "text_version": "x"}}}
+        assert nachweis_stand_of(bloecke=[MEDIA_WITHDRAWN], wahlen=WAHLEN) == nachweis_stand_of(bloecke=[dict(MEDIA_WITHDRAWN)], wahlen=WAHLEN)
 
-        assert nachweis_stand_of(bloecke=[CONFIRMED, spelt_otherwise], wahlen=("medien",)) == {"medien": "2026-05-02T08:30:00+02:00"}
-        assert nachweis_stand_of(bloecke=[MEDIA_WITHDRAWN, spelt_otherwise], wahlen=("medien",)) == {"medien": WITHDRAWN_AT}
+    def test_a_grant_and_its_withdrawal_in_one_second_answer_two_stands(self):
+        """The evidence is stamped to the second, so an instant leaves a page served between the two acts its stand, and it re-grants."""
+
+        granted = {**WITHOUT_EVIDENCE, "medien": True, "nachweis": {"medien": {"am": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}}}
+        withdrawn = {**WITHOUT_EVIDENCE, "medien": False, "nachweis": {"medien": {"am": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}}}
+
+        assert nachweis_stand_of(bloecke=[granted], wahlen=("medien",)) != nachweis_stand_of(bloecke=[withdrawn], wahlen=("medien",))
+
+    def test_an_act_on_any_one_of_several_blocks_moves_the_stand(self):
+        """One press moves every held seat, so a stale page holding one seat's old stand is refused on all of them."""
+
+        moved = {
+            **MEDIA_WITHDRAWN,
+            "medien": True,
+            "nachweis": {**MEDIA_WITHDRAWN["nachweis"], "medien": {"am": LATER, "text_version": ACCOUNT_LABEL}},
+        }
+
+        assert nachweis_stand_of(bloecke=[CONFIRMED, MEDIA_WITHDRAWN], wahlen=("medien",)) != nachweis_stand_of(
+            bloecke=[CONFIRMED, moved], wahlen=("medien",)
+        )
 
 
 class TestARecordStoredBeforeItsEvidence:

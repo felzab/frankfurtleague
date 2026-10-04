@@ -26,7 +26,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.einwilligung_nachweis import NACHWEIS
+from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
@@ -793,7 +793,9 @@ class TestAPendingApplicationsSeats:
             "bewerbung_id": str(PENDING_OID),
             "rollen": ["trainer", "ansprechperson"],
             "medien": False,
-            "nachweis_stand": {"medien": AM},
+            "nachweis_stand": nachweis_stand_of(
+                bloecke=[after[PENDING_OID][slot]["einwilligung"] for slot in ("trainer", "ansprechperson")], wahlen=("medien",)
+            ),
         }
         for slot in ("trainer", "ansprechperson"):
             einwilligung = after[PENDING_OID][slot]["einwilligung"]
