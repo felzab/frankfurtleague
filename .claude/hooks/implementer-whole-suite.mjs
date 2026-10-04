@@ -1,6 +1,6 @@
 // The reader behind `.claude/hooks/implementer-whole-suite.sh`, which says why it refuses and why it
-// lets through what it cannot read. It knows the common forms only, each one probed by
-// `scripts/gate/selfcheck.sh` step 12: a form missing here is a call let through, never permission.
+// lets through what it cannot read. It knows the common forms only, each probed by
+// `scripts/gate/selfcheck.sh` step 12: a form missing here is let through, never permitted.
 const REFUSE = [
   "Targeted forms: pnpm run test:base <files> in fl_frontend; uv run --frozen pytest <paths> in fl_backend,",
   "and uv run --frozen pytest -m db <file>, one database file, where your brief allows database files.",
