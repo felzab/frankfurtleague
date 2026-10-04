@@ -83,9 +83,12 @@ rather show is a question no surface has to answer.
 | `checkIsLive`, `checkIsReady`, `getSystemInfo` | system    | `minutes` | `system`                                         |
 | `getEinwilligungFassung`                       | core      | `max`     | none: a label's words never change               |
 
-**Uncached, deliberately: every admin-tier read.** **The tier settles it on its own: `"use cache"`
-keys on the arguments rather than on caller identity, so one shared entry would be a slot of
-admin-authorized data any caller could reach.** **An admin-tier read several components on one page
+**Uncached, deliberately: every admin-tier read, and every person-tier read.** **The tier settles it
+on its own: `"use cache"` keys on the arguments rather than on caller identity, so one shared entry
+would be a slot of one administrator's or one person's data any caller could reach.** A person's read
+goes through `fl_frontend/src/shared/utils/personRead.ts :: runPersonRead` and carries the admin key,
+and the caller-read entry of `fl_frontend/eslint.config.mjs :: SOURCE_BANS` refuses `"use cache"` in
+any function reading either way. **An admin-tier read several components on one page
 make is wrapped in React's `cache`, never in `"use cache"`** — that wrapper dedupes within one
 render pass, so it costs the confinement nothing. None carries a cache tag either: a tag only means
 something inside a cache scope. Each seeds the request's trace scope, which a `"use cache"`
