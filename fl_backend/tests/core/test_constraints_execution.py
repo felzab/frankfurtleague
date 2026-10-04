@@ -326,6 +326,11 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "beanspruchung": "a-claim",
             "versuche": 1,
         },
+        "drosselung": {
+            "_id": "kontakt:" + "a" * 64 + ":2026-03-15",
+            "n": 1,
+            "ablauf": datetime(2026, 3, 15, 23, tzinfo=UTC),
+        },
     }
 
 
