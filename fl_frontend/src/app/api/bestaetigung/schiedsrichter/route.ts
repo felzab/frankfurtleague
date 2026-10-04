@@ -1,9 +1,8 @@
-import { revalidateTag } from "next/cache";
-
 import { postSchiedsrichterBestaetigung } from "@/features/schiedsrichter/mutations";
 import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefusal } from "@/features/schiedsrichter/queries";
 import { FLSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
+import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
@@ -38,6 +37,9 @@ export async function POST(request: NextRequest) {
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
 
+      // Ahead of the fixture read joining this record, which will serve the referee's name by its scope:
+      // the cached fixture list is dropped wherever the answer may stand.
+      invalidatesOnWrite("spiele");
       let antwort;
       try {
         antwort = await postSchiedsrichterBestaetigung(parsed.data);
@@ -48,10 +50,6 @@ export async function POST(request: NextRequest) {
 
         return { success: false as const, ...refusal };
       }
-
-      // `revalidateTag` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`);
-      // `{ expire: 0 }` because the recommended profile otherwise serves the withheld name once more.
-      revalidateTag("spiele", { expire: 0 });
 
       // The echo alone: this person is shown what was stored for them and nothing else the write knows.
       return { success: true as const, umfang: antwort.umfang, medien: antwort.medien, bestaetigt_am: antwort.bestaetigt_am };
