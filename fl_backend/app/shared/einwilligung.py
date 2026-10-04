@@ -143,9 +143,9 @@ _BESTAETIGUNGSSEITE_6: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
-# The same page for a person the administration seated, whom no applicant named: only the opening,
-# which would tell them otherwise, is its own.
-_BESTAETIGUNGSSEITE_VERWALTUNG: Final[Mapping[str, str]] = MappingProxyType(
+# The applicant page's words for a person the administration seated on an application, whom no
+# applicant named: only the opening, which would tell them otherwise, is its own. Never a label by itself.
+_BESTAETIGUNGSSEITE_VERWALTUNG_TEXTE: Final[Mapping[str, str]] = MappingProxyType(
     {
         **_BESTAETIGUNGSSEITE_6,
         "worum": (
@@ -199,7 +199,7 @@ def _mit_medien(seite: Mapping[str, str]) -> Mapping[str, str]:
 
 
 _BESTAETIGUNGSSEITE_7: Final[Mapping[str, str]] = _mit_medien(_BESTAETIGUNGSSEITE_6)
-_BESTAETIGUNGSSEITE_VERWALTUNG_2: Final[Mapping[str, str]] = _mit_medien(_BESTAETIGUNGSSEITE_VERWALTUNG)
+_BESTAETIGUNGSSEITE_VERWALTUNG: Final[Mapping[str, str]] = _mit_medien(_BESTAETIGUNGSSEITE_VERWALTUNG_TEXTE)
 
 # The media switch, worded as the account page's own for a seat.
 _KONTAKT_MEDIEN_SCHALTER: Final = "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen."
@@ -964,14 +964,6 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
             bedienelemente=MappingProxyType({}),
         ),
-        "2026-10-bestaetigungsseite-verwaltung": Fassung(
-            seite="bestaetigung_kontakt_verwaltung",
-            gilt_ab=date(2026, 10, 3),
-            absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG.values()),
-            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG,
-            schalter="Die Liga darf mich auch über WhatsApp erreichen.",
-            bedienelemente=MappingProxyType({}),
-        ),
         "2026-10-bestaetigungsseite-7": Fassung(
             seite="bestaetigung_kontakt",
             gilt_ab=date(2026, 10, 3),
@@ -980,11 +972,11 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
             bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
         ),
-        "2026-10-bestaetigungsseite-verwaltung-2": Fassung(
+        "2026-10-bestaetigungsseite-verwaltung": Fassung(
             seite="bestaetigung_kontakt_verwaltung",
             gilt_ab=date(2026, 10, 3),
-            absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG_2.values()),
-            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG_2,
+            absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG.values()),
+            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
             bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
         ),
@@ -1385,7 +1377,7 @@ LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
     {
         "bewerbung": "2026-09-bestaetigung-5",
         "bestaetigung_kontakt": "2026-10-bestaetigungsseite-7",
-        "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung-2",
+        "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung",
         "bestaetigung_spieler": "2026-10-spielerseite-4",
         "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
         "konto_spieler": "2026-10-konto-spieler",
