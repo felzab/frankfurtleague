@@ -45,11 +45,10 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   await connection();
   const { token } = await props.searchParams;
 
-  // Beside the link's read, settled to `null` so a dead link's panel never waits on words it does not
-  // show. Per request: a deploy moves the label the answer must stamp.
-  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler"))
-    .then((gelesen) => gekeyteFassung(gelesen, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS))
-    .catch(() => null);
+  // Beside the link's read, the read alone settled to `null`, whatever failed: a production build
+  // redacts what the cached read throws (`docs/frontend/spec.md` §1.2). A dead link's panel never
+  // waits on words it does not show. Per request: a deploy moves the label the answer must stamp.
+  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler")).catch(() => null);
 
   const start: SpielerBestaetigungStart =
     typeof token === "string" && token !== ""
@@ -59,10 +58,14 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
         )
       : { zustand: "ungueltig" };
 
+  const gelesen = await fassung;
+
   return (
     <SpielerBestaetigungView
       start={start}
-      fassung={await fassung}
+      // Keyed outside the read's catch: words this page cannot key are a broken contract, which the
+      // error boundary logs.
+      fassung={gelesen === null ? null : gekeyteFassung(gelesen, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS)}
     />
   );
 }

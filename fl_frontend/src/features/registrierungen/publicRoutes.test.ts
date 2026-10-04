@@ -522,9 +522,10 @@ describe("which of the confirmation page's words its stamped version covers", ()
     );
   });
 
-  /** The page's body as the backend's reads answer it, `laufend` being what the backend runs on this page. */
-  async function handedFassung(laufend?: string): Promise<SpielerFassung | null> {
+  /** The page's body as the backend's reads answer it, `laufend` being what the backend runs on this page and `scheitert` failing the words read. */
+  async function handedFassung(laufend?: string, scheitert = false): Promise<SpielerFassung | null> {
     answerReadsWith((endpoint, schema, params) => {
+      if (scheitert && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error(`the backend failed ${endpoint}`);
       if (endpoint === "/einwilligung/seiten" && laufend !== undefined) {
         return { acknowledged: 1, laufende_fassungen: { bestaetigung_spieler: laufend } };
       }
@@ -543,10 +544,15 @@ describe("which of the confirmation page's words its stamped version covers", ()
     assert.deepEqual(await handedFassung(), FASSUNG, "the page renders words other than the ones the backend serves");
   });
 
-  /* A label whose sections were never kept by key cannot be placed by this page: an open link then
-     reads as the failed read it is, never as a form missing paragraphs. */
-  it("hands the view no words where the backend runs a label the page cannot place", async () => {
-    assert.equal(await handedFassung("2026-09-spielerseite-2"), null, "the page placed words it holds no keys for");
+  /* A label whose sections were never kept by key is a broken contract rather than a failed read: it
+     reaches the error boundary, which logs it, never the panel asking for a reload. */
+  it("lets a running label the page cannot place reach the error boundary", async () => {
+    await assert.rejects(handedFassung("2026-09-spielerseite-2"), { name: "ZodError" }, "the page absorbed words it holds no keys for");
+  });
+
+  /* The read failing is a state of its own, which a reload may clear. */
+  it("hands the view no words where the words read fails", async () => {
+    assert.equal(await handedFassung(undefined, true), null, "a failed words read reached the view as words");
     assert.equal(
       textOf(
         renderMarkup(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: null }),

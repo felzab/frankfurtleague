@@ -48,19 +48,22 @@ async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
   // failed read is its own state: the dead-link panel there would call a live link void.
   if (typeof token !== "string" || token === "") return <SchiedsrichterBestaetigungView start={{ zustand: "ungueltig" }} />;
 
-  // Beside the link's read, settled to `null` so a dead link's panel never waits on words it does not
-  // show. Per request: a deploy moves the label the answer must stamp.
-  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter"))
-    .then((gelesen) => gekeyteFassung(gelesen, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, SCHIEDSRICHTER_UMFANG_WERTE))
-    .catch(() => null);
+  // Beside the link's read, the read alone settled to `null`, whatever failed: a production build
+  // redacts what the cached read throws (`docs/frontend/spec.md` §1.2). A dead link's panel never
+  // waits on words it does not show. Per request: a deploy moves the label the answer must stamp.
+  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter")).catch(() => null);
 
   const start: SchiedsrichterBestaetigungStart = await getSchiedsrichterBestaetigungAnsicht(token).then(
     async (gelesen): Promise<SchiedsrichterBestaetigungStart> => {
       if (gelesen.zustand !== "gueltig") return gelesen;
 
       // A page with no words to show cannot be answered, which the failed read's panel says.
-      const worte = await fassung;
-      return worte === null ? { zustand: "unlesbar" } : { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
+      const geleseneWorte = await fassung;
+      if (geleseneWorte === null) return { zustand: "unlesbar" };
+
+      // Uncaught: words this page cannot key are a broken contract, which the error boundary logs.
+      const worte = gekeyteFassung(geleseneWorte, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, SCHIEDSRICHTER_UMFANG_WERTE);
+      return { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
     },
     () => ({ zustand: "unlesbar" }),
   );

@@ -53,13 +53,16 @@ async function BestaetigungContent(props: NextPageProps) {
       if (gelesen.zustand !== "gueltig") return gelesen;
 
       // After the link's read, never beside it: the view names the label by how the seat was filled,
-      // and only a dead link's panel, which shows no words, is spared the wait.
-      const worte = await runWithIncomingTrace(() => getEinwilligungFassung(gelesen.ansicht.laufende_fassung))
-        .then((fassung) => (fassung === null ? null : gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL)))
-        .catch(() => null);
+      // and only a dead link's panel, which shows no words, is spared the wait. The read alone is caught,
+      // whatever failed: a production build redacts what the cached read throws (`docs/frontend/spec.md` §1.2).
+      const fassung = await runWithIncomingTrace(() => getEinwilligungFassung(gelesen.ansicht.laufende_fassung)).catch(() => null);
 
       // A page with no words to show is a page that cannot be answered, which the failed read's panel says.
-      return worte === null ? { zustand: "unlesbar" } : { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
+      if (fassung === null) return { zustand: "unlesbar" };
+
+      // Uncaught: words this page cannot key are a broken contract, which the error boundary logs.
+      const worte = gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
+      return { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
     },
     () => ({ zustand: "unlesbar" }),
   );

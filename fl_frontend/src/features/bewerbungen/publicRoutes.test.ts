@@ -1549,14 +1549,21 @@ describe("the words the two contact pages are handed", () => {
     assert.equal((await bestaetigungStart()).zustand, "gueltig", "the page asked the running list for the label its view names");
   });
 
-  /* A label whose sections were never kept by key, or another page's, cannot be placed by this page:
-     an open link then reads as the failed read it is, never as a form missing paragraphs. */
-  it("opens a link on the failed read's panel where its view names a label the page cannot place", async () => {
+  /* A label whose sections were never kept by key, or another page's, is a broken contract rather than
+     a failed read: it reaches the error boundary, which logs it, never the panel asking for a reload. */
+  it("lets a label its view names and the page cannot place reach the error boundary", async () => {
     for (const label of ["2026-09-bestaetigungsseite-5", publishedLaufendeFassung("bestaetigung_spieler").text_version]) {
       backend({ ansichtNennt: label });
 
-      assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" }, label);
+      await assert.rejects(bestaetigungStart(), { name: "ZodError" }, `${label} was absorbed into a panel`);
     }
+  });
+
+  /* The read failing is a state of its own, which a reload may clear. */
+  it("opens a link on the failed read's panel where the words read fails", async () => {
+    backend({ scheitert: `/einwilligung/fassungen/${KONTAKT_LABEL}` });
+
+    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
   });
 
   /* A closed season row's link takes a Widerspruch alone, which shows no stamped words. */
