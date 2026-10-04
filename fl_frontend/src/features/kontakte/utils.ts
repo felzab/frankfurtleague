@@ -21,6 +21,23 @@ import type { ErasureAnsicht, SaisonTeamKontaktePayloadDraft } from "./types";
  */
 const ERNEUT_STARTEN = "Brich ab und starte das Löschen erneut.";
 
+/**
+ * The block with every seat naming `textVersion`, the label the application form runs: a seat handed
+ * to another person is a new acceptance, which only the running label may stamp, and a seat its person
+ * keeps carries its stored record whole whatever label is sent (`docs/backend/spec.md :: I866`).
+ */
+export function mitLaufenderFassung(kontakte: FLSaisonTeamKontaktePayload, textVersion: string): FLSaisonTeamKontaktePayload {
+  const gestempelt = (sitz: FLKontaktpersonPayload | null) =>
+    sitz === null ? null : { ...sitz, einwilligung: { ...sitz.einwilligung, text_version: textVersion } };
+
+  return {
+    ...kontakte,
+    trainer: gestempelt(kontakte.trainer),
+    ansprechperson: gestempelt(kontakte.ansprechperson),
+    stellvertretung: gestempelt(kontakte.stellvertretung),
+  };
+}
+
 /** One count as German reads it, with a word for none and a word for one. */
 function countPhrase(count: number, singular: string, plural: string): string {
   if (count === 0) return `keiner ${singular}`;

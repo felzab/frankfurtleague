@@ -1,6 +1,7 @@
 "use server";
 
 import { isFreshlySignedIn } from "@/core/auth";
+import { getLaufendesLabel } from "@/core/einwilligung";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
@@ -12,7 +13,7 @@ import { einladeKontakt, eraseKontaktperson, patchSaisonTeamKontakte, readKontak
 import { describeKontaktVersand, mailKontaktLink } from "./notifications";
 import { mapEinladenRefusal, mapStaleBlockRefusal } from "./refusals";
 import { FLKontaktEinladenPayloadSchema, FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
-import { describeKontaktErasureUmfang } from "./utils";
+import { describeKontaktErasureUmfang, mitLaufenderFassung } from "./utils";
 
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
@@ -101,7 +102,11 @@ export async function patchSaisonTeamKontakteAction(
     // The refusal belongs on the page that asked, not on the error page.
     let saisonTeam;
     try {
-      saisonTeam = await patchSaisonTeamKontakte(validated.data);
+      // Read at the write, never off the page: a deploy between the editor's open and this press
+      // moves the label a new acceptance names.
+      const kontakte =
+        validated.data.kontakte === null ? null : mitLaufenderFassung(validated.data.kontakte, await getLaufendesLabel("bewerbung"));
+      saisonTeam = await patchSaisonTeamKontakte({ ...validated.data, kontakte });
     } catch (error) {
       const refusal = mapStaleBlockRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };

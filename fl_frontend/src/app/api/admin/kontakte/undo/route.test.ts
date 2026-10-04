@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls } from "@/shared/testing/actionDoubles.ts";
@@ -12,6 +13,9 @@ import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } fro
 const BODY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "9f2c" };
 const SAISON_TEAM_ID = "6890a1b2c3d4e5f6071f0001";
 
+/** The label the backend runs on the application form, off the registry it generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+
 /** An earlier person put back on the Ansprechperson seat, under the running label. */
 const ZURUECK = {
   ...BODY,
@@ -22,7 +26,7 @@ const ZURUECK = {
       nachname: "Byron",
       email: "ada@example.org",
       telefon: "069 111",
-      einwilligung: { umfang: "kontaktdaten", text_version: "2026-08", datum: "2026-03-12" },
+      einwilligung: { umfang: "kontaktdaten", text_version: FORM_LABEL, datum: "2026-03-12" },
     },
     stellvertretung: null,
     trainer_ist_zugleich: null,
@@ -58,11 +62,21 @@ const mail = doubleSendMail();
 registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
 /** The stored rows a stale replay is judged against: none, so only a replay seating somebody moves a link. */
 const NO_CLUB = { acknowledged: 1, teams: [] };
-const { answerWith, calls } = doubleApiAnswers(({ endpoint }) =>
-  Promise.resolve(
-    endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : endpoint === "/teams/memberships" ? NO_CLUB : replayed(1),
+type Answer = NonNullable<Parameters<typeof doubleApiAnswers>[0]>;
+/** `answer`, with the running labels read off the registry, which a replay seating somebody reads first. */
+const mitSeiten =
+  (answer: Answer): Answer =>
+  (call) =>
+    call.endpoint === "/einwilligung/seiten" ? Promise.resolve(einwilligungAnswer(call.endpoint)) : answer(call);
+const doubled = doubleApiAnswers(
+  mitSeiten(({ endpoint }) =>
+    Promise.resolve(
+      endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : endpoint === "/teams/memberships" ? NO_CLUB : replayed(1),
+    ),
   ),
 );
+const { calls } = doubled;
+const answerWith = (answer: Answer) => doubled.answerWith(mitSeiten(answer));
 const { POST } = await import("./route.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 
@@ -87,22 +101,41 @@ describe("the contacts save's undo", () => {
     assert.deepEqual(requestsOf(calls), [saveOf(BODY)]);
   });
 
-  /* An undo restores the earlier record, and the save it undoes moved the stored label the save's own
-     admission would judge it by, so a label other than the running one is replayed rather than refused. */
-  it("replays a seat under the label it was stored with, the running label or not", async () => {
-    const seat = {
+  /* A person put back is entered anew, which the backend admits under the running label alone
+     (`docs/backend/spec.md :: I866`); the label the earlier record stored is one that person accepted
+     then, and the replay sends the one the form runs now. */
+  it("replays every seat under the label the form runs, whatever label the earlier record stored", async () => {
+    const seat = (textVersion: string) => ({
       vorname: "Ada",
       nachname: "Byron",
       email: "ada@example.org",
       telefon: "069 111",
-      einwilligung: { umfang: "kontaktdaten", text_version: "2026-08", datum: "2026-03-12" },
-    };
-    const earlier = { ...BODY, kontakte: { trainer: seat, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null } };
+      einwilligung: { umfang: "kontaktdaten", text_version: textVersion, datum: "2026-03-12" },
+    });
+    const block = (textVersion: string) => ({
+      trainer: seat(textVersion),
+      ansprechperson: null,
+      stellvertretung: null,
+      trainer_ist_zugleich: null,
+    });
 
-    const answer = await undo(POST, earlier);
+    const answer = await undo(POST, { ...BODY, kontakte: block("eine-fruehere-fassung") });
 
     assert.equal(answer.success, true, String(answer.error));
-    assert.deepEqual(requestsOf(calls), [saveOf(earlier)]);
+    assert.deepEqual(
+      requestsOf(calls).filter(({ method }) => method !== undefined),
+      [saveOf({ ...BODY, kontakte: block(FORM_LABEL) })],
+    );
+  });
+
+  /* An undo clearing the block puts nobody back, so it has no label to name and reads none. */
+  it("reads no label for a replay clearing the block", async () => {
+    await undo(POST, BODY);
+
+    assert.equal(
+      calls.some(({ endpoint }) => endpoint === "/einwilligung/seiten"),
+      false,
+    );
   });
 
   /* Undoing a first entry clears the block, which the clearing panel asks the passkey for

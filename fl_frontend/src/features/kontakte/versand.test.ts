@@ -267,6 +267,34 @@ describe("the contacts save that seats new people", () => {
   });
 });
 
+/* A seat handed to another person is a new acceptance, admitted under the running label alone; the
+   label the editor's page held may be one a deploy has since moved past (`docs/backend/spec.md :: I866`). */
+describe("the label a contacts save names", () => {
+  it("sends every seat under the label the form runs at the write, whatever label the page held", async () => {
+    const alt = (person: typeof BLOCK.trainer) => ({
+      ...person,
+      einwilligung: { ...person.einwilligung, text_version: "eine-fruehere-fassung" },
+    });
+
+    await patchSaisonTeamKontakteAction({
+      ...PAYLOAD,
+      kontakte: { ...BLOCK, trainer: alt(BLOCK.trainer), stellvertretung: alt(BLOCK.stellvertretung) },
+    });
+
+    const [write] = requestsOf(client.calls).filter(({ method }) => method !== undefined);
+    assert.deepEqual(write?.body, { kontakte: BLOCK, kontakte_stand: PAYLOAD.kontakte_stand });
+  });
+
+  it("reads no label for a save clearing the block", async () => {
+    await patchSaisonTeamKontakteAction({ ...PAYLOAD, kontakte: null });
+
+    assert.equal(
+      client.calls.some(({ endpoint }) => endpoint === "/einwilligung/seiten"),
+      false,
+    );
+  });
+});
+
 describe("a contacts save from a session past the step-up window", () => {
   /* A save that may seat somebody new mints a bearer link, so the passkey is asked before the write. */
   it("is refused where the draft seats a person the row does not hold, reaching no write", async () => {

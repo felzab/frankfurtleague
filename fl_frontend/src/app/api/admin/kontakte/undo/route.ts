@@ -1,7 +1,9 @@
+import { getLaufendesLabel } from "@/core/einwilligung";
 import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { patchSaisonTeamKontakte } from "@/features/kontakte/mutations";
 import { describeKontaktVersand, mailKontaktLink } from "@/features/kontakte/notifications";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
+import { mitLaufenderFassung } from "@/features/kontakte/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { handleUndoRequest, refusedReplay, replayRefusal } from "@/shared/utils/undoRoute";
@@ -20,8 +22,8 @@ const STALE_BLOCK_REFUSAL: Record<string, string> = {
 
 const REPLAY_REFUSALS: Record<string, string> = {
   "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
-  // A seat whose person changed under the replay names the form's label from before a deploy moved it
-  // (`docs/backend/spec.md :: I866`), which only the editor drawn again can name anew.
+  // Only a deploy between the label's read and the write leaves the replay naming a label the backend
+  // has moved past (`docs/backend/spec.md :: I866`).
   "REQ-EINWILLIGUNG-001":
     "Die Rücknahme würde eine Kontaktperson unter einer Fassung der Hinweise eintragen, die nicht mehr gilt. " +
     "Sie wurde nicht ausgeführt. Lade die Seite neu und trage die Kontakte dort erneut ein.",
@@ -37,9 +39,10 @@ export async function POST(request: NextRequest) {
     restore: async (payload) => {
       let operation;
       try {
-        // Each seat's consent label replayed as the earlier record stored it; the backend admits it
-        // for a seat whose person stays (`docs/backend/spec.md :: I866`).
-        operation = await patchSaisonTeamKontakte(payload);
+        // The earlier people come back as new acceptances, which name the label the form runs now
+        // (`fl_frontend/src/features/kontakte/utils.ts :: mitLaufenderFassung`).
+        const kontakte = payload.kontakte === null ? null : mitLaufenderFassung(payload.kontakte, await getLaufendesLabel("bewerbung"));
+        operation = await patchSaisonTeamKontakte({ ...payload, kontakte });
       } catch (error) {
         const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);
         return stale === undefined ? refusedReplay(error, REPLAY_REFUSALS) : { refusal: stale };
