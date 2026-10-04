@@ -227,7 +227,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               isPending={aufnahme.isPending}
               onPress={() => ablehnen(aufnahme, "andere_person")}
               className={formButton({ intent: "cancel", stacks: true })}>
-              Nein
+              Andere Person, ablehnen
             </Button>
           </FocusSlot>
         )}

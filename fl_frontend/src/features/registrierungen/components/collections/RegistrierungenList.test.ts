@@ -255,11 +255,12 @@ describe("deciding a registration", () => {
     assert.deepEqual(calls, [{ action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: STORED } }]);
   });
 
-  /* „Nein“ is the decline under its fixed reason, which the pupil's note words as an address of their own. */
-  it("declines as another person on no", async () => {
+  /* The address arm's no names its effect: the decline under its fixed reason, which the pupil's note
+     words as an address of their own. */
+  it("declines as another person from the control naming that decline", async () => {
     viewWith({ person: { spieler_id: STORED, vorname: "Lena", nachname: "Schulz", weicht_ab: true } });
 
-    await armedThen(userEvent.setup(), "Nein");
+    await armedThen(userEvent.setup(), "Andere Person, ablehnen");
 
     assert.deepEqual(calls, [{ action: "ablehnenRegistrierungAction", payload: { ...ZIEL, grund: "andere_person" } }]);
   });
