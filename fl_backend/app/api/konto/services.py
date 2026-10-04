@@ -17,7 +17,7 @@ from app.api.kontakte.services import KONTAKT_SLOTS, same_address
 from app.api.schiedsrichter.services import vorname_of
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import Seite
-from app.shared.einwilligung_verlauf import FLEinwilligungAkt, compose_record_move
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, compose_wahlen
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
 KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
@@ -46,34 +46,25 @@ def bewegt_etwas(*, gespeichert: Mapping[str, Any], umfang: str | None, medien: 
 
 
 def compose_selbst_einwilligung_move(
-    *, bloecke: Sequence[tuple[str, Mapping[str, Any]]], umfang: str | None, medien: bool, ueber: str, am: str, text_version: str
+    *, bloecke: Sequence[tuple[str, Mapping[str, Any]]], umfang: str | None, medien: bool, am: str, text_version: str
 ) -> dict[str, dict[str, Any]] | None:
-    """One update moving a press's choices and appending an entry per block moved; `None` where none moves.
+    """One update moving a press's choices and each moved choice's evidence; `None` where none moves.
 
     Never `bestaetigt_am`, read by the panel and the publication mask, nor the block's CONFIRMED
-    `text_version`: the press's label is its entry's.
+    `text_version`: the press's label is its evidence's.
     """
 
-    update: dict[str, dict[str, Any]] = {"$set": {}, "$push": {}}
+    gesetzt: dict[str, Any] = {}
     for pfad, gespeichert in bloecke:
-        moved = {
-            field: value
-            for field, value, stored in (
-                ("umfang", umfang, gespeichert.get("umfang")),
-                ("medien", medien, bool(gespeichert.get("medien", False))),
-            )
-            if value is not None and value != stored
-        }
-        if not moved:
-            continue
-        # One entry per act: a press widening either choice is a grant, its other half visible in the
-        # choices the entry records.
-        akt: FLEinwilligungAkt = "erteilt" if erteilt_etwas(gespeichert=gespeichert, umfang=umfang, medien=medien) else "widerrufen"
-        step = compose_record_move(pfad=pfad, stored=gespeichert, moved=moved, akt=akt, ueber=ueber, am=am, text_version=text_version)
-        update["$set"].update(step["$set"])
-        update["$push"].update(step["$push"])
+        moved: dict[FLEinwilligungWahl, Any] = {}
+        if umfang is not None and umfang != gespeichert.get("umfang"):
+            moved["umfang"] = umfang
+        if medien != bool(gespeichert.get("medien", False)):
+            moved["medien"] = medien
+        if moved:
+            gesetzt.update(compose_wahlen(pfad=pfad, gespeichert=gespeichert, gesetzt=moved, am=am, text_version=text_version))
 
-    return update if update["$push"] else None
+    return {"$set": gesetzt} if gesetzt else None
 
 
 def gehaltene_sitze(row: Mapping[str, Any], identifier: str) -> list[str]:

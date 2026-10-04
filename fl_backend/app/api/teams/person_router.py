@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Final
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
@@ -19,7 +19,6 @@ from app.api.konto.services import (
     gehaltene_sitze,
 )
 from app.api.teams.schemas import (
-    FLKontaktKenntnisnahmeWeg,
     FLSaisonTeamPersonEinwilligungPayload,
     FLSaisonTeamPersonEinwilligungResponse,
     FLTeamSitz,
@@ -108,10 +107,6 @@ async def get_team_sitze(
     return FLTeamSitzeResponse(team_id=team_id, saison_id=saison_id, sitze=[_as_sitz(kontakte, slot) for slot in KONTAKT_SLOTS])
 
 
-# The operation a seat holder's press records on its entry.
-SITZ_WEG: Final[FLKontaktKenntnisnahmeWeg] = "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
-
-
 @router.patch(
     "/{team_id:objectid}/saisons/{saison_id}/person/einwilligung",
     response_model=FLSaisonTeamPersonEinwilligungResponse,
@@ -187,7 +182,6 @@ async def patch_einwilligung(
             bloecke=tuple((f"kontakte.{slot}.einwilligung", sitz["einwilligung"]) for slot, sitz in sitze.items()),
             umfang=None,
             medien=einwilligung_data.medien,
-            ueber=SITZ_WEG,
             am=log_stamp(germany_now),
             text_version=einwilligung_data.text_version,
         )

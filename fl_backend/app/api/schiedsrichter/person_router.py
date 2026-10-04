@@ -21,7 +21,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelbstEinwilligungResponse,
     FLSchiedsrichterSelbstResponse,
 )
-from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, SELBST_FIELDS, SELBST_WEG_SCHIEDSRICHTER, build_selbst_referee_filter
+from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, SELBST_FIELDS, build_selbst_referee_filter
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -176,11 +176,10 @@ async def patch_einwilligung(
             bloecke=((EINWILLIGUNG_FELD, gespeichert),),
             umfang=einwilligung_data.umfang,
             medien=einwilligung_data.medien,
-            ueber=SELBST_WEG_SCHIEDSRICHTER,
             am=log_stamp(germany_now),
             text_version=einwilligung_data.text_version,
         )
-        # A press moving neither choice is no act, so nothing is written and no entry appended.
+        # A press moving neither choice is no act, so nothing is written and no evidence restamped.
         if update is None:
             return FLSchiedsrichterSelbstEinwilligungResponse.model_validate(
                 {"schiedsrichter_id": schiedsrichter_id, "einwilligung": gespeichert}

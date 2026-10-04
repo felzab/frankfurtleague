@@ -22,7 +22,7 @@ from app.api.spieler.schemas import (
     FLSpielerSelbstEinwilligungResponse,
     FLSpielerSelbstResponse,
 )
-from app.api.spieler.services import SELBST_WEG_SPIELER, build_selbst_pupil_filter, build_selbst_pupil_pipeline
+from app.api.spieler.services import build_selbst_pupil_filter, build_selbst_pupil_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -171,11 +171,10 @@ async def patch_einwilligung(
             bloecke=(("einwilligung", gespeichert),),
             umfang=einwilligung_data.umfang,
             medien=einwilligung_data.medien,
-            ueber=SELBST_WEG_SPIELER,
             am=log_stamp(germany_now),
             text_version=einwilligung_data.text_version,
         )
-        # A press moving neither choice is no act, so nothing is written and no entry appended.
+        # A press moving neither choice is no act, so nothing is written and no evidence restamped.
         if update is None:
             return FLSpielerSelbstEinwilligungResponse.model_validate({"spieler_id": row["_id"], "einwilligung": gespeichert})
 

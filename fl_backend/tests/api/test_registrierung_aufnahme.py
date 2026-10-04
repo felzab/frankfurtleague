@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import bson
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
@@ -670,34 +669,13 @@ class TestThePersonAnAdmissionNames:
 
         assert (einwilligung["umfang"], einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("intern", "2026-03-31", "2026-09")
 
-    def test_a_returning_persons_earlier_acts_are_kept_and_the_registrations_appended(self, mongo_replica_set_url: str):
-        """No act is dropped: the person's own entries stay byte for byte, first, and the confirmation's follows them."""
+    def test_a_returning_persons_record_is_renewed_with_the_registrations_evidence(self, mongo_replica_set_url: str):
+        """The registration's confirmation is the person's own act, so its evidence is what the renewed record proves."""
 
         stored_id = ObjectId()
-        earlier = [
-            {
-                "am": "2025-09-02T08:00:00+00:00",
-                "akt": "bestaetigt",
-                "ueber": "POST /registrierungen/bestaetigung",
-                "umfang": "kader_oeffentlich",
-                "medien": True,
-                "text_version": "2026-09-spielerseite-2",
-                "erteilt_von": "volljaehrig",
-            },
-            {
-                "am": "2025-11-12T19:30:00+00:00",
-                "akt": "widerrufen",
-                "ueber": "PATCH /spieler/selbst/einwilligung",
-                "umfang": "kader_oeffentlich",
-                "medien": False,
-                "text_version": "2026-10-konto-spieler",
-                "erteilt_von": "volljaehrig",
-            },
-        ]
-        held = {**documents.EINWILLIGUNG, "medien": False, "verlauf": earlier}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=held))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id))
             registrierung_id = await seed(database, registrierung_document())
             fresh = (await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}) or {})["einwilligung"]
             await admit(database, client, registrierung_id)
@@ -706,12 +684,8 @@ class TestThePersonAnAdmissionNames:
 
         fresh, einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        assert fresh["verlauf"], "the registration carries no entry, so nothing proves it was appended"
-        assert bson.encode({"verlauf": einwilligung["verlauf"][: len(earlier)]}) == bson.encode({"verlauf": earlier})
-        assert einwilligung["verlauf"][len(earlier) :] == fresh["verlauf"]
-        assert {field: einwilligung[field] for field in fresh if field != "verlauf"} == {
-            field: value for field, value in fresh.items() if field != "verlauf"
-        }
+        assert fresh["nachweis"], "the registration carries no evidence, so nothing proves it was carried"
+        assert einwilligung == fresh
 
     def test_a_body_naming_anyone_but_the_address_match_is_refused(self, mongo_replica_set_url: str):
         legacy_id = ObjectId()

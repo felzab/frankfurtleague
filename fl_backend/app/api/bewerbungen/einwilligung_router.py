@@ -38,8 +38,8 @@ from app.api.bewerbungen.services import (
     find_saison_vorbei_einwilligung_refusal,
     find_unknown_token_refusal,
     hash_token,
-    hat_eintraege,
     mindestalter_for,
+    nennt_eingetragen_von,
     paired_seat,
     saison_frist_of,
     saison_kontakt_seite,
@@ -96,11 +96,11 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
 async def _saison_seite(
     *, row: Mapping[str, Any], seat: str, bewerbungen_collection: BewerbungenCollection, session: AsyncClientSession | None = None
 ) -> KontaktSeite:
-    """The page a season row's seat opens, asking its accepted application only where the seat carries no entries."""
+    """The page a season row's seat opens, asking its accepted application only where the seat names no `eingetragen_von`."""
 
     bewerbung_raw = (
         None
-        if hat_eintraege(kontakte=row.get("kontakte"), seat=seat)
+        if nennt_eingetragen_von(kontakte=row.get("kontakte"), seat=seat)
         else await bewerbungen_collection.find_one(
             build_angenommene_bewerbung_filter(row=row), projection={f"kontakte.{seat}.email": 1, "_id": 0}, session=session
         )
@@ -249,8 +249,8 @@ async def post_einwilligung(
     """
     Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.
 
-    A consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, and
-    appends its act to each seat's record after the entry that seated them; a decline empties their slot and redacts
+    A consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, each
+    choice with its evidence, and leaves who seated them as it stands; a decline empties their slot and redacts
     every log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),
     a link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered
     (`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for that seat

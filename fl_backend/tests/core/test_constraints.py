@@ -64,7 +64,6 @@ from app.api.spiele.schemas import (
 )
 from app.api.spieler.schemas import (
     FLEinwilligung,
-    FLEinwilligungEintrag,
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerPosition,
@@ -76,8 +75,8 @@ from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import (
     FLAustritt,
     FLGruppenNames,
+    FLKontaktEingetragenVon,
     FLKontaktKenntnisnahme,
-    FLKontaktKenntnisnahmeEintrag,
     FLKontaktperson,
     FLSaisonTeamBestaetigung,
     FLSaisonTeamBestaetigungen,
@@ -102,7 +101,9 @@ from app.core.constraints import (
     diagnose_failure,
 )
 from app.core.recording import Actor, AktorFunktion, Operation, PersonActor
+from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
+from app.shared.schemas.einwilligung import FLEinwilligungBeleg, FLEinwilligungNachweis, FLEinwilligungNachweise
 from app.shared.schemas.kontakt import FLKontakt
 
 # Not derived from `db.py`'s providers: the junctions are reached by `$lookup` and have none.
@@ -138,6 +139,7 @@ SEAT_RECORD_HOMES: tuple[tuple[Collection, tuple[str, ...]], ...] = tuple(
     for collection in (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
     for seat in ("trainer", "ansprechperson", "stellvertretung")
 )
+RECORD_HOMES: tuple[tuple[Collection, tuple[str, ...]], ...] = PERSON_RECORD_HOMES + SEAT_RECORD_HOMES
 
 # (collection, path to the sub-schema, model, fields the model has that the document does not). The
 # fourth keeps this an equality check: `FLTeam` and `FLSpieler` are assembled from several collections.
@@ -250,10 +252,15 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), FLBerechtigungPostausgangZeile, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), FLBerechtigungStand, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), FLBerechtigungStand, frozenset()),
-    # A consent record's entries at every home: an array's path names its members, which are what
-    # the drift walk compares (`schema_at`).
-    *((collection, (*block, "verlauf"), FLEinwilligungEintrag, frozenset()) for collection, block in PERSON_RECORD_HOMES),
-    *((collection, (*block, "verlauf"), FLKontaktKenntnisnahmeEintrag, frozenset()) for collection, block in SEAT_RECORD_HOMES),
+    # A consent record's evidence at every home, both vocabularies sharing its shape: one sub-schema
+    # in Python is still a path per home to the drift walk.
+    *((collection, (*block, "nachweis"), FLEinwilligungNachweise, frozenset()) for collection, block in RECORD_HOMES),
+    *((collection, (*block, "nachweis", wahl), FLEinwilligungNachweis, frozenset()) for collection, block in RECORD_HOMES for wahl in WAHLEN),
+    *(
+        (collection, (*block, "nachweis", wahl, "erteilt_zuvor"), FLEinwilligungBeleg, frozenset())
+        for collection, block in RECORD_HOMES
+        for wahl in WAHLEN
+    ),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -440,18 +447,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # pupil may answer neither.
     (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
     (Collection.REGISTRIERUNGEN, (), "stufe", get_args(FLSpielerStufe), True),
-    # Every closed field of an entry, at every home: one sub-schema in Python is still a path per
-    # home to the drift walk.
-    *(
-        (collection, (*block, "verlauf"), field, get_args(FLEinwilligungEintrag.model_fields[field].annotation), False)
-        for collection, block in PERSON_RECORD_HOMES
-        for field in ("akt", "ueber", "umfang", "erteilt_von")
-    ),
-    *(
-        (collection, (*block, "verlauf"), field, get_args(FLKontaktKenntnisnahmeEintrag.model_fields[field].annotation), False)
-        for collection, block in SEAT_RECORD_HOMES
-        for field in ("akt", "ueber", "umfang", "erfasst_von")
-    ),
+    # Who seated the person, at every seat's home: the page its link opens is read off it.
+    *((collection, block, "eingetragen_von", get_args(FLKontaktEingetragenVon), True) for collection, block in SEAT_RECORD_HOMES),
 ]
 
 

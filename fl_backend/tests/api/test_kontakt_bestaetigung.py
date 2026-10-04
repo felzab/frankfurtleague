@@ -193,7 +193,6 @@ async def save(
         db=database.client,
         refuse_unconfirmed=step_up,
         today=today,
-        germany_now=NOW,
     )
 
 
@@ -1149,13 +1148,10 @@ class TestThePageASeasonRowsLinkOpens:
         assert refusal == FASSUNG_UNZULAESSIG
         assert unmoved["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the refused answer wrote"
         einwilligung = row["kontakte"]["trainer"]["einwilligung"]
-        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == (TODAY, SAISON_SEITE)
-        assert {key: einwilligung["verlauf"][-1][key] for key in ("akt", "ueber", "text_version", "erfasst_von")} == {
-            "akt": "bestaetigt",
-            "ueber": "POST /bewerbungen/einwilligung",
-            "text_version": SAISON_SEITE,
-            "erfasst_von": "person",
-        }
+        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"], einwilligung["erfasst_von"]) == (TODAY, SAISON_SEITE, "person")
+        assert einwilligung["nachweis"]["umfang"]["text_version"] == SAISON_SEITE
+        # The editor seated this person, and the answer leaves that standing.
+        assert einwilligung["eingetragen_von"] == "liga"
 
     @pytest.mark.parametrize(
         ("beworben", "fassung"),
@@ -1165,7 +1161,7 @@ class TestThePageASeasonRowsLinkOpens:
             pytest.param(None, SAISON_SEITE, id="no accepted application is kept"),
         ],
     )
-    def test_a_seat_stored_before_its_entries_is_read_off_the_accepted_application(
+    def test_a_seat_stored_before_the_field_is_read_off_the_accepted_application(
         self, mongo_replica_set_url: str, beworben: str | None, fassung: str
     ):
         """The seat itself cannot tell a person carried over at acceptance from one the editor entered."""
@@ -1180,26 +1176,13 @@ class TestThePageASeasonRowsLinkOpens:
         assert on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED).laufende_fassung == fassung
 
     def test_a_seat_carried_from_the_application_keeps_the_applicants_page(self, mongo_replica_set_url: str):
-        """Its first entry is the application's, so no application is asked and none needs to be kept."""
+        """It names the application as who seated its person, so no application is asked and none needs to be kept."""
 
         carried = {
             **STORED_UNCONFIRMED,
             "trainer": {
                 **STORED_UNCONFIRMED["trainer"],
-                "einwilligung": {
-                    **STORED_UNCONFIRMED["trainer"]["einwilligung"],
-                    "verlauf": [
-                        {
-                            "am": "2026-03-01T09:00:00+00:00",
-                            "akt": "erteilt",
-                            "ueber": "POST /bewerbungen",
-                            "umfang": "kontaktdaten",
-                            "medien": False,
-                            "text_version": "v1",
-                            "erfasst_von": "administrativ",
-                        }
-                    ],
-                },
+                "einwilligung": {**STORED_UNCONFIRMED["trainer"]["einwilligung"], "eingetragen_von": "bewerbung"},
             },
         }
 

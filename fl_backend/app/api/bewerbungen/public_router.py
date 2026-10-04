@@ -1,5 +1,4 @@
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Header
@@ -53,11 +52,9 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     TeamsCollection,
     get_german_date_str,
-    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 
@@ -340,7 +337,6 @@ async def post_bewerbung(
     # Optional, so a page loaded before the form sent one still submits, unprotected.
     idempotency_key: Annotated[UUID4 | None, Header()] = None,
     today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
 ) -> FLPostBewerbungResponse:
     """
     Store one school's application to play one season as submitted, and mint one confirmation link per contact person.
@@ -453,7 +449,7 @@ async def post_bewerbung(
                 # present, so an omitted null is a validator rejection rather than a stored null.
                 "team_id": bewerbung_data.team_id,
                 "schule": None if schule is None else schule.model_dump(mode="json"),
-                "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today, am=log_stamp(germany_now)),
+                "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
                 "trikot": bewerbung_data.trikot.model_dump(mode="json"),
                 "kader": bewerbung_data.kader.model_dump(mode="json"),
                 # Written explicitly for `wunschgegner`'s reason.

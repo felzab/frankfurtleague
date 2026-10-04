@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Body, Depends
@@ -56,11 +55,9 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     TeamsCollection,
     get_german_date_str,
-    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -511,7 +508,6 @@ async def besetze_kontakt_sitz(
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungKontaktSitzResponse:
     """
     Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.
@@ -583,7 +579,6 @@ async def besetze_kontakt_sitz(
                 token_hash=token_hash,
                 today=today,
                 bestaetigungsfrist=bestaetigungsfrist,
-                am=log_stamp(germany_now),
             ),
             session=session,
             return_document=ReturnDocument.BEFORE,

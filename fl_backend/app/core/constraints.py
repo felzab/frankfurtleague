@@ -77,25 +77,8 @@ _TRIKOT_FARBEN = [
 # The second member is the person's own tick on their confirmation page: no payload offers it.
 _KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
 _KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
-# Mirrors `app/shared/einwilligung_verlauf.py :: FLEinwilligungAkt`, shared by both vocabularies.
-_EINWILLIGUNG_AKTE = ["erteilt", "bestaetigt", "widerrufen"]
-# Mirror `app/api/spieler/schemas.py :: FLEinwilligungWeg` and `app/api/teams/schemas.py ::
-# FLKontaktKenntnisnahmeWeg`. Only ever widened: a stored entry names its write for good.
-_EINWILLIGUNG_WEGE = [
-    "POST /schiedsrichter/bestaetigung",
-    # The person's own presses on the account page.
-    "PATCH /spieler/selbst/einwilligung",
-    "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
-    "POST /registrierungen/bestaetigung",
-]
-_KONTAKT_KENNTNISNAHME_WEGE = [
-    "POST /bewerbungen",
-    "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
-    # A seat holder's own press on the account page.
-    "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
-    "POST /bewerbungen/einwilligung",
-    "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
-]
+# Mirrors `app/api/teams/schemas.py :: FLKontaktEingetragenVon`.
+_KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
@@ -119,7 +102,8 @@ def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable:
     """
     return {
         "bsonType": ["object", "null"] if nullable else "object",
-        "required": list(required),
+        # Left off where nothing is required: MongoDB refuses an empty `required`.
+        **({"required": list(required)} if required else {}),
         "properties": dict(properties),
     }
 
@@ -166,28 +150,25 @@ _AKTION_REQUEST = _object(
 )
 
 
-# One act on a record, cut from the block it leaves (`app/shared/einwilligung_verlauf.py ::
-# compose_eintrag`), so every key is required: an entry missing one records less than the act did.
-def _eintrag(*, umfang: list[str], quelle: str, quellen: list[str], wege: list[str]) -> Mapping[str, Any]:
-    return _object(
-        required=("am", "akt", "ueber", "umfang", "medien", "text_version", quelle),
-        properties={
-            # An instant in UTC, where the block carries a day.
-            "am": {"bsonType": "string"},
-            "akt": {"bsonType": "string", "enum": _EINWILLIGUNG_AKTE},
-            "ueber": {"bsonType": "string", "enum": wege},
-            "umfang": {"bsonType": "string", "enum": umfang},
-            "medien": {"bsonType": "bool"},
-            "text_version": {"bsonType": "string"},
-            quelle: {"bsonType": "string", "enum": quellen},
-        },
-    )
+# When a person set one choice and under which wording (`app/shared/schemas/einwilligung.py ::
+# FLEinwilligungBeleg`); every key required, a half-stamped act proving nothing.
+_BELEG = _object(required=("am", "text_version"), properties={"am": {"bsonType": "string"}, "text_version": {"bsonType": "string"}})
 
+# One choice's evidence, null until its person sets the choice; `erteilt_zuvor` only on a withdrawal.
+_NACHWEIS_WAHL = _object(
+    nullable=True,
+    required=("am", "text_version"),
+    properties={
+        "am": {"bsonType": "string"},
+        "text_version": {"bsonType": "string"},
+        "erteilt_zuvor": {**_BELEG, "bsonType": ["object", "null"]},
+    },
+)
 
-# Out of every block's `required` for `saisons.spielplan`'s reason: every stored record predates it,
-# and reads as its block alone.
-def _verlauf(eintrag: Mapping[str, Any]) -> Mapping[str, Any]:
-    return {"bsonType": "array", "items": eintrag}
+# Out of every block's `required` for `saisons.spielplan`'s reason: a record no person has answered
+# carries none. Never null, a dotted `$set` beneath one failing. Shared by both vocabularies, whose
+# choices carry the same two names.
+_NACHWEIS = _object(required=(), properties={"umfang": _NACHWEIS_WAHL, "medien": _NACHWEIS_WAHL})
 
 
 # Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
@@ -205,9 +186,7 @@ _EINWILLIGUNG = _object(
         # member, so a record can be withdrawn from one and stand in the other.
         "text_version": {"bsonType": _STRING_OR_NULL},
         "medien": {"bsonType": "bool"},
-        "verlauf": _verlauf(
-            _eintrag(umfang=_EINWILLIGUNG_UMFANG, quelle="erteilt_von", quellen=_EINWILLIGUNG_QUELLEN, wege=_EINWILLIGUNG_WEGE)
-        ),
+        "nachweis": _NACHWEIS,
     },
 )
 
@@ -225,14 +204,9 @@ _KONTAKT_KENNTNISNAHME = _object(
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
         # Out of `required` for `bestaetigt_am`'s reason.
         "medien": {"bsonType": "bool"},
-        "verlauf": _verlauf(
-            _eintrag(
-                umfang=_KONTAKT_KENNTNISNAHME_UMFANG,
-                quelle="erfasst_von",
-                quellen=_KONTAKT_KENNTNISNAHME_QUELLEN,
-                wege=_KONTAKT_KENNTNISNAHME_WEGE,
-            )
-        ),
+        # Out of `required` for `bestaetigt_am`'s reason, and null only as the read model spells an absent key.
+        "eingetragen_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_EINGETRAGEN_VON, None]},
+        "nachweis": _NACHWEIS,
     },
 )
 

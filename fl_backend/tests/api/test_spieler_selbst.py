@@ -16,7 +16,7 @@ from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungP
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.einwilligung_verlauf import VERLAUF
+from app.shared.einwilligung_nachweis import NACHWEIS
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
@@ -88,30 +88,15 @@ SPIEL = spiel_document(
     team2={"team_id": TEAM_B_OID, "name": ROW_NAME_B, "tore": None, "shorthand": "LE"},
 )
 
-# `NOW` in UTC, as an entry spells its instant.
+# `NOW` in UTC, as evidence spells its instant.
 NOW_UTC = "2026-10-03T10:00:00+00:00"
 
-# Two acts the record already carries, so an append is seen to leave them as they stood.
-EARLIER_ENTRIES = [
-    {
-        "am": "2026-09-02T08:00:00+00:00",
-        "akt": "bestaetigt",
-        "ueber": "POST /schiedsrichter/bestaetigung",
-        "umfang": "kader_oeffentlich",
-        "medien": False,
-        "text_version": "2026-09-spielerseite-3",
-        "erteilt_von": "volljaehrig",
-    },
-    {
-        "am": "2026-09-20T17:30:00+00:00",
-        "akt": "erteilt",
-        "ueber": "PATCH /spieler/selbst/einwilligung",
-        "umfang": "kader_oeffentlich",
-        "medien": False,
-        "text_version": "2026-10-konto-spieler",
-        "erteilt_von": "volljaehrig",
-    },
-]
+# The evidence the record already carries: the scope granted on the account page, the media answer
+# at the confirmation. Two acts, so a press is seen to restamp the choice it moves and no other.
+EARLIER_EVIDENCE = {
+    "umfang": {"am": "2026-09-20T17:30:00+00:00", "text_version": "2026-10-konto-spieler"},
+    "medien": {"am": "2026-09-02T08:00:00+00:00", "text_version": "2026-09-spielerseite-3"},
+}
 # Seventeen on `NOW`, eighteen a day later: the floor is judged on the day, not the year.
 SEVENTEEN_BIRTHDATE = "2008-10-04"
 
@@ -129,9 +114,9 @@ def _einwilligung(**fields: Any) -> dict[str, Any]:
 
 
 def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
-    """The block without its entries, which the cases on the appended record assert by themselves."""
+    """The block without its evidence, which the cases on a press assert by themselves."""
 
-    return {key: value for key, value in einwilligung.items() if key != VERLAUF}
+    return {key: value for key, value in einwilligung.items() if key != NACHWEIS}
 
 
 def _running_label() -> str:
@@ -401,34 +386,26 @@ class TestTheLabelTheControlStamps:
 
 
 @pytest.mark.db
-class TestTheAppendedRecord:
-    """Each press appends one entry and rewrites none (Art. 7(1) DSGVO); the block keeps the label its person confirmed."""
+class TestTheEvidence:
+    """Each press restamps the choice it moves and no other (Art. 7(1) DSGVO); the block keeps the label its person confirmed."""
 
     @staticmethod
-    async def _earlier_entries(database: AsyncDatabase) -> None:
-        await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.verlauf": EARLIER_ENTRIES}})
+    async def _earlier_evidence(database: AsyncDatabase) -> None:
+        await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.nachweis": EARLIER_EVIDENCE}})
 
-    def test_a_withdrawal_appends_one_entry_and_leaves_every_earlier_one_as_it_stood(self, mongo_replica_set_url: str):
-        """The case that goes red the day a write sets the block, or its entries, in place of appending."""
+    def test_a_withdrawal_keeps_the_grant_it_ended_and_leaves_the_other_choices_evidence(self, mongo_replica_set_url: str):
+        """The case that goes red the day a write sets the block, or its evidence, whole."""
 
-        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(umfang="intern"), before=self._earlier_entries))
+        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(umfang="intern"), before=self._earlier_evidence))
 
         assert response.status_code == 200, response.text
-        assert after[PUPIL_OID]["einwilligung"][VERLAUF] == [
-            *EARLIER_ENTRIES,
-            {
-                "am": NOW_UTC,
-                "akt": "widerrufen",
-                "ueber": "PATCH /spieler/selbst/einwilligung",
-                "umfang": "intern",
-                "medien": False,
-                "text_version": _running_label(),
-                "erteilt_von": "volljaehrig",
-            },
-        ]
+        assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == {
+            "umfang": {"am": NOW_UTC, "text_version": _running_label(), "erteilt_zuvor": EARLIER_EVIDENCE["umfang"]},
+            "medien": EARLIER_EVIDENCE["medien"],
+        }
         assert after[PUPIL_OID]["einwilligung"]["text_version"] == CONFIRMATION_LABEL
 
-    def test_a_grant_after_a_withdrawal_appends_a_second_entry_rather_than_reviving_the_first(self, mongo_replica_set_url: str):
+    def test_a_grant_after_a_withdrawal_is_its_own_evidence(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             withdrawn = await http.patch(PATCH_PATH, json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
             granted = await http.patch(PATCH_PATH, json=_payload(umfang="kader_oeffentlich"), headers=_person(IDENTIFIER))
@@ -437,17 +414,15 @@ class TestTheAppendedRecord:
         withdrawn, granted, after = served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
-        assert [(entry["akt"], entry["umfang"]) for entry in after[PUPIL_OID]["einwilligung"][VERLAUF]] == [
-            ("widerrufen", "intern"),
-            ("erteilt", "kader_oeffentlich"),
-        ]
+        # Bounded at one act per choice: the grant standing drops the withdrawal's earlier grant.
+        assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == {"umfang": {"am": NOW_UTC, "text_version": _running_label()}}
         assert _block(after[PUPIL_OID]["einwilligung"]) == _einwilligung()
 
-    def test_a_press_moving_nothing_appends_nothing(self, mongo_replica_set_url: str):
-        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(), before=self._earlier_entries))
+    def test_a_press_moving_nothing_restamps_nothing(self, mongo_replica_set_url: str):
+        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(), before=self._earlier_evidence))
 
         assert response.status_code == 200, response.text
-        assert after[PUPIL_OID]["einwilligung"][VERLAUF] == EARLIER_ENTRIES
+        assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == EARLIER_EVIDENCE
 
 
 @pytest.mark.db

@@ -6,13 +6,12 @@ from app.api.bewerbungen.services import days_after
 from app.api.kontakte.services import same_address
 from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
-from app.api.spieler.schemas import FLEinwilligungWeg
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_verlauf import compose_born_record
+from app.shared.einwilligung_nachweis import compose_geboren
 from app.shared.folding import canonical_address, mailbox_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -187,10 +186,6 @@ EINWILLIGUNG_FELD: Final = "einwilligung"
 # them, so this flow writes neither of the other two sources.
 SCHIEDSRICHTER_ERTEILT_VON: Final = "volljaehrig"
 
-# The operation a confirmation's entry names, the route `app/api/schiedsrichter/bestaetigung_router.py
-# :: post_bestaetigung` serves.
-BESTAETIGUNG_WEG: Final[FLEinwilligungWeg] = "POST /schiedsrichter/bestaetigung"
-
 
 def bestaetigung_frist_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
@@ -240,12 +235,7 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
 
     # Born whole rather than moved: the stamp refusal admits only a row whose stored block no answer
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
-    record = compose_born_record(
-        block=compose_einwilligung(umfang=umfang, medien=medien, text_version=text_version, today=today),
-        akt="bestaetigt",
-        ueber=BESTAETIGUNG_WEG,
-        am=am,
-    )
+    record = compose_geboren(block=compose_einwilligung(umfang=umfang, medien=medien, text_version=text_version, today=today), am=am)
 
     return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
 
@@ -525,10 +515,6 @@ BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
 
 # What the re-send judges, and the address it hashes against the ban list.
 EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1}
-
-
-# The operation the referee's own press records on its entry.
-SELBST_WEG_SCHIEDSRICHTER: Final[FLEinwilligungWeg] = "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"
 
 
 def build_selbst_referee_filter(identifier: str, *, schiedsrichter_id: Any = None) -> Mapping[str, Any]:

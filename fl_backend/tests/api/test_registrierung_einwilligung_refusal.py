@@ -451,18 +451,8 @@ class TestWhatAConfirmationWrites:
                     "bestaetigt_am": TODAY,
                     "text_version": A_LABEL,
                     "medien": True,
-                    # Born with its one act: no record stood on the registration before this press.
-                    "verlauf": [
-                        {
-                            "am": AM,
-                            "akt": "bestaetigt",
-                            "ueber": "POST /registrierungen/bestaetigung",
-                            "umfang": "intern",
-                            "medien": True,
-                            "text_version": A_LABEL,
-                            "erteilt_von": "volljaehrig",
-                        }
-                    ],
+                    # Born with each choice's evidence: no record stood on the registration before this press.
+                    "nachweis": {"umfang": {"am": AM, "text_version": A_LABEL}, "medien": {"am": AM, "text_version": A_LABEL}},
                 },
             }
         }

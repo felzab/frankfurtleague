@@ -2,9 +2,9 @@ from typing import Annotated, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-from app.shared.einwilligung_verlauf import FLEinwilligungAkt
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -29,36 +29,13 @@ FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
 FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 
-# Aliases rather than inline: the record and each entry it keeps answer in one vocabulary.
+# An alias rather than inline: the payloads that set it answer in the record's own vocabulary.
 FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
 
 # `bestandsuebernahme` is what a BACKFILLED row carries, so a record carried over from before
 # consent was collected stays distinguishable from one a person actually gave. `volljaehrig` pins no
 # age: the floor is per seat (`docs/backend/spec.md :: I180`).
 FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
-
-# The operations appending to a person's consent record, spelled as `app/core/domain.py :: RULES`
-# spells one. Never narrowed: a stored entry names its write for good.
-FLEinwilligungWeg = Literal[
-    "POST /schiedsrichter/bestaetigung",
-    # The person's own presses on the account page.
-    "PATCH /spieler/selbst/einwilligung",
-    "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
-    "POST /registrierungen/bestaetigung",
-]
-
-
-class FLEinwilligungEintrag(BaseModel):
-    """One act on a person's consent record, as `app/shared/einwilligung_verlauf.py :: compose_eintrag` cut it from the block."""
-
-    # An instant in UTC (`app/core/recording.py :: log_stamp`), where the block carries a day.
-    am: str
-    akt: FLEinwilligungAkt
-    ueber: FLEinwilligungWeg
-    umfang: FLEinwilligungUmfang
-    medien: bool
-    text_version: str
-    erteilt_von: FLEinwilligungQuelle
 
 
 class FLEinwilligung(BaseModel):
@@ -83,9 +60,9 @@ class FLEinwilligung(BaseModel):
     # are independent answers, so withdrawing one leaves the other standing. Defaulted for
     # `text_version`'s reason.
     medien: bool = False
-    # Every act on the record, oldest first, the block above being where they leave it. Defaulted,
-    # every record stored before them reading as its block alone.
-    verlauf: list[FLEinwilligungEintrag] = []
+    # Each choice's evidence (`app/shared/einwilligung_nachweis.py`), empty on a record no person has
+    # answered. Never null: a choice's evidence is set dotted, and MongoDB sets no field under a null.
+    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
 
 
 class _SpielerPerson(BaseModel):

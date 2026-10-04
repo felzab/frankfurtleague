@@ -1757,7 +1757,6 @@ async def reseat(
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
-        germany_now=NOW,
     )
 
 
@@ -1852,8 +1851,8 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert stored["kontakte"]["ansprechperson"] == {
             **RESEAT_PERSON,
             "geburtsdatum": None,
-            # Born afresh with the reseat as its one entry: nothing of the person who stepped out of
-            # the seat travels to the one seated. `NOW` is half past noon in Frankfurt's summer time.
+            # Born afresh, the league named as who seated them: nothing of the person who stepped out
+            # of the seat travels to the one seated, their evidence included.
             "einwilligung": {
                 "umfang": "kontaktdaten",
                 "erfasst_von": "administrativ",
@@ -1861,17 +1860,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
                 "datum": TODAY,
                 "bestaetigt_am": None,
                 "medien": False,
-                "verlauf": [
-                    {
-                        "am": "2026-04-01T10:30:00+00:00",
-                        "akt": "erteilt",
-                        "ueber": "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
-                        "umfang": "kontaktdaten",
-                        "medien": False,
-                        "text_version": RESEAT_TEXT_VERSION,
-                        "erfasst_von": "administrativ",
-                    }
-                ],
+                "eingetragen_von": "liga",
             },
         }
         assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)

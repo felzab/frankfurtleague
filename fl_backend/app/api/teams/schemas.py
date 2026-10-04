@@ -17,7 +17,6 @@ from pydantic import (
     model_validator,
 )
 
-from app.shared.einwilligung_verlauf import FLEinwilligungAkt
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -41,6 +40,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -168,30 +168,9 @@ FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
 # `person` is the confirmation link's to write and nobody else's.
 FLKontaktKenntnisnahmeQuelle = Literal["person", "administrativ"]
 
-# The operations appending to a contact seat's record, spelled as `app/core/domain.py :: RULES`
-# spells one. Never narrowed: a stored entry names its write for good, and the first entry's is what
-# tells an applicant-named seat from one an administrator filled.
-FLKontaktKenntnisnahmeWeg = Literal[
-    "POST /bewerbungen",
-    "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
-    # A seat holder's own press on the account page.
-    "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
-    "POST /bewerbungen/einwilligung",
-    "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
-]
-
-
-class FLKontaktKenntnisnahmeEintrag(BaseModel):
-    """One act on a contact seat's record, as `app/shared/einwilligung_verlauf.py :: compose_eintrag` cut it from the block."""
-
-    # An instant in UTC (`app/core/recording.py :: log_stamp`), where the block carries a day.
-    am: str
-    akt: FLEinwilligungAkt
-    ueber: FLKontaktKenntnisnahmeWeg
-    umfang: FLKontaktKenntnisnahmeUmfang
-    medien: bool
-    text_version: str
-    erfasst_von: FLKontaktKenntnisnahmeQuelle
+# Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
+# the contacts editor). Not `verwaltung`, the access tier's word (`docs/glossary.md :: verwaltung`).
+FLKontaktEingetragenVon = Literal["bewerbung", "liga"]
 
 
 class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
@@ -210,9 +189,11 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
     # The one consent on this record, to photographs, video and interviews, and on the READ model
     # alone for `umfang`'s reason. Defaulted for `bestaetigt_am`'s.
     medien: bool = False
-    # Every act on the record, oldest first. Defaulted for `bestaetigt_am`'s reason, a record stored
-    # before them reading as its block alone.
-    verlauf: list[FLKontaktKenntnisnahmeEintrag] = []
+    # Written once, by the write that seats the person, and moved by nothing else: which confirmation
+    # page the seat's link opens. Defaulted for `bestaetigt_am`'s reason.
+    eingetragen_von: FLKontaktEingetragenVon | None = None
+    # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.nachweis`'s reasons.
+    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
 
 
 class FLKontaktperson(BaseModel):
@@ -293,8 +274,12 @@ def _project_seat(value: Any) -> Any:
     projected: dict[str, Any] = {field: _projected_leaf(FLKontaktperson, value, field) for field in FLKontaktperson.model_fields}
     einwilligung = projected.get("einwilligung")
     if isinstance(einwilligung, Mapping):
+        # Never `nachweis`: it moves only with a choice or a stamp the token already holds, and its
+        # nested defaults would part a stored block's token from its read's.
         projected["einwilligung"] = {
-            field: _projected_leaf(FLKontaktKenntnisnahme, einwilligung, field) for field in FLKontaktKenntnisnahme.model_fields
+            field: _projected_leaf(FLKontaktKenntnisnahme, einwilligung, field)
+            for field in FLKontaktKenntnisnahme.model_fields
+            if field != "nachweis"
         }
 
     return projected
@@ -303,8 +288,7 @@ def _project_seat(value: Any) -> Any:
 def _projected_leaf(model: type[BaseModel], stored: Mapping[str, Any], field: str) -> Any:
     """One field as the read model answers it, an absent key reading as the field's default.
 
-    Never `None` there: `medien` and `verlauf` read `false` and `[]`, and null would answer a token
-    no read mints.
+    Never `None` there: `medien` reads `false`, and null would answer a token no read mints.
     """
 
     info = model.model_fields[field]
@@ -647,7 +631,7 @@ class FLSaisonTeamPersonEinwilligungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     medien: bool
-    # The label of the account page's seat control the press was given under, recorded on its entry.
+    # The label of the account page's seat control the press was given under, recorded on its evidence.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 

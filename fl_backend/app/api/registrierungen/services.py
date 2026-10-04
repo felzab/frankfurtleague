@@ -28,12 +28,11 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.api.sperrliste.services import withheld_actor
-from app.api.spieler.schemas import FLEinwilligungWeg
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_verlauf import VERLAUF, compose_born_record
+from app.shared.einwilligung_nachweis import compose_geboren
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -550,10 +549,6 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
     )
 
 
-# The pupil's own answer, which the record's first entry names.
-BESTAETIGUNG_WEG: Final[FLEinwilligungWeg] = "POST /registrierungen/bestaetigung"
-
-
 def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str, am: str) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
@@ -562,8 +557,8 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
     """
 
     # Born whole rather than moved: the submission stores no record and a second press is refused, so
-    # no earlier act stands on this block; the admission carries its entry onto the person.
-    record = compose_born_record(
+    # no earlier choice stands on this block; the admission carries its evidence onto the person.
+    record = compose_geboren(
         block={
             "umfang": umfang,
             "erteilt_von": REGISTRIERUNG_ERTEILT_VON,
@@ -574,8 +569,6 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
             "text_version": text_version,
             "medien": medien,
         },
-        akt="bestaetigt",
-        ueber=BESTAETIGUNG_WEG,
         am=am,
     )
 
@@ -906,27 +899,14 @@ def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dic
 def compose_person_update(*, registrierung_raw: Mapping[str, Any], adresse: str) -> Mapping[str, Any]:
     """What an admission writes onto a matched person: the registration's name, birthdate, consent and address.
 
-    The consent's choices and label are RENEWED, as the confirmation page promised; its acts follow
-    the person's own (`docs/backend/spec.md :: I867`).
+    The consent is RENEWED, as the confirmation page promised, its evidence with it.
     """
 
-    # A matched person always holds a block, the validator requiring one, so the dotted paths are viable.
-    einwilligung = registrierung_raw["einwilligung"]
-    update: dict[str, Any] = {
-        "$set": {
-            **_person_fields(registrierung_raw=registrierung_raw, adresse=adresse),
-            **{f"einwilligung.{field}": value for field, value in einwilligung.items() if field != VERLAUF},
-        }
-    }
-    eintraege = list(einwilligung.get(VERLAUF) or [])
-    if eintraege:
-        update["$push"] = {f"einwilligung.{VERLAUF}": {"$each": eintraege}}
-
-    return update
+    return {"$set": {**_person_fields(registrierung_raw=registrierung_raw, adresse=adresse), "einwilligung": registrierung_raw["einwilligung"]}}
 
 
 def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
-    """A new person, from the registration alone: its record carried whole, entries included."""
+    """A new person, from the registration alone: its record carried whole, evidence included."""
 
     fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
 

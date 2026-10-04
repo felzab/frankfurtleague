@@ -124,24 +124,17 @@ class TestTheRecordTheConfirmationWrites:
         assert set(update) == {"$set"}
         assert set(update["$set"]) == {"geburtsdatum", EINWILLIGUNG_FELD}
 
-    def test_the_record_is_born_with_the_confirmation_as_its_one_entry(self):
+    def test_the_record_is_born_with_each_choice_evidenced_by_the_confirmation(self):
         """Whole and never dotted: a dotted `$set` under the null block a live referee row stores aborts the transaction."""
 
         update = compose_confirmation_update(
             geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY, am=CONFIRMED_AT
         )
 
-        assert update["$set"][EINWILLIGUNG_FELD]["verlauf"] == [
-            {
-                "am": CONFIRMED_AT,
-                "akt": "bestaetigt",
-                "ueber": "POST /schiedsrichter/bestaetigung",
-                "umfang": "kader_oeffentlich",
-                "medien": True,
-                "text_version": "v1",
-                "erteilt_von": "volljaehrig",
-            }
-        ]
+        assert update["$set"][EINWILLIGUNG_FELD]["nachweis"] == {
+            "umfang": {"am": CONFIRMED_AT, "text_version": "v1"},
+            "medien": {"am": CONFIRMED_AT, "text_version": "v1"},
+        }
 
     def test_the_record_carries_the_media_answer_even_when_it_is_off(self):
         """An off switch is an answer, so the key is stored rather than omitted for the model's default to supply."""

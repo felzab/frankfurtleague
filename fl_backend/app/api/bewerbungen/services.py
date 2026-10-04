@@ -16,11 +16,11 @@ from app.api.bewerbungen.schemas import (
     refuse_age_outside_the_bounds,
 )
 from app.api.sperrliste.services import withheld_actor
-from app.api.teams.schemas import FLKontaktKenntnisnahmeWeg, FLPostTeamPayload, FLTrikotFarbe
+from app.api.teams.schemas import FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_verlauf import VERLAUF, compose_born_record, compose_record_move
+from app.shared.einwilligung_nachweis import compose_wahlen
 from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -395,15 +395,7 @@ def compose_wiederholung_update(*, hashes: Mapping[str, str], bestaetigungen: An
     return {"$set": written}
 
 
-# The operations a seat's first entry names: which of the two it is tells an applicant-named seat
-# from one an administrator filled.
-BEWERBUNG_WEG: Final[FLKontaktKenntnisnahmeWeg] = "POST /bewerbungen"
-NEUBESETZUNG_WEG: Final[FLKontaktKenntnisnahmeWeg] = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
-# A seat's own answer, on an application and on a team's season row alike: one endpoint answers both.
-BESTAETIGUNG_WEG: Final[FLKontaktKenntnisnahmeWeg] = "POST /bewerbungen/einwilligung"
-
-
-def compose_einwilligung(*, text_version: str, today: str, ueber: FLKontaktKenntnisnahmeWeg, am: str) -> dict[str, Any]:
+def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKontaktEingetragenVon) -> dict[str, Any]:
     """The contact seat's record as the server writes it.
 
     `administrativ` on every seat: one person ticked for three, and only a seat's own confirmation
@@ -419,9 +411,10 @@ def compose_einwilligung(*, text_version: str, today: str, ueber: FLKontaktKennt
         "datum": today,
         "bestaetigt_am": None,
         "medien": False,
+        "eingetragen_von": eingetragen_von,
     }
 
-    return compose_born_record(block=block, akt="erteilt", ueber=ueber, am=am)
+    return block
 
 
 # The three seats, in the order `FLSaisonTeamKontakte` declares them; nothing reads one by position.
@@ -445,7 +438,7 @@ def mindestalter_for(seats: Sequence[str]) -> int:
     return max(SEAT_MIN_AGE_YEARS[seat] for seat in seats)
 
 
-def compose_kontakte(*, kontakte: Mapping[str, Any], today: str, am: str) -> dict[str, Any]:
+def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, Any]:
     """The three people as `saison_teams` stores them, each seat's record recomposed here.
 
     Taken as the DUMPED payload rather than the model: this module composes documents, and every
@@ -459,7 +452,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str, am: str) -> dic
             # entered, and the confirmation fills it (`docs/backend/spec.md :: I141`).
             "geburtsdatum": None,
             "einwilligung": compose_einwilligung(
-                text_version=kontakte[seat]["einwilligung"]["text_version"], today=today, ueber=BEWERBUNG_WEG, am=am
+                text_version=kontakte[seat]["einwilligung"]["text_version"], today=today, eingetragen_von="bewerbung"
             ),
         }
         for seat in KONTAKT_SEATS
@@ -532,9 +525,13 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
     return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in fields}
 
 
-# What decides which page a seat's link opens (`kontakt_seite_of`): its first entry's write, and the
-# day a record stored before its entries carries.
-KONTAKT_SEITE_FIELDS: Final = ("einwilligung.verlauf.ueber", "einwilligung.datum")
+# What decides which page a seat's link opens (`kontakt_seite_of`): who seated its person, and the
+# day a record stored before that field carries.
+KONTAKT_SEITE_FIELDS: Final = ("einwilligung.eingetragen_von", "einwilligung.datum")
+
+
+# What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
+KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.medien", "einwilligung.nachweis")
 
 
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
@@ -563,7 +560,8 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 # address is what a consent asks the ban list of, and no answer carries it.
 EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
-    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.medien", *KONTAKT_SEITE_FIELDS),
+    # The choices and their evidence, so a withdrawal names the grant it ends (`compose_wahlen`).
+    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", *KONTAKT_WAHL_FIELDS, *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "status": 1,
@@ -757,16 +755,16 @@ SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
-    # With `saison_id`, the key of the accepted application a seat stored before its entries is asked about.
+    # With `saison_id`, the key of the accepted application a seat stored before `eingetragen_von` is asked about.
     "team_id": 1,
     "name": 1,
     # A team that left the season holds no seat a consent could be given for.
     "austritt": 1,
 }
 
-# The answer's read writes on the row, so it keys the patch on `_id`, and cuts each entry from the
-# seat's stored `medien`.
-SAISON_EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {**SAISON_EINWILLIGUNG_FIELDS, **_per_seat("kontakte", "einwilligung.medien"), "_id": 1}
+# The answer's read writes on the row, so it keys the patch on `_id`, and reads each seat's choices
+# and their evidence as `EINWILLIGUNG_ANTWORT_FIELDS` does.
+SAISON_EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {**SAISON_EINWILLIGUNG_FIELDS, **_per_seat("kontakte", *KONTAKT_WAHL_FIELDS), "_id": 1}
 
 
 def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:
@@ -985,30 +983,25 @@ def compose_confirmation_update(
     """
 
     written: dict[str, Any] = {}
-    appended: dict[str, Any] = {}
     for seat in seats:
+        pfad = f"kontakte.{seat}.einwilligung"
         written[f"kontakte.{seat}.geburtsdatum"] = geburtsdatum
-        # Moved field by field beside the entry, never set whole: the applicant's or the
-        # administrator's entry stays first, and it is what tells which page this seat opens.
-        move = compose_record_move(
-            pfad=f"kontakte.{seat}.einwilligung",
-            stored=kontakte[seat]["einwilligung"],
-            moved={
-                "bestaetigt_am": today,
-                "erfasst_von": "person",
-                "text_version": text_version,
-                "umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG,
-                "medien": medien,
-            },
-            akt="bestaetigt",
-            ueber=BESTAETIGUNG_WEG,
-            am=am,
-            text_version=text_version,
+        # Field by field, never the block whole: `eingetragen_von` and `datum` are the seating's, and
+        # what it tells stands after the answer.
+        written[f"{pfad}.bestaetigt_am"] = today
+        written[f"{pfad}.erfasst_von"] = "person"
+        written[f"{pfad}.text_version"] = text_version
+        written.update(
+            compose_wahlen(
+                pfad=pfad,
+                gespeichert=kontakte[seat]["einwilligung"],
+                gesetzt={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "medien": medien},
+                am=am,
+                text_version=text_version,
+            )
         )
-        written.update(move["$set"])
-        appended.update(move["$push"])
 
-    return {"$set": written, "$push": appended}
+    return {"$set": written}
 
 
 # The two pages' own fills: the account page states a seat's words with these too, so each confirmation
@@ -1034,19 +1027,15 @@ def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str
 KontaktSeite = Literal["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"]
 
 
-def kontakt_seite_of(*, einwilligung: Any, ohne_eintraege_vom_bewerber: bool, verwaltet: KontaktSeite) -> KontaktSeite:
+def kontakt_seite_of(*, einwilligung: Any, sonst_vom_bewerber: bool, verwaltet: KontaktSeite) -> KontaktSeite:
     """The page this seat's link opens: the applicant's where the applicant named the person, else its home's own.
 
-    Read off the FIRST entry, the act that seated the person; a record without entries takes the
-    caller's reading of its home.
+    Read off `eingetragen_von`, which nothing after the seating moves; a record stored before it takes
+    the caller's reading of its home.
     """
 
-    verlauf = einwilligung.get(VERLAUF) if isinstance(einwilligung, Mapping) else None
-    if isinstance(verlauf, list) and verlauf:
-        erster = verlauf[0]
-        vom_bewerber = isinstance(erster, Mapping) and erster.get("ueber") == BEWERBUNG_WEG
-    else:
-        vom_bewerber = ohne_eintraege_vom_bewerber
+    eingetragen_von = einwilligung.get("eingetragen_von") if isinstance(einwilligung, Mapping) else None
+    vom_bewerber = eingetragen_von == "bewerbung" if eingetragen_von in get_args(FLKontaktEingetragenVon) else sonst_vom_bewerber
 
     return "bestaetigung_kontakt" if vom_bewerber else verwaltet
 
@@ -1058,10 +1047,10 @@ def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
     return einwilligung if isinstance(einwilligung, Mapping) else {}
 
 
-def hat_eintraege(*, kontakte: Any, seat: str) -> bool:
-    """Whether this seat's record carries its entries, so its page needs no second read."""
+def nennt_eingetragen_von(*, kontakte: Any, seat: str) -> bool:
+    """Whether this seat's record says who seated its person, so its page needs no second read."""
 
-    return bool(_einwilligung_of(kontakte, seat).get(VERLAUF))
+    return _einwilligung_of(kontakte, seat).get("eingetragen_von") is not None
 
 
 def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> KontaktSeite:
@@ -1069,11 +1058,11 @@ def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> K
 
     einwilligung = _einwilligung_of(bewerbung_raw.get("kontakte"), seat)
 
-    # Before its entries: the submission stamps its own day on every seat it writes, and a reseat the
+    # Before `eingetragen_von`: the submission stamps its own day on every seat it writes, and a reseat the
     # day it seats somebody, so a seat dated otherwise was filled by an administrator.
     vom_bewerber = einwilligung.get("datum") == bewerbung_raw.get("eingereicht_am")
 
-    return kontakt_seite_of(einwilligung=einwilligung, ohne_eintraege_vom_bewerber=vom_bewerber, verwaltet="bestaetigung_kontakt_verwaltung")
+    return kontakt_seite_of(einwilligung=einwilligung, sonst_vom_bewerber=vom_bewerber, verwaltet="bestaetigung_kontakt_verwaltung")
 
 
 def build_angenommene_bewerbung_filter(*, row: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -1083,7 +1072,7 @@ def build_angenommene_bewerbung_filter(*, row: Mapping[str, Any]) -> Mapping[str
 
 
 def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str, bewerbung_raw: Mapping[str, Any] | None) -> KontaktSeite:
-    """The page a season row's seat opens; `bewerbung_raw` is that row's accepted application, read only for a seat with no entries."""
+    """The page a season row's seat opens; `bewerbung_raw` is its accepted application, read only for a seat naming no `eingetragen_von`."""
 
     kontakte = row.get("kontakte")
     adresse = {sign_in_identifier(adresse) for adresse in seat_adressen(kontakte=kontakte, seats=(seat,))}
@@ -1092,7 +1081,7 @@ def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str, bewerbung_raw: Ma
         for adresse in seat_adressen(kontakte=None if bewerbung_raw is None else bewerbung_raw.get("kontakte"), seats=(seat,))
     }
 
-    # Before its entries the seat itself cannot tell a person carried over from the application at
+    # Before `eingetragen_von` the seat itself cannot tell a person carried over from the application at
     # acceptance from one the contacts editor entered; the application still holding them in that
     # seat can, while it is kept.
     vom_bewerber = bool(adresse) and adresse == beworben
@@ -1101,7 +1090,7 @@ def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str, bewerbung_raw: Ma
     # application is decided.
     return kontakt_seite_of(
         einwilligung=_einwilligung_of(kontakte, seat),
-        ohne_eintraege_vom_bewerber=vom_bewerber,
+        sonst_vom_bewerber=vom_bewerber,
         verwaltet="bestaetigung_kontakt_saison",
     )
 
@@ -1289,13 +1278,13 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
 
 
 def compose_kontakt_seat_update(
-    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, token_hash: str, today: str, bestaetigungsfrist: str, am: str
+    *, seats: Sequence[str], person: Mapping[str, Any], text_version: str, token_hash: str, today: str, bestaetigungsfrist: str
 ) -> Mapping[str, Any]:
     """The new person and their fresh link, in ONE `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
     erneut = compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist)
     # Born afresh: nothing of the person who stepped out travels to the one seated.
-    einwilligung = compose_einwilligung(text_version=text_version, today=today, ueber=NEUBESETZUNG_WEG, am=am)
+    einwilligung = compose_einwilligung(text_version=text_version, today=today, eingetragen_von="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
     # and the confirmation fills it (`docs/backend/spec.md :: I141`).
     slot = {**person, "geburtsdatum": None, "einwilligung": einwilligung}

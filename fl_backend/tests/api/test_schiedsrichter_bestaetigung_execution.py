@@ -729,7 +729,7 @@ class TestTheConfirmation:
         response, row = on_a_league(mongo_replica_set_url, body)
 
         assert row["geburtsdatum"] == AN_ADULTS_BIRTHDATE
-        # The confirmation is the record's first act, its instant in UTC: `NOW` is half past noon in
+        # Each choice evidenced by the confirmation, its instant in UTC: `NOW` is half past noon in
         # Frankfurt's summer time.
         assert row[EINWILLIGUNG_FELD] == {
             "umfang": "kader_oeffentlich",
@@ -738,17 +738,10 @@ class TestTheConfirmation:
             "bestaetigt_am": TODAY,
             "text_version": TEXT_VERSION,
             "medien": True,
-            "verlauf": [
-                {
-                    "am": "2026-04-01T10:30:00+00:00",
-                    "akt": "bestaetigt",
-                    "ueber": "POST /schiedsrichter/bestaetigung",
-                    "umfang": "kader_oeffentlich",
-                    "medien": True,
-                    "text_version": TEXT_VERSION,
-                    "erteilt_von": "volljaehrig",
-                }
-            ],
+            "nachweis": {
+                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSION},
+                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSION},
+            },
         }
         assert (response.umfang, response.medien, response.bestaetigt_am) == ("kader_oeffentlich", True, TODAY)
 

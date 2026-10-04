@@ -634,7 +634,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONDITIONAL,
         "written whole at submission, and afterwards by the seat's own person through "
         "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, source, "
-        "wording, scope and media answer on every seat that person holds, appending its entry, a decline nulls those "
+        "wording, scope and media answer on every seat that person holds, each answer with its evidence, a decline nulls those "
         "slots, and both are refused once "
         "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Two administrative "
         "repairs reach it besides, each refused on a seat in any other state (`REQ-BEWERBUNG-011`): "
@@ -900,7 +900,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "einwilligung",
         Editability.COMPOSED,
         "on no administrative payload: the admission writes the registration's freshly confirmed record whole onto a person "
-        "it creates, and onto one it matches renews its choices and label and appends its entries after the person's own "
+        "it creates, and onto one it matches renews the record whole, its evidence with it "
         "(`app/api/registrierungen/services.py :: compose_person_update`), and afterwards "
         "only the person moves its two choices, `umfang` and `medien`, through `PATCH /spieler/selbst/einwilligung`, every "
         "other member standing: `bestaetigt_am` is what the panel and the publication mask read, and `text_version` names "
@@ -1188,7 +1188,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no payload beyond the scope and the media answer the pupil chose: the server stamps `bestaetigt_am` and `datum` "
         "with the day the confirmation lands and fills `erteilt_von` with `volljaehrig`, nobody else being permitted to "
-        "answer for a pupil, and writes the record born with its one `bestaetigt` entry. `text_version` arrives on the "
+        "answer for a pupil, and writes the record born with each choice's evidence. `text_version` arrives on the "
         "payload, and anything but the pupil page's running label is refused (`REQ-EINWILLIGUNG-001`)",
         "app.api.registrierungen.services.find_already_confirmed_refusal",
     ),

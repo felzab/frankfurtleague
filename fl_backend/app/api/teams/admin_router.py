@@ -1,5 +1,4 @@
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -100,11 +99,9 @@ from app.core.dependencies import (
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
-    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
@@ -588,7 +585,6 @@ async def patch_saison_team_kontakte(
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
 ) -> FLPatchSaisonTeamKontakteResponse:
     """
     Rewrite the three people this team is reached through for one season. Null clears the block.
@@ -642,7 +638,7 @@ async def patch_saison_team_kontakte(
         gehalten = kontakte_fassungen_gehalten(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
         refuse(find_fassung_refusal(seite="bewerbung", genannt=kontakte_fassungen_genannt(kontakte=payload["kontakte"]), gehalten=gehalten))
 
-        kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"), am=log_stamp(germany_now))
+        kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
         # In session: the save mints nothing for a season it reads as closed. A rollover committing after this
         # read is not seen, and the link it minted is refused at its press (`docs/backend/spec.md :: I935`).

@@ -324,17 +324,10 @@ class TestWhatAConfirmationWrites:
             "bestaetigt_am": TODAY,
             "text_version": THIS_SEASONS_LABEL,
             "medien": False,
-            "verlauf": [
-                {
-                    "am": AM,
-                    "akt": "bestaetigt",
-                    "ueber": "POST /registrierungen/bestaetigung",
-                    "umfang": "kader_oeffentlich",
-                    "medien": False,
-                    "text_version": THIS_SEASONS_LABEL,
-                    "erteilt_von": "volljaehrig",
-                }
-            ],
+            "nachweis": {
+                "umfang": {"am": AM, "text_version": THIS_SEASONS_LABEL},
+                "medien": {"am": AM, "text_version": THIS_SEASONS_LABEL},
+            },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["bestaetigung"]["token_hash"] == TOKEN_HASH
