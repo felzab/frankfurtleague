@@ -143,7 +143,13 @@ def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Map
     A choice moves only where it was set there later (`docs/backend/spec.md :: I867`), and only with evidence to carry.
     """
 
-    gesetzt: dict[str, Any] = {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS, *SPRECHER)}
+    # The day and the label, `datum` with them, only from a confirmation no older than the stored one:
+    # an older registration admitted after a newer one would date and name the record backwards.
+    neu_am, alt_am = erneuert.get("bestaetigt_am"), gespeichert.get("bestaetigt_am")
+    juenger = not (isinstance(alt_am, str) and alt_am) or (isinstance(neu_am, str) and neu_am >= alt_am)
+    gesetzt: dict[str, Any] = (
+        {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS, *SPRECHER)} if juenger else {}
+    )
     for wahl in WAHLEN:
         neu, alt = beleg_of(erneuert, wahl, stamp=stamp), beleg_of(gespeichert, wahl, stamp=stamp)
         if wahl not in erneuert or neu is None or neu[1] is None or (alt is not None and neu[0] <= alt[0]):
