@@ -129,8 +129,9 @@ async def patch_einwilligung(
     Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
 
     Writes those two on this one referee row, and nothing else: the confirmation day, the day given, who gave it and
-    the wording they confirmed stand, and no fixture is written -- the fixture list reads the scope
-    on this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to
+    the wording they confirmed stand, and no fixture is written. The fixture list does not read the scope yet: it
+    serves the name each fixture stores, so a withdrawal here changes no fixture page until its read joins this row. A
+    PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to
     `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one
@@ -141,8 +142,8 @@ async def patch_einwilligung(
     for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never refused for it. Each
     refusal writes nothing.
 
-    **The caller drops the cached fixture list after a successful answer**: it serves the referee's name by this scope,
-    and nothing here can.
+    **The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this
+    row; nothing here can.
     """
 
     eigener_eintrag = build_selbst_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)

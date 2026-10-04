@@ -63,7 +63,7 @@ async def get_einwilligungen(
     `bewerbungen` one per PENDING application on which it does, whose media consent the account page may only withdraw.
 
     PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
-    `spieler: null` and two empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
+    `spieler: null` and three empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
     seat are served too, a withdrawal staying open wherever a consent stands; `kontext` carries what the record's
     confirmation page filled its words with, as those records stand today; `erteilbar` says whether a grant is
     admitted, `medien_angeboten` whether the media consent may be switched on. A record awaiting its person's
