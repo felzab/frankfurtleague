@@ -666,16 +666,19 @@ by mail instead has two answers, and which one you give is the person's to choos
 - **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
   `DELETE /spieler/{spieler_id}/erasure`, which is the erasure above and takes the squad rows with
   the person.
-- **They want their name withheld and their place kept.** Clear that person's consent record on
-  their `spieler` document in the Atlas console; the publication gate fails closed, so the next read
-  serves the row as a nameless slot
-  (`docs/backend/spec.md :: READ-PUPIL-003`). **The squad list is
-  cached for a day and a console edit invalidates nothing**
-  ([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)), so the name stays on
-  the page for up to that long — save anything in the admin player editor afterwards, which drops the
-  tag, and check the public squad page before you answer the person.
+- **They want their name withheld and their place kept.** Answer by pointing them to the control
+  on their account page, `/bereich/konto`, which they reach by signing in with the address their
+  record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
+  the person did not make is not their consent (`docs/backend/spec.md :: I869`). A pupil whose
+  record holds no address cannot sign in, so theirs is the team's link: they register again choosing
+  the narrower publication, and the team's contact person admits the registration onto the stored
+  record the pending list proposes by name, which writes the address and renews the choice from
+  their own answer (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`).
+  Either write drops the cached squad list, and the next read serves the row as a nameless slot
+  (`docs/backend/spec.md :: READ-PUPIL-003`); check the public squad page before you answer.
 
-Tell them which of the two you did, and that the second is reversible and the first is not.
+Tell them that the first cannot be undone, and that the second is theirs to change back on the same
+page.
 
 **A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
 [section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
