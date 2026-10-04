@@ -403,14 +403,15 @@ export type FLSpielerSelbstResponse = z.infer<typeof FLSpielerSelbstResponseSche
  * writes are one shape, so the one consent control cannot send either a member the other lacks.
  */
 export const FLSpielerSelbstEinwilligungPayloadSchema = z.object({
-  umfang: FLEinwilligungSchema.shape.umfang,
+  // No control offers another value, so one is a drifted page, which a reload repairs.
+  umfang: z.enum(FLEinwilligungSchema.shape.umfang.options, { error: "Diese Wahl kennen wir nicht. Lade die Seite neu." }),
   medien: z.boolean(),
   // The account page's own label, never the one the record was confirmed under: the backend judges it
   // against the page that took the press.
   text_version: z
     .string()
     .trim()
-    .min(1)
+    .nonempty({ error: "Deine Wahl nennt keine Fassung. Lade die Seite neu." })
     .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
       error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
     }),
