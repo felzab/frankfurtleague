@@ -125,6 +125,15 @@ the machine is outside the repository. What it does tell you:
   before either tag moves (`scripts/ops/deploy.sh :: check_pin_reads_secret_files`), and a rollback
   restoring such a build names §16's steps rather than its tag: that build is deployed from its own
   commit.
+- **After serving a build older than the season-row confirmation links, re-send the link of every
+  contact seat that build re-staffed, once the current build is back.** That build's contacts editor
+  leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
+  seat by its link alone (`fl_backend/app/api/bewerbungen/services.py :: build_saison_token_filter`),
+  so the link the seat's earlier person still holds would confirm the new person's seat or empty it.
+  The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`).
+  A row whose season has ended or whose team has left it refuses the re-send: there, empty the seat in
+  the contacts editor and save, then enter the person again and save, which voids the old link and
+  mints the person a new one.
 - After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
   that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
   are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
