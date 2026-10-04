@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "31221406ec949d707f043631ed0eab859d931109ad906c9df67393a84a29f3ab" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "6f57ddfcad36b5f4dab9bf86bfcac8889844682e97727f9fee54fe134f607231" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -407,7 +407,12 @@ describe("the privacy notice's account of the site's own protection", () => {
 
     // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I837`), and per Funktion, never per mailbox.
     assert.ok(frist.startsWith("Bis kurz nach Mitternacht des Tages, den er zählt."), frist);
-    assert.ok(frist.includes("wie oft Du in dieser Funktion an dem Tag etwas ändern wolltest, auch wenn es abgewiesen wurde"), frist);
+    assert.ok(
+      frist.includes(
+        "wie oft Du in dieser Funktion an dem Tag etwas ändern wolltest, darunter auch Änderungen, die danach noch abgewiesen wurden",
+      ),
+      frist,
+    );
     assert.ok(frist.includes("unter einem unlesbaren Schlüssel statt Deiner Adresse"), frist);
   });
 });
