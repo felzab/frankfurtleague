@@ -32,13 +32,6 @@ made only to close a finding is the symptom `.claude/CLAUDE.md` §3 forbids. A f
 not vouch for, you measure yourself before you act on it, and you work to the rule, never to a
 description of it.
 
-- An item that conflicts with documented practice or the evidence is challenged before you build
-  it, never quietly improved: report it, or message the coordinator for a ruling.
-- What you cannot verify you ask about, never assume.
-- Lean: a test exists only where a behaviour could regress unnoticed and it is the cheapest guard; a
-  comment or document says only what the code cannot; the change is the smallest that fully solves
-  the item; removing an unneeded test, doc or helper is a gain.
-
 5 GIT. Run `git rev-parse --show-toplevel` and `git rev-parse --abbrev-ref HEAD` before your first
 edit: a top level other than your worktree -- the coordinator's checkout above all -- or a branch
 that is not your worktree's own, is a wrong premise under section 4. Stop and report it.

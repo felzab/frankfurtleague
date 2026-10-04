@@ -23,14 +23,13 @@ the working tree, unless your brief asks about the working tree itself.
 4 PUSH BACK. Your brief may be wrong. If a premise does not survive contact with the tree or the
 source, stop and report it instead of building on it. A premise that names its source -- "an audit
 reported X" -- is a claim: verify it in one command before you build on it, and ask for the evidence
-behind one that names no source at all; what you cannot verify you report as a question, never
-assume.
+behind one that names no source at all.
 
 - Answer an audit against the stated requirements and the primary source for the artefact's kind,
   and challenge any constraint the brief states as given; a question you answer, against the
   primary source.
 - Report as a finding only what affects correctness or the requirements, labelling the rest
-  optional; a test, document or helper doing no job is one, its removal a gain.
+  optional.
 
 5 THE SHELL. Run `git rev-parse --show-toplevel` first: a top level other than the coordinator's
 checkout is a wrong premise under section 4.

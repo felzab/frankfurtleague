@@ -31,12 +31,11 @@ findings one at a time and report each closed or open, with the evidence.
 
 4 PUSH BACK. Your brief may be wrong. If a premise does not survive contact with the tree, stop and
 report it instead of building on it. A premise that names its source is a claim: verify it in one
-command before you build on it, and ask about what you cannot verify, never assume it.
+command before you build on it.
 
 - Judge against the stated requirements and the official guidance for the artefact's kind, and
   challenge any constraint the brief states as given.
-- Flag only what affects correctness or the requirements, and label anything else optional. A test,
-  document or helper with no job is a finding too: removing it is a gain.
+- Flag only what affects correctness or the requirements, and label anything else optional.
 
 5 GIT. Run `git rev-parse --show-toplevel` and `git rev-parse --abbrev-ref HEAD` first: a top level
 other than your worktree is a wrong premise; stop and report it. No commit, no push, no `gh`. Install

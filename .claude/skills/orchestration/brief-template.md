@@ -8,11 +8,20 @@ section's one home.
 ## The implementer's brief
 
 `.claude/agents/implementer.md` carries every other section. The brief carries the values that
-definition names in angle brackets, OWNERSHIP, THE WORK, and the traps specific to this work.
+definition names in angle brackets, the BAR line, OWNERSHIP, THE WORK, and the traps specific to
+this work. The bar reaches an agent only through its brief: the definitions are dispatched outside
+skill sessions too.
 
 ```
 VALUES.         Your agent name: <name>. Session branch: <session branch>; your worktree forked
                 from it at <sha>. Coordinator's checkout: <path>. Scratch path: <path>.
+
+BAR.            Done is every item met in full, nothing traded. Challenge an item that conflicts
+                with documented practice or the evidence before you build it. Ask what you cannot
+                verify; never assume it. Lean: a test only where a behaviour could regress unnoticed
+                and it is the cheapest guard, a comment or document only for what the code cannot
+                say, the smallest change that fully solves the item, and removing an unneeded test,
+                doc or helper counts as a gain. <What else the skill's bar means for this work.>
 
 1  OWNERSHIP.   The exact files you may write, listed in full:
                   <path>
@@ -49,6 +58,10 @@ a document or plan re-audit also takes the previous audit's findings one at a ti
 open with its evidence.
 
 ```
+BAR.            Ask what you cannot verify; never assume it. A test, document or helper with no
+                job is a finding too: removing it counts as a gain. <What else the skill's bar
+                means for this subject.>
+
 1  OWNERSHIP.   You write nothing, having no tool that writes. Your report is your final
                 message.
 
@@ -81,11 +94,11 @@ open with its evidence.
 ## The driving re-auditor's brief
 
 `.claude/agents/driving-reauditor.md` carries its standing sections. The brief carries the values
-that definition names, the intent and the diff — never the implementer's report — and the blast
-radius the bundle of fixes shares.
+that definition names, the cold auditor's BAR line, the intent and the diff — never the
+implementer's report — and the blast radius the bundle of fixes shares.
 
 ## The researcher's brief
 
 `.claude/agents/researcher.md` carries its standing sections and its report. The brief carries the
-values that definition names and the question, or for an audit the intent and the refs to read with
+values that definition names, the cold auditor's BAR line, and the question, or for an audit the intent and the refs to read with
 `git show`. It asks for no install, suite or plant: those go to a driving re-auditor.

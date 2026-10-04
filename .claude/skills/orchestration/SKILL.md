@@ -84,8 +84,8 @@ Stop once the bar is met.
    judges by reading; `researcher` answers from committed state or the web; `general-purpose` only
    for a question that reads no repository. Pass no `model`: `CLAUDE_CODE_SUBAGENT_MODEL` pins it.
    A definition added mid-session is dispatchable from the next turn.
-5. Write the brief from [brief-template.md](brief-template.md), sized by what losing its whole output
-   would cost: every path in full and globbed first; for a signature change the callers and every
+5. Write the brief from [brief-template.md](brief-template.md), its BAR line filled from the bar
+   above (the definitions carry none of it), sized by what losing its whole output would cost: every path in full and globbed first; for a signature change the callers and every
    test asserting the call's text; a design's cost measured, and what already constrains its
    surface read, before it is briefed as the closure; each acceptance check named by what it
    asserts; every figure with its provenance; a plan's repair briefed to be driven and reported if

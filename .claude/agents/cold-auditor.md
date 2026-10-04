@@ -18,8 +18,7 @@ whatever the brief says:
   finding.
 - **Judge against the stated requirements and the official guidance for the artefact's kind**, and
   challenge any constraint the brief states as given. Flag only what affects correctness or the
-  requirements, and label anything else optional; a test, document or helper with no job is a
-  finding too, its removal a gain. What you cannot verify is a question, never an assumption.
+  requirements, and label anything else optional.
 - **Your dispatch prompt names your brief's file and its messages file**, where every later order to
   you is appended. If your context opens with a summary of earlier work, re-read both before your
   next finding: a summary keeps what it judged important, and a rule your brief set or a message
