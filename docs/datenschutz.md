@@ -235,8 +235,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` — the publication scope, the media
   answer beside it, the wording they were shown and the day they answered. Entering a referee mails
   them a one-time link, which lasts fourteen days and can be re-sent; the person enters their own date
-  of birth on that page and nobody answers for them. A live row whose
-  person has not answered publishes as „anonym“.
+  of birth on that page and nobody answers for them. No fixture read consults that record yet: a
+  fixture serves the name its own copy of the referee holds whether or not that person has
+  answered, and only an erased referee reads as „anonym“
+  (`fl_backend/app/api/spiele/services.py :: _composed_schiedsrichter`,
+  [section 11](#11-open-and-owed-a-decision)).
 - **A referee's email address is required on every write, because an administrator enters the
   referee and the link is how that person learns of it** (Art. 14 (3)); the telephone number stays
   optional (`fl_backend/app/shared/schemas/kontakt.py :: FLKontaktPayload`). Ruled 2026-09-22. The
