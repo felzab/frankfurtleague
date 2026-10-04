@@ -21,6 +21,7 @@ from app.core.security import (
 )
 from app.core.transactions import transaction_session
 from tests.core.app_source import api_routes, application, callee, declared, module_of, parsed
+from tests.core.test_duplicate_key_publication import _write_operations as write_operations
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
@@ -286,6 +287,33 @@ ADMIN_TIER_WRITES = [
     for operation in ADMIN_TIER_OPERATIONS
     if operation[1] != "get" and stores_nothing not in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
 ]
+
+# Every operation the sweep above, and the published `x-fl-stores-nothing`, take at its word: held below to the word.
+STORES_NOTHING_OPERATIONS = sorted(
+    operation
+    for operation in PUBLISHED_OPERATIONS
+    if operation[1] != "get" and stores_nothing in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
+)
+
+
+@pytest.mark.parametrize(("path", "method"), STORES_NOTHING_OPERATIONS, ids=lambda value: value)
+def test_an_operation_declaring_it_stores_nothing_reaches_no_write(path: str, method: str):
+    """Through the write trace `tests/core/test_duplicate_key_publication.py` builds per route, its helpers and the driver's own writes alike.
+
+    A write behind the declaration is judged by no transaction and published as storing nothing.
+    """
+
+    operation = f"{method.upper()} {ROUTES_BY_OPERATION[(path, method)].path_format}"
+    _, writes = write_operations()[operation]
+
+    assert [f"{write.helper} at {write.site}" for write in writes] == []
+
+
+def test_the_declaration_sweep_reads_some_operation_and_a_write():
+    """The floors: an empty population passes every case above, and a trace that finds no write passes them too."""
+
+    assert STORES_NOTHING_OPERATIONS
+    assert any(writes for _, writes in write_operations().values())
 
 
 @pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
