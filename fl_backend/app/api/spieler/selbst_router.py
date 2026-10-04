@@ -7,6 +7,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.einwilligung.services import find_selbst_medien_refusal
 from app.api.identitaet.crud import funktionen_of
+from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.services import ist_eigener_spieler
 from app.api.konto.services import (
     KONTO_SEITE_SPIELER,
     build_kontext_teams_pipeline,
@@ -28,9 +30,6 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
-    SaisonsCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
     SpielerCollection,
     TeamsCollection,
     get_german_date_str,
@@ -60,9 +59,7 @@ Identifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["spieler"])]
 async def get_selbst(
     identifier: Identifier,
     spieler_collection: SpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     teams_collection: TeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -82,17 +79,10 @@ async def get_selbst(
     async with db.start_session(snapshot=True) as session:
         rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_selbst_pupil_pipeline(identifier), session=session)
         row = rows[0] if rows else None
-        refuse(find_eigener_eintrag_refusal(gehalten=row is not None and is_confirmed(row.get("einwilligung"))))
+        refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
         assert row is not None
 
-        subjekt = await funktionen_of(
-            identifier,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        subjekt = await funktionen_of(identifier, records, session=session)
 
         # The derivation the PATCH authorises a grant against, never a copy of its rule.
         erteilbar = any(eintrag.spieler_id == row["_id"] for eintrag in subjekt.spieler)
@@ -117,9 +107,7 @@ async def patch_einwilligung(
     einwilligung_data: Annotated[FLSpielerSelbstEinwilligungPayload, Body()],
     identifier: Identifier,
     spieler_collection: SpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     db: DBClient,
     drossel: Drossel,
     today: str = Depends(get_german_date_str),
@@ -156,14 +144,7 @@ async def patch_einwilligung(
 
         erteilt = erteilt_etwas(gespeichert=gespeichert, umfang=einwilligung_data.umfang, medien=einwilligung_data.medien)
         if erteilt:
-            subjekt = await funktionen_of(
-                identifier,
-                saison_teams_collection=saison_teams_collection,
-                saisons_collection=saisons_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                session=session,
-            )
+            subjekt = await funktionen_of(identifier, records, session=session)
             refuse(find_eigener_eintrag_refusal(gehalten=any(eintrag.spieler_id == row["_id"] for eintrag in subjekt.spieler)))
 
         refuse(find_konto_fassung_refusal(seite=KONTO_SEITE_SPIELER, text_version=einwilligung_data.text_version, erteilt=erteilt))

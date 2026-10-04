@@ -538,3 +538,12 @@ SELBST_FIELDS: Mapping[str, int] = {
     "inactive_since": 1,
     EINWILLIGUNG_FELD: 1,
 }
+
+
+def build_selbst_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """The referee rows a person's own pages read, each a candidate for `app/api/identitaet/services.py :: ist_eigener_schiedsrichter`.
+
+    Unbounded: a capped list reads as a person holding fewer records.
+    """
+
+    return [{"$match": build_selbst_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": {"_id": 1}}]

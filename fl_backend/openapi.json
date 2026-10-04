@@ -7935,6 +7935,57 @@
         "x-fl-stores-nothing": true
       }
     },
+    "/api/v0/identitaet/anmeldung": {
+      "post": {
+        "summary": "Say whether one mailbox may be offered a sign-in",
+        "description": "Answer what the sign-in gate decides on for one mailbox: its own records, its pending confirmation, its ban and its grant.\n\nNo record, name or id is answered, only flags and the grant's tier. Stores nothing, and a POST for `POST /identitaet/subjekt`'s\nreason. The address is folded on arrival and compared as that endpoint compares it, and `unbestaetigt`, `gesperrt` and\n`verwaltung` are that endpoint's own answers.\n\n`konto` is true exactly where the mailbox holds a record its own person confirmed: a contact seat on any season row, a past\nseason's and a withdrawn team's included; a contact seat on a pending application; a pupil or referee record, a retired one\nincluded, never the placeholder every erased referee's fixtures name; and a pending registration whose pupil confirmed it with\na choice. A decided application, a declined registration and every unconfirmed record count for nothing. It holds wherever\n`POST /identitaet/subjekt` answers a record, and also where the only records are ones granting no panel.\n\nThe ban narrows neither flag: a barred address holding records is answered `gesperrt` and `konto` both, and refusing it is the\ncaller's. A mailbox the league holds nothing for is answered both flags false rather than a 404.",
+        "operationId": "get_anmeldung_api_v0_identitaet_anmeldung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSubjektPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAnmeldungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system",
+        "x-fl-stores-nothing": true
+      }
+    },
     "/api/v0/identitaet/gesperrt": {
       "post": {
         "summary": "Say whether a ban stands on an address about to be mailed",
@@ -9653,6 +9704,55 @@
         ],
         "title": "FLAktorPerson",
         "description": "A signed-in person, named by a pseudonym and the Funktion the write was authorised under.\n\nMirrors `app/core/recording.py :: PersonActor`, and carries no address."
+      },
+      "FLAnmeldungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "unbestaetigt": {
+            "type": "boolean",
+            "title": "Unbestaetigt"
+          },
+          "konto": {
+            "type": "boolean",
+            "title": "Konto"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
+          },
+          "verwaltung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "administration"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verwaltung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unbestaetigt",
+          "konto",
+          "gesperrt",
+          "verwaltung"
+        ],
+        "title": "FLAnmeldungResponse",
+        "description": "The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.\n\nThe ban narrows neither flag: whether a barred person signs in is the gate's to decide."
       },
       "FLAnnehmenBewerbungPayload": {
         "properties": {

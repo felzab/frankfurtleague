@@ -10,10 +10,10 @@ from collections.abc import Collection, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import bewerbung_schule, saison_schule
+from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, seat_is_confirmed, seats_naming
-from app.api.kontakte.services import KONTAKT_SLOTS, same_address
+from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze
+from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
 from app.api.schiedsrichter.services import vorname_of
 from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
@@ -71,12 +71,6 @@ def compose_selbst_einwilligung_move(
             gesetzt.update(compose_wahlen(pfad=pfad, gespeichert=gespeichert, gesetzt=moved, am=am, text_version=text_version, stamp=log_stamp))
 
     return {"$set": gesetzt} if gesetzt else None
-
-
-def gehaltene_sitze(row: Mapping[str, Any], identifier: str) -> list[str]:
-    """The slots of one season row whose confirmed person is this address, in `KONTAKT_SLOTS` order."""
-
-    return [slot for gefunden, slot in seats_naming([row], identifier) if seat_is_confirmed(gefunden, slot)]
 
 
 def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
@@ -197,13 +191,13 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
 
 
 def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every season row whose seats may name the address: a pre-filter, `app/api/identitaet/services.py :: seats_naming` deciding.
+    """Every season row whose seats may name the address: a pre-filter, `app/api/identitaet/services.py :: eigene_sitze` deciding.
 
-    No `austritt` term, unlike the panel's lookup: a withdrawal reaches a withdrawn team's seat too.
+    No `austritt` term: a withdrawal reaches a withdrawn team's seat too.
     """
 
     return [
-        {"$match": {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS]}},
+        {"$match": rows_possibly_naming(identifier)},
         {
             "$project": {
                 "saison_id": 1,
@@ -269,7 +263,7 @@ def compose_sitze_selbst(
 
     sitze = []
     for row in rows:
-        rollen = gehaltene_sitze(row, identifier)
+        rollen = eigene_sitze(row, identifier)
         if not rollen:
             continue
         held = [row["kontakte"][slot] for slot in rollen]
@@ -303,13 +297,10 @@ def compose_sitze_selbst(
 
 
 def build_selbst_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every PENDING application whose seats may name the address, `seats_naming` deciding as on a season row.
-
-    Pending alone: an accepted application's seats are its season row's, and a declined one's go with it.
-    """
+    """Every pending application whose seats may name the address, `eigene_sitze` deciding as on a season row."""
 
     return [
-        {"$match": {"status": "eingereicht", "$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS]}},
+        {"$match": build_eigene_bewerbung_filter(identifier)},
         {
             "$project": {
                 "saison_id": 1,
@@ -329,7 +320,7 @@ def compose_bewerbungssitze_selbst(
 
     eintraege = []
     for row in rows:
-        rollen = gehaltene_sitze(row, identifier)
+        rollen = eigene_sitze(row, identifier)
         if not rollen:
             continue
         held = [row["kontakte"][slot] for slot in rollen]

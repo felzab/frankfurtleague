@@ -60,6 +60,7 @@ from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import InterleavedCollection
+from tests.records import record_collections
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -360,14 +361,7 @@ async def every_collection_as_text(database: AsyncDatabase) -> str:
 
 async def seats_of(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> list[tuple[str, str]]:
     async with client.start_session() as session:
-        subjekt = await funktionen_of(
-            email,
-            saison_teams_collection=database[Collection.SAISON_TEAMS],
-            saisons_collection=database[Collection.SAISONS],
-            spieler_collection=database[Collection.SPIELER],
-            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-            session=session,
-        )
+        subjekt = await funktionen_of(email, record_collections(database), session=session)
 
     return [(sitz.saison_id, sitz.rolle) for sitz in subjekt.sitze]
 

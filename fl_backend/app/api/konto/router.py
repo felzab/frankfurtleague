@@ -3,7 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.services import folds_to
+from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler
 from app.api.konto.schemas import FLKontoEinwilligungenResponse
 from app.api.konto.services import (
     build_angenommene_bewerbungen_pipeline,
@@ -16,14 +17,13 @@ from app.api.konto.services import (
     compose_spieler_selbst,
     kontext_zeile,
 )
-from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, SELBST_FIELDS, build_selbst_referee_filter
+from app.api.schiedsrichter.services import build_selbst_referee_pipeline
 from app.api.spieler.services import build_selbst_pupil_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
-    SaisonsCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielerCollection,
@@ -31,7 +31,6 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
-from app.shared.einwilligung import is_confirmed
 
 # Every person binder fixes a Funktion and this page is none's: `kontakt` is bound, its seat control
 # having no page of its own. Nothing here writes, so no record carries it; a write belongs on its
@@ -50,9 +49,9 @@ async def get_einwilligungen(
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
+    records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLKontoEinwilligungenResponse:
@@ -75,9 +74,7 @@ async def get_einwilligungen(
     async with db.start_session(snapshot=True) as session:
         pupils = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_selbst_pupil_pipeline(identifier), session=session)
         referees = await aggregate_many_from_db(
-            collection=schiedsrichter_collection,
-            pipeline=[{"$match": build_selbst_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": {"_id": 1}}],
-            session=session,
+            collection=schiedsrichter_collection, pipeline=build_selbst_referee_pipeline(identifier), session=session
         )
         seat_rows = await aggregate_many_from_db(
             collection=saison_teams_collection, pipeline=build_selbst_seat_pipeline(identifier), session=session
@@ -85,21 +82,14 @@ async def get_einwilligungen(
         bewerbung_rows = await aggregate_many_from_db(
             collection=bewerbungen_collection, pipeline=build_selbst_bewerbung_pipeline(identifier), session=session
         )
-        subjekt = await funktionen_of(
-            identifier,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        subjekt = await funktionen_of(identifier, records, session=session)
 
         # The derivation every PATCH authorises a grant against, never a copy of its rule.
         erteilbare_spieler = {eintrag.spieler_id for eintrag in subjekt.spieler}
         erteilbare_schiedsrichter = {eintrag.schiedsrichter_id for eintrag in subjekt.schiedsrichter}
         erteilbare_sitze = {(sitz.team_id, sitz.saison_id) for sitz in subjekt.sitze}
 
-        pupil = next((row for row in pupils if is_confirmed(row.get("einwilligung"))), None)
+        pupil = next((row for row in pupils if ist_eigener_spieler(row)), None)
         zeile = None if pupil is None else kontext_zeile(pupil)
         team_ids = [
             *([] if zeile is None else [zeile["team_id"]]),
@@ -135,7 +125,7 @@ async def get_einwilligungen(
                 "schiedsrichter": [
                     compose_schiedsrichter_selbst(row, erteilbar=row["_id"] in erteilbare_schiedsrichter, today=today)
                     for row in referees
-                    if folds_to((row.get("kontakt") or {}).get("email"), identifier) and is_confirmed(row.get(EINWILLIGUNG_FELD))
+                    if ist_eigener_schiedsrichter(row, identifier)
                 ],
                 "sitze": compose_sitze_selbst(
                     seat_rows, identifier, erteilbar=erteilbare_sitze, today=today, teams=teams, bewerbungen=bewerbungen

@@ -6,8 +6,8 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.services import find_funktion_refusal
+from app.api.identitaet.crud import refuse_without_a_seat
+from app.api.identitaet.lookup import SubjektLookup
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import refuse_a_taken_rolle
@@ -19,9 +19,6 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SpielerCollection,
     get_german_date_str,
 )
 from app.core.drosselung import gedrosselt
@@ -43,31 +40,6 @@ SignedInIdentifier = Annotated[str, Depends(bind_kontakt)]
 
 SQUAD_PATH = f"{by_id('team_id')}/{{saison_id}}"
 ROW_PATH = f"{SQUAD_PATH}{by_id('spieler_id')}"
-
-
-async def _refuse_unless_seated(
-    identifier: str,
-    *,
-    team_id: CustomObjectId,
-    saison_id: str,
-    saison_teams_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    session: AsyncClientSession,
-) -> None:
-    """`REQ-FUNKTION-001`, judged inside the handler's own transaction: a seat may end between the page's check and this one."""
-
-    subjekt = await funktionen_of(
-        identifier,
-        saison_teams_collection=saison_teams_collection,
-        saisons_collection=saisons_collection,
-        spieler_collection=spieler_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-        session=session,
-    )
-
-    refuse(find_funktion_refusal(sitze=subjekt.sitze, team_id=team_id, saison_id=saison_id))
 
 
 def _live_row(*, team_id: CustomObjectId, saison_id: str, spieler_id: CustomObjectId) -> Mapping[str, Any]:
@@ -130,10 +102,8 @@ async def get_kader(
     saison_id: str,
     identifier: SignedInIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     db: DBClient,
 ) -> FLKaderResponse:
     """
@@ -149,16 +119,7 @@ async def get_kader(
     # A snapshot, so the squad served is the one the seat was judged against; never a transaction,
     # which a read writing nothing has no conflict to retry and no anchor to take.
     async with db.start_session(snapshot=True) as session:
-        await _refuse_unless_seated(
-            identifier,
-            team_id=team_id,
-            saison_id=saison_id,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         return FLKaderResponse(
             team_id=team_id,
@@ -184,10 +145,8 @@ async def patch_kader_zeile(
     zeile_data: Annotated[FLPatchKaderZeilePayload, Body()],
     identifier: SignedInIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     db: DBClient,
 ) -> FLKaderZeileResponse:
     """
@@ -205,16 +164,7 @@ async def patch_kader_zeile(
     async def edit_the_row(session: AsyncClientSession) -> FLKaderZeileResponse:
         """Judge, then rewrite the row. Everything judged is read in-session."""
 
-        await _refuse_unless_seated(
-            identifier,
-            team_id=team_id,
-            saison_id=saison_id,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         # The 404 before any rule: a rule judged on a row this team does not hold would tell the
         # caller something about another team's squad.
@@ -273,10 +223,7 @@ async def delete_kader_zeile(
     spieler_id: CustomRouteObjectId,
     identifier: SignedInIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLKaderZeileResponse:
@@ -291,16 +238,7 @@ async def delete_kader_zeile(
     async def take_the_row_out(session: AsyncClientSession) -> FLKaderZeileResponse:
         """Judge the seat, then stamp the row: the live-row filter is the write's own, so an ausgetragen row is a 404 here."""
 
-        await _refuse_unless_seated(
-            identifier,
-            team_id=team_id,
-            saison_id=saison_id,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         await set_inactive_since(
             collection=saison_spieler_collection,

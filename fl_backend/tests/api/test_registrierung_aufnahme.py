@@ -47,6 +47,7 @@ from tests.bans import ban_list
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.records import record_collections
 from tests.whole_database import every_collection_as_text
 from tests.worker import worker_database
 
@@ -250,11 +251,14 @@ async def admit(
         aufnahme_data=FLRegistrierungAufnehmenPayload(spieler_id=spieler_id),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(
+            database,
+            saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
+            spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
+        ),
         spieltage_collection=database[Collection.SPIELTAGE],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
@@ -291,9 +295,7 @@ async def decline(
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         db=client,
         today=TODAY,
     )
@@ -308,11 +310,9 @@ async def read(
         params=FLOffeneRegistrierungenParams(),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         db=client,
     )
 

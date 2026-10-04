@@ -27,6 +27,7 @@ from tests.config import BASE_AUTH, SYSTEM_AUTH
 from tests.core.app_source import application
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, ban_document, rules_document, saison_document, saison_team_document, spieler_document, team_document
+from tests.records import record_collections
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -311,10 +312,7 @@ async def _no_body(_: AsyncDatabase) -> None:
 async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjektResponse:
     return await get_subjekt(
         subjekt_data=FLSubjektPayload(email=email),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         sperrliste=ban_list(database),
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
     )

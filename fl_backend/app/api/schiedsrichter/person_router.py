@@ -7,7 +7,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.einwilligung.services import find_selbst_medien_refusal
 from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.services import folds_to
+from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.services import folds_to, ist_eigener_schiedsrichter
 from app.api.konto.services import (
     KONTO_SEITE_SCHIEDSRICHTER,
     compose_schiedsrichter_selbst,
@@ -22,15 +23,12 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelbstEinwilligungResponse,
     FLSchiedsrichterSelbstResponse,
 )
-from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, SELBST_FIELDS, build_selbst_referee_filter
+from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, build_selbst_referee_filter, build_selbst_referee_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
-    SaisonsCollection,
-    SaisonTeamsCollection,
     SchiedsrichterCollection,
-    SpielerCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -59,9 +57,7 @@ Identifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])]
 async def get_selbst(
     identifier: Identifier,
     schiedsrichter_collection: SchiedsrichterCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
+    records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterSelbstResponse:
@@ -78,26 +74,13 @@ async def get_selbst(
     # A snapshot, so every record is answered as of one moment; never a transaction, which a read
     # writing nothing has no conflict to retry for.
     async with db.start_session(snapshot=True) as session:
-        # Unbounded, as `app/api/identitaet/crud.py :: find_subjekt` reads: a capped list reads as a
-        # person holding fewer records.
         rows = await aggregate_many_from_db(
-            collection=schiedsrichter_collection,
-            pipeline=[{"$match": build_selbst_referee_filter(identifier)}, {"$project": dict(SELBST_FIELDS)}, {"$sort": {"_id": 1}}],
-            session=session,
+            collection=schiedsrichter_collection, pipeline=build_selbst_referee_pipeline(identifier), session=session
         )
-        eigene = [
-            row for row in rows if folds_to((row.get("kontakt") or {}).get("email"), identifier) and is_confirmed(row.get(EINWILLIGUNG_FELD))
-        ]
+        eigene = [row for row in rows if ist_eigener_schiedsrichter(row, identifier)]
         refuse(find_eigener_eintrag_refusal(gehalten=bool(eigene)))
 
-        subjekt = await funktionen_of(
-            identifier,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        subjekt = await funktionen_of(identifier, records, session=session)
         # The derivation every person endpoint authorises a grant against, never a copy of its rule.
         erteilbar = {eintrag.schiedsrichter_id for eintrag in subjekt.schiedsrichter}
 
@@ -117,9 +100,7 @@ async def patch_einwilligung(
     einwilligung_data: Annotated[FLSchiedsrichterSelbstEinwilligungPayload, Body()],
     identifier: Identifier,
     schiedsrichter_collection: SchiedsrichterCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
+    records: SubjektLookup,
     db: DBClient,
     drossel: Drossel,
     today: str = Depends(get_german_date_str),
@@ -160,14 +141,7 @@ async def patch_einwilligung(
 
         erteilt = erteilt_etwas(gespeichert=gespeichert, umfang=einwilligung_data.umfang, medien=einwilligung_data.medien)
         if erteilt:
-            subjekt = await funktionen_of(
-                identifier,
-                saison_teams_collection=saison_teams_collection,
-                saisons_collection=saisons_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                session=session,
-            )
+            subjekt = await funktionen_of(identifier, records, session=session)
             refuse(
                 find_eigener_eintrag_refusal(gehalten=any(eintrag.schiedsrichter_id == schiedsrichter_id for eintrag in subjekt.schiedsrichter))
             )

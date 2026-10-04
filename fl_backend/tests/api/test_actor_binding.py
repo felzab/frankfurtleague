@@ -383,6 +383,7 @@ SYSTEM_WRITES = [
     # Reads rather than writes, and listed for the binder all the same: omitted, it is demanded the
     # administrator's `X-FL-Actor`, which the system key never sends.
     ("/api/v0/identitaet/subjekt", "POST"),
+    ("/api/v0/identitaet/anmeldung", "POST"),
     ("/api/v0/identitaet/gesperrt", "POST"),
     # The grants' reconciliation: the read's reason above for the one, and the stamp is recorded
     # under `SYSTEM` because a change made in the database directly had no administrator.

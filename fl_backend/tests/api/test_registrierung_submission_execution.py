@@ -42,6 +42,7 @@ from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.holds import HoldsAfterItsLookup
+from tests.records import record_collections
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, the write being one transaction.
@@ -299,11 +300,10 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         aufnahme_data=FLRegistrierungAufnehmenPayload(spieler_id=None),
         identifier=seat["email"],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         spieltage_collection=database[Collection.SPIELTAGE],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),

@@ -23,6 +23,7 @@ from app.api.bewerbungen.services import (
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
+from app.api.kontakte.services import same_address
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, FLRegistrierungEntscheidung
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
@@ -765,6 +766,16 @@ def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     """One team's pending rows, on the equality prefix `registrierungen_saison_id_team_id_queue` sorts after."""
 
     return {"saison_id": saison_id, "team_id": team_id, "status": SUBMITTED}
+
+
+def build_eigene_registrierung_filter(identifier: str) -> Mapping[str, Any]:
+    """Every pending registration that may be this address's own.
+
+    A pattern and never an equality: `email` is stored unfolded, so this is a pre-filter and the
+    caller's fold decides.
+    """
+
+    return {"status": SUBMITTED, "email": same_address(identifier)}
 
 
 def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:

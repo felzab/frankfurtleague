@@ -9,7 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
-from app.api.identitaet.crud import find_subjekt
+from app.api.identitaet.crud import find_anmeldung, find_subjekt
 from app.api.konto.router import get_einwilligungen
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
@@ -28,6 +28,7 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.records import record_collections
 from tests.worker import worker_database
 
 # Module level: a query plan is the server's to report.
@@ -105,13 +106,11 @@ async def seed(database: AsyncDatabase) -> ObjectId:
 
 
 async def the_subject_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await find_subjekt(
-        FOLDED_EMAIL,
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-    )
+    return await find_subjekt(FOLDED_EMAIL, record_collections(database))
+
+
+async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await find_anmeldung(FOLDED_EMAIL, record_collections(database))
 
 
 async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
@@ -132,11 +131,9 @@ async def the_pending_read(database: AsyncDatabase, client: AsyncMongoClient, re
         params=FLOffeneRegistrierungenParams(),
         identifier=ANNA,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         db=client,
     )
 
@@ -147,11 +144,10 @@ async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, regis
         aufnahme_data=FLRegistrierungAufnehmenPayload(spieler_id=None),
         identifier=ANNA,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         spieltage_collection=database[Collection.SPIELTAGE],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
@@ -167,9 +163,9 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
         spieler_collection=database[Collection.SPIELER],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        records=record_collections(database),
         db=client,
         today=TODAY,
     )
@@ -179,9 +175,7 @@ async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient,
     return await get_selbst(
         identifier=FOLDED_EMAIL,
         spieler_collection=database[Collection.SPIELER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         teams_collection=database[Collection.TEAMS],
         db=client,
         today=TODAY,
@@ -200,9 +194,7 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
         ),
         identifier=FOLDED_EMAIL,
         spieler_collection=database[Collection.SPIELER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         db=client,
         # A withdrawal: the ceiling counts a grant alone, so this press spends nothing.
         drossel=get_drossel(drosselung_collection=database[Collection.DROSSELUNG], germany_now=NOW),
@@ -253,6 +245,7 @@ class TestEveryAddressReadUsesTheIndex:
         "reader",
         [
             the_subject_read,
+            the_gate_read,
             the_confirmation_view,
             the_pending_read,
             the_admission,

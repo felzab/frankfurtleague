@@ -8,32 +8,30 @@ so a judgement left beside a handle is one nothing stops from growing a read of 
 
 from collections.abc import Iterable, Mapping, Sequence
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Literal
 
 from bson import ObjectId
 
+from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLSubjektSitz
-from app.api.kontakte.services import KONTAKT_SLOTS, same_address
+from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
+from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
-from app.api.schiedsrichter.services import build_real_referees_filter
+from app.api.schiedsrichter.services import build_selbst_referee_filter
+from app.api.spieler.services import build_selbst_pupil_filter
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 
-# A retired pupil or referee row is matched by nothing, where an unconfirmed one is read and judged:
-# a person who has left meets the landing of a mailbox holding nothing, never the pending one
-# (`docs/backend/spec.md :: I376`).
-_LIVE: Mapping[str, Any] = {"inactive_since": None}
+# --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
+# Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen (`docs/backend/spec.md :: I376`).
 
 
 def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every junction row whose block may name the address."""
+    """Every junction row whose block may name the address, a withdrawn team's included."""
 
     return [
-        # A team withdrawn from this season holds no seat in it (`docs/backend/spec.md :: I376`), its
-        # other seasons' seats standing. The record's presence is the test, as every rule keyed on a
-        # club having left reads it.
-        {"$match": {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS], "austritt": None}},
+        {"$match": rows_possibly_naming(identifier)},
         # `name` rides along free, this read opening the row anyway, and it is the row's own rather
         # than the club's (`docs/backend/spec.md :: I13`).
         {
@@ -41,6 +39,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
+                "austritt": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "einwilligung.bestaetigt_am")},
             }
         },
@@ -54,26 +53,38 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The stored address rides along so `folds_to` can judge it, and the stamp so the confirmation can; nothing else of the person does."""
 
     return [
-        # The ghost by its id and not only by its null address or its retirement: either of those
-        # is a value a hand edit can change, and the id is the one thing naming the row as nobody.
-        {"$match": {"kontakt.email": same_address(identifier), **_LIVE, **build_real_referees_filter()}},
-        {"$project": {"kontakt.email": 1, "einwilligung.bestaetigt_am": 1}},
+        {"$match": build_selbst_referee_filter(identifier)},
+        {"$project": {"kontakt.email": 1, "einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
 
 
 def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Equality and no pattern: `spieler.email` stores the folded form.
-
-    The `$type` term is the unique index's partial filter: an equality alone does not imply it, and
-    without it the planner scans every person on every subject read.
-    """
+    """Equality and no pattern: `spieler.email` stores the folded form."""
 
     return [
-        {"$match": {"email": {"$eq": identifier, "$type": "string"}, **_LIVE}},
-        {"$project": {"einwilligung.bestaetigt_am": 1}},
+        {"$match": build_selbst_pupil_filter(identifier)},
+        {"$project": {"einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
+
+
+def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """Every pending application whose seats may name the address; read for the sign-in alone, no panel standing on one."""
+
+    return [
+        {"$match": build_eigene_bewerbung_filter(identifier)},
+        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "einwilligung.bestaetigt_am")}},
+    ]
+
+
+def build_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """Every pending registration that may be the address's; read for the sign-in alone, no panel standing on one.
+
+    The whole consent record rides along: whether it carries a choice is part of the judgement.
+    """
+
+    return [{"$match": build_eigene_registrierung_filter(identifier)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
 
 
 def folds_to(stored: Any, identifier: str) -> bool:
@@ -101,6 +112,86 @@ def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:
     """Per SLOT: one address in two slots of one row may be confirmed in one and entered by an administrator in the other."""
 
     return is_confirmed((((row.get("kontakte") or {}).get(slot)) or {}).get("einwilligung"))
+
+
+# --- The OWN RECORDS: every record its own person confirmed, judged here alone for every reader. A
+# Funktion is an own record that is live besides (`_judged`), never a second judgement.
+
+
+def eigene_sitze(row: Mapping[str, Any], identifier: str) -> list[str]:
+    """The slots of one season row or application whose confirmed person is this address, in `KONTAKT_SLOTS` order."""
+
+    return [slot for gefunden, slot in seats_naming([row], identifier) if seat_is_confirmed(gefunden, slot)]
+
+
+def ist_eigener_spieler(row: Mapping[str, Any]) -> bool:
+    """The stamp alone: the selection is an equality on the folded address `spieler.email` stores."""
+
+    return is_confirmed(row.get("einwilligung"))
+
+
+def ist_eigener_schiedsrichter(row: Mapping[str, Any], identifier: str) -> bool:
+    return folds_to((row.get("kontakt") or {}).get("email"), identifier) and is_confirmed(row.get("einwilligung"))
+
+
+def ist_eigene_registrierung(row: Mapping[str, Any], identifier: str) -> bool:
+    """A pending registration its pupil confirmed, carrying a choice: one carrying none leaves nothing on it to change.
+
+    The status is judged here as well as selected on, for the caller reaching a row by its id.
+    """
+
+    einwilligung = row.get("einwilligung")
+
+    return (
+        row.get("status") == SUBMITTED
+        and folds_to(row.get("email"), identifier)
+        and is_confirmed(einwilligung)
+        and isinstance(einwilligung, Mapping)
+        and "umfang" in einwilligung
+    )
+
+
+EintragArt = Literal["spieler", "schiedsrichter", "sitze", "bewerbungen", "registrierungen"]
+
+
+def eigene_eintraege(
+    identifier: str,
+    *,
+    seat_rows: Iterable[Mapping[str, Any]],
+    referee_rows: Iterable[Mapping[str, Any]],
+    pupil_rows: Iterable[Mapping[str, Any]],
+    bewerbung_rows: Iterable[Mapping[str, Any]],
+    registrierung_rows: Iterable[Mapping[str, Any]],
+) -> frozenset[tuple[EintragArt, Any]]:
+    """Every own record of this address, by its kind and the id an account-page entry names it by.
+
+    A season row by its team and season: the seat PATCH answers per row, however many slots it holds.
+    """
+
+    return frozenset(
+        {
+            *(("spieler", row["_id"]) for row in pupil_rows if ist_eigener_spieler(row)),
+            *(("schiedsrichter", row["_id"]) for row in referee_rows if ist_eigener_schiedsrichter(row, identifier)),
+            *(("sitze", (row["team_id"], row["saison_id"])) for row in seat_rows if eigene_sitze(row, identifier)),
+            *(("bewerbungen", row["_id"]) for row in bewerbung_rows if eigene_sitze(row, identifier)),
+            *(("registrierungen", row["_id"]) for row in registrierung_rows if ist_eigene_registrierung(row, identifier)),
+        }
+    )
+
+
+def lebt(row: Mapping[str, Any]) -> bool:
+    """A pupil or referee row not retired: only such a row grants its Funktion (`docs/backend/spec.md :: I376`)."""
+
+    return row.get("inactive_since") is None
+
+
+def nicht_ausgetreten(row: Mapping[str, Any]) -> bool:
+    """A season row its team has not withdrawn from: only such a row's seats grant (`docs/backend/spec.md :: I376`).
+
+    The record's presence is the test, as every rule keyed on a club having left reads it.
+    """
+
+    return row.get("austritt") is None
 
 
 def awaits_confirmation(confirmations: Iterable[bool]) -> bool:

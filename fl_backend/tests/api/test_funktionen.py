@@ -7,13 +7,15 @@ from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import funktionen_of
+from app.api.identitaet.crud import find_eigene_eintraege, funktionen_of
 from app.api.identitaet.schemas import FLSubjekt
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.folding import sign_in_identifier
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_team_document, spieler_document
+from tests.records import record_collections
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, unwritten
@@ -275,20 +277,24 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
 
 
 async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession) -> FLSubjekt:
-    return await funktionen_of(
-        email,
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        session=session,
-    )
+    return await funktionen_of(email, record_collections(database), session=session)
 
 
 def answered(url: str, email: str) -> FLSubjekt:
     async def _run() -> FLSubjekt:
         async with shared_client(url).start_session() as session:
             return await _ask(shared_client(url)[DATABASE_NAME], email, session)
+
+    return on_the_seed_loop(_run())
+
+
+def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
+    """What the sign-in gate counts for this mailbox: every record its own person confirmed, live or not."""
+
+    async def _run() -> frozenset[tuple[str, Any]]:
+        _, eintraege = await find_eigene_eintraege(sign_in_identifier(email), record_collections(shared_client(url)[DATABASE_NAME]))
+
+        return eintraege
 
     return on_the_seed_loop(_run())
 
@@ -480,6 +486,12 @@ class TestTheWithdrawalNarrowing:
         assert is_empty(answer)
         assert answer.unbestaetigt is False
 
+    def test_a_seat_on_the_season_its_team_withdrew_from_is_still_its_person_s_own_record(self, seeded_league: str):
+        """Granting nothing, it still holds a consent its person may take back; the unconfirmed seat beside it counts for nothing."""
+
+        assert ("sitze", (TEAM_E_OID, ACTIVE_SAISON)) in own_records(seeded_league, AUSGETRETEN)
+        assert own_records(seeded_league, AUSGETRETEN_OFFEN) == frozenset()
+
 
 @pytest.mark.db
 class TestTheRetirementNarrowing:
@@ -506,6 +518,36 @@ class TestTheRetirementNarrowing:
 
         assert answered(seeded_league, GEIST).schiedsrichter == []
 
+    def test_a_confirmed_retired_pupil_and_referee_are_still_their_person_s_own_records(self, seeded_league: str):
+        """Granting no Funktion, each still holds a consent its person may take back, so the sign-in counts it."""
+
+        assert own_records(seeded_league, EHEMALIG) == {("spieler", PUPIL_EHEMALIG_OID)}
+        assert own_records(seeded_league, RUHESTAND_PFEIFE) == {("schiedsrichter", REFEREE_RUHESTAND_OID)}
+
+    def test_an_unconfirmed_retired_record_and_the_ghost_are_nobody_s_own_records(self, seeded_league: str):
+        """The control under the case above: an own-record judgement dropping the confirmation passes it."""
+
+        assert own_records(seeded_league, RUHESTAND_OFFEN) == frozenset()
+        assert own_records(seeded_league, GEIST) == frozenset()
+
+
+@pytest.mark.db
+@pytest.mark.parametrize(
+    "email",
+    [AKTIV, ZWEI_TEAMS, ZEITEN, ZUGLEICH, GEMISCHT, EHEMALIG, RUHESTAND_PFEIFE, AUSGETRETEN, NUR_OFFEN, DOUBLE_S_ASKED, GROSS_ASKED],
+)
+def test_every_funktion_record_is_one_of_its_person_s_own_records(seeded_league: str, email: str):
+    """The Funktion lists are drawn from the own records, never judged beside them, so the sign-in never refuses a Funktion holder."""
+
+    answer = answered(seeded_league, email)
+    funktionen = {
+        *(("sitze", (sitz.team_id, sitz.saison_id)) for sitz in answer.sitze),
+        *(("spieler", eintrag.spieler_id) for eintrag in answer.spieler),
+        *(("schiedsrichter", eintrag.schiedsrichter_id) for eintrag in answer.schiedsrichter),
+    }
+
+    assert funktionen <= own_records(seeded_league, email)
+
 
 @pytest.mark.parametrize("identifier", ["", " \u3000\ufeff"], ids=["empty", "blank"])
 def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier: str):
@@ -514,13 +556,4 @@ def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier:
     unreachable = cast(Any, object())
 
     with pytest.raises(ValueError, match="empty identifier"):
-        asyncio.run(
-            funktionen_of(
-                identifier,
-                saison_teams_collection=unreachable,
-                saisons_collection=unreachable,
-                spieler_collection=unreachable,
-                schiedsrichter_collection=unreachable,
-                session=unreachable,
-            )
-        )
+        asyncio.run(funktionen_of(identifier, unreachable, session=unreachable))

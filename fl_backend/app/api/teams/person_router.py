@@ -7,8 +7,9 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.einwilligung.services import find_selbst_medien_refusal
-from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.services import find_funktion_refusal, seat_is_confirmed
+from app.api.identitaet.crud import funktionen_of, refuse_without_a_seat
+from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.services import eigene_sitze, seat_is_confirmed
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.konto.services import (
     KONTO_SEITE_KONTAKT,
@@ -18,7 +19,6 @@ from app.api.konto.services import (
     find_eigener_eintrag_refusal,
     find_konto_fassung_refusal,
     find_nachweis_stand_refusal,
-    gehaltene_sitze,
 )
 from app.api.teams.schemas import (
     FLSaisonTeamPersonEinwilligungPayload,
@@ -30,10 +30,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
-    SaisonsCollection,
     SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SpielerCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -76,9 +73,7 @@ async def get_team_sitze(
     saison_id: str,
     identifier: Kontakt,
     saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     db: DBClient,
 ) -> FLTeamSitzeResponse:
     """
@@ -90,15 +85,7 @@ async def get_team_sitze(
 
     # A snapshot rather than a transaction, for `get_offene_registrierungen`'s reason.
     async with db.start_session(snapshot=True) as session:
-        subjekt = await funktionen_of(
-            identifier,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
-        refuse(find_funktion_refusal(sitze=subjekt.sitze, team_id=team_id, saison_id=saison_id))
+        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         # The seat just judged lives on this row, read in the same snapshot, so it stands and no 404 is owed.
         row = await saison_teams_collection.find_one(
@@ -123,9 +110,7 @@ async def patch_einwilligung(
     einwilligung_data: Annotated[FLSaisonTeamPersonEinwilligungPayload, Body()],
     identifier: Kontakt,
     saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     db: DBClient,
     drossel: Drossel,
     today: str = Depends(get_german_date_str),
@@ -154,7 +139,7 @@ async def patch_einwilligung(
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "geburtsdatum", "einwilligung")},
             session=session,
         )
-        rollen = [] if row is None else gehaltene_sitze(row, identifier)
+        rollen = [] if row is None else eigene_sitze(row, identifier)
         refuse(find_eigener_eintrag_refusal(gehalten=bool(rollen)))
         assert row is not None
         sitze = {slot: row["kontakte"][slot] for slot in rollen}
@@ -168,14 +153,7 @@ async def patch_einwilligung(
 
         erteilt = any(erteilt_etwas(gespeichert=sitz["einwilligung"], umfang=None, medien=einwilligung_data.medien) for sitz in sitze.values())
         if erteilt:
-            subjekt = await funktionen_of(
-                identifier,
-                saison_teams_collection=saison_teams_collection,
-                saisons_collection=saisons_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                session=session,
-            )
+            subjekt = await funktionen_of(identifier, records, session=session)
             # The panel narrowing a grant waits on: a `past` season's seat and a withdrawn team's grant none.
             refuse(
                 find_eigener_eintrag_refusal(gehalten=any(sitz.team_id == team_id and sitz.saison_id == saison_id for sitz in subjekt.sitze))

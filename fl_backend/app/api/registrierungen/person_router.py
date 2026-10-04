@@ -6,10 +6,9 @@ from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.services import find_funktion_refusal
+from app.api.identitaet.crud import refuse_without_a_seat
+from app.api.identitaet.lookup import SubjektLookup
 from app.api.registrierungen.crud import (
     nummern_rows,
     persons_at,
@@ -55,7 +54,6 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
-    SchiedsrichterCollection,
     SpielerCollection,
     SpieltageCollection,
     get_german_date_str,
@@ -81,30 +79,6 @@ router = APIRouter(
 Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
 
 
-async def _refuse_without_a_seat(
-    identifier: str,
-    *,
-    team_id: Any,
-    saison_id: str,
-    saison_teams_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    session: AsyncClientSession,
-) -> None:
-    """`REQ-FUNKTION-001` unless the person holds a seat on this team in this season, judged in the caller's transaction."""
-
-    subjekt = await funktionen_of(
-        identifier,
-        saison_teams_collection=saison_teams_collection,
-        saisons_collection=saisons_collection,
-        spieler_collection=spieler_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-        session=session,
-    )
-    refuse(find_funktion_refusal(sitze=subjekt.sitze, team_id=team_id, saison_id=saison_id))
-
-
 @router.get(
     "/kader/{team_id:objectid}/{saison_id}",
     response_model=FLOffeneRegistrierungenResponse,
@@ -116,11 +90,9 @@ async def get_offene_registrierungen(
     params: Annotated[FLOffeneRegistrierungenParams, Query()],
     identifier: Kontakt,
     registrierungen_collection: RegistrierungenCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     db: DBClient,
 ) -> FLOffeneRegistrierungenResponse:
     """
@@ -136,16 +108,7 @@ async def get_offene_registrierungen(
     # A snapshot rather than a transaction: this writes nothing, and one point in time keeps the
     # seat, the rows and the persons they resolve to from straddling a commit.
     async with db.start_session(snapshot=True) as session:
-        await _refuse_without_a_seat(
-            identifier,
-            team_id=team_id,
-            saison_id=saison_id,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         read = await pull_offene_registrierungen(
             registrierungen_collection=registrierungen_collection,
@@ -222,11 +185,10 @@ async def aufnehmen(
     aufnahme_data: Annotated[FLRegistrierungAufnehmenPayload, Body()],
     identifier: Kontakt,
     registrierungen_collection: RegistrierungenCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     spieltage_collection: SpieltageCollection,
     aktionen_collection: AktionenCollection,
     sperrliste: SperrlisteLookup,
@@ -268,16 +230,7 @@ async def aufnehmen(
         saison_id = str(registrierung_raw["saison_id"])
         team_id = registrierung_raw["team_id"]
 
-        await _refuse_without_a_seat(
-            identifier,
-            team_id=team_id,
-            saison_id=saison_id,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
         refuse(find_unbestaetigt_refusal(einwilligung=registrierung_raw.get("einwilligung")))
 
         # Inside the transaction, with no season anchor: a ban writes no registration, so only this
@@ -412,9 +365,7 @@ async def ablehnen(
     identifier: Kontakt,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungAblehnungResponse:
@@ -436,16 +387,7 @@ async def ablehnen(
         saison_id = str(registrierung_raw["saison_id"])
         team_id = registrierung_raw["team_id"]
 
-        await _refuse_without_a_seat(
-            identifier,
-            team_id=team_id,
-            saison_id=saison_id,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            session=session,
-        )
+        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         await patch_one_in_db(
             collection=registrierungen_collection,

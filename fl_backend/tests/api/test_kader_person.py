@@ -36,6 +36,7 @@ from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.records import record_collections
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -501,10 +502,8 @@ class TestTheCaptaincy:
                 zeile_data=FLPatchKaderZeilePayload(nummer=None, position=None, stufe=None, rolle="co_kapitaen"),
                 identifier=ANSPRECH,
                 saison_spieler_collection=squad_rows if squad_rows is not None else database[Collection.SAISON_SPIELER],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
                 saisons_collection=saisons,
-                spieler_collection=database[Collection.SPIELER],
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                records=record_collections(database, saisons_collection=saisons),
                 db=client,
             )
 

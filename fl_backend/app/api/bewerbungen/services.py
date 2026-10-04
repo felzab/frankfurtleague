@@ -15,6 +15,7 @@ from app.api.bewerbungen.schemas import (
     FLKontaktRolle,
     refuse_age_outside_the_bounds,
 )
+from app.api.kontakte.services import rows_possibly_naming
 from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
@@ -1018,6 +1019,15 @@ def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str
         return str(schule.get("team_name") or "")
 
     return str(club_name or "")
+
+
+def build_eigene_bewerbung_filter(identifier: str) -> Mapping[str, Any]:
+    """Every PENDING application whose seats may name the address, a pre-filter the fold decides on.
+
+    Pending alone: an accepted application's seats are its season row's, and a declined one's go with it.
+    """
+
+    return {"status": "eingereicht", **rows_possibly_naming(identifier)}
 
 
 # The pages a contact seat's link opens, named as the registry names them: the applicant's, and one

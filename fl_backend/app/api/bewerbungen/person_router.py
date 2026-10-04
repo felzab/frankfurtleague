@@ -6,6 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligungResponse
+from app.api.identitaet.services import eigene_sitze
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.konto.services import (
     KONTO_SEITE_KONTAKT,
@@ -14,7 +15,6 @@ from app.api.konto.services import (
     find_eigener_eintrag_refusal,
     find_konto_fassung_refusal,
     find_nachweis_stand_refusal,
-    gehaltene_sitze,
 )
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
@@ -71,7 +71,7 @@ async def patch_einwilligung(
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "einwilligung")},
             session=session,
         )
-        rollen = [] if bewerbung is None else gehaltene_sitze(bewerbung, identifier)
+        rollen = [] if bewerbung is None else eigene_sitze(bewerbung, identifier)
         refuse(find_eigener_eintrag_refusal(gehalten=bool(rollen)))
         assert bewerbung is not None
         bloecke = [bewerbung["kontakte"][slot]["einwilligung"] for slot in rollen]
