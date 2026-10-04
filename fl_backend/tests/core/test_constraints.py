@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
@@ -87,6 +87,7 @@ from app.api.teams.schemas import (
     FLTrainerZugleich,
     FLTrikotFarbe,
 )
+from app.core import constraints
 from app.core.collections import Collection
 from app.core.constraints import (
     _AKTION_OPERATIONS,
@@ -105,6 +106,7 @@ from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.einwilligung import FLEinwilligungBeleg, FLEinwilligungNachweis, FLEinwilligungNachweise
 from app.shared.schemas.kontakt import FLKontakt
+from tests.config import UNANSWERED_URI, build_test_config
 
 # Not derived from `db.py`'s providers: the junctions are reached by `$lookup` and have none.
 EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
@@ -867,6 +869,66 @@ def test_a_driver_failure_is_diagnosed_rather_than_traced(code: int, errmsg: str
     # A diagnostic quoting the connection string is one nobody can paste into a bug report. The scheme
     # rather than the word, which the secret file's own name carries.
     assert "mongodb://" not in diagnosis and "mongodb+srv://" not in diagnosis and "@" not in diagnosis
+
+
+DUPLICATE_KEY_ERRMSG = "E11000 duplicate key error collection: fl_main.teams index: uniq_shorthand"
+
+REFUSED_BUILD = "Could not build unique index 'teams.uniq_shorthand' (shorthand)"
+
+
+def _duplicate_key() -> OperationFailure:
+    return OperationFailure(DUPLICATE_KEY_ERRMSG, 11000, {"errmsg": DUPLICATE_KEY_ERRMSG, "code": 11000})
+
+
+def _a_refused_build() -> RuntimeError:
+    """As `app/core/constraints.py :: apply_constraints` raises one: the build named, the driver's refusal its cause."""
+
+    cause = _duplicate_key()
+    wrapped = RuntimeError(f"{REFUSED_BUILD}: {cause}")
+    wrapped.__cause__ = cause
+
+    return wrapped
+
+
+def _applied(failure: BaseException, monkeypatch: pytest.MonkeyPatch) -> int:
+    """`python -m app.core.constraints --apply`'s own run, its apply raising `failure`; no server is reached."""
+
+    async def raising(_database: Any) -> Any:
+        raise failure
+
+    monkeypatch.setattr(constraints, "apply_constraints", raising)
+    monkeypatch.setattr(constraints, "get_config", lambda: build_test_config().model_copy(update={"mongodb_uri": SecretStr(UNANSWERED_URI)}))
+
+    return asyncio.run(constraints._run(check=False))
+
+
+@pytest.mark.parametrize(
+    ("failure", "named"),
+    [
+        pytest.param(_duplicate_key(), None, id="the driver's refusal"),
+        pytest.param(_a_refused_build(), REFUSED_BUILD, id="a build the apply names"),
+    ],
+)
+def test_a_refused_apply_is_diagnosed_and_exits_two(
+    failure: BaseException, named: str | None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """The apply names a refused build in a `RuntimeError` around the driver's refusal.
+
+    Both reach the operator as a diagnosis and exit 2, never a traceback.
+    """
+
+    assert _applied(failure, monkeypatch) == 2
+
+    printed = capsys.readouterr().out
+    assert "refused the command (11000)" in printed
+    assert named is None or named in printed
+
+
+def test_a_runtime_error_no_refusal_caused_keeps_its_traceback(monkeypatch: pytest.MonkeyPatch):
+    """Only a refused build is the operator's to read; any other failure is a defect."""
+
+    with pytest.raises(RuntimeError, match="a defect"):
+        _applied(RuntimeError("a defect"), monkeypatch)
 
 
 def test_no_two_declared_indexes_share_a_name():

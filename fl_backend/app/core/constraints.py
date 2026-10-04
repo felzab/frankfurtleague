@@ -1828,6 +1828,13 @@ async def _run(check: bool) -> int:
         print(f"\n{diagnose_failure(failure)}\n")
         return 2
 
+    except RuntimeError as failure:
+        # The apply wraps a refused build to name the validator or index; anything else is a defect.
+        if not isinstance(failure.__cause__, OperationFailure):
+            raise
+        print(f"\n  {str(failure).removesuffix(f': {failure.__cause__}')}.\n{diagnose_failure(failure.__cause__)}\n")
+        return 2
+
     finally:
         await client.close()
 
