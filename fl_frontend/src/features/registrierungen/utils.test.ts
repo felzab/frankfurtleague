@@ -259,6 +259,11 @@ describe("what one refused confirmation shows", () => {
     assert.deepEqual(mapped, await mapBestaetigungRefusal(refusal("REQ-VAL-001", 422), floorOf(16).lesen));
   });
 
+  /* Choices the link's page does not ask come from a page older than the backend's answer, as the media yes does. */
+  it("answers choices the link's page does not ask with the mail's link", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-017", 422), floorOf(16).lesen), { error: ANTWORT_NEU_OEFFNEN });
+  });
+
   /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
   it("answers a body the API could not read with the mail's link", async () => {
     assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "REQ-VAL-002"), floorOf(16).lesen), {
@@ -288,6 +293,7 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-007",
       "REQ-REGISTRIERUNG-010",
       "REQ-REGISTRIERUNG-012",
+      "REQ-REGISTRIERUNG-017",
     ];
 
     for (const code of new Set([...published, ...mapped])) {
