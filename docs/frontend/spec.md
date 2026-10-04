@@ -426,7 +426,7 @@ still being minted is waited for ten seconds, and past them, during Cloudflare's
 check that did not load the form answers in a sentence and posts nothing. A check that did not load
 says so at the widget, and its first failure is reported as `FE-CLIENT-001`. A refusal answers one sentence whatever the
 address, so the check is no membership oracle. **No edge rule stands in for it**: a challenge
-answers a `fetch()` with markup (I177), and no rule checks the POST behind a challenged page. **Only
+answers a `fetch()` with markup ([`docs/ops/spec.md`](../ops/spec.md) I177), and no rule checks the POST behind a challenged page. **Only
 a check Cloudflare cannot answer lets the submission through** (I822), Cloudflare fronting the
 whole site anyway; a secret or request of ours it refuses is refused in a sentence of its own, so a
 wrong key shows at the first submission rather than switching the check off. Better Auth's captcha plugin is not the check: it guards the
