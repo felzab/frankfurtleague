@@ -676,6 +676,8 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
       text_version: z
         .string()
         .trim()
+        // The endpoint's own floor: the page fills it from the served label, so only a drifted page sends none.
+        .nonempty({ error: "Deine Antwort nennt keine Fassung der Hinweise. Bitte öffne den Link noch einmal aus Deiner E-Mail." })
         .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
           error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
         }),
