@@ -265,26 +265,15 @@ async def ablehnen_bewerbung(
         )
         refuse(find_triage_refusal(status=str(stored_raw["status"])))
 
-        # The status is in the FILTER as well as the read: a second decline would mail the applicants
-        # again and replace the first `grund`. A decision landing after the read conflicts instead,
-        # and the retry's read refuses it.
-        try:
-            return await patch_one_in_db(
-                collection=bewerbungen_collection,
-                db_filter={"_id": bewerbung_id, "status": "eingereicht"},
-                update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
-                session=session,
-                return_document=ReturnDocument.AFTER,
-            )
-        except DocumentNotFoundException:
-            # A miss the read above did not foresee: the re-read answers a decided application as the
-            # decision it is, so only an application no document names keeps the 404.
-            raced_raw = await pull_one_from_db(
-                collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"], session=session
-            )
-            refuse(find_triage_refusal(status=str(raced_raw["status"])))
-
-            raise
+        # A decision landing after the read conflicts with this write and the retry's read refuses it;
+        # the status in the filter is the second lock, so no path overwrites a decision.
+        return await patch_one_in_db(
+            collection=bewerbungen_collection,
+            db_filter={"_id": bewerbung_id, "status": "eingereicht"},
+            update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
+            session=session,
+            return_document=ReturnDocument.AFTER,
+        )
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(decline_the_application)

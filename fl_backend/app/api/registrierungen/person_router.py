@@ -449,7 +449,7 @@ async def ablehnen(
 
         await patch_one_in_db(
             collection=registrierungen_collection,
-            # The status again, so a decision landing between the read and this write is not overwritten.
+            # The status again, as the second lock: a decision landing after the read conflicts with this write.
             db_filter={"_id": registrierung_id, "status": registrierung_raw["status"]},
             update=compose_ablehnung_update(von=identifier, grund=ablehnung_data.grund, today=today),
             session=session,

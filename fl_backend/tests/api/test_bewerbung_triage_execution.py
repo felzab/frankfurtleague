@@ -68,6 +68,7 @@ from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
+from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -1026,42 +1027,57 @@ OTHER_ADMIN_EMAIL = "triage.bramblewick@example.com"
 OTHER_GRUND = "Die Anmeldefrist für diese Saison ist verstrichen."
 
 
+class ApplicationsRunningARivalBeforeTheirWrite(InterleavedCollection):
+    """The applications a decline reaches, a rival run once ahead of its write: after the attempt's judged read, before the write."""
+
+    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.find_one_and_update(*args, **kwargs)
+
+
 @pytest.mark.db
 class TestTwoDeclinesAtOnce:
-    """The write itself carries the guard, so the loser of the race mails the applicants nothing.
+    """The loser of the race mails the applicants nothing, and the winner's `grund` and name stand.
 
     Both administrators otherwise send the three people a rejection letter, and one `grund` and one
     name survive.
     """
 
-    def test_the_second_decline_writes_nothing_and_is_refused(self, mongo_replica_set_url: str):
-        """Catches the status left out of the write's own filter, which a read taken a moment earlier cannot cover."""
+    def test_a_decline_landing_inside_the_second_refuses_it_and_leaves_the_first_standing(self, mongo_replica_set_url: str):
+        """The first decline commits between the second's read and its write, so the second's write conflicts and its retry reads the decision.
+
+        Taken out of the transaction, the second's write meets the first's status and answers 404 instead.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await decline(database, PICKED_BEWERBUNG)
-            after_first = await stored_bewerbung(database, PICKED_BEWERBUNG)
+            first: list[Any] = []
 
+            async def the_first_decline() -> None:
+                await decline(database, PICKED_BEWERBUNG)
+                first.append(await stored_bewerbung(database, PICKED_BEWERBUNG))
+
+            racing = ApplicationsRunningARivalBeforeTheirWrite(database[Collection.BEWERBUNGEN], the_first_decline)
             with pytest.raises(WriteRefusalException) as conflict:
                 await ablehnen_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
                     ablehnung_data=FLAblehnenBewerbungPayload(grund=OTHER_GRUND),
-                    # The document as the loser's request read it, an instant before the first landed.
-                    bewerbungen_collection=as_the_loser_read_it(database[Collection.BEWERBUNGEN], {**after_first, "status": "eingereicht"}),
+                    bewerbungen_collection=cast(AsyncCollection, racing),
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
                     db=database.client,
                 )
+            # With the first committed before it, the second is refused at its read and never reaches the write.
+            racing.assert_landed_inside(serially=0)
 
-            return conflict.value.error_code, after_first, await stored_bewerbung(database, PICKED_BEWERBUNG)
+            return conflict.value.error_code, first[0], await stored_bewerbung(database, PICKED_BEWERBUNG)
 
         code, after_first, after_second = on_a_league(mongo_replica_set_url, body)
 
         assert code == BEWERBUNG_ALREADY_DECIDED
         assert after_second == after_first, "the losing decline overwrote the reason and the name the first one stored"
+        assert after_first["entscheidung"]["grund"] == GRUND
 
-    def test_an_application_no_document_names_is_still_a_404(self, mongo_replica_set_url: str):
-        """The filter matches nothing either way, and the two must not read alike: only one of them is a decision that stands."""
-
+    def test_an_application_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_one({"_id": PICKED_BEWERBUNG})
 
@@ -1069,7 +1085,7 @@ class TestTwoDeclinesAtOnce:
                 await ablehnen_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
                     ablehnung_data=FLAblehnenBewerbungPayload(grund=OTHER_GRUND),
-                    bewerbungen_collection=as_the_loser_read_it(database[Collection.BEWERBUNGEN], bewerbung_document(PICKED_BEWERBUNG)),
+                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
                     db=database.client,
@@ -1263,8 +1279,8 @@ class TestAnAcceptanceTakenOnAStaleJudgement:
 
         assert after_acceptance == after_decline, "the acceptance overwrote the decision the applicants were sent"
         assert rows == [], "the school was entered into the season its own application was declined for"
-        # 404 rather than the decline's 409: that endpoint re-reads because its window is real and a
-        # raced decision must not read as a missing application. Nothing reaches this one.
+        # 404, the miss of the write's own filter: the read this case fakes stale is one no transaction
+        # serves, so the filter, the second lock, is what this case drives.
         assert status_code == 404
 
 
