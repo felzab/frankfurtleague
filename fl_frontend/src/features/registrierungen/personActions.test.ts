@@ -101,8 +101,13 @@ describe("a seat holder's decisions on a registration", () => {
   it("drops no cached read after a decline, only refreshing the page", async () => {
     answerWith(() => Promise.resolve(ABLEHNUNG));
 
-    await ablehnenRegistrierungAction({ ...ZIEL, grund: null });
+    const answer = await ablehnenRegistrierungAction({ ...ZIEL, grund: null });
 
+    // Saying what follows rather than the toast's own title again, as the admission's answer does.
+    assert.deepEqual(answer, {
+      success: true,
+      message: "Lena kommt nicht in den Kader. Die Registrierung löschen wir einen Monat nach der Entscheidung.",
+    });
     assert.deepEqual(invalidations(), [["refresh"]]);
   });
 

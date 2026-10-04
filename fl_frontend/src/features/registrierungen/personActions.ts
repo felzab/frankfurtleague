@@ -80,7 +80,10 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
 
     // The same words whatever the send did: a team told that a note was withheld would learn that the
     // pupil's address is barred, which no seat holder is told.
-    return { success: true, message: "Registrierung abgelehnt." };
+    return {
+      success: true,
+      message: `${ablehnung.vorname} kommt nicht in den Kader. Die Registrierung löschen wir einen Monat nach der Entscheidung.`,
+    };
   });
 }
 
