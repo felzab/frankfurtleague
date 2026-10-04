@@ -1,4 +1,7 @@
 import "@/shared/testing/dom.ts";
+
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal.ts";
+
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
@@ -10,7 +13,6 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
-import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { eingetragenVonLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
