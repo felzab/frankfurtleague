@@ -29,7 +29,7 @@ from app.api.sperrliste.services import (
     withheld_actor,
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
@@ -70,10 +70,9 @@ async def _pull_the_season_a_ban_counts_from(
     # The rollover demotes this season, and its sweep cannot see a row inserted after its snapshot:
     # without this write both commit, and a bound the sweep never judged stands past its season
     # (`docs/backend/spec.md :: I274`).
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=saisons_collection,
         db_filter={"_id": massgebliche_saison_id},
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 

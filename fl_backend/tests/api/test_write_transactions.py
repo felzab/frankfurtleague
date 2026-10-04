@@ -25,6 +25,7 @@ APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 # is counted the same as one through the chokepoint.
 WRITE_HELPERS = frozenset(
     {
+        "anchor_in_db",
         "patch_one_in_db",
         "patch_many_in_db",
         "post_one_to_db",

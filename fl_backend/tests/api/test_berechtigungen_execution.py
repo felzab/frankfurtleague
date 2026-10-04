@@ -44,7 +44,7 @@ from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
 from app.api.sperrliste.services import SPERRLISTE_VERWALTUNG, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import WritesSent, writes_sent_var
+from app.core.crud import ANCHOR_FIELD, WritesSent, writes_sent_var
 from app.core.exceptions import ActorForbiddenException, DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, admin_judge, get_grant_lookup
@@ -979,15 +979,17 @@ class TestTheAnchorClosesEachRace:
 
 class TestTheClaim:
     def test_a_pass_with_nothing_to_queue_writes_no_anchor(self, mongo_replica_set_url: str):
-        """A pass runs every few minutes, and an anchor each time would fill the log with rows about nothing."""
+        """A pass runs every few minutes, and an anchor each time would make every grant write it overlaps retry for nothing."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+        async def anchored(database: AsyncDatabase) -> list[int]:
+            return [int(row.get(ANCHOR_FIELD, 0)) async for row in database[Collection.BERECHTIGUNGEN].find().sort("_id", 1)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[int], list[int]]:
             await told(database, client)
-            logged = {"collection": str(Collection.BERECHTIGUNGEN), "operation": "patch_many"}
-            before = await database[Collection.AKTIONEN].count_documents(logged)
+            before = await anchored(database)
             await claimed(database, client)
 
-            return before, await database[Collection.AKTIONEN].count_documents(logged)
+            return before, await anchored(database)
 
         before, after = on_a_league(mongo_replica_set_url, body)
 

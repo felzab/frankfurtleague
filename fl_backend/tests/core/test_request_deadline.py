@@ -31,6 +31,7 @@ from app.core import middlewares
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
+    anchor_in_db,
     delete_many_from_db,
     erase_many_from_db,
     patch_many_in_db,
@@ -695,6 +696,7 @@ NO_SESSION: Any = None
 
 # One call per `app/core/crud.py` helper reaching the driver's writes, each as a route makes it.
 WRITE_CALLS: dict[str, Callable[[Any], Awaitable[Any]]] = {
+    "anchor_in_db": lambda collection: anchor_in_db(collection=collection, db_filter={"_id": 1}, session=NO_SESSION),
     "patch_one_in_db": lambda collection: patch_one_in_db(
         collection=collection, db_filter={"_id": 1}, update={"$set": {"name": "Adler"}}, return_document=ReturnDocument.BEFORE
     ),

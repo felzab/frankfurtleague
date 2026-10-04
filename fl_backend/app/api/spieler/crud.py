@@ -9,7 +9,7 @@ from app.api.spieler.services import (
     find_squad_capacity_refusal,
     find_squad_rolle_refusal,
 )
-from app.core.crud import patch_many_in_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, pull_one_from_db, refuse
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -35,12 +35,9 @@ async def refuse_a_full_squad(
     # A count is a read, which a snapshot re-validates nowhere, so two writers pass one figure
     # unless something puts them in one write set.
 
-    # `patch_many_in_db`, not `patch_one_in_db`: this lands on every squad write, and that helper
-    # would log a whole season pre-image each time where this one logs a filter and a count.
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=saisons_collection,
         db_filter={"_id": saison_id},
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 
@@ -81,10 +78,9 @@ async def refuse_a_taken_rolle(
 
     # Its own anchor rather than the cap's: a caller running this without `refuse_a_full_squad` --
     # a representative's edit, which cannot cross the cap -- would otherwise let two captains through.
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=saisons_collection,
         db_filter={"_id": saison_id},
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 

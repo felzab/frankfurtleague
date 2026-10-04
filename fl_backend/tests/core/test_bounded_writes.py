@@ -14,11 +14,15 @@ that reads as held.
 """
 
 import ast
+import asyncio
 import inspect
-from collections.abc import Callable, Iterator
-from typing import Any
+from collections.abc import Callable
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import anchor_the_actors_grant, pull_the_list_to_judge
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
@@ -27,11 +31,11 @@ from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, 
 from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
+from app.core.crud import ANCHOR_FIELD, anchor_in_db
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
     WRITE_HELPERS,
-    Declaration,
     app_calls,
     callee,
     calls_in,
@@ -43,13 +47,8 @@ from tests.core.app_source import (
     transactional_callbacks,
 )
 
-# The `app/core/crud.py` helper each anchor is made through: one log row carrying the filter and the
-# count, where `patch_one_in_db` would log a whole season pre-image on every bounded write.
-ANCHOR_HELPER = "patch_many_in_db"
-
-# The one field every anchor advances. One rather than one per rule: a further rule the season's own
-# bounds decide takes it with no decision, and two admin writes contending is a retry.
-ANCHOR_FIELD = "bounded_writes"
+# The `app/core/crud.py` helper every anchor is made through, which advances `ANCHOR_FIELD` and logs no row.
+ANCHOR_HELPER = anchor_in_db.__name__
 
 # Each choke point, the rule it decides, and every scope that may reach that rule. Pinned rather
 # than counted: what reopens a race is a site added beside the helper, which a count never names.
@@ -190,38 +189,19 @@ JUDGED_BESIDE_THE_ANCHOR: dict[str, frozenset[str]] = {
 }
 
 
-def _own_nodes(declaration: Declaration) -> Iterator[ast.AST]:
-    """Every node of one function's body but those of a function nested in it, which answers for its own."""
-
-    pending = list(ast.iter_child_nodes(declaration))
-    while pending:
-        node = pending.pop()
-        yield node
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-            pending.extend(ast.iter_child_nodes(node))
-
-
 def _names_the_anchor_field(node: ast.AST) -> bool:
     return isinstance(node, ast.Constant) and node.value == ANCHOR_FIELD
 
 
-def _functions_naming_the_anchor_field() -> tuple[set[str], int]:
-    """By the field alone, never off the registry below: a helper anchoring outside the registry is found whatever shape its write takes."""
+def _places_spelling_the_anchor_field() -> list[str]:
+    """By the field alone, never off the registry below: an anchor written past the helper is found whatever shape its write takes."""
 
-    sites: set[str] = set()
-    spelled_in_a_function = 0
-    spelled_anywhere = 0
-    for path in sorted(APP_ROOT.rglob("*.py")):
-        tree = parsed(path)
-        spelled_anywhere += sum(1 for node in ast.walk(tree) if _names_the_anchor_field(node))
-        for declaration in ast.walk(tree):
-            if isinstance(declaration, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                spelled = sum(1 for node in _own_nodes(declaration) if _names_the_anchor_field(node))
-                spelled_in_a_function += spelled
-                if spelled:
-                    sites.add(f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {declaration.name}")
-
-    return sites, spelled_anywhere - spelled_in_a_function
+    return [
+        f"{path.relative_to(BACKEND_ROOT).as_posix()}:{node.lineno}"
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for node in ast.walk(parsed(path))
+        if _names_the_anchor_field(node)
+    ]
 
 
 def _app_callers_of(called: str) -> set[str]:
@@ -231,7 +211,7 @@ def _app_callers_of(called: str) -> set[str]:
 
 
 def _anchor_calls(function: Callable[..., Any]) -> list[ast.Call]:
-    """Every `patch_many_in_db` one function makes, read off its own source."""
+    """Every anchor one function makes, read off its own source."""
 
     return [call for call in ast.walk(declared(function)) if isinstance(call, ast.Call) and callee(call) == ANCHOR_HELPER]
 
@@ -240,15 +220,31 @@ def _keyword(call: ast.Call, name: str) -> ast.expr | None:
     return next((keyword.value for keyword in call.keywords if keyword.arg == name), None)
 
 
+def test_every_anchor_is_written_through_the_helper():
+    """The field is spelled once under `app/`, where the helper names it, so an anchor written any other way names it a second time.
+
+    A `patch_many_in_db` anchor would file an action-log row on every judged write (`docs/backend/spec.md :: I40`).
+    """
+
+    assert _places_spelling_the_anchor_field() == [f"app/core/crud.py:{_spelled_at(ANCHOR_FIELD)}"]
+
+
+def _spelled_at(value: str) -> int:
+    """The line `app/core/crud.py` binds the field's one spelling at."""
+
+    return next(
+        node.lineno for node in ast.walk(parsed(APP_ROOT / "core" / "crud.py")) if isinstance(node, ast.Constant) and node.value == value
+    )
+
+
 def test_every_function_writing_the_anchor_is_registered():
     """What holds the two registries complete: a helper absent from both is held by no clause below.
 
-    A `$set`, or a filter on more than one document, would then pass unseen.
+    A filter on more than one document would then pass unseen.
     """
 
-    sites, outside_every_function = _functions_naming_the_anchor_field()
+    sites = _app_callers_of(ANCHOR_HELPER)
 
-    assert outside_every_function == 0, f"`{ANCHOR_FIELD}` is spelled outside any function, where no anchor this sweep finds can be named"
     assert {f"{module_of(function).relative_to(BACKEND_ROOT).as_posix()} :: {function.__name__}" for function in ANCHORING_FUNCTIONS} == sites
     assert set(CALLERS) == {function.__name__ for function in ANCHORING_FUNCTIONS}
 
@@ -324,19 +320,40 @@ def test_a_choke_point_anchors_the_document_its_read_is_scoped_by(function: Call
     )
 
 
-def test_every_anchor_advances_one_field():
-    """Spelled at every site rather than shared from one, so this is what holds the spellings together.
+class _AnchoredCollection:
+    """A collection recording each write the helper sends, and every row a log append would insert beside it."""
 
-    An `$inc` too: a `$set` of a constant rewrites nothing the second time and joins no write set.
+    def __init__(self) -> None:
+        self.name = "saisons"
+        self.updates: list[tuple[Any, Any, Any]] = []
+        self.logged: list[Any] = []
+        self.database = self
+
+    def __getitem__(self, _name: str) -> _AnchoredCollection:
+        return self
+
+    async def update_many(self, **sent: Any) -> SimpleNamespace:
+        self.updates.append((sent["filter"], sent["update"], sent["session"]))
+        return SimpleNamespace(modified_count=1)
+
+    async def insert_one(self, document: Any, **_: Any) -> None:
+        self.logged.append(document)
+
+
+def test_the_anchor_advances_one_field_on_the_session_and_logs_no_row():
+    """An `$inc`, as a `$set` of a constant rewrites nothing the second time and joins no write set.
+
+    No log row: one beside every judged write would read as a change nobody made (`docs/backend/spec.md :: I40`).
     """
 
-    updates = {function.__name__: _keyword(_anchor_calls(function)[0], "update") for function in ANCHORING_FUNCTIONS}
+    collection, session = _AnchoredCollection(), object()
 
-    assert all(update is not None for update in updates.values()), f"an anchor passes no `update` at all: {updates}"
+    asyncio.run(
+        anchor_in_db(collection=cast(AsyncCollection, collection), db_filter={"_id": "2026"}, session=cast(AsyncClientSession, session))
+    )
 
-    spelled = {name: ast.unparse(update) for name, update in updates.items() if update is not None}
-
-    assert set(spelled.values()) == {"{'$inc': {'" + ANCHOR_FIELD + "': 1}}"}, spelled
+    assert collection.updates == [({"_id": "2026"}, {"$inc": {ANCHOR_FIELD: 1}}, session)]
+    assert collection.logged == []
 
 
 @pytest.mark.parametrize("function", JUDGED_READS, ids=lambda function: function.__name__)

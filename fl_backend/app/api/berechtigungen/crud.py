@@ -19,7 +19,7 @@ from app.api.berechtigungen.services import berechtigt_seit, inhaber_seit, leben
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
+from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, pull_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
@@ -47,10 +47,9 @@ async def pull_the_list_to_judge(
     grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
 
     # Exactly the rows the read returned, each named: the rows judged are the rows a rival must meet.
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=berechtigungen_collection,
         db_filter={"_id": {"$in": [grant["_id"] for grant in grants]}},
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 
@@ -180,10 +179,9 @@ async def anchor_the_actors_grant(
 ) -> None:
     """Write the acting administrator's own grant row, so a revoke committing after the judgement's read conflicts with this transaction."""
 
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=berechtigungen_collection,
         db_filter={"_id": berechtigung_id},
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 

@@ -7,7 +7,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_entry_refusal
-from app.core.crud import patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, pull_many_from_db, pull_one_from_db, refuse
 
 
 async def refuse_a_full_gruppe(
@@ -30,10 +30,9 @@ async def refuse_a_full_gruppe(
 
     # A count is a read, which a snapshot re-validates nowhere, so two entrants pass one figure
     # unless something puts them in one write set.
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=saisons_collection,
         db_filter={"_id": saison_id},
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 
@@ -69,11 +68,9 @@ async def pull_a_club_to_enter(
 
     # A retirement judges junction rows and writes only the club, so only a write to the club puts an
     # entry in its write set (`docs/backend/spec.md :: I53`).
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=teams_collection,
         db_filter={"_id": team_id},
-        # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 

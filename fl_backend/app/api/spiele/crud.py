@@ -56,7 +56,7 @@ from app.api.teams.services import (
     build_team_pipeline,
     offered_gruppen,
 )
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
@@ -299,11 +299,9 @@ async def anchor_a_booked_venue(
 ) -> None:
     """Put a write booking this venue into the write set of `REQ-RETIRE-003`, which reads fixtures and writes the venue."""
 
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=spielorte_collection,
         db_filter={"_id": spielort_id},
-        # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 
@@ -317,11 +315,9 @@ async def anchor_a_booked_referee(
 ) -> None:
     """Put a write booking this referee into the write set of `REQ-RETIRE-004` and of the erasure: both judge fixtures and write this row."""
 
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": schiedsrichter_id},
-        # `$inc` for `anchor_a_booked_venue`'s reason.
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 
