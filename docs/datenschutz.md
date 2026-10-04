@@ -133,8 +133,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
     the contact person it was mailed to, which [section 11](#11-open-and-owed-a-decision) puts to the
     Datenschutzexperte.
   - **Reasonable expectations:** a pupil registers themselves, a referee is entered to officiate
-    and confirms it, and a contact person is named by their own school and told at once by mail;
-    each expects the league to hold what running the competition takes.
+    and confirms it, and a contact person is named by their own school or entered by the league's
+    administration, on their team's season row or in an application's seat somebody stepped out of,
+    and is told at once by mail through a link of their own that also takes their Widerspruch;
+    each expects the league to hold what running the competition takes, a person the
+    administration entered reading on their own confirmation page who entered them
+    (`docs/backend/spec.md :: I861`).
   - **Safeguards, weighed against most participants being sixteen or seventeen**, which Art.
     6(1)(f) weighs heavier: nothing of a pupil is published on this basis, a pupil's name appearing
     only on their own consent ([section 4](#4-what-is-published-and-on-what-basis)); a referee's
