@@ -24,27 +24,18 @@ class FLEinwilligungNachweise(BaseModel):
     medien: FLEinwilligungNachweis | None = None
 
 
-class FLMedienStand(BaseModel):
-    """The media choice's stand where the account page was served, null where it carried no evidence.
+class FLEinwilligungStand(BaseModel):
+    """Each choice's stand where the account page was served, null where the record carried no evidence for it.
 
     A consent PATCH's precondition, echoed back as served, never a secret (`docs/backend/spec.md :: I995`).
     """
 
     # Required with no default, as `kontakte_stand` is: an omitted precondition judges nothing.
+    umfang: str | None
     medien: str | None
 
 
-class FLEinwilligungStand(FLMedienStand):
-    """`FLMedienStand` for a control moving both choices."""
-
-    umfang: str | None
-
-
-# The two as a press echoes them. Forbidden rather than ignored: a key the precondition does not
-# compare would read as judged.
-class FLMedienStandPayload(FLMedienStand):
-    model_config = ConfigDict(extra="forbid")
-
-
+# As a press echoes it. Forbidden rather than ignored: a key the precondition does not compare would
+# read as judged.
 class FLEinwilligungStandPayload(FLEinwilligungStand):
     model_config = ConfigDict(extra="forbid")

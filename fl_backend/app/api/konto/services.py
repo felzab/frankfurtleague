@@ -10,7 +10,7 @@ from collections.abc import Collection, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, saison_schule
+from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.schemas import FLSubjektSitz
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat
@@ -30,9 +30,6 @@ KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 _FASSUNG_ORT: Final = "einwilligung"
 
 EINWILLIGUNG_STAND_VERALTET: Final = "REQ-EINWILLIGUNG-003"
-
-# What a seat's control moves, and so all its precondition compares: never the contact scope.
-SITZ_WAHLEN: Final[tuple[FLEinwilligungWahl, ...]] = ("medien",)
 
 
 def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any]) -> bool:
@@ -325,6 +322,18 @@ def _sitz_schule(
     return bewerbung_schule(bewerbung_raw=bewerbung, club_name=(teams.get(row["team_id"]) or {}).get("name"))
 
 
+def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """A seat entry's two choices and their stand, over every slot the person holds on the row."""
+
+    bloecke = [seat["einwilligung"] for seat in held]
+
+    return {
+        "umfang": "kontaktdaten_whatsapp" if any(ist_erteilt("umfang", block.get("umfang")) for block in bloecke) else "kontaktdaten",
+        "medien": any(ist_erteilt("medien", block.get("medien")) for block in bloecke),
+        "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=WAHLEN),
+    }
+
+
 def compose_sitze_selbst(
     rows: Sequence[Mapping[str, Any]],
     identifier: str,
@@ -336,8 +345,8 @@ def compose_sitze_selbst(
 ) -> list[dict[str, Any]]:
     """One entry per season row on which this address holds a confirmed seat.
 
-    Per ROW, the seat PATCH moving a person's slots together; `medien` is on where any held slot's is,
-    so a withdrawal stays offered.
+    Per ROW, the seat PATCH moving a person's slots together; each choice is on where any held slot's
+    is, so a withdrawal stays offered.
     """
 
     sitze = []
@@ -353,8 +362,8 @@ def compose_sitze_selbst(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 "bestaetigt_text_version": held[0]["einwilligung"].get("text_version"),
-                "medien": any(seat["einwilligung"].get("medien") is True for seat in held),
-                "nachweis_stand": nachweis_stand_of(bloecke=[seat["einwilligung"] for seat in held], wahlen=SITZ_WAHLEN),
+                **_sitz_wahlen_gehalten(held),
+                "mindestalter": mindestalter_for(rollen),
                 "medien_angeboten": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
                 "erteilbar": holds_a_seat(sitze_mit_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
                 # The first held slot's, as `rollen` orders them: one person holding two answers by one name.
@@ -363,7 +372,6 @@ def compose_sitze_selbst(
                     "team": row["name"],
                     "schule": _sitz_schule(row, rollen[0], teams=teams, bewerbungen=bewerbungen),
                     "saison": row["saison_id"],
-                    "rolle": rollen[0],
                 },
             }
         )
@@ -411,15 +419,14 @@ def compose_bewerbungssitze_selbst(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 "bestaetigt_text_version": held[0]["einwilligung"].get("text_version"),
-                "medien": any(seat["einwilligung"].get("medien") is True for seat in held),
-                "nachweis_stand": nachweis_stand_of(bloecke=[seat["einwilligung"] for seat in held], wahlen=SITZ_WAHLEN),
+                **_sitz_wahlen_gehalten(held),
+                "mindestalter": mindestalter_for(rollen),
                 # `{team}` is the school too: an application names no season row.
                 "kontext": {
                     "vorname": held[0].get("vorname"),
                     "team": schule,
                     "schule": schule,
                     "saison": row["saison_id"],
-                    "rolle": rollen[0],
                 },
             }
         )

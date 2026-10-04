@@ -330,6 +330,7 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/konto/services.py::compose_schiedsrichter_selbst",
         "app/api/konto/services.py::compose_sitze_selbst",
         "app/api/konto/services.py::compose_bewerbungssitze_selbst",
+        "app/api/konto/services.py::_sitz_wahlen_gehalten",
         "app/api/teams/services.py::_confirmation_held_by",
         "app/api/teams/services.py::kontakte_fassungen_gehalten",
         # Writers at their routes, each through a composer classed above, and each driven by its own

@@ -11,7 +11,7 @@ from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import eigene_sitze, holds_a_seat, seat_is_confirmed
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.konto.crud import press_einwilligung
-from app.api.konto.services import KONTO_SEITE_KONTAKT, SITZ_WAHLEN, compose_sitz_move, find_eigener_eintrag_refusal
+from app.api.konto.services import KONTO_SEITE_KONTAKT, compose_sitz_move, find_eigener_eintrag_refusal
 from app.api.teams.schemas import (
     FLSaisonTeamPersonEinwilligungPayload,
     FLSaisonTeamPersonEinwilligungResponse,
@@ -30,7 +30,7 @@ from app.core.drosselung import Drossel
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The person lane's binder, as `app/api/registrierungen/person_router.py` declares it and for its reason.
@@ -92,7 +92,7 @@ async def get_team_sitze(
 @router.patch(
     "/{team_id:objectid}/saisons/{saison_id}/person/einwilligung",
     response_model=FLSaisonTeamPersonEinwilligungResponse,
-    summary="Change a seat holder's own media consent on one team's season",
+    summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )
 async def patch_einwilligung(
     team_id: CustomRouteObjectId,
@@ -107,15 +107,16 @@ async def patch_einwilligung(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSaisonTeamPersonEinwilligungResponse:
     """
-    Set the signed-in person's media consent on every seat they hold on this team's season row, and on nothing else.
+    Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
-    One answer for all of them: a person holding two of the row's slots answers once. No other slot of the row, no
-    other row and the seats' contact scope are written; a press moving no seat writes nothing. A GRANT (`medien` to
-    `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
-    person confirmed a seat on, a past season's included.
+    One answer for all of them: a person holding two of the row's slots answers once. No other slot of the row and no
+    other row is written, each choice moving with its own evidence and leaving the other standing; a press moving no
+    seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien` to `true`) is taken on a row of an
+    `active` or `future` season its team has not left; a withdrawal on any row the person confirmed a seat on, a past
+    season's included.
 
     Refuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a
-    `nachweis_stand` other than the held seats' own, their media choice having moved since the page was served
+    `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
     (`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-FUNKTION-001`); a `text_version` naming no
     version of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);
     `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
@@ -123,7 +124,7 @@ async def patch_einwilligung(
     which counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.
     """
 
-    gewaehlt: dict[FLEinwilligungWahl, object] = {"medien": einwilligung_data.medien}
+    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
 
     async def write(session: AsyncClientSession) -> FLSaisonTeamPersonEinwilligungResponse:
         row = await saison_teams_collection.find_one(
@@ -144,7 +145,7 @@ async def patch_einwilligung(
         await press_einwilligung(
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
             geburtsdaten=[sitz.get("geburtsdatum") for sitz in sitze.values()],
-            wahlen=SITZ_WAHLEN,
+            wahlen=WAHLEN,
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
             text_version=einwilligung_data.text_version,
@@ -179,8 +180,9 @@ async def patch_einwilligung(
                 "team_id": team_id,
                 "saison_id": saison_id,
                 "rollen": rollen,
+                "umfang": einwilligung_data.umfang,
                 "medien": einwilligung_data.medien,
-                "nachweis_stand": nachweis_stand_of(bloecke=[kontakte[slot]["einwilligung"] for slot in rollen], wahlen=SITZ_WAHLEN),
+                "nachweis_stand": nachweis_stand_of(bloecke=[kontakte[slot]["einwilligung"] for slot in rollen], wahlen=WAHLEN),
             }
         )
 

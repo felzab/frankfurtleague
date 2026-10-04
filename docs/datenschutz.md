@@ -59,7 +59,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(f) rather than an
   Einwilligung, and the only consents their block holds are the optional WhatsApp scope and the media
-  answer
+  answer, both of which that person takes back on the account page
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-vocabularies-a-persons-own-consent-and-what-a-contact-seat-was-told)).
   **No such flow exists for organisers or
   administrators:** an organiser is listed on their own word to me
