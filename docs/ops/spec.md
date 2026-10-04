@@ -977,7 +977,11 @@ would become the nearest one for `fl_backend/` too, moving isort's idea of the s
 overriding the backend's pyright block, while a copy inside `gate/`, `checks/`, `lib/`, `ops/` or
 `tests/` would reach that directory alone. `scripts/ruff.toml` `extend`s the backend's configuration
 and adds nothing, so the selection stays in one file; `scripts/pyrightconfig.json` pins the python
-version rather than letting pyright infer one, which would answer differently per machine.
+version rather than letting pyright infer one, which would answer differently per machine. **The
+orchestration skill's tools, `.claude/skills/orchestration/tools/`, are linted and type-checked in
+the same units**, being python no other scope reads: ruff holds a file to the nearest configuration
+above it, so a `ruff.toml` there `extend`s `scripts/ruff.toml`, and `scripts/pyrightconfig.json`
+includes the folder.
 
 **A checker resolves `scripts/lib/` for itself**, each entry point inserting it at its own top, and
 `pyrightconfig.json`'s `extraPaths` is the second listing of that fact. A `PYTHONPATH` set by the

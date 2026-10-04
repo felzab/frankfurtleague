@@ -111,9 +111,9 @@ is corrected in the pull request body. `git config core.hooksPath .githooks` ins
 every other hook in that folder, and it runs `scripts/checks/check_commits.py`. The checker judges
 the whole message and, for the `Closes:` trailer, the staged diff
 (`scripts/checks/check_commits.py :: staged_departures`), which is the new commit's own diff for a
-plain commit, for `git commit -C <sha>` or `-F` after `git cherry-pick -n` — the landing flow, so a
-commit is judged in full when it becomes permanent — and for a commit after
-`git reset --soft HEAD~1`. It refuses on a failure, and prints each finding the list below marks
+plain commit and for a commit after `git reset --soft HEAD~1`. An agent's commits are judged where
+they are made, in its worktree, since the hooks path is shared; a session branch takes a finished
+agent branch in whole with `git merge --no-ff`, whose message is git's own (the last item below). It refuses on a failure, and prints each finding the list below marks
 _reported_ as a notice on a message it lets through, the one moment a notice can still be acted on.
 
 **What the hook never sees:** a committing `git cherry-pick` without `-n` and a non-interactive
