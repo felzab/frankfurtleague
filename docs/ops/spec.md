@@ -366,8 +366,10 @@ observed 2026-08-01 as a public `525`. **A Cloudflare proxy sits in front of ngi
 names neither nginx nor the block responsible.
 
 **A rule at that proxy may challenge a top-level navigation and never a server action's POST**
-(I177): a navigation renders the interstitial and the clearance it issues then covers the form's own
-POST, where a background POST can render nothing and is answered with markup the caller cannot read.
+(I177): a navigation renders the interstitial, where a background POST can render nothing and is
+answered with markup the caller cannot read. **No rule checks the POST behind a challenged page**, so
+the clearance a navigation earns protects none of the writes there; the bot check judged on the
+server at the submit does ([`docs/frontend/spec.md`](../frontend/spec.md) I821).
 A Next server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
 interstitial: the challenge's HTML reaches React where a Flight stream was expected, and the throw
 lands on the error boundary before any application code runs. Every page and every server action
@@ -1261,9 +1263,14 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole
   reason the three are set apart rather than by one toggle.
 - **A Managed Challenge meets a navigation to `/signin` and to `/bewerbung/*`, and meets nothing
-  else** — not `/api/*`, and not a server action's POST, for the reason §1.3 gives at I177. Two page
-  patterns cover the writes behind them because passing a navigation's challenge issues the
-  clearance the form's own POST then carries.
+  else** — not `/api/*`, and not a server action's POST, for the reason §1.3 gives at I177. It
+  guards the page load alone: no rule checks the POST behind either page, which the Turnstile
+  widget below is for.
+- **A Turnstile widget serves the bot check**, in Managed mode, on the hostname
+  `frankfurtleague.de` alone, `www` redirecting before any form renders. Its site key is the
+  server's `TURNSTILE_SITE_KEY` and its secret `./secrets/turnstile_secret_key` (§1.2); that the
+  widget shows only when Cloudflare asks for a click is the page's own `appearance`
+  (`fl_frontend/src/shared/hooks/useTurnstile.tsx`), and the mode the dashboard's.
 - **The mail provider's sending domain carries a delivery webhook**, whose endpoint the provider's
   dashboard holds, **and it points at production alone**: no other deployment holds the webhook's
   signing key (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), so an endpoint aimed

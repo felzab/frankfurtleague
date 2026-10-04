@@ -33,14 +33,14 @@ two** — which is what a reviewer needs before reading the published notice
   association's registered legal form, so no page spells that form for itself. No school and no
   individual is the controller; the league is run by its pupils as an association, and a school-law
   basis is unavailable.
-- **Every request — withdrawal of a consent, access, rectification, erasure, objection — goes to
-  kontakt@frankfurtleague.de** until people can act for themselves. The published notice gives that
-  route a section of its own
+- **A person who signs in changes or withdraws their own consents on the account page**, each record
+  they hold a control of its own (`fl_frontend/src/features/konto/components/views/EinwilligungSection.tsx :: EinwilligungSection`).
+- **Every other request — access, rectification, erasure, objection, and a withdrawal by e-mail —
+  goes to kontakt@frankfurtleague.de.** The published notice gives that route a section of its own
   (`DatenschutzView.tsx :: 2. Wohin Deine Datenschutzanfrage geht`), the confirmation page repeats
   it beside every right it names (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`),
   and [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
-  is the procedure that answers one. Self-service comes with the account tiers planned for teams,
-  players and referees, and the deletion route lives there once they exist.
+  is the procedure that answers one.
 
 ## 2. Consent comes from the person, from 16 or 18
 
@@ -475,6 +475,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   naming the documents it removes (`docs/backend/spec.md :: I42`), while every row the person wrote
   keeps their pseudonym until it expires twelve months after the write (`:: I119`), and this
   controller holds the key that recomputes it from the address.
+- **A signed-in person's writes are counted per day under the same pseudonym, and the count
+  outlives an erasure until that day ends.** The daily write ceiling
+  (`docs/glossary.md :: Drosselung`) keeps one row per Funktion, pseudonym and German day, holding a number and no
+  address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
+  at that day's German midnight, plus the monitor's lag, and no erasure reaches it before then
+  (`docs/backend/spec.md :: I837`).
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
@@ -900,15 +906,23 @@ the `Entry` column carries a token only where one still resolves in that file.
   Datenschutzexperte.** No page publishes a card today, and the question is put before one does:
   whether a booking may stand on a public match report beside the name of a player of sixteen or
   seventeen.
-- **The edge's clearance after a challenge, for the Datenschutzexperte.** A Managed Challenge meets a
-  navigation to the sign-in page and to the application form, and passing it leaves a clearance in the
-  browser that the form's own submission then carries
+- **The edge's clearance after a challenge, and the bot check on three forms, for the
+  Datenschutzexperte.** A Managed Challenge meets a navigation to the sign-in page and to the
+  application form, and passing it leaves a clearance in the browser that spares the visitor a
+  second challenge and is checked by no rule on the form's own submission
   ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)). The clearance is Cloudflare's
   `cf_clearance`, kept for the zone's Challenge Passage period, thirty minutes unless it is changed,
   and the challenge reads the browser as well as writing to it — Cloudflare's pages as read on
   2026-09-22, which move without us; this zone's own setting is recorded nowhere in this repository.
-  The question to put: whether it is strictly necessary under § 25 (2) Nr. 2 TDDDG, so that no
-  consent is owed for it.
+  The sign-in page, the application form and the pupil's registration form also run Cloudflare's
+  Turnstile check in a frame of Cloudflare's own, which reads the visitor's address, the TLS
+  fingerprint and the browser's identification, and whose token the server verifies before any of
+  the three sends its mail ([`frontend/spec.md`](frontend/spec.md) I821). Cloudflare's Turnstile
+  addendum names it a processor for that check and a controller of the same signals for improving
+  its bot detection, on its own legitimate interest — read on 2026-10-04, and moving without us.
+  The questions to put: whether each is strictly necessary under § 25 (2) Nr. 2 TDDDG, so that no
+  consent is owed for it; and whether Cloudflare's use of the signals for itself needs a basis or a
+  disclosure of this controller's beyond the notice naming it.
 - **The board's full names in the Impressum, for the Datenschutzexperte.** Every member of the board
   is named in full (`fl_frontend/src/core/brand.ts :: VORSTAND`), outside the rule of
   [section 2](#2-consent-comes-from-the-person-from-16-or-18). § 18 (1) MStV asks every telemedium
