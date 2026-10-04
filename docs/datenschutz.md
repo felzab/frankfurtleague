@@ -594,7 +594,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
     the pupil answered (`:: undecided_erasure_is_due`), and a pupil who confirmed is told afterwards
     that it happened and why — never before it, a notice being unable to prolong a row nobody
     decided.
-  - **Declined, it goes one calendar month after the decision** (`:: decline_erasure_is_due`).
+  - **Declined, it goes one calendar month after the decision** (`:: decline_erasure_is_due`), and
+    the decision it keeps until then names the seat holder who declined it by their address
+    (`entscheidung.von`, written by `:: compose_ablehnung_update`), which every administrator is
+    served beside the date and the reason while the ban list does not hold it
+    (`:: mit_vorenthaltener_entscheidung`, `docs/backend/spec.md :: I452`).
   - **Admitted, it is deleted at once**, in the admission's own transaction, its values in the log
     redacted with it: its name, birthdate and consent record became the person and its squad
     details the squad row, and only its submission key moves on, onto that squad row, so a replay is
