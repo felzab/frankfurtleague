@@ -601,8 +601,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
     (`:: mit_vorenthaltener_entscheidung`, `docs/backend/spec.md :: I452`).
   - **Admitted, it is deleted at once**, in the admission's own transaction, its values in the log
     redacted with it: its name, birthdate and consent record became the person and its squad
-    details the squad row, and only its submission key moves on, onto that squad row, so a replay is
-    still answered as one (`docs/backend/spec.md :: I349`).
+    details the squad row, and only its submission key and the digest taken over what was
+    submitted, its address included, move on, onto that squad row, so a replay is still answered
+    as one (`docs/backend/spec.md :: I349`,
+    `fl_backend/app/api/registrierungen/services.py :: compose_kader_fields`); both go with the squad row,
+    which the person's erasure removes.
 - **An application still awaiting a decision when the season it applied for has ended is deleted,
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
