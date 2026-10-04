@@ -11,7 +11,7 @@ const { setSession, setRefusal } = doubleActionRequest({ session: ADMIN });
 /** How many times the spine asked Next to refresh the page since the case began. */
 const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
 
-const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite, stepUpRequired } = await import("./adminMutation.ts");
+const { ADMIN_FORBIDDEN, invalidatesOnWrite, runAdminMutation, runAdminRouteWrite, stepUpRequired } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
@@ -181,6 +181,56 @@ describe("the refresh an admin write owes the page", () => {
 
       assert.equal(refreshes(), 1, "a write that may have landed left the admin's page standing");
     }
+  });
+
+  /* A drop after the awaited write never reaches a write whose answer was lost, and the cached public
+     read it feeds serves the replaced data for days (`docs/frontend/spec.md :: I894`). */
+  it("drops the tags a body declared after a landed write, and after one whose answer was lost", async () => {
+    const lost = new APINetworkError({
+      message: "Request failed.",
+      url: "http://backend:8000",
+      method: "PATCH",
+      readOnly: false,
+      traceId: "0",
+      isTimeout: false,
+    });
+    for (const answer of [() => Promise.resolve({ success: true }), () => Promise.reject(lost)]) {
+      cacheCalls.length = 0;
+      await runAdminMutation(
+        "probeAction",
+        writing(() => {
+          invalidatesOnWrite("spieler", "teams:saison_id:2526");
+          return answer();
+        }),
+      );
+
+      assert.deepEqual(
+        cacheCalls.map(({ name, args }) => [name, ...args]),
+        [["updateTag", "spieler"], ["updateTag", "teams:saison_id:2526"], ["refresh"]],
+      );
+    }
+  });
+
+  /* A partial answer stands behind a landed write the page is not re-read for; a refusal and a body
+     that sent nothing moved no cached read. */
+  it("drops them after a partial write without the refresh, and never after a refusal or no write", async () => {
+    const declaring =
+      <T>(answer: T) =>
+      (): Promise<T> => {
+        invalidatesOnWrite("teams");
+        return Promise.resolve(answer);
+      };
+
+    await runAdminMutation("probeAction", writing(declaring({ success: false, error: "Teils.", outcome: "partial" as const })));
+    assert.deepEqual(
+      cacheCalls.map(({ name, args }) => [name, ...args]),
+      [["updateTag", "teams"]],
+    );
+
+    cacheCalls.length = 0;
+    await runAdminMutation("probeAction", writing(declaring({ success: false, error: "Nein." })));
+    await runAdminMutation("probeAction", declaring({ success: true }));
+    assert.deepEqual(cacheCalls, []);
   });
 
   /* Next throws on `refresh()` outside a server action, which the spine would answer as an unclear undo. */

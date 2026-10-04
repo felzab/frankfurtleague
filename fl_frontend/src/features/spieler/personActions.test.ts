@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { APINetworkError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -14,7 +15,7 @@ const { setSubject } = doubleActionRequest({ session: null, subject: person({ si
 const { answerWith, calls } = doubleApiAnswers();
 
 const { deleteKaderZeileAction, patchKaderZeileAction } = await import("./personActions.ts");
-const { SITZ_WEG } = await import("@/shared/utils/actionError.ts");
+const { SITZ_WEG, unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 const PATCH_OPERATION = "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}";
 const DELETE_OPERATION = "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}";
@@ -159,6 +160,29 @@ describe("a pupil's own consent write", () => {
     await patchSpielerEinwilligungAction(WAHL);
 
     assert.equal(requestsOf(calls).length, 1, "a withdrawal from a record granting no panel never reached the backend");
+  });
+
+  /* The backend committed the withdrawal and the answer went missing: a squad read cached for days
+     would keep publishing the name the pupil withdrew (`docs/frontend/spec.md :: I894`). */
+  it("drops the squad's cached public read when the write's answer is lost", async () => {
+    setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
+    answerWith(() =>
+      Promise.reject(
+        new APINetworkError({
+          message: "Request failed.",
+          url: "http://backend:8000",
+          method: "PATCH",
+          readOnly: false,
+          traceId: "0",
+          isTimeout: false,
+        }),
+      ),
+    );
+
+    const answer = await patchSpielerEinwilligungAction(WAHL);
+
+    assert.deepEqual(answer, unansweredAction());
+    assert.deepEqual(invalidations(), [["updateTag", "spieler"], ["refresh"]]);
   });
 
   it("answers the backend's lost record in words naming no team, and drops nothing", async () => {

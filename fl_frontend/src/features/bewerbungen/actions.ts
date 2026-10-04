@@ -1,6 +1,6 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { refresh } from "next/cache";
 
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
@@ -9,7 +9,7 @@ import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -141,6 +141,10 @@ export async function annehmenBewerbungAction(
       };
     }
 
+    // A club is created or entered. The base tag ahead of the write, every team read carrying it, so a
+    // lost answer leaves none stale; the season's tag once the answer names it (`docs/frontend/spec.md` §1.4).
+    invalidatesOnWrite("teams");
+
     // The refusal belongs in the panel that asked, not on the error page.
     let annahmeOperation;
     try {
@@ -155,11 +159,7 @@ export async function annehmenBewerbungAction(
       return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht angenommen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
-    // A club was created or entered, which is what the cached team reads answer. The granular tag
-    // beside the base one: a junction write holds only the season it wrote into
-    // (`docs/frontend/spec.md` §1.4).
-    updateTag("teams");
-    updateTag(`teams:saison_id:${annahmeOperation.saison_id}`);
+    invalidatesOnWrite(`teams:saison_id:${annahmeOperation.saison_id}`);
 
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",

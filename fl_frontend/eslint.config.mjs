@@ -1107,6 +1107,15 @@ const SOURCE_BANS = [
     ],
   },
   {
+    // The spine alone drops a tag, wherever a write may stand: one dropped after an awaited write is
+    // never reached by a write whose answer was lost.
+    selector:
+      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], MemberExpression[property.name="updateTag"])',
+    message:
+      "Declare a write's cache tags with `invalidatesOnWrite` before the write: fl_frontend/src/shared/utils/adminMutation.ts drops them, a lost answer included (docs/frontend/spec.md :: I894).",
+    exempt: ["src/shared/utils/adminMutation.ts"],
+  },
+  {
     // Per function, so a module caching a public read beside a caller's own is held too, which the
     // module list below cannot do.
     // Anchored on the directive: esquery's `:has` takes no chained child combinator.

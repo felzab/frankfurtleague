@@ -1,13 +1,12 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
 import z from "zod";
 
 import { frontend_config } from "@/core/config";
 import { buildRegistrierungAbsageEmail } from "@/core/registrierungEmail";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
+import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
 import { runPersonMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -42,6 +41,7 @@ export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdre
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
     const { registrierung_id, spieler_id } = validated.data;
+    invalidatesOnWrite("spieler");
     let aufnahme;
     try {
       aufnahme = await postRegistrierungAufnehmen(registrierung_id, { spieler_id: spieler_id });
@@ -50,8 +50,6 @@ export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdre
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    updateTag("spieler");
 
     return { success: true, message: `${aufnahme.vorname} ist jetzt im Kader.` };
   });

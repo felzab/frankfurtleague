@@ -1,10 +1,8 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
 import { mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
-import { refusalResult } from "@/shared/utils/adminMutation";
+import { invalidatesOnWrite, refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -32,6 +30,9 @@ export async function patchSchiedsrichterEinwilligungAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
+    // The fixtures read reaches a visitor with the referee's name and is cached for hours; the consent
+    // is written on the referee's row alone, so nothing in the write drops that read.
+    invalidatesOnWrite("spiele");
     let antwort;
     try {
       antwort = await patchSchiedsrichterSelbstEinwilligung(id.data, validated.data);
@@ -40,10 +41,6 @@ export async function patchSchiedsrichterEinwilligungAction(
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
-
-    // The fixtures read reaches a visitor with the referee's name and is cached for hours; the consent
-    // is written on the referee's row alone, so nothing in the write drops that read.
-    updateTag("spiele");
 
     return { success: true, message: WAHL_GESPEICHERT, nachweis_stand: antwort.nachweis_stand };
   });

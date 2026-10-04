@@ -1,9 +1,7 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
 import { isFreshlySignedIn } from "@/core/auth";
-import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -114,6 +112,8 @@ export async function patchSchiedsrichterAction(
       };
     }
 
+    // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
+    invalidatesOnWrite("spiele");
     // A save minting a new link is a step-up write and any other save is not, so the stored row
     // decides; read only for a session past the window, the one it can refuse.
     const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(validated.data.id);
@@ -136,9 +136,6 @@ export async function patchSchiedsrichterAction(
         error: buildRefusal({ reason: "Die Schiedsrichterdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }),
       };
     }
-
-    // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
-    updateTag("spiele");
 
     // Non-null only where the correction moved an unconfirmed referee's address: the old link was
     // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
@@ -349,6 +346,9 @@ export async function anonymiseSchiedsrichterAction(
       };
     }
 
+    // The repointed booking fans into every match as a rename does, so the same one cached read is
+    // stale here. The referee list and the log are uncached.
+    invalidatesOnWrite("spiele");
     // The refusal belongs in the dialog that asked, not on the error page.
     let anonymiseOperation;
     try {
@@ -362,10 +362,6 @@ export async function anonymiseSchiedsrichterAction(
     if (!anonymiseOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    // The repointed booking fans into every match as a rename does, so the same one cached read is
-    // stale here. The referee list and the log are uncached.
-    updateTag("spiele");
 
     return {
       success: true,

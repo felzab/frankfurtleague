@@ -103,6 +103,7 @@ const BANS = [
   ["toast-failure", /Hand an action's failure to `appToast\.failure`/],
   ["uncached-read", /This module caches no read/],
   ["caller-read", /A read made for its caller is never cached/],
+  ["tag-drop", /Declare a write's cache tags with `invalidatesOnWrite`/],
   ["logged-error", /Hand `logger\.error` `undefined`/],
   ["unknown-class", /^Unknown class detected/],
   ["class-order", /^Incorrect class order/],

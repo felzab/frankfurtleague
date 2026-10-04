@@ -1,8 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
-import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -62,6 +60,8 @@ export async function patchSpielortAction(
       };
     }
 
+    // A rename fans into every match embedding this venue, which is the one cached read it reaches.
+    invalidatesOnWrite("spiele");
     // The refusal belongs on the box that holds the name, not on the error page.
     let patchOperation;
     try {
@@ -75,9 +75,6 @@ export async function patchSpielortAction(
     if (!patchOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Spielortdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    // A rename fans into every match embedding this venue, which is the one cached read it reaches.
-    updateTag("spiele");
 
     return {
       success: true,

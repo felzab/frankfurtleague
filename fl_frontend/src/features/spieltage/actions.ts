@@ -1,8 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
-import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -14,7 +12,7 @@ import type { ActionResult } from "@/shared/types/types";
 import type { FLPatchSpieltagPayload, FLSpieltagWriteResponse } from "./schemas";
 
 function invalidateSpieltage(): void {
-  updateTag("spieltage");
+  invalidatesOnWrite("spieltage");
 }
 
 export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<ActionResult<{ spieltag?: FLSpieltagWriteResponse }>> {
@@ -25,6 +23,7 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSpieltage();
     // The span is the whole payload, so `REQ-DATE-002` lands on `beginn`; `REQ-DATE-003` and
     // `REQ-DATE-008` land on the form, each naming a row this page does not show.
     let patchOperation;
@@ -39,8 +38,6 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     if (!patchOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Spieltag wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    invalidateSpieltage();
 
     return { success: true, spieltag: patchOperation, message: "Spieltag gespeichert" };
   });
