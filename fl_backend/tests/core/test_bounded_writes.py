@@ -200,7 +200,7 @@ def _places_spelling_the_anchor_field() -> list[str]:
         f"{path.relative_to(BACKEND_ROOT).as_posix()}:{node.lineno}"
         for path in sorted(APP_ROOT.rglob("*.py"))
         for node in ast.walk(parsed(path))
-        if _names_the_anchor_field(node)
+        if isinstance(node, ast.Constant) and _names_the_anchor_field(node)
     ]
 
 
