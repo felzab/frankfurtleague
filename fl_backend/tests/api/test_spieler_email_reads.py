@@ -10,6 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.crud import find_subjekt
+from app.api.konto.router import get_einwilligungen
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
@@ -19,7 +20,11 @@ from app.api.registrierungen.schemas import (
 )
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.saisons.cache import invalidate_saison_cache
+from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
+from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
+from app.core.drosselung import get_drossel
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
@@ -156,6 +161,56 @@ async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, regis
     )
 
 
+async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await get_einwilligungen(
+        identifier=FOLDED_EMAIL,
+        spieler_collection=database[Collection.SPIELER],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        teams_collection=database[Collection.TEAMS],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await get_selbst(
+        identifier=FOLDED_EMAIL,
+        spieler_collection=database[Collection.SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        teams_collection=database[Collection.TEAMS],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await patch_einwilligung(
+        einwilligung_data=FLSpielerSelbstEinwilligungPayload.model_validate(
+            {
+                "umfang": "intern",
+                "medien": False,
+                "text_version": LAUFENDE_FASSUNGEN["konto_spieler"],
+                "nachweis_stand": {"umfang": None, "medien": None},
+            }
+        ),
+        identifier=FOLDED_EMAIL,
+        spieler_collection=database[Collection.SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        db=client,
+        # A withdrawal: the ceiling counts a grant alone, so this press spends nothing.
+        drossel=get_drossel(drosselung_collection=database[Collection.DROSSELUNG], germany_now=NOW),
+        today=TODAY,
+        germany_now=NOW,
+    )
+
+
 def names_an_address(entry: Mapping[str, Any]) -> bool:
     """Whether a profiled `spieler` operation matched on a stored address, rather than on an id or on no address at all."""
 
@@ -196,7 +251,15 @@ class TestEveryAddressReadUsesTheIndex:
 
     @pytest.mark.parametrize(
         "reader",
-        [the_subject_read, the_confirmation_view, the_pending_read, the_admission],
+        [
+            the_subject_read,
+            the_confirmation_view,
+            the_pending_read,
+            the_admission,
+            the_account_read,
+            the_own_record_read,
+            the_own_record_press,
+        ],
         ids=lambda reader: reader.__name__,
     )
     def test_the_plan_walks_the_unique_index(self, mongo_replica_set_url: str, reader: Reader):
