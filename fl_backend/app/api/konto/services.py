@@ -295,3 +295,62 @@ def compose_sitze_selbst(
         )
 
     return sitze
+
+
+# --- The pending applications a person confirmed a seat on: withdraw-only, a grant being the
+# confirmation page's alone.
+
+
+def build_selbst_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """Every PENDING application whose seats may name the address, `seats_naming` deciding as on a season row.
+
+    Pending alone: an accepted application's seats are its season row's, and a declined one's go with it.
+    """
+
+    return [
+        {"$match": {"status": "eingereicht", "$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS]}},
+        {
+            "$project": {
+                "saison_id": 1,
+                "team_id": 1,
+                "schule.team_name": 1,
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("vorname", "email", "einwilligung")},
+            }
+        },
+        {"$sort": {"saison_id": -1, "_id": 1}},
+    ]
+
+
+def compose_bewerbungssitze_selbst(
+    rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """One entry per pending application on which this address holds a confirmed seat, as `compose_sitze_selbst` answers a row."""
+
+    eintraege = []
+    for row in rows:
+        rollen = gehaltene_sitze(row, identifier)
+        if not rollen:
+            continue
+        held = [row["kontakte"][slot] for slot in rollen]
+        schule = bewerbung_schule(bewerbung_raw=row, club_name=(teams.get(row.get("team_id")) or {}).get("name"))
+        eintraege.append(
+            {
+                "bewerbung_id": row["_id"],
+                "schule": schule,
+                "saison_id": row["saison_id"],
+                "rollen": rollen,
+                "bestaetigt_text_version": held[0]["einwilligung"].get("text_version"),
+                "medien": any(seat["einwilligung"].get("medien") is True for seat in held),
+                "nachweis_stand": nachweis_stand_of(bloecke=[seat["einwilligung"] for seat in held], wahlen=SITZ_WAHLEN),
+                # `{team}` is the school too: an application names no season row.
+                "kontext": {
+                    "vorname": held[0].get("vorname"),
+                    "team": schule,
+                    "schule": schule,
+                    "saison": row["saison_id"],
+                    "rolle": rollen[0],
+                },
+            }
+        )
+
+    return eintraege

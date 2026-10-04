@@ -2438,7 +2438,7 @@ RULES: tuple[Rule, ...] = (
             "POST /registrierungen/bestaetigung · "
             "POST /schiedsrichter/bestaetigung · PATCH /teams/{team_id}/saisons/{saison_id}/kontakte · "
             "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
         ),
         aggregate="Bewerbung",
         summary="a consent label a write stamps names a version of that write's page, and a new acceptance the running one",
@@ -2454,7 +2454,7 @@ RULES: tuple[Rule, ...] = (
             "POST /registrierungen/{registrierung_id}/aufnehmen · POST /registrierungen/{registrierung_id}/ablehnen · "
             "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
             "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
         ),
         aggregate="Saison",
         summary=(
@@ -2527,7 +2527,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
         ),
         aggregate="Spieler",
         summary="a press on the account page answers the consent evidence its page was served, never evidence moved since",

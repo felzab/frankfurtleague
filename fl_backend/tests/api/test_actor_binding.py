@@ -400,6 +400,7 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/spieler/selbst/einwilligung", "PATCH"),
     ("/api/v0/schiedsrichter/selbst/{schiedsrichter_id:objectid}/einwilligung", "PATCH"),
     ("/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/einwilligung", "PATCH"),
+    ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
 ]
 
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.

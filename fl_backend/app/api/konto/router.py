@@ -8,7 +8,9 @@ from app.api.konto.schemas import FLKontoEinwilligungenResponse
 from app.api.konto.services import (
     build_angenommene_bewerbungen_pipeline,
     build_kontext_teams_pipeline,
+    build_selbst_bewerbung_pipeline,
     build_selbst_seat_pipeline,
+    compose_bewerbungssitze_selbst,
     compose_schiedsrichter_selbst,
     compose_sitze_selbst,
     compose_spieler_selbst,
@@ -57,7 +59,8 @@ async def get_einwilligungen(
     """
     Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.
 
-    The seats come one entry per team season on which the address holds a confirmed seat, however many of its slots.
+    The seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;
+    `bewerbungen` one per PENDING application on which it does, whose media consent the account page may only withdraw.
 
     PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
     `spieler: null` and two empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
@@ -79,6 +82,9 @@ async def get_einwilligungen(
         seat_rows = await aggregate_many_from_db(
             collection=saison_teams_collection, pipeline=build_selbst_seat_pipeline(identifier), session=session
         )
+        bewerbung_rows = await aggregate_many_from_db(
+            collection=bewerbungen_collection, pipeline=build_selbst_bewerbung_pipeline(identifier), session=session
+        )
         subjekt = await funktionen_of(
             identifier,
             saison_teams_collection=saison_teams_collection,
@@ -95,7 +101,12 @@ async def get_einwilligungen(
 
         pupil = next((row for row in pupils if is_confirmed(row.get("einwilligung"))), None)
         zeile = None if pupil is None else kontext_zeile(pupil)
-        team_ids = [*([] if zeile is None else [zeile["team_id"]]), *(row["team_id"] for row in seat_rows)]
+        team_ids = [
+            *([] if zeile is None else [zeile["team_id"]]),
+            *(row["team_id"] for row in seat_rows),
+            # A school applying as a club the league already holds names it by `team_id` alone.
+            *(row["team_id"] for row in bewerbung_rows if row.get("team_id") is not None),
+        ]
         teams = {
             team["_id"]: team
             for team in await aggregate_many_from_db(
@@ -129,5 +140,6 @@ async def get_einwilligungen(
                 "sitze": compose_sitze_selbst(
                     seat_rows, identifier, erteilbar=erteilbare_sitze, today=today, teams=teams, bewerbungen=bewerbungen
                 ),
+                "bewerbungen": compose_bewerbungssitze_selbst(bewerbung_rows, identifier, teams=teams),
             }
         )

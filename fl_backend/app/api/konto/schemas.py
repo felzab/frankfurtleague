@@ -40,6 +40,24 @@ class FLKontoSitzEinwilligung(BaseModel):
     kontext: FLSitzKontext
 
 
+class FLKontoBewerbungSitzEinwilligung(BaseModel):
+    """One pending application on which the address holds a confirmed contact seat, with its media choice to withdraw.
+
+    Pending alone: an accepted application's seats are its season row's, listed under `sitze`.
+    """
+
+    bewerbung_id: CustomObjectId
+    # The school as the application names it, or the picked club's own name today.
+    schule: str
+    saison_id: str
+    rollen: list[FLKontaktRolle]
+    # For `FLKontoSitzEinwilligung`'s reasons.
+    bestaetigt_text_version: str | None
+    medien: bool
+    nachweis_stand: FLMedienStand
+    kontext: FLSitzKontext
+
+
 class FLKontoEinwilligungenResponse(BaseAPIResponse):
     """Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.
 
@@ -49,3 +67,5 @@ class FLKontoEinwilligungenResponse(BaseAPIResponse):
     spieler: FLSpielerSelbst | None
     schiedsrichter: list[FLSchiedsrichterSelbst]
     sitze: list[FLKontoSitzEinwilligung]
+    # Withdraw-only on the page: nothing on an application grants a panel to answer a grant against.
+    bewerbungen: list[FLKontoBewerbungSitzEinwilligung]

@@ -8708,6 +8708,77 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/bewerbungen/{bewerbung_id}/person/einwilligung": {
+      "patch": {
+        "summary": "Withdraw a seat holder's own media consent on a pending Bewerbung",
+        "description": "Withdraw the signed-in person's media consent on every seat they hold on this pending application, and nothing else.\n\nWITHDRAW-ONLY: the payload's `medien` is `false`, a grant being the confirmation page's alone; the account page\noffers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for every seat the\nperson holds there; no other seat, field or document is written, and a withdrawal finding every seat off writes\nnothing.\n\nRefuses, in this order: an application that is decided or holds no confirmed seat of the address\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, their media evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); and a `text_version` naming no version of the account page's seat\ncontrol (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.",
+        "operationId": "patch_einwilligung_api_v0_bewerbungen__bewerbung_id__person_einwilligung_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bewerbung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bewerbung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBewerbungPersonEinwilligungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungPersonEinwilligungResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/spieler/selbst": {
       "get": {
         "summary": "A signed-in pupil's own record",
@@ -8921,7 +8992,7 @@
     "/api/v0/konto/einwilligungen": {
       "get": {
         "summary": "A signed-in person's own consent records",
-        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and two empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `kontext` carries what the record's\nconfirmation page filled its words with, as those records stand today; `erteilbar` says whether a grant is\nadmitted, `medien_angeboten` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
+        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose media consent the account page may only withdraw.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and two empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `kontext` carries what the record's\nconfirmation page filled its words with, as those records stand today; `erteilbar` says whether a grant is\nadmitted, `medien_angeboten` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
         "operationId": "get_einwilligungen_api_v0_konto_einwilligungen_get",
         "responses": {
           "200": {
@@ -11260,6 +11331,79 @@
         ],
         "title": "FLBewerbungKuerzelResponse",
         "description": "Whether a proposed Kürzel is already a club's.\n\nIt names no club and does not tell an active one from a retired one: the uniqueness it mirrors\nspans both, and a shape distinguishing them would publish which schools have left."
+      },
+      "FLBewerbungPersonEinwilligungPayload": {
+        "properties": {
+          "medien": {
+            "type": "boolean",
+            "const": false,
+            "title": "Medien"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Text Version"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLMedienStandPayload"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLBewerbungPersonEinwilligungPayload",
+        "description": "A seat holder's own withdrawal of their media consent on every seat they hold on one pending application.\n\nWithdraw-only: a grant is the confirmation page's to take, and the account page offers none here."
+      },
+      "FLBewerbungPersonEinwilligungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "medien": {
+            "type": "boolean",
+            "const": false,
+            "title": "Medien"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLMedienStand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bewerbung_id",
+          "rollen",
+          "medien",
+          "nachweis_stand"
+        ],
+        "title": "FLBewerbungPersonEinwilligungResponse",
+        "description": "Which of the application's seats the withdrawal reached; every one holds `medien` off now."
       },
       "FLBewerbungSchule": {
         "properties": {
@@ -14554,6 +14698,68 @@
         ],
         "title": "FLKontaktpersonPayload"
       },
+      "FLKontoBewerbungSitzEinwilligung": {
+        "properties": {
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          },
+          "schule": {
+            "type": "string",
+            "title": "Schule"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "bestaetigt_text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Text Version"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLMedienStand"
+          },
+          "kontext": {
+            "$ref": "#/components/schemas/FLSitzKontext"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bewerbung_id",
+          "schule",
+          "saison_id",
+          "rollen",
+          "bestaetigt_text_version",
+          "medien",
+          "nachweis_stand",
+          "kontext"
+        ],
+        "title": "FLKontoBewerbungSitzEinwilligung",
+        "description": "One pending application on which the address holds a confirmed contact seat, with its media choice to withdraw.\n\nPending alone: an accepted application's seats are its season row's, listed under `sitze`."
+      },
       "FLKontoEinwilligungenResponse": {
         "properties": {
           "acknowledged": {
@@ -14588,13 +14794,21 @@
             },
             "type": "array",
             "title": "Sitze"
+          },
+          "bewerbungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontoBewerbungSitzEinwilligung"
+            },
+            "type": "array",
+            "title": "Bewerbungen"
           }
         },
         "type": "object",
         "required": [
           "spieler",
           "schiedsrichter",
-          "sitze"
+          "sitze",
+          "bewerbungen"
         ],
         "title": "FLKontoEinwilligungenResponse",
         "description": "Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.\n\nThe referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not."

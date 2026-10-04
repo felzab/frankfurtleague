@@ -629,3 +629,160 @@ class TestTheWordsAreFilledAsTheirPageFilledThem:
             )
         assert kontexte[(str(TEAM_A_OID), PAST_SAISON)]["schule"] == BEWERBUNG_SCHULE
         assert kontexte[(str(TEAM_B_OID), ACTIVE_SAISON)]["schule"] == ROW_NAME_B
+
+
+PENDING_OID = ObjectId("6890a1b2c3d4e5f607850051")
+DECIDED_OID = ObjectId("6890a1b2c3d4e5f607850052")
+UNANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850053")
+PENDING_SCHULE = "Goethe, wie beworben"
+
+
+def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[str, Any]:
+    """An application naming its school, as the submission stores one; `kontakte` its seats as the case needs them."""
+
+    return {
+        "_id": oid,
+        "saison_id": ACTIVE_SAISON,
+        "eingereicht_am": "2026-09-01",
+        "status": status,
+        "team_id": None,
+        "schule": {
+            "team_name": PENDING_SCHULE,
+            "full_name": f"{PENDING_SCHULE}-Schule",
+            "shorthand": "GW",
+            "schulform": None,
+            "address": dict(ADDRESS),
+            "website_url": None,
+        },
+        "kontakte": kontakte,
+        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "wunschgegner": None,
+        "entscheidung": None,
+        "bestaetigungsfrist": "2026-09-15",
+        "bestaetigungen": compose_bestaetigungen(
+            hashes={seat: hash_token(f"{oid}-{seat}") for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-09-01"
+        ),
+    }
+
+
+async def _applications(database: AsyncDatabase) -> None:
+    """A pending application this person confirmed two seats on, granting media; a decided one; and one they have not answered."""
+
+    await database[Collection.BEWERBUNGEN].insert_many(
+        [
+            _bewerbung(
+                PENDING_OID,
+                status="eingereicht",
+                kontakte=_kontakte(
+                    trainer=_seat(REFEREE_STORED, medien=True),
+                    ansprechperson=_seat(REFEREE_STORED, medien=True),
+                    stellvertretung=_seat(BYSTANDER, medien=True),
+                    trainer_ist_zugleich="ansprechperson",
+                ),
+            ),
+            _bewerbung(DECIDED_OID, status="angenommen", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, medien=True))),
+            _bewerbung(UNANSWERED_OID, status="eingereicht", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, bestaetigt_am=None))),
+        ]
+    )
+
+
+def _application_path(bewerbung_id: ObjectId) -> str:
+    return f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/person/einwilligung"
+
+
+def _withdrawal(*, stand: Any = None, label: str = SEAT_RUNNING_LABEL, medien: bool = False) -> dict[str, Any]:
+    return {"medien": medien, "text_version": label, "nachweis_stand": {"medien": None} if stand is None else stand}
+
+
+async def _application_docs(database: AsyncDatabase) -> dict[Any, Any]:
+    return {row["_id"]: row["kontakte"] async for row in database[Collection.BEWERBUNGEN].find({}, {"kontakte": 1})}
+
+
+@pytest.mark.db
+class TestAPendingApplicationsSeats:
+    """A media consent given on an application's link is withdrawn on the account page before the application is decided."""
+
+    def test_the_read_lists_a_pending_application_the_address_confirmed_and_no_other(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _applications(database)
+            return await http.get(KONTO_PATH, headers=_person(IDENTIFIER))
+
+        response = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        assert response.json()["bewerbungen"] == [
+            {
+                "bewerbung_id": str(PENDING_OID),
+                "schule": PENDING_SCHULE,
+                "saison_id": ACTIVE_SAISON,
+                "rollen": ["trainer", "ansprechperson"],
+                "bestaetigt_text_version": SEAT_LABEL,
+                "medien": True,
+                "nachweis_stand": {"medien": None},
+                "kontext": {"vorname": "Ortrud", "team": PENDING_SCHULE, "schule": PENDING_SCHULE, "saison": ACTIVE_SAISON, "rolle": "trainer"},
+            }
+        ]
+
+    def test_a_withdrawal_reaches_every_seat_the_person_holds_there_and_no_other(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _applications(database)
+            before = await _application_docs(database)
+            response = await http.patch(_application_path(PENDING_OID), json=_withdrawal(), headers=_person(IDENTIFIER))
+            return response, before, await _application_docs(database)
+
+        response, before, after = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "acknowledged": 1,
+            "bewerbung_id": str(PENDING_OID),
+            "rollen": ["trainer", "ansprechperson"],
+            "medien": False,
+            "nachweis_stand": {"medien": AM},
+        }
+        for slot in ("trainer", "ansprechperson"):
+            einwilligung = after[PENDING_OID][slot]["einwilligung"]
+            assert (einwilligung["medien"], einwilligung[NACHWEIS]) == (False, {"medien": {"am": AM, "text_version": SEAT_RUNNING_LABEL}})
+        assert after[PENDING_OID]["stellvertretung"] == before[PENDING_OID]["stellvertretung"]
+        assert {key: value for key, value in after.items() if key != PENDING_OID} == {
+            key: value for key, value in before.items() if key != PENDING_OID
+        }
+
+    @pytest.mark.parametrize(("email", "bewerbung_id"), [(IDENTIFIER, DECIDED_OID), (IDENTIFIER, UNANSWERED_OID), (NOBODY, PENDING_OID)])
+    def test_a_decided_application_or_one_holding_no_confirmed_seat_of_the_address_is_refused(
+        self, mongo_replica_set_url: str, email: str, bewerbung_id: ObjectId
+    ):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _applications(database)
+            before = await _application_docs(database)
+            response = await http.patch(_application_path(bewerbung_id), json=_withdrawal(), headers=_person(email))
+            return response, before, await _application_docs(database)
+
+        response, before, after = served(mongo_replica_set_url, steps)
+
+        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert after == before
+
+    def test_a_grant_is_no_payload_this_control_takes(self, mongo_replica_set_url: str):
+        """Withdraw-only at the payload: a grant is the confirmation page's to take."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _applications(database)
+            return await http.patch(_application_path(PENDING_OID), json=_withdrawal(medien=True), headers=_person(IDENTIFIER))
+
+        assert served(mongo_replica_set_url, steps).status_code == 422
+
+    def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _applications(database)
+            first = await http.patch(_application_path(PENDING_OID), json=_withdrawal(), headers=_person(IDENTIFIER))
+            before = await _application_docs(database)
+            again = await http.patch(_application_path(PENDING_OID), json=_withdrawal(), headers=_person(IDENTIFIER))
+            return first, again, before, await _application_docs(database)
+
+        first, again, before, after = served(mongo_replica_set_url, steps)
+
+        assert first.status_code == 200, first.text
+        assert (again.status_code, again.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert after == before

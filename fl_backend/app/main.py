@@ -19,6 +19,7 @@ from app.api.berechtigungen.admin_router import router as berechtigungen_admin_r
 from app.api.berechtigungen.sweep_router import router as berechtigungen_sweep_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.einwilligung_router import router as bewerbungen_einwilligung_router
+from app.api.bewerbungen.person_router import router as bewerbungen_person_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
@@ -154,6 +155,7 @@ PERSON_ROUTERS = (
     spieler_person_router,
     registrierungen_person_router,
     teams_person_router,
+    bewerbungen_person_router,
     spieler_selbst_router,
     schiedsrichter_person_router,
     konto_router,
