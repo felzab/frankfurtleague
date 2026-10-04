@@ -111,4 +111,7 @@ export type EinwilligungQuelle = FLBewerbungEinwilligungAnsichtResponse["quelle"
  * that record; a link opening nothing names none.
  */
 export type EinwilligungAnsicht =
-  { zustand: "gueltig" | "saison_vorbei"; ansicht: EinwilligungGeoeffnet } | { zustand: LinkZustand; quelle?: EinwilligungQuelle };
+  // One member per open state, so a check of `zustand` narrows to the one the caller handles.
+  | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet }
+  | { zustand: "saison_vorbei"; ansicht: EinwilligungGeoeffnet }
+  | { zustand: LinkZustand; quelle?: EinwilligungQuelle };
