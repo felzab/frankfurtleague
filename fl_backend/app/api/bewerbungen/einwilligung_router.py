@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -21,8 +21,9 @@ from app.api.bewerbungen.services import (
     SAISON_EINWILLIGUNG_FIELDS,
     KontaktSeite,
     ansprechperson_mailbox,
+    antwort_seite,
     ausstehende_seats,
-    bewerbung_kontakt_seite,
+    bewerbung_antwort_seite,
     bewerbung_schule,
     build_angenommene_bewerbung_filter,
     build_saison_token_filter,
@@ -109,6 +110,18 @@ async def _saison_seite(
     return saison_kontakt_seite(row=row, seat=seat, bewerbung_raw=bewerbung_raw)
 
 
+async def _saison_antwort_seite(
+    *, row: Mapping[str, Any], seats: Sequence[str], bewerbungen_collection: BewerbungenCollection, session: AsyncClientSession | None = None
+) -> KontaktSeite:
+    """The page a season row's link opens for the seats its answer writes: the view's and both judges' one source."""
+
+    seiten: list[KontaktSeite] = [
+        await _saison_seite(row=row, seat=seat, bewerbungen_collection=bewerbungen_collection, session=session) for seat in seats
+    ]
+
+    return antwort_seite(seiten=seiten, verwaltet="bestaetigung_kontakt_saison")
+
+
 async def _saison_ansicht(
     *,
     token_hash: str,
@@ -143,7 +156,7 @@ async def _saison_ansicht(
         zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
-        laufende_fassung=LAUFENDE_FASSUNGEN[await _saison_seite(row=row, seat=seat, bewerbungen_collection=bewerbungen_collection)],
+        laufende_fassung=LAUFENDE_FASSUNGEN[await _saison_antwort_seite(row=row, seats=seats, bewerbungen_collection=bewerbungen_collection)],
         mindestalter=mindestalter_for(seats),
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
     )
@@ -172,7 +185,8 @@ async def get_einwilligung_ansicht(
     and `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.
     `mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers
     exactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their
-    answer must name: the applicant's where the applicant named them, else the one for a person the administration seated.
+    answer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a
+    person the administration seated.
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     seat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,
     so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list
@@ -223,7 +237,7 @@ async def get_einwilligung_ansicht(
         zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
-        laufende_fassung=LAUFENDE_FASSUNGEN[bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=seat)],
+        laufende_fassung=LAUFENDE_FASSUNGEN[bewerbung_antwort_seite(bewerbung_raw=bewerbung_raw, seats=seats)],
         mindestalter=mindestalter_for(seats),
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
     )
@@ -253,7 +267,7 @@ async def post_einwilligung(
     choice with its evidence, and leaves who seated them as it stands; a decline empties their slot and redacts
     every log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),
     a link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered
-    (`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for that seat
+    (`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for this link
     (`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted
     (`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a
     media consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before
@@ -303,10 +317,9 @@ async def post_einwilligung(
             )
             refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
 
-            # Each seat against the page its own link opens, which is the page the view answered.
-            for held in seats:
-                seite = await _saison_seite(row=row, seat=held, bewerbungen_collection=bewerbungen_collection, session=session)
-                refuse(find_fassung_refusal(seite=seite, genannt={held: antwort_data.text_version}))
+            # Against the one page the view answered for these seats.
+            seite = await _saison_antwort_seite(row=row, seats=seats, bewerbungen_collection=bewerbungen_collection, session=session)
+            refuse(find_fassung_refusal(seite=seite, genannt={seat: antwort_data.text_version}))
 
             # Asked at the press, however old the link, as the application's consent asks it
             # (`docs/backend/spec.md :: I505`); never of the Widerspruch below.
@@ -399,10 +412,9 @@ async def post_einwilligung(
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
 
-            # Each seat against the page its own link opens, which is the page the view answered.
-            for held in seats:
-                seite = bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=held)
-                refuse(find_fassung_refusal(seite=seite, genannt={held: antwort_data.text_version}))
+            # Against the one page the view answered for these seats.
+            seite = bewerbung_antwort_seite(bewerbung_raw=bewerbung_raw, seats=seats)
+            refuse(find_fassung_refusal(seite=seite, genannt={seat: antwort_data.text_version}))
 
             # Asked at the press rather than only at the mint, so a ban entered after the link went out
             # stops it here. Never of the decline below: a barred person asking to be removed is not refused.

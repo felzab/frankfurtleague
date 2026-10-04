@@ -1132,6 +1132,41 @@ def angenommene_bewerbung(trainer: Mapping[str, Any]) -> dict[str, Any]:
 class TestThePageASeasonRowsLinkOpens:
     """A season row's seat reads the page true for its person, and its answer is judged against that page."""
 
+    def test_a_link_answering_a_mixed_pair_shows_and_takes_one_page(self, mongo_replica_set_url: str):
+        """A Trainer the applicant named, given a second seat by the editor: one link, judged against the page the view served for both.
+
+        Judged seat by seat, each against its own page, no label could ever confirm this person.
+        """
+
+        def eingetragen(vorname: str, von: str) -> dict[str, Any]:
+            seat = stored(vorname)
+            return {**seat, "einwilligung": {**seat["einwilligung"], "eingetragen_von": von}}
+
+        paired = {
+            **STORED_UNCONFIRMED,
+            "trainer": eingetragen("Ida", "bewerbung"),
+            "stellvertretung": eingetragen("Ida", "liga"),
+            "trainer_ist_zugleich": "stellvertretung",
+        }
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            token = (await resend(database, "stellvertretung")).bestaetigung.token
+            view = await ansicht(database, token)
+            refusal = await refused(answer(database, token, text_version=BEWERBER_SEITE))
+            await answer(database, token, text_version=view.laufende_fassung)
+
+            return view, refusal, await row_now(database)
+
+        view, refusal, row = on_a_league(mongo_replica_set_url, body, kontakte=paired)
+
+        assert view.laufende_fassung == SAISON_SEITE
+        assert refusal == FASSUNG_UNZULAESSIG
+        for seat in ("trainer", "stellvertretung"):
+            assert (row["kontakte"][seat]["einwilligung"]["bestaetigt_am"], row["kontakte"][seat]["einwilligung"]["text_version"]) == (
+                TODAY,
+                SAISON_SEITE,
+            )
+
     def test_a_seat_the_editor_entered_opens_the_season_rows_page_and_takes_its_label_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             token = (await save(database, THREE)).bestaetigungen[0].token

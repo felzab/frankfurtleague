@@ -25,6 +25,7 @@ from app.api.bewerbungen.services import (
     SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
     WITHOUT_TOKEN_HASHES,
+    antwort_seite,
     ausstehende_seats,
     bestaetigungsfrist_from,
     bewerbung_kontakt_seite,
@@ -659,6 +660,23 @@ def seat_record(*, eingetragen_von: str | None, datum: str = "2026-03-20") -> di
 
 class TestWhichPageASeatOpens:
     """The person reads a page true for them: the applicant's where the applicant named them, their home's own elsewhere."""
+
+    @pytest.mark.parametrize(
+        ("seiten", "seite"),
+        [
+            pytest.param(["bestaetigung_kontakt"], "bestaetigung_kontakt", id="one applicant-named seat"),
+            pytest.param(["bestaetigung_kontakt", "bestaetigung_kontakt"], "bestaetigung_kontakt", id="both named by the applicant"),
+            pytest.param(["bestaetigung_kontakt", "bestaetigung_kontakt_saison"], "bestaetigung_kontakt_saison", id="a mixed pair"),
+            pytest.param(
+                ["bestaetigung_kontakt_saison", "bestaetigung_kontakt"], "bestaetigung_kontakt_saison", id="a mixed pair the other way"
+            ),
+            pytest.param(["bestaetigung_kontakt_saison"], "bestaetigung_kontakt_saison", id="one seat the league filled"),
+        ],
+    )
+    def test_a_link_answering_two_seats_opens_one_page(self, seiten: list[Any], seite: str):
+        """One press is one person's answer to one page: a mixed pair opens its home's own, true of the seat the league filled."""
+
+        assert antwort_seite(seiten=seiten, verwaltet="bestaetigung_kontakt_saison") == seite
 
     @pytest.mark.parametrize(
         ("eingetragen_von", "seite"),

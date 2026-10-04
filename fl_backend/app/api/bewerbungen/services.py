@@ -1065,6 +1065,23 @@ def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> K
     return kontakt_seite_of(einwilligung=einwilligung, sonst_vom_bewerber=vom_bewerber, verwaltet="bestaetigung_kontakt_verwaltung")
 
 
+def antwort_seite(*, seiten: Sequence[KontaktSeite], verwaltet: KontaktSeite) -> KontaktSeite:
+    """The one page a link answering seats of these pages opens, which its answer is judged against (`docs/backend/spec.md :: I861`).
+
+    The applicant's only where every seat's is: one press is one person's answer to one page.
+    """
+
+    return "bestaetigung_kontakt" if seiten and all(seite == "bestaetigung_kontakt" for seite in seiten) else verwaltet
+
+
+def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence[str]) -> KontaktSeite:
+    """The page an application's link opens for the seats its answer writes."""
+
+    return antwort_seite(
+        seiten=[bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=seat) for seat in seats], verwaltet="bestaetigung_kontakt_verwaltung"
+    )
+
+
 def build_angenommene_bewerbung_filter(*, row: Mapping[str, Any]) -> Mapping[str, Any]:
     """The accepted application a season row was entered from, if one is still kept."""
 
