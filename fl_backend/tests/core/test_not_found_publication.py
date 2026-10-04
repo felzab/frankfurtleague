@@ -20,12 +20,12 @@ from tests.config import build_test_config
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
-    TRANSACTION_RUNNER,
     WRITE_HELPERS,
     Declaration,
     api_routes,
     callee,
     declared,
+    handed_callbacks,
     module_of,
     parsed,
     resolve_callee,
@@ -111,23 +111,7 @@ def _can_raise(path: Path, lineno: int) -> bool:
 
 @functools.cache
 def _transaction_callbacks() -> frozenset[int]:
-    """Every function handed to `with_transaction` by name, resolved lexically as a call to it would be."""
-
-    found: set[int] = set()
-    for path in sorted(APP_ROOT.rglob("*.py")):
-        tree = parsed(path)
-        for chain, call in scoped_calls(tree, ()):
-            if callee(call) != TRANSACTION_RUNNER or not (call.args and isinstance(call.args[0], ast.Name)):
-                continue
-            for scope in (*reversed(chain), tree):
-                handed = [
-                    node for node in scope.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == call.args[0].id
-                ]
-                if handed:
-                    found.add(id(handed[0]))
-                    break
-
-    return frozenset(found)
+    return frozenset(id(callback) for _, callback in handed_callbacks())
 
 
 def _keyword(call: ast.Call, name: str) -> ast.expr | None:
