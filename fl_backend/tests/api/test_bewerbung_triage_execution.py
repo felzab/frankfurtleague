@@ -68,7 +68,7 @@ from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
-from tests.isolation import InterleavedCollection
+from tests.isolation import InterleavedCollection, Rival
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -992,35 +992,6 @@ class TestADecisionIsNotTakenTwice:
         assert (after_second["status"], len(rows)) == (expected_status, expected_rows)
 
 
-class StaleFirstRead:
-    """The `bewerbungen` collection with ONE stale `find_one` in it, and every other call delegated.
-
-    A second administrator cannot be scheduled into the window between the guard's read and the
-    write, so the window is reproduced instead of raced for.
-    """
-
-    def __init__(self, collection: Any, stale: Mapping[str, Any]) -> None:
-        self._collection = collection
-        self._stale: Mapping[str, Any] | None = stale
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        if self._stale is None:
-            return await self._collection.find_one(*args, **kwargs)
-
-        stale, self._stale = self._stale, None
-
-        return stale
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-
-def as_the_loser_read_it(collection: AsyncCollection, stale: Mapping[str, Any]) -> AsyncCollection:
-    """The collection the second request holds, `cast` for `tests/api/test_saison_cache.py :: as_collection`'s reason."""
-
-    return cast(AsyncCollection, StaleFirstRead(collection, stale))
-
-
 # The second administrator: a different address and a different reason, so a decline that overwrote
 # the first one's is visible in the stored block rather than only in a timestamp.
 OTHER_ADMIN_EMAIL = "triage.bramblewick@example.com"
@@ -1241,30 +1212,28 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
 
 
 @pytest.mark.db
-class TestAnAcceptanceTakenOnAStaleJudgement:
-    """The final patch carries the status, so a stale judgement enters nobody.
-
-    The transaction closes this window: one snapshot serves the judged reads and the write, so a
-    decline between them costs a write conflict. The filter is the second lock.
-    """
+class TestADeclineLandingInsideAnAcceptance:
+    """One snapshot serves the acceptance's judged reads and its last write, so a decline between them costs a write conflict."""
 
     def test_it_enters_no_school_and_leaves_the_decline_standing(self, mongo_replica_set_url: str):
-        """Drop the status from the final patch's filter and this fails.
+        """The decline commits after the acceptance has judged and written the club, before the application's patch.
 
-        Both halves land there: the three people hold a rejection letter, and the club they applied
-        for stands in the season the letter turned them down for.
+        The retry reads the decision and refuses, so the junction row and club the first attempt wrote abort with it.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await decline(database, PICKED_BEWERBUNG)
-            after_decline = await stored_bewerbung(database, PICKED_BEWERBUNG)
+            declined: list[Any] = []
 
-            with pytest.raises(DocumentNotFoundException) as refused:
+            async def the_decline() -> None:
+                await decline(database, PICKED_BEWERBUNG)
+                declined.append(await stored_bewerbung(database, PICKED_BEWERBUNG))
+
+            racing = ApplicationsRunningARivalBeforeTheirWrite(database[Collection.BEWERBUNGEN], the_decline)
+            with pytest.raises(WriteRefusalException) as refused:
                 await annehmen_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
                     annahme_data=FLAnnehmenBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau"}),
-                    # The application as the acceptance judged it, an instant before the decline landed.
-                    bewerbungen_collection=as_the_loser_read_it(database[Collection.BEWERBUNGEN], {**after_decline, "status": "eingereicht"}),
+                    bewerbungen_collection=cast(AsyncCollection, racing),
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=database[Collection.SAISONS],
@@ -1272,16 +1241,16 @@ class TestAnAcceptanceTakenOnAStaleJudgement:
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
                 )
+            # With the decline committed before it, the acceptance is refused at its read and never reaches the patch.
+            racing.assert_landed_inside(serially=0)
 
-            return refused.value.status_code, after_decline, await stored_bewerbung(database, PICKED_BEWERBUNG), await junction_rows(database)
+            return refused.value.error_code, declined[0], await stored_bewerbung(database, PICKED_BEWERBUNG), await junction_rows(database)
 
-        status_code, after_decline, after_acceptance, rows = on_a_league(mongo_replica_set_url, body)
+        code, after_decline, after_acceptance, rows = on_a_league(mongo_replica_set_url, body)
 
+        assert code == BEWERBUNG_ALREADY_DECIDED
         assert after_acceptance == after_decline, "the acceptance overwrote the decision the applicants were sent"
         assert rows == [], "the school was entered into the season its own application was declined for"
-        # 404, the miss of the write's own filter: the read this case fakes stale is one no transaction
-        # serves, so the filter, the second lock, is what this case drives.
-        assert status_code == 404
 
 
 CORRECTION_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000a")
@@ -1585,15 +1554,29 @@ async def seed_an_open_ansprechperson_seat(database: AsyncDatabase, *, mirrored:
     return await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
 
-async def resend(
-    database: AsyncDatabase, seat: str, *, as_read: Mapping[str, Any] | None = None, bewerbungen: Any = None, saisons: Any = None
-) -> Any:
+class ApplicationsRunningARivalAfterTheirRead(InterleavedCollection):
+    """The applications a re-send reaches, a rival run once just after its first read: the read outside its transaction."""
+
+    def __init__(self, collection: Any, rival: Rival) -> None:
+        super().__init__(collection, rival)
+        self.first_read: Mapping[str, Any] | None = None
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        if self.first_read is None:
+            self.first_read = found
+        await self.run_the_rival()
+
+        return found
+
+
+async def resend(database: AsyncDatabase, seat: str, *, bewerbungen: Any = None, saisons: Any = None) -> Any:
     collection = database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen
 
     return await erneut_einwilligung(
         bewerbung_id=ERNEUT_BEWERBUNG,
         seat=seat,
-        bewerbungen_collection=collection if as_read is None else as_the_loser_read_it(collection, as_read),
+        bewerbungen_collection=collection,
         sperrliste=ban_list(database, saisons=saisons),
         db=database.client,
         today=TODAY,
@@ -1666,18 +1649,23 @@ class TestAResendRacingAnAnswer:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            as_read = await seed_an_open_ansprechperson_seat(database)
-            await landing(database, client)
-            landed = await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+            await seed_an_open_ansprechperson_seat(database)
+            landed: list[Any] = []
 
+            async def the_landing() -> None:
+                await landing(database, client)
+                landed.append(await stored_bewerbung(database, ERNEUT_BEWERBUNG))
+
+            racing = ApplicationsRunningARivalAfterTheirRead(database[Collection.BEWERBUNGEN], the_landing)
             with pytest.raises(WriteRefusalException) as refused:
-                await resend(database, "ansprechperson", as_read=as_read)
+                await resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing))
+            # Serially the read itself meets the landing and refuses: one read. Inside, the write misses and the re-read refuses: two.
+            racing.assert_landed_inside(serially=1)
 
-            return refused.value.error_code, as_read, landed, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+            return refused.value.error_code, landed[0], await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
-        code, as_read, landed, after = on_a_league(mongo_replica_set_url, body)
+        code, landed, after = on_a_league(mongo_replica_set_url, body)
 
-        assert landed != as_read, "nothing landed, so the refusal below is not about the race"
         assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == landed
 
@@ -1685,23 +1673,28 @@ class TestAResendRacingAnAnswer:
         """The re-send's link replaces the correction's, so it has to reach the corrected mailbox rather than the one replaced."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            as_read = await seed_an_open_ansprechperson_seat(database)
-            await korrigiere_kontakt_email(
-                bewerbung_id=ERNEUT_BEWERBUNG,
-                seat="ansprechperson",
-                email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": CORRECTED_EMAIL}),
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=ban_list(database),
-                db=client,
-                today=TODAY,
-            )
-            response = await resend(database, "ansprechperson", as_read=as_read)
+            await seed_an_open_ansprechperson_seat(database)
 
-            return as_read, response, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+            async def the_correction() -> None:
+                await korrigiere_kontakt_email(
+                    bewerbung_id=ERNEUT_BEWERBUNG,
+                    seat="ansprechperson",
+                    email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": CORRECTED_EMAIL}),
+                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                    sperrliste=ban_list(database),
+                    db=client,
+                    today=TODAY,
+                )
+
+            racing = ApplicationsRunningARivalAfterTheirRead(database[Collection.BEWERBUNGEN], the_correction)
+            response = await resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing))
+
+            return racing.first_read, response, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
         as_read, response, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert as_read["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL, "the seed already holds the corrected address"
+        # The landing inside: the re-send judged a read holding the address the correction then replaced.
+        assert as_read is not None and as_read["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
         assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
         assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
 
