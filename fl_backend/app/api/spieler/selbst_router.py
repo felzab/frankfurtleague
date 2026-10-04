@@ -36,7 +36,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
 from app.core.transactions import transaction_session
@@ -101,7 +100,6 @@ async def get_selbst(
     "/einwilligung",
     response_model=FLSpielerSelbstEinwilligungResponse,
     summary="Change a signed-in pupil's own publication and media consent",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_einwilligung(
     einwilligung_data: Annotated[FLSpielerSelbstEinwilligungPayload, Body()],

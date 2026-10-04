@@ -5,8 +5,9 @@ Traced rather than declared in a table: nothing states which collections a route
 route's handler is followed through the application's helpers to the writes it makes. An insert into
 a collection a unique index covers or naming its own `_id`, an upsert and a replacement can meet the
 code; an update only where it can set one of that collection's index keys, or a field a partial
-filter alone reads to a value the filter takes. An update whose fields or values the trace cannot
-read counts as setting every one to anything.
+filter alone reads to a value the filter takes. A path the trace cannot name counts as any field,
+or any path under one, holding whatever its collection's validator admits; an update document it
+cannot read at all counts as setting every field to anything.
 """
 
 import ast
@@ -20,18 +21,20 @@ from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import ModuleType
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 import pytest
 from httpx2 import Response
 from pydantic import BaseModel
 from pymongo import MongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 from starlette.requests import Request
 
+from app.api.zustellung.services import zustellung_pfad
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.constraints import UNIQUE_INDEXES, UniqueIndex
+from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, UniqueIndex, _apply_validator
 from app.core.dependencies import DB
 from app.core.exception_handlers import duplicate_key_exception_handler, refused_codes
 from app.core.exceptions import DUPLICATE_KEY
@@ -102,7 +105,7 @@ CONFLICT = "409"
 
 # The operations the trace reached a unique index from on the tree this was written against, so an
 # equality over two sets that both went empty still fails.
-DECLARING_OPERATIONS_FLOOR = 33
+DECLARING_OPERATIONS_FLOOR = 23
 
 
 def _filter_fields(expression: Any) -> Iterator[str]:
@@ -124,14 +127,34 @@ class _Index:
 
     keys: frozenset[str]
     conditions: Mapping[str, Any]
+    #: Each of those fields' `bsonType`s under its collection's validator, `None` where it names none.
+    types: Mapping[str, frozenset[str] | None]
+    #: The fields the validator requires, which no write can remove.
+    required: frozenset[str]
+    #: The partial filter's condition on a key itself, which the key's value must meet for the row to be indexed.
+    key_filters: Mapping[str, Any] = field(default_factory=dict)
 
 
 def _index(index: UniqueIndex) -> _Index:
     partial = dict(index.partial_filter or {})
     # Conditions joined through an operator are not read one field at a time: every field they name keys.
     if any(name.startswith("$") for name in partial):
-        return _Index(frozenset({*index.keys, *_filter_fields(partial)}), {})
-    return _Index(frozenset(index.keys), {name: condition for name, condition in partial.items() if name not in index.keys})
+        keys, conditions, key_filters = frozenset({*index.keys, *_filter_fields(partial)}), {}, {}
+    else:
+        keys = frozenset(index.keys)
+        conditions = {name: condition for name, condition in partial.items() if name not in index.keys}
+        key_filters = {name: condition for name, condition in partial.items() if name in index.keys}
+
+    # Applied strict and refusing (`app/core/constraints.py :: _apply_validator`), so a write leaving a
+    # value no `bsonType` here admits fails validation and never reaches the index.
+    schema = COLLECTION_VALIDATORS.get(Collection(index.collection), {}).get("$jsonSchema", {})
+    properties = schema.get("properties", {})
+    types: dict[str, frozenset[str] | None] = {}
+    for name in (*keys, *conditions):
+        declared_type = properties.get(name, {}).get("bsonType")
+        types[name] = None if declared_type is None else frozenset([declared_type] if isinstance(declared_type, str) else declared_type)
+
+    return _Index(keys, conditions, types, frozenset(schema.get("required", ())), key_filters)
 
 
 INDEXES_ON: Mapping[Collection, tuple[_Index, ...]] = {
@@ -216,8 +239,15 @@ class _Fill:
     value: ast.expr
 
 
-# A field path a write sets: spelled out, or an f-string's leading text.
-FieldPath = str | _Prefix
+@dataclass(frozen=True)
+class _SubPath:
+    """A path of two segments or more opening with `lead`, its first segment unknown past that: an f-string a dot follows a hole in."""
+
+    lead: str
+
+
+# A field path a write sets: spelled out, an f-string's leading text, a sub-path, or `UNRESOLVED` for any path at all.
+FieldPath = str | _Prefix | _SubPath | _Marker
 # Each path an update sets beside every value it may write there.
 FieldWrites = tuple[tuple[FieldPath, Values], ...]
 
@@ -299,11 +329,19 @@ def _held_at(literal: _Literal, key: str) -> Values:
     return _distinct(value for keys, held in literal.entries if key in keys for value in held) or (UNRESOLVED,)
 
 
-def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType) -> str | _Prefix:
-    """An f-string, its holes filled where each holds one plain `str`, read only up to the first that does not."""
+def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType) -> str | _Prefix | _SubPath:
+    """An f-string, its holes filled where each holds one plain `str`, read only up to the first that does not.
+
+    A dot written after that hole still says the path runs two segments or more.
+    """
+
+    def unknown_past(index: int, lead: str) -> _Prefix | _SubPath:
+        rest = node.values[index + 1 :]
+        dotted = any(isinstance(part, ast.Constant) and isinstance(part.value, str) and "." in part.value for part in rest)
+        return _SubPath(lead) if dotted else _Prefix(lead)
 
     leading = ""
-    for part in node.values:
+    for index, part in enumerate(node.values):
         if isinstance(part, ast.Constant) and isinstance(part.value, str):
             leading += part.value
             continue
@@ -313,11 +351,11 @@ def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType
         texts = [value if type(value) is str else value.text if isinstance(value, _Prefix) else None for value in held]
         known = [text for text in texts if isinstance(text, str)]
         if not known or len(known) != len(texts):
-            return _Prefix(leading)
+            return unknown_past(index, leading)
         if len(held) == 1 and type(held[0]) is str:
             leading += known[0]
             continue
-        return _Prefix(leading + os.path.commonprefix(known))
+        return unknown_past(index, leading + os.path.commonprefix(known))
 
     return leading
 
@@ -433,7 +471,7 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
             DATABASE
             if isinstance(value, Collection) and node.attr == "database"
             else UNRESOLVED
-            if value is UNRESOLVED or isinstance(value, _Literal | _Prefix | _Payload | _Dump | _Typed | _Sequence)
+            if value is UNRESOLVED or isinstance(value, _Literal | _Prefix | _SubPath | _Payload | _Dump | _Typed | _Sequence)
             else getattr(value, node.attr, UNRESOLVED)
             for value in _values(node.value, scope, module)
         )
@@ -717,7 +755,10 @@ def _entries(value: Any) -> tuple[tuple[Values, Values], ...] | None:
 
 
 def _fields(document: Values) -> list[tuple[FieldPath, Values]] | None:
-    """Each field path a document of fields names beside the values it holds there, `None` where one of its keys is unreadable."""
+    """Each field path a document of fields names beside the values it holds there, an unreadable key as `UNRESOLVED`, any path at all.
+
+    `None` where a spread or the document itself is unreadable, which may name operators as well as fields.
+    """
 
     found: list[tuple[FieldPath, Values]] = []
     for value in document:
@@ -731,10 +772,10 @@ def _fields(document: Values) -> list[tuple[FieldPath, Values]] | None:
                     if spread is None:
                         return None
                     found += spread
-                elif isinstance(key, str | _Prefix):
+                elif isinstance(key, str | _Prefix | _SubPath):
                     found.append((key, held))
                 else:
-                    return None
+                    found.append((UNRESOLVED, held))
 
     return found
 
@@ -894,7 +935,7 @@ def _declaring_operations() -> set[str]:
     }
 
 
-def _meets(path: FieldPath, index_field: str) -> bool:
+def _meets(path: str | _Prefix, index_field: str) -> bool:
     """Whether setting `path` can change `index_field`: one is the other, or holds it, a leading text matching either way."""
 
     if isinstance(path, _Prefix):
@@ -924,10 +965,69 @@ def _may_match(value: Any, condition: Any) -> bool:
     return value == condition if plain else True
 
 
-def _meets_index(path: FieldPath, written: Values, index: _Index) -> bool:
-    """Setting a key reaches the index; setting a field its filter alone reads reaches it only with a value moving the row in."""
+def _bson_type(value: Any) -> str | None:
+    """The `bsonType` a written value takes, `None` where the trace cannot say."""
 
-    if any(_meets(path, key) for key in index.keys):
+    kind = value.kind if isinstance(value, _Typed) else type(value) if value is None or type(value) in SCALAR_TYPES else None
+    return {type(None): "null", bool: "bool", int: "int", float: "double", str: "string"}.get(kind) if kind is not None else None
+
+
+def _admits(types: frozenset[str] | None, value: Any) -> bool:
+    """Whether the validator lets one written value stand at a field."""
+
+    taken = _bson_type(value)
+    return types is None or taken is None or taken in types or ("number" in types and taken in {"int", "double"})
+
+
+def _holds_a_document(types: frozenset[str] | None) -> bool:
+    """Whether the validator lets a field be an embedded document or an array, which a write under it would make it."""
+
+    return types is None or bool({"object", "array"} & types)
+
+
+def _may_enter(field_name: str, written: Values, index: _Index) -> bool:
+    """Whether a write at a path the trace cannot name may change `field_name` so the row enters the index.
+
+    The path may be the field itself, leaving one of `written` there, or a path under it, leaving a document.
+    """
+
+    types = index.types.get(field_name)
+    if _holds_a_document(types):
+        return True
+    for value in written:
+        if value is UNSET:
+            # Removing a field the validator requires is refused; any other may leave it missing.
+            stands = field_name not in index.required
+        else:
+            stands = _admits(types, value)
+        if stands and _indexed_with(field_name, value, index):
+            return True
+    return False
+
+
+def _indexed_with(field_name: str, value: Any, index: _Index) -> bool:
+    """Whether a row holding `value` at `field_name` may be one the partial filter indexes."""
+
+    condition = index.key_filters.get(field_name) if field_name in index.keys else index.conditions[field_name]
+    return condition is None or _may_match(value, condition)
+
+
+def _meets_index(path: FieldPath, written: Values, index: _Index) -> bool:
+    """Setting a key reaches the index; setting a field its filter alone reads reaches it only with a value moving the row in.
+
+    A path the trace cannot name reaches only a field whose validator admits what it leaves: the
+    validators are applied strict and refusing, so a write leaving anything else fails before the index.
+    """
+
+    fields = (*index.keys, *index.conditions)
+    if isinstance(path, _Marker):
+        return any(_may_enter(name, written, index) for name in fields)
+    if isinstance(path, _SubPath):
+        first = path.lead.split(".")[0]
+        under = (lambda name: name == first) if "." in path.lead else (lambda name: name.startswith(path.lead))
+        return any(under(name) and _holds_a_document(index.types.get(name)) for name in fields)
+    # A key set exactly is weighed against the filter's own condition on it; a path inside it is not.
+    if any(_meets(path, key) and (path != key or any(_indexed_with(key, value, index) for value in written)) for key in index.keys):
         return True
     return any(
         _meets(path, name) and (path != name or any(_may_match(value, condition) for value in written))
@@ -1051,7 +1151,7 @@ class _AddressPayload(BaseModel):
     email: str
 
 
-# A module whose composer writes `status`, one of `saisons`' index fields and none of `registrierungen`'.
+# A module whose composer writes `status`, one of `saisons`' index fields, to a value its filter never indexes.
 COMPOSERS = "app.api.registrierungen.services"
 
 
@@ -1067,7 +1167,9 @@ def _update_reaches(source: str, collection: Collection, scope: Mapping[str, Val
     ("source", "collection", "scope", "reaches"),
     [
         ('{"$set": {"vorname": name}, "$inc": {"bounded_writes": 1}}', Collection.SPIELER, None, False),
-        ('{"$set": {"vorname": name, "email": None}}', Collection.SPIELER, None, True),
+        # `uniq_spieler_email` indexes a string alone, so a null written there enters no row; an unread value may.
+        ('{"$set": {"vorname": name, "email": None}}', Collection.SPIELER, None, False),
+        ('{"$set": {"vorname": name, "email": address}}', Collection.SPIELER, {"address": (UNRESOLVED,)}, True),
         # `widerrufen_am` is read by the live invite's filter alone, `{"$type": "null"}`: only a null moves a row in.
         ('{"$set": {"widerrufen_am": None}}', Collection.EINLADUNGEN, None, True),
         ('{"$set": {"widerrufen_am": today}}', Collection.EINLADUNGEN, {"today": (_Typed(str),)}, False),
@@ -1076,11 +1178,24 @@ def _update_reaches(source: str, collection: Collection, scope: Mapping[str, Val
         ('{"$set": {f"kontakte.{slot}.einwilligung": block}}', Collection.SAISON_TEAMS, None, False),
         # Only the leading text is known, and `saison_` may go on to `saison_id`.
         ('{"$set": {f"saison_{slot}": block}}', Collection.SAISON_TEAMS, None, True),
-        ('{"$set": {f"{slot}.name": name}}', Collection.SPIELE, None, True),
+        # A dot after the hole makes it a path under some field, and no key's validator admits a document there.
+        ('{"$set": {f"{slot}.name": name}}', Collection.SPIELE, None, False),
+        (
+            '{"$set": {zustellung_pfad(carrier): entry for carrier in carriers}}',
+            Collection.SCHIEDSRICHTER,
+            {"zustellung_pfad": (zustellung_pfad,)},
+            False,
+        ),
+        # A path the trace cannot name reaches only a key its validator lets hold what is written there.
+        ('{"$set": {side: None}}', Collection.SPIELE, {"side": (UNRESOLVED,)}, False),
+        ('{"$set": {side: None}}', Collection.SCHIEDSRICHTER, {"side": (UNRESOLVED,)}, True),
+        ('{"$set": {side: None}}', Collection.SPIELER, {"side": (UNRESOLVED,)}, False),
+        ('{"$set": {side: value}}', Collection.SPIELE, {"side": (UNRESOLVED,), "value": (UNRESOLVED,)}, True),
+        ('{"$unset": {side: ""}}', Collection.SCHIEDSRICHTER, {"side": (UNRESOLVED,)}, False),
         ('{"$set": {f"{pfad}.medien": True}}', Collection.SAISON_TEAMS, {"pfad": ("kontakte.trainer.einwilligung",)}, False),
-        ('{"$set": {f"{pfad}.medien": True}}', Collection.SAISON_TEAMS, {"pfad": (_Prefix("saison"),)}, True),
+        ('{"$set": {f"{pfad}.medien": True}}', Collection.SAISON_TEAMS, {"pfad": (_Prefix("saison"),)}, False),
         ('{"$set": {f"bestaetigungen.{seat}.zustellung": entry for seat in seats}}', Collection.BEWERBUNGEN, None, False),
-        ('{"$set": {f"{seat}.zustellung": entry for seat in seats}}', Collection.BEWERBUNGEN, None, True),
+        ('{"$set": {f"{seat}.zustellung": entry for seat in seats}}', Collection.BEWERBUNGEN, None, False),
         ('{"$set": {**{"$set": {"bestaetigungsfrist": day}}["$set"]}}', Collection.BEWERBUNGEN, None, False),
         ('{"$set": payload.model_dump(mode="json")}', Collection.SPIELER, {"payload": (_Payload(_AddressPayload),)}, True),
         ('{"$set": {**payload.model_dump(), "vorname": name}}', Collection.SCHIEDSRICHTER, {"payload": (_Payload(_AddressPayload),)}, False),
@@ -1089,7 +1204,8 @@ def _update_reaches(source: str, collection: Collection, scope: Mapping[str, Val
         ('{"$set": fixture.model_dump(include={"datum", "spiel_nr"})}', Collection.SPIELE, None, True),
         ('{"$set": fixture.model_dump(include=kept)}', Collection.SPIELE, {"kept": (UNRESOLVED,)}, True),
         ('compose_ablehnung_update(von=name, grund=None, today="2026-01-01")', Collection.REGISTRIERUNGEN, None, False),
-        ('compose_ablehnung_update(von=name, grund=None, today="2026-01-01")', Collection.SAISONS, None, True),
+        ('compose_ablehnung_update(von=name, grund=None, today="2026-01-01")', Collection.SAISONS, None, False),
+        ('{"$set": {"status": state}}', Collection.SAISONS, {"state": (UNRESOLVED,)}, True),
         # What the trace cannot read reaches: an unknown document, a rename's target, a replacement.
         ('{"$set": unknown}', Collection.SPIELER, {"unknown": (UNRESOLVED,)}, True),
         ('{"$rename": {"alt": "neu"}}', Collection.SPIELER, None, True),
@@ -1102,6 +1218,37 @@ def test_an_update_reaches_an_index_exactly_where_it_can_set_one_of_its_fields(
     """The shapes the trace reads an update's fields from, each beside a collection it does and does not reach."""
 
     assert _update_reaches(source, collection, scope) is reaches
+
+
+class _CommandRecorder:
+    def __init__(self) -> None:
+        self.commands: list[Mapping[str, Any]] = []
+
+    async def command(self, command: Mapping[str, Any]) -> None:
+        self.commands.append(command)
+
+
+def test_every_validator_is_applied_strict_and_refusing():
+    """What the trace's reading of a path it cannot name rests on: a write the validator refuses never reaches an index."""
+
+    database = _CommandRecorder()
+    asyncio.run(_apply_validator(cast(AsyncDatabase, database), str(Collection.SPIELE), COLLECTION_VALIDATORS[Collection.SPIELE]))
+
+    [command] = database.commands
+    assert (command["validationLevel"], command["validationAction"]) == ("strict", "error")
+
+
+def test_a_path_the_trace_cannot_name_reaches_a_key_its_validator_leaves_open():
+    """The arms no index here exercises: a key admitting a document, and one neither required nor filtered, which a removal leaves null."""
+
+    open_key = _Index(frozenset({"k"}), {}, {"k": frozenset({"object", "string"})}, frozenset({"k"}))
+    optional_key = _Index(frozenset({"k"}), {}, {"k": frozenset({"string"})}, frozenset())
+
+    assert _meets_index(_SubPath(""), (UNRESOLVED,), open_key)
+    assert _meets_index(UNRESOLVED, ("text",), open_key)
+    assert not _meets_index(_SubPath(""), (UNRESOLVED,), optional_key)
+    assert _meets_index(UNRESOLVED, (UNSET,), optional_key)
+    assert not _meets_index(UNRESOLVED, (None,), optional_key)
 
 
 @pytest.mark.parametrize(
@@ -1133,7 +1280,7 @@ def test_a_literal_the_function_may_change_after_binding_counts_as_writing_every
     assert read is not None and [path for path, _ in read] == ["vorname"]
 
 
-@pytest.mark.parametrize(("store", "reaches"), [("", False), ("    written['idempotenz_schluessel'] = None\n", True)])
+@pytest.mark.parametrize(("store", "reaches"), [("", False), ("    written['idempotenz_schluessel'] = day\n", True)])
 def test_a_dict_filled_by_its_own_stores_writes_what_they_name(store: str, reaches: bool):
     """A dict built empty and filled key by key, the shape the application's own composers take."""
 
