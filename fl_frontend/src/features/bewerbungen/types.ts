@@ -95,8 +95,8 @@ export type FensterZustand = "laeuft" | "noch-nicht" | "geschlossen" | "vorbei" 
 export type KuerzelVerdikt = { shorthand: string; vergeben: boolean };
 
 /**
- * What a link is once the backend has looked it up. `abgelaufen` and `ungueltig` render one wording:
- * telling them apart would tell a guessed link that a record once existed.
+ * An application's `abgelaufen` and `ungueltig` render one wording, since telling them apart tells a
+ * guessed link that a record once existed; a season row's spent link is worded for the row its read named.
  */
 export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
