@@ -13,6 +13,8 @@ from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from app.core.exception_handlers import refused_codes
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.main import create_app
@@ -84,29 +86,53 @@ def _raises_here(node: ast.AST) -> bool:
     return isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == EXCEPTION
 
 
+Site = tuple[Path, int]
+
+
 @functools.cache
-def _can_raise(path: Path, lineno: int) -> bool:
+def _step(path: Path, lineno: int) -> tuple[bool, tuple[Site, ...]]:
+    """Whether one declaration raises the miss in its own body unabsorbed, and the declarations its uncaught calls reach."""
+
     declaration = next(
         node for node in ast.walk(parsed(path)) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.lineno == lineno
     )
     parents = _parents(declaration)
 
-    for node in ast.walk(declaration):
-        if not (isinstance(node, ast.Raise) and _raises_here(node)):
-            continue
-        if (node.exc is not None or _in_a_handler_naming_it(node, parents)) and not _caught(node, parents):
-            return True
-
+    raises = any(
+        (node.exc is not None or _in_a_handler_naming_it(node, parents)) and not _caught(node, parents)
+        for node in ast.walk(declaration)
+        if isinstance(node, ast.Raise) and _raises_here(node)
+    )
+    reached: list[Site] = []
     for chain, call in scoped_calls(declaration, (declaration,)):
         resolved = resolve_callee(call, chain, path)
         if resolved is None or _caught(call, parents) or _cannot_miss(call, chain[-1]):
             continue
         target, target_path = resolved
-        # A function calling itself, directly or through another, adds no raise it does not hold already.
-        if (target_path, target.lineno) == (path, lineno):
+        reached.append((target_path, target.lineno))
+
+    return raises, tuple(reached)
+
+
+@functools.cache
+def _can_raise(path: Path, lineno: int) -> bool:
+    """Whether any declaration the one at `path` and `lineno` reaches raises the miss.
+
+    A search rather than a recursion: functions calling each other would recurse without end, and a
+    declaration met again shows no raise it has not shown.
+    """
+
+    seen: set[Site] = set()
+    frontier: list[Site] = [(path, lineno)]
+    while frontier:
+        site = frontier.pop()
+        if site in seen:
             continue
-        if _can_raise(target_path, target.lineno):
+        seen.add(site)
+        raises, reached = _step(*site)
+        if raises:
             return True
+        frontier += reached
 
     return False
 
@@ -246,3 +272,19 @@ def test_every_raise_of_the_miss_is_one_the_trace_reads():
     ]
 
     assert raises == []
+
+
+# Two functions calling each other, the second raising the miss only where the variant says so.
+MUTUAL_CALLS = "def first():\n    return second()\n\n\ndef second():\n    {body}\n    return first()\n"
+
+
+@pytest.mark.parametrize(("body", "raises"), [("pass", False), (f"raise {EXCEPTION}()", True)])
+def test_a_cycle_of_calls_is_followed_once_and_still_reaches_a_raise(tmp_path: Path, body: str, raises: bool):
+    """Mutual recursion terminates, and a raise on the far side of the cycle is still reached from either end."""
+
+    module = tmp_path / "mutual.py"
+    module.write_bytes(MUTUAL_CALLS.format(body=body).encode())
+    first, second = (node for node in parsed(module).body if isinstance(node, ast.FunctionDef))
+
+    assert _can_raise(module, first.lineno) is raises
+    assert _can_raise(module, second.lineno) is raises
