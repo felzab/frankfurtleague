@@ -207,7 +207,10 @@ export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
  */
 export const NUMMER_DOPPELT = "Nummer doppelt";
 
-/** The day a squad row was taken out, in the one sentence the admin editor's banner and a seat holder's squad both state it in. */
+/**
+ * The day a squad row was taken out, in the one sentence the admin editor's banner, a seat holder's
+ * squad and the pupil's own page (`SpielerSelbstView`) all state it in.
+ */
 export function ausgetragenSeit(inactiveSince: string): string {
   return `Ausgetragen seit ${formatSpielDatum(inactiveSince)}`;
 }

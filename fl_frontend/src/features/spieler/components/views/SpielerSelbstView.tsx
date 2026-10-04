@@ -9,7 +9,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { rolleLabel } from "../../constants";
+import { ausgetragenSeit, rolleLabel } from "../../constants";
 
 import type { ReactNode } from "react";
 import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas";
@@ -44,7 +44,7 @@ function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {
       {/* The tones and the precedence the administrator's squad list gives the same two facts. */}
       {zeile.inactive_since !== null ? (
         <p>
-          <span className={labelBadge("warning")}>Ausgetragen seit {formatSpielDatum(zeile.inactive_since)}</span>
+          <span className={labelBadge("warning")}>{ausgetragenSeit(zeile.inactive_since)}</span>
         </p>
       ) : (
         zeile.ist_nachnominiert && (
