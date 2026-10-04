@@ -25598,6 +25598,14 @@
               ]
             }
           }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds to wait before asking again",
+            "schema": {
+              "type": "integer"
+            }
+          }
         }
       },
       "503.DB-CONN-001": {
@@ -25619,6 +25627,14 @@
                   }
                 }
               ]
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds to wait before asking again",
+            "schema": {
+              "type": "integer"
             }
           }
         }
@@ -25643,6 +25659,14 @@
                   }
                 }
               ]
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds to wait before asking again",
+            "schema": {
+              "type": "integer"
             }
           }
         }
