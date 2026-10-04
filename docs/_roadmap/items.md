@@ -291,8 +291,8 @@ question that could move Mantine's rank.
 | Open   | —          |
 
 **The admission writes the pupil's own record.** A confirmed registration's record reaches the person
-the admission creates whole; onto a person the league already holds, its choices and label are
-renewed and its entries appended after the person's own, so a returning pupil keeps every earlier act
+the admission creates whole; onto a person the league already holds, it renews the record, and each
+choice only where the registration set it later, so a choice the person moved since stands
 (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`,
 `docs/backend/spec.md :: I867`). The publication gate reads this field
 (`docs/backend/spec.md :: READ-PUPIL-003`).
@@ -355,101 +355,6 @@ spellings is either read correctly, its parser arriving as a pin in `fl_frontend
 written at the reader's line. Every property asserted today is still asserted and still driven red
 afterwards, and an answer resting on practice outside this repository cites a public repository a
 reader can open.
-
-### `eq3t-4e3f` · Most writes stamp a consent label the backend does not judge, and the record of it is overwritten rather than kept
-
-| Status | Depends on |
-| ------ | ---------- |
-| Open   | —          |
-
-**My question of 2026-09-24, in my words:** "What would be the absolute mature best practice approach
-that a major company would implement for this WHOLE system of keeping track to which version somebody
-agreed?" This entry is that design, sized for this site. The one race that could not wait, an
-application retried across a deploy that moved its label, is already held by the backend's judgement
-of the label after the replay's key lookup (`fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal`).
-
-**The backend holds the registry and judges one write's label.** Every label's words, its page,
-its effective date and each page's running label are
-`fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and `:: LAUFENDE_FASSUNGEN`, pinned by
-`fl_backend/tests/shared/test_einwilligung.py` and served by
-`GET /einwilligung/fassungen/{text_version}` and `GET /einwilligung/seiten`, recorded for the
-frontend's tests in `fl_backend/einwilligung.json`; the frontend renders the words those reads serve
-(`fl_frontend/src/core/einwilligung.ts :: getLaufendeFassung`) and holds no copy of its own. The backend judges the label of one write alone, the application's
-(`fl_backend/app/api/einwilligung/services.py :: find_fassung_refusal`); every other write accepts
-any non-empty
-`text_version` (the confirmation payloads beside
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungPayload`), so
-`docs/frontend/spec.md :: I148` is held for those writes by route handlers and server actions ahead of
-the backend call, against the label read per request
-(`fl_frontend/src/core/einwilligung.ts :: getLaufendesLabel`,
-`fl_frontend/src/features/bewerbungen/utils.ts :: nenntLaufendeFassung`,
-`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`).
-
-**The record is one embedded block, rewritten in place.** A contact seat's confirmation replaces the
-applicant's label and provenance with its own
-(`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation_update`), so once a seat
-confirms, the application-form label the applicant ticked for that person is in the database
-nowhere. A seat an admin gives to a different person keeps its stored label: the provenance is
-composed again for the new person (`fl_backend/app/api/teams/services.py :: compose_kontakte_herkunft`)
-but the label is not, so the new person's record names the wording the previous one was given.
-`datum` and `bestaetigt_am` hold a day rather than a time. The action log keeps the replaced
-image (`fl_backend/app/core/recording.py`) until its retention or an erasure takes it. No route
-changes a consent yet; the withdrawal control is ruled to come with the account tiers
-([`docs/datenschutz.md` §11](../datenschutz.md#11-open-and-owed-a-decision)), and an overwrite would
-then lose whether and when a consent was withdrawn.
-
-**Why it matters.** Art. 7 (1) DSGVO puts the proof of a consent on the controller, and the EDPB's
-Guidelines 05/2020 (paragraph 108) name "a copy of the information that was presented to the data
-subject at that time"; the DSK's Kurzpapier Nr. 20 asks that the wording itself be documented. A
-contact seat's record rests on Art. 6 (1) (f) rather than consent, and Art. 5 (2) asks the same
-demonstrability of what that person was told. The words a label names are the backend's, served
-and pinned there; what the record still cannot show is when each act happened and what it replaced.
-
-**The design is what the regulators' guidance and the established consent systems share, and no
-more:**
-
-- **The backend holds the registry.** Each version is immutable, identified by its label, tied to the
-  page it belongs to and to its effective date, its words pinned by a backend test; the running
-  version of each page is backend state. The frontend renders the words the backend serves and posts
-  the label back. Words stay in code rather than a collection: a pull request reviews them and a test
-  pins them, while a collection would need seeding, which here is a one-off migration.
-- **The backend judges every label it stores.** A label must name a version of that write's page,
-  and a new acceptance must name the running one, judged after any replay's key lookup as the
-  application's is (`fl_backend/app/api/bewerbungen/public_router.py :: post_bewerbung`). The
-  frontend's pre-checks go, and I148 moves to the backend's sheet.
-- **An acceptance records its time**, in UTC, beside the day the record already carries.
-- **Acceptances are appended rather than overwritten** — given, confirmed, declined, withdrawn — the
-  embedded block becoming the current state they add up to, and an applicant's acknowledgement for a
-  seat surviving that seat's own confirmation. Built with the withdrawal control, never before it.
-
-**Refused as more than this site needs:** a content hash inside every record, the registry's digest
-test already pinning the words a label names; the requester's IP address and user agent, which the
-DSK holds proves nothing alone and the EDPB (paragraph 106) warns against collecting beyond need; a
-receipt sent to the person, the Kantara and ISO/IEC TS 27560 receipt; a hosted consent-management
-product; major and minor versions, since any change of words is a new label here.
-
-**Traps:**
-
-- A page places its sections by key (`fl_backend/app/shared/einwilligung.py :: Fassung`'s
-  `absaetze_nach_schluessel`, placed by `fl_frontend/src/core/einwilligungSeiten.ts :: gekeyteFassung`)
-  while a label freezes them by position, and a reader's own facts fill
-  `{slots}` (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
-  What the backend serves carries both, or the keyed words stay in a second place.
-- The administrative contact edit admits a seat's own stored label beside the running one
-  (`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`); the backend's check
-  keeps that admission.
-- A new refusal code meets the previous frontend for the moment between the two containers'
-  recreation and falls to the shared fallback there.
-- How long an erased person's acceptance events may stand is EDPB paragraph 107's question (legal
-  claims), for `scfh-f6gw`'s brief; where a returning pupil's renewed consent lands is `8wd7-ff49`'s
-  ruling, and an appended history is one of its answers.
-
-**No data migration.** Every stored label is one the registry already holds, so existing records stay
-their own evidence; nothing is backfilled into a history.
-
-**Done when** the backend is the one place a label's words and each page's running label are defined;
-every write stamping a label is judged there, after the replay; the frontend holds no label check;
-a record carries its time; and a withdrawal is appended rather than overwriting what it withdraws.
 
 ### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and a squad-number clash is stored once raised
 
@@ -1151,6 +1056,8 @@ still carries them:
 - the date WhatsApp Ireland's privacy policy was last read for
   [section 7](../datenschutz.md#7-processors-and-third-parties);
 - whether pupils whose records were erased are owed a message saying so;
+- how long an erased person's consent acts may stand as proof, EDPB Guidelines 05/2020 paragraph
+  107's question of legal claims;
 - MongoDB's support access to the hosted database, and which Google company provides Gmail in the
   EEA;
 - the pending appeal in Latombe (C-703/25 P) and what it would mean for the transfers section 7
