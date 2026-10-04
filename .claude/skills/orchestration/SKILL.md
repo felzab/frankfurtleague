@@ -49,9 +49,10 @@ Stop once the bar is met.
   equal to it, rewriting the line wherever it differs.
 - Rewrite the resume point in the same edit as whatever it names. A quota stop loses exactly what the
   register does not hold.
-- After a compaction, read the register's resume point before the next action. On a resume — a
-  `resume` argument, or arriving with no instruction in a transcript already carrying this session's
-  work — run [resume.md](resume.md) to its end first.
+- A fresh session runs [start.md](start.md) before anything else. After a compaction, read the
+  register's resume point before the next action. On a resume — a `resume` argument, or arriving
+  with no instruction in a transcript already carrying this session's work — run
+  [resume.md](resume.md) to its end first.
 - Tools: `uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/<name>.py`.
   Type no clock time: `reg.py append` stamps register updates, and any other time is read from
   `date`.
@@ -67,7 +68,8 @@ Stop once the bar is met.
 - The ownership map is the landing plan: fill the register's landings table with its ordering
   constraints. A contract two agents build against lands before the second forks. One session, one
   branch, one pull request.
-- Have one prep agent resolve a whole wave's premises against `HEAD` before its briefs are written.
+- Where a wave's briefs rest on premises not yet checked against `HEAD`, have one prep agent resolve
+  them all before the briefs are written.
 - Estimate what remains wave by wave, each figure marked measured or estimated, and read it back for
   what to change: a wave costs its longest agent, so shorten the agent that dominates, or start it
   earlier.
@@ -82,11 +84,13 @@ Stop once the bar is met.
    breadth you cannot cover, or tool-hours — never typing. With none, do the work yourself.
 4. Pick the type: `implementer` writes; `driving-reauditor` plants or runs suites; `cold-auditor`
    judges by reading; `researcher` answers from committed state or the web; `general-purpose` only
-   for a question that reads no repository. Pass no `model`: `CLAUDE_CODE_SUBAGENT_MODEL` pins it.
-   A definition added mid-session is dispatchable from the next turn.
+   for a question that reads no repository. Pass no `model`: `CLAUDE_CODE_SUBAGENT_MODEL` in the
+   tracked `.claude/settings.json` pins it. A definition added mid-session is dispatchable from the
+   next turn.
 5. Write the brief from [brief-template.md](brief-template.md), its BAR line filled from the bar
-   above (the definitions carry none of it), sized by what losing its whole output would cost: every path in full and globbed first; for a signature change the callers and every
-   test asserting the call's text; a design's cost measured, and what already constrains its
+   above (the definitions carry none of it), sized by what losing its whole output would cost: every
+   path in full and globbed first; for a signature change the callers and every test asserting the
+   call's text; a design's cost measured, and what already constrains its
    surface read, before it is briefed as the closure; each acceptance check named by what it
    asserts; every figure with its provenance; a plan's repair briefed to be driven and reported if
    it does not close; a judgement test with its parameters and one worked verdict; the version meant
@@ -96,16 +100,17 @@ Stop once the bar is met.
    to that file in the same action as the send.
 7. An agent that writes or plants runs in its own worktree (`isolation: "worktree"`), forked from your
    `HEAD`: commit what it needs first. A reader runs in your checkout.
-8. An `implementer` or `driving-reauditor` may message you mid-task through `SendMessage`, to ask for a
-   file outside its list, to report a broken premise or to ask what it cannot verify; answer the same way and append the answer to
-   its messages file. A `researcher` or `cold-auditor` reaches you only through its report.
-9. Dispatch no writer while `HEAD` holds a landing whose CI has not concluded. Once what remains is one
-   wave plus [ending.md](ending.md)'s list, start nothing new.
+8. An `implementer` or `driving-reauditor` may message you mid-task through `SendMessage`, to ask
+   for a file outside its list, to report a broken premise or to ask what it cannot verify; answer
+   the same way and append the answer to its messages file. A `researcher` or `cold-auditor`
+   reaches you only through its report.
+9. Dispatch no writer while `HEAD` holds a landing whose CI has not concluded. Once what remains is
+   one wave plus [ending.md](ending.md)'s list, start nothing new.
 
 ## Running the fleet
 
-- Dispatch before you read a landed report, and before you reply. End every reply to the owner with
-  the gauge: `Fleet: 3 of <cap>, two queued behind the gate commit.` Then name what would have to
+- Dispatch before you read a landed report, and before you reply. While any agent is live, end
+  every reply to the owner with the gauge: `Fleet: 3 of <cap>, two queued behind the gate commit.` Then name what would have to
   become true for the next agent on the critical path to go out, and check whether it already is.
   The gauge is a check that nothing on the critical path waits, never a target.
 - You are the fleet's one serial resource: bank a report as its saved path and a one-line verdict,
@@ -118,8 +123,9 @@ Stop once the bar is met.
   where unsure — never to an unasked roadmap entry.
 - Send a settled finding to the agent that owns the file; send one arguing the shape is wrong to a
   fresh reader.
-- `.claude/agents/implementer.md` sections 8, 9, 12 and 13 bind you too; you plant only through a
-  driving re-auditor.
+- `.claude/agents/implementer.md` sections 8 (plant and restore), 12 (measure) and 13 (claims) bind
+  you too, and you plant only through a driving re-auditor. Its section 9's traps bind you where
+  they concern your own commands; `./scripts/ops/local.sh` is yours to run, in your checkout.
 - A guard, hook registration or manifest change lands in an exclusive window: it changes what every
   other agent may do. Hooks run from your checkout, so a hook change on an agent's branch has run on
   nothing until it lands. Two agents reporting one out-of-scope failure is one such change.
@@ -129,8 +135,9 @@ Stop once the bar is met.
 - Land a finished branch in the turn its report is judged, with `land.py <branch>`, and dispatch its
   audit in the same action. Before the merge, read `git diff --stat --summary HEAD...<branch>`, the
   diff itself, and each commit body against it; send a false body or a stray file back to the agent.
-- `land.py` merges with `--no-ff`, regenerates a conflicted generated document, merges a markdown
-  table by row key, and otherwise aborts for the agent to rebase onto the session branch. A fix to
+- `land.py` merges with `--no-ff`, regenerates both generated documents on any merge touching
+  `fl_backend/`, merges a conflicted markdown table by row key, and otherwise aborts for the agent
+  to rebase onto the session branch. A fix to
   landed work is a new commit naming the one it corrects.
 - Check a claim you commit against that commit, and qualify every blanket negative to what you
   checked. Only the branch's final state passes the gate; never reorder or probe a commit to make
@@ -162,7 +169,8 @@ Stop once the bar is met.
   to one agent. The re-auditor wrote none of the fixes.
 - A document is audited once, cold, and you read its fix.
 - A slice changing what a person sees is judged by the owner over the local stack before its fix
-  rounds close. A look ruling is a class and binds every surface in flight, and the owner's word on
+  rounds close. You serve that pass: the stack up with `./scripts/ops/local.sh` in your checkout
+  (CLAUDE.md §5), a checklist of what changed, and the structural checks. A look ruling is a class and binds every surface in flight, and the owner's word on
   what the owner has looked at outranks any list of it.
 
 ## The owner

@@ -36,8 +36,9 @@ Resume this session. Do not continue any work until you have finished this proto
        evidence is on disk. Where it cannot be resumed, brief a successor from its saved brief, its
        `<NAME>-messages.md` and its transcript, and from its last provable state. Land its branch
        only where every commit carries acceptance evidence, otherwise a branch cut at the last
-       commit that does. Save every uncommitted edit -- `git -C <path> diff`, its untracked files,
-       any stash entry on its branch -- to the scratch path, name it in the successor's brief, and
+       commit that does. Judge every uncommitted edit as intended work or an unrestored plant; save
+       the work -- `git -C <path> diff`, its untracked files, any stash entry on its branch -- to
+       the scratch path, name it in the successor's brief, and
        keep its worktree row open until the fresh work lands.
 
 4. PARTIAL WORK. Match every `git worktree list` entry to the register's worktree table. For each,

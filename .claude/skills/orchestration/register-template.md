@@ -39,8 +39,8 @@ Unattended changes still open, and the command that restores each:
 ## Expected red -- every check known to fail at the pushed head, and the landing that clears it
 | Failing check, test or finding | Why it is red | Cleared by (the pending landing) | Since (push) |
 | ------------------------------ | ------------- | -------------------------------- | ------------ |
-<A row when the landing causing it is pushed, closed when the clearing landing arrives. The
-deferred invariant bands are one row, mapped at the ending.>
+<A row when the landing causing it is pushed, closed when the clearing landing arrives. Checks
+failing on `I_NEW_*` invariant rows are one row, closed when the ending renumbers them.>
 
 ## File ownership
 | Files owned | Agent | Slice | Worktree branch, and the sha it forked at |
@@ -84,10 +84,10 @@ matches the worktree table.>
 act on is taken in one announced exclusive window, the fleet stopped, other load recorded.>
 
 ## The ending -- enumerated before the last wave goes out
-<The last wave landed, its audit and its fix; every slice ticked to a landed commit; the deferred
-invariant bands mapped and every expected-red row closed; `ledger.py open` printing nothing; the
-full gate; the draft pull request's body; every check's conclusion; the handoff and its
-independent audit; the starter.>
+<The last wave landed, its audit and its fix; every slice ticked to a landed commit; every
+`I_NEW_*` invariant row renumbered and every expected-red row closed; `ledger.py open` printing
+nothing; the full gate; the draft pull request's body; every check's conclusion; the owner's
+deploy steps; the handoff and its independent audit; the starter.>
 
 ## Decisions taken by the owner
 | # | Question | Ruling, dated, in the owner's words | Routed to |

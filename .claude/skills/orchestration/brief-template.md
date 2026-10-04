@@ -5,6 +5,13 @@ loads as the agent's system prompt and which binds whatever the brief says. A br
 parts below and never restates a standing section of the definition: the definition is that
 section's one home.
 
+## Contents
+
+- [The implementer's brief](#the-implementers-brief)
+- [The cold auditor's brief](#the-cold-auditors-brief)
+- [The driving re-auditor's brief](#the-driving-re-auditors-brief)
+- [The researcher's brief](#the-researchers-brief)
+
 ## The implementer's brief
 
 `.claude/agents/implementer.md` carries every other section. The brief carries the values that
