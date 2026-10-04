@@ -27,7 +27,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute, iter_route_contexts
-from starlette.routing import BaseRoute
+from starlette.routing import BaseRoute, Host, Mount
 
 from app.core.collections import Collection
 from app.main import create_app
@@ -1037,5 +1037,9 @@ def api_routes(app: FastAPI) -> Iterator[APIRoute]:
     """
 
     for context in iter_route_contexts(app.routes):
+        # A mounted application's routes are opened by nothing here, so every sweep reading this would
+        # pass over them: refused rather than skipped.
+        if isinstance(context.original_route, (Mount, Host)):
+            raise AssertionError(f"{context.original_route!r} mounts routes no sweep reading `api_routes` sees")
         if isinstance(context.original_route, APIRoute):
             yield context.original_route
