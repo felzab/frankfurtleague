@@ -4,7 +4,6 @@ import { refresh, updateTag } from "next/cache";
 
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { getLaufendesLabel } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
@@ -29,7 +28,7 @@ import {
   FLBewerbungKontaktSitzPayloadSchema,
   FLEinwilligungErneutPayloadSchema,
 } from "./schemas";
-import { BEWERBUNG_VERALTET, bewerbungHerkunft, bewerbungTeamName, describeAufnahme, nenntLaufendeFassung } from "./utils";
+import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -501,10 +500,6 @@ export async function kontaktEmailKorrigierenAction(
  */
 export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
   return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
-    // Judged before the parse, as the confirmation handlers judge theirs: a page opened before a deploy
-    // moved the label would seat a person under words the backend does not run, and no key replays a reseat.
-    if (!nenntLaufendeFassung(rawPayload, await getLaufendesLabel("bewerbung"))) return { success: false, error: BEWERBUNG_VERALTET };
-
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

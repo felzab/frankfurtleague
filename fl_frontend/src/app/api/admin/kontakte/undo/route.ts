@@ -20,6 +20,11 @@ const STALE_BLOCK_REFUSAL: Record<string, string> = {
 
 const REPLAY_REFUSALS: Record<string, string> = {
   "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
+  // A seat whose person changed under the replay names the form's label from before a deploy moved it
+  // (`docs/backend/spec.md :: I866`), which only the editor drawn again can name anew.
+  "REQ-EINWILLIGUNG-001":
+    "Die Rücknahme würde eine Kontaktperson unter einer Fassung der Hinweise eintragen, die nicht mehr gilt. " +
+    "Sie wurde nicht ausgeführt. Lade die Seite neu und trage die Kontakte dort erneut ein.",
 };
 
 export async function POST(request: NextRequest) {
@@ -32,9 +37,8 @@ export async function POST(request: NextRequest) {
     restore: async (payload) => {
       let operation;
       try {
-        // Each seat's consent label replayed as the earlier record stored it, never judged against the
-        // save's admission (`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`):
-        // the save being undone has moved the stored label that admission reads.
+        // Each seat's consent label replayed as the earlier record stored it; the backend admits it
+        // for a seat whose person stays (`docs/backend/spec.md :: I866`).
         operation = await patchSaisonTeamKontakte(payload);
       } catch (error) {
         const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);

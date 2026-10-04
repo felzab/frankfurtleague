@@ -1,15 +1,13 @@
 "use server";
 
 import { isFreshlySignedIn } from "@/core/auth";
-import { getLaufendesLabel } from "@/core/einwilligung";
-import { BEWERBUNG_VERALTET, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { kontakteMayMoveLinks, SITZE } from "./linkMint";
+import { kontakteMayMoveLinks } from "./linkMint";
 import { einladeKontakt, eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
 import { describeKontaktVersand, mailKontaktLink } from "./notifications";
 import { mapEinladenRefusal, mapStaleBlockRefusal } from "./refusals";
@@ -98,10 +96,6 @@ export async function patchSaisonTeamKontakteAction(
       kontakteMayMoveLinks(await gespeicherteKontakte(validated.data), validated.data.kontakte);
     const unconfirmed = validated.data.kontakte === null || movesLinks ? refuseUnconfirmed(session) : null;
     if (unconfirmed !== null) return unconfirmed;
-
-    // After the parse, where the application's check comes before it: only a parsed payload names
-    // the row whose stored block admits its labels.
-    if (!(await nenntZugelasseneFassungen(validated.data))) return { success: false, error: BEWERBUNG_VERALTET };
 
     // `validated.data` and never `rawPayload`, whose type is a promise the wire does not keep.
     // The refusal belongs on the page that asked, not on the error page.
@@ -231,35 +225,4 @@ async function gespeicherteKontakte({ team_id, saison_id }: Pick<FLPatchSaisonTe
     teams.find(({ id }) => id === team_id)?.memberships.find((membership) => membership.saison_id === saison_id)?.kontakte ?? null;
 
   return gespeichert;
-}
-
-/**
- * Admits the running label, or the one that seat already stores: the editor sends each stored seat
- * back under its own, a confirmed one under the confirmation page's.
- */
-async function nenntZugelasseneFassungen({ team_id, saison_id, kontakte }: FLPatchSaisonTeamKontaktePayload): Promise<boolean> {
-  const gesendet = SITZE.flatMap((rolle) => {
-    const sitz = kontakte?.[rolle];
-    return sitz ? [{ rolle, einwilligung: sitz.einwilligung }] : [];
-  });
-
-  // No label is read for a block naming nobody, which stamps none: clearing a block never waits on it.
-  if (gesendet.length === 0) return true;
-  const laufend = await getLaufendesLabel("bewerbung");
-
-  // No read where nothing needs one: a block of new seats is judged by the running label alone.
-  if (gesendet.every(({ einwilligung }) => nenntLaufendeFassung(einwilligung, laufend))) return true;
-
-  const gespeichert = await gespeicherteKontakte({ team_id, saison_id });
-
-  return gesendet.every(({ rolle, einwilligung }) => {
-    // A mirrored Trainer is the seat it copies, sent under that seat's label.
-    const quelle = rolle === "trainer" && kontakte?.trainer_ist_zugleich ? kontakte.trainer_ist_zugleich : rolle;
-    const gespeicherteFassung = gespeichert?.[quelle]?.einwilligung.text_version;
-
-    return (
-      nenntLaufendeFassung(einwilligung, laufend) ||
-      (gespeicherteFassung !== undefined && nenntLaufendeFassung(einwilligung, gespeicherteFassung))
-    );
-  });
 }

@@ -220,7 +220,7 @@ describe("the application handler's own parse", () => {
 
 describe("the application handler's consent label", () => {
   /* A retry across a deploy that moved the label resends the first press's words, and only the write
-     can tell a stored key from a new one (`docs/frontend/spec.md :: I148`). */
+     can tell a stored key from a new one (`docs/backend/spec.md :: I550`). */
   it("passes an earlier label on to the write, which answers a stored key's replay", async () => {
     const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledThroughout("2026-09-bestaetigung-4")));
 

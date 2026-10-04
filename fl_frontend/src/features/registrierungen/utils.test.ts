@@ -287,6 +287,7 @@ describe("what one refused confirmation shows", () => {
   it("maps every code the confirmation publishes, and no rule it does not", async () => {
     const published = publishedRefusals("POST /registrierungen/bestaetigung");
     const mapped = [
+      "REQ-EINWILLIGUNG-001",
       "REQ-REGISTRIERUNG-004",
       "REQ-REGISTRIERUNG-005",
       "REQ-REGISTRIERUNG-006",

@@ -1,13 +1,12 @@
 import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { getLaufendesLabel } from "@/core/einwilligung";
 import { logger } from "@/core/logging";
 import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
-import { mapEinwilligungRefusal, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
+import { mapEinwilligungRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
@@ -81,13 +80,6 @@ export async function POST(request: NextRequest) {
     routeName: "postEinwilligung",
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
-
-      // Judged BEFORE the parse, by the check every confirmation handler shares: a page opened
-      // before a deploy moved the label posts the words its reader saw, and only the mail's link
-      // reopens the page on the running ones.
-      if (!nenntLaufendeFassung(body, await getLaufendesLabel("bestaetigung_kontakt"))) {
-        return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
-      }
 
       const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(body);
 

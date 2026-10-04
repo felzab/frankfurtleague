@@ -3,7 +3,7 @@ import { isRecordMissing } from "@/core/errors";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
 
@@ -159,6 +159,10 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     // sends this answer, and its repair is the refused payload's.
     case "REQ-REGISTRIERUNG-010":
       return { error: ANTWORT_NEU_OEFFNEN };
+    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // deploy moved it posts words the backend no longer runs, and only the mail's link reopens it.
+    case "REQ-EINWILLIGUNG-001":
+      return { error: FASSUNG_NEU_OEFFNEN };
     // With the record missing, the registration the link names is gone, which is a link nothing places.
     case "DB-COMMON-001":
     case "REQ-REGISTRIERUNG-004":

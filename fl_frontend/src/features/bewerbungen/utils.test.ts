@@ -10,7 +10,7 @@ import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publ
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";
@@ -33,7 +33,6 @@ import {
   mapEinwilligungAnsichtRefusal,
   mapEinwilligungRefusal,
   mirrorBewerbungTrainer,
-  nenntLaufendeFassung,
 } from "./utils.ts";
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
@@ -720,15 +719,12 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
 });
 
 describe("which wording an answer may be stored under", () => {
-  const GESENDET = { token: "kein-echtes-token", antwort: "erteilt", geburtsdatum: "1984-05-09", whatsapp: false };
-
-  /* The label names which words were on screen, and only this server knows which it renders now: a
-     body's own label is a claim, admitted only where it is that one. */
-  it("admits the label it is handed and no other", () => {
-    assert.equal(nenntLaufendeFassung({ ...GESENDET, text_version: KONTAKT_LABEL }, KONTAKT_LABEL), true);
-    assert.equal(nenntLaufendeFassung({ ...GESENDET, text_version: "2019-01-erfunden" }, KONTAKT_LABEL), false);
-    assert.equal(nenntLaufendeFassung(GESENDET, KONTAKT_LABEL), false, "a body naming no label is admitted");
-    assert.equal(nenntLaufendeFassung(null, KONTAKT_LABEL), false);
+  /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
+     it shows words the backend no longer runs, and only the mail's link reopens the page on them. */
+  it("answers the backend's refusal of the label with the mail's link, saying the words moved", () => {
+    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-EINWILLIGUNG-001"), VERTRETUNG_MIN_ALTER), {
+      error: FASSUNG_NEU_OEFFNEN,
+    });
   });
 });
 

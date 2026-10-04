@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
@@ -24,7 +24,7 @@ const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG } });
 
 const { POST } = await import("./route.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
+const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { alterAusserhalb } = await import("@/features/bewerbungen/constants.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
@@ -35,13 +35,10 @@ const { rollenText, rolleText } = await import("@/features/bewerbungen/notificat
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 
 const WRITE = "/bewerbungen/einwilligung";
-const SEITEN = "/einwilligung/seiten";
 
 /** The label the backend runs on the contact page, off the registry it generated. */
 const LAUFEND = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
 
-/** What the backend runs on each page in this case: the registry's own answer unless a case moves it. */
-let seitenAntwort: () => unknown = () => einwilligungAnswer(SEITEN);
 const ANSICHT_ENDPOINT = "/bewerbungen/einwilligung/ansicht";
 
 /** The link's own view, open, at a floor above the league's own so a case can tell whose it states. */
@@ -97,7 +94,6 @@ let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 let ansichtAntwort: () => unknown = () => ANSICHT;
 
 function antwortFuer({ endpoint, body }: ApiCall): unknown {
-  if (endpoint === SEITEN) return seitenAntwort();
   // The delivery report the sent message files, applied to every seat it names as the endpoint applies it.
   if (endpoint.startsWith("/bewerbungen/zustellung"))
     return { acknowledged: 1, angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen };
@@ -111,49 +107,33 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 
 beforeEach(() => {
   logs.length = 0;
-  seitenAntwort = () => einwilligungAnswer(SEITEN);
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });
 
 describe("the contact seat's confirmation handler", () => {
-  /* A page opened before a deploy moved the label shows words the running build does not serve, and
-     filing the answer under the new label would record a Kenntnisnahme of a text nobody was shown. */
-  it("refuses a label other than the one the backend runs, before the endpoint", async () => {
+  /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
+     it posts words the backend no longer runs, and only the mail's link reopens the page on them. */
+  it("answers the backend's refusal of the label with the sentence that reopens the link", async () => {
+    schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-001");
+
     const answer = await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
 
-    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
-    assert.deepEqual(
-      calls.map((call) => call.endpoint),
-      [SEITEN],
+    assert.deepEqual(answer.body, { success: false, error: FASSUNG_NEU_OEFFNEN });
+    assert.equal(
+      JSON.parse(calls.find((call) => call.endpoint === "/bewerbungen/einwilligung")?.body ?? "{}").text_version,
+      "eine-fremde-fassung",
     );
   });
 
-  /* The running label is the backend's and is read per request: a frontend recreated before the backend
-     would otherwise judge by a label the backend has not reached yet, or has left. */
-  it("judges the label against the one the backend runs on this request, whatever this build last saw", async () => {
-    seitenAntwort = () => ({ acknowledged: 1, laufende_fassungen: { bestaetigung_kontakt: "2026-09-bestaetigungsseite-5" } });
-
-    const answer = await bodyOf(aRequest(gueltigerKoerper));
-
-    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
-    assert.notEqual(LAUFEND, "2026-09-bestaetigungsseite-5", "the case moves nothing: the registry already runs that label");
-  });
-
-  /* Judged before the parse, so an older page gets the one sentence as its whole answer rather than
-     marks on boxes whose values may be right. */
-  it("answers a body carrying no label, or an empty one, with that same sentence", async () => {
+  /* No box carries the label, so a body naming none comes from an older page, and the mail's link is its repair. */
+  it("answers a body carrying no label with that same sentence beside the boxes, reaching nothing", async () => {
     const { text_version: _fassung, ...ohneFassung } = gueltigerKoerper;
+    const answer = await bodyOf(aRequest(ohneFassung));
 
-    for (const fassung of [undefined, "", "   "]) {
-      const answer = await bodyOf(aRequest(fassung === undefined ? ohneFassung : { ...ohneFassung, text_version: fassung }));
-
-      assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN }, JSON.stringify(fassung));
-    }
-    assert.deepEqual(
-      calls.map((call) => call.endpoint),
-      [SEITEN, SEITEN, SEITEN],
-    );
+    assert.equal((answer.body as { success: boolean }).success, false);
+    assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
+    assert.deepEqual(calls, []);
   });
 
   /* The one refusal that spends no token, worded at the floor the link's own view answers: a
@@ -289,8 +269,8 @@ describe("a seat an administrator typed onto a team's season row", () => {
     assert.deepEqual(mails, []);
     assert.deepEqual(
       calls.map((call) => call.endpoint),
-      [SEITEN, WRITE, SEITEN, WRITE],
-      "the handler reached past the label and the write it was asked for",
+      [WRITE, WRITE],
+      "the handler reached past the write it was asked for",
     );
   });
 

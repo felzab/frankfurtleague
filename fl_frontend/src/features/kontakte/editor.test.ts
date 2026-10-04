@@ -368,17 +368,19 @@ const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"
 /* Spelled out rather than read off the published document, which is the very thing the case below
    compares it to: a code taken from `publishedRefusals` would agree with itself whatever the backend publishes. */
 const STALE_BLOCK = "REQ-KONTAKT-001";
+/** The backend's judgement of a seat's label (`docs/backend/spec.md :: I866`), spelled out for the same reason. */
+const LABEL_REFUSED = "REQ-EINWILLIGUNG-001";
 
 describe("the contacts write against the codes its endpoint publishes", () => {
   /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
      (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
      falls through to the shared fallback, which names no reason. */
-  it("words the one refusal its endpoint publishes, at the save", () => {
+  it("words both refusals its endpoint publishes, at the save", () => {
     const published = publishedRefusals(KONTAKTE_OPERATION);
 
     assert.deepEqual(
       published.filter((code) => code !== DUPLICATE_KEY),
-      [STALE_BLOCK],
+      [LABEL_REFUSED, STALE_BLOCK],
     );
     for (const code of published) {
       assert.notEqual(answerShown(KONTAKTE_OPERATION, code, mapStaleBlockRefusal), null, `${code} reaches the admin as an unhandled conflict`);

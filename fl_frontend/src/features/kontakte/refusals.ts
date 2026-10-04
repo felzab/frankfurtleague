@@ -1,3 +1,4 @@
+import { BEWERBUNG_VERALTET } from "@/features/bewerbungen/utils";
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -33,7 +34,11 @@ export function mapEinladenRefusal(error: unknown): string | null {
  * screen is behind the row, so no box the admin could correct is at fault.
  */
 export function mapStaleBlockRefusal(error: unknown): string | null {
-  if (!isRefusal(error) || error.serverErrorCode !== "REQ-KONTAKT-001") return null;
+  if (!isRefusal(error)) return null;
+  // The backend's judgement of a seat's label (`docs/backend/spec.md :: I866`): an editor opened
+  // before a deploy moved the form's label sends it for a person the row did not hold.
+  if (error.serverErrorCode === "REQ-EINWILLIGUNG-001") return BEWERBUNG_VERALTET;
+  if (error.serverErrorCode !== "REQ-KONTAKT-001") return null;
 
   return buildRefusal({
     reason:

@@ -281,8 +281,8 @@ class FLRegistrierungBestaetigungPayload(BaseModel):
     # Required rather than defaulted: a page omitting it would store this model's answer in place of
     # the person's, and an off switch is an answer.
     medien: bool
-    # The label of the text the running build renders: the route handler refuses any other
-    # (`docs/frontend/spec.md :: I148`).
+    # The label of the words the page showed: the write refuses any but the running one
+    # (`docs/backend/spec.md :: I550`).
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 

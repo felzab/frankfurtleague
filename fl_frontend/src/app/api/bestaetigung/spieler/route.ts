@@ -1,5 +1,3 @@
-import { getLaufendesLabel } from "@/core/einwilligung";
-import { nenntLaufendeFassung } from "@/features/bewerbungen/utils";
 import { postSpielerBestaetigung } from "@/features/registrierungen/mutations";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
 import { FLRegistrierungBestaetigungPayloadSchema } from "@/features/registrierungen/schemas";
@@ -34,13 +32,6 @@ export async function POST(request: NextRequest) {
     routeName: "postSpielerBestaetigung",
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
-
-      // Judged BEFORE the parse, by the check every confirmation handler shares: a page opened
-      // before a deploy moved the label posts the words its reader saw, and only the mail's link
-      // reopens the page on the running ones.
-      if (!nenntLaufendeFassung(body, await getLaufendesLabel("bestaetigung_spieler"))) {
-        return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
-      }
 
       const parsed = FLRegistrierungBestaetigungPayloadSchema.safeParse(body);
 

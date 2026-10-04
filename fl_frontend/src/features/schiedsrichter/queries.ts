@@ -5,7 +5,7 @@ import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
@@ -96,6 +96,10 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // sends this answer, and its repair is the refused payload's.
     case "REQ-SCHIEDSRICHTER-008":
       return { error: ANTWORT_NEU_OEFFNEN };
+    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // deploy moved it posts words the backend no longer runs, and only the mail's link reopens it.
+    case "REQ-EINWILLIGUNG-001":
+      return { error: FASSUNG_NEU_OEFFNEN };
     // With the record missing, the referee the link names is gone, which is a link nothing places.
     case "DB-COMMON-001":
     case "REQ-SCHIEDSRICHTER-002":

@@ -4,7 +4,7 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
@@ -199,16 +199,6 @@ export function mapBewerbungSubmitRefusal(
   }
 }
 
-// Takes an unjudged body: judged first, an older page's answer is the one sentence rather than marks
-// on boxes whose values may be right, and a stale label the newer schema accepts never reaches the write.
-/**
- * Whether a confirmation names the label the backend runs, the only one a stored answer may cite: a
- * page opened before a deploy posts the label of words the backend has moved past.
- */
-export function nenntLaufendeFassung(body: unknown, textVersion: string): boolean {
-  return typeof body === "object" && body !== null && "text_version" in body && body.text_version === textVersion;
-}
-
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
 export type EinwilligungRefusal = {
   error?: string;
@@ -233,6 +223,10 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
+    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // deploy moved it posts words the backend no longer runs, and only the mail's link reopens it.
+    case "REQ-EINWILLIGUNG-001":
+      return { error: FASSUNG_NEU_OEFFNEN };
     // With the record missing, the application the link names is gone, which is a link nothing places.
     case "DB-COMMON-001":
     case "REQ-BEWERBUNG-009":
