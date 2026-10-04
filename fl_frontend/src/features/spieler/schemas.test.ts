@@ -3,7 +3,48 @@ import { describe, it } from "node:test";
 
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants.ts";
 
-import { FLPatchSpielerPayloadSchema, FLSpielerAdminSingleResponseSchema, FLSpielerPublicSchema } from "./schemas.ts";
+import {
+  FLEinwilligungSchema,
+  FLEinwilligungStandPayloadSchema,
+  FLEinwilligungStandSchema,
+  FLPatchSpielerPayloadSchema,
+  FLSpielerAdminSingleResponseSchema,
+  FLSpielerPublicSchema,
+} from "./schemas.ts";
+
+/* Composed by the backend's own writers and serialised by its read model: confirmed on the pupil page
+   with both choices granted, then media withdrawn on the account page. `apiContract.test.ts` compares
+   the shapes and never a value inside one. */
+const SERVED_EINWILLIGUNG = {
+  umfang: "kader_oeffentlich",
+  erteilt_von: "volljaehrig",
+  datum: "2026-10-01",
+  bestaetigt_am: "2026-10-01",
+  text_version: "2026-10-spielerseite-4",
+  medien: false,
+  nachweis: {
+    umfang: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-4", erteilt_zuvor: null },
+    medien: {
+      am: "2026-10-03T16:05:31+00:00",
+      text_version: "2026-10-konto-spieler",
+      erteilt_zuvor: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-4" },
+    },
+  },
+};
+const SERVED_STAND = { medien: "2026-10-03T16:05:31+00:00", umfang: "2026-10-01T07:42:10+00:00" };
+
+describe("a consent record whose evidence is filled, as a read serves it", () => {
+  // Equal rather than merely parsed: an object schema drops a key it does not declare, which would
+  // lose the grant a withdrawal names and still parse.
+  it("keeps a granted choice's act and a withdrawn choice's act with the grant it ended", () => {
+    assert.deepEqual(FLEinwilligungSchema.parse(SERVED_EINWILLIGUNG), SERVED_EINWILLIGUNG);
+  });
+
+  it("keeps the instants a read serves as the press's precondition, and sends them back unchanged", () => {
+    assert.deepEqual(FLEinwilligungStandSchema.parse(SERVED_STAND), SERVED_STAND);
+    assert.deepEqual(FLEinwilligungStandPayloadSchema.parse(SERVED_STAND), SERVED_STAND);
+  });
+});
 
 // Each read model states the floor its twin states, and the public row carries none: the gate
 // answers both names as `null` for a person it withholds (`READ-PUPIL-003`), and a stricter mirror

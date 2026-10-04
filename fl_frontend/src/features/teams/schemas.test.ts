@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { FLMedienStandSchema } from "@/features/spieler/schemas";
+
 import {
   FLAustrittSchema,
   FLKontaktKenntnisnahmePayloadSchema,
+  FLKontaktKenntnisnahmeSchema,
   FLPatchSaisonTeamPayloadSchema,
   FLPatchTeamResponseSchema,
   FLPostTeamPayloadSchema,
@@ -374,5 +377,34 @@ describe("the write payloads' floors, against the stripped floors at the API", (
      club whose stored reason is blank fails the list it appears in (`docs/backend/spec.md :: I36`). */
   it("leaves the read schema taking a stored reason of spaces alone", () => {
     assert.equal(FLAustrittSchema.safeParse({ type: "rueckzug", grund: SPACES, datum: "2026-03-12" }).success, true);
+  });
+});
+
+/* Composed by the backend's own writers and serialised by its read model: an administrator reseats the
+   person, who answers the seat's own page with WhatsApp and media granted. */
+const SERVED_KENNTNISNAHME = {
+  umfang: "kontaktdaten_whatsapp",
+  text_version: "2026-10-bestaetigungsseite-verwaltung",
+  datum: "2026-10-02",
+  erfasst_von: "person",
+  bestaetigt_am: "2026-10-02",
+  medien: true,
+  eingetragen_von: "liga",
+  nachweis: {
+    umfang: { am: "2026-10-02T18:03:57+00:00", text_version: "2026-10-bestaetigungsseite-verwaltung", erteilt_zuvor: null },
+    medien: { am: "2026-10-02T18:03:57+00:00", text_version: "2026-10-bestaetigungsseite-verwaltung", erteilt_zuvor: null },
+  },
+};
+
+describe("a contact seat's record whose evidence is filled, as a read serves it", () => {
+  // Equal rather than merely parsed, for the reason `fl_frontend/src/features/spieler/schemas.test.ts` gives.
+  it("keeps who seated the person and each choice's act", () => {
+    assert.deepEqual(FLKontaktKenntnisnahmeSchema.parse(SERVED_KENNTNISNAHME), SERVED_KENNTNISNAHME);
+  });
+
+  it("keeps the media instant a read serves as the press's precondition", () => {
+    const stand = { medien: "2026-10-02T18:03:57+00:00" };
+
+    assert.deepEqual(FLMedienStandSchema.parse(stand), stand);
   });
 });
