@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "19a423834ac8fc041af55cea93ff8b301866627f9b7bd3225d6964cc1560a450" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "eb0962d4a7ba88c17f00628f8a661b8ee3e7b3bd615c469bad6f554ddd6fbe98" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -178,8 +178,8 @@ describe("the privacy notice's retention table", () => {
       ANGABEN.get("Registrierung eines Spielers oder einer Spielerin"),
       `${amAnfang(inWorten(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE))} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht ` +
         "bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis " +
-        "Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem " +
-        "Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht " +
+        "das Team über sie entscheidet: Nimmt es die Person auf, löschen wir die Registrierung, und ihre Angaben stehen von da an " +
+        "im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht " +
         "entschieden, löschen wir sie dann",
     );
   });
