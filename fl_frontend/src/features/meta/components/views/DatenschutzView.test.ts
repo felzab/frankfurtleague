@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "eb0962d4a7ba88c17f00628f8a661b8ee3e7b3bd615c469bad6f554ddd6fbe98" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "5aaaed070d5d1618faa6ef703a1d879d64265f1bd5fa221f8abbfa493934e083" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -198,7 +198,11 @@ describe("the privacy notice's retention table", () => {
 
   it("gives a rejected application, the action log and the backups their clocks in words", () => {
     assert.equal(ANGABEN.get("Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen"), "Ein Monat nach der Entscheidung");
-    assert.ok(ANGABEN.get("Änderungsprotokoll der Verwaltung")?.startsWith("Zwölf Monate ab dem Eintrag;"));
+    assert.ok(
+      ANGABEN.get("Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen an ihren eigenen Angaben")?.startsWith(
+        "Zwölf Monate ab dem Eintrag;",
+      ),
+    );
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
   });
 
@@ -356,12 +360,23 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   {
     weg: "Die Freigabe von Cloudflare setzen wir",
     statt:
-      "Die Abfrage und die Freigabe von Cloudflare setzen wir ohne Einwilligung ein, weil sie die Anmeldung und das Formular vor " +
+      "Die Abfragen und die Freigabe von Cloudflare setzen wir ohne Einwilligung ein, weil sie die Anmeldung und die Formulare vor " +
       "automatisiertem Missbrauch schützen (§ 25 Abs. 2 Nr. 2 TDDDG).",
   },
   {
     weg: "weil es nichts einzuwilligen gibt",
     statt: "und es gibt keinen Cookie-Banner, weil wir für nichts davon eine Einwilligung einholen.",
+  },
+  // No rule checks a form's submission, so the clearance a navigation's challenge leaves spares a second challenge and nothing more.
+  { weg: "damit das Formular abgeschickt werden kann", statt: "damit Du beim nächsten Aufruf nicht erneut geprüft wirst" },
+  // Self-service withdrawal on the account page stands beside the e-mail route.
+  {
+    weg: "Du kannst diese Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, formlos an",
+    statt: "die Erlaubnis für Fotos, Videos und Interviews nimmst Du außerdem selbst in Deinem Konto zurück",
+  },
+  {
+    weg: "Das ist die einzige Einwilligung, die wir an dieser Stelle einholen",
+    statt: "Auf derselben Seite stehen zwei freiwillige Schalter.",
   },
   // Standing between the decision and the clause, the citation made the decision what Cloudflare is certified under.
   { weg: "Art. 45 DSGVO), nach dem Cloudflare zertifiziert ist", statt: "Nach diesem Framework ist Cloudflare zertifiziert" },
@@ -372,6 +387,23 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
     statt: "Das betrifft jede Verarbeitung, für die diese Erklärung Art. 6 Abs. 1 lit. f DSGVO als Rechtsgrundlage nennt",
   },
 ];
+
+describe("the privacy notice's account of the site's own protection", () => {
+  /* Three pages load the check, and a page left out of the notice is processing nobody was told of. */
+  it("names Cloudflare's bot check on all three pages that load it, and Cloudflare's own use of what it reads", () => {
+    const absatz = ABSAETZE.find((text) => text.startsWith("Eine zweite Prüfung von Cloudflare, Turnstile,")) ?? "";
+
+    assert.ok(absatz.includes("auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular"), absatz);
+    assert.ok(absatz.includes("Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung"), absatz);
+  });
+
+  it("gives a person's daily count its clock, and says it holds no address", () => {
+    const frist = ANGABEN.get("Tageszähler der Änderungen einer angemeldeten Person") ?? "";
+
+    assert.ok(frist.startsWith("Bis Mitternacht des Tages, den er zählt."), frist);
+    assert.ok(frist.includes("unter einem unlesbaren Schlüssel statt Deiner Adresse"), frist);
+  });
+});
 
 describe("the privacy notice keeps no sentence the tree made untrue", () => {
   for (const { weg, statt } of ERSETZT) {
@@ -442,7 +474,7 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   it("publishes media only from the floor the confirmations judge, on its own consent", () => {
     assert.equal(
       ANGABEN.get(
-        `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen und Schiedsrichtern ab ${String(MEDIEN_MIN_ALTER)} Jahren, ` +
+        `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen, Schiedsrichtern, Trainerinnen, Trainern und Ansprechpersonen ab ${String(MEDIEN_MIN_ALTER)} Jahren, ` +
           "auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser " +
           "Website und auf dem Instagram-Kanal der Liga",
       ),

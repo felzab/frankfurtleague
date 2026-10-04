@@ -56,7 +56,7 @@ const EMPFAENGER = [
   },
   {
     name: "Cloudflare, Inc.",
-    rolle: "Auftragsverarbeiter",
+    rolle: "Auftragsverarbeiter; für die Verbesserung seiner Erkennung automatisierter Zugriffe selbst verantwortlich (Abschnitt 11)",
     inhalt: "Jede Anfrage im Klartext: Adresse, aufgerufene Seite, Kopfzeilen, Formularinhalte",
     ort: "Weltweit, am nächsten Rand des Netzes; Sitz in den Vereinigten Staaten",
     vereinbarung: "Standardvereinbarung, in die Nutzungsbedingungen einbezogen; Übermittlung nach dem EU-US Data Privacy Framework",
@@ -135,7 +135,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklichem Einverständnis",
   },
   {
-    was: `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen und Schiedsrichtern ab ${String(MEDIEN_MIN_ALTER)} Jahren, auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser Website und auf dem Instagram-Kanal der Liga`,
+    was: `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen, Schiedsrichtern, Trainerinnen, Trainern und Ansprechpersonen ab ${String(MEDIEN_MIN_ALTER)} Jahren, auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser Website und auf dem Instagram-Kanal der Liga`,
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung; Zweck ist, über die Liga zu berichten",
   },
   {
@@ -192,8 +192,13 @@ const FRISTEN = [
     frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht, und werden auf Wunsch gelöscht`,
   },
   {
-    daten: "Änderungsprotokoll der Verwaltung",
+    daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen an ihren eigenen Angaben",
     frist: "Zwölf Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
+  },
+  {
+    daten: "Tageszähler der Änderungen einer angemeldeten Person",
+    frist:
+      "Bis Mitternacht des Tages, den er zählt. Er enthält nur die Zahl der Änderungen und Deine Rolle, unter einem unlesbaren Schlüssel statt Deiner Adresse, und begrenzt, wie viel ein Konto an einem Tag ändern kann, damit ein missbrauchtes Konto nicht unbegrenzt schreibt",
   },
   {
     daten: "Zugriffsprotokoll des Servers",
@@ -405,12 +410,15 @@ export function DatenschutzView() {
             eine Erinnerung verschiebt sie nicht.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Auf derselben Seite steht ein freiwilliger Schalter: Die Liga darf Dich auch über WhatsApp erreichen. Das ist die einzige
-            Einwilligung, die wir an dieser Stelle einholen (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Sie ist von der Bestätigung getrennt und
-            keine Bedingung der Bewerbung; lässt Du den Schalter aus, erreichen wir Dich per E-Mail und, wenn es eilt, telefonisch, und es
-            entsteht Dir kein Nachteil. Schaltest Du ihn ein, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu
-            WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Du kannst diese Einwilligung
-            jederzeit mit Wirkung für die Zukunft widerrufen, formlos an <MailLink />. Was bis dahin geschah, bleibt rechtmäßig.
+            Auf derselben Seite stehen zwei freiwillige Schalter. Das sind die einzigen Einwilligungen, die wir an dieser Stelle einholen (Art.
+            6 Abs. 1 lit. a und Art. 7 DSGVO). Beide sind von der Bestätigung getrennt und keine Bedingung der Bewerbung; lässt Du sie aus,
+            entsteht Dir kein Nachteil. Mit dem ersten darf die Liga Dich auch über WhatsApp erreichen; ohne ihn erreichen wir Dich per E-Mail
+            und, wenn es eilt, telefonisch. Schaltest Du ihn ein, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu
+            WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Mit dem zweiten erlaubst Du ab{" "}
+            {MEDIEN_MIN_ALTER} Jahren, dass Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf dieser Website und dem
+            Instagram-Kanal der Liga veröffentlicht werden (Abschnitt 9); bist Du jünger, fragen wir Dich das nicht. Beide Einwilligungen kannst
+            Du jederzeit mit Wirkung für die Zukunft widerrufen, formlos an <MailLink />; die Erlaubnis für Fotos, Videos und Interviews nimmst
+            Du außerdem selbst in Deinem Konto zurück. Was bis dahin geschah, bleibt rechtmäßig.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für alle Angaben der Bewerbung, zur Schule, zum Team und zu den drei eingetragenen Personen, ist Art. 6 Abs. 1 lit.
@@ -601,7 +609,16 @@ export function DatenschutzView() {
             <li className={ABSATZ_CLASSES}>
               Eine Freigabe von Cloudflare, wenn Du die Anmeldeseite oder das Bewerbungsformular aufrufst. Cloudflare prüft dort mit einer
               kurzen automatischen Abfrage Deines Browsers, ob ein Mensch die Seite aufruft, und legt danach einen Nachweis in Deinem Browser
-              ab, damit das Formular abgeschickt werden kann. Der Nachweis gilt höchstens 30 Minuten.
+              ab, damit Du beim nächsten Aufruf nicht erneut geprüft wirst. Der Nachweis gilt höchstens 30 Minuten.
+            </li>
+            <li className={ABSATZ_CLASSES}>
+              Eine zweite Prüfung von Cloudflare, Turnstile, auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular. Sie
+              läuft in einem eingebetteten Fenster von Cloudflare und fragt dabei Merkmale Deines Browsers und Deiner Verbindung ab, darunter
+              Deine IP-Adresse und die Kennung Deines Browsers. Meist merkst Du davon nichts; nur wenn Cloudflare sich nicht sicher ist, bittet
+              es Dich um einen Klick. Das Ergebnis ist ein Nachweis, den das Formular beim Abschicken mitschickt und den wir bei Cloudflare
+              bestätigen lassen, bevor wir einen Anmeldecode verschicken oder eine Bewerbung oder Registrierung speichern. Der Nachweis gilt
+              fünf Minuten und nur für ein Abschicken. Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung, um seine Erkennung
+              automatisierter Zugriffe zu verbessern.
             </li>
             <li className={ABSATZ_CLASSES}>
               Die von Dir gewählte Darstellung, hell oder dunkel. Sie wird im lokalen Speicher Deines Browsers abgelegt, damit die Seite beim
@@ -610,8 +627,8 @@ export function DatenschutzView() {
           </ul>
           <p className={ABSATZ_CLASSES}>
             Was wir selbst ablegen, ist unbedingt erforderlich, um den von Dir gewünschten Dienst bereitzustellen, und deshalb nach § 25 Abs. 2
-            Nr. 2 TDDDG einwilligungsfrei. Die Abfrage und die Freigabe von Cloudflare setzen wir ohne Einwilligung ein, weil sie die Anmeldung
-            und das Formular vor automatisiertem Missbrauch schützen (§ 25 Abs. 2 Nr. 2 TDDDG). Darüber hinaus wird nichts in Deinem Browser
+            Nr. 2 TDDDG einwilligungsfrei. Die Abfragen und die Freigabe von Cloudflare setzen wir ohne Einwilligung ein, weil sie die Anmeldung
+            und die Formulare vor automatisiertem Missbrauch schützen (§ 25 Abs. 2 Nr. 2 TDDDG). Darüber hinaus wird nichts in Deinem Browser
             abgelegt, und es gibt keinen Cookie-Banner, weil wir für nichts davon eine Einwilligung einholen.
           </p>
           <p className={ABSATZ_CLASSES}>
@@ -691,8 +708,9 @@ export function DatenschutzView() {
             </li>
           </ul>
           <p className={ABSATZ_CLASSES}>
-            Wie Du sie ausübst: eine formlose E-Mail an <MailLink />. Begründen musst Du nur einen Widerspruch, mit Deiner besonderen Situation.
-            Wir antworten so schnell wir können und in jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
+            Wie Du sie ausübst: eine formlose E-Mail an <MailLink />. Bist Du angemeldet, kannst Du die Einwilligungen, die Dein Konto zeigt,
+            außerdem dort selbst ändern und widerrufen. Begründen musst Du nur einen Widerspruch, mit Deiner besonderen Situation. Wir antworten
+            so schnell wir können und in jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
           </p>
           <p className={ABSATZ_CLASSES}>
             Was eine Löschung erreicht und was nicht: Aus der laufenden Datenbank sind Deine Daten sofort verschwunden. In den Sicherungskopien
