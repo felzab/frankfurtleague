@@ -232,6 +232,8 @@ do_selfcheck() { bash scripts/gate/selfcheck.sh; }
 # The orchestration skill's tools are python no other scope reads; `scripts/pyrightconfig.json`
 # includes the same folder.
 SCRIPTS_PYTHON=(scripts .claude/skills/orchestration/tools)
+# Joined on a space for the advice lines: `_lib.sh`'s IFS would join it on a newline.
+SCRIPTS_PYTHON_SAID="$(IFS=' '; printf '%s' "${SCRIPTS_PYTHON[*]}")"
 # Only a failing invocation speaks. Both share one capture, so a passing banner would print
 # directly above the other's finding and read as a verdict on it.
 do_ruff() {
@@ -806,12 +808,12 @@ if (( RUN_SCRIPTS )); then
   step "scripts · ruff  (lint, and format in check mode)"
   unit_join ruff
   unit_verdict ruff "${LINENO}" \
-    "ruff failed in ${SCRIPTS_PYTHON[*]}. Fix with:  fl_backend/.venv/Scripts/python -m ruff format ${SCRIPTS_PYTHON[*]}"
+    "ruff failed in ${SCRIPTS_PYTHON_SAID}. Fix with:  fl_backend/.venv/Scripts/python -m ruff format ${SCRIPTS_PYTHON_SAID}"
   ok "the gate's own python is clean"
 
   step "scripts · pyright"
   unit_join pyright
-  unit_verdict pyright "${LINENO}" "pyright found type errors in ${SCRIPTS_PYTHON[*]}.
+  unit_verdict pyright "${LINENO}" "pyright found type errors in ${SCRIPTS_PYTHON_SAID}.
 These are the same errors Pylance shows in the editor."
   ok "the gate's own types are clean"
 

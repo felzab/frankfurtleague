@@ -853,7 +853,8 @@ const input = { session_id: "probe", hook_event_name: "PreToolUse", tool_name: t
 if (agent) input.agent_type = agent;
 process.stdout.write(JSON.stringify(input));
 ' "$1" "$2" "$3")"
-    printf '%s' "$payload" | bash "$SUITE_HOOK" >/dev/null 2>"$suite_err" || rc=$?
+    # Bounded as the harness bounds the hook, so a reader that hangs fails its probe instead of the step.
+    printf '%s' "$payload" | timeout 10 bash "$SUITE_HOOK" >/dev/null 2>"$suite_err" || rc=$?
     printf '%s %s' "$rc" "$(tr '\n' ' ' < "$suite_err")"
   }
   expect_refused() { # $1 tool · $2 command
@@ -894,7 +895,17 @@ process.stdout.write(JSON.stringify(input));
   for suite_tree in tests ./tests/ fl_backend fl_backend/tests; do
     expect_refused Bash "uv run --frozen pytest ${suite_tree}"
   done
+  # A narrowing operand names a test file or a node id, so a directory, a glob or a flag's value is none.
+  for suite_tree in tests/api 'tests/*' '-n auto' '-p no:cacheprovider --maxfail 1'; do
+    expect_refused Bash "uv run --frozen pytest ${suite_tree}"
+  done
   expect_refused Bash 'uv run --project fl_backend --frozen python -m pytest -m db'
+  expect_refused Bash 'uv run --frozen pytest -m db -n 2'
+  expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py tests/api/test_teams.py'
+  expect_refused Bash 'node --test --test-reporter spec'
+  expect_refused Bash 'pnpm run test:base -- --test-reporter dot'
+  expect_refused Bash 'npm t'
+  expect_refused Bash 'bash -x ./scripts/gate/verify.sh'
   expect_refused Bash 'uv run --directory fl_backend pytest'
   expect_refused Bash './scripts/gate/verify.sh --docs'
   expect_refused Bash 'bash scripts/ops/local.sh --down'
@@ -917,6 +928,8 @@ process.stdout.write(JSON.stringify(input));
   expect_refused Bash 'bash -c "cd fl_frontend && pnpm test"'
   expect_refused Bash "sh -c 'pnpm test'"
   expect_refused Bash 'bash -lc "pnpm test"'
+  # A double quote's escapes are read, so the escaped quotes inside close nothing.
+  expect_refused Bash 'bash -c "pnpm test \"x\""'
   expect_refused Monitor 'pnpm test 2>&1 | tail -5'
   expect_refused PowerShell 'cd fl_frontend; pnpm test'
   # PowerShell's backslash separates a path rather than escaping the character after it.
@@ -924,15 +937,25 @@ process.stdout.write(JSON.stringify(input));
   expect_let_through implementer Bash 'pnpm run test:base src/core/apiContract.test.ts'
   expect_let_through implementer Bash 'node --test src/core/apiContract.test.ts'
   expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
-  expect_let_through implementer Bash 'uv run --frozen pytest tests/api'
+  expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py::test_one'
   expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py'
+  # A substitution's output is the operand, whatever it lists.
+  expect_let_through implementer Bash "uv run --frozen pytest \$(git diff --name-only HEAD~1 -- tests)"
+  expect_let_through implementer Bash "uv run --frozen pytest ${suite_tick}cat files.txt${suite_tick}"
+  expect_let_through implementer Bash "pnpm run test:base \$(git ls-files 'src/features/x/*.test.ts')"
+  expect_let_through implementer PowerShell "uv run --frozen pytest ${suite_tick}"$'\n'"  tests/api/test_spiele.py"
   expect_let_through implementer Bash 'uv run --frozen pytest --collect-only -q'
   expect_let_through implementer Bash 'uv run --frozen pytest --co'
   expect_let_through implementer Bash 'git log -- scripts/gate/verify.sh'
   expect_let_through implementer Bash "git commit -F - <<'EOF'"$'\n''pnpm test'$'\n''EOF'
   expect_let_through implementer Bash 'true # ; pnpm test'
   expect_let_through implementer Bash 'echo "an unterminated quote'
+  # A call the reader cannot read is let through, and in time.
+  expect_let_through implementer Bash 'pnpm test "x'
+  expect_let_through implementer Bash "pnpm test 'x"
   expect_let_through driving-reauditor Bash 'pnpm test'
+  # Past the shell script's word match, the reader's own agent check.
+  expect_let_through driving-reauditor Bash 'pnpm test # implementer'
   expect_let_through '' Bash 'pnpm test'
   # Without node the hook cannot read the call, and lets it through rather than refusing blind.
   suite_rc=0

@@ -10,20 +10,31 @@ const RULE =
   "An implementer runs its targeted set and never a whole suite, the gate or the local stack " +
   "(.claude/agents/implementer.md section 5): CI runs every scope over the combined head once a batch lands.";
 
-// Flags taking their value as the next word. An unknown flag is read as taking none, so its value
-// counts as an operand and the call is let through.
+// Flags taking their value as the next word, skipped so that a value naming a file is not read as an
+// operand. Narrowing is decided positively, so an unknown flag's value narrows nothing.
 const NODE_VALUE = new Set(["--import", "--test-name-pattern"]);
 const PYTEST_VALUE = new Set(["-m", "-k"]);
 const UV_RUN_VALUE = new Set(["--project", "--directory"]);
 const PNPM_VALUE = new Set(["-C", "--dir", "--filter"]);
 const COLLECT_ONLY = new Set(["--collect-only", "--co"]);
 const WRAPPERS = new Set(["time", "exec", "command", "!", "if", "then", "else", "do", "while", "until"]);
-// Operands naming a whole test tree, which narrow nothing.
-const WHOLE_TREES = new Set(["", "tests", "fl_backend", "fl_backend/tests", "src", "fl_frontend", "fl_frontend/src"]);
+// A command substitution in an argument position: its output is read as an operand that narrows,
+// and the command inside it is judged on its own.
+const SUBSTITUTION = "\u0000substitution";
+
+// The index of the parenthesis closing the one opened just before `from`, or -1.
+function closing(text, from) {
+  let depth = 1;
+  for (let k = from; k < text.length; k++) {
+    if (text[k] === "(") depth++;
+    if (text[k] === ")" && --depth === 0) return k;
+  }
+  return -1;
+}
 
 // Words of each simple command, quotes resolved and redirections dropped: a redirect target read as
 // an operand would let `pytest > log` through. PowerShell's backslash is a path separator, never an
-// escape.
+// escape, and its backtick escapes the next character, a newline included.
 function segments(text, escapes) {
   const out = [];
   let words = [];
@@ -124,12 +135,21 @@ function segments(text, escapes) {
       drop = true;
       continue;
     }
-    if (text.startsWith("$(", i)) {
-      end();
+    if (!escapes && c === "`" && i + 1 < text.length) {
+      if (text[i + 1] !== "\n") word = (word ?? "") + text[i + 1];
       i += 2;
       continue;
     }
-    if (";&|()`{}".includes(c)) {
+    if (text.startsWith("$(", i) || (escapes && c === "`")) {
+      const tick = c === "`";
+      const j = tick ? text.indexOf("`", i + 1) : closing(text, i + 2);
+      if (j === -1) throw new Error("unterminated substitution");
+      out.push(...segments(text.slice(i + (tick ? 1 : 2), j), escapes));
+      word = (word ?? "") + SUBSTITUTION;
+      i = j + 1;
+      continue;
+    }
+    if (";&|(){}".includes(c)) {
       end();
       i++;
       continue;
@@ -144,12 +164,9 @@ function segments(text, escapes) {
 const isAssignment = (w) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(w);
 const slashed = (w) => w.replace(/\\/g, "/");
 const base = (w) => slashed(w).split("/").pop().toLowerCase();
-const wholeTree = (w) =>
-  WHOLE_TREES.has(
-    slashed(w)
-      .replace(/^(\.\/)+|\/+$/g, "")
-      .replace(/^\.$/, ""),
-  ) || w.includes("**");
+// An operand narrows a run only by naming a test file, a `::` node id or a substitution's output: a
+// directory, a recursive glob or anything else is read as the whole suite.
+const namesTests = (w) => w.includes(SUBSTITUTION) || w.includes("::") || (!w.includes("**") && /\.(py|[cm]?[jt]sx?)$/i.test(w));
 
 // The words left once every wrapper in front of the command proper is gone.
 function unwrap(words) {
@@ -183,9 +200,9 @@ function unwrap(words) {
   }
 }
 
-// True where a word after the command narrows the run: an operand, neither a flag, a flag's value,
-// nor a whole test tree. `--` only ends the flags.
-function narrows(args, valueFlags) {
+// The operands after the command that name tests, a flag's value skipped. `--` only ends the flags.
+function testOperands(args, valueFlags) {
+  const named = [];
   for (let k = 0; k < args.length; k++) {
     const a = args[k];
     if (a === "--") continue;
@@ -193,9 +210,17 @@ function narrows(args, valueFlags) {
       if (!a.includes("=") && valueFlags.has(a)) k++;
       continue;
     }
-    if (!wholeTree(a)) return true;
+    if (namesTests(a)) named.push(a);
   }
-  return false;
+  return named;
+}
+
+// The database tier holds a machine-wide lock, so it runs one named file at a time.
+function databaseTier(args) {
+  const m = args.findIndex((a) => a === "-m" || a.startsWith("-m="));
+  if (m === -1) return false;
+  const value = args[m].startsWith("-m=") ? args[m].slice(3) : (args[m + 1] ?? "");
+  return /^\s*db\b/.test(value);
 }
 
 // What one simple command would run whole, or null; `depth` bounds a `bash -c` inside a `bash -c`.
@@ -208,7 +233,7 @@ function judge(words, depth, escapes) {
     let k = 1;
     let script = false;
     while (k < w.length && /^-[a-z]+$/.test(w[k])) script ||= w[k++].includes("c");
-    if (!script) return judge(w.slice(1), depth, escapes);
+    if (!script) return judge(w.slice(k), depth, escapes);
     if (k >= w.length || depth >= 3) return null;
     for (const inner of segments(w[k], escapes)) {
       const found = judge(inner, depth + 1, escapes);
@@ -223,16 +248,16 @@ function judge(words, depth, escapes) {
     while (k < w.length && w[k].startsWith("-")) k += PNPM_VALUE.has(w[k]) ? 2 : 1;
     if (w[k] === "run") k++;
     // Both scripts put their own patterns in front of whatever follows, so no argument narrows them.
-    if (w[k] === "test") return "the whole frontend suite";
+    if (w[k] === "test" || w[k] === "t") return "the whole frontend suite";
     if (w[k] === "test:db") return "the whole frontend database tier";
-    if (w[k] === "test:base" && !narrows(w.slice(k + 1), NODE_VALUE)) return "every test file node finds";
+    if (w[k] === "test:base" && !testOperands(w.slice(k + 1), NODE_VALUE).length) return "every test file node finds";
     return null;
   }
   if (head === "node" && w.includes("--test")) {
-    return narrows(
+    return testOperands(
       w.slice(1).filter((a) => a !== "--test"),
       NODE_VALUE,
-    )
+    ).length
       ? null
       : "every test file node finds";
   }
@@ -243,7 +268,10 @@ function judge(words, depth, escapes) {
     if (m !== -1 && w[m + 1] === "pytest") pytestArgs = w.slice(m + 2);
   }
   if (pytestArgs === null || pytestArgs.some((a) => COLLECT_ONLY.has(a))) return null;
-  return narrows(pytestArgs, PYTEST_VALUE) ? null : "the whole backend suite, or its whole database tier";
+  const named = testOperands(pytestArgs, PYTEST_VALUE);
+  if (databaseTier(pytestArgs))
+    return named.length === 1 && !named[0].includes(SUBSTITUTION) ? null : "the database tier on more than one named file";
+  return named.length ? null : "the whole backend suite";
 }
 
 let raw = "";
