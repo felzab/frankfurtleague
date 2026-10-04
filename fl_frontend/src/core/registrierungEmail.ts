@@ -53,7 +53,10 @@ export interface RegistrierungLinkEmailData {
   readonly fristTage: number;
 }
 
-/** What the season-end note is addressed with. It carries no link, the record it is about being gone. */
+/**
+ * What the season-end note is addressed with. It carries no confirmation link, only the league's
+ * landing, the record it is about being gone.
+ */
 export interface RegistrierungNotizEmailData {
   readonly vorname: string;
   readonly teamName: string;
