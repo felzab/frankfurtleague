@@ -311,9 +311,9 @@ async def _nothing() -> None:
 
 
 def save_racing_a_ban(url: str, *, rival: bool) -> tuple[int, str | None, int]:
-    """`THREE` saved through the served application, so the administrator's judge is bound; Ida is banned where `rival` is set.
+    """`THREE` saved by one administrator through the served application, Ida banned inside it by another where `rival` is set.
 
-    Answers the status, the refusal's code and the arrivals at the ban read. Called directly, a handler binds no judge.
+    Answers the status, the refusal's code and the arrivals at the ban read. Called directly, a handler binds no judge and commits Ida's seat.
     """
 
     async def seeded(_: AsyncDatabase, __: AsyncMongoClient) -> None:
@@ -327,16 +327,27 @@ def save_racing_a_ban(url: str, *, rival: bool) -> tuple[int, str | None, int]:
             database = served.state.db_client[DATABASE_NAME]
             racing: list[BanListRunningARivalAfterItsRead] = []
 
+            # Another administrator's request, so its own judge anchors its own grant: run as the saver, the
+            # ban would conflict on the saver's grant row whatever the ban's list judgement writes.
             async def ban_ida() -> None:
-                await ban(database, served.state.db_client, "ida@example.com")
+                banned = await http.post(
+                    f"/api/v{API_VERSION}/sperrliste",
+                    json={"email": "ida@example.com", "grund": "Wiederholte Falschangaben"},
+                    headers=SignedActor(ADMINISTRATORS[0], ADMIN_KEY),
+                )
+                assert banned.status_code == HTTPStatus.CREATED, banned.text
 
             async def wrapped_ban_list() -> AsyncCollection:
+                # The save's request alone: the rival's own request reads the list unwrapped.
+                if racing:
+                    return database[Collection.SPERRLISTE]
+
                 interleaved = BanListRunningARivalAfterItsRead(database[Collection.SPERRLISTE], ban_ida if rival else _nothing)
                 racing.append(interleaved)
                 # Not a subclass of the driver's collection, which the driver builds off a database handle.
                 return cast(AsyncCollection, interleaved)
 
-            # Only the request's ban list: the judge reads its own, and the rival bans through the handler unwrapped.
+            # Only the request's ban list: the judge reads its own.
             served.dependency_overrides[get_sperrliste_collection] = wrapped_ban_list
             answered = await http.patch(
                 f"/api/v{API_VERSION}/teams/{TEAM_OID}/saisons/{SAISON_ID}/kontakte",
