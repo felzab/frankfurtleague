@@ -1,9 +1,9 @@
 """SCRIPTS · the orchestration skill's tools, driven over fixture repositories and registers.
 
-Each tool replaces a step a coordinator did by hand and got wrong in silence: a landing that
-re-picked commits an earlier landing took, a clock time typed ahead of the clock, a finding banked
-with no ledger row. Every refusal arm is driven as well as the pass, since a tool failing open
-reads exactly like one with nothing to refuse.
+Each tool replaces a step a coordinator can get wrong in silence: a merge taking in work nobody
+committed, a clock time typed ahead of the clock, a finding banked with no ledger row. Every
+refusal arm is driven as well as the pass, since a tool failing open reads exactly like one with
+nothing to refuse.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def test_a_row_the_commit_changed_and_the_session_branch_kept_takes_the_change()
     ("ours", "theirs", "commit_rows", "said"),
     [
         ("| I2 | ours |\n", "| I2 | theirs |\n", "| I2 | theirs |\n", "both sides changed the row"),
-        ("| I4 | four |\n", "| I2 | theirs |\n", "| I2 | theirs |\n", "the commit changes a row the session branch removed"),
+        ("| I4 | four |\n", "| I2 | theirs |\n", "| I2 | theirs |\n", "the agent's branch changes a row the session branch removed"),
         ("prose, not a row\n", "| I3 | three |\n", "| I2 | two |\n| I3 | three |\n", "not table rows"),
     ],
     ids=["both changed", "changed where removed", "not a table"],
@@ -227,10 +227,12 @@ def test_a_skipped_number_is_named(tmp_path: Path) -> None:
 
 # --- land -----------------------------------------------------------------------------------------
 
-# The generator stands in for `tests.openapi_document`: the document follows a source file, so a
-# commit moving that file moves the document.
+# The generator stands in for `tests.openapi_document`: the document follows two source files, so
+# two branches each moving one move different parts of it.
 OPENAPI_WRITER: Final = (
-    'from pathlib import Path\nPath("openapi.json").write_bytes(b"{" + Path("app/schema.txt").read_bytes().strip() + b"}\\n")\n'
+    "from pathlib import Path\n"
+    'parts = [Path(f"app/{name}.txt").read_bytes().strip() for name in ("schema", "extra")]\n'
+    'Path("openapi.json").write_bytes(b"{" + b", ".join(parts) + b"}\\n")\n'
 )
 EINWILLIGUNG_WRITER: Final = 'from pathlib import Path\nPath("einwilligung.json").write_bytes(b"{}\\n")\n'
 # Records every subject it is handed, and refuses one asking to be refused, so a test can tell a
@@ -241,10 +243,9 @@ COMMIT_MSG_HOOK: Final = (
     'printf "%s\\n" "$subject" >> "$(git rev-parse --git-dir)/hooklog"\n'
     'case "$subject" in *REFUSE*) echo "refused by the fixture hook" >&2; exit 1 ;; esac\n'
 )
-DEFERRED: Final = "`fl_backend/openapi.json` is regenerated at landing."
 
 
-def _repo(tmp_path: Path) -> Path:
+def _repo(tmp_path: Path, branch: str = "agent") -> Path:
     """A session branch holding a backend with both generated documents current, and an agent branch off it."""
     root = tmp_path / "repo"
     root.mkdir()
@@ -255,31 +256,39 @@ def _repo(tmp_path: Path) -> Path:
     # The repository's own `.gitattributes` keeps every checkout LF, which a Windows default would not.
     git(root, "config", "core.autocrlf", "false")
     write(root, "fl_backend/app/schema.txt", '"a": 1')
+    write(root, "fl_backend/app/extra.txt", '"b": 1')
     write(root, "fl_backend/tests/openapi_document.py", OPENAPI_WRITER)
     write(root, "fl_backend/tests/einwilligung_document.py", EINWILLIGUNG_WRITER)
-    write(root, "fl_backend/openapi.json", '{"a": 1}\n')
+    write(root, "fl_backend/openapi.json", '{"a": 1, "b": 1}\n')
     write(root, "fl_backend/einwilligung.json", "{}\n")
     write(root, "docs/spec.md", TABLE_HEAD + "| I1 | one |\n")
     write(root, "notes.txt", "first\n")
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "Repo: The session branch")
-    git(root, "branch", "agent")
+    git(root, "branch", branch)
     return root
 
 
 NOTE: Final = {"notes.txt": "second\n"}
 
 
-def _agent_commit(root: Path, subject: str, body: str, files: dict[str, str]) -> str:
+def _agent_commit(root: Path, subject: str, files: dict[str, str], branch: str = "agent") -> str:
     """One commit on the agent branch under the agent's own name, the session branch checked out again after."""
-    git(root, "checkout", "-q", "agent")
+    git(root, "checkout", "-q", branch)
     for rel, text in files.items():
         write(root, rel, text)
     git(root, "add", "-A")
-    git(root, "-c", "user.name=agent", "-c", "user.email=agent@example.invalid", "commit", "-q", "--no-verify", "-m", subject, "-m", body)
+    git(root, "-c", "user.name=agent", "-c", "user.email=agent@example.invalid", "commit", "-q", "--no-verify", "-m", subject)
     sha = git(root, "rev-parse", "HEAD")
     git(root, "checkout", "-q", "main")
     return sha
+
+
+def _session_commit(root: Path, subject: str, files: dict[str, str]) -> None:
+    for rel, text in files.items():
+        write(root, rel, text)
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "--no-verify", "-m", subject)
 
 
 def _hooked(root: Path) -> list[str]:
@@ -287,278 +296,174 @@ def _hooked(root: Path) -> list[str]:
     return log.read_bytes().decode("utf-8").splitlines() if log.exists() else []
 
 
-def test_a_landing_regenerates_into_its_commit_and_keeps_the_agent_as_author(tmp_path: Path) -> None:
+def _stopped_clean(root: Path, head: str, code: int, branch: str = "agent") -> str:
+    """A landing that stopped with `code`, leaving no merge in progress, no change and the session branch where it was."""
+    done = _run("land", branch, cwd=root)
+    assert done.returncode == code, (done.returncode, done.stderr)
+    assert "Traceback" not in done.stderr
+    assert git(root, "status", "--porcelain") == "" and not (root / ".git" / "MERGE_HEAD").exists()
+    assert git(root, "rev-parse", "HEAD") == head, "a stopped landing committed something"
+    return done.stderr
+
+
+def test_a_finished_branch_lands_whole_as_one_merge_through_the_hooks(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     start = git(root, "rev-parse", "HEAD")
-    first = _agent_commit(root, "Backend: The schema grows", f"The model moved.\n\n{DEFERRED}", {"fl_backend/app/schema.txt": '"a": 2'})
-    second = _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
+    _agent_commit(root, "Docs: A note", NOTE)
+    tip = _agent_commit(root, "Docs: Another file", {"other.txt": "new\n"})
     hooked = len(_hooked(root))
-    done = _run("land", start, "agent", cwd=root)
+    done = _run("land", "agent", cwd=root)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.strip().endswith(f"recorded tip: {second}")
-    assert "(regenerated openapi.json)" in done.stdout
-    landed = git(root, "log", "--format=%H", f"{start}..HEAD").split()
-    assert len(landed) == 2
-    backend = landed[1]
-    assert git(root, "show", f"{backend}:fl_backend/openapi.json") == '{"a": 2}'
-    assert "`fl_backend/openapi.json` is regenerated in this commit." in git(root, "log", "-1", "--format=%B", backend)
-    assert git(root, "log", "-1", "--format=%an", backend) == "agent"
-    assert _hooked(root)[hooked:] == ["Backend: The schema grows", "Docs: A note"]
-    assert first != backend
+    assert done.stdout.startswith("landed agent as")
+    assert git(root, "log", "-1", "--format=%P").split() == [start, tip]
+    assert git(root, "log", "--format=%an", f"{start}..{tip}").splitlines() == ["agent", "agent"]
+    assert _hooked(root)[hooked:] == ["Merge branch 'agent'"]
 
 
-def test_a_second_landing_from_the_recorded_tip_takes_only_the_new_commit(tmp_path: Path) -> None:
-    """The rebase this replaces existed because the merge-base range lists commits a landing already took."""
+def test_a_branch_the_session_already_holds_is_nothing_to_land(tmp_path: Path) -> None:
     root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    tip = _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
-    assert _run("land", start, "agent", cwd=root).returncode == 0
-    # A later session commit removes a line the landed commit added, which a re-pick would bring back.
-    write(root, "notes.txt", "rewritten by the session\n")
-    git(root, "commit", "-q", "-am", "Repo: The session rewrites the note")
-    _agent_commit(root, "Docs: Another file", "Prose only.", {"other.txt": "new\n"})
-    done = _run("land", tip, "agent", cwd=root)
+    _agent_commit(root, "Docs: A note", NOTE)
+    assert _run("land", "agent", cwd=root).returncode == 0
+    head = git(root, "rev-parse", "HEAD")
+    again = _run("land", "agent", cwd=root)
+    assert again.returncode == 0 and "nothing to land" in again.stdout
+    assert git(root, "rev-parse", "HEAD") == head
+
+
+def test_a_merge_touching_the_backend_regenerates_a_stale_document(tmp_path: Path) -> None:
+    root = _repo(tmp_path)
+    _agent_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2'})
+    done = _run("land", "agent", cwd=root)
     assert done.returncode == 0, done.stderr
-    assert git(root, "log", "--format=%s", "-2").splitlines() == ["Docs: Another file", "Repo: The session rewrites the note"]
-    assert (root / "notes.txt").read_bytes() == b"rewritten by the session\n"
+    assert "(regenerated openapi.json)" in done.stdout
+    assert git(root, "show", "HEAD:fl_backend/openapi.json") == '{"a": 2, "b": 1}'
+
+
+def test_a_generated_document_conflict_is_answered_by_regenerating_it(tmp_path: Path) -> None:
+    """Each side regenerated its own document, so the two documents conflict while the code merges clean."""
+    root = _repo(tmp_path)
+    _agent_commit(root, "Backend: The extra grows", {"fl_backend/app/extra.txt": '"b": 2', "fl_backend/openapi.json": '{"a": 1, "b": 2}\n'})
+    _session_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2', "fl_backend/openapi.json": '{"a": 2, "b": 1}\n'})
+    done = _run("land", "agent", cwd=root)
+    assert done.returncode == 0, done.stderr
+    assert git(root, "show", "HEAD:fl_backend/openapi.json") == '{"a": 2, "b": 2}'
 
 
 def test_a_spec_table_conflict_lands_merged_by_row_key(tmp_path: Path) -> None:
     root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: A row", "An invariant.", {"docs/spec.md": TABLE_HEAD + "| I1 | one |\n| I3 | three |\n"})
-    write(root, "docs/spec.md", TABLE_HEAD + "| I1 | one |\n| I2 | two |\n")
-    git(root, "commit", "-q", "-am", "Docs: The session's row")
-    done = _run("land", start, "agent", cwd=root)
+    _agent_commit(root, "Docs: A row", {"docs/spec.md": TABLE_HEAD + "| I1 | one |\n| I3 | three |\n"})
+    _session_commit(root, "Docs: The session's row", {"docs/spec.md": TABLE_HEAD + "| I1 | one |\n| I2 | two |\n"})
+    done = _run("land", "agent", cwd=root)
     assert done.returncode == 0, done.stderr
     assert "merged by row key: docs/spec.md: ADD I3 after I2" in done.stdout
-    landed = (root / "docs" / "spec.md").read_bytes().decode("utf-8")
+    landed = git(root, "show", "HEAD:docs/spec.md")
     assert "| I2 | two |" in landed and "| I3 | three |" in landed and "<<<<<<<" not in landed
 
 
-def test_an_already_landed_change_is_skipped_rather_than_committed_empty(tmp_path: Path) -> None:
+def test_a_conflict_outside_a_table_aborts_the_merge(tmp_path: Path) -> None:
     root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    tip = _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
-    write(root, "notes.txt", "second\n")
-    git(root, "commit", "-q", "-am", "Docs: The same note, landed by hand")
-    done = _run("land", start, "agent", cwd=root)
-    assert done.returncode == 0, done.stderr
-    assert f"skipped {tip[:9]}" in done.stdout
-
-
-def _refused(root: Path, start: str) -> subprocess.CompletedProcess[str]:
-    head = git(root, "rev-parse", "HEAD")
-    done = _run("land", start, "agent", cwd=root)
-    assert done.returncode == 2, (done.returncode, done.stderr)
-    assert git(root, "rev-parse", "HEAD") == head, "a refused landing committed something"
-    return done
-
-
-def test_a_checkout_holding_changes_is_refused(tmp_path: Path) -> None:
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
-    write(root, "stray.txt", "uncommitted\n")
-    assert "land from a clean tree" in _refused(root, start).stderr
-
-
-def test_a_rewritten_branch_is_refused_with_the_range_diff_to_land_by(tmp_path: Path) -> None:
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    tip = _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
-    git(root, "branch", "-f", "agent", start)
-    _agent_commit(root, "Docs: The note, rewritten", "Prose only.", {"notes.txt": "other\n"})
-    said = _refused(root, tip).stderr
-    assert f"git range-diff {tip}...agent" in said and "git merge-base HEAD agent" in said
-
-
-def test_uncommitted_work_in_the_agents_worktree_is_refused(tmp_path: Path) -> None:
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
-    tree = tmp_path / "agent-tree"
-    git(root, "worktree", "add", "-q", str(tree), "agent")
-    write(tree, "unsaved.txt", "work\n")
-    assert "holds uncommitted work" in _refused(root, start).stderr
-
-
-@pytest.mark.parametrize("named", [("-m", "parked"), ()], ids=["named stash", "unnamed stash"])
-def test_a_stash_entry_on_the_branch_is_refused(tmp_path: Path, named: tuple[str, ...]) -> None:
-    """git lists a named entry as "On <branch>:" and an unnamed one as "WIP on <branch>:"."""
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
-    git(root, "checkout", "-q", "agent")
-    write(root, "notes.txt", "stashed\n")
-    git(root, "stash", "push", "-q", *named)
-    git(root, "checkout", "-q", "main")
-    assert "a stash entry is on agent" in _refused(root, start).stderr
-
-
-def test_a_merge_commit_in_the_range_is_refused(tmp_path: Path) -> None:
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
-    write(root, "other.txt", "session\n")
-    git(root, "add", "-A")
-    git(root, "commit", "-q", "-m", "Repo: Session work")
-    git(root, "checkout", "-q", "agent")
-    git(root, "merge", "-q", "--no-edit", "--no-verify", "main")
-    git(root, "checkout", "-q", "main")
-    assert "holds a merge commit" in _refused(root, start).stderr
-
-
-@pytest.mark.parametrize(
-    ("body", "files", "said"),
-    [
-        (DEFERRED, NOTE, "the landing leaves it unchanged"),
-        ("The model moved.", {"fl_backend/app/schema.txt": '"a": 3'}, "the body does not say so"),
-        (
-            "`fl_backend/openapi.json` is not regenerated here; the regeneration adds a field.",
-            {"fl_backend/app/schema.txt": '"a": 3'},
-            "the body does not say so",
-        ),
-    ],
-    ids=["claims a move that did not happen", "moves a document it does not name", "names a moved document in other words"],
-)
-def test_a_body_disagreeing_with_its_landed_diff_stops_with_the_pick_staged(
-    tmp_path: Path, body: str, files: dict[str, str], said: str
-) -> None:
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: A change", body, files)
-    done = _run("land", start, "agent", cwd=root)
-    assert done.returncode == 5, (done.returncode, done.stderr)
-    assert said in done.stderr and f"recorded tip: {start}" in done.stderr
-    assert git(root, "rev-parse", "HEAD") == start
-    assert git(root, "diff", "--cached", "--name-only"), "the pick should be left staged for the coordinator"
-
-
-def test_a_conflict_outside_a_table_stops_with_nothing_of_that_commit_staged(tmp_path: Path) -> None:
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    first = _agent_commit(root, "Docs: Another file", "Prose only.", {"other.txt": "agent\n"})
-    _agent_commit(root, "Docs: A note", "Prose only.", {"notes.txt": "agent\n"})
-    write(root, "notes.txt", "session\n")
-    git(root, "commit", "-q", "-am", "Repo: The session's note")
-    done = _run("land", start, "agent", cwd=root)
-    assert done.returncode == 3, (done.returncode, done.stderr)
-    assert "CONFLICT" in done.stderr and f"recorded tip: {first}" in done.stderr
-    assert git(root, "status", "--porcelain") == ""
-    assert git(root, "log", "-1", "--format=%s") == "Docs: Another file"
-
-
-def test_a_commit_the_hooks_refuse_stops_with_its_message_kept(tmp_path: Path) -> None:
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: REFUSE this", "Prose only.", NOTE)
-    done = _run("land", start, "agent", cwd=root)
-    assert done.returncode == 6, (done.returncode, done.stderr)
-    assert "refused by the fixture hook" in done.stderr
-    kept = Path(done.stderr.split("its message is ", 1)[1].splitlines()[0])
-    assert kept.read_bytes().decode("utf-8").startswith("Docs: REFUSE this")
+    _agent_commit(root, "Docs: A note", {"notes.txt": "agent\n"})
+    _session_commit(root, "Repo: The session's note", {"notes.txt": "session\n"})
+    said = _stopped_clean(root, git(root, "rev-parse", "HEAD"), 3)
+    assert "CONFLICT in notes.txt" in said and "the merge is aborted" in said
 
 
 @pytest.mark.parametrize(
     ("ours", "theirs", "base", "reason"),
     [
         ("| POST | `/teams` |\n", "| POST | `/spieler` |\n", ENDPOINTS, "names no one row"),
-        ("| A | session |\n", "| A | agent |\n", None, "is missing from"),
+        ("| A | session |\n", "| A | agent |\n", None, "is missing from the merge-base"),
     ],
     ids=["a method-keyed table", "a file both sides added"],
 )
-def test_a_markdown_conflict_the_merge_cannot_settle_stops_clean(tmp_path: Path, ours: str, theirs: str, base: str | None, reason: str) -> None:
-    """Both stopped badly before: the first landed with the agent's row dropped, the second in a traceback with the pick left half done."""
+def test_a_markdown_conflict_the_row_merge_cannot_settle_aborts_the_merge(
+    tmp_path: Path, ours: str, theirs: str, base: str | None, reason: str
+) -> None:
     root = _repo(tmp_path)
     if base is not None:
-        write(root, "docs/endpoints.md", base)
-        git(root, "add", "-A")
-        git(root, "commit", "-q", "-m", "Docs: The endpoint table")
+        _session_commit(root, "Docs: The endpoint table", {"docs/endpoints.md": base})
         git(root, "branch", "-f", "agent", "HEAD")
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: The agent's row", "A row.", {"docs/endpoints.md": (base or "") + theirs})
-    write(root, "docs/endpoints.md", (base or "") + ours)
-    git(root, "add", "-A")
-    git(root, "commit", "-q", "-m", "Docs: The session's row")
-    head = git(root, "rev-parse", "HEAD")
-    done = _run("land", start, "agent", cwd=root)
-    assert done.returncode == 3, (done.returncode, done.stderr)
-    assert "Traceback" not in done.stderr and "CONFLICT" in done.stderr and reason in done.stderr
-    assert git(root, "status", "--porcelain") == "" and git(root, "rev-parse", "HEAD") == head
+    _agent_commit(root, "Docs: The agent's row", {"docs/endpoints.md": (base or "") + theirs})
+    _session_commit(root, "Docs: The session's row", {"docs/endpoints.md": (base or "") + ours})
+    assert reason in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 3)
 
 
-def test_a_merge_that_raises_aborts_the_pick_before_it_stops(tmp_path: Path) -> None:
-    """The merge reads a conflicted file as utf-8, so a byte outside it raises inside the merge path."""
+def test_a_row_merge_that_raises_aborts_the_merge(tmp_path: Path) -> None:
+    """The row merge reads a conflicted file as utf-8, so a byte outside it raises inside the merge path."""
     root = _repo(tmp_path)
     (root / "docs" / "latin.md").write_bytes(b"| K | v |\n| --- | --- |\n| A | base |\n")
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "Docs: A latin-1 table")
     git(root, "branch", "-f", "agent", "HEAD")
-    start = git(root, "rev-parse", "HEAD")
     git(root, "checkout", "-q", "agent")
     (root / "docs" / "latin.md").write_bytes(b"| K | v |\n| --- | --- |\n| A | agent \xe9 |\n")
     git(root, "-c", "user.name=agent", "-c", "user.email=agent@example.invalid", "commit", "-q", "--no-verify", "-am", "Docs: The agent's row")
     git(root, "checkout", "-q", "main")
     (root / "docs" / "latin.md").write_bytes(b"| K | v |\n| --- | --- |\n| A | session \xe9 |\n")
-    git(root, "commit", "-q", "-am", "Docs: The session's row")
-    done = _run("land", start, "agent", cwd=root)
-    assert done.returncode == 3, (done.returncode, done.stderr)
-    assert "Traceback" not in done.stderr and "UnicodeDecodeError" in done.stderr
-    assert git(root, "status", "--porcelain") == ""
+    git(root, "commit", "-q", "--no-verify", "-am", "Docs: The session's row")
+    assert "UnicodeDecodeError" in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 3)
 
 
-def _in_process(root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int, str]:
-    """`land.main` run inside this process, for a case that swaps one of its collaborators."""
-    monkeypatch.chdir(root)
-    code = land.main(list(argv))
-    captured = capsys.readouterr()
-    return code, captured.out + captured.err
-
-
-def test_a_pick_that_stages_nothing_is_skipped_only_when_its_change_is_present(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A merge resolving to the session branch's side, which the method-keyed table produced, empties the index while the change is absent."""
+def test_a_failing_regeneration_aborts_the_merge(tmp_path: Path) -> None:
     root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Docs: A row", "An invariant.", {"docs/spec.md": TABLE_HEAD + "| I1 | one |\n| I3 | three |\n"})
-    write(root, "docs/spec.md", TABLE_HEAD + "| I1 | one |\n| I2 | two |\n")
-    git(root, "commit", "-q", "-am", "Docs: The session's row")
+    _agent_commit(root, "Backend: The writer breaks", {"fl_backend/tests/openapi_document.py": "raise SystemExit(3)\n"})
+    assert "tests.openapi_document --write exited 3" in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 4)
+
+
+def test_a_merge_commit_the_hooks_refuse_aborts_the_merge(tmp_path: Path) -> None:
+    root = _repo(tmp_path, branch="agent-REFUSE")
+    _agent_commit(root, "Docs: A note", NOTE, branch="agent-REFUSE")
+    said = _stopped_clean(root, git(root, "rev-parse", "HEAD"), 6, branch="agent-REFUSE")
+    assert "refused by the fixture hook" in said
+
+
+def _refused(root: Path, branch: str = "agent") -> str:
     head = git(root, "rev-parse", "HEAD")
-
-    def drops_the_commits_side(path: str, base_sha: str, commit_sha: str) -> object:
-        ours = git(root, "show", f"HEAD:{path}") + "\n"
-        (root / path).write_bytes(ours.encode("utf-8"))
-        return merge_rows.Merge(text=ours)
-
-    monkeypatch.setattr(land, "merge_file", drops_the_commits_side)
-    code, said = _in_process(root, monkeypatch, capsys, start, "agent")
-    assert code == 8, said
-    assert "its change is absent" in said and git(root, "rev-parse", "HEAD") == head
+    done = _run("land", branch, cwd=root)
+    assert done.returncode == 2, (done.returncode, done.stderr)
+    assert git(root, "rev-parse", "HEAD") == head, "a refused landing committed something"
+    return done.stderr
 
 
-def test_hold_stages_the_next_commit_and_its_message_and_commits_nothing(
+def test_a_checkout_holding_changes_is_refused(tmp_path: Path) -> None:
+    root = _repo(tmp_path)
+    _agent_commit(root, "Docs: A note", NOTE)
+    write(root, "stray.txt", "uncommitted\n")
+    assert "land from a clean tree" in _refused(root)
+
+
+def test_a_name_that_is_no_branch_is_refused(tmp_path: Path) -> None:
+    assert "is no local branch" in _refused(_repo(tmp_path), "absent")
+
+
+def test_uncommitted_work_in_the_agents_worktree_is_refused(tmp_path: Path) -> None:
+    root = _repo(tmp_path)
+    _agent_commit(root, "Docs: A note", NOTE)
+    tree = tmp_path / "agent-tree"
+    git(root, "worktree", "add", "-q", str(tree), "agent")
+    write(tree, "unsaved.txt", "work\n")
+    assert "holds uncommitted work" in _refused(root)
+
+
+@pytest.mark.parametrize("named", [("-m", "parked"), ()], ids=["named stash", "unnamed stash"])
+def test_a_stash_entry_on_the_branch_is_refused(tmp_path: Path, named: tuple[str, ...]) -> None:
+    """git lists a named entry as "On <branch>:" and an unnamed one as "WIP on <branch>:"."""
+    root = _repo(tmp_path)
+    _agent_commit(root, "Docs: A note", NOTE)
+    git(root, "checkout", "-q", "agent")
+    write(root, "notes.txt", "stashed\n")
+    git(root, "stash", "push", "-q", *named)
+    git(root, "checkout", "-q", "main")
+    assert "a stash entry is on agent" in _refused(root)
+
+
+def test_git_failing_during_the_merge_is_its_own_exit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Exit 2 says nothing was started; a failure once the merge has begun must not read as that."""
     root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    first = _agent_commit(root, "Backend: The schema grows", f"The model moved.\n\n{DEFERRED}", {"fl_backend/app/schema.txt": '"a": 2'})
-    _agent_commit(root, "Docs: A note", "Prose only.", NOTE)
-    code, said = _in_process(root, monkeypatch, capsys, "--hold", start, "agent")
-    assert code == 0, said
-    assert git(root, "rev-parse", "HEAD") == start, "a held landing committed"
-    assert sorted(git(root, "diff", "--cached", "--name-only").split()) == ["fl_backend/app/schema.txt", "fl_backend/openapi.json"]
-    held = Path(said.split("its message is ", 1)[1].splitlines()[0])
-    assert "`fl_backend/openapi.json` is regenerated in this commit." in held.read_bytes().decode("utf-8")
-    assert "--author=agent <agent@example.invalid>" in said and f"then continue from: {first}" in said
-
-
-def test_git_failing_after_a_pick_is_its_own_exit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    """Exit 2 says nothing was picked; a failure past the first pick leaves the landing part done, so it must not read as that."""
-    root = _repo(tmp_path)
-    start = git(root, "rev-parse", "HEAD")
-    _agent_commit(root, "Backend: The schema grows", f"The model moved.\n\n{DEFERRED}", {"fl_backend/app/schema.txt": '"a": 2'})
+    _agent_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2'})
+    head = git(root, "rev-parse", "HEAD")
     real_git = land.git
 
     def add_fails(*args: str, check: bool = True) -> str:
@@ -567,6 +472,9 @@ def test_git_failing_after_a_pick_is_its_own_exit(tmp_path: Path, monkeypatch: p
         return real_git(*args, check=check)
 
     monkeypatch.setattr(land, "git", add_fails)
-    code, said = _in_process(root, monkeypatch, capsys, start, "agent")
+    monkeypatch.chdir(root)
+    code = land.main(["agent"])
+    said = capsys.readouterr().err
     assert code == 7, said
-    assert "read `git status`" in said and f"recorded tip: {start}" in said
+    assert "planted" in said and git(root, "rev-parse", "HEAD") == head
+    assert git(root, "status", "--porcelain") == ""

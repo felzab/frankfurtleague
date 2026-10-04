@@ -47,10 +47,10 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   message it lets through, so report the commit's exit code and any notice. The hook judges a
   `Closes:` trailer against the staged diff: write one exactly when your commit retires a roadmap
   entry. To reword a commit that closes one, `git reset --soft HEAD~1` and commit again, never
-  `--amend`, which the hook reads as the amend's delta alone. The coordinator lands your commits on
-  the session branch and may reword or combine them.
-- **Commit everything before you report**: the landing takes your branch's commits and nothing else,
-  so an edit left uncommitted is dropped without a word. `git status --porcelain` prints nothing
+  `--amend`, which the hook reads as the amend's delta alone. The coordinator merges your branch
+  into the session branch whole, your commits as you made them.
+- **Commit everything before you report**: the landing merges your branch's commits and nothing
+  else, and refuses a worktree holding uncommitted work. `git status --porcelain` prints nothing
   when your report lands.
 - Install what your checks need in your worktree: `pnpm install --frozen-lockfile` in `fl_frontend`,
   `uv sync --project fl_backend --dev --frozen` at the root, and again after a rebase that moves a
@@ -67,13 +67,9 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   `./scripts/gate/verify.sh` or `./scripts/ops/local.sh`. `.claude/hooks/implementer-whole-suite.sh`
   refuses their common forms; a form it lets through is no permission. A blast radius your set cannot
   reach goes in (d).
-- **`fl_backend/openapi.json` and `fl_backend/einwilligung.json` are regenerated at landing, never
-  committed by you**: agents regenerating one in parallel conflict across the whole document.
-  Regenerate either to drive your own tests, then `git restore --source=HEAD -- <path>` before you
-  commit; where your change moves one, the commit body says `` `<path>` is regenerated at landing. ``
-  in those words. The landing tool rewrites that sentence to what it did, and stops on a body naming
-  a move the landing does not make or leaving out one it does. Name in (c) every test that passes
-  only over the regenerated document.
+- **Where your change moves `fl_backend/openapi.json` or `fl_backend/einwilligung.json`, regenerate
+  it and commit it with the change**: the landing merges your branch whole, and answers a conflict
+  in either document by regenerating it from the merged code.
 - `.claude/CLAUDE.md` §2's finished task -- branch pushed, draft pull request open, every check
   concluded -- is the coordinator's. You are finished when your commits are made and your report
   lands.
@@ -206,9 +202,8 @@ scope, a cheaper shape that shipped -- opens with its label `F<n>`, numbered onc
 report: the coordinator's ledger tool writes one row per label and sees nothing else. Exactly, in
 this order:
 
-- (a) the commits this report covers, `git log --format='%h %s' <from>..HEAD` -- `<from>` your fork
-  on a first report and the tip your last report named after it, which is the range the landing
-  takes -- the files each changed, and the tip itself;
+- (a) the commits this report covers, `git log --format='%h %s' <session branch>..HEAD`, which is
+  what the landing merges, the files each changed, and the tip itself;
 - (b) every file you broke and restored, with `git status --porcelain` read after the last restore;
 - (c) per checklist item, the acceptance evidence, with real exit codes; and every user-facing string
   you added or changed, with where it renders, each a draft until the owner approves it;
