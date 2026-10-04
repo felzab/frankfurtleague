@@ -14,18 +14,21 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import cycle, islice
-from typing import Any
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from httpx2 import Response
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import OperationFailure
 
 from app.api.konto.services import KONTO_SEITE_KONTAKT, KONTO_SEITE_SCHIEDSRICHTER, KONTO_SEITE_SPIELER
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.db import get_database, get_saison_teams_collection, get_schiedsrichter_collection, get_spieler_collection
 from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS
 from app.core.exceptions import DOCUMENT_NOT_FOUND
 from app.core.logging import FL_LOGGER_NAME
@@ -184,10 +187,16 @@ def count_id(funktion: AktorFunktion, email: str, day: str = TODAY) -> str:
     return f"{funktion}:{akteur_pseudonym(sign_in_identifier(email), schluessel=CONFIG.sperrliste_schluessel)}:{day}"
 
 
+async def spend(database: AsyncDatabase, funktion: AktorFunktion, email: str, units: int) -> None:
+    """The person's count for `TODAY` at `units` spent."""
+
+    await database[Collection.DROSSELUNG].insert_one({"_id": count_id(funktion, email), "n": units, "ablauf": MIDNIGHT_UTC})
+
+
 async def exhaust(database: AsyncDatabase, funktion: AktorFunktion, email: str) -> None:
     """The person's count for `TODAY` at its ceiling, every unit spent."""
 
-    await database[Collection.DROSSELUNG].insert_one({"_id": count_id(funktion, email), "n": TAGESBUDGETS[funktion], "ablauf": MIDNIGHT_UTC})
+    await spend(database, funktion, email, TAGESBUDGETS[funktion])
 
 
 async def counts(database: AsyncDatabase) -> dict[str, int]:
@@ -307,6 +316,8 @@ class Consent:
     # The choices a press names beside `medien`, unmoved, and the evidence a page served the seeded record echoes.
     beside: Mapping[str, Any]
     stand: Mapping[str, Any]
+    # The dependency handing the handler the collection its press writes.
+    collection: Callable[..., Awaitable[AsyncCollection]]
 
     def press(self, medien: bool, stand: Mapping[str, Any] | None = None) -> dict[str, Any]:
         return {
@@ -318,7 +329,12 @@ class Consent:
 
 
 SPIELER = Consent(
-    "spieler", f"{API}/spieler/selbst/einwilligung", KONTO_SEITE_SPIELER, {"umfang": "kader_oeffentlich"}, {"umfang": None, "medien": None}
+    "spieler",
+    f"{API}/spieler/selbst/einwilligung",
+    KONTO_SEITE_SPIELER,
+    {"umfang": "kader_oeffentlich"},
+    {"umfang": None, "medien": None},
+    get_spieler_collection,
 )
 CONSENTS = [
     pytest.param(SPIELER, id="a pupil's record"),
@@ -329,14 +345,46 @@ CONSENTS = [
             KONTO_SEITE_SCHIEDSRICHTER,
             {"umfang": "kader_oeffentlich"},
             {"umfang": None, "medien": None},
+            get_schiedsrichter_collection,
         ),
         id="a referee's record",
     ),
     pytest.param(
-        Consent("kontakt", f"{API}/teams/{TEAM_A}/saisons/{ACTIVE_SAISON}/person/einwilligung", KONTO_SEITE_KONTAKT, {}, {"medien": None}),
+        Consent(
+            "kontakt",
+            f"{API}/teams/{TEAM_A}/saisons/{ACTIVE_SAISON}/person/einwilligung",
+            KONTO_SEITE_KONTAKT,
+            {},
+            {"medien": None},
+            get_saison_teams_collection,
+        ),
         id="a contact seat",
     ),
 ]
+
+
+def transient_conflict() -> OperationFailure:
+    """What a rival writer committing first costs an attempt: `with_transaction` runs the callback again."""
+
+    return OperationFailure("write conflict", 112, {"ok": 0, "code": 112, "errorLabels": ["TransientTransactionError"]})
+
+
+class _ConflictsOnce:
+    """The real collection, the request's first write through it failing as a write conflict does."""
+
+    def __init__(self, collection: AsyncCollection) -> None:
+        self._collection = collection
+        self.conflicted = False
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
+        if not self.conflicted:
+            self.conflicted = True
+            raise transient_conflict()
+
+        return await self._collection.find_one_and_update(*args, **kwargs)
 
 
 class TestAConsentPress:
@@ -378,6 +426,35 @@ class TestAConsentPress:
 
         assert [response.status_code for response in answers] == [200, 200, 200], [response.text for response in answers]
         assert stored == {count_id(consent.funktion, PERSON): 1}
+
+    @pytest.mark.parametrize("consent", CONSENTS)
+    def test_a_grant_retried_after_a_transient_error_spends_one_unit(self, mongo_replica_set_url: str, consent: Consent):
+        """With the day's last unit: an attempt counting again would refuse the very grant the first attempt admitted."""
+
+        wrappers: list[_ConflictsOnce] = []
+
+        async def conflicting_once(db: Annotated[AsyncDatabase, Depends(get_database)]) -> _ConflictsOnce:
+            wrappers.append(_ConflictsOnce(await consent.collection(db)))
+            return wrappers[-1]
+
+        async def steps(database: AsyncDatabase) -> tuple[Response, dict[str, int]]:
+            await spend(database, consent.funktion, PERSON, TAGESBUDGETS[consent.funktion] - 1)
+            async with app_client(mongo_replica_set_url, app=_first(), now=NOW) as http:
+                # The withdrawal first, through the real collection, so the grant after it has something to switch on.
+                withdrawn = await http.patch(consent.path, json=consent.press(False), headers=as_person(PERSON))
+                # Inside the client, which restores the app's overrides as it closes.
+                _first().dependency_overrides[consent.collection] = conflicting_once
+                granted = await http.patch(
+                    consent.path, json=consent.press(True, withdrawn.json()["nachweis_stand"]), headers=as_person(PERSON)
+                )
+            return granted, await counts(database)
+
+        granted, stored = seeded(mongo_replica_set_url, steps)
+
+        assert granted.status_code == 200, granted.text
+        # The grant's first attempt met the conflict, so the count was asked twice for one write.
+        assert [wrapper.conflicted for wrapper in wrappers] == [True]
+        assert stored == {count_id(consent.funktion, PERSON): TAGESBUDGETS[consent.funktion]}
 
 
 class TestAnAdministrator:

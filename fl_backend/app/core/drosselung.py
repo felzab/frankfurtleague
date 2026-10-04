@@ -63,13 +63,21 @@ def get_drossel(
 ) -> Drosseln:
     """The count of one write against the bound person's ceiling, called where a write counts (`docs/backend/spec.md :: I831`)."""
 
+    # Set once this request's write is admitted: `with_transaction` reruns a callback calling the count
+    # after a transient error, and one write spends one unit however often its attempt is retried.
+    zugelassen = False
+
     async def drosseln() -> None:
+        nonlocal zugelassen
+        if zugelassen:
+            return
+
         actor = actor_var.get()
         # `fl_backend/tests/api/test_drosselung.py` holds every route reaching here to a person's binder.
         assert isinstance(actor, PersonActor), "only a signed-in person's write is counted"
 
-        # Outside the write's transaction: a retried attempt or a refused write spends its unit, and
-        # one person's concurrent writes never conflict over their count.
+        # Outside the write's transaction: a refused write spends its unit, and one person's concurrent
+        # writes never conflict over their count.
         gezaehlt = await drosselung_collection.find_one_and_update(
             {"_id": f"{actor.funktion}:{actor.pseudonym}:{germany_now.date().isoformat()}"},
             {"$inc": {"n": 1}, "$setOnInsert": {"ablauf": tagesende(germany_now)}},
@@ -81,6 +89,7 @@ def get_drossel(
         assert gezaehlt is not None
         ceiling = TAGESBUDGETS[actor.funktion]
         if gezaehlt["n"] <= ceiling:
+            zugelassen = True
             return
 
         # The first refusal alone, so a person is named once a day however long they keep pressing;
