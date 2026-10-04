@@ -87,7 +87,7 @@ export function AdminSchiedsrichterEditForm({
     bestaetigung: FLSchiedsrichterBestaetigung | null;
   };
   /** Whether the registry holds the stored label, which no record of the row says. */
-  istFassungBekannt: boolean;
+  istFassungBekannt: boolean | null;
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;

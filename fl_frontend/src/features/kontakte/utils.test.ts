@@ -122,6 +122,15 @@ describe("applySeatPresence", () => {
     assert.equal(opened.trainer?.einwilligung.text_version, LABEL);
   });
 
+  /* A blank seat stamps the running label, so without it a seat opens on nobody; one switched off
+     and on again gets its person back, who needs no label. */
+  it("opens no blank person where the label could not be read, and gives a held person back", () => {
+    assert.equal(applySeatPresence(block({ trainer: null }), "trainer", true, null).next.trainer, null);
+
+    const gehalten = block().trainer ?? assert.fail("the fixture seats no Trainer");
+    assert.equal(applySeatPresence(block({ trainer: null }), "trainer", true, null, gehalten).next.trainer, gehalten);
+  });
+
   /* The switch moves ITS OWN seat and nothing else. The claim is honoured when the payload is
      composed, so a switch that also moved the mirrored seat would write into the draft the very
      overwrite composing exists to avoid. */

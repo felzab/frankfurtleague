@@ -67,7 +67,7 @@ export function AdminSpielerEditForm({
   /** `null` for a person stored before consent was collected. */
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label. */
-  istFassungBekannt: boolean;
+  istFassungBekannt: boolean | null;
   /** The sidemenu selector's season and its squad row, resolved by the page. */
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */

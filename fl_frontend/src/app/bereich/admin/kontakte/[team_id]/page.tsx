@@ -42,8 +42,9 @@ async function AdminKontakteEditContent({
   const [membershipsRes, selectedSaison, laufendesLabel] = await Promise.all([
     getTeamMemberships(),
     resolveAdminSaison(searchParams),
-    // Per request, as every stamper reads the running label: a deploy moves it.
-    runWithIncomingTrace(() => getLaufendesLabel("bewerbung")),
+    // Per request, as every stamper reads the running label: a deploy moves it. `null` where the read
+    // failed, which closes opening a seat blank and leaves every stored one editable.
+    runWithIncomingTrace(() => getLaufendesLabel("bewerbung")).catch(() => null),
   ]);
   if (!selectedSaison) {
     notFound();

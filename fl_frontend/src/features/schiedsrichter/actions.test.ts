@@ -232,12 +232,15 @@ const RECORD = {
 };
 
 /** The record the editor page's read answers with, as the backend holds it at that moment. */
-let stored = { ...RECORD, inactive_since: null };
-answerReadsWith((endpoint, schema, params) =>
-  endpoint === `/schiedsrichter/${RECORD.id}`
+let stored: Record<string, unknown> = { ...RECORD, inactive_since: null };
+/** The registry's read failing, where a case asks it to. */
+let registerFehlt = false;
+answerReadsWith((endpoint, schema, params) => {
+  if (registerFehlt && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error("backend unreachable");
+  return endpoint === `/schiedsrichter/${RECORD.id}`
     ? answer(schema, endpoint, { schiedsrichter: stored })
-    : EMPTIEST_ANSWER(endpoint, schema, params),
-);
+    : EMPTIEST_ANSWER(endpoint, schema, params);
+});
 
 /** What the save answers where the address of an outstanding referee moved and the link went out. */
 const VERSAND_SATZ = "Der Best\u00e4tigungslink ging an anna@example.de.";
@@ -471,6 +474,38 @@ describe("the erasure on the referee's editor", () => {
     assert.deepEqual(seen.replaced, ["/bereich/admin/schiedsrichter"], "the erasure stays on the page whose row it deleted");
     assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
     assert.equal(seen.refresh, 0, "the erasure re-reads a row it has deleted");
+  });
+
+  /* The registry tells a known label from an unknown one, which the consent panel says beside it; its
+     failure leaves that unchecked rather than taking the editor down. */
+  it("hands the editor an unchecked label, and renders, where the registry read failed", async () => {
+    const props = { params: Promise.resolve({ schiedsrichter_id: RECORD.id }), searchParams: Promise.resolve({}) };
+    stored = {
+      ...RECORD,
+      inactive_since: null,
+      einwilligung: {
+        umfang: "intern",
+        erteilt_von: "volljaehrig",
+        datum: "2026-09-22",
+        bestaetigt_am: "2026-09-22",
+        text_version: "2026-09-schiedsrichterseite",
+        medien: false,
+        nachweis: { umfang: null, medien: null },
+      },
+    };
+    registerFehlt = true;
+
+    try {
+      const body = await pageBody(AdminSchiedsrichterEditPage, props);
+      assert.equal(
+        (body.props as { istFassungBekannt: unknown }).istFassungBekannt,
+        null,
+        "a failed registry read reached the editor as a verdict",
+      );
+    } finally {
+      registerFehlt = false;
+      stored = { ...RECORD, inactive_since: null };
+    }
   });
 
   /* A rename is the surviving write on this page, and the draft mirrors the stored record: without

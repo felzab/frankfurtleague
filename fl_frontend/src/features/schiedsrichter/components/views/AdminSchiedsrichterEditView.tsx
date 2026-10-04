@@ -23,7 +23,7 @@ export function AdminSchiedsrichterEditView({
   // spelling is one the form's next field would leave behind.
   schiedsrichter: ComponentProps<typeof AdminSchiedsrichterEditForm>["schiedsrichter"];
   /** Whether the registry holds the stored label. */
-  istFassungBekannt: boolean;
+  istFassungBekannt: boolean | null;
   /** The day this referee was retired, or `null` while they officiate — on no field of the form. */
   inactiveSince: string | null;
 }) {

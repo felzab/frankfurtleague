@@ -36,7 +36,10 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   const { schiedsrichter } = schiedsrichterRes;
 
   // Resolved through the words read rather than a copy here: the registry is the backend's.
-  const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(schiedsrichter.einwilligung?.text_version ?? null));
+  // `null` where the registry's read failed, so the editor stands and says the label went unchecked.
+  const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(schiedsrichter.einwilligung?.text_version ?? null)).catch(
+    () => null,
+  );
 
   return (
     // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).

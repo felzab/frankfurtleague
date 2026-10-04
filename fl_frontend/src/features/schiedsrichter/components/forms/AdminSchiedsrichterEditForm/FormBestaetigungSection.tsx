@@ -69,8 +69,17 @@ function KeinTag({ children }: { children: ReactNode }) {
  * A stored label names a label of the backend's registry, so one the registry does not hold is a
  * record citing words nobody can produce, and a bare key renders the two alike.
  */
-function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean }) {
+function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean | null }) {
   if (textVersion === null) return <KeinTag>Nicht erfasst</KeinTag>;
+
+  // `null` where the registry's read failed: the key stands, and the check says it was not made.
+  if (istBekannt === null) {
+    return (
+      <>
+        {textVersion} <KeinTag>Nicht geprüft</KeinTag>
+      </>
+    );
+  }
 
   // Beside the key rather than instead of it: whoever repairs the mismatch needs the key that
   // resolved to nothing.
@@ -124,7 +133,7 @@ function EinwilligungStand({
   geburtsdatum,
 }: {
   einwilligung: FLEinwilligung;
-  istFassungBekannt: boolean;
+  istFassungBekannt: boolean | null;
   geburtsdatum: string | null;
 }) {
   return (
@@ -176,7 +185,7 @@ export function FormBestaetigungSection({
   bestaetigung: FLSchiedsrichterBestaetigung | null;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label, resolved by the page through the words read. */
-  istFassungBekannt: boolean;
+  istFassungBekannt: boolean | null;
   geburtsdatum: string | null;
   /** The editor's unsaved typing, which the mint re-keys the editor over. */
   isDirty: boolean;

@@ -328,3 +328,22 @@ describe("what the public application page reads while its window runs", () => {
     assert.equal(props.isSchulenLesbar, true, "the colours' failure took the club list with it");
   });
 });
+
+describe("the admin application page over a registry it cannot read", () => {
+  const ADMIN_PROPS = { params: Promise.resolve({ bewerbung_id: "6890a1b2c3d4e5f607181001" }), searchParams: Promise.resolve({}) };
+  const adminBody = async (seiten?: Error) => {
+    answers = new Map<string, unknown>(seiten === undefined ? [] : [["/einwilligung/seiten", seiten]]);
+
+    return ((await pageBody(AdminBewerbungPage, ADMIN_PROPS)) as ReactElement<{ neubesetzung: unknown }>).props;
+  };
+
+  /* The reseat alone needs the registry's words, so its failure closes the reseat and leaves the
+     decision on the application standing. */
+  it("hands the view no reseat, and renders, where the registry read failed", async () => {
+    assert.equal((await adminBody(new Error("backend unreachable"))).neubesetzung, null, "a failed registry read reached the view as words");
+  });
+
+  it("hands the view the reseat's label and words where the registry answers", async () => {
+    assert.notEqual((await adminBody()).neubesetzung, null, "a readable registry closed the reseat");
+  });
+});

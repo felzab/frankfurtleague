@@ -47,9 +47,10 @@ const ERTEILT: FLEinwilligung = {
 };
 
 /** The panel as the page hands it over, which resolves the stored label through the words read. */
-const markup = (einwilligung: FLEinwilligung | null, istFassungBekannt = true): string =>
+const markup = (einwilligung: FLEinwilligung | null, istFassungBekannt: boolean | null = true): string =>
   renderMarkup(FormEinwilligungSection, { einwilligung, istFassungBekannt });
-const words = (einwilligung: FLEinwilligung | null, istFassungBekannt = true): string => textOf(markup(einwilligung, istFassungBekannt));
+const words = (einwilligung: FLEinwilligung | null, istFassungBekannt: boolean | null = true): string =>
+  textOf(markup(einwilligung, istFassungBekannt));
 
 /** The panel's last paragraph, which is where the publication rule is written on either branch. */
 const closingNote = (einwilligung: FLEinwilligung | null): string => {
@@ -117,6 +118,15 @@ describe("the stored consent panel", () => {
 
     assert.ok(text.includes(UNBEKANNTE_FASSUNG), "the key that resolved to nothing is not shown");
     assert.ok(text.includes("Unbekannte Fassung"), "a record citing words nobody can produce reads as an ordinary one");
+  });
+
+  /* The registry's read failed: the key stands, and the panel says the check was not made rather than
+     calling a label known or unknown. */
+  it("says the label went unchecked where the registry could not be read", () => {
+    const text = words(ERTEILT, null);
+
+    assert.ok(text.includes(FASSUNG) && text.includes("Nicht geprüft"), "an unchecked label reads as a checked one");
+    assert.ok(!text.includes("Unbekannte Fassung"), "an unchecked label reads as an unknown one");
   });
 
   it("reads the media consent as a word on either answer", () => {

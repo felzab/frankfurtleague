@@ -37,7 +37,8 @@ export function AdminBewerbungView({
   /** The state of the season this application is for, or `null` where no season carries its id. */
   saisonStatus: "past" | "active" | "future" | null;
   gruppeOffer: readonly GruppeOffer[];
-  neubesetzung: Neubesetzung;
+  /** `null` where the registry could not be read, which closes the reseat. */
+  neubesetzung: Neubesetzung | null;
 }) {
   const saisonHref = useSaisonHref();
 

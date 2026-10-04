@@ -19,7 +19,7 @@ export function AdminKontakteEditView({
   saison,
 }: {
   /** The label the application form runs, which a seat opened blank stamps. */
-  laufendesLabel: string;
+  laufendesLabel: string | null;
   team: { id: string; name: string; shorthand: string; inactive_since: string | null };
   saison: TeamSaisonMembership;
 }) {

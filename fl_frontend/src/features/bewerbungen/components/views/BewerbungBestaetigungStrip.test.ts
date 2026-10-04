@@ -10,6 +10,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten.ts";
 import { bestaetigungsStand } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/schemas.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -105,12 +106,13 @@ function renderStrip({
   stands = standsOf(),
   frist = "2099-12-31",
   isOpen = true,
-}: { stands?: SitzBestaetigung[]; frist?: string; isOpen?: boolean } = {}) {
+  neubesetzung = laufendeNeubesetzung(),
+}: { stands?: SitzBestaetigung[]; frist?: string; isOpen?: boolean; neubesetzung?: ReturnType<typeof laufendeNeubesetzung> | null } = {}) {
   return render(
     underNext(
       h(BewerbungBestaetigungStrip, {
         bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
-        neubesetzung: laufendeNeubesetzung(),
+        neubesetzung,
         staende: stands,
         frist,
         isOpen,
@@ -203,6 +205,20 @@ describe("the re-send on a seat with no address", () => {
     closedControl("Link erneut senden an Trainer", withoutAddress);
     assert.equal(isInTheFlow(withoutAddress), false, "the reason stands in the flow, which this row takes away with its controls");
     assert.equal(pencil("Clara Meier")?.hasAttribute("disabled"), false, "the pencil that would give the seat an address is closed");
+  });
+});
+
+describe("the reseat over a registry the page could not read", () => {
+  /* The new person is asked the administration's page, whose words the box shows: without them the
+     reseat closes and says why, while the rest of the strip stands. */
+  it("closes the reseat with the reason, and leaves the re-sends standing", () => {
+    const { unmount } = renderStrip({ stands: standsOf(claraStieAus), neubesetzung: null });
+
+    closedControl("Trainer neu besetzen", FASSUNG_UNLESBAR);
+    const sendStands = send("Stellvertretung") !== null;
+    unmount();
+
+    assert.ok(sendStands, "a failed registry read took the re-sends with it");
   });
 });
 

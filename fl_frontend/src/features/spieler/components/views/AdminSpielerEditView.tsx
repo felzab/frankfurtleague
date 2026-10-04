@@ -26,7 +26,7 @@ export function AdminSpielerEditView({
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label. */
-  istFassungBekannt: boolean;
+  istFassungBekannt: boolean | null;
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: SpielerTeamOption[];

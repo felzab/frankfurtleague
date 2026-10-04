@@ -130,14 +130,15 @@ export function applySeatPresence(
   value: SaisonTeamKontakteDraft,
   rolle: KontaktRolle,
   present: boolean,
-  /** The label the application form runs, which a seat opened blank stamps. */
-  textVersion: string,
+  /** The label the application form runs, which a seat opened blank stamps; `null` where it could not be read. */
+  textVersion: string | null,
   /** What the seat held when it was switched off. Absent for a seat that has never held anybody. */
   zurueck?: KontaktpersonDraft,
 ): { next: SaisonTeamKontakteDraft; revalidate: boolean } {
-  // Given BACK rather than rebuilt: a switch is not a delete, and an admin who turns a seat off and
-  // on again has not asked for the details they entered to be thrown away.
-  const seat = present ? (zurueck ?? buildEmptyKontaktperson(textVersion)) : null;
+  // Given BACK rather than rebuilt: a switch is not a delete, and turning a seat off and on again asks
+  // for nothing typed to be thrown away. Without a label a blank seat has no wording to stamp.
+  const blank = textVersion === null ? null : buildEmptyKontaktperson(textVersion);
+  const seat = present ? (zurueck ?? blank) : null;
 
   return { next: { ...value, [rolle]: seat }, revalidate: !present };
 }

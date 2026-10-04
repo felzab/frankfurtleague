@@ -46,13 +46,23 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
 
   // The admin-tier season read, because this season is still planned — which is the only state a
   // team is taken into (`REQ-ENTER-001`) and the one the base read withholds.
-  const [saisonsRes, teamsRes, formLabel, seite] = await Promise.all([
+  const [saisonsRes, teamsRes, neubesetzung] = await Promise.all([
     getAdminSaisons(),
     getTeamMemberships(),
-    // Per request, as every stamper reads the running label: a deploy moves it.
-    runWithIncomingTrace(() => getLaufendesLabel("bewerbung")),
-    // The administration's page, which a person an administrator seats is asked on.
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt_verwaltung")),
+    // `null` where either registry read failed or its words cannot be keyed: the reseat alone needs
+    // them, so it closes and the decision above it stands.
+    Promise.all([
+      // Per request, as every stamper reads the running label: a deploy moves it.
+      runWithIncomingTrace(() => getLaufendesLabel("bewerbung")),
+      // The administration's page, which a person an administrator seats is asked on.
+      runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt_verwaltung")),
+    ]).then(
+      ([formLabel, seite]) => ({
+        textVersion: formLabel,
+        absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL).absaetze,
+      }),
+      () => null,
+    ),
   ]);
 
   // Null where nothing carries the application's `saison_id`: the acceptance would 404, and the
@@ -67,7 +77,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
       bewerbung={bewerbung}
       teamName={bewerbungTeamName(bewerbung, teamsRes.teams)}
       saisonStatus={saison?.status ?? null}
-      neubesetzung={{ textVersion: formLabel, absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL).absaetze }}
+      neubesetzung={neubesetzung}
       gruppeOffer={
         saison === null
           ? []

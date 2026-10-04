@@ -66,7 +66,7 @@ export function AdminKontakteEditForm({
   pageHeader,
 }: {
   /** The label the application form runs, read by the page per request: a seat opened blank stamps it. */
-  laufendesLabel: string;
+  laufendesLabel: string | null;
   teamId: string;
   /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;

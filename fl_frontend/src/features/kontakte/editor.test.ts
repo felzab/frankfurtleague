@@ -10,6 +10,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { eintragHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
@@ -216,10 +217,14 @@ const viewElement = (
   kontakte: FLSaisonTeamKontakte | null,
   hasRow = true,
   teamId = "t1",
-  { saisonStatus = "active", austritt = null }: { saisonStatus?: TeamSaisonMembership["saisonStatus"]; austritt?: FLAustritt | null } = {},
+  {
+    saisonStatus = "active",
+    austritt = null,
+    laufendesLabel = FORM.text_version,
+  }: { saisonStatus?: TeamSaisonMembership["saisonStatus"]; austritt?: FLAustritt | null; laufendesLabel?: string | null } = {},
 ): ReactNode =>
   h(AdminKontakteEditView, {
-    laufendesLabel: FORM.text_version,
+    laufendesLabel,
     team: { id: teamId, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
     saison: {
       saisonId: "2526",
@@ -229,6 +234,10 @@ const viewElement = (
   });
 
 const viewMarkup = (kontakte: FLSaisonTeamKontakte | null, hasRow = true): string => editorTree(viewElement(kontakte, hasRow), kontakte);
+
+/** The editor's markup over a running label the page could not read. */
+const markupOhneLabel = (kontakte: FLSaisonTeamKontakte | null): string =>
+  editorTree(viewElement(kontakte, true, "t1", { laufendesLabel: null }), kontakte);
 
 /** A club id the payload's mirror takes, so a save reaches the write rather than stopping at the block. */
 const TEAM_ID = "507f1f77bcf86cd799439011";
@@ -321,11 +330,14 @@ const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchPara
 
 /** The block the page's memberships read answers with, as the backend holds it at that moment. */
 let storedBlock: FLSaisonTeamKontakte = BLOCK;
+/** The registry's running-label read failing, where a case asks it to. */
+let seitenFehlen = false;
 
 /** The season the address names. */
 const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
 
 answerReadsWith((endpoint, schema, params) => {
+  if (seitenFehlen && endpoint === "/einwilligung/seiten") throw new Error("backend unreachable");
   const einwilligung = einwilligungAnswer(endpoint);
   if (einwilligung !== undefined) return einwilligung;
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
@@ -418,6 +430,18 @@ describe("the editor's shape", () => {
     const unresolved = { ...PAGE_PROPS, params: new Promise<{ team_id: string }>(() => undefined) };
 
     assert.ok(renderTree(h(AdminKontakteEditPage, unresolved)).includes('role="status"'), "the page waits on the row before it renders");
+  });
+
+  /* A blank seat stamps the running label, and only that needs it: its failed read hands the editor
+     none, and the page stands. */
+  it("hands the editor no label, and renders, where the running label could not be read", async () => {
+    seitenFehlen = true;
+    try {
+      const body = await pageBody(AdminKontakteEditPage, PAGE_PROPS);
+      assert.equal((body.props as { laufendesLabel: unknown }).laufendesLabel, null, "a failed read reached the editor as a label");
+    } finally {
+      seitenFehlen = false;
+    }
   });
 
   /* The club is judged before the backend is asked: a malformed id reads nothing. */
@@ -1157,6 +1181,32 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
 
     assert.equal(herkuenfte.length, 3, "a seat renders no origin box, so the comparison below reads the wrong seats");
     assert.ok(herkuenfte.includes("Noch offen"), "a seat not yet saved reads as one whose origin went unrecorded");
+  });
+});
+
+describe("the editor over a running label the page could not read", () => {
+  /* A blank seat stamps the running label, so without it no seat opens blank; every stored person stays
+     editable, and the page stands. */
+  it("closes opening an empty seat with the reason, and keeps the stored people editable", () => {
+    const stored: FLSaisonTeamKontakte = { ...BLOCK, stellvertretung: null };
+    const { unmount } = render(editorElement(viewElement(stored, true, "t1", { laufendesLabel: null }), stored));
+
+    const leer = screen.getByRole("switch", { name: "Stellvertretung hinterlegt" });
+    const geschlossen = leer.hasAttribute("disabled") || leer.getAttribute("aria-disabled") === "true";
+    const grund = document.body.innerHTML.includes(FASSUNG_UNLESBAR);
+    const vornamen = screen.queryAllByRole("textbox", { name: "Vorname" }).length;
+    unmount();
+
+    assert.ok(geschlossen, "an empty seat opens blank with no label to stamp");
+    assert.ok(grund, "the closed seat says nothing of why");
+    assert.equal(vornamen, 2, "a stored person's boxes went with the label");
+  });
+
+  it("says why no one can be entered where no block is stored yet", () => {
+    const text = markupOhneLabel(null);
+
+    assert.ok(text.includes(FASSUNG_UNLESBAR), "an editor with nothing to enter people into says nothing of why");
+    assert.ok(!text.includes("hinterlegt"), "seats are offered with no label to stamp them");
   });
 });
 

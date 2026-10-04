@@ -55,7 +55,15 @@ const { AdminSpielerTable } = await import("./components/collections/AdminSpiele
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
 
 /** What the editor page's doubled reads answer, set by the case that renders it. */
-let pageAnswers: { memberships?: unknown; saisons?: unknown; teams?: unknown; asked?: string[]; nachnominierung?: boolean } = {};
+let pageAnswers: {
+  memberships?: unknown;
+  saisons?: unknown;
+  teams?: unknown;
+  asked?: string[];
+  nachnominierung?: boolean;
+  /** The registry's read failing, where a case asks it to. */
+  registerFehlt?: boolean;
+} = {};
 
 const getSaisons = () => Promise.resolve(pageAnswers.saisons);
 
@@ -70,6 +78,9 @@ const PAGE_DOUBLES = {
   },
   "features/saisons/queries.ts": { getAdminSaisons: getSaisons, getSaisons },
   "features/teams/queries.ts": { getTeamMemberships: () => Promise.resolve(pageAnswers.teams) },
+  "core/einwilligung.ts": {
+    istFassungBekannt: () => (pageAnswers.registerFehlt === true ? Promise.reject(new Error("backend unreachable")) : Promise.resolve(true)),
+  },
 };
 
 registerDoubles({ modules: PAGE_DOUBLES });
@@ -392,6 +403,23 @@ function answerPages(spieler: ReturnType<typeof person>[]): void {
 const teamsOf = (body: ReactElement): SpielerTeamOption[] => (body.props as { teams: SpielerTeamOption[] }).teams;
 const heldBy = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((team) => [team.teamId, team.heldRollen]));
 const fullIn = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((team) => [team.teamId, team.isSquadFull]));
+
+describe("the player editor over a registry it cannot read", () => {
+  /* The registry tells a known label from an unknown one, which the consent panel says beside it; its
+     failure leaves that unchecked rather than taking the editor down. */
+  it("hands the editor an unchecked label, and renders, where the registry read failed", async () => {
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
+    pageAnswers.registerFehlt = true;
+
+    const body = await editorPageBody();
+
+    assert.equal(
+      (body.props as { istFassungBekannt: unknown }).istFassungBekannt,
+      null,
+      "a failed registry read reached the editor as a verdict",
+    );
+  });
+});
 
 describe("REQ-SQUAD-001 where no form is on screen", () => {
   /* Two of the four writes that raise it are row buttons: a reactivate names the row's STORED club,

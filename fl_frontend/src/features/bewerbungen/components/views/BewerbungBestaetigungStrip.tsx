@@ -16,6 +16,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
@@ -126,7 +127,8 @@ export function BewerbungBestaetigungStrip({
   onGetipptChange,
 }: {
   bewerbungId: string;
-  neubesetzung: Neubesetzung;
+  /** `null` where the registry could not be read, which closes the reseat with the reason. */
+  neubesetzung: Neubesetzung | null;
   staende: readonly SitzBestaetigung[];
   /** The day an incomplete application is deleted after, or `null` where none is recorded. */
   frist: string | null;
@@ -272,7 +274,8 @@ function SitzZeile({
   onSchliessen,
 }: {
   bewerbungId: string;
-  neubesetzung: Neubesetzung;
+  /** `null` where the registry could not be read, which closes the reseat with the reason. */
+  neubesetzung: Neubesetzung | null;
   sitz: SitzBestaetigung;
   belegteAdressen: readonly string[];
   /** Whether a link can still be sent to this seat, which is the one condition the pencil and the re-send stand under. */
@@ -353,20 +356,29 @@ function SitzZeile({
         {/* In the right-hand cluster where the re-send stands, never beside the name: what it offers
             is a fresh link for this seat, and the two are never offered at once. */}
         {istNeubesetzbar && bearbeitet === null && (
-          <Button
-            {...focusSlot("neubesetzung")}
-            type="button"
-            aria-label={besetzenLabel}
-            onPress={() => {
-              onOeffne("neubesetzung");
-            }}
-            className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
-            <PersonPlus
-              className="size-3.5"
-              aria-hidden="true"
-            />
-            <span>Neu besetzen</span>
-          </Button>
+          // Closed rather than withheld where the registry could not be read: the new person is asked
+          // the administration's page, whose words the box shows, and the reason says what to do.
+          <Hint
+            mode="refusal"
+            reason={neubesetzung === null ? FASSUNG_UNLESBAR : null}
+            label={besetzenLabel}
+            className="shrink-0">
+            <Button
+              {...focusSlot("neubesetzung")}
+              type="button"
+              isDisabled={neubesetzung === null}
+              aria-label={besetzenLabel}
+              onPress={() => {
+                onOeffne("neubesetzung");
+              }}
+              className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
+              <PersonPlus
+                className="size-3.5"
+                aria-hidden="true"
+              />
+              <span>Neu besetzen</span>
+            </Button>
+          </Hint>
         )}
 
         {hatAngebot && bearbeitet === null && (
@@ -410,7 +422,7 @@ function SitzZeile({
         </FocusSlot>
       )}
 
-      {bearbeitet === "neubesetzung" && (
+      {bearbeitet === "neubesetzung" && neubesetzung !== null && (
         <FocusSlot name="neubesetzung">
           <SitzNeuBesetzen
             bewerbungId={bewerbungId}

@@ -8,6 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
+import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
@@ -100,8 +101,8 @@ export function FormKontakteSection({
   isDirty,
   onValidateSelection,
 }: {
-  /** The label the application form runs, read by the page per request: a seat opened blank stamps it. */
-  laufendesLabel: string;
+  /** The label the application form runs, read by the page per request: a seat opened blank stamps it. `null` where the read failed. */
+  laufendesLabel: string | null;
   value: SaisonTeamKontakteDraft | null;
   /** The block as the row holds it: a link goes to the person stored on a seat, never to one only typed. */
   stored: FLSaisonTeamKontakte | null;
@@ -132,19 +133,21 @@ export function FormKontakteSection({
 
   /* A block to work against whether one is stored yet or not: entering somebody is what creates
      it, and only the editor's deletion section takes it away again. */
-  const basis = value ?? buildEmptyKontakte(laufendesLabel);
+  const basis = value ?? (laufendesLabel === null ? null : buildEmptyKontakte(laufendesLabel));
 
   /** The seat the TRAINER tracks: it is the source, and the Trainer's boxes read whatever it holds. */
-  const mirroredSeat = basis.trainer_ist_zugleich;
+  const mirroredSeat = basis?.trainer_ist_zugleich ?? null;
 
   const judgeFieldsLeft = (paths: readonly string[]) => onFieldLeft(mirroredJudgedPaths(paths, mirroredSeat));
 
   const applyPerson = (rolle: KontaktRolle, person: KontaktpersonDraft) => {
-    onChange({ ...basis, [rolle]: person });
+    if (basis !== null) onChange({ ...basis, [rolle]: person });
   };
 
   /** Whether the seat holds anybody. A pick, so it is judged on the press rather than on a blur. */
   const setPresence = (rolle: KontaktRolle, present: boolean) => {
+    if (basis === null) return;
+
     // Kept out of the draft, which spells an empty seat as `null` and so has nowhere to hold this:
     // switching a seat off and on again returns the person rather than three empty boxes.
     const seat = basis[rolle];
@@ -165,6 +168,8 @@ export function FormKontakteSection({
 
   /** A pick, so it is judged on the press. One closed set, so no press can claim two seats at once. */
   const pickSharedSeat = (seat: FLTrainerZugleich | null) => {
+    if (basis === null) return;
+
     const { next, revalidate } = applySharedSeat(basis, seat);
 
     onChange(next);
@@ -190,10 +195,14 @@ export function FormKontakteSection({
         </Link>
       )}
 
+      {/* Nothing to enter people into: no block is stored and none can be built without the label. */}
+      {isMember && basis === null && <p className="muted-hint">{FASSUNG_UNLESBAR}</p>}
+
       {/* A PANEL per person, never a rule inside one: drawn the same way, the division between two
         people and the one inside a person read alike, so neither read as a boundary. The public
         form seats its three the same way. */}
       {isMember &&
+        basis !== null &&
         KONTAKT_ROLLEN.map(({ value: rolle, label }) => (
           <KontaktpersonFields
             key={rolle}
@@ -201,6 +210,7 @@ export function FormKontakteSection({
             label={label}
             person={basis[rolle]}
             istGespeichert={stored?.[rolle] != null}
+            kannLeerOeffnen={laufendesLabel !== null}
             isMirrored={isMirrored(rolle)}
             /* The question belongs to the Trainer seat: it asks who the Trainer IS, and the answer is
              what that seat's boxes then read. */
@@ -274,6 +284,7 @@ function KontaktpersonFields({
   label,
   person,
   istGespeichert,
+  kannLeerOeffnen,
   isMirrored,
   zugleich,
   einladen,
@@ -288,6 +299,8 @@ function KontaktpersonFields({
   person: KontaktpersonDraft | null;
   /** The row stores a person on this seat, so a record naming no one who seated them predates the field. */
   istGespeichert: boolean;
+  /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
+  kannLeerOeffnen: boolean;
   /** This seat IS another seat's person, so its boxes read out rather than take input. */
   isMirrored: boolean;
   /** The claim's picker, on the Trainer seat alone. `null` on the two seats the claim can name. */
@@ -318,17 +331,24 @@ function KontaktpersonFields({
 
         {/* The block's own control one seat down, and the same control on purpose: what it answers here
           is the same question, so a second shape for it would read as a different one. */}
-        <Switch
-          isSelected={person !== null}
-          isDisabled={isMirrored}
-          onChange={onPresenceChange}>
-          <Switch.Content className={panel.switchContent()}>
-            {`${label} hinterlegt`}
-            <Switch.Control className={panel.switchControl()}>
-              <Switch.Thumb />
-            </Switch.Control>
-          </Switch.Content>
-        </Switch>
+        {/* Closed rather than withheld on an empty seat the label could not be read for: a blank seat
+            stamps that label, and the reason says how to get it back. */}
+        <Hint
+          mode="refusal"
+          reason={person === null && !kannLeerOeffnen ? FASSUNG_UNLESBAR : null}
+          label={`${label} hinterlegt`}>
+          <Switch
+            isSelected={person !== null}
+            isDisabled={isMirrored || (person === null && !kannLeerOeffnen)}
+            onChange={onPresenceChange}>
+            <Switch.Content className={panel.switchContent()}>
+              {`${label} hinterlegt`}
+              <Switch.Control className={panel.switchControl()}>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
+          </Switch>
+        </Hint>
 
         {person !== null && (
           <KontaktpersonInputs

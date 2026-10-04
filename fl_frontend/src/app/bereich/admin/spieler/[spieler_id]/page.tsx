@@ -62,7 +62,8 @@ async function AdminSpielerEditContent({
   const nachnominierung = membership === null ? await getSpielerNachnominierung(selectedSaison.id) : null;
 
   // Resolved through the words read rather than a copy here: the registry is the backend's.
-  const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(spieler.einwilligung?.text_version ?? null));
+  // `null` where the registry's read failed, so the editor stands and says the label went unchecked.
+  const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(spieler.einwilligung?.text_version ?? null)).catch(() => null);
 
   const saison: SpielerSaisonMembership = {
     saisonId: selectedSaison.id,
