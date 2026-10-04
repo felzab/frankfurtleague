@@ -1241,7 +1241,7 @@ def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | Non
 
 
 def find_kontakt_sitz_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-KONTAKT-003`: the seat's address is on the ban list, so no link is minted for it.
+    """`REQ-KONTAKT-003`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
 
     409, as every administrator's write naming a barred address is (`docs/backend/spec.md :: 1.4`).
     """

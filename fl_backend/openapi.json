@@ -3778,7 +3778,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat\nis stored as entered administratively.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing\nlive. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. On a row of a\n`past` season, or of a team that has left it, the link is how its person learns of the entry, and it takes their\nWiderspruch alone. A save minting a link, or voiding one its person could still answer, is refused `REQ-AUTH-009`\nas the clearing is; a save doing neither is not.\n\n**A seat the same person keeps keeps its record whole**, every act on it included, and the save appends nothing\nthere; a seat newly filled or handed to another person is born with one `erteilt` entry, and its label must be the\napplication form's running one (`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page\nit is a version of, or the running one, and its record is carried either way.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and\n`bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat\nis stored as entered administratively.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing\nlive. A save newly seating an address the ban list holds is refused `REQ-KONTAKT-003`, as the re-send to one is. On\na row of a `past` season, or of a team that has left it, the link is how its person learns of the entry, and it\ntakes their Widerspruch alone. A save minting a link, or voiding one its person could still answer, is refused `REQ-AUTH-009`\nas the clearing is; a save doing neither is not.\n\n**A seat the same person keeps keeps its record whole**, every act on it included, and the save appends nothing\nthere; a seat newly filled or handed to another person is born with one `erteilt` entry, and its label must be the\napplication form's running one (`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page\nit is a version of, or the running one, and its record is carried either way.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -3831,7 +3831,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-KONTAKT-001"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-KONTAKT-001.REQ-KONTAKT-003"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -15414,18 +15414,6 @@
             "type": "array",
             "title": "Bestaetigungen"
           },
-          "gesperrt": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ]
-            },
-            "type": "array",
-            "title": "Gesperrt"
-          },
           "kontakte_stand": {
             "type": "string",
             "title": "Kontakte Stand",
@@ -15440,7 +15428,6 @@
           "saison_team_id",
           "kontakte",
           "bestaetigungen",
-          "gesperrt",
           "kontakte_stand"
         ],
         "title": "FLPatchSaisonTeamKontakteResponse",
@@ -24598,7 +24585,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-KONTAKT-001": {
+      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-KONTAKT-001.REQ-KONTAKT-003": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -24613,7 +24600,8 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-EINWILLIGUNG-001",
-                        "REQ-KONTAKT-001"
+                        "REQ-KONTAKT-001",
+                        "REQ-KONTAKT-003"
                       ]
                     }
                   }

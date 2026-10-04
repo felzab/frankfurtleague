@@ -791,9 +791,6 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
     kontakte: FLSaisonTeamKontakte | None
     # Empty where the save seated nobody new: a seat keeping its person keeps their link.
     bestaetigungen: list[FLKontaktMint]
-    # Seats the save newly wrote with an address the ban list holds: the person is stored and minted
-    # no link, so the administrator is told as for any barred send.
-    gesperrt: list[FLKontaktRolle]
 
     @computed_field
     @property

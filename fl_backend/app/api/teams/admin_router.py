@@ -69,7 +69,6 @@ from app.api.teams.services import (
     find_replacement_refusal,
     find_retire_refusal,
     has_taken_place,
-    in_declaration_order,
     kontakte_fassungen_gehalten,
     kontakte_fassungen_genannt,
     links_owed,
@@ -600,9 +599,9 @@ async def patch_saison_team_kontakte(
     **Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the
     caller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person
     keeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing
-    live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. On a row of a
-    `past` season, or of a team that has left it, the link is how its person learns of the entry, and it takes their
-    Widerspruch alone. A save minting a link, or voiding one its person could still answer, is refused `REQ-AUTH-009`
+    live. A save newly seating an address the ban list holds is refused `REQ-KONTAKT-003`, as the re-send to one is. On
+    a row of a `past` season, or of a team that has left it, the link is how its person learns of the entry, and it
+    takes their Widerspruch alone. A save minting a link, or voiding one its person could still answer, is refused `REQ-AUTH-009`
     as the clearing is; a save doing neither is not.
 
     **A seat the same person keeps keeps its record whole**, every act on it included, and the save appends nothing
@@ -643,23 +642,20 @@ async def patch_saison_team_kontakte(
         # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
         # Widerspruch alone (`docs/backend/spec.md :: I935`).
         owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
-        # In the transaction, so whether a link exists answers the ban as it stands at the write; a ban
-        # landing after it is the confirmation press's to refuse (`docs/backend/spec.md :: I505`).
+        # In the transaction, so the refusal answers the ban as it stands at the write; a ban landing
+        # after it is the confirmation press's to refuse (`docs/backend/spec.md :: I505`). Refused rather
+        # than stored unmailed: a person the league may not mail would learn nothing of the entry.
         barred = await adressen_gesperrt(
             sperrliste,
             {adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)},
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
+        refuse(find_kontakt_sitz_gesperrt_refusal(gesperrt=bool(barred)))
 
         minted: dict[str, dict[str, Any]] = {}
         links: list[FLKontaktMint] = []
-        gesperrt: set[str] = set()
         for seats in owed:
-            if seat_adressen(kontakte=kontakte, seats=seats) & barred:
-                gesperrt.update(seats)
-                continue
-
             raw_token, token_hash = tokens[seats[0]]
             entry = compose_kontakt_bestaetigung(token_hash=token_hash, today=today)
             minted.update(dict.fromkeys(seats, entry))
@@ -700,7 +696,6 @@ async def patch_saison_team_kontakte(
             # its token is the precondition an undo of this save replays against.
             kontakte=updated_raw["kontakte"],
             bestaetigungen=links,
-            gesperrt=in_declaration_order(gesperrt),
         )
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,

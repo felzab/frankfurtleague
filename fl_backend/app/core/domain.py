@@ -1672,11 +1672,14 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-KONTAKT-003",
         status=HTTPStatus.CONFLICT,
-        operation="POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen",
+        operation=(
+            "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"
+            " · POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen"
+        ),
         aggregate="Saison",
-        summary="no confirmation link is re-sent to a contact address the ban list still holds",
+        summary="no contact address the ban list holds is newly seated on a season row or re-sent its confirmation link",
         implemented_by="app.api.teams.services.find_kontakt_sitz_gesperrt_refusal",
-        tested_by="tests/api/test_kontakt_bestaetigung.py::TestABarredAddressIsMintedNoLink",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestABarredAddressIsRefused",
     ),
     Rule(
         code="REQ-KONTAKT-004",

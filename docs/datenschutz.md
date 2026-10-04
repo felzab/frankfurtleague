@@ -255,9 +255,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   still unconfirmed while the season runs and the team is in it, a seat entered before the link
   existed included (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
   fourteen days, and on it the person confirms the seat or makes their Widerspruch, which empties it.
-  No link is minted to an address the ban list holds, so that person is told nothing by the league;
-  the notice's own sentence saying so is the published page's
-  (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`).
+  An address the ban list holds is refused rather than seated, as an application's reseat refuses
+  one, so nobody is stored whom the league may not tell
+  (`fl_backend/app/api/teams/services.py :: find_kontakt_sitz_gesperrt_refusal`); a person barred
+  after their seating keeps the seat, and their link takes no confirmation
+  (`docs/backend/spec.md :: I505`).
 
 ## 3. The current pupil records are reset once
 

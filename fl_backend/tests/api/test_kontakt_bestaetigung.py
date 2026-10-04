@@ -300,7 +300,6 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
             (["trainer"], "ida@example.com", FRIST, "Ida", TEAM_NAME)
         ]
         assert response.saison_team_id == ROW_OID
-        assert response.gesperrt == []
         token = response.bestaetigungen[0].token
         assert row["bestaetigungen"] == {
             "trainer": {"token_hash": hash_token(token), "verschickt_am": TODAY, "frist": FRIST, "abgelehnt_am": None},
@@ -397,38 +396,49 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         assert row["bestaetigungen"]["stellvertretung"] is None
 
 
-class TestABarredAddressIsMintedNoLink:
-    def test_a_barred_address_entered_on_a_seat_is_stored_and_minted_nothing(self, mongo_replica_set_url: str):
+class TestABarredAddressIsRefused:
+    """A person the league may not mail would learn nothing of an entry, so no save seats one, as no reseat of an application does."""
+
+    def test_a_save_seating_a_barred_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await database[Collection.SPERRLISTE].insert_one(documents.ban_document("jonas@example.com", bis="2030"))
-            response = await save(database, THREE)
+            before = await row_now(database)
 
-            return response, await row_now(database)
+            return await refused(save(database, THREE)), before, await row_now(database)
 
-        response, row = on_a_league(mongo_replica_set_url, body)
+        code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert response.gesperrt == ["ansprechperson"]
-        assert [mint.rollen for mint in response.bestaetigungen] == [["trainer"], ["stellvertretung"]]
-        assert row["kontakte"]["ansprechperson"]["email"] == "jonas@example.com"
-        assert row["bestaetigungen"]["ansprechperson"] is None
+        assert code == KONTAKT_SITZ_GESPERRT
+        assert after == before
 
-    def test_a_seat_handed_to_a_barred_address_loses_the_live_link_it_held(self, mongo_replica_set_url: str):
-        """`compose_bestaetigungen_nach`'s other branch: the newcomer is minted nothing, and the person who left keeps nothing live."""
-
+    def test_a_save_handing_a_seat_to_a_barred_address_is_refused_and_its_link_still_opens(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await save(database, THREE)
             await ban(database, client, "lea@example.com")
-            handed = await save(database, {**THREE, "ansprechperson": person("Lea")})
+            code = await refused(save(database, {**THREE, "ansprechperson": person("Lea")}))
             old_token = next(mint.token for mint in first.bestaetigungen if mint.rollen == ["ansprechperson"])
 
-            return handed, await refused(ansicht(database, old_token)), await row_now(database)
+            return code, await ansicht(database, old_token), await row_now(database)
 
-        handed, code, row = on_a_league(mongo_replica_set_url, body)
+        code, view, row = on_a_league(mongo_replica_set_url, body)
 
-        assert (handed.gesperrt, handed.bestaetigungen) == (["ansprechperson"], [])
-        assert code == BEWERBUNG_TOKEN_UNKNOWN
-        assert row["kontakte"]["ansprechperson"]["email"] == "lea@example.com"
-        assert row["bestaetigungen"]["ansprechperson"] is None
+        assert code == KONTAKT_SITZ_GESPERRT
+        assert (view.zustand, view.rolle) == ("gueltig", "ansprechperson")
+        assert row["kontakte"]["ansprechperson"]["email"] == "jonas@example.com"
+
+    def test_a_kept_person_whose_address_was_barred_after_their_seating_is_not_refused(self, mongo_replica_set_url: str):
+        """The control: the save seats nobody new, and the ban is the confirmation press's to answer (`docs/backend/spec.md :: I505`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, THREE)
+            await ban(database, client, "jonas@example.com")
+
+            return await save(database, {**THREE, "stellvertretung": None}), await row_now(database)
+
+        response, row = on_a_league(mongo_replica_set_url, body)
+
+        assert response.bestaetigungen == []
+        assert (row["kontakte"]["ansprechperson"]["email"], row["kontakte"]["stellvertretung"]) == ("jonas@example.com", None)
 
     def test_a_ban_entered_beside_the_save_is_read_by_it(self, mongo_replica_set_url: str):
         """The ban committed once the editor was open and before the save landed: the mint asks it in its own transaction."""
@@ -441,15 +451,12 @@ class TestABarredAddressIsMintedNoLink:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             junction_collection = JunctionBanningFirst(database[Collection.SAISON_TEAMS], lambda: ban(database, client, "ida@example.com"))
-            response = await save(database, THREE, saison_teams=junction_collection)
+            code = await refused(save(database, THREE, saison_teams=junction_collection))
             junction_collection.assert_landed_inside(serially=0)
 
-            return response
+            return code
 
-        response = on_a_league(mongo_replica_set_url, body)
-
-        assert response.gesperrt == ["trainer"]
-        assert [mint.rollen for mint in response.bestaetigungen] == [["ansprechperson"], ["stellvertretung"]]
+        assert on_a_league(mongo_replica_set_url, body) == KONTAKT_SITZ_GESPERRT
 
     def test_a_resend_to_a_barred_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
@@ -864,22 +871,6 @@ class TestTheStepUp:
                 before,
                 await row_now(database),
             )
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == CONFIRMATION_REQUIRED
-        assert after == before
-
-    def test_a_save_handing_a_live_link_s_seat_to_a_barred_address_from_an_old_sign_in_is_refused(self, mongo_replica_set_url: str):
-        """It mints nothing, the address being barred, and still voids the link the seat's last person holds."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await save(database, THREE)
-            await ban(database, client, "lea@example.com")
-            before = await row_now(database)
-            code = await refused(save(database, {**THREE, "ansprechperson": person("Lea")}, step_up=STALE_STEP_UP_CHECK))
-
-            return code, before, await row_now(database)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
