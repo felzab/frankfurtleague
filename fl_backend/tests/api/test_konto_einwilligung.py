@@ -259,7 +259,8 @@ class TestTheOwnRecords:
             REFEREE_STORED,
         )
         assert (record["erteilbar"], record["medien_angeboten"]) == (True, True)
-        assert "default_payment" not in record and "bestaetigung" not in record
+        # The fee is the referee's own, served under the screen's word; the link's bookkeeping never is.
+        assert (record["honorar"], "default_payment" in record, "bestaetigung" in record) == (20, False, False)
 
     def test_a_retired_record_is_served_for_its_withdrawal_alone(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
@@ -527,7 +528,7 @@ class TestTheAccountPagesRead:
         assert response.status_code == 200, response.text
         body = response.json()
         assert (body["spieler"]["spieler_id"], body["spieler"]["erteilbar"]) == (str(PUPIL_OID), True)
-        assert [record["schiedsrichter_id"] for record in body["schiedsrichter"]] == [str(REFEREE_OID)]
+        assert [(record["schiedsrichter_id"], record["honorar"]) for record in body["schiedsrichter"]] == [(str(REFEREE_OID), 20)]
         assert [
             (sitz["team_name"], sitz["saison_id"], sorted(sitz["rollen"]), sitz["medien"], sitz["erteilbar"], sitz["bestaetigt_text_version"])
             for sitz in body["sitze"]

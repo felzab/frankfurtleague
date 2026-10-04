@@ -59,9 +59,9 @@ async def get_selbst(
     """
     Answer every confirmed referee record the signed-in address holds, with its contact details and consent record.
 
-    PERSON TIER: never the fee or the confirmation link's bookkeeping. A retired record is served too, its consent being
-    the person's to withdraw; `erteilbar` says whether a grant is admitted on it, and `medien_angeboten` whether the
-    media consent may be switched on.
+    PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
+    record is served too, its consent being the person's to withdraw; `erteilbar` says whether a grant is admitted on
+    it, and `medien_angeboten` whether the media consent may be switched on.
 
     Refuses an address holding no confirmed referee record (`REQ-FUNKTION-001`).
     """

@@ -237,12 +237,14 @@ class FLSchiedsrichterKontext(BaseModel):
 
 
 class FLSchiedsrichterSelbst(BaseModel):
-    """One referee record as its own person reads it: their contact details and consent, never the fee or the link's bookkeeping."""
+    """One referee record as its own person reads it: their contact details, fee and consent, never the link's bookkeeping."""
 
     schiedsrichter_id: CustomObjectId
     name: CustomNonEmptyString
     schule: str | None
     kontakt: FLKontakt
+    # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
+    honorar: int
     geburtsdatum: CustomOptionalDateString = None
     inactive_since: CustomOptionalDateString
     # Required: only a confirmed record is served.

@@ -255,6 +255,7 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
         "schiedsrichter_id": row["_id"],
         "name": row["name"],
         "schule": row.get("schule"),
+        "honorar": row["default_payment"],
         "kontakt": row["kontakt"],
         "geburtsdatum": row.get("geburtsdatum"),
         "inactive_since": row.get("inactive_since"),
