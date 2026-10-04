@@ -25,18 +25,16 @@ from app.core.drosselung import gedrosselt
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 # The person lane's binder IN PLACE of `bind_actor` and the grants check, which a seat holder holding
 # no grant would fail; the binder refuses a barred person on every method, so no handler asks again.
-bind_kontakt = PERSON_ACTOR_BINDERS["kontakt"]
-
-router = APIRouter(prefix=f"/api/v{API_VERSION}/spieler/kader", dependencies=[Depends(verify_access_admin), Depends(bind_kontakt)])
-
-# Declared again on each handler to receive the folded identifier; FastAPI runs the binder once a request.
-SignedInIdentifier = Annotated[str, Depends(bind_kontakt)]
+router = APIRouter(
+    prefix=f"/api/v{API_VERSION}/spieler/kader",
+    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
+)
 
 SQUAD_PATH = f"{by_id('team_id')}/{{saison_id}}"
 ROW_PATH = f"{SQUAD_PATH}{by_id('spieler_id')}"
@@ -100,7 +98,7 @@ async def _the_row_as_written(
 async def get_kader(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    identifier: SignedInIdentifier,
+    identifier: KontaktIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     records: SubjektLookup,
@@ -143,7 +141,7 @@ async def patch_kader_zeile(
     saison_id: str,
     spieler_id: CustomRouteObjectId,
     zeile_data: Annotated[FLPatchKaderZeilePayload, Body()],
-    identifier: SignedInIdentifier,
+    identifier: KontaktIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     records: SubjektLookup,
@@ -221,7 +219,7 @@ async def delete_kader_zeile(
     team_id: CustomRouteObjectId,
     saison_id: str,
     spieler_id: CustomRouteObjectId,
-    identifier: SignedInIdentifier,
+    identifier: KontaktIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     records: SubjektLookup,
     db: DBClient,
