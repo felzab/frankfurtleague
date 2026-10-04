@@ -37,6 +37,7 @@ from app.api.einladungen.schemas import FLEinladung, FLEinladungVersand
 from app.api.registrierungen.schemas import (
     FLRegistrierung,
     FLRegistrierungBestaetigung,
+    FLRegistrierungEinwilligung,
     FLRegistrierungEntscheidung,
     FLRegistrierungStatus,
 )
@@ -246,9 +247,9 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.EINLADUNGEN, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `bestaetigt` is composed by the read from the consent record's own stamp and stored nowhere.
     (Collection.REGISTRIERUNGEN, (), FLRegistrierung, frozenset({"bestaetigt"})),
-    # The pupil's consent record on a third collection: widening `_EINWILLIGUNG` for any of them
-    # widens it for all three, and this row is where that shows.
-    (Collection.REGISTRIERUNGEN, ("einwilligung",), FLEinwilligung, frozenset()),
+    # The pupil's consent record on a third collection, its choices optional where a returning
+    # pupil's page asked none: a key added to `_EINWILLIGUNG` reaches it, and this row is where that shows.
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), FLRegistrierungEinwilligung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung",), FLRegistrierungBestaetigung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("entscheidung",), FLRegistrierungEntscheidung, frozenset()),
@@ -444,7 +445,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     # The consent vocabulary at its third home: one sub-schema in Python, and the drift walk still
     # reaches each collection's path on its own.
-    (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), True),
     (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligungQuelle), True),
     (Collection.REGISTRIERUNGEN, (), "status", get_args(FLRegistrierungStatus), False),
     # Closed on the stored row as well as the wire: the Playground writes a grant by hand.

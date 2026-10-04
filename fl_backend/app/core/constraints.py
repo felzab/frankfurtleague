@@ -173,8 +173,8 @@ _NACHWEIS = _object(required=(), properties={"umfang": _NACHWEIS_WAHL, "medien":
 
 
 # Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
-# the consent is UNCONFIRMED rather than absent. Read by `spieler`, `schiedsrichter` and
-# `registrierungen` alike, so widening `umfang` for one widens it for all three.
+# the consent is UNCONFIRMED rather than absent. Spread into the registration's own below, so
+# widening `umfang` here widens it on all three collections.
 _EINWILLIGUNG = _object(
     required=("umfang", "datum", "bestaetigt_am"),
     properties={
@@ -189,6 +189,19 @@ _EINWILLIGUNG = _object(
         "text_version": {"bsonType": _STRING_OR_NULL},
         "medien": {"bsonType": "bool"},
         "nachweis": _NACHWEIS,
+    },
+)
+
+# A pending registration's: `bestaetigt_am` alone required and both choices nullable, a returning
+# pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would then
+# pass without a scope.
+_REGISTRIERUNG_EINWILLIGUNG = _object(
+    nullable=True,
+    required=("bestaetigt_am",),
+    properties={
+        **_EINWILLIGUNG["properties"],
+        "umfang": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_UMFANG, None]},
+        "medien": {"bsonType": ["bool", "null"]},
     },
 )
 
@@ -1007,7 +1020,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Required as KEYS and null until the pupil's own confirmation writes both in one
                 # `$set` (`docs/backend/spec.md :: I285`).
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
-                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
+                "einwilligung": _REGISTRIERUNG_EINWILLIGUNG,
                 # Out of `required` as the other two carriers are (`app/api/zustellung/services.py
                 # :: ZIEL_PFADE`): the accepted send skips a row holding no carrier at all, and a
                 # row seeded without one still stores. Every submission composes it.
