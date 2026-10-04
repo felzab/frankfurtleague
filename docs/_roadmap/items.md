@@ -613,6 +613,34 @@ because a case is cut only where a surviving one still fails for the same regres
   to remove before `style-src 'self'` can ship, and that entry's swatches and `ScrollShadow` are
   surfaces this pass restyles anyway.
 
+**What I saw in the team area on the local stack on 2026-10-04, each the redesign's to answer:**
+
+- **The team area reads as another site beside the admin area.** A team's landing,
+  `fl_frontend/src/features/funktionen/components/views/TeamStartView.tsx`, is lines of plain text
+  where the admin area sets the same kind of content in cards and tables.
+- **A team's lists have no search and no filter.** The squad,
+  `fl_frontend/src/features/spieler/components/collections/KaderList.tsx`, and the pending
+  registrations,
+  `fl_frontend/src/features/registrierungen/components/collections/RegistrierungenList.tsx`, carry
+  neither, where every admin list has `fl_frontend/src/shared/components/ui/AdminCrudSearch.tsx`.
+- **The team's side menu shows its season as a chip where the admin area offers a selector**:
+  `fl_frontend/src/features/funktionen/components/ui/SaisonChipSlot.tsx` against
+  `fl_frontend/src/features/saisons/components/ui/SaisonSelector.tsx`. My proposal is the same
+  selector in both, offering a seat holder only the seasons they hold a seat in.
+- **The season is a path segment in the team area and a query parameter in the admin area.** The
+  path holds today for two reasons. One team can hold seats in two seasons and a seat holder sees
+  only their own seat's season, so the season is part of which place an address names. And the
+  team area's layout checks the seat once for every page beneath it
+  (`fl_frontend/src/app/bereich/team/[team_id]/[saison_id]/layout.tsx`), which a query parameter
+  cannot feed: a Next.js layout does not rerender on navigation and so cannot read search params
+  (`fl_frontend/node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/layout.md`).
+  The redesign chooses one convention for both areas knowingly, with both reasons in front of it.
+- **A lone pupil or referee record lands on a chooser of one card, where a lone team seat goes
+  straight on.** `fl_frontend/src/app/bereich/(persoenlich)/page.tsx :: PersoenlichStartPage`
+  skips the chooser for one team alone, because every person lands on a page named „Übersicht“ and
+  only a team's own landing is one (`docs/frontend/spec.md :: I466`). I lean towards showing the
+  chooser only where there are several places, which moves I466 with it; that is not yet decided.
+
 **Undecided, and it needs a ruling before the redesign starts: whether `6m3r-xpcu`'s replacement of
 the component library lands in the same pass.** Its leading candidate replaces HeroUI's styled layer
 and moves the HeroUI half of `fl_frontend/src/app/globals.css` into owned component files, which is
@@ -625,12 +653,13 @@ lands second is built on the other's shell.
 
 **Done when** the site stands on one new grammar recorded in
 [`docs/frontend/spec.md`](../frontend/spec.md), every page on it; each finding above is merged,
-deleted or ruled kept, a kept one at the line or the rule that says why; and I have judged the whole
-site over the local stack.
+deleted or ruled kept, a kept one at the line or the rule that says why; each team-area observation
+is answered on the surface it names; and I have judged the whole site over the local stack.
 
 **Not verified.** The pairs are jscpd's matches over a snapshot of this working tree taken
-2026-09-23 and were not re-read against later edits; nothing above is prototyped, and none of it has
-been seen in a browser. The spans of every pair, the knip run and the whole of what the sweep kept
+2026-09-23 and were not re-read against later edits; nothing above is prototyped, and none of the
+sweep's findings has been seen in a browser. The team-area observations were seen there, and each
+was checked against the source named beside it. The spans of every pair, the knip run and the whole of what the sweep kept
 are in the body of the commit that filed this entry.
 
 ### `gzn4-secx` · A page is tested through a hand-built copy of React's server renderer, where Next recommends end-to-end tests
