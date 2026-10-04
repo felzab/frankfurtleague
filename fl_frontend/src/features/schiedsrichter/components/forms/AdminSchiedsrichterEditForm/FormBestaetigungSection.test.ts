@@ -77,6 +77,35 @@ afterEach(() => {
 });
 
 describe("what the editor shows about a referee's own confirmation", () => {
+  /* The account page moves one choice and leaves the confirmation's day and label standing, so a
+     choice read beside those alone would claim the referee decided it on the confirmation day. */
+  it("reads each choice with the act it stands on, a withdrawal naming the grant it ended", () => {
+    const text = words({
+      einwilligung: {
+        ...BESTAETIGT,
+        umfang: "intern",
+        nachweis: {
+          umfang: {
+            am: "2026-10-04T08:00:00Z",
+            text_version: "2026-10-konto-schiedsrichter",
+            erteilt_zuvor: { am: "2026-09-22T09:00:00Z", text_version: "2026-09-schiedsrichterseite" },
+          },
+          medien: null,
+        },
+      },
+    });
+
+    assert.ok(
+      text.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-schiedsrichter"),
+      "the publication choice reads without its own act",
+    );
+    assert.ok(text.includes("zuvor erteilt am 22.09.2026, 11:00 Uhr"), "the withdrawal hides the grant it ended");
+    assert.ok(
+      text.includes("seit der Bestätigung am 22.09.2026, Fassung 2026-09-schiedsrichterseite"),
+      "a choice never moved does not stand on its confirmation",
+    );
+  });
+
   /* The record is the person's own answer, so a control here would offer an administrator a write
      that is not theirs. */
   it("renders a confirmed record as facts with no control that could change it", () => {

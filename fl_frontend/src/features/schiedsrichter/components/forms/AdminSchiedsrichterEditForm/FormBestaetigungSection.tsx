@@ -16,6 +16,7 @@ import {
   SCHIEDSRICHTER_MEDIEN_LABELS,
   SCHIEDSRICHTER_UMFANG_LABELS,
 } from "@/features/schiedsrichter/constants";
+import { beschreibeNachweis } from "@/features/spieler/nachweis";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -52,6 +53,11 @@ function Angabe({ label, children }: { label: string; children: ReactNode }) {
       <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
     </div>
   );
+}
+
+/** The act a choice stands on, under its value: the confirmation's day and label are another act's. */
+function Beleg({ children }: { children: ReactNode }) {
+  return <span className="block muted-meta">{children}</span>;
 }
 
 /** Its own grade, so a day the record does not carry never reads as one somebody wrote down. */
@@ -111,7 +117,7 @@ function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsric
   );
 }
 
-/** The record the referee's own press wrote, read back as facts. */
+/** The referee's record read back as facts, each choice with the act that set it. */
 function EinwilligungStand({
   einwilligung,
   istFassungBekannt,
@@ -123,18 +129,24 @@ function EinwilligungStand({
 }) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
-      <Angabe label="Veröffentlichung">{SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
+      <Angabe label="Veröffentlichung">
+        {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}
+        <Beleg>{beschreibeNachweis(einwilligung.nachweis.umfang, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
+      </Angabe>
+      <Angabe label="Medien">
+        {einwilligung.medien ? SCHIEDSRICHTER_MEDIEN_LABELS.erteilt : SCHIEDSRICHTER_MEDIEN_LABELS.nicht_erteilt}
+        <Beleg>{beschreibeNachweis(einwilligung.nachweis.medien, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
+      </Angabe>
       <Angabe label="Bestätigt am">
         {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}
       </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
-      <Angabe label="Fassung">
+      <Angabe label="Fassung der Bestätigung">
         <Fassung
           textVersion={einwilligung.text_version}
           istBekannt={istFassungBekannt}
         />
       </Angabe>
-      <Angabe label="Medien">{einwilligung.medien ? SCHIEDSRICHTER_MEDIEN_LABELS.erteilt : SCHIEDSRICHTER_MEDIEN_LABELS.nicht_erteilt}</Angabe>
       {/* Beside the record because the same press wrote it, and on no field of this form: the person
           enters it themselves and no admin payload carries it. */}
       <Angabe label="Geburtsdatum">{geburtsdatum === null ? <KeinTag>Nicht erfasst</KeinTag> : formatSpielDatum(geburtsdatum)}</Angabe>

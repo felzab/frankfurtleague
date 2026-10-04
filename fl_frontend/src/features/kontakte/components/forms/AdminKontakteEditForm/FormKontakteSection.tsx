@@ -10,6 +10,7 @@ import { Input } from "@heroui/react/input";
 
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
+import { beschreibeNachweis } from "@/features/spieler/nachweis";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { einwilligungHerkunftLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
@@ -47,6 +48,10 @@ import type { KontakteBanner } from "./banners";
  * rather than left blank: an empty box on a read-only field reads as a value that failed to load.
  */
 const NOCH_OFFEN = "Noch offen";
+
+/** The two words the contact confirmation's receipt answers a choice with, so both surfaces say it alike. */
+const ERLAUBT = "erlaubt";
+const NICHT_ERLAUBT = "nicht erlaubt";
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 
 /**
@@ -488,6 +493,37 @@ function KontaktpersonInputs({
             onChange={(next) => setEinwilligung({ datum: next?.toString() ?? "" })}
             onBlur={() => onFieldLeft([`kontakte.${rolle}.einwilligung.datum`])}
           />
+        </div>
+
+        {/* The person's own two choices, read out with the act each stands on: the league publishes the
+            photographs, and only the person may answer either. */}
+        <div className={FIELD_PAIR_CLASSES}>
+          {/* The act under the box rather than as its description: a described box is this form's refused one. */}
+          <div className="flex flex-col gap-y-1">
+            <TextField
+              isReadOnly
+              value={person.einwilligung.umfang === "kontaktdaten_whatsapp" ? ERLAUBT : NICHT_ERLAUBT}
+              onChange={() => undefined}>
+              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>WhatsApp</FieldLabel>
+              <Input className={FIELD_INPUT_CLASSES} />
+            </TextField>
+            <p className="muted-hint">
+              {beschreibeNachweis(person.einwilligung.nachweis.umfang, person.einwilligung.bestaetigt_am, person.einwilligung.text_version)}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-y-1">
+            <TextField
+              isReadOnly
+              value={person.einwilligung.medien ? ERLAUBT : NICHT_ERLAUBT}
+              onChange={() => undefined}>
+              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Fotos, Videos und Interviews</FieldLabel>
+              <Input className={FIELD_INPUT_CLASSES} />
+            </TextField>
+            <p className="muted-hint">
+              {beschreibeNachweis(person.einwilligung.nachweis.medien, person.einwilligung.bestaetigt_am, person.einwilligung.text_version)}
+            </p>
+          </div>
         </div>
       </div>
     </>

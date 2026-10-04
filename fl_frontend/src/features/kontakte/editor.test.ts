@@ -1142,6 +1142,38 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
   });
 });
 
+describe("the contact person's own two choices", () => {
+  /* The league publishes the photographs and writes on WhatsApp, so an administrator must see both
+     answers and the act each stands on, neither of which the editor may write. */
+  it("reads WhatsApp and the media consent with the act each stands on", () => {
+    const geantwortet: FLKontaktperson = {
+      ...ADA,
+      einwilligung: {
+        ...ADA.einwilligung,
+        umfang: "kontaktdaten_whatsapp",
+        medien: false,
+        nachweis: {
+          umfang: null,
+          medien: {
+            am: "2026-10-04T08:00:00Z",
+            text_version: "2026-10-konto-kontakt",
+            erteilt_zuvor: { am: "2026-03-14T09:00:00Z", text_version: "1" },
+          },
+        },
+      },
+    };
+    const html = sectionMarkup({ ...BLOCK, trainer: geantwortet });
+
+    assert.match(html, />WhatsApp<[\s\S]*?value="erlaubt"/, "the WhatsApp answer is not shown");
+    assert.match(html, />Fotos, Videos und Interviews<[\s\S]*?value="nicht erlaubt"/, "the media answer is not shown");
+    assert.ok(
+      html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt; zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1"),
+      "the media choice reads without its own act",
+    );
+    assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a choice never moved does not stand on its confirmation");
+  });
+});
+
 describe("which wording a record cites", () => {
   /* The version NAMES the text. A running label naming no words leaves every new record citing a
      text nobody was shown. */

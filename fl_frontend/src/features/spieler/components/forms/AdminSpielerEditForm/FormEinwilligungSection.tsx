@@ -6,6 +6,7 @@ import {
   EINWILLIGUNG_UMFANG_LABELS,
   EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
 } from "@/features/spieler/constants";
+import { beschreibeNachweis } from "@/features/spieler/nachweis";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -23,6 +24,11 @@ function Angabe({ label, children }: { label: string; children: ReactNode }) {
       <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
     </div>
   );
+}
+
+/** The act a choice stands on, under its value: the confirmation's day and label are another act's. */
+function Beleg({ children }: { children: ReactNode }) {
+  return <span className="block muted-meta">{children}</span>;
 }
 
 /** Its own grade, so a day the record does not carry never reads as one somebody wrote down. */
@@ -92,7 +98,16 @@ export function FormEinwilligungSection({
             <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
 
             <dl className={FIELD_PAIR_CLASSES}>
-              <Angabe label="Umfang">{EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
+              <Angabe label="Umfang">
+                {EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}
+                <Beleg>{beschreibeNachweis(einwilligung.nachweis.umfang, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
+              </Angabe>
+              {/* A word and never a switch: this panel reads a record back, and a control here would
+                  offer an administrator the answer that is the person's alone. */}
+              <Angabe label="Medien">
+                {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+                <Beleg>{beschreibeNachweis(einwilligung.nachweis.medien, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
+              </Angabe>
               <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>
               {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Termin offen“: it promises a
                   day that is coming, and nobody was asked for this one. */}
@@ -105,16 +120,11 @@ export function FormEinwilligungSection({
               </Angabe>
               {/* The key rather than a German gloss of it, which would be a second name for one
                   wording. */}
-              <Angabe label="Fassung">
+              <Angabe label="Fassung der Bestätigung">
                 <Fassung
                   textVersion={einwilligung.text_version}
                   istBekannt={istFassungBekannt}
                 />
-              </Angabe>
-              {/* A word and never a switch: this panel reads a record back, and a control here would
-                  offer an administrator the answer that is the person's alone. */}
-              <Angabe label="Medien">
-                {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
               </Angabe>
             </dl>
           </>

@@ -128,6 +128,31 @@ describe("the stored consent panel", () => {
     assert.ok(words(UEBERNOMMEN).includes(EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt), "a record carrying none renders no word");
   });
 
+  /* The account page moves one choice and leaves the confirmation's day and label standing, so a
+     choice read beside those alone would claim the person decided it on the confirmation day. */
+  it("reads each choice with the act it stands on, a withdrawal naming the grant it ended", () => {
+    const zurueckgenommen: FLEinwilligung = {
+      ...ERTEILT,
+      medien: false,
+      nachweis: {
+        umfang: null,
+        medien: {
+          am: "2026-10-04T08:00:00Z",
+          text_version: "2026-10-konto-spieler",
+          erteilt_zuvor: { am: "2026-03-04T09:00:00Z", text_version: FASSUNG },
+        },
+      },
+    };
+    const text = words(zurueckgenommen);
+
+    assert.ok(text.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-spieler"), "the media choice reads without its own act");
+    assert.ok(text.includes("zuvor erteilt am 04.03.2026, 10:00 Uhr"), "the withdrawal hides the grant it ended");
+    assert.ok(
+      text.includes(`seit der Bestätigung am 04.03.2026, Fassung ${FASSUNG}`),
+      "a choice never moved does not stand on its confirmation",
+    );
+  });
+
   it("reads an unconfirmed record as a state rather than a missing day", () => {
     assert.ok(words(UEBERNOMMEN).includes("Nicht bestätigt"), "an unconfirmed consent reads as a gap");
     assert.ok(words(ERTEILT).includes("04.03.2026"), "a confirmed consent does not show the day it was confirmed");
