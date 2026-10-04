@@ -136,7 +136,8 @@ const PERSON = (vorname: string, email: string, telefon: string): FLKontaktperso
     datum: "2026-03-12",
     bestaetigt_am: "2026-03-14",
     medien: false,
-    verlauf: [],
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 

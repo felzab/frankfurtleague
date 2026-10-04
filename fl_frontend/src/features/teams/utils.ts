@@ -265,7 +265,9 @@ export const buildEmptyKontaktperson = (textVersion: string): KontaktpersonDraft
     // has none and the blank is the truth rather than a value still to be filled in.
     bestaetigt_am: null,
     medien: false,
-    verlauf: [],
+    // The save that seats the person stamps who seated them; no payload carries it, so the form never guesses.
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 

@@ -39,7 +39,8 @@ const person = (vorname: string): FLKontaktperson => ({
     datum: "2026-08-01",
     bestaetigt_am: "2026-08-02",
     medien: false,
-    verlauf: [],
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 

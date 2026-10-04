@@ -6,7 +6,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 // that one declaration with the backend's, so a literal beside it is compared by nothing.
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLEinwilligungEintragSchema } from "@/features/spieler/schemas";
+import { FLEinwilligungNachweiseSchema } from "@/features/spieler/schemas";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
@@ -117,33 +117,6 @@ export const FLTrikotFarbeSchema = z.enum(
 );
 export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
 
-// Shared by the record and each entry it keeps, as the backend's aliases are: the two answer in one vocabulary.
-const kenntnisnahmeUmfang = z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], {
-  error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp.",
-});
-const kenntnisnahmeQuelle = z.enum(["person", "administrativ"]);
-
-/** Mirrors `FLKontaktKenntnisnahmeEintrag` — one act on a contact seat's record, cut from the block that act left. */
-export const FLKontaktKenntnisnahmeEintragSchema = z.object({
-  // An instant in UTC, where the block carries a day.
-  am: z.string(),
-  // The one set of acts the pupil's record keeps too, which the backend declares once for both.
-  akt: FLEinwilligungEintragSchema.shape.akt,
-  // The write the act came through, spelled as the backend's rule table spells an operation.
-  ueber: z.enum([
-    "POST /bewerbungen",
-    "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
-    "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
-    "POST /bewerbungen/einwilligung",
-    "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
-  ]),
-  umfang: kenntnisnahmeUmfang,
-  medien: z.boolean(),
-  text_version: z.string(),
-  erfasst_von: kenntnisnahmeQuelle,
-});
-export type FLKontaktKenntnisnahmeEintrag = z.infer<typeof FLKontaktKenntnisnahmeEintragSchema>;
-
 /**
  * Mirrors `FLKontaktKenntnisnahme` — which wording a contact person was shown, and on whose word the
  * record is held.
@@ -151,8 +124,8 @@ export type FLKontaktKenntnisnahmeEintrag = z.infer<typeof FLKontaktKenntnisnahm
  * the one-member literal.
  */
 export const FLKontaktKenntnisnahmeSchema = z.object({
-  umfang: kenntnisnahmeUmfang,
-  erfasst_von: kenntnisnahmeQuelle,
+  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
+  erfasst_von: z.enum(["person", "administrativ"]),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
   text_version: z.string(),
@@ -162,8 +135,10 @@ export const FLKontaktKenntnisnahmeSchema = z.object({
   bestaetigt_am: CustomDateStringSchema.nullable(),
   // The seat's consent to photographs, video and interviews, answered apart from `umfang`.
   medien: z.boolean(),
-  // Every act on the record, oldest first; a record stored before them arrives with none.
-  verlauf: z.array(FLKontaktKenntnisnahmeEintragSchema),
+  // Who seated the person, which decides the page the seat's link opens: the applicant on the form or
+  // the league. Null on a seat stored before the field, never a guess here.
+  eingetragen_von: z.enum(["bewerbung", "liga"]).nullable(),
+  nachweis: FLEinwilligungNachweiseSchema,
 });
 export type FLKontaktKenntnisnahme = z.infer<typeof FLKontaktKenntnisnahmeSchema>;
 

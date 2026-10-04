@@ -538,7 +538,8 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
     datum: "2025-09-01",
     bestaetigt_am: "2025-09-02",
     medien: false,
-    verlauf: [],
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 

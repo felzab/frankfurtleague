@@ -18,7 +18,8 @@ const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
     datum: "2026-10-03",
     bestaetigt_am: null,
     medien: false,
-    verlauf: [],
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 const gesendet = (vorname: string, email: string, telefon = "069 501"): FLKontaktpersonPayload => ({

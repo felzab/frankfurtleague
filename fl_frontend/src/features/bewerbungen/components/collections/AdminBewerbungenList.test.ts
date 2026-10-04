@@ -30,7 +30,8 @@ function person(vorname: string, nachname: string, email: string, bestaetigtAm: 
       datum: "2026-05-01",
       bestaetigt_am: bestaetigtAm,
       medien: false,
-      verlauf: [],
+      eingetragen_von: null,
+      nachweis: { umfang: null, medien: null },
     },
   };
 }

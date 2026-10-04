@@ -369,7 +369,8 @@ const kontaktperson = (vorname: string, email: string | null, bestaetigtAm: stri
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
     medien: false,
-    verlauf: [],
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };

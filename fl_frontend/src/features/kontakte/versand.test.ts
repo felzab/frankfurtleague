@@ -88,7 +88,8 @@ const gespeichert = (vorname: string, email: string) => ({
     erfasst_von: "administrativ" as const,
     bestaetigt_am: null,
     medien: false,
-    verlauf: [],
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 

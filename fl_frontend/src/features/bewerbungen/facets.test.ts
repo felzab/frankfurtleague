@@ -423,7 +423,8 @@ const SEAT_ROWS = KONTAKT_ROLLEN.map(({ value }, index): AdminBewerbungRow => {
       datum: "2026-08-01",
       bestaetigt_am: null,
       medien: false,
-      verlauf: [],
+      eingetragen_von: null,
+      nachweis: { umfang: null, medien: null },
     },
   };
 

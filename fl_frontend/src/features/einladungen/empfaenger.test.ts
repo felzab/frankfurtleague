@@ -18,7 +18,8 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null): FL
     datum: "2026-08-02",
     bestaetigt_am: bestaetigtAm,
     medien: false,
-    verlauf: [],
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 

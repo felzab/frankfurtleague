@@ -25,28 +25,29 @@ export type FLSpielerStufe = z.infer<typeof FLSpielerStufeSchema>;
 export const FLSpielerRolleSchema = z.enum(["kapitaen", "co_kapitaen"], { error: "Bitte wähle eine Rolle." });
 export type FLSpielerRolle = z.infer<typeof FLSpielerRolleSchema>;
 
-// Shared by the record and each entry it keeps, as the backend's aliases are: the two answer in one vocabulary.
-const einwilligungUmfang = z.enum(["kader_oeffentlich", "intern"]);
-const einwilligungQuelle = z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]);
-
-/** Mirrors `FLEinwilligungEintrag` — one act on a person's consent record, cut from the block that act left. */
-export const FLEinwilligungEintragSchema = z.object({
-  // An instant in UTC, where the block carries a day.
+/** Mirrors `FLEinwilligungBeleg` — when a person set one consent choice, and under which wording. */
+export const FLEinwilligungBelegSchema = z.object({
+  // An instant in UTC, where the block carries a day: two acts on one day are ordered by it.
   am: z.string(),
-  akt: z.enum(["erteilt", "bestaetigt", "widerrufen"]),
-  // The write the act came through, spelled as the backend's rule table spells an operation.
-  ueber: z.enum([
-    "POST /schiedsrichter/bestaetigung",
-    "PATCH /spieler/selbst/einwilligung",
-    "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
-    "POST /registrierungen/bestaetigung",
-  ]),
-  umfang: einwilligungUmfang,
-  medien: z.boolean(),
   text_version: z.string(),
-  erteilt_von: einwilligungQuelle,
 });
-export type FLEinwilligungEintrag = z.infer<typeof FLEinwilligungEintragSchema>;
+export type FLEinwilligungBeleg = z.infer<typeof FLEinwilligungBelegSchema>;
+
+/** Mirrors `FLEinwilligungNachweis` — the act that set one choice's value, and on a withdrawal the grant it ended. */
+export const FLEinwilligungNachweisSchema = FLEinwilligungBelegSchema.extend({
+  erteilt_zuvor: FLEinwilligungBelegSchema.nullable(),
+});
+export type FLEinwilligungNachweis = z.infer<typeof FLEinwilligungNachweisSchema>;
+
+/**
+ * Mirrors `FLEinwilligungNachweise` — each choice's evidence, null until its person sets it. The pupil's,
+ * the referee's and a contact seat's record all carry this one shape.
+ */
+export const FLEinwilligungNachweiseSchema = z.object({
+  umfang: FLEinwilligungNachweisSchema.nullable(),
+  medien: FLEinwilligungNachweisSchema.nullable(),
+});
+export type FLEinwilligungNachweise = z.infer<typeof FLEinwilligungNachweiseSchema>;
 
 /**
  * Mirrors `FLEinwilligung` — what may be published about this person.
@@ -55,8 +56,8 @@ export type FLEinwilligungEintrag = z.infer<typeof FLEinwilligungEintragSchema>;
  * somebody actually gave. A null `bestaetigt_am` is UNCONFIRMED.
  */
 export const FLEinwilligungSchema = z.object({
-  umfang: einwilligungUmfang,
-  erteilt_von: einwilligungQuelle,
+  umfang: z.enum(["kader_oeffentlich", "intern"]),
+  erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]),
   datum: CustomDateStringSchema.nullable(),
   bestaetigt_am: CustomDateStringSchema.nullable(),
   // A label of the backend's consent registry and never the words; null on every record stored
@@ -65,8 +66,7 @@ export const FLEinwilligungSchema = z.object({
   // A second consent under one record: `umfang` and this are independent answers, so a reader
   // deciding whether a photo may be published asks this one and never that one.
   medien: z.boolean(),
-  // Every act on the record, oldest first; a record stored before them arrives with none.
-  verlauf: z.array(FLEinwilligungEintragSchema),
+  nachweis: FLEinwilligungNachweiseSchema,
 });
 export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
 

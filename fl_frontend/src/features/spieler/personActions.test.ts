@@ -124,7 +124,7 @@ const EINWILLIGUNG_LANDED = {
     bestaetigt_am: "2026-09-01",
     text_version: "2026-09-spielerseite-3",
     medien: false,
-    verlauf: [],
+    nachweis: { umfang: null, medien: null },
   },
 };
 

@@ -98,7 +98,8 @@ function person(email: string): FLKontaktperson {
       datum: "2026-04-01",
       bestaetigt_am: "2026-04-02",
       medien: false,
-      verlauf: [],
+      eingetragen_von: null,
+      nachweis: { umfang: null, medien: null },
     },
   };
 }

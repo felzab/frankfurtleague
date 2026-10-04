@@ -47,7 +47,7 @@ const BESTAETIGT: FLEinwilligung = {
   bestaetigt_am: "2026-09-22",
   text_version: "2026-09-schiedsrichterseite",
   medien: false,
-  verlauf: [],
+  nachweis: { umfang: null, medien: null },
 };
 
 type Props = Parameters<typeof FormBestaetigungSection>[0];
