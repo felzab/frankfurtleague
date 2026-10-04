@@ -30,10 +30,10 @@ from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_KONT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_database, get_saison_teams_collection, get_schiedsrichter_collection, get_spieler_collection
-from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS
-from app.core.exceptions import DOCUMENT_NOT_FOUND
+from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, get_drossel
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DrosselungException
 from app.core.logging import FL_LOGGER_NAME
-from app.core.recording import AktorFunktion
+from app.core.recording import AktorFunktion, PersonActor, actor_var
 from app.core.security import akteur_pseudonym
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
@@ -266,6 +266,30 @@ class TestTheCeilingUnderConcurrency:
         [line] = [record.getMessage() for record in caplog.records if record.getMessage().startswith(CEILING_LINE)]
         pseudonym = akteur_pseudonym(sign_in_identifier(PERSON), schluessel=CONFIG.sperrliste_schluessel)
         assert line == f"{CEILING_LINE}: kontakt {pseudonym[:8]}"
+
+    def test_counts_gathered_from_no_row_race_to_insert_it_and_lose_nothing(self, mongo_replica_set_url: str):
+        """The count itself, one closure per request as each request builds it, so every first upsert lands in one pass of the loop.
+
+        The case above reaches that race only when its requests happen to arrive together.
+        """
+
+        ceiling = TAGESBUDGETS["spieler"]
+        actor = PersonActor(pseudonym=akteur_pseudonym(sign_in_identifier(PERSON), schluessel=CONFIG.sperrliste_schluessel), funktion="spieler")
+
+        async def steps(database: AsyncDatabase) -> tuple[list[BaseException | None], dict[str, int]]:
+            bound = actor_var.set(actor)
+            try:
+                counted = [get_drossel(database[Collection.DROSSELUNG], NOW)() for _ in range(ceiling + 5)]
+                outcomes = await asyncio.gather(*counted, return_exceptions=True)
+            finally:
+                actor_var.reset(bound)
+            return list(outcomes), await counts(database)
+
+        outcomes, stored = seeded(mongo_replica_set_url, steps)
+
+        # A duplicate key here is a first insert the server refused rather than retried as an update.
+        assert Counter(type(outcome).__name__ for outcome in outcomes) == {"NoneType": ceiling, DrosselungException.__name__: 5}
+        assert stored == {count_id("spieler", PERSON): ceiling + 5}
 
 
 # Every route counting each call, each refused at an exhausted count before its handler reads the body.
