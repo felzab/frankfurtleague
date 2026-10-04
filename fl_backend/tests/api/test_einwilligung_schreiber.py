@@ -326,10 +326,15 @@ _HERKUNFT: Final = "UNCONFIRMED_HERKUNFT"
 APP: Final = Path(__file__).resolve().parents[2] / "app"
 
 
+def _is_projection_flag(value: ast.AST | None) -> bool:
+    # By type: `True == 1` in Python, and `{"medien": True}` is a write.
+    return isinstance(value, ast.Constant) and type(value.value) is int and value.value in (0, 1)
+
+
 def _touches_a_block(function: ast.AST) -> bool:
     for node in ast.walk(function):
         if isinstance(node, ast.Dict) and any(
-            isinstance(key, ast.Constant) and key.value in _BLOCK_KEYS and not (isinstance(value, ast.Constant) and value.value in (0, 1))
+            isinstance(key, ast.Constant) and key.value in _BLOCK_KEYS and not _is_projection_flag(value)
             for key, value in zip(node.keys, node.values, strict=True)
         ):
             return True
