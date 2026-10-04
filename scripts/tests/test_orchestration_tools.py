@@ -288,6 +288,9 @@ def _repo(tmp_path: Path, branch: str = "agent") -> Path:
     configure(root, hooks.as_posix())
     # The repository's own `.gitattributes` keeps every checkout LF, which a Windows default would not.
     git(root, "config", "core.autocrlf", "false")
+    # The repository's own ignore rule: the regeneration imports the generators and writes their
+    # bytecode beside them, which a tree without it would show as untracked work.
+    write(root, ".gitignore", "__pycache__/\n")
     write(root, "fl_backend/app/schema.txt", '"a": 1')
     write(root, "fl_backend/app/extra.txt", '"b": 1')
     write(root, "fl_backend/tests/openapi_document.py", OPENAPI_WRITER)
