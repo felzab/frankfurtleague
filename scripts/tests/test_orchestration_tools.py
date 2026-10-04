@@ -488,6 +488,26 @@ def test_a_markdown_conflict_the_merge_cannot_settle_stops_clean(tmp_path: Path,
     assert git(root, "status", "--porcelain") == "" and git(root, "rev-parse", "HEAD") == head
 
 
+def test_a_merge_that_raises_aborts_the_pick_before_it_stops(tmp_path: Path) -> None:
+    """The merge reads a conflicted file as utf-8, so a byte outside it raises inside the merge path."""
+    root = _repo(tmp_path)
+    (root / "docs" / "latin.md").write_bytes(b"| K | v |\n| --- | --- |\n| A | base |\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "Docs: A latin-1 table")
+    git(root, "branch", "-f", "agent", "HEAD")
+    start = git(root, "rev-parse", "HEAD")
+    git(root, "checkout", "-q", "agent")
+    (root / "docs" / "latin.md").write_bytes(b"| K | v |\n| --- | --- |\n| A | agent \xe9 |\n")
+    git(root, "-c", "user.name=agent", "-c", "user.email=agent@example.invalid", "commit", "-q", "--no-verify", "-am", "Docs: The agent's row")
+    git(root, "checkout", "-q", "main")
+    (root / "docs" / "latin.md").write_bytes(b"| K | v |\n| --- | --- |\n| A | session \xe9 |\n")
+    git(root, "commit", "-q", "-am", "Docs: The session's row")
+    done = _run("land", start, "agent", cwd=root)
+    assert done.returncode == 3, (done.returncode, done.stderr)
+    assert "Traceback" not in done.stderr and "UnicodeDecodeError" in done.stderr
+    assert git(root, "status", "--porcelain") == ""
+
+
 def _in_process(root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int, str]:
     """`land.main` run inside this process, for a case that swaps one of its collaborators."""
     monkeypatch.chdir(root)
