@@ -57,6 +57,19 @@ Unattended changes still open, and the command that restores each:
 above the marker below; the marker line is copied as it stands>
 <!-- reg.py appends UPDATE lines above this line -->
 
+## Expected red -- every check known to fail at the pushed head, and the landing that clears it
+
+| Failing check, test or finding | Why it is red | Cleared by (the pending landing) | Since (push) |
+| ------------------------------ | ------------- | -------------------------------- | ------------ |
+
+<One row per known failure, written when the landing that causes it is pushed and closed when the
+landing that clears it arrives: a contract's halves land apart (`SKILL.md` §2 item 5), so the head
+is red between them by design. A red outside this table is a new defect, routed in the turn the
+run concludes; a row whose clearing landing arrived and still fails is a finding. The deferred
+invariant bands sit here as one row, mapped once at the ending, as does the pull request body's
+check until that body is written there. Nothing checks this table against CI: the coordinator
+reads every concluded run against it.>
+
 ## File ownership -- the map every dispatch is checked against
 
 | Files owned | Agent | Unit of work | Worktree branch, and the sha it forked at |
@@ -237,8 +250,9 @@ it a row and mark it estimated; the landing recipe above is the whole of its per
 <Assembly of the last wave; the audit its last commit dispatches in the same action, and the fix
 round that audit feeds, neither of which belongs to the wave and both of which the ending owes;
 the plan reconciled against the branch, every slice ticked to a landed commit and every enumerated
-row inside a closed entry ticked too; the full gate, `./scripts/gate/verify.sh`; the draft pull
-request; every started check's conclusion; the handoff and its independent audit; the starter
+row inside a closed entry ticked too; the deferred invariant bands mapped and every expected-red
+row closed; `tools/ledger.py open` printing nothing; the full gate, `./scripts/gate/verify.sh`; the
+draft pull request's body; every started check's conclusion; the handoff and its independent audit; the starter
 prompt. Once one wave plus this list is what remains, dispatch nothing new.>
 
 ## Decisions taken by the owner, and where each was routed

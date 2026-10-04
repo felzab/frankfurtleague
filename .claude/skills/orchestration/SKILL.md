@@ -26,8 +26,8 @@ and every claim that reaches a permanent artefact.
 add anything, and measure the page afterwards rather than assuming it still fits**: an addition
 displacing nothing is not refused, it is taken out of the end. **The physical order is for
 compaction, not chronology** — the table reaches each section by its moment, and only §2 is safely
-last, spent before the second agent runs; §6 and §4's two subsections are late-session material
-sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
+last, spent before the second agent runs; §6 and §4's subsections are late-session material sitting
+where the cut falls, which a fresh invocation restores (§1).
 
 ## 1. Starting, pausing or resuming
 
@@ -36,15 +36,12 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
   carrying this session's work; either way run [resume-prompt.md](resume-prompt.md) to its end
   before anything else.**
 - **After a compaction, invoke `/orchestration` again and read the register's resume point before
-  the next action**: compaction keeps this page's opening only, and
-  `.claude/hooks/orchestration-compact.sh` says so to the session whose id the register records.
-- **A quota stop costs exactly what the register does not hold.** Every edit on disk survives it;
-  every finding an agent has not yet returned dies with it (§4), and so does your judgement since
-  the last register edit — so the register's **resume point**
-  ([register-template.md](register-template.md)) is rewritten in the same edit as whatever it names,
-  a stop that gives warning being the exception and an announced one getting one action only
-  ([resume-prompt.md](resume-prompt.md)). **The resume point is this session continuing, never a
-  handoff** ([handoff-template.md](handoff-template.md)).
+  the next action**: compaction keeps this page's opening only, as
+  `.claude/hooks/orchestration-compact.sh` reminds you.
+- **A quota stop costs exactly what the register does not hold**: edits on disk survive it, while an
+  agent's unreturned findings and your judgement since the last register edit die with it. So the
+  register's **resume point** ([register-template.md](register-template.md)) is rewritten in the
+  same edit as whatever it names, and is this session continuing, never a handoff.
 - **No clock time is typed**: `tools/reg.py append` stamps every register UPDATE line, and any
   other time is read from `date` in the action that writes it.
 - **Before recording that the owner's process lacks a step, check whether the step exists and you
@@ -78,16 +75,21 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    **A claim about the code is checked against that commit**, never against where the branch ends —
    the tooling claims being the ones nobody re-reads. Qualify every blanket negative to what
    you checked — "nothing else is shared" missed a process-global two frames down.
-4. **Only the branch's final state passes the gate and CI**; a commit is held to its hooks,
-   never probed or reordered to be green alone. Land a branch once
-   `git -C <worktree> status --porcelain` is empty: the agent's checks read files its commits lack.
+4. **Only the branch's final state passes the gate**; a commit is held to its hooks, never probed or
+   reordered to be green alone, and CI's run over a batch is read against the expected-red list
+   (item 6), never per commit.
 5. **At the boundary, reconcile mechanically** ([resume-prompt.md](resume-prompt.md) step 4): your
    checkout is clean, and every `git worktree list` entry is a live agent's or a branch the commit
    table has landed. Remove a landed one and delete its branch, never the owner's question
    ([register-template.md](register-template.md)).
-6. **Push once per wave; the bare gate is the ending's** (item 4, §7, CLAUDE.md §2). The local
-   stack runs in your checkout, which holds landed work only, so it never waits for the fleet (§4),
-   and it still holds port 3000 against the next build.
+6. **Push once per batch, the first push opening the draft pull request, and start
+   `gh pr checks <n> --watch` in the background in the same action: CI over the combined head is
+   the batch's whole-suite run.** Read its conclusion against the register's **expected-red list**:
+   a red outside it is a new defect, routed at once; a listed one whose landing arrived and still
+   fails is a finding. **Dispatch no writer while `HEAD` holds a landing whose CI has not concluded,
+   and no lens round or driving re-audit over a red outside the list.** A push cancels the run
+   before it. CI is Linux, so run the suites in your checkout every few batches for what only
+   Windows breaks. The bare gate is the ending's (§7, CLAUDE.md §2).
 
 ## 7. Ending the session
 
@@ -104,9 +106,9 @@ The ending, in order:
    `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. **The branch is
    stable only here** — the last fix committed, the gate green, no live agent still able to return a
    finding, and every worktree row closed ([register-template.md](register-template.md)).
-3. Open the draft pull request, its body written once, here (CLAUDE.md §2), and **start the handoff
-   in the same action, which is its moment**: the checks then run for as long as the handoff takes
-   to write, audit and fix.
+3. Write the draft pull request's body once, here (CLAUDE.md §2), and **start the handoff in the
+   same action, which is its moment**: the checks then run for as long as the handoff takes to
+   write, audit and fix.
 4. **Write the handoff ([handoff-template.md](handoff-template.md)) and the next session's starter
    (`START-<session>.md`, [USAGE.md](USAGE.md)) once each, from the register**. **Once is the rule
    and step 3 only the moment that serves it**: begun while anything in it can still move, a
@@ -139,8 +141,7 @@ Run it for every agent, the fifteenth as much as the first.
    sections 1 and 3, the values its definition names and its work's own traps**, every path in
    full. **One
    prep agent resolves a whole wave's premises against `HEAD` before its briefs are written** —
-   half of them otherwise carry one the tree contradicts (`.claude/agents/implementer.md` section
-   4), each paid for twice, in the agent's rediscovery and in the fix round that follows.
+   half of them otherwise carry one the tree contradicts, each paid for twice, in the agent's rediscovery and in the fix round that follows.
 5. **Dispatch a judging auditor as `cold-auditor`, a writing agent as `implementer`, an auditor that
    must plant or run a suite as `driving-reauditor`, and research or an audit reading only committed
    state as `researcher`**, whose shell writes no repository file; `general-purpose` keeps a
@@ -151,20 +152,19 @@ Run it for every agent, the fifteenth as much as the first.
    runs; every later message to the agent is appended, in the same action as the send, to
    `<NAME>-messages.md` beside the brief, never to the brief**, and a successor is briefed from both
    ([resume-prompt.md](resume-prompt.md) step 3). **An agent that writes the repository or plants
-   runs in a worktree of its own** — its definition's `isolation: worktree`, which branches
-   from your `HEAD` only under `worktree.baseRef: "head"`, and the call's own
-   `isolation: "worktree"`, without which a named call launches as a teammate while agent teams are
-   on (documented, not driven) — so commit what it needs first; a reader stays in yours. A
-   definition added mid-session is dispatchable from the next turn.
+   runs in a worktree of its own**, forked from your `HEAD` under `worktree.baseRef: "head"` — its
+   definition's `isolation: worktree` and the call's own `isolation: "worktree"`, without which a
+   named call launches as a teammate while agent teams are on (documented, not driven) — so commit
+   what it needs first; a reader stays in yours. A definition added mid-session is dispatchable from
+   the next turn.
 
 ## 4. Running the fleet
 
 - **Check the live count against the cap before every reply, and end the reply with the gauge that
   proves you did:** `Fleet: 3 of <cap>, two queued behind the gate commit.` No clause explaining a
   blockage, which belongs in the reply's prose.
-- **The gauge cannot test "nothing is dispatchable"**, and a truthful count sits happily above a
-  queue nobody examined — which is how this rule keeps failing while the line proving it gets
-  written. Name what would have to become true for one more agent to go out, and check whether it
+- **The gauge cannot test "nothing is dispatchable"**: a truthful count sits happily above a queue
+  nobody examined. Name what would have to become true for one more agent to go out, and check whether it
   already is; three classes a busy tree almost never blocks are a cold audit over a captured diff
   (§6), read-only research, and the next wave's prep agent (§3). **The owner asking about
   parallelism is a defect report, never a question.**
@@ -181,34 +181,29 @@ Run it for every agent, the fifteenth as much as the first.
   audit's fixes included **where the finding is SETTLED** — by a driven plant, an owner's
   ruling, a quoted never-clause. A finding that argues the shape is wrong goes to a fresh reader
   instead, being one the author can dispute from inside the reasoning that produced it.
-- **Size a brief by what losing its whole output costs** — a report is the agent's final message,
-  banked into the register in the turn it lands
-  ([register-template.md](register-template.md)).
+- **Size a brief by what losing its whole output costs**: a report is the agent's final message.
 - **Verify every count, file list and exit code in a report yourself**, against the agent's branch —
   `git log --stat <from>..<branch>` (§5 item 1) and `git show <branch>:<path>` — since
-  what lands is what it committed, never what its worktree or its report says. **A finding about a
+  what lands is what it committed. **A finding about a
   file its reporter does not own is checked at `HEAD` before it is routed**: findings have dissolved
   that way. Route one agent's conclusion to another as a claim with its source named, never as a
   premise; your own inference, stated one notch wider than its evidence, reaches an agent as fact.
   When two agents disagree about one file, drive the difference — never pick a side, never average.
-- **Route every out-of-scope finding in the turn you read it, as a findings-ledger row**
-  ([register-template.md](register-template.md)): a fixer where it is a fix, the owner where unsure,
-  or a check where the class is mechanically detectable — never a roadmap entry the owner has not
-  been asked about (CLAUDE.md §3) — and say which each got. Reports rank findings by their author's
-  scope, so the one that matters is rarely first. **Route at the class, never at the instance reported** — protecting the one file reported
-  lost other agents' commit messages in the same directory a wave later.
-- **`.claude/agents/implementer.md` sections 8, 9 and 13 — plant-and-restore, the traps and the
-  siblings test — bind you as they bind an agent**, save that you plant only through a driving
-  re-auditor and run `./scripts/ops/local.sh` in your checkout (§5); 13 binds what you bank from a
-  report too: ask which command established a claim about the tooling, and read its success as
-  evidence about that command and no wider class.
+- **Route every ledger row in the turn you bank it, at the class, never at the instance reported**
+  — protecting the one file reported lost other agents' commit messages in that directory a wave
+  later: a fixer where it is a fix, the owner where unsure, a check where the class is mechanically
+  detectable, never an unasked roadmap entry (CLAUDE.md §3). Reports rank findings by their author's
+  scope, so the one that matters is rarely first.
+- **`.claude/agents/implementer.md` sections 8, 9 and 13 bind you as they bind an agent**, save that
+  you plant only through a driving re-auditor and run `./scripts/ops/local.sh` in your checkout; 13
+  binds what you bank too: a claim about the tooling is evidence about the command that established
+  it and no wider class.
 
 ### The schedule is read back
 
 **At the plan and at every wave boundary, write what remains as a block-by-block wall-clock estimate
 ([register-template.md](register-template.md)), each figure marked measured or estimated, then read
-it back for what to change** — the read-back is the instrument, and the estimate alone has never
-moved a schedule. **A wave costs its longest agent, never the sum**, so the schedule is a chain of
+it back for what to change**: the estimate alone has never moved a schedule. **A wave costs its longest agent, never the sum**, so the schedule is a chain of
 longest agents: find the block dominating it and spend the round there, because **an optimisation
 leaving that block untouched buys nothing**, however easy it looks. **A whole exceeding the
 arithmetic of its parts is a serialisation nobody has named**; and where one block dominates two
@@ -248,10 +243,8 @@ lightening floor and its discriminator [register-template.md](register-template.
   checklist of what changed, and the structural checks. **A look ruling is a class** and binds every
   surface in flight, and **the owner is the primary source on what the owner has looked at**: where
   a handoff's list disagrees, the list is withdrawn.
-- **At many slices the lightening is the normal allocation and the full cycle the exception**
+- **A ruling's register row closes only when the tree matches the ruling's words**
   ([register-template.md](register-template.md)).
-- **A ruling's register row closes only when the tree matches the ruling's words, and a brief never
-  asks for a ruling's number in a tracked file** ([register-template.md](register-template.md)).
 - **Audits are bought by blast radius, not by agent count.** One cold auditor per seam takes every
   slice that seam crosses; one driving re-auditor takes every fix landed since the last, across
   seams ([the brief](agent-brief-template.md)); a follow-up found by one audit rides the next
