@@ -127,7 +127,7 @@ export function mapRegistrierungSubmitRefusal(
  * registering again mints a fresh link.
  */
 export const MAIL_ABGEWIESEN =
-  "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link erneut;" +
+  "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link erneut; " +
   `der Eintrag von eben löscht sich nach ${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
 
 /** The refused send as the form shows it. */
