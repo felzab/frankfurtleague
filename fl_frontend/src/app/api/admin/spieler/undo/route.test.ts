@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, assertEachRowPublished, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -11,6 +11,7 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers((call) => Promise.resolve(replayed(call, 1)));
 const { POST } = await import("./route.ts");
+const { SQUAD_REPLAY_REFUSALS } = await import("@/features/spieler/refusals.ts");
 
 /**
  * What `fl_frontend/src/features/spieler/mutations.ts :: patchSaisonSpieler` sends, as the backend's own routes spell
@@ -101,5 +102,11 @@ describe("the player save's undo", () => {
       await undo(POST, { person: PERSON, saison: SAISON }),
       unacknowledged("Nur die Personendaten wurden zurückgesetzt. Prüfe den Kadereintrag."),
     );
+  });
+});
+
+describe("the replay table against the replayed endpoint", () => {
+  it("words only codes the replayed endpoint publishes", () => {
+    assertEachRowPublished(SQUAD_REPLAY_REFUSALS, SQUAD_OPERATION);
   });
 });

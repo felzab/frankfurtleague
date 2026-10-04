@@ -77,3 +77,13 @@ export function mapAlreadyInSaisonRefusal(error: unknown): string | null {
 
   return ALREADY_IN_SAISON;
 }
+
+/**
+ * The refusals the squad half of a replay can meet, in German written for the undo — the save's own
+ * words send an admin to the team picker, which this toast has not got.
+ */
+export const SQUAD_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  "REQ-SQUAD-001": "Das ursprüngliche Team dieses Kadereintrags nimmt nicht mehr an dieser Saison teil.",
+  "REQ-SQUAD-003": "Der Kader des ursprünglichen Teams ist für diese Saison inzwischen voll.",
+  "REQ-SQUAD-004": "Die ursprüngliche Rolle ist in diesem Team inzwischen an einen anderen Spieler vergeben.",
+};

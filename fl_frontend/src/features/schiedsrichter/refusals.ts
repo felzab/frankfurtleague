@@ -1,5 +1,5 @@
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
-import { isRefusal } from "@/shared/utils/actionError";
+import { isRefusal, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -100,3 +100,10 @@ export const KEINE_ADRESSE = buildRefusal({
   reason: "Für diese Person ist keine verwendbare E-Mail-Adresse hinterlegt",
   repair: "Trage oben eine E-Mail-Adresse ein und speichere",
 });
+
+/** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
+export const SCHIEDSRICHTER_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  "REQ-SCHIEDSRICHTER-007":
+    "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
+};

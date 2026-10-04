@@ -473,7 +473,9 @@ change still stands before leaving, a new sign-in landing on `/bereich` rather t
 the 403 counts only where it carries the route's envelope, an edge challenge answering 403 in markup.
 
 **Every undo replay can be refused on the way back**, and each answers in German out of
-its own replay table, the route's `REPLAY_REFUSALS` or, for a replay no save sends, the slice's (`fl_frontend/src/features/spiele/refusals.ts :: PAARUNGEN_REPLAY_REFUSALS`): the replay meets the rules the save met, so a span another tab has
+its own replay table, held in the slice's refusals module because a route module may export only its handlers
+(`fl_frontend/src/features/spiele/refusals.ts :: PAARUNGEN_REPLAY_REFUSALS` among them), every row a code the replayed
+endpoint publishes (`fl_frontend/src/shared/testing/undoRoutes.ts :: assertEachRowPublished`): the replay meets the rules the save met, so a span another tab has
 since narrowed comes back from the matchday's as a refusal. **A refusal reports the change as still
 standing only where the replay is one write**: a replay that commits in parts words the half that
 went back instead. **`fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` therefore
@@ -1126,8 +1128,8 @@ meets alike, a lost seat's `REQ-FUNKTION-001` (I553) and a person's day ceiling'
 (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). A rule's code no arm names
 (`fl_frontend/src/shared/utils/actionError.ts :: isRuleRefusal`) is answered with `fl_frontend/src/shared/utils/refusal.ts :: UNKNOWN_REFUSAL`, which
 names no reason, and on a public route with `:: UNHANDLED_FIELD_REFUSAL`, whose way out is no reload:
-a reload discards what the visitor typed. Every undo route answers
-`DB-COMMON-002` in its own replay table's row with the shared sentence
+a reload discards what the visitor typed. Every undo route whose replayed endpoint publishes
+`DB-COMMON-002` answers it in its replay table's row with the shared sentence
 (`fl_frontend/src/shared/utils/actionError.ts :: KONFLIKT_MIT_BESTEHENDEM`), which
 `fl_frontend/src/shared/utils/undoRoute.ts :: refusedReplay` closes, as it closes every row, on what
 became of the change: „Die Änderung steht weiterhin.“, or, where a replay of two writes had already

@@ -4,18 +4,11 @@ import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { patchSchiedsrichter } from "@/features/schiedsrichter/mutations";
 import { describeLinkMail, mailSchiedsrichterLink } from "@/features/schiedsrichter/notifications";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
+import { SCHIEDSRICHTER_REPLAY_REFUSALS } from "@/features/schiedsrichter/refusals";
 import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
-import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
-
-/** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
-const REPLAY_REFUSALS: Record<string, string> = {
-  "REQ-SCHIEDSRICHTER-007":
-    "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
-  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
-};
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
@@ -26,7 +19,7 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchSchiedsrichter(payload);
       } catch (error) {
-        return refusedReplay(error, REPLAY_REFUSALS);
+        return refusedReplay(error, SCHIEDSRICHTER_REPLAY_REFUSALS);
       }
 
       if (!operation.acknowledged) {
