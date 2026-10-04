@@ -6,7 +6,7 @@ payload shape; this file holds what differs on a referee row: the address stored
 ghost, and a record the confirmation has not yet written.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -19,7 +19,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.services import KONTO_SEITE_SCHIEDSRICHTER
+from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SCHIEDSRICHTER
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -124,8 +124,17 @@ def _running_label() -> str:
     return LAUFENDE_FASSUNGEN[KONTO_SEITE_SCHIEDSRICHTER]
 
 
-def _payload(*, umfang: str = "kader_oeffentlich", medien: bool = False, text_version: str | None = None) -> dict[str, Any]:
-    return {"umfang": umfang, "medien": medien, "text_version": text_version or _running_label()}
+def _payload(
+    *, umfang: str = "kader_oeffentlich", medien: bool = False, text_version: str | None = None, stand: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """A press from a page served the record as the suite seeds it, holding no evidence, unless `stand` says otherwise."""
+
+    return {
+        "umfang": umfang,
+        "medien": medien,
+        "text_version": text_version or _running_label(),
+        "nachweis_stand": dict(stand) if stand is not None else {"umfang": None, "medien": None},
+    }
 
 
 def _person(email: str) -> SignedActor:
@@ -275,6 +284,20 @@ class TestTheTwoChoices:
         # No copy of the verdict on the fixture naming the referee, held byte for byte.
         assert spiele == [SPIEL]
 
+    def test_a_press_from_a_page_served_older_evidence_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await database[Collection.SCHIEDSRICHTER].update_one(
+                {"_id": REFEREE_OID}, {"$set": {"einwilligung.nachweis.medien": {"am": AM, "text_version": _running_label()}}}
+            )
+            before = await _records(database)
+            response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
+            return response, before, await _records(database)
+
+        response, before, after = served(mongo_replica_set_url, steps)
+
+        assert (response.status_code, response.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert after == before
+
     def test_moving_the_media_answer_leaves_the_scope(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(medien=True), headers=_person(IDENTIFIER))
@@ -313,7 +336,9 @@ class TestARecordNotHeld:
                 f"{PATH}/{RETIRED_OID}/einwilligung", json=_payload(umfang="intern", medien=False), headers=_person(RETIRED)
             )
             granted = await http.patch(
-                f"{PATH}/{RETIRED_OID}/einwilligung", json=_payload(umfang="kader_oeffentlich", medien=False), headers=_person(RETIRED)
+                f"{PATH}/{RETIRED_OID}/einwilligung",
+                json=_payload(umfang="kader_oeffentlich", medien=False, stand=withdrawn.json()["nachweis_stand"]),
+                headers=_person(RETIRED),
             )
             return withdrawn, granted, await _records(database)
 
@@ -439,7 +464,8 @@ def _seat_press(email: str, team_id: ObjectId, saison_id: str, medien: bool, *, 
         if before is not None:
             await before(database)
         stored = await _rows(database)
-        response = await http.patch(_seat_path(team_id, saison_id), json={"medien": medien, "text_version": label}, headers=_person(email))
+        body = {"medien": medien, "text_version": label, "nachweis_stand": {"medien": None}}
+        response = await http.patch(_seat_path(team_id, saison_id), json=body, headers=_person(email))
         return response, stored, await _rows(database)
 
     return steps
@@ -464,9 +490,13 @@ class TestTheSeatsMediaChoice:
 
     def test_a_past_seasons_seats_take_a_withdrawal_each_and_refuse_a_grant(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            body = {"medien": False, "text_version": SEAT_RUNNING_LABEL}
+            body = {"medien": False, "text_version": SEAT_RUNNING_LABEL, "nachweis_stand": {"medien": None}}
             withdrawn = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
-            granted = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json={**body, "medien": True}, headers=_person(IDENTIFIER))
+            granted = await http.patch(
+                _seat_path(TEAM_A_OID, PAST_SAISON),
+                json={**body, "medien": True, "nachweis_stand": withdrawn.json()["nachweis_stand"]},
+                headers=_person(IDENTIFIER),
+            )
             return withdrawn, granted, await _rows(database)
 
         withdrawn, granted, after = served(mongo_replica_set_url, steps)
@@ -497,6 +527,22 @@ class TestTheSeatsMediaChoice:
         response, before, after = served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=young_and_off))
 
         assert (response.status_code, response.json()["error_code"]) == (422, SELBST_MEDIEN_ALTER)
+        assert after == before
+
+    def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+        """Over every held seat: the read serves the latest of their instants, which a press elsewhere has moved."""
+
+        async def withdrawn_elsewhere(database: AsyncDatabase) -> None:
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
+                {"$set": {"kontakte.stellvertretung.einwilligung.nachweis.medien": {"am": AM, "text_version": SEAT_RUNNING_LABEL}}},
+            )
+
+        response, before, after = served(
+            mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=withdrawn_elsewhere)
+        )
+
+        assert (response.status_code, response.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
     def test_the_seat_confirmations_label_is_no_version_of_the_control(self, mongo_replica_set_url: str):

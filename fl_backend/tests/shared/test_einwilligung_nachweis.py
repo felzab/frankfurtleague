@@ -7,7 +7,16 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spieler.schemas import FLEinwilligung
 from app.api.teams.schemas import FLKontaktKenntnisnahme
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, compose_beleg, compose_erneuert, compose_geboren, compose_wahlen, ist_erteilt
+from app.shared.einwilligung_nachweis import (
+    WAHLEN,
+    FLEinwilligungWahl,
+    compose_beleg,
+    compose_erneuert,
+    compose_geboren,
+    compose_wahlen,
+    ist_erteilt,
+    nachweis_stand_of,
+)
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -229,6 +238,22 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         stored = {**WITHOUT_EVIDENCE, "nachweis": {"umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": "y"}}}
 
         assert "einwilligung.umfang" not in compose_erneuert(pfad="einwilligung", gespeichert=stored, erneuert=offset)
+
+
+class TestTheStandAPressEchoes:
+    """`nachweis_stand_of`, the one derivation the account read serves and a consent PATCH compares with."""
+
+    def test_a_record_answers_each_choices_instant_and_none_where_it_holds_no_evidence(self):
+        assert nachweis_stand_of(bloecke=[MEDIA_WITHDRAWN], wahlen=WAHLEN) == {"umfang": GIVEN_AT, "medien": WITHDRAWN_AT}
+        assert nachweis_stand_of(bloecke=[WITHOUT_EVIDENCE], wahlen=WAHLEN) == {"umfang": None, "medien": None}
+
+    def test_several_blocks_answer_the_latest_instant_as_it_was_stored(self):
+        """One press moves every held seat; the latest is compared as an instant and served in its own spelling."""
+
+        spelt_otherwise = {**WITHOUT_EVIDENCE, "nachweis": {"medien": {"am": "2026-05-02T08:30:00+02:00", "text_version": "x"}}}
+
+        assert nachweis_stand_of(bloecke=[CONFIRMED, spelt_otherwise], wahlen=("medien",)) == {"medien": "2026-05-02T08:30:00+02:00"}
+        assert nachweis_stand_of(bloecke=[MEDIA_WITHDRAWN, spelt_otherwise], wahlen=("medien",)) == {"medien": WITHDRAWN_AT}
 
 
 class TestARecordStoredBeforeItsEvidence:

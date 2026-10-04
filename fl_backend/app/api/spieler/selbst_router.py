@@ -15,6 +15,7 @@ from app.api.konto.services import (
     erteilt_etwas,
     find_eigener_eintrag_refusal,
     find_konto_fassung_refusal,
+    find_nachweis_stand_refusal,
     kontext_zeile,
 )
 from app.api.spieler.schemas import (
@@ -40,6 +41,7 @@ from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung_nachweis import WAHLEN, nachweis_stand_of
 
 # A module of its own: `app/api/spieler/person_router.py` binds the `kontakt` Funktion at ROUTER level
 # (`docs/backend/spec.md :: I41`), and a second binder on one of its routes would record these writes
@@ -130,7 +132,8 @@ async def patch_einwilligung(
     withdrawal on a retired one too.
 
     Refuses, in this order: an address holding no confirmed pupil record, or a grant on a retired one
-    (`REQ-FUNKTION-001`); a `text_version` naming no version of the account page's pupil control, or a grant naming
+    (`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since
+    the page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's pupil control, or a grant naming
     any but the page's running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where the stored birthdate
     does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
 
@@ -145,6 +148,7 @@ async def patch_einwilligung(
         gespeichert = None if row is None else row.get("einwilligung")
         refuse(find_eigener_eintrag_refusal(gehalten=is_confirmed(gespeichert)))
         assert row is not None and gespeichert is not None
+        refuse(find_nachweis_stand_refusal(erwartet=einwilligung_data.nachweis_stand.model_dump(), bloecke=[gespeichert], wahlen=WAHLEN))
 
         erteilt = erteilt_etwas(gespeichert=gespeichert, umfang=einwilligung_data.umfang, medien=einwilligung_data.medien)
         if erteilt:
@@ -176,7 +180,13 @@ async def patch_einwilligung(
         )
         # A press moving neither choice is no act, so nothing is written and no evidence restamped.
         if update is None:
-            return FLSpielerSelbstEinwilligungResponse.model_validate({"spieler_id": row["_id"], "einwilligung": gespeichert})
+            return FLSpielerSelbstEinwilligungResponse.model_validate(
+                {
+                    "spieler_id": row["_id"],
+                    "einwilligung": gespeichert,
+                    "nachweis_stand": nachweis_stand_of(bloecke=[gespeichert], wahlen=WAHLEN),
+                }
+            )
 
         updated = await patch_one_in_db(
             collection=spieler_collection,
@@ -186,7 +196,13 @@ async def patch_einwilligung(
             return_document=ReturnDocument.AFTER,
         )
 
-        return FLSpielerSelbstEinwilligungResponse.model_validate({"spieler_id": row["_id"], "einwilligung": updated["einwilligung"]})
+        return FLSpielerSelbstEinwilligungResponse.model_validate(
+            {
+                "spieler_id": row["_id"],
+                "einwilligung": updated["einwilligung"],
+                "nachweis_stand": nachweis_stand_of(bloecke=[updated["einwilligung"]], wahlen=WAHLEN),
+            }
+        )
 
     async with transaction_session(db) as session:
         return await session.with_transaction(write)

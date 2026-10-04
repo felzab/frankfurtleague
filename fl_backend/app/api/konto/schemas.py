@@ -4,6 +4,7 @@ from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
 from app.api.spieler.schemas import FLSpielerSelbst
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.einwilligung import FLMedienStand
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -32,6 +33,8 @@ class FLKontoSitzEinwilligung(BaseModel):
     # The first held slot's, for `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     bestaetigt_text_version: str | None
     medien: bool
+    # Over every held slot, for `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    nachweis_stand: FLMedienStand
     medien_angeboten: bool
     erteilbar: bool
     kontext: FLSitzKontext

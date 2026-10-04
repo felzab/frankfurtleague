@@ -40,7 +40,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLMedienStand, FLMedienStandPayload
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -633,6 +633,8 @@ class FLSaisonTeamPersonEinwilligungPayload(BaseModel):
     medien: bool
     # The label of the account page's seat control the press was given under, recorded on its evidence.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    # The row's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I995`).
+    nachweis_stand: FLMedienStandPayload
 
 
 class FLReplaceSaisonTeamPayload(BaseModel):
@@ -867,6 +869,8 @@ class FLSaisonTeamPersonEinwilligungResponse(BaseAPIResponse):
     saison_id: str
     rollen: list[FLKontaktRolle]
     medien: bool
+    # The precondition a next press on this row echoes.
+    nachweis_stand: FLMedienStand
 
 
 FLTeamsResponse = Annotated[

@@ -19,6 +19,7 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
+from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -249,6 +250,8 @@ class FLSchiedsrichterSelbst(BaseModel):
     # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     bestaetigt_text_version: str | None
     # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    nachweis_stand: FLEinwilligungStand
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     erteilbar: bool
     medien_angeboten: bool
     kontext: FLSchiedsrichterKontext
@@ -269,3 +272,5 @@ class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
 
     schiedsrichter_id: CustomObjectId
     einwilligung: FLEinwilligung
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
+    nachweis_stand: FLEinwilligungStand

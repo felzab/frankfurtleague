@@ -17,7 +17,7 @@ from app.api.kontakte.services import KONTAKT_SLOTS, same_address
 from app.api.schiedsrichter.services import vorname_of
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import Seite
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, compose_wahlen
+from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, compose_wahlen, nachweis_stand_of
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
 KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
@@ -26,6 +26,11 @@ KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 
 # The place `find_fassung_refusal` names in its message: each PATCH stamps one label.
 _FASSUNG_ORT: Final = "einwilligung"
+
+EINWILLIGUNG_STAND_VERALTET: Final = "REQ-EINWILLIGUNG-003"
+
+# What a seat's control moves, and so all its precondition compares: never the contact scope.
+SITZ_WAHLEN: Final[tuple[FLEinwilligungWahl, ...]] = ("medien",)
 
 
 def erteilt_etwas(*, gespeichert: Mapping[str, Any], umfang: str | None, medien: bool) -> bool:
@@ -90,6 +95,25 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
     )
 
 
+def find_nachweis_stand_refusal(
+    *, erwartet: Mapping[str, Any], bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligungWahl]
+) -> WriteRefusal | None:
+    """`REQ-EINWILLIGUNG-003`: a choice's evidence moved since the page was served.
+
+    Refused rather than merged: a stale page sends the other choice as it last saw it, and taking that
+    would re-grant what the person withdrew elsewhere.
+    """
+
+    if dict(erwartet) == nachweis_stand_of(bloecke=bloecke, wahlen=wahlen):
+        return None
+
+    return WriteRefusal(
+        error_code=EINWILLIGUNG_STAND_VERALTET,
+        status=HTTPStatus.CONFLICT,
+        message="this consent has moved since the page was served; reload it and press again",
+    )
+
+
 def find_konto_fassung_refusal(*, seite: Seite, text_version: str, erteilt: bool) -> WriteRefusal | None:
     """`REQ-EINWILLIGUNG-001` on an account-page control: a grant names the page's running label, a withdrawal any version of it.
 
@@ -138,6 +162,7 @@ def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: st
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
+        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]], wahlen=WAHLEN),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         "kader": row["kader"],
@@ -162,6 +187,7 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
+        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]], wahlen=WAHLEN),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         # The one stored name, cut as the referee's confirmation page cut it.
@@ -254,6 +280,7 @@ def compose_sitze_selbst(
                 "rollen": rollen,
                 "bestaetigt_text_version": held[0]["einwilligung"].get("text_version"),
                 "medien": any(seat["einwilligung"].get("medien") is True for seat in held),
+                "nachweis_stand": nachweis_stand_of(bloecke=[seat["einwilligung"] for seat in held], wahlen=SITZ_WAHLEN),
                 "medien_angeboten": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
                 "erteilbar": (row["team_id"], row["saison_id"]) in erteilbar,
                 # The first held slot's, as `rollen` orders them: one person holding two answers by one name.

@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any, get_args
 from zoneinfo import ZoneInfo
@@ -10,7 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.services import KONTO_SEITE_SPIELER
+from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SPIELER
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbstEinwilligungPayload
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungPayload
 from app.core.collections import Collection
@@ -97,6 +97,8 @@ EARLIER_EVIDENCE = {
     "umfang": {"am": "2026-09-20T17:30:00+00:00", "text_version": "2026-10-konto-spieler"},
     "medien": {"am": "2026-09-02T08:00:00+00:00", "text_version": "2026-09-spielerseite-3"},
 }
+# What a page served that record echoes.
+EARLIER_STAND = {wahl: beleg["am"] for wahl, beleg in EARLIER_EVIDENCE.items()}
 # Seventeen on `NOW`, eighteen a day later: the floor is judged on the day, not the year.
 SEVENTEEN_BIRTHDATE = "2008-10-04"
 
@@ -123,8 +125,17 @@ def _running_label() -> str:
     return LAUFENDE_FASSUNGEN[KONTO_SEITE_SPIELER]
 
 
-def _payload(*, umfang: str = "kader_oeffentlich", medien: bool = False, text_version: str | None = None) -> dict[str, Any]:
-    return {"umfang": umfang, "medien": medien, "text_version": text_version or _running_label()}
+def _payload(
+    *, umfang: str = "kader_oeffentlich", medien: bool = False, text_version: str | None = None, stand: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """A press from a page served the record as the suite seeds it, holding no evidence, unless `stand` says otherwise."""
+
+    return {
+        "umfang": umfang,
+        "medien": medien,
+        "text_version": text_version or _running_label(),
+        "nachweis_stand": dict(stand) if stand is not None else {"umfang": None, "medien": None},
+    }
 
 
 def _person(email: str) -> SignedActor:
@@ -396,7 +407,9 @@ class TestTheEvidence:
     def test_a_withdrawal_keeps_the_grant_it_ended_and_leaves_the_other_choices_evidence(self, mongo_replica_set_url: str):
         """The case that goes red the day a write sets the block, or its evidence, whole."""
 
-        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(umfang="intern"), before=self._earlier_evidence))
+        response, _, after, _ = served(
+            mongo_replica_set_url, _press(IDENTIFIER, _payload(umfang="intern", stand=EARLIER_STAND), before=self._earlier_evidence)
+        )
 
         assert response.status_code == 200, response.text
         assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == {
@@ -408,7 +421,9 @@ class TestTheEvidence:
     def test_a_grant_after_a_withdrawal_is_its_own_evidence(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             withdrawn = await http.patch(PATCH_PATH, json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
-            granted = await http.patch(PATCH_PATH, json=_payload(umfang="kader_oeffentlich"), headers=_person(IDENTIFIER))
+            granted = await http.patch(
+                PATCH_PATH, json=_payload(umfang="kader_oeffentlich", stand=withdrawn.json()["nachweis_stand"]), headers=_person(IDENTIFIER)
+            )
             return withdrawn, granted, await _records(database)
 
         withdrawn, granted, after = served(mongo_replica_set_url, steps)
@@ -419,10 +434,53 @@ class TestTheEvidence:
         assert _block(after[PUPIL_OID]["einwilligung"]) == _einwilligung()
 
     def test_a_press_moving_nothing_restamps_nothing(self, mongo_replica_set_url: str):
-        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(), before=self._earlier_evidence))
+        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(stand=EARLIER_STAND), before=self._earlier_evidence))
 
         assert response.status_code == 200, response.text
         assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == EARLIER_EVIDENCE
+
+
+@pytest.mark.db
+class TestAStalePage:
+    """`REQ-EINWILLIGUNG-003`: a press answers the evidence its page was served, or is refused and writes nothing."""
+
+    def test_a_page_served_before_a_withdrawal_elsewhere_cannot_re_grant_it(self, mongo_replica_set_url: str):
+        """Two tabs: the second withdraws the media consent, then the first, still showing it on, narrows the scope."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.medien": True}})
+            first_tab = (await http.get(PATH, headers=_person(IDENTIFIER))).json()["spieler"]
+            withdrawn = await http.patch(
+                PATCH_PATH, json=_payload(medien=False, stand=first_tab["nachweis_stand"]), headers=_person(IDENTIFIER)
+            )
+            before = await _records(database)
+            stale = await http.patch(
+                PATCH_PATH, json=_payload(umfang="intern", medien=True, stand=first_tab["nachweis_stand"]), headers=_person(IDENTIFIER)
+            )
+            return withdrawn, stale, before, await _records(database)
+
+        withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
+
+        assert withdrawn.status_code == 200, withdrawn.text
+        assert (stale.status_code, stale.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert after == before
+        assert after[PUPIL_OID]["einwilligung"]["medien"] is False
+
+    def test_the_stand_the_read_serves_is_the_one_the_press_takes(self, mongo_replica_set_url: str):
+        """The round trip the page makes: echoed as served, over a record carrying evidence."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.nachweis": EARLIER_EVIDENCE}})
+            served_stand = (await http.get(PATH, headers=_person(IDENTIFIER))).json()["spieler"]["nachweis_stand"]
+            response = await http.patch(PATCH_PATH, json=_payload(umfang="intern", stand=served_stand), headers=_person(IDENTIFIER))
+            return served_stand, response
+
+        served_stand, response = served(mongo_replica_set_url, steps)
+
+        assert served_stand == EARLIER_STAND
+        assert response.status_code == 200, response.text
+        # The answer's own stand is what a next press from the same page echoes.
+        assert response.json()["nachweis_stand"] == {"umfang": NOW_UTC, "medien": EARLIER_STAND["medien"]}
 
 
 @pytest.mark.db

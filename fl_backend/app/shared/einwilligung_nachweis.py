@@ -12,7 +12,7 @@ Invariants:
 See: docs/glossary.md
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Final, Literal
 
@@ -78,6 +78,25 @@ def _am_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> datetime | Non
     beleg = nachweise.get(wahl) if isinstance(nachweise, Mapping) else None
 
     return datetime.fromisoformat(beleg["am"]) if isinstance(beleg, Mapping) and isinstance(beleg.get("am"), str) else None
+
+
+def nachweis_stand_of(*, bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligungWahl]) -> dict[str, str | None]:
+    """Per choice, the latest instant these blocks' evidence carries, as stored: what a consent PATCH echoes back.
+
+    The latest over several blocks, because one press moves every block it is given and stamps them one instant.
+    """
+
+    stand: dict[str, str | None] = {}
+    for wahl in wahlen:
+        latest: tuple[datetime, str] | None = None
+        for block in bloecke:
+            am = _am_of(block, wahl) if isinstance(block, Mapping) else None
+            if am is not None and (latest is None or am > latest[0]):
+                # Served as stored, so the echo compares equal to the very string the read found.
+                latest = (am, block[NACHWEIS][wahl]["am"])
+        stand[wahl] = None if latest is None else latest[1]
+
+    return stand
 
 
 def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any]) -> dict[str, Any]:

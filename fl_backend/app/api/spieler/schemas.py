@@ -4,7 +4,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstrain
 
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -436,6 +436,8 @@ class FLSpielerSelbst(_SpielerPerson):
     # The block's `text_version` under the name the account page reads it by: the words shown read-only
     # beside the control are the ones confirmed, never an account-page press's.
     bestaetigt_text_version: str | None
+    # What the consent PATCH echoes back, computed by the function its precondition compares with.
+    nachweis_stand: FLEinwilligungStand
     # Served rather than derived on the page, which would judge a grant with a second copy of the
     # rule the PATCH refuses by.
     erteilbar: bool
@@ -462,6 +464,8 @@ class SelbstEinwilligungPayload(BaseModel):
     umfang: Literal["kader_oeffentlich", "intern"]
     medien: bool
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    # The record's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I995`).
+    nachweis_stand: FLEinwilligungStandPayload
 
 
 class FLSpielerSelbstEinwilligungPayload(SelbstEinwilligungPayload):
@@ -473,3 +477,5 @@ class FLSpielerSelbstEinwilligungResponse(BaseAPIResponse):
 
     spieler_id: CustomObjectId
     einwilligung: FLEinwilligung
+    # The precondition a next press on this page echoes.
+    nachweis_stand: FLEinwilligungStand

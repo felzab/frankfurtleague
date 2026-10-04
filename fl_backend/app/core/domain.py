@@ -2522,6 +2522,18 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.einwilligung.services.find_selbst_medien_refusal",
         tested_by="tests/api/test_spieler_selbst.py::TestTheMediaAge",
     ),
+    Rule(
+        code="REQ-EINWILLIGUNG-003",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+        ),
+        aggregate="Spieler",
+        summary="a press on the account page answers the consent evidence its page was served, never evidence moved since",
+        implemented_by="app.api.konto.services.find_nachweis_stand_refusal",
+        tested_by="tests/api/test_spieler_selbst.py::TestAStalePage",
+    ),
 )
 
 
