@@ -235,7 +235,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` — the publication scope, the media
   answer beside it, the wording they were shown and the day they answered. Entering a referee mails
   them a one-time link, which lasts fourteen days and can be re-sent; the person enters their own date
-  of birth on that page and nobody answers for them (`erteilt_von: volljaehrig`). A live row whose
+  of birth on that page and nobody answers for them. A live row whose
   person has not answered publishes as „anonym“.
 - **A referee's email address is required on every write, because an administrator enters the
   referee and the link is how that person learns of it** (Art. 14 (3)); the telephone number stays
