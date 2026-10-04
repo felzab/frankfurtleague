@@ -33,8 +33,8 @@ function closing(text, from) {
 }
 
 // Words of each simple command, quotes resolved and redirections dropped: a redirect target read as
-// an operand would let `pytest > log` through. PowerShell's backslash is a path separator, never an
-// escape, and its backtick escapes the next character, a newline included.
+// an operand would let `pytest > log` through. PowerShell's backslash separates a path; its backtick
+// escapes the next character, a newline included.
 function segments(text, escapes) {
   const out = [];
   let words = [];
