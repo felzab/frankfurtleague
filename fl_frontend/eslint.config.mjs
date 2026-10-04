@@ -198,9 +198,16 @@ const TEST_ONLY = [
     message: "This module reads the source tree off disk: a *.test.ts(x) file may import it, production code may not.",
   },
   {
-    group: ["**/openapiDocument.ts", "**/openapiDocument", "**/publishedCeilings.ts", "**/publishedCeilings"],
+    group: [
+      "**/openapiDocument.ts",
+      "**/openapiDocument",
+      "**/publishedCeilings.ts",
+      "**/publishedCeilings",
+      "**/einwilligungDocument.ts",
+      "**/einwilligungDocument",
+    ],
     message:
-      "This module locates or reads fl_backend/openapi.json, which no production image holds: a *.test.ts(x) file may import it, production code may not.",
+      "This module locates or reads a document fl_backend generates (openapi.json, einwilligung.json), which no production image holds: a *.test.ts(x) file may import it, production code may not.",
   },
   {
     group: [
