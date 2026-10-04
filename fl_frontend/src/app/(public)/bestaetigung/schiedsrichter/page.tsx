@@ -48,9 +48,9 @@ async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
   // failed read is its own state: the dead-link panel there would call a live link void.
   if (typeof token !== "string" || token === "") return <SchiedsrichterBestaetigungView start={{ zustand: "ungueltig" }} />;
 
-  // Beside the link's read, the read alone settled to `null`, whatever failed: a production build
-  // redacts what the cached read throws (`docs/frontend/spec.md` §1.2). A dead link's panel never
-  // waits on words it does not show. Per request: a deploy moves the label the answer must stamp.
+  // Beside the link's read, and per request: a deploy moves the label the answer must stamp. Any
+  // failure settles to `null`, a production build redacting what the cached read throws
+  // (`docs/frontend/spec.md` §1.2).
   const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter")).catch(() => null);
 
   const start: SchiedsrichterBestaetigungStart = await getSchiedsrichterBestaetigungAnsicht(token).then(

@@ -45,9 +45,9 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   await connection();
   const { token } = await props.searchParams;
 
-  // Beside the link's read, the read alone settled to `null`, whatever failed: a production build
-  // redacts what the cached read throws (`docs/frontend/spec.md` §1.2). A dead link's panel never
-  // waits on words it does not show. Per request: a deploy moves the label the answer must stamp.
+  // Beside the link's read, and per request: a deploy moves the label the answer must stamp. Any
+  // failure settles to `null`, a production build redacting what the cached read throws
+  // (`docs/frontend/spec.md` §1.2).
   const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler")).catch(() => null);
 
   const start: SpielerBestaetigungStart =

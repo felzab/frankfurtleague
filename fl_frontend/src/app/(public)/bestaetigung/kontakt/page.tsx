@@ -52,9 +52,9 @@ async function BestaetigungContent(props: NextPageProps) {
       if (gelesen.zustand === "saison_vorbei") return { zustand: "saison_vorbei", ansicht: gelesen.ansicht, token: token };
       if (gelesen.zustand !== "gueltig") return gelesen;
 
-      // After the link's read, never beside it: the view names the label by how the seat was filled,
-      // and only a dead link's panel, which shows no words, is spared the wait. The read alone is caught,
-      // whatever failed: a production build redacts what the cached read throws (`docs/frontend/spec.md` §1.2).
+      // After the link's read, never beside it: the view names the label by how the seat was filled.
+      // Any failure of the read is caught, a production build redacting what the cached read throws
+      // (`docs/frontend/spec.md` §1.2).
       const fassung = await runWithIncomingTrace(() => getEinwilligungFassung(gelesen.ansicht.laufende_fassung)).catch(() => null);
 
       // A page with no words to show is a page that cannot be answered, which the failed read's panel says.
