@@ -535,8 +535,9 @@ section never exercised against a real page load.
 
 ## 5. When somebody asks for their data, or asks us to change it
 
-Access, rectification, objection, restriction, portability and the withdrawal of a consent all
-arrive the same way and are answered by one person by hand. Erasure has its own mechanisms and is
+Access, rectification, objection, restriction and portability all arrive the same way and are
+answered by one person by hand. The withdrawal of a consent is the person's own write on their
+account page, and a request for one by mail is answered by pointing them there (below). Erasure has its own mechanisms and is
 [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 

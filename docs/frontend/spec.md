@@ -298,8 +298,9 @@ The answer carries that sentence beside the map as `unplacedError`: an admin act
 editor holding unsaved changes the browser first asks whether to leave, and staying keeps the draft
 (§4).
 
-**The `auth` slice's two actions are in the table and are not admin mutations, which is the one
-exception to every sentence above and below about a row.** `handleSignIn` is the only server action
+**The `auth` slice's two actions are in the table and run under no guard, the only rows a request
+without a session reaches**; every other row that is no admin mutation runs under a person's or the
+account page's guard (the notes under the table). `handleSignIn` is the only server action
 in this application reachable without a session, so it can no more run behind `runAdminMutation`'s
 guard than the public route handlers below can, and it answers a neutral sentence rather than a `FormState`
 carrying a verdict — a distinguishable refusal there is a membership oracle. **Everything else the
