@@ -43,6 +43,7 @@ const { default: KaderZeilePage } = await import("@/app/bereich/team/[team_id]/[
 const { KONTO_HREF } = await import("@/core/kontoHref.ts");
 const { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } = await import("@/features/funktionen/constants.ts");
 const { KADER_LEER, NUMMER_DOPPELT, ausgetragenSeit } = await import("@/features/spieler/constants.ts");
+const { Angabe } = await import("@/shared/components/ui/Angabe.tsx");
 
 const TEAM_A = SITZ.team_id;
 const TEAM_B = "6890a1b2c3d4e5f607250012";
@@ -458,6 +459,16 @@ describe("one squad row, as a seat holder opens it", () => {
       assert.ok(text.includes(ausgetragenSeit(AUSGETRAGEN_AM)), text);
       assert.ok(!markup.includes('name="nummer"'), "an ausgetragen row renders its editor");
       assert.ok(!text.includes("austragen"), "an ausgetragen row offers the austragen again");
+
+      // Each fact in the one stored-fact pair every other page renders, read off a rendered `Angabe`.
+      const angabe = await renderPage(h("dl", null, h(Angabe, { label: "Nummer", children: "9" })));
+      const dtOf = (html: string) => [...html.matchAll(/<dt class="([^"]*)">([^<]*)<\/dt>/g)].map(([, classes, label]) => [label, classes]);
+      const [[, angabeClasses] = []] = dtOf(angabe);
+      assert.deepEqual(
+        dtOf(markup),
+        ["Nummer", "Position", "Stufe", "Rolle"].map((label) => [label, angabeClasses]),
+        "the ausgetragen row's facts are not the shared stored-fact pair",
+      );
     } finally {
       answerReadsWith(EMPTIEST_ANSWER);
     }
