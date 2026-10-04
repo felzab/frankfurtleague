@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import { APIError } from "better-auth/api";
 
@@ -8,7 +8,6 @@ import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { doubleSiteverify, TEST_SECRET, TEST_TOKEN } from "@/shared/testing/siteverifyDouble.ts";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
 
@@ -27,10 +26,7 @@ const PACKAGE_DOUBLES = {
   "next/server": { after: (task: () => Promise<void>) => void deferred.push(task) },
 };
 
-/** The session the request's cookie names, which a case without a token is asked under. */
-let servedSession: () => Promise<{ user: { email: string } } | null> = () => Promise.resolve(null);
-
-const AUTH_DOUBLE = { sendSignInCode: () => signingIn(), readServedSession: () => servedSession() };
+const AUTH_DOUBLE = { sendSignInCode: () => signingIn() };
 const inert = (): undefined => undefined;
 
 /* The sign-in store replaced whole: which outcome the library reaches for an address is
@@ -46,10 +42,6 @@ const siteverify = doubleSiteverify();
 const { handleSignIn } = await import("./actions.ts");
 
 const ADDRESS = "vorstand@example.org";
-
-beforeEach(() => {
-  servedSession = () => Promise.resolve(null);
-});
 
 /** One press as a form posts it, the bot check's token in its field where `token` names one. */
 function aPress(token: string | null, email = ADDRESS): FormData {
@@ -161,25 +153,12 @@ describe("the bot check on a code request", () => {
     assert.deepEqual({ ...one.answer, submittedEmail: null }, { ...other.answer, submittedEmail: null });
   });
 
-  /* The account page's confirmation sends no token, its page carrying no widget: the session that
-     already holds the mailbox is the proof a widget would give. */
-  it("sends with no token for a session already holding the address, and for no other session", async () => {
-    servedSession = () => Promise.resolve({ user: { email: "Vorstand@Example.org" } });
+  /* The account page's step-up has an action of its own: a press with no token is refused whoever
+     sends it, the sign-in reading no session at all. */
+  it("refuses a press with no token from a session holding the address too", async () => {
+    const { answer, sent } = await pressed(aPress(null, ADDRESS));
 
-    const holder = await pressed(aPress(null, ADDRESS));
-    const stranger = await pressed(aPress(null, "jemand@example.org"));
-
-    assert.equal(holder.sent, true, "the holder's own confirmation was refused");
-    assert.deepEqual(stranger.answer, { success: false, error: MENSCH, submittedEmail: "jemand@example.org" });
-    assert.equal(stranger.sent, false);
-  });
-
-  it("answers a retry where the session could not be read, and sends nothing", async () => {
-    servedSession = () => Promise.reject(new Error("the store answered nothing"));
-
-    const { answer, sent } = await pressed(aPress(null));
-
-    assert.deepEqual(answer, { success: false, error: VERSUCHE_ES_ERNEUT_SATZ, submittedEmail: ADDRESS });
+    assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
     assert.equal(sent, false);
   });
 });

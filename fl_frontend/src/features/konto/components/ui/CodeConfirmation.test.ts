@@ -2,11 +2,11 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -15,17 +15,16 @@ import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 const ADDRESS = "spielerin@example.org";
 
 /** The send, replaced at the module boundary: the real one needs a session store and a mail provider. */
-const { answered } = doubleActions({
-  modules: ["/src/features/auth/actions.ts"],
-  answer: () =>
-    Promise.resolve({
-      success: true,
-      message: "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.",
-      submittedEmail: ADDRESS,
-    }),
+const SENT = { success: true, message: "Ein Anmeldecode ist an Deine Adresse unterwegs." };
+
+const { calls, answered, answerWith } = doubleActions({
+  modules: ["/src/features/konto/actions.ts"],
+  answer: () => Promise.resolve(SENT),
 });
-doubleToasts();
+const { raised } = doubleToasts();
 const fetchMock = doubleFetch();
+
+const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { CodeConfirmation } = await import("./CodeConfirmation.tsx");
@@ -38,6 +37,52 @@ describe("the confirmation as the page opens", () => {
     // A boolean rather than the node: a failing comparison would inspect a jsdom node, which holds the whole window.
     const genommen = document.activeElement === screen.getByRole("button", { name: "Code per E-Mail senden" });
     assert.ok(!genommen, "the send's control took the focus as the page loaded");
+  });
+});
+
+describe("the step-up's send", () => {
+  /* The address is the session's: the action takes nothing a page could set. */
+  it("posts no address", async () => {
+    const user = userEvent.setup();
+    const before = calls.length;
+    render(h(CodeConfirmation, { address: ADDRESS, istInhaber: () => Promise.resolve(true), onConfirmed: () => undefined }));
+
+    await user.click(screen.getByRole("button", { name: "Code per E-Mail senden" }));
+    await act(answered);
+
+    assert.deepEqual(
+      calls.slice(before).map((call) => ({ action: call.action, payload: call.payload })),
+      [{ action: "sendeBestaetigungscodeAction", payload: undefined }],
+    );
+  });
+
+  /* The code the first send mailed stays good, so a refused resend says why and leaves its step standing. */
+  it("keeps the code step through a refused resend, and says why", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      render(h(CodeConfirmation, { address: ADDRESS, istInhaber: () => Promise.resolve(true), onConfirmed: () => undefined }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Code per E-Mail senden" }));
+      });
+      await act(answered);
+      await act(async () => {
+        mock.timers.tick(30_000);
+      });
+
+      answerWith(() => Promise.resolve({ success: false, error: KONTO_FORBIDDEN }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Code erneut senden" }));
+      });
+      await act(answered);
+    } finally {
+      mock.timers.reset();
+    }
+
+    assert.ok(screen.queryByLabelText("Code aus der E-Mail"), "the refused resend took the code step down");
+    assert.deepEqual(
+      raised.map(({ title, description }) => ({ title, description })),
+      [{ title: "Code nicht gesendet", description: KONTO_FORBIDDEN }],
+    );
   });
 });
 

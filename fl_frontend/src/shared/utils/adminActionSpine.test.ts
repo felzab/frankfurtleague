@@ -26,6 +26,7 @@ const ACCOUNT_ACTIONS: ReadonlySet<string> = new Set([
   "konto :: endAndereAnmeldungenAction",
   "konto :: endAnmeldungAction",
   "konto :: pruefeInhaberAction",
+  "konto :: sendeBestaetigungscodeAction",
   "passkeys :: readPasskeyStandAction",
   "passkeys :: removePasskeyAction",
   "passkeys :: renamePasskeyAction",

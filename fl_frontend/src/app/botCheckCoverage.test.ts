@@ -15,7 +15,7 @@ const ANONYMOUS_SPINE = /\bhandlePublicRequest\(/;
 
 /** The spines that turn away every caller holding no session: a write behind one is a signed-in person's. */
 const SESSION_SPINES =
-  /\b(?:runAdminMutation|runAdminRouteWrite|runPersonMutation|runPersonRecordMutation|runKontoMutation|handleUndoRequest)\(/;
+  /\b(?:runAdminMutation|runAdminRouteWrite|runPersonMutation|runPersonRecordMutation|runKontoMutation|runKontoStepUp|handleUndoRequest)\(/;
 
 /** Cloudflare's check, as `fl_frontend/src/core/turnstile.ts :: turnstileRefusal` asks it. */
 const BOT_CHECK = /\bturnstileRefusal\(/;
