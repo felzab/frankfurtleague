@@ -53,7 +53,7 @@ export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string
 };
 
 /** `bestandsuebernahme` is named plainly rather than softened: a record nobody was asked for must not read like consent somebody gave. */
-export const EINWILLIGUNG_HERKUNFT_LABELS: Record<FLEinwilligung["erteilt_von"], string> = {
+export const EINWILLIGUNG_HERKUNFT_LABELS: Record<NonNullable<FLEinwilligung["erteilt_von"]>, string> = {
   // Whoever spoke, named without a gender: half the league's squads are girls, and each of these
   // stands in a readout that no sentence beside it can qualify.
   erziehungsberechtigt: "Von einer erziehungsberechtigten Person",

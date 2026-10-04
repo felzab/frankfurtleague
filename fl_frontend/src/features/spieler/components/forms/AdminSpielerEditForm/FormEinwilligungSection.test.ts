@@ -67,7 +67,7 @@ describe("the stored consent panel", () => {
   });
 
   it("renders every origin and every scope the record can carry", () => {
-    const herkuenfte = Object.keys(EINWILLIGUNG_HERKUNFT_LABELS) as FLEinwilligung["erteilt_von"][];
+    const herkuenfte = Object.keys(EINWILLIGUNG_HERKUNFT_LABELS) as NonNullable<FLEinwilligung["erteilt_von"]>[];
     const umfaenge = Object.keys(EINWILLIGUNG_UMFANG_LABELS) as FLEinwilligung["umfang"][];
     // Floored, because a loop over a table that has emptied runs zero times and reports clean.
     assert.ok(herkuenfte.length >= 3, "the origin table is short of the three the record declares");
@@ -127,6 +127,15 @@ describe("the stored consent panel", () => {
 
     assert.ok(text.includes(FASSUNG) && text.includes("Nicht geprüft"), "an unchecked label reads as a checked one");
     assert.ok(!text.includes("Unbekannte Fassung"), "an unchecked label reads as an unknown one");
+  });
+
+  /* Nothing names who answered since the person alone may: a record naming nobody shows no origin rather than a guessed one. */
+  it("shows no origin for a record naming nobody", () => {
+    const text = words({ ...ERTEILT, erteilt_von: null });
+
+    assert.ok(!text.includes("Herkunft"), "a record naming nobody reads an origin");
+    for (const label of Object.values(EINWILLIGUNG_HERKUNFT_LABELS))
+      assert.ok(!text.includes(label), `a record naming nobody reads as ${label}`);
   });
 
   it("reads the media consent as a word on either answer", () => {

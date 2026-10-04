@@ -117,7 +117,8 @@ export function FormEinwilligungSection({
                 {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
                 <Beleg>{beschreibeNachweis(einwilligung.nachweis.medien, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
               </Angabe>
-              <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>
+              {/* A stored record's alone: nothing names who answered since, the person being the only one who may. */}
+              {einwilligung.erteilt_von !== null && <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>}
               {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Termin offen“: it promises a
                   day that is coming, and nobody was asked for this one. */}
               <Angabe label="Erteilt am">

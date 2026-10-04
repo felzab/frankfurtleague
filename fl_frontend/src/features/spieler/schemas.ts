@@ -78,7 +78,8 @@ export type FLEinwilligungStandPayload = z.infer<typeof FLEinwilligungStandPaylo
  */
 export const FLEinwilligungSchema = z.object({
   umfang: z.enum(["kader_oeffentlich", "intern"]),
-  erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]),
+  // Who answered, on a record stored before no write named one; null on every record since.
+  erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]).nullable(),
   datum: CustomDateStringSchema.nullable(),
   bestaetigt_am: CustomDateStringSchema.nullable(),
   // A label of the backend's consent registry and never the words; null on every record stored

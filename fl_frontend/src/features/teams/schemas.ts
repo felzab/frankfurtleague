@@ -125,7 +125,8 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
  */
 export const FLKontaktKenntnisnahmeSchema = z.object({
   umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
-  erfasst_von: z.enum(["person", "administrativ"]),
+  // As `FLEinwilligungSchema.erteilt_von`: a stored seat's value alone, null on every seat written since.
+  erfasst_von: z.enum(["person", "administrativ"]).nullable(),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
   text_version: z.string(),
