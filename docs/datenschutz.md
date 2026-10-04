@@ -497,7 +497,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`docs/glossary.md :: Drosselung`) keeps one row per Funktion, pseudonym and German day, holding a number and no
   address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
   at that day's German midnight, plus the monitor's lag, and no erasure reaches it before then
-  (`docs/backend/spec.md :: I837`).
+  (`docs/backend/spec.md :: I837`). **The ceiling's first refusal of a day also leaves one line in
+  the application log**, naming the Funktion and the pseudonym's prefix the action-log page shows,
+  never an address (`fl_backend/app/core/drosselung.py :: get_drossel`,
+  `docs/backend/spec.md :: I835`). That line is kept as every application-log line is, by size while
+  the container runs and for thirty days in the copy each deploy takes
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it; an
+  administrator can match the prefix to the person's rows on the log page.
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
