@@ -845,8 +845,8 @@ the `Entry` column carries a token only where one still resolves in that file.
   refuses one ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), so a person whose only
   mailbox is spelled that way cannot register, apply or be entered under it, and the box asks them
   for another address, while the notice names two refusals, a birthdate outside its span and a
-  barred address, and beside them the full squad, the bot check and the daily write ceiling as limits
-  the site sets without a person ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
+  barred address, and beside them the full squad as a limit of the squad, and the bot check and the
+  daily write ceiling as limits it offers a person's review of ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
   refusal is a limit of what the league can take, as the full squad is, or a judgement about the
   person; and so whether the notice names it beside the full squad or among the refusals it offers
   a review of.
