@@ -778,14 +778,16 @@ deploy's rollback read.
 | `LOG_FORMAT`             | `json` \| `console`, case-normalised                                                                                                   |
 | `LOG_LEVEL`              | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused                |
 | `BEWERBUNG_SWEEP`        | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build   |
+| `TURNSTILE_SITE_KEY`     | the bot check's public site key; **no default**, and one of Cloudflare's published test keys is refused under `APP_ENV=production`     |
 
-| Secret file                                    | Read as                                        | Constraint                                                                                                                              |
-| ---------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `frontend_mongodb_uri`                         | `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                             |
-| `auth_secret`                                  | `AUTH_SECRET`                                  | **at least 32 characters** — the sign-in library warns below that floor and never refuses                                               |
-| `auth_resend_key`                              | `AUTH_RESEND_KEY`                              | not empty; **required only under `APP_ENV=production`** — a deployment that is not production is handed no key and sends nothing (I228) |
-| `resend_webhook_secret`                        | `RESEND_WEBHOOK_SECRET`                        | beginning `whsec_`; **required only under `APP_ENV=production`**, the one deployment the provider sends its events to                   |
-| `internal_api_key_base` / `_system` / `_admin` | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space (`docs/ops/spec.md :: I11`)                                                         |
+| Secret file                                    | Read as                                        | Constraint                                                                                                                                                 |
+| ---------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `frontend_mongodb_uri`                         | `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                                                |
+| `auth_secret`                                  | `AUTH_SECRET`                                  | **at least 32 characters** — the sign-in library warns below that floor and never refuses                                                                  |
+| `auth_resend_key`                              | `AUTH_RESEND_KEY`                              | not empty; **required only under `APP_ENV=production`** — a deployment that is not production is handed no key and sends nothing (I228)                    |
+| `resend_webhook_secret`                        | `RESEND_WEBHOOK_SECRET`                        | beginning `whsec_`; **required only under `APP_ENV=production`**, the one deployment the provider sends its events to                                      |
+| `internal_api_key_base` / `_system` / `_admin` | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space (`docs/ops/spec.md :: I11`)                                                                            |
+| `turnstile_secret_key`                         | `TURNSTILE_SECRET_KEY`                         | not empty; **required only under `APP_ENV=production`**, which refuses Cloudflare's published test secrets; elsewhere the published passing secret is read |
 
 **Each secret is its file's and never the environment's** (I503): `fl_frontend/src/core/config.ts ::
 readSecretFiles` reads them before the schema runs, trims the whitespace around each value, a shared key's alphabet

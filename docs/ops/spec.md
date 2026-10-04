@@ -158,12 +158,12 @@ environment names (I509).
 host file's own owner and mode are what the container sees (Docker's Compose file reference,
 `services` · `secrets`, read 2026-09-27). Each file therefore belongs to the user that reads it:
 
-| Files                                                                                                     | Owner                            | Mode  |
-| --------------------------------------------------------------------------------------------------------- | -------------------------------- | ----- |
-| `tunnel_token`                                                                                            | uid and gid 65532, the connector | `400` |
-| `fl_actor_signing_key`, `frontend_mongodb_uri`, `auth_secret`, `auth_resend_key`, `resend_webhook_secret` | uid and gid 1001, the frontend   | `400` |
-| `backend_mongodb_uri`, `sperrliste_schluessel`                                                            | uid and gid 1002, the backend    | `400` |
-| `internal_api_key_base`, `internal_api_key_system`, `internal_api_key_admin`                              | root, group 1003                 | `440` |
+| Files                                                                                                                             | Owner                            | Mode  |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ----- |
+| `tunnel_token`                                                                                                                    | uid and gid 65532, the connector | `400` |
+| `fl_actor_signing_key`, `frontend_mongodb_uri`, `auth_secret`, `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key` | uid and gid 1001, the frontend   | `400` |
+| `backend_mongodb_uri`, `sperrliste_schluessel`                                                                                    | uid and gid 1002, the backend    | `400` |
+| `internal_api_key_base`, `internal_api_key_system`, `internal_api_key_admin`                                                      | root, group 1003                 | `440` |
 
 **The three internal keys are one file each, read by both application services**, which run as
 different users: both take group 1003 through `group_add`, the documented answer for containers of

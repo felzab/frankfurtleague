@@ -92,6 +92,7 @@ SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
         "tunnel_token": (frozenset({"cloudflared"}), f"{SECRETS_PATH}/tunnel_token"),
         "auth_resend_key": (_FRONTEND, f"{SECRETS_PATH}/auth_resend_key"),
         "resend_webhook_secret": (_FRONTEND, f"{SECRETS_PATH}/resend_webhook_secret"),
+        "turnstile_secret_key": (_FRONTEND, f"{SECRETS_PATH}/turnstile_secret_key"),
         "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_PATH}/frontend_mongodb_uri"),
         "backend_mongodb_uri": (_BACKEND, f"{SECRETS_PATH}/backend_mongodb_uri"),
     },
@@ -119,6 +120,7 @@ MOVED_ENV_NAMES: Final = frozenset(
         "INTERNAL_API_KEY_BASE",
         "INTERNAL_API_KEY_SYSTEM",
         "INTERNAL_API_KEY_ADMIN",
+        "TURNSTILE_SECRET_KEY",
     }
 )
 

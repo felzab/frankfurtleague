@@ -1316,7 +1316,13 @@ writes, each readable by its writer alone, and prints nothing:
 
 `openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
 provider's keys is written: nothing outside production sends mail, and the provider sends its
-delivery events to production alone.
+delivery events to production alone. Nor is `turnstile_secret_key`: outside production the bot
+check verifies with Cloudflare's published passing secret, so a development machine's
+`fl_frontend/.env` carries the site key that secret passes, `TURNSTILE_SITE_KEY=1x00000000000000000000AA`
+([Cloudflare's testing page](https://developers.cloudflare.com/turnstile/troubleshooting/testing/),
+read 2026-10-04). **Production holds the widget's own pair**, the site key in `fl_frontend/.env`
+and the secret in `secrets/turnstile_secret_key`, both from the Cloudflare dashboard's Turnstile
+widget, and refuses to boot on either published test key.
 
 **`secrets/dump_mongodb_uri` is the one exception, and it is production's read-only login**, which
 reads the application database and nothing else: `./scripts/ops/local.sh --seed` copies production

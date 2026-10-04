@@ -917,7 +917,7 @@ nothing here says whether the frontend can sign with it or the backend verify it
 # `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; each image judges whether it can use
 # them. The signing key and the tunnel token are checked apart.
 # shellcheck disable=SC2034  # read by the scripts that source this file
-FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
+FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin turnstile_secret_key)
 # shellcheck disable=SC2034  # read by the scripts that source this file
 BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
 
@@ -932,7 +932,7 @@ LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_
 # The environment names those files replace, `scripts/checks/check_compose_model.py :: MOVED_ENV_NAMES`
 # spelled again, since neither the deploy nor the local stack runs a Python of the host's own to read
 # it; `scripts/tests/test_check_compose_model.py` holds the two equal.
-MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
+MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN TURNSTILE_SECRET_KEY)
 
 # The administrator list the stored grants replaced: read by no service, and its addresses are what
 # `docker inspect` would print.
