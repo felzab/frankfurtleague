@@ -66,7 +66,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /teams/{team_id}/saisons/{saison_id}/einladung": einladungen.mapEinladungRefusal,
   "DELETE /teams/{team_id}/saisons/{saison_id}/einladung": SHARED_READER,
   "POST /saisons/{saison_id}/einladungen/versand": einladungen.mapEinladungRefusal,
-  "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapStaleBlockRefusal,
+  "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapKontakteRefusal,
   "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /kontakte/erasure": SHARED_READER,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,

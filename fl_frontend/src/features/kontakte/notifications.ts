@@ -1,17 +1,14 @@
 import "server-only";
 
 import { frontend_config } from "@/core/config";
-import { mailboxKey } from "@/core/emailAddress";
 import { buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
 import { rollenText } from "@/features/bewerbungen/notifications";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { LinkVersand } from "@/features/schiedsrichter/notifications";
-import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLKontaktMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: the
@@ -69,25 +66,12 @@ export async function mailKontaktLink({
 /** One mint's message and how it ended. */
 export type KontaktVersand = { email: string; versand: LinkVersand };
 
-/**
- * What the administrator is told about every link a write minted and every seat the ban list kept
- * one from, in `describeLinkMail`'s words. `null` where the write minted nothing and barred nobody.
- */
-export function describeKontaktVersand(
-  versendet: readonly KontaktVersand[],
-  gesperrt: readonly FLKontaktRolle[],
-  kontakte: FLSaisonTeamKontakte | null,
-): string | null {
+/** What the administrator is told about every link a write minted, in `describeLinkMail`'s words. `null` where it minted nothing. */
+export function describeKontaktVersand(versendet: readonly KontaktVersand[]): string | null {
   const saetze =
     versendet.length > 1 && versendet.every(({ versand }) => versand === "gesendet")
       ? [`Die Bestätigungslinks gingen an ${String(versendet.length)} Personen.`]
       : versendet.map(({ email, versand }) => describeLinkMail(email, versand));
-
-  // One sentence per barred PERSON: a paired Trainer is two seats of one address, and the sentence
-  // names no address either way (`docs/frontend/spec.md :: I542`).
-  const gesperrtePersonen = new Set(gesperrt.map((rolle) => mailboxKey(kontakte?.[rolle]?.email ?? rolle)));
-  if (gesperrtePersonen.size === 1) saetze.push(describeLinkMail("", "gesperrt"));
-  if (gesperrtePersonen.size > 1) saetze.push("Die Bestätigungslinks gingen nicht raus, weil die Adressen auf der Sperrliste stehen.");
 
   // Each sentence once: two withheld sends say the same deployment fact twice otherwise.
   const einmal = [...new Set(saetze)];

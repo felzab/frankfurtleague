@@ -11,7 +11,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { kontakteMayMoveLinks } from "./linkMint";
 import { einladeKontakt, eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
 import { describeKontaktVersand, mailKontaktLink } from "./notifications";
-import { mapEinladenRefusal, mapStaleBlockRefusal } from "./refusals";
+import { mapEinladenRefusal, mapKontakteRefusal } from "./refusals";
 import { FLKontaktEinladenPayloadSchema, FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang, mitLaufenderFassung } from "./utils";
 
@@ -108,7 +108,7 @@ export async function patchSaisonTeamKontakteAction(
         validated.data.kontakte === null ? null : mitLaufenderFassung(validated.data.kontakte, await getLaufendesLabel("bewerbung"));
       saisonTeam = await patchSaisonTeamKontakte({ ...validated.data, kontakte });
     } catch (error) {
-      const refusal = mapStaleBlockRefusal(error);
+      const refusal = mapKontakteRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
@@ -144,7 +144,7 @@ export async function patchSaisonTeamKontakteAction(
       message: validated.data.kontakte === null ? "Kontakte entfernt" : "Kontakte gespeichert",
       // Its own field rather than folded into the message: the editor hands this to the undo offer,
       // and a save that mailed nothing has no sentence to hand it.
-      versandSatz: describeKontaktVersand(versendet, saisonTeam.gesperrt, saisonTeam.kontakte) ?? undefined,
+      versandSatz: describeKontaktVersand(versendet) ?? undefined,
       versandFehlgeschlagen: versendet.some(({ versand }) => versand === "fehlgeschlagen"),
     };
   });

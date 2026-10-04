@@ -113,8 +113,6 @@ export const FLPatchSaisonTeamKontakteResponseSchema = BaseAPIResponseSchema.ext
   // The token of the block this save left, which is the only precondition an undo of it can carry.
   kontakte_stand: z.string(),
   bestaetigungen: z.array(FLKontaktMintSchema),
-  // Seats this save newly wrote whose address the ban list holds: stored, and minted no link.
-  gesperrt: z.array(FLKontaktRolleSchema),
 });
 export type FLPatchSaisonTeamKontakteResponse = z.infer<typeof FLPatchSaisonTeamKontakteResponseSchema>;
 

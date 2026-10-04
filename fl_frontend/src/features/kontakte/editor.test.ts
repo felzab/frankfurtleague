@@ -37,7 +37,7 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
-import { mapStaleBlockRefusal } from "./refusals.ts";
+import { mapKontakteRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
@@ -371,23 +371,27 @@ const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"
 const STALE_BLOCK = "REQ-KONTAKT-001";
 /** The backend's judgement of a seat's label (`docs/backend/spec.md :: I866`), spelled out for the same reason. */
 const LABEL_REFUSED = "REQ-EINWILLIGUNG-001";
+/** A newly seated address on the ban list, spelled out for the same reason. */
+const BARRED = "REQ-KONTAKT-003";
 
 describe("the contacts write against the codes its endpoint publishes", () => {
   /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
      (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
      falls through to the shared fallback, which names no reason. */
-  it("words both refusals its endpoint publishes, at the save", () => {
+  it("words every refusal its endpoint publishes, at the save", () => {
     const published = publishedRefusals(KONTAKTE_OPERATION);
 
     assert.deepEqual(
       published.filter((code) => code !== DUPLICATE_KEY),
-      [LABEL_REFUSED, STALE_BLOCK],
+      [LABEL_REFUSED, STALE_BLOCK, BARRED],
     );
     for (const code of published) {
-      assert.notEqual(answerShown(KONTAKTE_OPERATION, code, mapStaleBlockRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(KONTAKTE_OPERATION, code, mapKontakteRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
     // Two sentences, the way out second: the shared refusal shape, which a hand-spelled pair drifts from.
-    assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);
+    for (const code of [STALE_BLOCK, BARRED]) {
+      assert.match(String(mapKontakteRefusal(refusedOn(KONTAKTE_OPERATION, code))), /^[^.]+\. [^.]+\.$/, `${code} is not two sentences`);
+    }
   });
 });
 

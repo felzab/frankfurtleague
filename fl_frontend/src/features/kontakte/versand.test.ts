@@ -117,8 +117,8 @@ const minted = (vorname: string, email: string, rollen: string[], token = `token
   frist: "2026-10-17",
 });
 
-/** The save's answer: the block as stored, the links it minted and the seats the ban kept one from. */
-const saved = (bestaetigungen: unknown[], gesperrt: string[] = []) => ({
+/** The save's answer: the block as stored and the links it minted. */
+const saved = (bestaetigungen: unknown[]) => ({
   acknowledged: 1,
   saison_id: "2627",
   team_id: TEAM_ID,
@@ -126,7 +126,6 @@ const saved = (bestaetigungen: unknown[], gesperrt: string[] = []) => ({
   kontakte: GESPEICHERT,
   kontakte_stand: "a1b2",
   bestaetigungen,
-  gesperrt,
 });
 
 /** The club's membership read, holding `kontakte` for the season the payload names. */
@@ -214,16 +213,17 @@ describe("the contacts save that seats new people", () => {
     assert.equal(res.success && res.versandSatz, undefined);
   });
 
-  /* The person is stored and no link was minted: the administrator is told as for any barred send,
-     naming no address (`docs/frontend/spec.md :: I542`). */
-  it("tells the administrator of a seat the ban list kept a link from, naming no address", async () => {
-    save = () => saved([], ["stellvertretung"]);
+  /* The backend refuses the save whole, storing nobody: the administrator is told at the save, in
+     a sentence naming no address and no seat, since the refusal names neither (`docs/frontend/spec.md :: I542`). */
+  it("answers a save seating a barred address with the ban, mailing nobody", async () => {
+    save = () => aRefusal("REQ-KONTAKT-003");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
     assert.deepEqual(mail.sent, []);
-    assert.equal(res.success && res.versandSatz, describeLinkMail("", "gesperrt"));
-    assert.doesNotMatch(res.success ? (res.versandSatz ?? "") : "", /@/);
+    assert.equal(res.success, false);
+    assert.match(res.success ? "" : res.error, /^Eine neu eingetragene E-Mail-Adresse steht auf der Sperrliste\. /);
+    assert.doesNotMatch(res.success ? "" : res.error, /@/);
   });
 
   /* Barred between the mint and the send, the gate withholds it: filed, never failed, and no delivery

@@ -31,19 +31,30 @@ export function mapEinladenRefusal(error: unknown): string | null {
 }
 
 /**
- * The stale-block refusal, or `null` when the refusal is something else. It lands on no field: the whole
- * screen is behind the row, so no box the admin could correct is at fault.
+ * The save's refusal, or `null` when the refusal is something else. None lands on a field: the stale
+ * block puts the whole screen behind the row, and the ban names no seat.
  */
-export function mapStaleBlockRefusal(error: unknown): string | null {
+export function mapKontakteRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
-  // The backend's judgement of a seat's label (`docs/backend/spec.md :: I866`): an editor opened
-  // before a deploy moved the form's label sends it for a person the row did not hold.
-  if (error.serverErrorCode === "REQ-EINWILLIGUNG-001") return BEWERBUNG_VERALTET;
-  if (error.serverErrorCode !== "REQ-KONTAKT-001") return null;
 
-  return buildRefusal({
-    reason:
-      "Die Kontakte dieser Saison wurden inzwischen geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde",
-    repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
-  });
+  switch (error.serverErrorCode) {
+    // The backend's judgement of a seat's label (`docs/backend/spec.md :: I866`): an editor opened
+    // before a deploy moved the form's label sends it for a person the row did not hold.
+    case "REQ-EINWILLIGUNG-001":
+      return BEWERBUNG_VERALTET;
+    case "REQ-KONTAKT-001":
+      return buildRefusal({
+        reason:
+          "Die Kontakte dieser Saison wurden inzwischen geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde",
+        repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
+      });
+    // Not the re-send's sentence: the refusal names no seat, so „Diese E-Mail-Adresse“ would point at none.
+    case "REQ-KONTAKT-003":
+      return buildRefusal({
+        reason: "Eine neu eingetragene E-Mail-Adresse steht auf der Sperrliste",
+        repair: "Trage dort eine andere Adresse ein oder hebe die Sperre unter /bereich/admin/sperrliste auf",
+      });
+    default:
+      return null;
+  }
 }

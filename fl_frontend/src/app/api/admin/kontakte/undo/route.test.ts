@@ -52,7 +52,6 @@ const replayed = (acknowledged: 0 | 1, bestaetigungen: unknown[] = []) => ({
   kontakte: null,
   kontakte_stand: "a1b2",
   bestaetigungen,
-  gesperrt: [],
 });
 
 /* The real route, the save's own mutation and the link mailer, called: the request it runs in, the

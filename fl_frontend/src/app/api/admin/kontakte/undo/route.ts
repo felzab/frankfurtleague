@@ -27,6 +27,9 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-EINWILLIGUNG-001":
     "Die Rücknahme würde eine Kontaktperson unter einer Fassung der Hinweise eintragen, die nicht mehr gilt. " +
     "Sie wurde nicht ausgeführt. Lade die Seite neu und trage die Kontakte dort erneut ein.",
+  // The replay seats an earlier person anew, which the backend refuses for an address barred since.
+  "REQ-KONTAKT-003":
+    "Die Rücknahme würde eine Kontaktperson eintragen, deren E-Mail-Adresse inzwischen auf der Sperrliste steht. Sie wurde nicht ausgeführt.",
 };
 
 export async function POST(request: NextRequest) {
@@ -64,7 +67,7 @@ export async function POST(request: NextRequest) {
           }),
         })),
       );
-      const versandSatz = describeKontaktVersand(versendet, operation.gesperrt, operation.kontakte);
+      const versandSatz = describeKontaktVersand(versendet);
 
       // A cost either way: the undo mailed a person, which is a fact about them rather than about the
       // rows it put back.
