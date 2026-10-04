@@ -540,10 +540,9 @@ class TestThePageALinkOpens:
         assert (view.zustand, view.laufende_fassung) == ("bestaetigt", VERWALTUNG_SEITE)
 
     def test_a_link_answering_a_mixed_pair_shows_and_takes_one_page(self, mongo_replica_set_url: str):
-        """A Trainer the applicant named, holding a second seat the league filled: one link, one page, both seats answered.
+        """A Trainer the applicant named, holding a seat the league filled: one page for both.
 
-        Stored directly: no route seats one person in a pair across two writes on an application today,
-        and the judge must not depend on that staying so.
+        Stored directly: no route makes this pair on an application today, and the judge must not rely on that.
         """
 
         seeded = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
