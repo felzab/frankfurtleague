@@ -1487,18 +1487,20 @@ describe("the words the two contact pages are handed", () => {
 
   /**
    * Every read answered as the backend would: `laufend` overriding what it runs on each page,
-   * `ansichtNennt` the label the link's view names, and `scheitert` failing one endpoint.
+   * `ansichtNennt` and `zustand` the label and state the link's view answers, and `scheitert` failing
+   * one endpoint.
    */
   function backend({
     laufend,
     ansichtNennt,
+    zustand,
     scheitert,
-  }: { laufend?: Record<string, string>; ansichtNennt?: string; scheitert?: string } = {}): void {
+  }: { laufend?: Record<string, string>; ansichtNennt?: string; zustand?: string; scheitert?: string } = {}): void {
     answerReadsWith((endpoint, schema, params) => {
       if (endpoint === scheitert) throw new Error(`the backend failed ${endpoint}`);
       if (endpoint === "/einwilligung/seiten" && laufend !== undefined) return { acknowledged: 1, laufende_fassungen: laufend };
       if (endpoint === "/bewerbungen/einwilligung/ansicht")
-        return { ...GEOEFFNET, laufende_fassung: ansichtNennt ?? GEOEFFNET.laufende_fassung };
+        return { ...GEOEFFNET, zustand: zustand ?? GEOEFFNET.zustand, laufende_fassung: ansichtNennt ?? GEOEFFNET.laufende_fassung };
       if (endpoint === "/bewerbungen/fenster/2026") return FENSTER;
       return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
     });
@@ -1552,6 +1554,19 @@ describe("the words the two contact pages are handed", () => {
 
       assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" }, label);
     }
+  });
+
+  /* A closed season row's link takes a Widerspruch alone, which shows no stamped words. */
+  it("opens a season row's link past its season on the Widerspruch alone, reading no words", async () => {
+    backend({ zustand: "saison_vorbei", scheitert: `/einwilligung/fassungen/${KONTAKT_LABEL}` });
+    const start = await bestaetigungStart();
+
+    assert.equal(start.zustand, "saison_vorbei", "a closed season row's link opened on another page");
+    assert.equal(
+      start.zustand === "saison_vorbei" ? start.token : null,
+      "kein-echtes-token",
+      "the page dropped the token the Widerspruch needs",
+    );
   });
 
   /* The registry holding no such label is a read that failed, never a dead link. */

@@ -39,11 +39,13 @@ import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type BestaetigungAbschluss =
-  { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean } | { zustand: "widersprochen-neu" } | { zustand: LinkZustand };
+  | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean }
+  | { zustand: "widersprochen-neu" }
+  | { zustand: LinkZustand | "saison_vorbei" };
 
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean }
-  | (PublicEnvelope & { success: false; zustand?: LinkZustand });
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei" });
 
 /**
  * What the armed press sends. A constant rather than a literal in the branch: it is where

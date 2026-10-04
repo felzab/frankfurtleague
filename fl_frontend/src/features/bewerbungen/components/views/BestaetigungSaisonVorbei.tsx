@@ -1,0 +1,118 @@
+"use client";
+
+import { startTransition } from "react";
+
+import CircleXmark from "@gravity-ui/icons/CircleXmark";
+
+import { ABLEHNEN_LABEL } from "@/features/bewerbungen/constants";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { appToast } from "@/shared/utils/appToast";
+import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+
+import { ABSATZ_CLASSES, BestaetigungAbschnitt, Wert } from "./BestaetigungPanels";
+
+import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
+import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
+import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
+import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
+
+type WiderspruchAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei" });
+
+const NICHT_GESPEICHERT = "Dein Widerspruch wurde nicht gespeichert. Versuche es erneut.";
+
+/**
+ * A season row's link once its season has ended or its team has left it: the backend takes no
+ * confirmation there (`REQ-KONTAKT-006`) and still takes a Widerspruch, so the page offers that alone.
+ */
+export function BestaetigungSaisonVorbei({
+  ansicht,
+  token,
+  onAbschluss,
+}: {
+  ansicht: EinwilligungGeoeffnet;
+  token: string;
+  onAbschluss: (abschluss: BestaetigungAbschluss) => void;
+}) {
+  const widerspruch = useTwoPressConfirm();
+
+  // The label the view names, which a Widerspruch stores nowhere: the payload requires one all the same.
+  const payload: FLBewerbungEinwilligungAntwortPayload = {
+    token: token,
+    antwort: "abgelehnt",
+    geburtsdatum: null,
+    whatsapp: false,
+    medien: false,
+    text_version: ansicht.laufende_fassung,
+  };
+
+  const sende = async (): Promise<void> => {
+    const gesendet = await postPublicForm<WiderspruchAntwort>("/api/bestaetigung/kontakt", payload);
+
+    if (!gesendet.answered) {
+      appToast.danger(gesendet.wroteNothing ? "Widerspruch nicht gespeichert" : "Unklar, ob es bei uns angekommen ist", {
+        description: gesendet.error,
+      });
+      return;
+    }
+
+    const antwort = gesendet.body;
+
+    // Wrapped again: React leaves an update after an `await` outside the transition that awaited.
+    startTransition(() => {
+      if (antwort.success) {
+        onAbschluss({ zustand: "widersprochen-neu" });
+        return;
+      }
+      if (antwort.outcome === "unknown") {
+        appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+        return;
+      }
+      if (antwort.zustand !== undefined) {
+        onAbschluss({ zustand: antwort.zustand });
+        return;
+      }
+      appToast.danger("Widerspruch nicht gespeichert", { description: antwort.error ?? antwort.unplacedError ?? NICHT_GESPEICHERT });
+    });
+  };
+
+  return (
+    <BestaetigungAbschnitt titel="Deine Antwort">
+      <p className={ABSATZ_CLASSES}>
+        Hallo <Wert>{ansicht.vorname}</Wert>. Die Saison <Wert>{ansicht.saison_id}</Wert> ist für das Team <Wert>{ansicht.schule}</Wert> vorbei,
+        oder das Team spielt in ihr nicht mehr mit. Deinen Eintrag kannst Du deshalb nicht mehr bestätigen.
+      </p>
+      <p className={ABSATZ_CLASSES}>
+        Möchtest Du dort nicht eingetragen bleiben, kannst Du widersprechen. Dann entfernen wir Deine Angaben aus dem Eintrag.
+      </p>
+
+      <div className="flex w-full flex-col gap-y-3">
+        <ConfirmActionRow confirm={widerspruch}>
+          <ConfirmPressButton
+            confirm={widerspruch}
+            // Nothing closes this press: the backend takes a Widerspruch until the link's own deadline.
+            reason={null}
+            resting={ABLEHNEN_LABEL}
+            armed="Widerspruch senden"
+            running="Sendet..."
+            icon={
+              <CircleXmark
+                className="size-4.5"
+                aria-hidden="true"
+              />
+            }
+            onPress={() => widerspruch.press(sende)}
+          />
+        </ConfirmActionRow>
+
+        {widerspruch.isConfirming && (
+          <ConfirmReveal>
+            <p className="fluid-xxs leading-normal font-medium text-foreground">Wir entfernen Deine Angaben sofort aus dem Eintrag.</p>
+          </ConfirmReveal>
+        )}
+      </div>
+    </BestaetigungAbschnitt>
+  );
+}

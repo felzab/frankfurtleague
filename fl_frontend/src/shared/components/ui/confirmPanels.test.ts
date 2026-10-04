@@ -137,6 +137,7 @@ const M = {
   ablehnen: "features/bewerbungen/components/forms/AdminBewerbungAblehnenSection.tsx",
   annehmen: "features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx",
   bestaetigung: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
+  saisonVorbei: "features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx",
   kontakteLoeschen: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx",
   kontaktErasure: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx",
   passkey: "features/passkeys/components/ui/PasskeyKarteView.tsx",
@@ -160,6 +161,7 @@ const C = {
   ablehnen: await component(M.ablehnen, "AdminBewerbungAblehnenSection"),
   annehmen: await component(M.annehmen, "AdminBewerbungAnnehmenSection"),
   bestaetigung: await component(M.bestaetigung, "BestaetigungFormPanel"),
+  saisonVorbei: await component(M.saisonVorbei, "BestaetigungSaisonVorbei"),
   kontakteLoeschen: await component(M.kontakteLoeschen, "FormKontakteLoeschenSection"),
   kontaktErasure: await component(M.kontaktErasure, "FormKontaktErasure"),
   passkey: await component(M.passkey, "PasskeyKarteView"),
@@ -267,6 +269,30 @@ const PANELS: Record<string, Arming[]> = {
           saison: "2026",
           rolle: "Ansprechperson",
           mindestalter: 16,
+          onAbschluss: () => undefined,
+        }),
+      resting: "Ich möchte nicht eingetragen sein",
+    },
+  ],
+  [M.saisonVorbei]: [
+    {
+      render: () =>
+        el(C.saisonVorbei, {
+          ansicht: {
+            acknowledged: 1,
+            zustand: "saison_vorbei",
+            quelle: "saison",
+            saison_id: "2026",
+            schule: "Lessing-Kolleg",
+            rolle: "ansprechperson",
+            zugleich_rolle: null,
+            vorname: "Mira",
+            text_version: laufendeKontaktFassung().textVersion,
+            laufende_fassung: laufendeKontaktFassung().textVersion,
+            mindestalter: 18,
+            medien_mindestalter: 18,
+          },
+          token: "kein-echtes-token",
           onAbschluss: () => undefined,
         }),
       resting: "Ich möchte nicht eingetragen sein",
@@ -642,6 +668,7 @@ describe("where arming and cancelling leave the focus, on every panel", () => {
 /** The panels whose armed press is not an administrator's write, and why each is not. */
 const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
   [M.bestaetigung]: "the public confirmation page, a person's own answer to their own link",
+  [M.saisonVorbei]: "the public confirmation page's Widerspruch on a closed season row, a person's own answer",
   [M.passkey]: "the passkey list, which asks through the account page's own confirmation",
   [M.andereAbmelden]: "the account page's sign-out of other devices, which asks through that page's own confirmation",
   [M.registrierungen]: "a seat holder's decision on the person lane, which holds no administrator's step-up window",

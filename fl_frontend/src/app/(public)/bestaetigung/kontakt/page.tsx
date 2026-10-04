@@ -48,6 +48,8 @@ async function BestaetigungContent(props: NextPageProps) {
 
   const start: BestaetigungStart = await getEinwilligungAnsicht(token).then(
     async (gelesen): Promise<BestaetigungStart> => {
+      // Offered the Widerspruch alone, which shows no stamped words.
+      if (gelesen.zustand === "saison_vorbei") return { zustand: "saison_vorbei", ansicht: gelesen.ansicht, token: token };
       if (gelesen.zustand !== "gueltig") return gelesen;
 
       // After the link's read, never beside it: the view names the label by how the seat was filled,

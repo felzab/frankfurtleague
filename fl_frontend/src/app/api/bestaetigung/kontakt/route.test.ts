@@ -299,13 +299,13 @@ describe("a seat an administrator typed onto a team's season row", () => {
     assert.deepEqual(mails, []);
   });
 
-  /* The same panel the link's view answers once the season has ended or the team has left. */
-  it("answers a season row's link past its season with the dead-link panel", async () => {
+  /* The page the link's view answers once the season has ended or the team has left, which still takes a Widerspruch. */
+  it("answers a season row's link past its season with the page offering the Widerspruch alone", async () => {
     schreibAntwort = () => aRefusal("REQ-KONTAKT-006");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.deepEqual(answer.body, { success: false, zustand: "abgelaufen" });
+    assert.deepEqual(answer.body, { success: false, zustand: "saison_vorbei" });
     assert.deepEqual(mails, []);
   });
 

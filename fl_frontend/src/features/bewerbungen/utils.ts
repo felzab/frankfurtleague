@@ -210,7 +210,7 @@ export type EinwilligungRefusal = {
   error?: string;
   fieldErrors?: FieldErrors;
   unplacedError?: string;
-  zustand?: LinkZustand;
+  zustand?: LinkZustand | "saison_vorbei";
   nachlesen?: true;
 };
 
@@ -244,9 +244,11 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // A season row's seat past its own deadline, spent for good: only a fresh link from the
     // administration opens the seat again, so the same panel serves it.
     case "REQ-KONTAKT-004":
-    // A season row's link whose season ended or whose team left: the panel its view answers on a reload.
-    case "REQ-KONTAKT-006":
       return { zustand: "abgelaufen" };
+    // A season row's link whose season ended or whose team left, which still takes a Widerspruch: the
+    // page its view answers on a reload, offering that alone.
+    case "REQ-KONTAKT-006":
+      return { zustand: "saison_vorbei" };
     // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
     // that it confirmed. Which way it went is the read's to say.
     case "REQ-BEWERBUNG-011":

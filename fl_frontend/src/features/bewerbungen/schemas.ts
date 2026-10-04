@@ -628,7 +628,7 @@ export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEi
 export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
   // unknown token has nothing to answer with and reaches the page as a 409.
-  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]),
+  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "saison_vorbei", "gesperrt"]),
   // Which record the token opened: an application's seat, or a seat an administrator typed onto a
   // team's season row, whose reader applied for nothing.
   quelle: z.enum(["bewerbung", "saison"]),

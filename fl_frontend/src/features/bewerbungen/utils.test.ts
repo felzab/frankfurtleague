@@ -641,9 +641,9 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     }
   });
 
-  /* Four codes, one panel, each spending this person's link: a decided application, an application's
-     passed deadline, and a season row's passed deadline or past season, which no application's link
-     meets and whose wording the view takes from the link's source. */
+  /* Three codes, one panel, each spending this person's link: a decided application, an application's
+     passed deadline, and a season row's passed deadline, which no application's link meets and whose
+     wording the view takes from the link's source. */
   it("gives each code its own answer, the spent links one panel", () => {
     const answers = new Map(
       publishedRefusals(CONFIRM_OPERATION).map((code) => [
@@ -652,7 +652,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       ]),
     );
 
-    for (const code of ["REQ-BEWERBUNG-017", "REQ-KONTAKT-004", "REQ-KONTAKT-006"]) {
+    for (const code of ["REQ-BEWERBUNG-017", "REQ-KONTAKT-004"]) {
       assert.equal(answers.get(code), answers.get("REQ-BEWERBUNG-010"), `${code}'s passed deadline leaves the spent-link panel`);
       answers.delete(code);
     }

@@ -20,9 +20,9 @@ import type { NextRequest } from "next/server";
 async function beantworteterZustand(token: string): Promise<LinkZustand> {
   const { zustand } = await getEinwilligungAnsicht(token);
 
-  // `gueltig` is the write's refusal and this read disagreeing, and the panel naming nobody is the
+  // An open link is the write's refusal and this read disagreeing, and the panel naming nobody is the
   // one answer that claims nothing about a record.
-  return zustand === "gueltig" ? "ungueltig" : zustand;
+  return zustand === "gueltig" || zustand === "saison_vorbei" ? "ungueltig" : zustand;
 }
 
 /**

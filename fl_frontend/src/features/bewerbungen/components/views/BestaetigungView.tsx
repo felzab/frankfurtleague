@@ -21,6 +21,7 @@ import {
   Wert,
   ZurLiga,
 } from "./BestaetigungPanels";
+import { BestaetigungSaisonVorbei } from "./BestaetigungSaisonVorbei";
 
 import type { EinwilligungGeoeffnet, EinwilligungQuelle, LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
@@ -32,6 +33,7 @@ import type { KontaktFassung } from "./BestaetigungHinweise";
  */
 export type BestaetigungStart =
   | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string; fassung: KontaktFassung }
+  | { zustand: "saison_vorbei"; ansicht: EinwilligungGeoeffnet; token: string }
   | { zustand: LinkZustand | "unlesbar"; quelle?: EinwilligungQuelle };
 
 type Stand =
@@ -44,6 +46,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
   "widersprochen-neu": "Widerspruch gespeichert",
+  saison_vorbei: "Bestätigen nicht mehr möglich",
   bestaetigt: "Schon erledigt",
   abgelehnt: "Schon erledigt",
   abgelaufen: "Link ungültig",
@@ -55,12 +58,14 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
 const linkRollen = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string => rollenLangform([rolle, zugleich_rolle]);
 
 /** The press's answer folded into the page's state, carrying the read that the panel still names the person from. */
-function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet): Stand {
+function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet, token: string): Stand {
   if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: ansicht };
   if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: ansicht };
+  // The season closed between the open and the press: the token still takes a Widerspruch.
+  if (abschluss.zustand === "saison_vorbei") return { zustand: "saison_vorbei", ansicht: ansicht, token: token };
 
   // The read that opened the page knew the record, which the spent link's panel words itself by.
-  return { ...abschluss, quelle: ansicht.quelle };
+  return { zustand: abschluss.zustand, quelle: ansicht.quelle };
 }
 
 /** Whether the page is about a seat an administrator typed onto a team's season row, which no application stands behind. */
@@ -70,7 +75,7 @@ function istSaison(stand: Stand): boolean {
 
 /** Which states know a season, and so may wear the chip the public pages head a season's page with. */
 function saisonVon(stand: Stand): string | null {
-  return stand.zustand === "gueltig" || stand.zustand === "erfolg" || stand.zustand === "widersprochen-neu" ? stand.ansicht.saison_id : null;
+  return "ansicht" in stand ? stand.ansicht.saison_id : null;
 }
 
 /**
@@ -127,7 +132,18 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           medienMindestalter={stand.ansicht.medien_mindestalter}
           onAbschluss={(abschluss) => {
             beantwortet();
-            setStand(nachAntwort(abschluss, stand.ansicht));
+            setStand(nachAntwort(abschluss, stand.ansicht, stand.token));
+          }}
+        />
+      )}
+
+      {stand.zustand === "saison_vorbei" && (
+        <BestaetigungSaisonVorbei
+          ansicht={stand.ansicht}
+          token={stand.token}
+          onAbschluss={(abschluss) => {
+            beantwortet();
+            setStand(nachAntwort(abschluss, stand.ansicht, stand.token));
           }}
         />
       )}
