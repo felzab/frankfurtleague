@@ -145,7 +145,8 @@ _BESTAETIGUNGSSEITE_6: Final[Mapping[str, str]] = MappingProxyType(
 )
 
 # The applicant page's words for a person the administration seated on an application, whom no
-# applicant named: only the opening, which would tell them otherwise, is its own. Never a label by itself.
+# applicant named: the opening and the legal basis, which would tell them otherwise, are its own.
+# Never a label by itself.
 _BESTAETIGUNGSSEITE_VERWALTUNG_TEXTE: Final[Mapping[str, str]] = MappingProxyType(
     {
         **_BESTAETIGUNGSSEITE_6,
@@ -154,6 +155,13 @@ _BESTAETIGUNGSSEITE_VERWALTUNG_TEXTE: Final[Mapping[str, str]] = MappingProxyTyp
             "eingetragen und dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu "
             "dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst "
             "hören möchten, dass es stimmt."
+        ),
+        "rechtsgrundlage": (
+            "Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist, den Spielbetrieb der "
+            "Liga durchzuführen und dafür ein Team über die Personen erreichen zu können, die die Verwaltung für dieses "
+            "Team einträgt, statt eine ganze Saison an einer einzigen Adresse hängen zu lassen. Dass Deine Daten dabei "
+            "nicht untergehen, sichern wir so ab: Du erfährst von Deinem Eintrag sofort, nämlich jetzt; nichts davon "
+            "wird veröffentlicht; und Du kannst jederzeit verlangen, dass wir alles löschen."
         ),
     }
 )
@@ -221,6 +229,13 @@ _BESTAETIGUNGSSEITE_SAISON: Final[Mapping[str, str]] = MappingProxyType(
             "Dein Geburtsdatum hat die Verwaltung nicht eingetragen. Du trägst es gleich hier selbst ein, und wir "
             "prüfen damit, ob Du mindestens {minAlter} Jahre alt bist. So alt muss sein, wer diese Rolle übernimmt. "
             "Vorher hatte es niemand, und niemand hat es für Dich angegeben."
+        ),
+        "rechtsgrundlage": (
+            "Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist, den Spielbetrieb der "
+            "Liga durchzuführen und dafür ein Team über die Personen erreichen zu können, die die Verwaltung für dieses "
+            "Team einträgt, statt eine ganze Saison an einer einzigen Adresse hängen zu lassen. Dass Deine Daten dabei "
+            "nicht untergehen, sichern wir so ab: Du erfährst von Deinem Eintrag sofort, nämlich jetzt; nichts davon "
+            "wird veröffentlicht; und Du kannst jederzeit verlangen, dass wir alles löschen."
         ),
         "fristAbgelehnt": "Widersprichst Du Deinem Eintrag, löschen wir Deine Angaben sofort.",
         "fristAngenommen": (

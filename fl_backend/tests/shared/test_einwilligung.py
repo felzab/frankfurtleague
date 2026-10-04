@@ -57,8 +57,8 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-konto-kontakt": "5ce576610f7d3131202dd6d9c5c99e7dd531fe3de7bd7fc4194e78e28c4b4526",
     "2026-10-spielerseite-4": "0490d658a40af1a93a487338c2edaea205073bab924f15a060d236c04812fd5b",
     "2026-10-bestaetigungsseite-7": "5d8b6236e4108a2f06990e7e78e8b6b6189789f911c3f4ae1a656cd1afe82ff4",
-    "2026-10-bestaetigungsseite-verwaltung": "4e9764880323bd9996a16c90e4739c6f4fbfc3eaf6ebcc072ac35c7e8180b9d2",
-    "2026-10-bestaetigungsseite-saison": "3a33871b7a79e43322e0fd882d552d4bb9ce175af785972bf6c5433626e3c54e",
+    "2026-10-bestaetigungsseite-verwaltung": "73f6c142721d4d3af6cb9901b44f9d4c45f4f5c1e3dba68ca8b8026f3e8cc55e",
+    "2026-10-bestaetigungsseite-saison": "79313f1307ccdd46c8f074db55660d2b59be436eb669f0b07455c5657d0234f3",
 }
 
 
@@ -356,8 +356,11 @@ class TestTheRegistryOfWordings:
         ):
             assert FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze_nach_schluessel is not None, seite
 
-    def test_the_seated_persons_page_differs_from_the_applicants_by_its_opening_alone(self):
-        """Both are one page to the person reading it; a sentence reworded on one side only would tell two people two rules."""
+    def test_the_seated_persons_page_differs_from_the_applicants_by_its_opening_and_its_legal_basis_alone(self):
+        """Both are one page to the person reading it; a sentence reworded on one side only would tell two people two rules.
+
+        The two that differ say who entered the person, which no applicant did on this page.
+        """
 
         bewerbung = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]]
         verwaltung = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt_verwaltung"]]
@@ -366,7 +369,7 @@ class TestTheRegistryOfWordings:
         anders = {key for key, text in verwaltung.absaetze_nach_schluessel.items() if bewerbung.absaetze_nach_schluessel.get(key) != text}
 
         assert list(verwaltung.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
-        assert anders == {"worum"}
+        assert anders == {"worum", "rechtsgrundlage"}
         assert (verwaltung.schalter, dict(verwaltung.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
 
     @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
