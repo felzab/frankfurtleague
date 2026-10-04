@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition } from "react";
+import { startTransition, useMemo, useRef } from "react";
 
 import Ban from "@gravity-ui/icons/Ban";
 import SealCheck from "@gravity-ui/icons/SealCheck";
@@ -19,18 +19,19 @@ import {
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
-import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
+import { CONFIRM_PRESS_MARK, ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { focusAfterWrite, focusRow } from "@/shared/utils/focusAfterWrite";
+import { focusAfterWrite, focusRow, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLOffeneRegistrierung, FLRegistrierungAblehnungsgrund } from "@/features/registrierungen/schemas";
 import type { ActionResult } from "@/shared/types/types";
+import type { RefObject } from "react";
 
 /** The place each decision's control holds in every row, so a decided row hands the focus to the same control in the next. */
 const AUFNEHMEN = "aufnehmen";
@@ -91,23 +92,40 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
     });
   };
 
-  const aufnehmen = (spielerId: string | null) =>
+  const aufnehmen = (spielerId: string | null) => {
+    ablehnungZuletzt.current = false;
     entscheide(aufnahme, () => aufnehmenRegistrierungAction({ ...ziel, spieler_id: spielerId }), {
       erfolg: "Registrierung aufgenommen",
       fehler: "Registrierung nicht aufgenommen",
     });
+  };
 
-  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungAblehnungsgrund | null) =>
+  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungAblehnungsgrund | null) => {
+    ablehnungZuletzt.current = confirm === ablehnung;
     entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, grund: grund }), {
       erfolg: "Registrierung abgelehnt",
       fehler: "Registrierung nicht abgelehnt",
     });
+  };
 
   // The address resolved to somebody whose details differ: the yes names that person, and the no is a
   // decline telling the pupil to register under an address of their own.
   const gefragt = person !== null && person.weicht_ab;
   // A proposal has its own yes, and the armed press is then its no: the pupil becomes a new person.
   const vorgeschlagen = person === null ? vorschlag : null;
+
+  // The row's cancel hands the focus back to the control that armed it, and the row's first press is
+  // the admission: a cancelled decline names its own control here, read once the decline has disarmed.
+  const ablehnenSlot = useRef<HTMLSpanElement>(null);
+  const ablehnungZuletzt = useRef(false);
+  const armedBy = useMemo<RefObject<HTMLElement | null>>(
+    () => ({
+      get current() {
+        return ablehnungZuletzt.current ? (ablehnenSlot.current?.querySelector<HTMLElement>(`[${CONFIRM_PRESS_MARK}]`) ?? null) : null;
+      },
+    }),
+    [],
+  );
 
   return (
     <li
@@ -177,13 +195,18 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
         </ConfirmReveal>
       )}
 
-      {aufnahme.isConfirming ? (
-        <ConfirmActionRow confirm={aufnahme}>
+      {/* One row in every state, so a cancel finds the control that armed it still mounted. */}
+      <ConfirmActionRow
+        confirm={ablehnung.isConfirming ? ablehnung : aufnahme}
+        armedBy={armedBy}>
+        {!ablehnung.isConfirming && (
           <FocusSlot name={AUFNEHMEN}>
             <ConfirmPressButton
               confirm={aufnahme}
-              reason={null}
+              // Closed rather than hidden: the control names what this row is waiting for.
+              reason={registrierung.aufnehmbar ? null : NOCH_NICHT_BESTAETIGT}
               resting="Aufnehmen"
+              restingName={`${name} aufnehmen`}
               armed={vorgeschlagen === null ? "Ja, aufnehmen" : "Nein, als neue Person aufnehmen"}
               running="Nimmt auf..."
               icon={
@@ -195,59 +218,24 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               onPress={() => aufnehmen(gefragt ? person.spieler_id : null)}
             />
           </FocusSlot>
-          {gefragt && (
-            <FocusSlot name={AUFNEHMEN}>
-              <Button
-                type="button"
-                variant="secondary"
-                isPending={aufnahme.isPending}
-                onPress={() => ablehnen(aufnahme, "andere_person")}
-                className={formButton({ intent: "cancel", stacks: true })}>
-                Nein
-              </Button>
-            </FocusSlot>
-          )}
-        </ConfirmActionRow>
-      ) : ablehnung.isConfirming ? (
-        <ConfirmActionRow confirm={ablehnung}>
-          <FocusSlot name={ABLEHNEN}>
-            <ConfirmPressButton
-              confirm={ablehnung}
-              reason={null}
-              resting="Ablehnen"
-              armed="Ja, ablehnen"
-              running="Lehnt ab..."
-              icon={
-                <Ban
-                  aria-hidden="true"
-                  className="size-4.5 shrink-0"
-                />
-              }
-              onPress={() => ablehnen(ablehnung, null)}
-            />
-          </FocusSlot>
-        </ConfirmActionRow>
-      ) : (
-        <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        )}
+        {aufnahme.isConfirming && gefragt && (
           <FocusSlot name={AUFNEHMEN}>
-            <ConfirmPressButton
-              confirm={aufnahme}
-              // Closed rather than hidden: the control names what this row is waiting for.
-              reason={registrierung.aufnehmbar ? null : NOCH_NICHT_BESTAETIGT}
-              resting="Aufnehmen"
-              restingName={`${name} aufnehmen`}
-              armed="Ja, aufnehmen"
-              running="Nimmt auf..."
-              icon={
-                <SealCheck
-                  aria-hidden="true"
-                  className="size-4.5 shrink-0"
-                />
-              }
-              onPress={() => aufnehmen(null)}
-            />
+            <Button
+              type="button"
+              variant="secondary"
+              isPending={aufnahme.isPending}
+              onPress={() => ablehnen(aufnahme, "andere_person")}
+              className={formButton({ intent: "cancel", stacks: true })}>
+              Nein
+            </Button>
           </FocusSlot>
-          <FocusSlot name={ABLEHNEN}>
+        )}
+        {!aufnahme.isConfirming && (
+          <span
+            ref={ablehnenSlot}
+            className="contents"
+            {...focusSlot(ABLEHNEN)}>
             <ConfirmPressButton
               confirm={ablehnung}
               reason={null}
@@ -263,9 +251,9 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               }
               onPress={() => ablehnen(ablehnung, null)}
             />
-          </FocusSlot>
-        </div>
-      )}
+          </span>
+        )}
+      </ConfirmActionRow>
     </li>
   );
 }

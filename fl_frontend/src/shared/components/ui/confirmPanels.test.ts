@@ -153,6 +153,7 @@ const M = {
   spielerLoeschen: "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
+  registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
 };
 
 const C = {
@@ -175,6 +176,7 @@ const C = {
   spielerLoeschen: await component(M.spielerLoeschen, "FormLoeschenSection"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
+  registrierungen: await component(M.registrierungen, "RegistrierungenList"),
 };
 
 const einladungPanel = () =>
@@ -189,6 +191,29 @@ const einladungPanel = () =>
         einladung: LIVE_EINLADUNG,
         laeuft: true,
       }),
+    }),
+  );
+
+/** One confirmed registration on its team's list, each card holding both decisions. */
+const registrierungenList = () =>
+  underNext(
+    el(C.registrierungen, {
+      registrierungen: [
+        {
+          registrierung_id: "c".repeat(24),
+          eingereicht_am: "2026-09-20",
+          vorname: "Lena",
+          nachname: "Meier",
+          nummer: null,
+          position: null,
+          stufe: null,
+          aufnehmbar: true,
+          nummer_doppelt: false,
+          person: null,
+          vorschlag: null,
+        },
+      ],
+      adresse: { team_id: TEAM_ID, saison_id: "2627" },
     }),
   );
 
@@ -489,6 +514,10 @@ const PANELS: Record<string, Arming[]> = {
       stepUp: false,
     },
   ],
+  [M.registrierungen]: [
+    { render: registrierungenList, resting: "Lena Meier aufnehmen" },
+    { render: registrierungenList, resting: "Registrierung von Lena Meier ablehnen" },
+  ],
 };
 
 /** Every module rendering the shared row or reveal, read off its syntax tree. */
@@ -615,6 +644,7 @@ const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
   [M.bestaetigung]: "the public confirmation page, a person's own answer to their own link",
   [M.passkey]: "the passkey list, which asks through the account page's own confirmation",
   [M.andereAbmelden]: "the account page's sign-out of other devices, which asks through that page's own confirmation",
+  [M.registrierungen]: "a seat holder's decision on the person lane, which holds no administrator's step-up window",
 };
 
 /** Every step-up write each administrator panel's armed presses have sent, filled by the cases below. */
