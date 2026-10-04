@@ -1,0 +1,36 @@
+// Linted as src/features/spieler/queries.ts.
+import { cacheTag } from "next/cache";
+import { cache } from "react";
+
+import { apiClient } from "@/core/api";
+import { runPersonRead } from "@/shared/utils/personRead";
+
+// A module holding a cached public read beside its callers' own, which no module-wide ban can hold.
+export async function plantedPublic(): Promise<unknown> {
+  "use cache";
+  cacheTag("spieler");
+  return apiClient("/spieler", undefined, { authType: "base" });
+}
+
+export async function plantedPerson(): Promise<unknown> {
+  "use cache"; // expect: caller-read
+  return runPersonRead(() => apiClient("/spieler/selbst", undefined, { authType: "admin" }));
+}
+
+export const plantedAdmin = async (): Promise<unknown> => {
+  "use cache: private"; // expect: caller-read
+  return apiClient("/spieler", undefined, { authType: "admin" });
+};
+
+// A cached public read nested in a caller's own is the public read's, judged by its own body.
+export async function plantedNested(): Promise<unknown> {
+  const oeffentlich = async (): Promise<unknown> => {
+    "use cache";
+    return apiClient("/spieler", undefined, { authType: "base" });
+  };
+  await oeffentlich();
+  return runPersonRead(() => apiClient("/spieler/selbst", undefined, { authType: "admin" }));
+}
+
+// React's `cache` dedupes within one render pass and keys on no caller beyond it.
+export const memoisedPerson = cache(async () => runPersonRead(() => apiClient("/spieler/selbst", undefined, { authType: "admin" })));

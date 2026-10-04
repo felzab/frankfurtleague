@@ -1098,6 +1098,15 @@ const SOURCE_BANS = [
       "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
     ],
   },
+  {
+    // Per function, so a module caching a public read beside a caller's own is held too, which the
+    // module list below cannot do.
+    // Anchored on the directive: esquery's `:has` takes no chained child combinator.
+    selector:
+      ':function:has(CallExpression[callee.name="runPersonRead"], Property[key.name="authType"][value.value="admin"]) > BlockStatement > ExpressionStatement[directive=/^use cache/]',
+    message:
+      "A read made for its caller is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares (docs/frontend/spec.md §1.2).",
+  },
 ];
 
 /**
@@ -1176,6 +1185,7 @@ const SCOPED_BANS = [
         "bewerbungen",
         "einladungen",
         "funktionen",
+        "konto",
         "registrierungen",
         "schiedsrichter",
         "sperrliste",
