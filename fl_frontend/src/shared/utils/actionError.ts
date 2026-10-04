@@ -193,6 +193,12 @@ export function rejectedWrite(router: { refresh: () => void }, repair?: string):
 }
 
 /**
+ * `rejectedWrite`'s repair on every control that sends a confirmation link. The rejection says nothing
+ * of whether the link left, and a second send is safe either way, a new link replacing the earlier one.
+ */
+export const LINK_ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
+
+/**
  * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is
  * (`docs/frontend/spec.md` §1.3), never `unansweredAction`'s unclear save. One sentence for every read.
  */

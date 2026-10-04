@@ -25,7 +25,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { rejectedWrite } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
@@ -36,12 +36,6 @@ import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/sch
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { ReactNode } from "react";
-
-/**
- * A rejected action says nothing of whether the write committed. A second send is safe either way,
- * which is why this one invites it — and the previous link is dead on both readings.
- */
-const OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
 
 /** Beside the deadline rather than in the right-hand cluster, which is about the delivery. */
 const LINK_ABGELAUFEN_LABEL = "abgelaufen";
@@ -207,7 +201,7 @@ export function FormBestaetigungSection({
 
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
     // leaves „Sendet...“ standing for good and reports nothing.
-    const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(rejectedWrite(router, OHNE_ANTWORT));
+    const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(rejectedWrite(router, LINK_ERNEUT_OHNE_ANTWORT));
     setSendet(false);
 
     // A rejection, which no answer came back from, carries this control's repair naming the connection; an

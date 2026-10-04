@@ -12,17 +12,11 @@ import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { rejectedWrite } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
-
-/**
- * A rejected action says nothing of whether the write committed. A second send is safe either way,
- * which is why this one invites it, and a new link replaces one that already went out.
- */
-const OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
 
 /**
  * A fresh link for one stored, unconfirmed seat, on the referee's pattern
@@ -62,7 +56,9 @@ export function FormKontaktEinladen({
 
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
     // leaves „Sendet...“ standing for good and reports nothing.
-    const res = await einladeKontaktAction({ team_id: teamId, saison_id: saisonId, rolle: rolle }).catch(rejectedWrite(router, OHNE_ANTWORT));
+    const res = await einladeKontaktAction({ team_id: teamId, saison_id: saisonId, rolle: rolle }).catch(
+      rejectedWrite(router, LINK_ERNEUT_OHNE_ANTWORT),
+    );
     setSendet(false);
 
     if (!res.success) {

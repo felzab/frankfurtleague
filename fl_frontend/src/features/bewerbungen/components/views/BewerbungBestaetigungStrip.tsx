@@ -41,7 +41,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
@@ -95,12 +95,6 @@ const STAND_ICON = {
 const KEINE_EMAIL = "Keine E-Mail";
 
 const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
-
-/**
- * A rejected action carries no status and no body, so it says nothing of whether the write
- * committed. A second re-send is safe either way, which is why this one invites it.
- */
-const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
 
 /** Unlike a re-send, a second correction to an address already stored is refused, so the row decides. */
 const KORREKTUR_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie erneut.";
@@ -181,7 +175,7 @@ export function BewerbungBestaetigungStrip({
 
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
     // „Sendet...“ standing for good and reports nothing.
-    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(rejectedWrite(router, ERNEUT_OHNE_ANTWORT));
+    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(rejectedWrite(router, LINK_ERNEUT_OHNE_ANTWORT));
 
     // This seat alone, through the updater, so two writes settling never clear each other.
     setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
