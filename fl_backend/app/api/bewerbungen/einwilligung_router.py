@@ -52,7 +52,7 @@ from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medi
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, pull_one_from_db, refuse
+from app.core.crud import patch_many_in_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
@@ -63,7 +63,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, stores_nothing
+from app.core.exception_handlers import stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
@@ -85,7 +85,10 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
     if isinstance(bewerbung_raw.get("schule"), Mapping):
         return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=None)
 
-    team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": bewerbung_raw.get("team_id")}, projection=["name"])
+    # `find_one` rather than `pull_one_from_db`: an application without its own school names a club,
+    # and no team is ever deleted, so a miss is a broken invariant rather than a 404 the view answers.
+    team_raw = await teams_collection.find_one({"_id": bewerbung_raw["team_id"]}, projection={"name": 1})
+    assert team_raw is not None
 
     return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=team_raw.get("name"))
 
@@ -112,7 +115,9 @@ async def _saison_ansicht(
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
     gesperrt = await adressen_gesperrt(sperrliste, seat_adressen(kontakte=row.get("kontakte"), seats=seats))
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": row["saison_id"]}, projection=["status"])
+    # As the press reads it: no season is ever deleted, so a miss is a broken invariant rather than a 404.
+    saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1})
+    assert saison_raw is not None
 
     return FLBewerbungEinwilligungAnsichtResponse(
         quelle="saison",
@@ -134,7 +139,6 @@ async def _saison_ansicht(
     response_model=FLBewerbungEinwilligungAnsichtResponse,
     summary="What one confirmation link opens",
     dependencies=[Depends(stores_nothing)],
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_einwilligung_ansicht(
     ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],

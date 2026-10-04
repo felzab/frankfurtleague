@@ -33,7 +33,7 @@ from app.api.registrierungen.services import (
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     RegistrierungenCollection,
@@ -42,7 +42,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, stores_nothing
+from app.core.exception_handlers import stores_nothing
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
@@ -63,7 +63,6 @@ router = APIRouter(
     response_model=FLRegistrierungBestaetigungAnsichtResponse,
     summary="What one registration confirmation link opens",
     dependencies=[Depends(stores_nothing)],
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_bestaetigung_ansicht(
     ansicht_data: Annotated[FLRegistrierungBestaetigungAnsichtPayload, Body()],
@@ -100,9 +99,10 @@ async def get_bestaetigung_ansicht(
     refuse(find_unknown_token_refusal(found=raw is not None))
     assert raw is not None
 
-    # A 404 rather than an empty slot: the two names are rendered INTO the consent text, and a
-    # paragraph missing its subject reads as finished.
-    team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": raw.get("team_id")}, projection=["name", "full_name"])
+    # `find_one` rather than `pull_one_from_db`: no team is ever deleted, so a miss is a broken
+    # invariant rather than a 404 this view could answer, and never an empty slot in the consent text.
+    team_raw = await teams_collection.find_one({"_id": raw["team_id"]}, projection={"name": 1, "full_name": 1})
+    assert team_raw is not None
 
     # On the folded form, which is what `spieler.email` stores; `uniq_spieler_email` holds one person to it.
     person = await spieler_collection.find_one(

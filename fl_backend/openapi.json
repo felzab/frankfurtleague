@@ -6940,9 +6940,6 @@
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001.REQ-BEWERBUNG-009"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -6954,6 +6951,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-BEWERBUNG-009"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7125,9 +7125,6 @@
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001.REQ-REGISTRIERUNG-004"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -7139,6 +7136,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-REGISTRIERUNG-004"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -23985,30 +23985,6 @@
           }
         }
       },
-      "404.DB-COMMON-001.REQ-BEWERBUNG-009": {
-        "description": "Not Found",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-001",
-                        "REQ-BEWERBUNG-009"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "404.DB-COMMON-001.REQ-EINLADUNG-001": {
         "description": "Not Found",
         "content": {
@@ -24048,30 +24024,6 @@
                       "enum": [
                         "DB-COMMON-001",
                         "REQ-EINLADUNG-003"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "404.DB-COMMON-001.REQ-REGISTRIERUNG-004": {
-        "description": "Not Found",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-001",
-                        "REQ-REGISTRIERUNG-004"
                       ]
                     }
                   }
