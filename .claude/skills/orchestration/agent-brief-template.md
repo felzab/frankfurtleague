@@ -4,11 +4,14 @@ A brief is what a dispatch adds to its agent's definition under `.claude/agents/
 loads as that agent's system prompt and which binds whatever the brief says. **A brief carries only
 the parts below, and never restates a standing section**: the definition is that section's one home,
 so a restatement that has drifted is one the agent reads and does not follow, and nothing announces
-the difference. A brief is a prompt rather than a file, so nothing checks one; a part left out here is
-a constraint the agent never sees.
+the difference. Nothing checks a brief; a part left out here is a constraint the agent never sees.
 
 **The rules about writing one.**
 
+- **The dispatch prompt names the brief's saved file and its `<NAME>-messages.md`, both by full
+  path** (`SKILL.md` §3 item 7). An agent whose context is compacted keeps its definition and a
+  summary; its definition sends it back to those two files, and a path it was never given is one it
+  cannot re-read.
 - **Nothing in a brief may ask for an answer mid-task.** A dispatched agent's only channel back is
   its final report, so an instruction to tell you, announce something or wait for your reply is one
   no agent can obey — agents have spent a paragraph each explaining why. Ask for it in the report,

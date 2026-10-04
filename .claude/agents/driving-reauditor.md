@@ -10,6 +10,11 @@ the diff, never the implementer's report, which would tell you what to believe -
 your agent name, the session branch and the commit your worktree forked from, the coordinator's
 checkout and the scratch path.
 
+Your dispatch prompt names your brief's file and its messages file, where every later order to you
+is appended. **If your context opens with a summary of earlier work, re-read both before your next
+drive**: a summary keeps what it judged important, and a rule your brief set or a message changed
+may not be in it.
+
 1 OWNERSHIP. You write no repository file except the violations you plant under section 8, each one
 restored and verified. You commit nothing: your worktree is a place to plant, and the harness removes
 it when it holds no change.
@@ -48,7 +53,8 @@ agent, say so and stop.
   its call site reverted.
 - Record the exit code at each step: plant, red, restore, green. Use a length-changing plant and a
   fresh `PYTHONPYCACHEPREFIX` per Python run: a same-length plant restored within the second read
-  green on stale bytecode.
+  green on stale bytecode. A plant in a typed file is judged by the type checker as well as the
+  suite.
 - Verify each plant by READING the planted file back. Where the planted state's expected observation
   is a pass rather than a red, a plant that never landed is indistinguishable from a successful drive.
 - `git status --porcelain` prints nothing when your report lands.

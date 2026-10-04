@@ -10,6 +10,11 @@ These sections bind you whatever your brief says; your brief carries sections 1 
 name, the session branch and the commit your worktree forked from, the coordinator's checkout and
 the scratch path.
 
+Your dispatch prompt names your brief's file and its messages file, where every later order to you
+is appended. **If your context opens with a summary of earlier work, re-read both before your next
+edit**: a summary keeps what it judged important, and a rule your brief set or a message changed
+may not be in it.
+
 2 READ RULE. Your worktree is yours: read it freely. What landed after your fork is on the session
 branch, whose ref every worktree shares -- `git show <session branch>:<path>`. A file you do not own
 that you need at a newer state than your fork is a premise to report (section 4), never one to copy
@@ -74,6 +79,9 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
 - Plant at the call site, not only in a helper: a fix pinned only through its helper has passed with
   its call site reverted.
 - Record the exit code at each step: plant, red, restore, green.
+- A plant in a typed file is judged by the type checker as well as the suite. A Python plant changes
+  the file's length and runs under a fresh `PYTHONPYCACHEPREFIX`: a same-length plant restored within
+  the second read green on stale bytecode.
 - Verify each plant by READING the planted file back, never by the writing tool's exit or its success
   message. Where the planted state's expected observation is a pass rather than a red -- reverting a
   normaliser, undoing an exemption -- a plant that never landed is indistinguishable from a
@@ -84,7 +92,26 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
 9 TRAPS. Each returns a confident wrong answer with nothing failing.
 
 - Bash masks a child exit code to a byte, so 2304 reads as 0. Read an exit code from the command
-  itself, never through a pipe.
+  itself, never through a pipe, and run every check you report unfiltered: a `tsc` piped through a
+  filter dropped the lines naming a real error, and three commit bodies then said it exited 0.
+- Test settings stay as the tree sets them -- concurrency, timeouts, retries, a budget -- and a check
+  stays always on, never behind a flag: a changed one makes a failure stop without removing its
+  cause, the symptom `.claude/CLAUDE.md` §3 forbids.
+- No package is added or moved. `fl_frontend/pnpm-workspace.yaml`'s `minimumReleaseAge` and
+  `fl_backend/pyproject.toml`'s `exclude-newer` refuse a release younger than their window, and an
+  exclusion from either is a workaround the owner must approve: where the work needs a package, stop
+  and report.
+- Where the clean shape seems impossible -- a dependency patch, a hook compensating for a library bug,
+  a stand-in for upstream behaviour -- stop and report with the evidence: each is the workaround
+  `.claude/CLAUDE.md` §3 forbids.
+- Never the database tier whole, a formatter over a directory, or a check against an environment's
+  database, unless your brief names that exact command: the first holds a machine-wide lock, the
+  second rewrites files other agents own, the third reaches real data.
+- An invariant row you add is numbered `I_NEW_<your agent name>_<n>`, never with a real number:
+  agents allocating in parallel collide, so the coordinator numbers every new row once, at the end.
+- A programme's rulings are numbered in a register outside this public repository, so no ruling's
+  number goes into a tracked file -- code, comment, test name or document. Cite one in a commit body
+  only where your brief gives its number.
 - A text-mode stream writes CRLF on Windows: `Path.write_text()`, `open(path, "w")` and a shell
   redirect of a program's stdout each do. Write bytes, or pass `newline=""`. A text-mode tool cannot
   detect CRLF either: Git Bash strips the carriage returns before the pattern sees them, so dump the
@@ -160,7 +187,8 @@ of the brief. Exactly, in this order:
 - (a) your branch's commits, `git log --format='%h %s' <session branch>..HEAD` -- the range the
   landing takes -- and the files each changed;
 - (b) every file you broke and restored, with `git status --porcelain` read after the last restore;
-- (c) per checklist item, the acceptance evidence, with real exit codes;
+- (c) per checklist item, the acceptance evidence, with real exit codes; and every user-facing string
+  you added or changed, with where it renders, each a draft until the owner approves it;
 - (d) what you could NOT verify, and why;
 - (e) under its own heading, ALWAYS answered: what in the brief was wrong -- a premise the tree
   contradicts, a figure that does not hold, a proof the brief prescribes that returns the opposite
