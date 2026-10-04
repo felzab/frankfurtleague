@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "cd5922c0fc95e37f6d055f7b1bb9ae15e6ca2fb531d1b225146f2369349d2c03" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "9bf8528817ba804f3f3eaa2cefc75c410432b65421b9a58eb5191a245a71b01c" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -335,6 +335,13 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   { weg: "Ohne einen Menschen weist die Website nur zweierlei zurück" },
   // The bot check and the day ceiling refuse without a human too, and the notice names every such refusal.
   { weg: "weist sie ohne einen Menschen nur zweierlei zurück" },
+  // The account page's step-up mails a code with no bot check, and an unanswered check lets a form through.
+  {
+    weg: "bevor wir einen Anmeldecode verschicken",
+    statt:
+      "bevor wir über die Anmeldeseite einen Anmeldecode verschicken oder eine Bewerbung oder Registrierung speichern; antwortet Cloudflare dabei nicht, nehmen wir das Formular ungeprüft an.",
+  },
+  { weg: "Einen Anmeldecode verschickt sie" },
   { weg: "an ihren eigenen Angaben", statt: "Änderungen der Verwaltung und Änderungen angemeldeter Personen" },
   { weg: "Trainerinnen, Trainern und Ansprechpersonen ab", statt: "Schiedsrichtern und Kontaktpersonen eines Teams ab" },
   { weg: "Er enthält nur die Zahl der Änderungen und Deine Rolle" },
@@ -585,8 +592,9 @@ describe("the privacy notice's publication and retention rows keep their ruled b
         "nach der Prüfung bei der Zurückweisung, weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die " +
         "Verwaltung nach der Prüfung aufheben. Ist der Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist " +
         "eine Grenze des Kaders und keine Entscheidung über Dich. Zwei weitere Grenzen setzt die Website ebenso ohne einen " +
-        "Menschen. Einen Anmeldecode verschickt sie, eine Bewerbung und eine Registrierung nimmt sie erst an, wenn Cloudflare " +
-        "bestätigt hat, dass ein Mensch das Formular abschickt (Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. " +
+        "Menschen. Einen Anmeldecode über die Anmeldeseite verschickt sie, eine Bewerbung und eine Registrierung nimmt sie erst " +
+        "an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt, oder wenn Cloudflare nicht antwortet " +
+        "(Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. " +
         `Lässt Dich die Prüfung nicht durch, schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an. ` +
         "Und wer angemeldet ist, kann in jeder Funktion an einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach " +
         "weist die Website weitere Änderungen bis Mitternacht zurück. Das Zurückziehen einer Einwilligung weist sie dabei nie " +
