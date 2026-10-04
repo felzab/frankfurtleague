@@ -379,6 +379,35 @@ class TestAnAcceptanceEntersTheSchool:
             for slot, seat in KONTAKTE.items()
         }
 
+    def test_who_seated_each_person_reaches_the_junction_row_unchanged(self, mongo_replica_set_url: str):
+        """It decides which page a seat's link opens once the application is gone, so a stamped seat and an unstamped one carry it alike.
+
+        Lost here, an applicant-named seat would open the league's page after the application is erased.
+        """
+
+        seated = {"trainer": "bewerbung", "ansprechperson": "liga", "stellvertretung": "bewerbung"}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": PICKED_BEWERBUNG},
+                {
+                    "$set": {
+                        **{f"kontakte.{slot}.einwilligung.eingetragen_von": von for slot, von in seated.items()},
+                        # The Trainer confirmed: entry carries a stamped seat whole, an unstamped one recomposed.
+                        "kontakte.trainer.einwilligung.erfasst_von": "person",
+                        "kontakte.trainer.einwilligung.bestaetigt_am": TODAY,
+                    }
+                },
+            )
+            await accept(database, client, PICKED_BEWERBUNG)
+
+            return (await junction_rows(database))[0]["kontakte"]
+
+        entered = on_a_league(mongo_replica_set_url, body)
+
+        assert {slot: entered[slot]["einwilligung"]["eingetragen_von"] for slot in seated} == seated
+        assert entered["trainer"]["einwilligung"]["bestaetigt_am"] == TODAY, "the Trainer's seat entered unstamped, so this case proves nothing"
+
     def test_the_assigned_kit_colour_is_the_administrators_and_not_the_wish(self, mongo_replica_set_url: str):
         """A wish is not an assignment: two schools may wish for one colour, and the junction records what was given."""
 
