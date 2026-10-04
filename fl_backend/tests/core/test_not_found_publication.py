@@ -9,7 +9,7 @@ nothing. A handler holding a bare `raise` hands the exception on, so it absorbs 
 
 import ast
 import functools
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +30,8 @@ from tests.core.app_source import (
     parsed,
     resolve_callee,
     scoped_calls,
+    session_handoffs,
+    session_parameters,
 )
 
 NOT_FOUND = "404"
@@ -110,8 +112,20 @@ def _can_raise(path: Path, lineno: int) -> bool:
 
 
 @functools.cache
-def _transaction_callbacks() -> frozenset[int]:
-    return frozenset(id(callback) for _, callback in handed_callbacks())
+def _transaction_sessions() -> Mapping[int, frozenset[str]]:
+    """Each function running inside a transaction, by identity, with the parameters holding its session.
+
+    A callback handed to `with_transaction`, and a function such a callback calls with its own session.
+    """
+
+    held: dict[int, set[str]] = {}
+    for _, callback in handed_callbacks():
+        held.setdefault(id(callback), set()).update(name for name, _ in session_parameters(callback))
+    for handoff in session_handoffs():
+        if handoff.in_session:
+            held.setdefault(id(handoff.declaration), set()).add(handoff.parameter)
+
+    return {declaration: frozenset(names) for declaration, names in held.items()}
 
 
 def _keyword(call: ast.Call, name: str) -> ast.expr | None:
@@ -129,9 +143,8 @@ def _cannot_miss(call: ast.Call, holder: Declaration) -> bool:
     session = _keyword(call, "session")
     if not (
         callee(call) in WRITE_HELPERS
-        and id(holder) in _transaction_callbacks()
         and isinstance(session, ast.Name)
-        and session.id in {argument.arg for argument in (*holder.args.posonlyargs, *holder.args.args, *holder.args.kwonlyargs)}
+        and session.id in _transaction_sessions().get(id(holder), ())
         and isinstance(db_filter, ast.Dict)
         and len(db_filter.keys) == 1
         and isinstance(key := db_filter.keys[0], ast.Constant)

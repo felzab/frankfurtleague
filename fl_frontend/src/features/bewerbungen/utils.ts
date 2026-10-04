@@ -233,8 +233,6 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
       return { error: FASSUNG_NEU_OEFFNEN };
-    // With the record missing, the application the link names is gone, which is a link nothing places.
-    case "DB-COMMON-001":
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
     // A decided application, or a deadline passed that only a re-sent link restarts: one panel names

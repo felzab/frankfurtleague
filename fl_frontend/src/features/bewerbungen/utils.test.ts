@@ -627,12 +627,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     }
   });
 
-  /* The record missing is an application the link named and nothing holds now: the dead-link panel,
-     never the admin's „nicht gefunden“ with a reload. */
-  it("answers the link's record gone as the link void", () => {
-    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "DB-COMMON-001"), VERTRETUNG_MIN_ALTER), { zustand: "ungueltig" });
-  });
-
   /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
      refusal is a token nothing could place. */
   it("calls the link void on every refusal its read publishes", () => {

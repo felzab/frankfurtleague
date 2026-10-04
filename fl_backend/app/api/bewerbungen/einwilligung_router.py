@@ -213,7 +213,6 @@ async def get_einwilligung_ansicht(
     "",
     response_model=FLEinwilligungAntwortResponse,
     summary="Confirm or decline one seat of a Bewerbung or of a team's season row",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def post_einwilligung(
     antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],
@@ -276,12 +275,13 @@ async def post_einwilligung(
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
 
+            # `find_one` rather than `pull_one_from_db`: no season is ever deleted, so a miss is a broken
+            # invariant rather than a 404 this press could answer.
+            saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1}, session=session)
+            assert saison_raw is not None
             # Every link on a closed row meets this here, whether minted before it closed, beside its
             # rollover or after it; never the Widerspruch below, which removes the person
             # (`docs/backend/spec.md :: I935`).
-            saison_raw = await pull_one_from_db(
-                collection=saisons_collection, db_filter={"_id": row["saison_id"]}, projection=["status"], session=session
-            )
             refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
 
             # Against the one page the view answered for these seats.
