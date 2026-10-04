@@ -419,18 +419,26 @@ class TestTheEvidence:
         assert after[PUPIL_OID]["einwilligung"]["text_version"] == CONFIRMATION_LABEL
 
     def test_a_grant_after_a_withdrawal_is_its_own_evidence(self, mongo_replica_set_url: str):
+        """Seeded with evidence, so the withdrawal names the grant it ended and the re-grant is seen to drop it."""
+
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            withdrawn = await http.patch(PATCH_PATH, json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
+            await self._earlier_evidence(database)
+            withdrawn = await http.patch(PATCH_PATH, json=_payload(umfang="intern", stand=EARLIER_STAND), headers=_person(IDENTIFIER))
+            between = (await _records(database))[PUPIL_OID]["einwilligung"][NACHWEIS]["umfang"]
             granted = await http.patch(
                 PATCH_PATH, json=_payload(umfang="kader_oeffentlich", stand=withdrawn.json()["nachweis_stand"]), headers=_person(IDENTIFIER)
             )
-            return withdrawn, granted, await _records(database)
+            return withdrawn, between, granted, await _records(database)
 
-        withdrawn, granted, after = served(mongo_replica_set_url, steps)
+        withdrawn, between, granted, after = served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
+        assert between["erteilt_zuvor"] == EARLIER_EVIDENCE["umfang"], "the withdrawal named no earlier grant, so this case proves nothing"
         # Bounded at one act per choice: the grant standing drops the withdrawal's earlier grant.
-        assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == {"umfang": {"am": NOW_UTC, "text_version": _running_label()}}
+        assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == {
+            "umfang": {"am": NOW_UTC, "text_version": _running_label()},
+            "medien": EARLIER_EVIDENCE["medien"],
+        }
         assert _block(after[PUPIL_OID]["einwilligung"]) == _einwilligung()
 
     def test_a_press_moving_nothing_restamps_nothing(self, mongo_replica_set_url: str):
