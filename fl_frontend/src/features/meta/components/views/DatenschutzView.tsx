@@ -639,9 +639,9 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen Menschen
             zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder
-            Schiedsrichter oder als Kontaktperson einer Bewerbung einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter
-            über {BEWERBUNG_MAX_ALTER} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf Deinen Wunsch
-            ein Mensch: Schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an und antwortet Dir. Ein
+            Schiedsrichter oder als Kontaktperson einer Bewerbung oder eines Teams einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt
+            oder ein Alter über {BEWERBUNG_MAX_ALTER} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf
+            Deinen Wunsch ein Mensch: Schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an und antwortet Dir. Ein
             zurückgewiesenes Geburtsdatum wird nicht gespeichert; war es ein Tippfehler, trägst Du über denselben Link das richtige Datum ein,
             solange er gilt. Liegt Dein Geburtsdatum tatsächlich unter dem Mindestalter, bleibt es auch nach der Prüfung bei der Zurückweisung,
             weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die Verwaltung nach der Prüfung aufheben. Ist der

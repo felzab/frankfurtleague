@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "9bf8528817ba804f3f3eaa2cefc75c410432b65421b9a58eb5191a245a71b01c" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "0146472e63643a6f9ff27847c851b04c1b14091c9f03b4d58c039b32f6abc85f" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -584,7 +584,7 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     rendert(
       "Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen " +
         "Menschen zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder Schiedsrichter oder als " +
-        "Kontaktperson einer Bewerbung einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter über " +
+        "Kontaktperson einer Bewerbung oder eines Teams einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter über " +
         `${String(BEWERBUNG_MAX_ALTER)} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf ` +
         `Deinen Wunsch ein Mensch: Schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an und ` +
         "antwortet Dir. Ein zurückgewiesenes Geburtsdatum wird nicht gespeichert; war es ein Tippfehler, trägst Du über denselben " +
