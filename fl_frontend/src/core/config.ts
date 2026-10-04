@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+import { BootRefusal } from "./bootRefusal";
 import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
 // Read off `createEnv` rather than imported: the package declaring the Standard Schema issue is a
@@ -106,7 +107,7 @@ function refuse(refusals: readonly Refusal[]): never {
     process.stdout.write(formatLogLine(format, "CRITICAL", sentence, { error_code, [field]: names.join(", ") }) + "\n");
   }
 
-  throw new Error(refusals.map(({ sentence, names }) => `${sentence}: ${names.join(", ")}`).join("; "));
+  throw new BootRefusal(refusals.map(({ sentence, names }) => `${sentence}: ${names.join(", ")}`).join("; "));
 }
 
 export function refuseInvalidEnvironment(names: readonly string[]): never {

@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 
 import { calculateJwkThumbprint, SignJWT } from "jose";
 
+import { BootRefusal } from "./bootRefusal";
 import { frontend_config } from "./config";
 import { asSignInIdentifier } from "./emailAddress";
 import { formatLogLine } from "./logFormat";
@@ -145,7 +146,9 @@ export async function loadActorSigningKeyAtBoot(): Promise<void> {
     };
     process.stdout.write(formatLogLine(frontend_config.LOG_FORMAT, "CRITICAL", "The actor signing key could not be loaded", meta) + "\n");
 
-    throw error;
+    // A file the key cannot be read from is a refusal of what the container was handed; anything else
+    // failing here is a fault of the build, which the deploy's preflight must not report as the host's.
+    throw error instanceof ActorSigningKeyError ? new BootRefusal(error.message) : error;
   }
 }
 
