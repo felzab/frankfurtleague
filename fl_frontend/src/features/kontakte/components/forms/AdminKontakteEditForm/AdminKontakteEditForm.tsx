@@ -250,8 +250,8 @@ export function AdminKontakteEditForm({
             stored={storedKontakte}
             teamId={teamId}
             saisonId={saison.saisonId}
-            // The backend mints no link for a season that is over or a team that has left it
-            // (`REQ-KONTAKT-005`), so no seat offers one there.
+            // The backend sends no fresh link for a season that is over or a team that has left it
+            // (`REQ-KONTAKT-005`), so no seat offers the re-send there.
             nimmtLinks={saison.saisonStatus !== "past" && storedMembership?.austritt == null}
             isMember={storedMembership !== null}
             teamHref={teamPageHref(teamId, saison.saisonId)}
