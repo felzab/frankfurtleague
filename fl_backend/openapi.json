@@ -7185,9 +7185,6 @@
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001.REQ-REGISTRIERUNG-004"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-VAL-001"
           },
@@ -7202,6 +7199,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-REGISTRIERUNG-012"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-REGISTRIERUNG-004"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006"
@@ -7301,9 +7301,6 @@
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001.REQ-SCHIEDSRICHTER-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-SCHIEDSRICHTER-005.REQ-SCHIEDSRICHTER-008.REQ-VAL-001"
           },
@@ -7318,6 +7315,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-SCHIEDSRICHTER-009"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-SCHIEDSRICHTER-002"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-SCHIEDSRICHTER-004"
@@ -8659,9 +8659,6 @@
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
           "409": {
             "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
           },
@@ -8732,9 +8729,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
             "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
@@ -8826,9 +8820,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
             "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
@@ -8945,9 +8936,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
             "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
@@ -23991,7 +23979,7 @@
           }
         }
       },
-      "404.DB-COMMON-001.REQ-SCHIEDSRICHTER-002": {
+      "404.REQ-REGISTRIERUNG-004": {
         "description": "Not Found",
         "content": {
           "application/json": {
@@ -24004,8 +23992,7 @@
                   "properties": {
                     "error_code": {
                       "enum": [
-                        "DB-COMMON-001",
-                        "REQ-SCHIEDSRICHTER-002"
+                        "REQ-REGISTRIERUNG-004"
                       ]
                     }
                   }

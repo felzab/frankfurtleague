@@ -212,12 +212,6 @@ describe("what one refused confirmation shows", () => {
     assert.equal(await mapBestaetigungRefusal(new Error("kein API-Fehler"), floorOf(16).lesen), null);
   });
 
-  it("answers the link's record gone as the link void", async () => {
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "DB-COMMON-001"), floorOf(16).lesen), {
-      zustand: "ungueltig",
-    });
-  });
-
   it("tells the three link states apart, each on its own panel", async () => {
     assert.deepEqual(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-004"), floorOf(16).lesen), { zustand: "ungueltig" });
     assert.deepEqual(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-005"), floorOf(16).lesen), { zustand: "abgelaufen" });

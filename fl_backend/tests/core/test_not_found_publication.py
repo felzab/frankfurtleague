@@ -17,10 +17,24 @@ from app.core.exception_handlers import refused_codes
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.main import create_app
 from tests.config import build_test_config
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
+from tests.core.app_source import (
+    APP_ROOT,
+    BACKEND_ROOT,
+    TRANSACTION_RUNNER,
+    WRITE_HELPERS,
+    Declaration,
+    api_routes,
+    callee,
+    declared,
+    module_of,
+    parsed,
+    resolve_callee,
+    scoped_calls,
+)
 
 NOT_FOUND = "404"
 EXCEPTION = DocumentNotFoundException.__name__
+ID_KEY = "_id"
 
 # The operations the trace reached a raise from on the tree this was written against, so an equality
 # over two sets that both went empty still fails.
@@ -83,7 +97,7 @@ def _can_raise(path: Path, lineno: int) -> bool:
 
     for chain, call in scoped_calls(declaration, (declaration,)):
         resolved = resolve_callee(call, chain, path)
-        if resolved is None or _caught(call, parents):
+        if resolved is None or _caught(call, parents) or _cannot_miss(call, chain[-1]):
             continue
         target, target_path = resolved
         # A function calling itself, directly or through another, adds no raise it does not hold already.
@@ -93,6 +107,86 @@ def _can_raise(path: Path, lineno: int) -> bool:
             return True
 
     return False
+
+
+@functools.cache
+def _transaction_callbacks() -> frozenset[int]:
+    """Every function handed to `with_transaction` by name, resolved lexically as a call to it would be."""
+
+    found: set[int] = set()
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        tree = parsed(path)
+        for chain, call in scoped_calls(tree, ()):
+            if callee(call) != TRANSACTION_RUNNER or not (call.args and isinstance(call.args[0], ast.Name)):
+                continue
+            for scope in (*reversed(chain), tree):
+                handed = [
+                    node for node in scope.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == call.args[0].id
+                ]
+                if handed:
+                    found.add(id(handed[0]))
+                    break
+
+    return frozenset(found)
+
+
+def _keyword(call: ast.Call, name: str) -> ast.expr | None:
+    return next((keyword.value for keyword in call.keywords if keyword.arg == name), None)
+
+
+def _cannot_miss(call: ast.Call, holder: Declaration) -> bool:
+    """A write filtered on `{"_id": row["_id"]}` alone, `row` read from that collection in the same transaction.
+
+    A rival's delete after that read costs a write conflict and a retry of the whole callback, never
+    a write matching nothing.
+    """
+
+    db_filter = _keyword(call, "db_filter")
+    session = _keyword(call, "session")
+    if not (
+        callee(call) in WRITE_HELPERS
+        and id(holder) in _transaction_callbacks()
+        and isinstance(session, ast.Name)
+        and session.id in {argument.arg for argument in (*holder.args.posonlyargs, *holder.args.args, *holder.args.kwonlyargs)}
+        and isinstance(db_filter, ast.Dict)
+        and len(db_filter.keys) == 1
+        and isinstance(key := db_filter.keys[0], ast.Constant)
+        and key.value == ID_KEY
+        and isinstance(row := db_filter.values[0], ast.Subscript)
+        and isinstance(row.value, ast.Name)
+        and isinstance(row.slice, ast.Constant)
+        and row.slice.value == ID_KEY
+    ):
+        return False
+
+    bindings = [
+        node for node in ast.walk(holder) if isinstance(node, ast.Name) and node.id == row.value.id and not isinstance(node.ctx, ast.Load)
+    ]
+    reads = [
+        node.value.value if isinstance(node.value, ast.Await) else node.value
+        for node in ast.walk(holder)
+        if isinstance(node, ast.Assign) and [ast.unparse(target) for target in node.targets] == [row.value.id]
+    ]
+    if len(bindings) != 1 or len(reads) != 1 or not isinstance(read := reads[0], ast.Call):
+        return False
+
+    # The collection read is the collection written, spelled the same at both calls.
+    if callee(read) == "find_one" and isinstance(read.func, ast.Attribute):
+        read_from = read.func.value
+    elif callee(read) == "pull_one_from_db":
+        read_from = _keyword(read, "collection")
+    else:
+        return False
+    read_session = _keyword(read, "session")
+    written_to = _keyword(call, "collection")
+
+    return (
+        read_from is not None
+        and written_to is not None
+        and ast.unparse(read_from) == ast.unparse(written_to)
+        and isinstance(read_session, ast.Name)
+        and read_session.id == session.id
+    )
 
 
 def _in_a_handler_naming_it(node: ast.AST, parents: dict[int, ast.AST]) -> bool:

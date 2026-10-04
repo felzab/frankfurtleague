@@ -100,8 +100,6 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
       return { error: FASSUNG_NEU_OEFFNEN };
-    // With the record missing, the referee the link names is gone, which is a link nothing places.
-    case "DB-COMMON-001":
     case "REQ-SCHIEDSRICHTER-002":
       return { zustand: "ungueltig" };
     case "REQ-SCHIEDSRICHTER-003":

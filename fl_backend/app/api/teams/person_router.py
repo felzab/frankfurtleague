@@ -38,7 +38,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
 from app.core.transactions import transaction_session
@@ -115,7 +115,7 @@ async def get_team_sitze(
     "/{team_id:objectid}/saisons/{saison_id}/person/einwilligung",
     response_model=FLSaisonTeamPersonEinwilligungResponse,
     summary="Change a seat holder's own media consent on one team's season",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_einwilligung(
     team_id: CustomRouteObjectId,

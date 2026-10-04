@@ -138,7 +138,6 @@ async def get_bestaetigung_ansicht(
     "",
     response_model=FLRegistrierungBestaetigungResponse,
     summary="Confirm one registration and record the pupil's consent",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def post_bestaetigung(
     antwort_data: Annotated[FLRegistrierungBestaetigungPayload, Body()],

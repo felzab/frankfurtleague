@@ -19,7 +19,7 @@ from app.api.konto.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
 from app.core.transactions import transaction_session
@@ -40,7 +40,7 @@ Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
     "/{bewerbung_id:objectid}/person/einwilligung",
     response_model=FLBewerbungPersonEinwilligungResponse,
     summary="Withdraw a seat holder's own media consent on a pending Bewerbung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_einwilligung(
     bewerbung_id: CustomRouteObjectId,
@@ -89,7 +89,7 @@ async def patch_einwilligung(
         if update is not None:
             updated = await patch_one_in_db(
                 collection=bewerbungen_collection,
-                db_filter={"_id": bewerbung_id},
+                db_filter={"_id": bewerbung["_id"]},
                 update=update,
                 session=session,
                 return_document=ReturnDocument.AFTER,
