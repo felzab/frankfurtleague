@@ -23,6 +23,7 @@ from app.main import _dependency_calls
 from tests.core.app_source import declared
 
 from .test_actor_binding import ROUTES_BY_OPERATION, binds_a_person
+from .test_drosselung_execution import CONSENTS, Consent
 
 BERLIN = ZoneInfo("Europe/Berlin")
 
@@ -116,6 +117,26 @@ def test_a_handler_taking_the_count_calls_it(path: str, method: str):
     ]
 
     assert called, f"{method} {path} takes `{parameter}` and never calls it"
+
+
+def test_the_execution_suite_drives_a_grant_on_every_operation_taking_the_count():
+    """The case above reads that a call exists, never that it runs: one on a branch that never runs passes it.
+
+    `CONSENTS` parametrises the database case holding a grant to one unit, so each operation it names is driven to the count.
+    """
+
+    consents = [value for param in CONSENTS for value in param.values if isinstance(value, Consent)]
+    driven = {
+        operation
+        for consent in consents
+        for operation, route in ROUTES_BY_OPERATION.items()
+        if operation[1] == "PATCH" and route.path_regex.fullmatch(consent.path)
+    }
+    taking = {operation for operation in PERSON_LANE_WRITES if drossel_parameters(ROUTES_BY_OPERATION[operation])}
+
+    assert len(consents) == len(CONSENTS), "a `CONSENTS` entry carries no `Consent`, so the comparison below misses it"
+    assert taking, "no operation takes a `Drossel`, so the comparison below holds of nothing"
+    assert driven == taking, f"driven {sorted(driven)}, taking the count {sorted(taking)}"
 
 
 def test_both_declarations_are_in_use():
