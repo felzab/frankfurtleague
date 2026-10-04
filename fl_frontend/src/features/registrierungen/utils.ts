@@ -276,8 +276,8 @@ export function mapRegistrierungAnsichtRefusal(error: unknown): "ungueltig" | nu
   // than offering a reload that cannot succeed.
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
 
-  // The season, club or registration the link names gone. The sign-up answers a gone record alike;
-  // the confirmation, writing by the `_id` its transaction read, cannot.
+  // The season or club an invitation names gone, which the invitation's read answers as the sign-up
+  // does; the confirmation's read and write meet no gone record.
   if (isRecordMissing(error)) return "ungueltig";
 
   return isRuleRefusal(error) ? "ungueltig" : null;
