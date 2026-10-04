@@ -82,15 +82,6 @@ export const SCHIEDSRICHTER_UMFANG_LABELS: Record<FLEinwilligung["umfang"], stri
 };
 
 /**
- * `false` is read as nobody having agreed rather than as a refusal: the switch is off until somebody
- * presses it, and a word naming a decision would put one in that person's mouth.
- */
-export const SCHIEDSRICHTER_MEDIEN_LABELS = {
-  erteilt: "Fotos, Videos und Interviews zugesagt",
-  nicht_erteilt: "Nicht zugesagt",
-} as const;
-
-/**
  * Stated in the editor because no control shows it: an administrator correcting an outstanding
  * referee's address sends a link from the save bar, and would otherwise look for a press that mails it.
  */

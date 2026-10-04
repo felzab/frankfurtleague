@@ -13,10 +13,10 @@ import {
   SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE,
   SCHIEDSRICHTER_EINLADEN_STILLGELEGT,
   SCHIEDSRICHTER_KORREKTUR_HINWEIS,
-  SCHIEDSRICHTER_MEDIEN_LABELS,
   SCHIEDSRICHTER_UMFANG_LABELS,
 } from "@/features/schiedsrichter/constants";
 import { Beleg, Fassung, KeinTag } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
@@ -97,8 +97,8 @@ function EinwilligungStand({
           textVersion={einwilligung.text_version}
         />
       </Angabe>
-      <Angabe label="Medien">
-        {einwilligung.medien ? SCHIEDSRICHTER_MEDIEN_LABELS.erteilt : SCHIEDSRICHTER_MEDIEN_LABELS.nicht_erteilt}
+      <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
+        {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
         <Beleg
           nachweis={einwilligung.nachweis.medien}
           bestaetigtAm={einwilligung.bestaetigt_am}
@@ -109,7 +109,7 @@ function EinwilligungStand({
         {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}
       </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
-      <Angabe label="Fassung der Bestätigung">
+      <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
         <Fassung
           textVersion={einwilligung.text_version}
           istBekannt={istFassungBekannt}

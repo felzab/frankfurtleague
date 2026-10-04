@@ -11,6 +11,7 @@ import { Input } from "@heroui/react/input";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { eingetragenVonLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
@@ -504,7 +505,7 @@ function KontaktpersonInputs({
             name={`kontakte.${rolle}.einwilligung.text_version`}
             value={person.einwilligung.text_version}
             onChange={() => undefined}>
-            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Fassung</FieldLabel>
+            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_FASSUNG_FRAGE}</FieldLabel>
             {/* Read-only in BOTH directions: a new record is stamped with the current wording's version,
                 and a stored one keeps the version it was given, or the record would cite a text this
                 person never saw. */}
@@ -548,9 +549,9 @@ function KontaktpersonInputs({
           <div className="flex flex-col gap-y-1">
             <TextField
               isReadOnly
-              value={person.einwilligung.medien ? ERLAUBT : NICHT_ERLAUBT}
+              value={person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
               onChange={() => undefined}>
-              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Fotos, Videos und Interviews</FieldLabel>
+              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
             <Beleg

@@ -15,6 +15,7 @@ import { userEvent } from "@testing-library/user-event";
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
+import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { eingetragenVonLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/teams/schemas";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
@@ -1232,7 +1233,11 @@ describe("the contact person's own two choices", () => {
     const html = sectionMarkup({ ...BLOCK, trainer: geantwortet });
 
     assert.match(html, />WhatsApp<[\s\S]*?value="erlaubt"/, "the WhatsApp answer is not shown");
-    assert.match(html, />Fotos, Videos und Interviews<[\s\S]*?value="nicht erlaubt"/, "the media answer is not shown");
+    // The one wording every admin readout gives the media consent (`fl_frontend/src/features/spieler/constants.ts`).
+    assert.ok(
+      new RegExp(`>${EINWILLIGUNG_MEDIEN_FRAGE}<[\\s\\S]*?value="${EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}"`).test(html),
+      "the media answer is not shown in the readouts' one wording",
+    );
     assert.ok(
       html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt; zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1"),
       "the media choice reads without its own act",
