@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { KONTO_HREF } from "@/core/kontoHref";
+import { Angabe } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -8,20 +9,9 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { isPlaceholderAddress } from "@/shared/schemas";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { ReactNode } from "react";
 import type { FLSchiedsrichterSelbst } from "../../schemas";
 
 const NICHT_HINTERLEGT = "Nicht hinterlegt";
-
-/** The label-over-value pair the player's own page sets its facts in, so the two pages read alike. */
-function Angabe({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
-      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
 
 // A row with no address of its own holds the `.invalid` placeholder, which is no address to show.
 const adresseVon = (email: string | null): string => (email === null || email === "" || isPlaceholderAddress(email) ? NICHT_HINTERLEGT : email);

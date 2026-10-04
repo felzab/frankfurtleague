@@ -4,6 +4,7 @@ import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { BEWERBUNG_HERKUNFT_LABELS, eingetragenVonLabel } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
+import { Angabe } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -19,16 +20,6 @@ import type { ReactNode } from "react";
 
 /** What an unanswered field reads as — the school left it empty, which is not the same as a zero. */
 const NOT_RECORDED = "Nicht angegeben";
-
-/** One stored fact. A `<dl>` is its only valid parent: the pair is what makes the value a fact about the label. */
-function Angabe({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
-      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
 
 /** A value the school did not fill in, in the one grade every empty field here takes. */
 function Leer() {
