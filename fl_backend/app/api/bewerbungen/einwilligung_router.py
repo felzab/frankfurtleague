@@ -276,8 +276,9 @@ async def post_einwilligung(
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
 
-            # Every link minted while the season ran, one minted beside its rollover included, meets this
-            # here; never the Widerspruch below, which removes the person (`docs/backend/spec.md :: I935`).
+            # Every link on a closed row meets this here, whether minted before it closed, beside its
+            # rollover or after it; never the Widerspruch below, which removes the person
+            # (`docs/backend/spec.md :: I935`).
             saison_raw = await pull_one_from_db(
                 collection=saisons_collection, db_filter={"_id": row["saison_id"]}, projection=["status"], session=session
             )

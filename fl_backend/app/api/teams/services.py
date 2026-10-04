@@ -4,7 +4,7 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
-from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_links
+from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
@@ -1203,7 +1203,7 @@ def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRef
     Judged before the seat, as `app/api/einladungen/services.py :: find_saison_vorbei_refusal` is: no seat repairs the row.
     """
 
-    if row_takes_links(saison_status=saison_status, austritt=austritt):
+    if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
         return None
 
     message = (

@@ -773,8 +773,8 @@ def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:
     return entry.get("frist") if isinstance(entry, Mapping) else None
 
 
-def row_takes_links(*, saison_status: Any, austritt: Any) -> bool:
-    """Whether a season row's seat still asks its person anything: not once its season ended or its team left it.
+def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
+    """Whether a season row's seat still asks its person to confirm it: not once its season ended or its team left it.
 
     Such a seat grants no panel (`docs/backend/spec.md :: I375`), and a confirmation collects a birthdate for nothing.
     """
@@ -791,7 +791,7 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
     # (`REQ-KONTAKT-004`), while a closed row's link still takes one (`REQ-KONTAKT-006`).
-    if zustand == "gueltig" and not row_takes_links(saison_status=saison_status, austritt=row.get("austritt")):
+    if zustand == "gueltig" and not row_takes_confirmations(saison_status=saison_status, austritt=row.get("austritt")):
         return "saison_vorbei"
 
     return zustand
@@ -828,7 +828,7 @@ def find_saison_vorbei_einwilligung_refusal(*, saison_status: Any, austritt: Any
     themselves (`docs/backend/spec.md` §1.4).
     """
 
-    if row_takes_links(saison_status=saison_status, austritt=austritt):
+    if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
         return None
 
     return WriteRefusal(
