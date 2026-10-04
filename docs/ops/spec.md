@@ -350,7 +350,8 @@ reads that message as a press that wrote nothing
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
 handler's caller reads the status alone, and a page load past the connection ceiling shows the
 sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
-file, and its security headers.
+file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
+compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way.
 
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
