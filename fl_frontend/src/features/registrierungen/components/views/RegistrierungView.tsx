@@ -52,7 +52,7 @@ function standVon(start: RegistrierungStart, istTot: boolean): Geoeffnet {
  * One page for every state an invite can be in, framed by the site's own navbar and footer: a pupil
  * opening the link on a phone lands on the site their team's message named.
  */
-export function RegistrierungView({ start }: { start: RegistrierungStart }) {
+export function RegistrierungView({ start, siteKey }: { start: RegistrierungStart; siteKey: string }) {
   const [istTot, setIstTot] = useState(false);
   const { stand, ansicht } = standVon(start, istTot);
 
@@ -117,6 +117,7 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
         <RegistrierungFormPanel
           token={start.token}
           ansicht={start.ansicht}
+          siteKey={siteKey}
           onLinkTot={() => {
             setIstTot(true);
             beantwortet();

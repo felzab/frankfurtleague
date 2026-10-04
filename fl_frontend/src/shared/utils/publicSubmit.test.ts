@@ -10,6 +10,7 @@ import { parseDate } from "@internationalized/date";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import {
   laufendeBewerbungFassung,
@@ -17,6 +18,7 @@ import {
   laufendeSchiedsrichterFassung,
   laufendeSpielerFassung,
 } from "@/shared/testing/einwilligungAnswers.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
@@ -186,6 +188,24 @@ describe("what a public form is told when the application did answer", () => {
     assert.deepEqual(new Headers(sent[0]?.init.headers).get("content-type"), "application/json");
     assert.equal(sent[0]?.init.body, JSON.stringify({ token: "abc" }));
   });
+
+  /* Beside the body and never in it: the body is the backend's payload, whose schema holds no token. */
+  it("carries a bot check's token in its own header, and sends none where the form gave none", async () => {
+    const sent: RequestInit[] = [];
+    transportiert((_url, init) => {
+      sent.push(init);
+      return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
+    });
+
+    await postPublicForm("/api/bewerbung", { schule: "x" }, { turnstileToken: "XXXX.DUMMY.TOKEN.XXXX" });
+    await postPublicForm("/api/bewerbung", { schule: "x" });
+
+    assert.deepEqual(
+      sent.map((init) => new Headers(init.headers).get(TURNSTILE_HEADER)),
+      ["XXXX.DUMMY.TOKEN.XXXX", null],
+    );
+    assert.equal(sent[0]?.body, JSON.stringify({ schule: "x" }));
+  });
 });
 
 /** A date as a picker's segments take it typed, day then month then year: `years` whole years before the German today. */
@@ -226,6 +246,7 @@ const FORMS: Record<string, PublicForm> = {
         schulen: [{ id: SCHOOL_ID, name: "Lessing-Kolleg" }],
         isSchulenLesbar: true,
         vergebeneFarben: [],
+        siteKey: TEST_SITE_KEY,
       }),
     submit: async (user) => {
       await user.selectOptions(control("team_id"), SCHOOL_ID);
@@ -308,6 +329,7 @@ const FORMS: Record<string, PublicForm> = {
           team_eingetragen: true,
           nachnominierung: false,
         },
+        siteKey: TEST_SITE_KEY,
         onLinkTot: () => undefined,
       }),
     submit: async (user) => {

@@ -17,6 +17,7 @@ import { laufendeSpielerFassung } from "@/shared/testing/einwilligungAnswers.ts"
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
@@ -90,7 +91,7 @@ const REGISTRIERUNG_STATES = [
   { stand: "geschlossen", start: { zustand: "geschlossen" as const, ansicht: { ...ANSICHT, laeuft: false } } },
   { stand: "ungueltig", start: { zustand: "ungueltig" as const } },
   { stand: "unlesbar", start: { zustand: "unlesbar" as const } },
-].map((eintrag) => ({ ...eintrag, html: renderMarkup(RegistrierungView, { start: eintrag.start }) }));
+].map((eintrag) => ({ ...eintrag, html: renderMarkup(RegistrierungView, { siteKey: TEST_SITE_KEY, start: eintrag.start }) }));
 
 const seite = (stand: string): string => REGISTRIERUNG_STATES.find((eintrag) => eintrag.stand === stand)?.html ?? "";
 
@@ -233,7 +234,9 @@ describe("the state the registration page renders", () => {
       Promise.resolve(new Response(JSON.stringify({ success: false, zustand: "ungueltig" }), { status: 200 })),
     );
 
-    const { container } = render(h(RegistrierungView, { start: { zustand: "gueltig", ansicht: ANSICHT, token: "kein-echtes-token" } }));
+    const { container } = render(
+      h(RegistrierungView, { siteKey: TEST_SITE_KEY, start: { zustand: "gueltig", ansicht: ANSICHT, token: "kein-echtes-token" } }),
+    );
 
     await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
@@ -256,6 +259,7 @@ describe("the state the registration page renders", () => {
 
   it("says a pupil is nachnominiert only where the invite says the period has opened", () => {
     const laufend = renderMarkup(RegistrierungView, {
+      siteKey: TEST_SITE_KEY,
       start: { zustand: "gueltig", ansicht: { ...ANSICHT, nachnominierung: true }, token: "kein-echtes-token" },
     });
 
@@ -282,7 +286,12 @@ describe("which Stufen the registration form offers", () => {
   /* The whole reason the read answers `erlaubte_stufen`: a select over the league's ladder hands a
      pupil a refusal at the press where the list could have refused it. */
   it("offers exactly the set the invite's own read answered", () => {
-    const html = renderMarkup(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined });
+    const html = renderMarkup(RegistrierungFormPanel, {
+      token: "kein-echtes-token",
+      ansicht: ANSICHT,
+      siteKey: TEST_SITE_KEY,
+      onLinkTot: () => undefined,
+    });
     const alle = angeboteneStufen(html);
     // The blank and the „Keine Angabe“ sentinel are the control's own rows rather than a Stufe.
     const angeboten = alle.filter((key) => key !== "" && key !== "__none__");
@@ -297,7 +306,7 @@ describe("which Stufen the registration form offers", () => {
 describe("the Rückennummer box on the registration form", () => {
   it("stops taking digits at the cap the squad editor's box holds", async () => {
     const user = userEvent.setup();
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
     const box = screen.getByRole("textbox", { name: "Rückennummer" });
 
     await user.type(box, "1".repeat(NUMMER_MAX_LENGTH + 1));
@@ -311,7 +320,7 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
     const user = userEvent.setup();
     fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 })));
 
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
     await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
@@ -335,7 +344,7 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
       Promise.resolve(new Response(JSON.stringify({ success: false, fieldErrors: { email: MAIL_ABGEWIESEN } }), { status: 200 })),
     );
 
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
     await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
@@ -363,7 +372,7 @@ describe("what the two public pages tell a pupil whose write may have landed", (
     const user = userEvent.setup();
     fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(UNKLAR, { status: 200 })));
 
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
     await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
@@ -415,7 +424,9 @@ describe("what the two public pages say about a refusal no box of theirs can tak
     const user = userEvent.setup();
     answeredWith("token");
 
-    const { container } = render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    const { container } = render(
+      h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }),
+    );
     assert.ok(container.querySelector('[name="token"]') === null, "the case's path is one a control renders");
 
     await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
@@ -437,7 +448,7 @@ describe("what the two public pages say about a refusal no box of theirs can tak
       Promise.resolve(new Response(JSON.stringify({ success: false, error: SCHON_DA, schonAngekommen: true }), { status: 200 })),
     );
 
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
     await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
     await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
@@ -856,7 +867,10 @@ describe("the address a link page opened under", () => {
   }
 
   it("loses the invite's token on the registration page", () => {
-    const adresse = adresseNach("/registrierung?token=kein-echtes-token", h(RegistrierungView, { start: { zustand: "ungueltig" } }));
+    const adresse = adresseNach(
+      "/registrierung?token=kein-echtes-token",
+      h(RegistrierungView, { siteKey: TEST_SITE_KEY, start: { zustand: "ungueltig" } }),
+    );
 
     assert.equal(adresse, "/registrierung", "the page leaves its token in the address bar");
   });
@@ -871,7 +885,10 @@ describe("the address a link page opened under", () => {
   });
 
   it("keeps the invite's token on the registration page where the invite could not be read", () => {
-    const adresse = adresseNach("/registrierung?token=kein-echtes-token", h(RegistrierungView, { start: { zustand: "unlesbar" } }));
+    const adresse = adresseNach(
+      "/registrierung?token=kein-echtes-token",
+      h(RegistrierungView, { siteKey: TEST_SITE_KEY, start: { zustand: "unlesbar" } }),
+    );
 
     assert.equal(adresse, "/registrierung?token=kein-echtes-token", "the page stripped the token a reload needs");
   });

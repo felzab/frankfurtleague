@@ -47,6 +47,7 @@ export function BewerbungView({
   schulen,
   isSchulenLesbar,
   vergebeneFarben,
+  siteKey,
 }: {
   saisonId: string;
   /** The form's words and the label they stamp, `null` where the page could not read them. */
@@ -61,6 +62,8 @@ export function BewerbungView({
   schulen: readonly { id: string; name: string }[];
   isSchulenLesbar: boolean;
   vergebeneFarben: readonly FLTrikotFarbe[];
+  /** The bot check's public key, which the form alone loads Cloudflare's script for. */
+  siteKey: string;
 }) {
   const fensterStand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
   // A running window whose words could not be read offers no form: one without them stamps nothing.
@@ -126,6 +129,7 @@ export function BewerbungView({
           schulen={schulen}
           isSchulenLesbar={isSchulenLesbar}
           vergebeneFarben={vergebeneFarben}
+          siteKey={siteKey}
           // Seated INSIDE the form so the two of them share one condition: a strip the page held
           // would stand a second time beside the receipt the form swaps itself for.
           hinweisSlot={<BewerbungInstagramBand />}

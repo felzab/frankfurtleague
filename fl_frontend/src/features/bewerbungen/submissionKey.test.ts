@@ -13,6 +13,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeBewerbungFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 
 import type { BewerbungFormDraft } from "./types.ts";
 
@@ -91,7 +92,14 @@ async function fillIn(user: User, container: HTMLElement, draft: BewerbungFormDr
 async function pressFilledIn(): Promise<User> {
   const user = userEvent.setup({ delay: null });
   const { container } = render(
-    h(BewerbungForm, { saisonId: "2026", fassung: laufendeBewerbungFassung(), schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] }),
+    h(BewerbungForm, {
+      saisonId: "2026",
+      fassung: laufendeBewerbungFassung(),
+      schulen: SCHOOLS,
+      isSchulenLesbar: true,
+      vergebeneFarben: [],
+      siteKey: TEST_SITE_KEY,
+    }),
   );
 
   await fillIn(user, container, COMPLETE_DRAFT);

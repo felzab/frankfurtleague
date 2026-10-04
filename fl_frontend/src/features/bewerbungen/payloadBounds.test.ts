@@ -5,6 +5,7 @@ import { readPublishedDocument } from "@/core/openapiDocument";
 import { publishedCeilings } from "@/core/publishedCeilings";
 import { laufendeBewerbungFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { renderMarkup } from "@/shared/testing/renderTest";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
 import { BEWERBUNG_KADER_GROESSE_MAX, BEWERBUNG_STUFENGROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
@@ -63,6 +64,7 @@ const RENDERED = [
     schulen: SCHOOLS,
     isSchulenLesbar: true,
     vergebeneFarben: [],
+    siteKey: TEST_SITE_KEY,
   }),
   renderMarkup(FormSchuleSection, {
     schulen: SCHOOLS,

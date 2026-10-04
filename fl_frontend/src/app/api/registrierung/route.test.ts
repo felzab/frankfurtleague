@@ -4,16 +4,19 @@ import { beforeEach, describe, it } from "node:test";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
+import { doubleSiteverify, TEST_SECRET, TEST_TOKEN } from "@/shared/testing/siteverifyDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
-const inert = (): undefined => undefined;
-const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
+/** Every line the handler's logger was handed, serialised whole. */
+const logs: string[] = [];
+const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
+const LOGGING = { logger: { info: line, warn: line, error: line } };
 /* The serving origin, which `SKIP_ENV_VALIDATION` leaves unset: the mail shell refuses a relative
    one rather than composing a message whose every link is a bare path. */
 /** The serving origin this run is configured with, which the link the mail carries has to be built on. */
 const ORIGIN = "http://localhost:3000";
-const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" }, turnstileSecretKey: () => TEST_SECRET };
 /** The row's write, apart from the delivery reports the real fan-out files after a send. */
 const WRITE = "/registrierungen";
 const calls = doubleApiClient(({ endpoint }, schema) => {
@@ -28,6 +31,7 @@ const mail = doubleSendMail();
 const mails = mail.sent;
 
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG } });
+const siteverify = doubleSiteverify();
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
@@ -35,6 +39,7 @@ const { MAIL_ABGEWIESEN, mapRegistrierungSubmitRefusal } = await import("@/featu
 const { REGISTRIERUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
+const { TURNSTILE_HEADER } = await import("@/core/turnstileToken.ts");
 
 const TOKEN = "abc123";
 const ADRESSE = "mira@beispiel.example";
@@ -65,9 +70,10 @@ const aRefusal = (statusCode: number, serverErrorCode: string) =>
 /** The body a browser sends, with nothing added. */
 const gueltigerKoerper = { token: TOKEN, vorname: "Mira", nachname: "Kern", email: ADRESSE, position: null, nummer: null, stufe: "Q1" };
 
+/** A submission as the form sends it, the bot check's token in its header unless `headers` replaces it. */
 function aRequest(body: unknown, headers: Record<string, string> = {}) {
   return {
-    headers: new Headers(headers),
+    headers: new Headers({ [TURNSTILE_HEADER]: TEST_TOKEN, ...headers }),
     json: async () => {
       if (body === undefined) throw new Error("no body");
       return body;
@@ -82,7 +88,47 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 
 beforeEach(() => {
   calls.length = 0;
+  logs.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
+});
+
+describe("the registration handler's bot check", () => {
+  const MENSCH = "Bitte bestätige kurz, dass Du ein Mensch bist.";
+  const writes = () => calls.filter((call) => call.endpoint === WRITE);
+
+  /* Before the write, which mails the address the visitor typed: a refused check stores nothing and
+     sends nothing. */
+  it("refuses a submission carrying no token, and writes and mails nothing", async () => {
+    const answer = await bodyOf(aRequest(gueltigerKoerper, { [TURNSTILE_HEADER]: "" }));
+
+    assert.deepEqual(answer.body, { success: false, error: MENSCH });
+    assert.deepEqual(writes(), []);
+    assert.deepEqual(mails, []);
+  });
+
+  it("refuses a submission whose token Cloudflare judged, and writes nothing", async () => {
+    siteverify.judges(false);
+
+    assert.deepEqual((await bodyOf(aRequest(gueltigerKoerper))).body, { success: false, error: MENSCH });
+    assert.deepEqual(writes(), []);
+  });
+
+  it("writes past the test key's token, asked of Cloudflare with the test secret", async () => {
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: true });
+    assert.equal(writes().length, 1);
+    assert.deepEqual(siteverify.asked(), [{ secret: TEST_SECRET, response: TEST_TOKEN }]);
+  });
+
+  it("writes past a check Cloudflare could not answer, with one line saying so", async () => {
+    siteverify.unreachable();
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: true });
+    assert.equal(logs.filter((entry) => entry.includes("FE-TURNSTILE-001")).length, 1);
+  });
 });
 
 describe("the registration handler", () => {

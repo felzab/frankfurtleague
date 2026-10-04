@@ -13,6 +13,7 @@ import { bewerbungJudgedPaths, bewerbungPayload, KUERZEL_UNGEPRUEFT, KUERZEL_VER
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
@@ -78,6 +79,7 @@ export function BewerbungForm({
   schulen,
   isSchulenLesbar,
   vergebeneFarben,
+  siteKey,
   hinweisSlot,
 }: {
   saisonId: string;
@@ -85,6 +87,7 @@ export function BewerbungForm({
   schulen: readonly { id: string; name: string }[];
   isSchulenLesbar: boolean;
   vergebeneFarben: readonly FLTrikotFarbe[];
+  siteKey: string;
   /**
    * The aside standing over the form and again under its receipt, handed in rather than imported:
    * the band's recipe shares a module with a server query, which no client module may reach.
@@ -92,6 +95,7 @@ export function BewerbungForm({
   hinweisSlot?: ReactNode;
 }) {
   const [isPending, startSending] = useTransition();
+  const humanCheck = useTurnstile(siteKey);
 
   const [isEingereicht, setIsEingereicht] = useState(false);
   const [draft, applyDraft] = useBewerbungDraft(saisonId, fassung.textVersion, isEingereicht);
@@ -231,9 +235,10 @@ export function BewerbungForm({
 
   const writeAfterBlock = () => {
     const payload = bewerbungPayload(draft);
+    const turnstileToken = humanCheck.takeToken();
 
     startSending(async () => {
-      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, { idempotencyKey: schluessel });
+      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, { idempotencyKey: schluessel, turnstileToken });
 
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
@@ -397,13 +402,17 @@ export function BewerbungForm({
           }}
         />
 
-        <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
-          <Button
-            type="submit"
-            isPending={isPending}
-            className={formButton({ intent: "submit", fullWidth: true })}>
-            {isPending ? "Schickt ab..." : "Bewerbung abschicken"}
-          </Button>
+        {/* One item of the form's gap with the submit: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+        <div className="flex flex-col">
+          <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
+            <Button
+              type="submit"
+              isPending={isPending}
+              className={formButton({ intent: "submit", fullWidth: true })}>
+              {isPending ? "Schickt ab..." : "Bewerbung abschicken"}
+            </Button>
+          </div>
+          {humanCheck.widget}
         </div>
       </Form>
     </>

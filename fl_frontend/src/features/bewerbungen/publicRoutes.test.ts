@@ -29,6 +29,7 @@ import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, pageBody, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -138,6 +139,7 @@ const BASE_PROPS = {
   schulen: SCHOOLS,
   isSchulenLesbar: true,
   vergebeneFarben: [],
+  siteKey: TEST_SITE_KEY,
 };
 
 /** One prop set per window state, named by `fensterZustand` itself rather than by a label typed here. */

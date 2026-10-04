@@ -13,6 +13,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -54,7 +55,7 @@ beforeEach(() => {
 
 /** The card with the code sent to `ADDRESS`, standing on the code step. */
 async function atTheCodeStep(user: ReturnType<typeof userEvent.setup>): Promise<HTMLInputElement> {
-  render(h(SignInForm, { next: LANDING }));
+  render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
   await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
   await act(codeSent);
 
@@ -63,20 +64,20 @@ async function atTheCodeStep(user: ReturnType<typeof userEvent.setup>): Promise<
 
 describe("the sign-in card's address step", () => {
   it("requires the address", () => {
-    render(h(SignInForm, { next: LANDING }));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
 
     assert.equal(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).getAttribute("aria-required"), "true");
   });
 
   it("takes no focus when the page opens", () => {
-    render(h(SignInForm, { next: LANDING }));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
 
     assert.ok(document.activeElement === document.body, "the address box took the focus on load");
   });
 
   /* The browser offers a saved passkey in this box only where `webauthn` is the LAST token. */
   it("offers the box to the browser's username and passkey autofill, passkey last", () => {
-    render(h(SignInForm, { next: LANDING }));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
 
     assert.equal(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).getAttribute("autocomplete"), "username webauthn");
   });
@@ -93,7 +94,7 @@ describe("the sign-in card's address step", () => {
         }),
     );
     const before = calls.length;
-    render(h(SignInForm, { next: LANDING }));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
     const address = screen.getByRole<HTMLInputElement>("textbox", { name: "E-Mail-Adresse" });
 
     await user.type(address, `${ADDRESS}{Enter}`);
@@ -115,7 +116,7 @@ describe("the sign-in card's look", () => {
   /* The page's header carries the league's mark; neither step of the card carries a glyph of its own. */
   it("draws no glyph on the address step or the code step", async () => {
     const user = userEvent.setup();
-    render(h(SignInForm, { next: LANDING }));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
     assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, "the address step carries a glyph");
 
     await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
@@ -130,7 +131,7 @@ describe("the sign-in card's two ways in", () => {
      does and nowhere else. */
   it("offers the passkey beside the address step alone, under the divider", async () => {
     const user = userEvent.setup();
-    render(h(SignInForm, { next: LANDING }));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
     assert.ok(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
     assert.ok(screen.getByText("oder"));
 
@@ -270,7 +271,7 @@ describe("the sign-in card's code step", () => {
     const before = calls.length;
     mock.timers.enable({ apis: ["setTimeout"] });
     try {
-      render(h(SignInForm, { next: LANDING }));
+      render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
       fireEvent.change(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), { target: { value: ADDRESS } });
       await act(async () => {
         fireEvent.submit(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).closest("form") as HTMLFormElement);

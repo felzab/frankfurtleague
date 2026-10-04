@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 
 import type { FLEinladungAnsichtResponse } from "./schemas.ts";
 
@@ -70,7 +71,7 @@ describe("the registration's submission key", () => {
   it("keeps one key while the outcome is unknown", async () => {
     const user = userEvent.setup();
     fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(UNKLAR, { status: 200 })));
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
     await registerOnce(user);
     await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
@@ -90,7 +91,7 @@ describe("the registration's submission key", () => {
     fetchMock.mock.mockImplementation(() =>
       Promise.resolve(new Response(JSON.stringify({ success: false, fieldErrors: { email: "abgewiesen" } }), { status: 200 })),
     );
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
     await registerOnce(user);
     await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
@@ -111,7 +112,7 @@ describe("the registration's submission key", () => {
     it(`keeps its key after ${answer}`, async () => {
       const user = userEvent.setup();
       fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(body), { status: 200 })));
-      render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+      render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
       await registerOnce(user);
       await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
@@ -129,7 +130,7 @@ describe("the registration's submission key", () => {
   it("keeps its key after an unread answer", async () => {
     const user = userEvent.setup();
     fetchMock.mock.mockImplementation(() => Promise.reject(new TypeError("Failed to fetch")));
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
     await registerOnce(user);
     await user.click(await screen.findByRole("button", { name: /Registrierung abschicken/ }));
@@ -146,7 +147,7 @@ describe("the registration's submission key", () => {
 
     for (let mount = 0; mount < 2; mount += 1) {
       const user = userEvent.setup();
-      render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+      render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
       await registerOnce(user);
       await screen.findByRole("status");
       cleanup();
@@ -162,7 +163,7 @@ describe("the registration's submission key", () => {
   it("gives an unread answer the unknown outcome's one step", async () => {
     const user = userEvent.setup();
     fetchMock.mock.mockImplementation(() => Promise.reject(new TypeError("Failed to fetch")));
-    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, onLinkTot: () => undefined }));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
 
     await registerOnce(user);
     await screen.findByRole("button", { name: /Registrierung abschicken/ });

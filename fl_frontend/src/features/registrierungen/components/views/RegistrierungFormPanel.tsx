@@ -27,6 +27,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
@@ -62,14 +63,18 @@ const buildEmptyDraft = (): RegistrierungFormDraft => ({ vorname: "", nachname: 
 export function RegistrierungFormPanel({
   token,
   ansicht,
+  siteKey,
   onLinkTot,
 }: {
   token: string;
   ansicht: FLEinladungAnsichtResponse;
+  /** The bot check's public key: Cloudflare's script loads where this form renders, and on no other state of the page. */
+  siteKey: string;
   /** Raised where the write found the invite gone, which is the whole page's answer rather than this panel's. */
   onLinkTot: () => void;
 }) {
   const [isPending, startSending] = useTransition();
+  const humanCheck = useTurnstile(siteKey);
   const [draft, setDraft] = useState<RegistrierungFormDraft>(buildEmptyDraft);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
@@ -96,9 +101,13 @@ export function RegistrierungFormPanel({
 
   const writeAfterBlock = () => {
     const payload = registrierungPayload(draft, token);
+    const turnstileToken = humanCheck.takeToken();
 
     startSending(async () => {
-      const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, { idempotencyKey: schluessel });
+      const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, {
+        idempotencyKey: schluessel,
+        turnstileToken,
+      });
 
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
@@ -274,13 +283,17 @@ export function RegistrierungFormPanel({
         </div>
       </section>
 
-      <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
-        <Button
-          type="submit"
-          isPending={isPending}
-          className={formButton({ intent: "submit", fullWidth: true })}>
-          {isPending ? "Schickt ab..." : "Registrierung abschicken"}
-        </Button>
+      {/* One item of the form's gap with the submit: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+      <div className="flex flex-col">
+        <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
+          <Button
+            type="submit"
+            isPending={isPending}
+            className={formButton({ intent: "submit", fullWidth: true })}>
+            {isPending ? "Schickt ab..." : "Registrierung abschicken"}
+          </Button>
+        </div>
+        {humanCheck.widget}
       </div>
     </Form>
   );

@@ -2,6 +2,9 @@ import { beforeEach } from "node:test";
 
 import { doubleFetch } from "./fetchDouble.ts";
 
+/** Cloudflare's published site key that always passes, which every form a suite mounts is handed. */
+export const TEST_SITE_KEY = "1x00000000000000000000AA";
+
 /** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04). */
 export const TEST_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
 

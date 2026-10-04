@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { frontend_config } from "@/core/config";
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
@@ -109,6 +110,8 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
       schulen={schulen.schulen}
       isSchulenLesbar={schulen.isSchulenLesbar}
       vergebeneFarben={vergeben}
+      // Off the request's settings, past `connection()`: a prerendered shell would carry the build's, which is none.
+      siteKey={frontend_config.TURNSTILE_SITE_KEY}
     />
   );
 }

@@ -1,6 +1,7 @@
 import "client-only";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { TURNSTILE_HEADER } from "@/core/turnstileToken";
 
 import type { FieldErrors } from "./validation";
 
@@ -72,14 +73,18 @@ const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte ei
 export async function postPublicForm<T extends PublicEnvelope>(
   endpoint: string,
   payload: unknown,
-  { idempotencyKey }: { idempotencyKey?: string } = {},
+  { idempotencyKey, turnstileToken }: { idempotencyKey?: string; turnstileToken?: string } = {},
 ): Promise<PublicAnswer<T>> {
   let response: Response;
 
   try {
     response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(idempotencyKey === undefined ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey }) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(idempotencyKey === undefined ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey }),
+        ...(turnstileToken === undefined ? {} : { [TURNSTILE_HEADER]: turnstileToken }),
+      },
       body: JSON.stringify(payload),
     });
   } catch {

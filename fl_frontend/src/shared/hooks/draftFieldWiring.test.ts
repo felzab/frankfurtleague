@@ -17,6 +17,7 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeKontaktFassung, laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 
 import type { ActionResult } from "@/shared/types/types.ts";
 
@@ -118,7 +119,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
   it("the sign-in card sends no code for an empty address", async () => {
     const user = userEvent.setup();
     const { SignInForm } = await import("@/features/auth/components/forms/SignInForm.tsx");
-    render(h(SignInForm, { next: "/signin/weiter" }));
+    render(h(SignInForm, { next: "/signin/weiter", siteKey: TEST_SITE_KEY }));
     calls.length = 0;
 
     await user.click(screen.getByRole("button", { name: "Code senden" }));
@@ -204,6 +205,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
           team_eingetragen: true,
           nachnominierung: false,
         },
+        siteKey: TEST_SITE_KEY,
         onLinkTot: () => undefined,
       }),
     );

@@ -13,6 +13,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { formWiring } from "@/shared/testing/formWiring.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FLPostBewerbungPayloadSchema } from "./schemas.ts";
@@ -67,6 +68,7 @@ const FORM_MARKUP = renderMarkup(BewerbungForm, {
   schulen: SCHOOLS,
   isSchulenLesbar: true,
   vergebeneFarben: [],
+  siteKey: TEST_SITE_KEY,
 });
 
 /** Everything the panel needs but the picked key, which is the one thing the two arms differ by. */
@@ -147,6 +149,7 @@ function renderApplicationPage() {
       schulen: SCHOOLS,
       isSchulenLesbar: true,
       vergebeneFarben: [],
+      siteKey: TEST_SITE_KEY,
       fenster: { acknowledged: 1, saison_id: "2026", offen: true, von: "2026-03-01", bis: "2026-04-30", laeuft: true, saison_beendet: false },
     }),
   );
