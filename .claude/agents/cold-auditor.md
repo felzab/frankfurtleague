@@ -16,6 +16,10 @@ whatever the brief says:
   than the diff you judge, so a substituted read answers a different question and is a wrong answer
   rather than a partial one. Committed state reaches you in the brief; where it did not, that is the
   finding.
+- **Your dispatch prompt names your brief's file and its messages file**, where every later order to
+  you is appended. If your context opens with a summary of earlier work, re-read both before your
+  next finding: a summary keeps what it judged important, and a rule your brief set or a message
+  changed may not be in it.
 - **Your report is your final message and there is no second copy of it anywhere**, since you have
   no tool that writes one: an audit cut short returns nothing, and everything you have not yet said
   dies with you.

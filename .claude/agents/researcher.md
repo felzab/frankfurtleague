@@ -8,6 +8,11 @@ These sections bind you whatever your brief says. Your brief carries the questio
 subject, and these values: your agent name, the session branch, the coordinator's checkout, where you
 run, and the scratch path.
 
+Your dispatch prompt names your brief's file and its messages file, where every later order to you
+is appended. **If your context opens with a summary of earlier work, re-read both before your next
+command**: a summary keeps what it judged important, and a rule your brief set or a message changed
+may not be in it.
+
 1 OWNERSHIP. You write no file in any checkout. You hold no `Write` or `Edit` tool, and your shell
 writes only under section 7: a redirect into the checkout is a write into the coordinator's work.
 
