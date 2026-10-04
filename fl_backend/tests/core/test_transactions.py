@@ -1,6 +1,7 @@
 import ast
 import asyncio
 import contextlib
+import dataclasses
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
@@ -213,14 +214,28 @@ JUDGED_BY: Mapping[str, str] = {
 }
 
 
+def _an_actor_of(kind: str) -> Actor | PersonActor:
+    """An actor carrying `kind`, built off a sample of the type declaring it.
+
+    The dataclasses check no `Literal`, so a kind no binder places yet is built all the same.
+    """
+
+    sample = next(actor for actor in (ADMINISTRATOR, PERSON) if kind in get_args(get_type_hints(type(actor))["kind"]))
+
+    return dataclasses.replace(sample, kind=kind)
+
+
 class TestAnUnjudgedActorIsRefused:
-    @pytest.mark.parametrize("actor", [ADMINISTRATOR, PERSON], ids=["an administrator", "a person"])
-    def test_a_judged_kind_with_no_judge_bound_opens_no_session(self, actor: Actor | PersonActor):
-        """Load-bearing for the administrator: a binder that bound the actor and forgot the judge would otherwise write past a revoke."""
+    @pytest.mark.parametrize("kind", sorted(_actor_kinds() - UNJUDGED_KINDS))
+    def test_a_judged_kind_with_no_judge_bound_opens_no_session(self, kind: str):
+        """Every kind the hook does not name, read off the actor types: a kind added there is driven here unlisted.
+
+        Load-bearing for the administrator: a binder that bound the actor and forgot the judge would otherwise write past a revoke.
+        """
 
         client = _Client()
         with pytest.raises(LookupError):
-            _run_judged(actor, None, client=client)
+            _run_judged(_an_actor_of(kind), None, client=client)
 
         assert client.sessions == []
 
