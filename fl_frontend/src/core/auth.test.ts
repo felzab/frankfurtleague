@@ -22,11 +22,12 @@ import {
   signInByCode,
 } from "./authDoubles.ts";
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
-import { NO_RECORDS, SITZ } from "./subjectFixtures.ts";
+import { answerAt, NO_RECORDS, SITZ } from "./subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 import type { MemoryStore, SessionRow } from "./authDoubles.ts";
+import type { LookupFixture } from "./subjectFixtures.ts";
 
 /** Granted nothing: the person arm of every case below. */
 const PERSON_EMAIL = "spielerin@example.org";
@@ -113,8 +114,8 @@ const { sent, answerWith: answerMail } = registerAuthDoubles({
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": ADAPTER_DOUBLE },
 });
 
-/** What the backend's one read answers an address, or that it throws for it or refuses it as a payload. */
-type Backend = Record<string, unknown> | "throws" | "refuses";
+/** What the backend holds for an address, answered at each read in that read's shape, or that it throws for it or refuses it as a payload. */
+type Backend = LookupFixture | "throws" | "refuses";
 
 const NOTHING_HELD = NO_RECORDS;
 const A_SEAT = SITZ;
@@ -168,7 +169,10 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     return new Response(JSON.stringify(refusal), { status: 422, headers: { "content-type": "application/json" } });
   }
 
-  return new Response(JSON.stringify({ acknowledged: 1, ...backend }), { status: 200, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify({ acknowledged: 1, ...answerAt(path, backend) }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
 }) as typeof globalThis.fetch;
 after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
@@ -2974,6 +2978,10 @@ describe("which addresses the send gate mails", () => {
   const UNCONFIRMED_EMAIL = "unbestaetigte@example.org";
   const BARRED_EMAIL = "gesperrte@example.org";
   const PAST_SEATED_EMAIL = "ehemalige@example.org";
+  const ACCOUNT_ONLY_EMAIL = "bewerberin@example.org";
+
+  /** A record of the address's own that no subject list names: a pending application's seat, a retired row. */
+  const ONLY_AN_ACCOUNT = { ...NOTHING_HELD, konto: true };
 
   beforeEach(() => {
     BACKENDS.clear();
@@ -2995,7 +3003,15 @@ describe("which addresses the send gate mails", () => {
     BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
 
     assert.deepEqual((await askFor(SEATED_EMAIL)).mailed, [SEATED_EMAIL]);
-    assert.deepEqual(asked, ["/api/v0/identitaet/subjekt"]);
+    assert.deepEqual(asked, ["/api/v0/identitaet/anmeldung"]);
+  });
+
+  /* The case a gate admitting on the Funktion lists refuses: the person holds no panel, and still a
+     consent the account page offers back. */
+  it("mails an address whose only record is one the account page serves and no list names", async () => {
+    BACKENDS.set(ACCOUNT_ONLY_EMAIL, ONLY_AN_ACCOUNT);
+
+    assert.deepEqual((await askFor(ACCOUNT_ONLY_EMAIL)).mailed, [ACCOUNT_ONLY_EMAIL]);
   });
 
   /* The lookup drops every unconfirmed record, so the lists of a pending mailbox are as empty as an
@@ -3028,13 +3044,17 @@ describe("which addresses the send gate mails", () => {
     assert.equal(asked.length, 1, "the gate refused without asking the backend, so holding nothing decided nothing");
   });
 
-  /* The lookup still answers a `past` season's seat, so a list that is merely non-empty would mail
-     a person whose every seat is over; only the derived Funktion refuses them. */
-  it("mails nothing to an address whose only seat is on a past season", async () => {
+  /* A `past` season's seat grants no panel, and its consent is still the person's to take back. */
+  it("mails an address whose only seat is on a past season", async () => {
     BACKENDS.set(PAST_SEATED_EMAIL, { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] });
 
-    assert.deepEqual((await askFor(PAST_SEATED_EMAIL)).mailed, []);
-    assert.equal(asked.length, 1, "the gate refused without asking the backend, so the past seat decided nothing");
+    assert.deepEqual((await askFor(PAST_SEATED_EMAIL)).mailed, [PAST_SEATED_EMAIL]);
+  });
+
+  it("mails nothing to a barred address whose only record is one the account page serves", async () => {
+    BACKENDS.set(BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, gesperrt: true });
+
+    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
   });
 
   /* The grant is read on the same one call as the records, so an administrator's address costs the
@@ -3046,7 +3066,7 @@ describe("which addresses the send gate mails", () => {
     const seated = await askFor(SEATED_EMAIL);
 
     assert.deepEqual(granted.mailed, [ADMIN_EMAIL]);
-    assert.deepEqual(asked, ["/api/v0/identitaet/subjekt", "/api/v0/identitaet/subjekt"]);
+    assert.deepEqual(asked, ["/api/v0/identitaet/anmeldung", "/api/v0/identitaet/anmeldung"]);
     assert.deepEqual(granted.answer, seated.answer);
   });
 
@@ -3132,8 +3152,11 @@ describe("which addresses the send gate mails", () => {
       "an address whose only seat is on a past season",
       PAST_SEATED_EMAIL,
       { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] },
-      "holds-nothing",
+      "admitted",
     ],
+    ["an address whose only record no list names", ACCOUNT_ONLY_EMAIL, ONLY_AN_ACCOUNT, "admitted"],
+    // The ban ahead of the account: a gate judging `konto` first would admit it.
+    ["a barred address whose only record no list names", BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, gesperrt: true }, "barred"],
     ["an address whose read throws", PERSON_EMAIL, "throws", "failed"],
     ["an address the backend refuses as a payload", PERSON_EMAIL, "refuses", "failed"],
   ];
@@ -3178,6 +3201,14 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
       [await mailboxSignIn(BARRED_EMAIL), await mailboxSignIn(EMPTY_EMAIL), await mailboxSignIn(PERSON_EMAIL)],
       [false, false, false],
     );
+  });
+
+  /* The mint asks the gate's own read, so a person holding no Funktion is minted the session the
+     account page needs. */
+  it("mints a mailbox session for an address whose only record is one the account page serves", async () => {
+    BACKENDS.set(EMPTY_EMAIL, { ...NOTHING_HELD, konto: true });
+
+    assert.equal(await mailboxSignIn(EMPTY_EMAIL), true);
   });
 
   /* Only the holder of the authenticator reaches this refusal, so it names the reason. */
@@ -3259,7 +3290,7 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
   /* The registration's transaction opens after the before hook: a backend round trip inside it would
      hold it open for that call's length (`docs/frontend/spec.md :: I482`). The one read is the before
      hook's. */
-  it("reads the subject once for a set-up that signs in, ahead of the registration's transaction", async () => {
+  it("reads the gate's answer once for a set-up that signs in, ahead of the registration's transaction", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
     const offered = await overHttp("/passkey/generate-register-options", { cookie });
@@ -3275,9 +3306,9 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
     assert.equal(answer.status, 200, await answer.clone().text());
     assert.equal(store.passkey.length, 1, "the set-up wrote no passkey");
     assert.equal(
-      asked.filter((path) => path.endsWith("/identitaet/subjekt")).length,
+      asked.filter((path) => path.endsWith("/identitaet/anmeldung")).length,
       1,
-      "the registration read the subject again inside its transaction",
+      "the registration read the gate's answer again inside its transaction",
     );
   });
 

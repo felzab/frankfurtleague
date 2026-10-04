@@ -87,6 +87,22 @@ export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
 
 /**
+ * What `POST /identitaet/anmeldung` answers the sign-in gate, asked with `FLSubjektPayloadSchema`:
+ * flags and the grant's tier, and no record.
+ */
+export const FLAnmeldungResponseSchema = BaseAPIResponseSchema.extend({
+  // The subject read's own flag, from the same judgement (`docs/backend/spec.md :: I374`).
+  unbestaetigt: z.boolean(),
+  // Set wherever the account page serves the address anything, a record granting no panel included:
+  // a retired row, a past or withdrawn season's seat, a pending application's or registration's.
+  konto: z.boolean(),
+  // Narrowing neither flag above (`docs/backend/spec.md :: I389`).
+  gesperrt: z.boolean(),
+  verwaltung: z.enum(["owner", "administration"]).nullable(),
+});
+export type FLAnmeldungResponse = z.infer<typeof FLAnmeldungResponseSchema>;
+
+/**
  * The address `POST /identitaet/gesperrt` is asked about, as the mailer was handed it. No length or
  * alphabet restated, for `FLSubjektPayloadSchema`'s reason.
  */

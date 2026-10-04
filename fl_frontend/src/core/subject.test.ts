@@ -16,10 +16,11 @@ import {
   sessionByCode,
 } from "./authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "./cacheScope.ts";
-import { SITZ } from "./subjectFixtures.ts";
+import { answerAt, SITZ } from "./subjectFixtures.ts";
 
 import type { SessionRow } from "./authDoubles.ts";
 import type { RequestActor } from "./requestScope.ts";
+import type { LookupFixture } from "./subjectFixtures.ts";
 
 const STORE = "__flSubjectStore";
 
@@ -58,17 +59,8 @@ registerAuthDoubles({
 
 const store = memoryStore(STORE);
 
-/** One record set the league holds, as the endpoint answers it. */
-type Subjekt = {
-  acknowledged: 0 | 1;
-  sitze: readonly { saison_id: string; team_id: string; rolle: string; team_name: string; saison_status: string }[];
-  spieler: readonly { spieler_id: string }[];
-  schiedsrichter: readonly { schiedsrichter_id: string }[];
-  unbestaetigt: boolean;
-  gesperrt: boolean;
-  verwaltung: "owner" | "administration" | null;
-  berechtigt_seit: string | null;
-};
+/** One record set the league holds, as the subject read answers it. */
+type Subjekt = Required<Omit<LookupFixture, "konto">>;
 
 const PUPIL = { spieler_id: "b".repeat(24) };
 
@@ -111,7 +103,11 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 
   const asked = (JSON.parse(body) as { email?: string }).email ?? "";
 
-  return new Response(JSON.stringify(RECORDS.get(asked) ?? HOLDS_NOTHING), { status: 200, headers: { "content-type": "application/json" } });
+  // The sign-in gate's own read too, which every session a case mints passes.
+  return new Response(JSON.stringify(answerAt(new URL(url).pathname, RECORDS.get(asked) ?? HOLDS_NOTHING)), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
 }) as typeof globalThis.fetch;
 after(() => {
   globalThis.fetch = ORIGINAL_FETCH;

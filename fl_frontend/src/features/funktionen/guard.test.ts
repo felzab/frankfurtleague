@@ -124,25 +124,30 @@ describe("the guard over the person area", () => {
 });
 
 describe("where the landing takes a person", () => {
-  it("renders the empty landing for a person holding no Funktion", async () => {
-    setSubject(person());
+  /* The sign-in admitted this person on a record the account page serves, a past season's seat or a
+     retired row among them, so the landing's one place is that page. */
+  it("offers a person holding no Funktion the account page, as its one card", async () => {
+    setSubject(person({ sitze: [sitz({ saison_status: "past" })] }));
     const { markup, reads } = await renderedAlone(PersoenlichStartPage);
 
-    assert.deepEqual(reads, [], "the empty landing reads past the session it is drawn from");
-    assert.ok(markup.includes("nirgends eingetragen"), "the empty landing is not what renders");
+    assert.deepEqual(reads, [], "the landing reads past the session it is drawn from");
+    assert.deepEqual(await redirectsOf(PersoenlichStartPage), [], "the landing sent a person holding no Funktion away");
+    assert.deepEqual(await switchHrefs(), ["/bereich/konto"]);
+    assert.ok(textOf(markup, " ").replace(/\s+/g, " ").includes("Konto Was Du bei uns bestätigt hast, und Deine Anmeldung"), markup);
     assert.ok(!markup.includes("Noch nicht bestätigt"), "a person with nothing pending is told a link is waiting");
   });
 
-  /* The case that goes red the day the two states collapse into one: records matched and none is
-     confirmed, so what is missing is the person's own link rather than a record. */
-  it("renders the pending page, not the empty one, where a record waits on the person's link", async () => {
+  /* Records matched and none is confirmed, so what is missing is the person's own link: the panel
+     says so, above the way to the account page, which holds the sign-in's own controls. */
+  it("stands the pending panel above the account page's card where a record waits on the person's link", async () => {
     setSubject(person({ unbestaetigt: true }));
     const { markup, reads } = await renderedAlone(PersoenlichStartPage);
 
     assert.deepEqual(reads, [], "the pending page reads past the session it is drawn from");
     assert.ok(markup.includes("Noch nicht bestätigt"), "the pending page is not what renders");
     assert.ok(markup.includes("kontakt@frankfurtleague.de"), "the pending page names nobody to write to");
-    assert.ok(!markup.includes("nirgends eingetragen"), "the pending person is told they are entered nowhere");
+    assert.deepEqual(await switchHrefs(), ["/bereich/konto"]);
+    assert.ok(markup.indexOf("Noch nicht bestätigt") < markup.indexOf('href="/bereich/konto"'), "the pending panel stands below the card");
     // The approved wording, whole: it names neither the record nor its team, which a mailbox typed by mistake would hand a stranger.
     assert.ok(
       textOf(markup, " ")

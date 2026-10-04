@@ -15,8 +15,8 @@ const OHNE_BESTAETIGUNG =
  */
 export const GESPERRT = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich.";
 
-/** An address that holds nothing in the league, which a retry would not change. */
-export const OHNE_FUNKTION = `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`;
+/** An address holding no record of its own in the league, which a retry would not change. */
+export const OHNE_EINTRAG = `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>
@@ -30,7 +30,7 @@ export const refusalStatus = (error: unknown): number | undefined =>
 const WORDED: ReadonlyMap<string, string> = new Map([
   [USER_VERIFICATION_REFUSED, OHNE_BESTAETIGUNG],
   [SIGN_IN_BARRED, GESPERRT],
-  [SIGN_IN_HOLDS_NOTHING, OHNE_FUNKTION],
+  [SIGN_IN_HOLDS_NOTHING, OHNE_EINTRAG],
 ]);
 
 /**

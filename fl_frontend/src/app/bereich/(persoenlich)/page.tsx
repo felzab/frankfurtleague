@@ -20,7 +20,13 @@ export default async function PersoenlichStartPage() {
   const ziele = zieleOf(funktionen);
   const [erstes, ...weitere] = ziele;
 
-  if (erstes === undefined) return <FunktionenView zustand={unbestaetigt ? "unbestaetigt" : "leer"} />;
+  if (erstes === undefined)
+    return (
+      <FunktionenView
+        zustand="konto"
+        unbestaetigt={unbestaetigt}
+      />
+    );
 
   // Every person lands on a page named „Übersicht“ (`docs/frontend/spec.md :: I466`): a team's own
   // landing is one, so one team alone goes straight on; any other lone place is one card here.

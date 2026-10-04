@@ -216,11 +216,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
     until the oldest of those mails is an hour old, answered the same way: a limit of the service
     rather than a judgement about the person, keeping a flood of codes from spending the mail
     provider's quota that every other message of the league's needs (`docs/frontend/spec.md :: I447`);
-  - an address holding neither a grant nor a record the send gate reads is mailed no code at all,
-    answered the same way: the gate's `holds-nothing` verdict
-    (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). The gate reads the contact seats on a
-    team's season row, pupils and referees (`docs/glossary.md :: Subjekt`), so a registration or an
-    application awaiting its confirmation admits nobody.
+  - an address holding neither a grant, nor a record of its own, nor only records awaiting its
+    confirmation is mailed no code at all, answered the same way: the gate's `holds-nothing` verdict
+    (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). A record of its own is one its person
+    confirmed, whose consent the account page offers back: a contact seat of any season or of a
+    pending application, a pupil or referee row retired or not, and a pending registration carrying
+    a choice (`fl_backend/app/api/identitaet/services.py :: eigene_eintraege`). So a decided
+    application, a declined registration, and an application or registration nobody has confirmed
+    admit nobody.
 
   The last three answer as a mailed code does so that no answer tells a member from a stranger, and
   the person meeting any of them is not told of it.
