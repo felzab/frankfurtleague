@@ -180,8 +180,8 @@ async def get_einwilligung_ansicht(
     person nothing to press.
 
     The same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then
-    the name the club carries that season, and the link is over once its seat's own deadline has passed, its season
-    has ended or its team has left it.
+    the name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a
+    season that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.
     """
 
     token_hash = hash_token(ansicht_data.token)

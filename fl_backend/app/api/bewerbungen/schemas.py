@@ -677,10 +677,10 @@ class FLPostBewerbungResponse(BaseAPIResponse):
 # Stripped, a token pasted from a mail client arriving with a trailing space more often than not.
 CustomBewerbungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
-# What a reopened link shows. `abgelaufen` covers the deadline having passed AND the application
-# having been decided: either way the link is spent, and the page says so in one way. `gesperrt`
-# ranks first (`docs/backend/spec.md :: I515`).
-FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]
+# What a reopened link shows. `abgelaufen` is a spent link, its deadline passed or its application
+# decided, said one way; `gesperrt` ranks first (`docs/backend/spec.md :: I515`).
+# `saison_vorbei`, a season row's alone, takes a Widerspruch and no consent (`REQ-KONTAKT-006`).
+FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "saison_vorbei", "gesperrt"]
 
 # Which record a link's seat sits on: an application, or a team's season row an administrator seated
 # the person on. The page picks its wording by it, and the route handler mails an application's

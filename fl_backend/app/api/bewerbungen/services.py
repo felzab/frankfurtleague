@@ -787,13 +787,18 @@ def row_takes_links(*, saison_status: Any, austritt: Any) -> bool:
 
 
 def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt: bool, saison_status: Any) -> FLBewerbungEinwilligungZustand:
-    """What a reopened season-row link shows, ranked as an application's is: over at its own deadline, or once its row closed."""
+    """What a reopened season-row link shows, its own deadline ending it, a closed row stopping its consent."""
 
     bestaetigungen = row.get("bestaetigungen")
-    deadline_passed = _deadline_passed(bestaetigungsfrist=saison_frist_of(bestaetigungen=bestaetigungen, seat=seat), today=today)
-    over = deadline_passed or not row_takes_links(saison_status=saison_status, austritt=row.get("austritt"))
+    over = _deadline_passed(bestaetigungsfrist=saison_frist_of(bestaetigungen=bestaetigungen, seat=seat), today=today)
+    zustand = _zustand(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat, over=over, gesperrt=gesperrt)
 
-    return _zustand(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat, over=over, gesperrt=gesperrt)
+    # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
+    # (`REQ-KONTAKT-004`), while a closed row's link still takes one (`REQ-KONTAKT-006`).
+    if zustand == "gueltig" and not row_takes_links(saison_status=saison_status, austritt=row.get("austritt")):
+        return "saison_vorbei"
+
+    return zustand
 
 
 # The season row's own code, beside the application's 409 for its shared deadline (`REQ-BEWERBUNG-017`).

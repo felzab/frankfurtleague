@@ -457,7 +457,9 @@ the document publishes each code at the status a client meets it at:
   write moves it, a fresh link being a new token. An application's confirmation deadline is one
   field that a re-send of any seat restarts, so every other seat's link answers again and its
   passing is a 409 (`REQ-BEWERBUNG-017`). A link's view still answers 200 with the state
-  `abgelaufen`, so a page can say why before anyone presses
+  `abgelaufen`, so a page can say why before anyone presses. A season row's link whose season ended
+  or whose team left it refuses only its consent with a 410 (`REQ-KONTAKT-006`): it still takes a
+  Widerspruch, and its view answers `saison_vorbei`
 - **403** only where the refusal is about who the caller is — their authority, their role or their
   standing, a ban included — and never about the target's state: a visitor typing an
   address the ban list holds, or pressing a link mailed to one. An administrator's write naming that address is about the entry it

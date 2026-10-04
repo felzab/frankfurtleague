@@ -1013,7 +1013,7 @@ ITS_TEAM_LEFT: dict[str, Any] = {"$set": {"austritt": {"type": "rueckzug", "grun
 
 
 class TestALinkOutlivingItsSeason:
-    """A link minted while the season ran asks nothing once it has ended or the team left it (`docs/backend/spec.md :: I935`)."""
+    """A link minted while the season ran asks no consent once it has ended or the team left it (`docs/backend/spec.md :: I935`)."""
 
     async def closed(self, database: AsyncDatabase, how: str) -> None:
         if how == "past":
@@ -1022,7 +1022,7 @@ class TestALinkOutlivingItsSeason:
             await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, ITS_TEAM_LEFT)
 
     @pytest.mark.parametrize("how", [pytest.param("past", id="the season ended"), pytest.param("austritt", id="the team left")])
-    def test_its_view_reads_as_over_and_its_consent_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, how: str):
+    def test_its_view_offers_a_widerspruch_alone_and_its_refused_consent_writes_nothing(self, mongo_replica_set_url: str, how: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             token = (await save(database, THREE)).bestaetigungen[0].token
             await self.closed(database, how)
@@ -1032,9 +1032,24 @@ class TestALinkOutlivingItsSeason:
 
         view, code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert view.zustand == "abgelaufen"
+        assert view.zustand == "saison_vorbei"
         assert code == KONTAKT_SAISON_VORBEI
         assert after == before
+
+    def test_its_deadline_passing_too_reads_as_over(self, mongo_replica_set_url: str):
+        """Past its own deadline the link takes no Widerspruch either (`REQ-KONTAKT-004`), so the page offers nothing."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            token = (await save(database, THREE)).bestaetigungen[0].token
+            await self.closed(database, "past")
+
+            view = await ansicht(database, token, today=AFTER_THE_DEADLINE)
+
+            return view, await refused(answer(database, token, antwort="abgelehnt", today=AFTER_THE_DEADLINE))
+
+        view, code = on_a_league(mongo_replica_set_url, body)
+
+        assert (view.zustand, code) == ("abgelaufen", KONTAKT_LINK_ABGELAUFEN)
 
     @pytest.mark.parametrize("how", [pytest.param("past", id="the season ended"), pytest.param("austritt", id="the team left")])
     def test_a_widerspruch_on_it_is_still_taken(self, mongo_replica_set_url: str, how: str):
@@ -1045,12 +1060,14 @@ class TestALinkOutlivingItsSeason:
             await self.closed(database, how)
             answered = await answer(database, token, antwort="abgelehnt")
 
-            return answered, await row_now(database)
+            return answered, await row_now(database), await ansicht(database, token)
 
-        answered, row = on_a_league(mongo_replica_set_url, body)
+        answered, row, reopened = on_a_league(mongo_replica_set_url, body)
 
         assert answered.ergebnis == "abgelehnt"
         assert row["kontakte"]["trainer"] is None
+        # Its answer outranks the closed row, as `gesperrt` and `bestaetigt` do.
+        assert reopened.zustand == "abgelehnt"
 
 
 class TestTheLinkLookupWalksAnIndex:
