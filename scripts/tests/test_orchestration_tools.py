@@ -89,6 +89,39 @@ def test_a_key_naming_more_than_one_row_stops_the_merge(ours: str, theirs: str) 
     assert any("names no one row" in conflict for conflict in merge.conflicts), merge.conflicts
 
 
+# The admin-write table's continuation rows, whose empty first cell names nothing to place them by.
+CONTINUED: Final = "| Method | Path |\n| --- | --- |\n| POST | `/spiele` |\n|        | `/spiele/paarungen` |\n"
+
+
+@pytest.mark.parametrize(
+    ("ours", "theirs", "base_extra", "said"),
+    [
+        ("|        | `/spiele/a` |\n", "|        | `/spiele/b` |\n", "", "is on the agent's branch alone"),
+        (
+            "|        | `/spiele/old` |\n| PUT | `/teams` |\n",
+            "| PUT | `/teams` |\n",
+            "|        | `/spiele/old` |\n",
+            "is gone from the agent's branch",
+        ),
+    ],
+    ids=["both add a continuation row", "the agent deletes one"],
+)
+def test_a_continuation_row_held_by_one_side_stops_the_merge(ours: str, theirs: str, base_extra: str, said: str) -> None:
+    base = CONTINUED + base_extra
+    conflicted = f"{CONTINUED}<<<<<<< HEAD\n{ours}=======\n{theirs}>>>>>>> agent\n"
+    merge = merge_rows.merge_text(conflicted, base, CONTINUED + theirs)
+    assert merge.text is None
+    assert any(said in conflict for conflict in merge.conflicts), merge.conflicts
+
+
+def test_a_continuation_row_both_sides_hold_does_not_stop_the_merge() -> None:
+    ours, theirs = "|        | `/spiele/paarungen/x` |\n| PUT | `/teams` |\n", "|        | `/spiele/paarungen/x` |\n| DELETE | `/teams` |\n"
+    base = CONTINUED + "|        | `/spiele/paarungen/x` |\n"
+    merge = merge_rows.merge_text(f"{CONTINUED}<<<<<<< HEAD\n{ours}=======\n{theirs}>>>>>>> agent\n", base, CONTINUED + theirs)
+    assert merge.text is not None, merge.conflicts
+    assert "| PUT | `/teams` |" in merge.text and "| DELETE | `/teams` |" in merge.text
+
+
 # --- reg ------------------------------------------------------------------------------------------
 
 REGISTER: Final = (

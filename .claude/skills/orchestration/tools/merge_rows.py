@@ -4,10 +4,13 @@ Two agents adding rows to one table conflict on lines that touch no shared row: 
 resolved as the session branch's rows with the agent branch's own row changes applied, keyed by
 each row's first cell. A key the hunk holds that is not unique in the merge-base, the agent's branch
 or the session branch's side stops the merge, since a first cell such as `GET` names no one row; so
-does a row both sides changed differently. Nothing is written then.
+do a row both sides changed differently and a keyless continuation row only one side holds. Nothing
+is written then.
 
-    merge_rows.py <path> [<base> <theirs>]     inside a checkout mid-merge; the defaults :1 and :3
-                                               are the index's merge-base and agent-branch stages
+    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/merge_rows.py <path> [<base> <theirs>]
+
+Run inside a checkout mid-merge; the defaults `:1` and `:3` are the index's merge-base and
+agent-branch stages.
 
 Exit 0 resolved and written, 2 a true conflict or a hunk that is not table rows (nothing written).
 """
@@ -65,9 +68,22 @@ def _same(one: str, other: str) -> bool:
     return re.sub(r"\s+", " ", one).strip() == re.sub(r"\s+", " ", other).strip()
 
 
-def _resolve(ours: list[str], theirs: list[str], base: dict[str, str], agent: dict[str, str], merge: Merge) -> list[str]:
+def _norm(line: str) -> str:
+    return re.sub(r"\s+", " ", line).strip()
+
+
+def _resolve(ours: list[str], theirs: list[str], base: dict[str, str], agent: dict[str, str], base_lines: set[str], merge: Merge) -> list[str]:
     """One hunk: the session branch's side, with the agent branch's own changes to the rows it holds."""
     result: list[str] = []
+    # A row with an empty first cell continues the row above it and names nothing to place it by, so
+    # one present on a single side stops the merge rather than being kept or dropped by guess.
+    ours_lines, theirs_lines = {_norm(line) for line in ours}, {_norm(line) for line in theirs}
+    for line in theirs:
+        if row_key(line) is None and _norm(line) not in ours_lines:
+            merge.conflicts.append(f"a row with no key, {line.strip()!r}, is on the agent's branch alone")
+    for line in ours:
+        if row_key(line) is None and _norm(line) in base_lines and _norm(line) not in theirs_lines:
+            merge.conflicts.append(f"a row with no key, {line.strip()!r}, is gone from the agent's branch")
     for line in ours:
         key = row_key(line)
         if key is None or key not in base:
@@ -139,7 +155,7 @@ def merge_text(text: str, base_text: str, agent_text: str) -> Merge:
         if merge.conflicts:
             return merge
         pieces.append(text[last : hunk.start()])
-        resolved = _resolve(ours, theirs, base, agent, merge)
+        resolved = _resolve(ours, theirs, base, agent, {_norm(line) for line in base_text.splitlines()}, merge)
         pieces.append("".join(line + "\n" for line in resolved))
         last = hunk.end()
     pieces.append(text[last:])

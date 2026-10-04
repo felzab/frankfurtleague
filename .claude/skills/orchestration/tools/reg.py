@@ -1,10 +1,12 @@
 """ORCHESTRATION · an UPDATE line written into a register, stamped from the clock rather than typed.
 
-A coordinator typing times into its register guessed them ahead of the clock twice in one session,
-and every figure derived from a stamp moved with the guess. The line goes in above the marker
+A typed time can run ahead of the clock, and every figure derived from it moves with the guess. The
+line goes in above the marker
 `register-template.md` places at the end of the resume point, in one write of the file's bytes.
 
-    python .claude/skills/orchestration/tools/reg.py append <register> <text…>    the text, or stdin when none
+    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/reg.py append <register> <text…>
+
+The text is read from stdin when none is given.
 
 Exit 0 written, 2 refused: no text, or not exactly one marker.
 """

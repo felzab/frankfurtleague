@@ -1,6 +1,6 @@
 """ORCHESTRATION · one findings-ledger row per finding a banked report labels, and the rows still open.
 
-A finding routed from memory was dropped while its report sat banked, so `bank` writes one OPEN row
+A finding routed from memory can drop out while its report sits banked, so `bank` writes one OPEN row
 per `F<n>` label into the register's findings ledger, and the ending runs `open` until it prints
 nothing. A report carrying no label banks nothing and says so, naming any findings it numbers in
 another shape, since a silent zero reads exactly like a report with nothing in it.
