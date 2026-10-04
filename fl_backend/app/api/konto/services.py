@@ -11,19 +11,13 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import bewerbung_schule, saison_schule
-from app.api.einwilligung.services import find_fassung_refusal
+from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, seat_is_confirmed, seats_naming
 from app.api.kontakte.services import KONTAKT_SLOTS, same_address
 from app.api.schiedsrichter.services import vorname_of
 from app.core.exceptions import WriteRefusal
-from app.shared.alter import whole_years_between
 from app.shared.einwilligung import Seite
 from app.shared.einwilligung_verlauf import FLEinwilligungAkt, compose_record_move
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
-
-# What the code refuses is `fl_backend/app/core/domain.py :: RULES`. One code for all three records, so
-# the account page maps one refusal however many records it edits.
-SELBST_MEDIEN_ALTER = "REQ-EINWILLIGUNG-002"
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
 KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
@@ -32,21 +26,6 @@ KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 
 # The place `find_fassung_refusal` names in its message: each PATCH stamps one label.
 _FASSUNG_ORT: Final = "einwilligung"
-
-
-def medien_angeboten(*, geburtsdatum: Any, today: str) -> bool:
-    """Whether this person may switch the media consent on: their stored birthdate reaches `MEDIEN_MIN_AGE_YEARS` today.
-
-    Fails CLOSED on a null or unreadable date (`docs/backend/spec.md :: I338`).
-    """
-
-    if not isinstance(geburtsdatum, str):
-        return False
-
-    try:
-        return whole_years_between(born=geburtsdatum, today=today) >= MEDIEN_MIN_AGE_YEARS
-    except ValueError:
-        return False
 
 
 def erteilt_etwas(*, gespeichert: Mapping[str, Any], umfang: str | None, medien: bool) -> bool:
@@ -132,27 +111,6 @@ def find_konto_fassung_refusal(*, seite: Seite, text_version: str, erteilt: bool
         seite=seite,
         genannt={_FASSUNG_ORT: text_version},
         gespeichert={} if erteilt else {_FASSUNG_ORT: text_version},
-    )
-
-
-def find_selbst_medien_refusal(*, geburtsdatum: Any, medien_erteilt: bool, today: str) -> WriteRefusal | None:
-    """Why a media consent moving to `true` is refused, or `None`.
-
-    Only a move is judged: a stored `true` resent beside the other switch grants nothing, and refusing
-    it would block that switch.
-    """
-
-    if not medien_erteilt or medien_angeboten(geburtsdatum=geburtsdatum, today=today):
-        return None
-
-    return WriteRefusal(
-        error_code=SELBST_MEDIEN_ALTER,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("medien",),),
-        message=(
-            f"a consent to publishing photographs, video and interviews is given from {MEDIEN_MIN_AGE_YEARS} years of age only, "
-            "judged on the stored birthdate"
-        ),
     )
 
 

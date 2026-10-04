@@ -8,9 +8,9 @@ from bson import ObjectId
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.services import KONTO_SEITE_SPIELER, SELBST_MEDIEN_ALTER
+from app.api.konto.services import KONTO_SEITE_SPIELER
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbstEinwilligungPayload
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungPayload
 from app.core.collections import Collection

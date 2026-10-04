@@ -17,9 +17,9 @@ from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.services import KONTO_SEITE_SCHIEDSRICHTER, SELBST_MEDIEN_ALTER
+from app.api.konto.services import KONTO_SEITE_SCHIEDSRICHTER
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID

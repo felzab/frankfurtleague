@@ -2,15 +2,21 @@ import re
 from collections.abc import Mapping
 from http import HTTPStatus
 from types import MappingProxyType
-from typing import Final
+from typing import Any, Final
 
 from app.api.einwilligung.schemas import FLEinwilligungFassung
 from app.core.exceptions import WriteRefusal
+from app.shared.alter import whole_years_between
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # What the code refuses is `fl_backend/app/core/domain.py :: RULES`. One code for every write that
 # stamps a label, so a page's form maps one refusal however many writes share its page.
 FASSUNG_UNZULAESSIG = "REQ-EINWILLIGUNG-001"
+
+# One code for every write taking a person's media consent, the account presses and the contact
+# confirmation alike, so each page maps one refusal.
+SELBST_MEDIEN_ALTER = "REQ-EINWILLIGUNG-002"
 
 # The reader's own facts inside the words, spelled `{name}` in every label.
 _PLATZHALTER: Final = re.compile(r"\{([A-Za-z]+)\}")
@@ -46,6 +52,42 @@ def _version_of(label: str, *, seite: Seite) -> bool:
     fassung = FASSUNGEN.get(label)
 
     return fassung is not None and fassung.seite == seite
+
+
+def medien_angeboten(*, geburtsdatum: Any, today: str) -> bool:
+    """Whether this person may switch the media consent on: their birthdate reaches `MEDIEN_MIN_AGE_YEARS` today.
+
+    Fails CLOSED on a null or unreadable date (`docs/backend/spec.md :: I338`).
+    """
+
+    if not isinstance(geburtsdatum, str):
+        return False
+
+    try:
+        return whole_years_between(born=geburtsdatum, today=today) >= MEDIEN_MIN_AGE_YEARS
+    except ValueError:
+        return False
+
+
+def find_selbst_medien_refusal(*, geburtsdatum: Any, medien_erteilt: bool, today: str) -> WriteRefusal | None:
+    """Why a media consent moving to `true` is refused, judged on the birthdate the write leaves.
+
+    Only a move is judged: a stored `true` resent beside the other switch grants nothing, and refusing
+    it would block that switch.
+    """
+
+    if not medien_erteilt or medien_angeboten(geburtsdatum=geburtsdatum, today=today):
+        return None
+
+    return WriteRefusal(
+        error_code=SELBST_MEDIEN_ALTER,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        fields=(("medien",),),
+        message=(
+            f"a consent to publishing photographs, video and interviews is given from {MEDIEN_MIN_AGE_YEARS} years of age only, "
+            "judged on the birthdate the record holds once this write lands"
+        ),
+    )
 
 
 def served_fassung(text_version: str, fassung: Fassung) -> FLEinwilligungFassung:

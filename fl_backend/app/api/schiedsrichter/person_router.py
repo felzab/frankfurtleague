@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.einwilligung.services import find_selbst_medien_refusal
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.services import folds_to
 from app.api.konto.services import (
@@ -14,7 +15,6 @@ from app.api.konto.services import (
     erteilt_etwas,
     find_eigener_eintrag_refusal,
     find_konto_fassung_refusal,
-    find_selbst_medien_refusal,
 )
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelbstEinwilligungPayload,

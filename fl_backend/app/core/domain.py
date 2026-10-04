@@ -2507,7 +2507,7 @@ RULES: tuple[Rule, ...] = (
         ),
         aggregate="Spieler",
         summary="a person's own media consent is switched on only where their stored birthdate reaches the media age",
-        implemented_by="app.api.konto.services.find_selbst_medien_refusal",
+        implemented_by="app.api.einwilligung.services.find_selbst_medien_refusal",
         tested_by="tests/api/test_spieler_selbst.py::TestTheMediaAge",
     ),
 )

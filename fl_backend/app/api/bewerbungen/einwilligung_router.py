@@ -50,8 +50,7 @@ from app.api.bewerbungen.services import (
     seat_vorname,
     zustand_of,
 )
-from app.api.einwilligung.services import find_fassung_refusal
-from app.api.konto.services import find_selbst_medien_refusal
+from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION

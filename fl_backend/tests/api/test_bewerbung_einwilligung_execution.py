@@ -26,8 +26,7 @@ from app.api.bewerbungen.services import (
     compose_bestaetigungen,
     hash_token,
 )
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
-from app.api.konto.services import SELBST_MEDIEN_ALTER
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
