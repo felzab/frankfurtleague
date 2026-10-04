@@ -1,12 +1,12 @@
 "use client";
 
+import { Beleg, Fassung, KeinTag } from "@/features/spieler/components/ui/Nachweis";
 import {
   EINWILLIGUNG_HERKUNFT_LABELS,
   EINWILLIGUNG_MEDIEN_LABELS,
   EINWILLIGUNG_UMFANG_LABELS,
   EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
 } from "@/features/spieler/constants";
-import { beschreibeNachweis } from "@/features/spieler/nachweis";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -15,46 +15,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { ReactNode } from "react";
-
-/** The act a choice stands on, under its value: the confirmation's day and label are another act's. */
-function Beleg({ children }: { children: ReactNode }) {
-  return <span className="block muted-meta">{children}</span>;
-}
-
-/** Its own grade, so a day the record does not carry never reads as one somebody wrote down. */
-function KeinTag({ children }: { children: ReactNode }) {
-  return <span className="text-foreground-muted italic">{children}</span>;
-}
-
-/**
- * A stored label names a label of the backend's registry, so one the registry does not hold is a
- * record citing words nobody can produce, and a bare key renders the two alike.
- */
-function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean | null }) {
-  if (textVersion === null) return <KeinTag>Nicht erfasst</KeinTag>;
-
-  // `null` where the registry's read failed: the key stands, and the check says it was not made.
-  if (istBekannt === null) {
-    return (
-      <>
-        {textVersion} <KeinTag>Nicht geprüft</KeinTag>
-      </>
-    );
-  }
-
-  // Beside the key rather than instead of it: whoever repairs the mismatch needs the key that
-  // resolved to nothing.
-  if (!istBekannt) {
-    return (
-      <>
-        {textVersion} <KeinTag>Unbekannte Fassung</KeinTag>
-      </>
-    );
-  }
-
-  return textVersion;
-}
 
 /**
  * **No control and no draft field**: `fl_backend/app/core/domain.py` declares this field immutable,
@@ -100,13 +60,21 @@ export function FormEinwilligungSection({
             <dl className={FIELD_PAIR_CLASSES}>
               <Angabe label="Umfang">
                 {EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}
-                <Beleg>{beschreibeNachweis(einwilligung.nachweis.umfang, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
+                <Beleg
+                  nachweis={einwilligung.nachweis.umfang}
+                  bestaetigtAm={einwilligung.bestaetigt_am}
+                  textVersion={einwilligung.text_version}
+                />
               </Angabe>
               {/* A word and never a switch: this panel reads a record back, and a control here would
                   offer an administrator the answer that is the person's alone. */}
               <Angabe label="Medien">
                 {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
-                <Beleg>{beschreibeNachweis(einwilligung.nachweis.medien, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
+                <Beleg
+                  nachweis={einwilligung.nachweis.medien}
+                  bestaetigtAm={einwilligung.bestaetigt_am}
+                  textVersion={einwilligung.text_version}
+                />
               </Angabe>
               {/* A stored record's alone: nothing names who answered since, the person being the only one who may. */}
               {einwilligung.erteilt_von !== null && <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>}

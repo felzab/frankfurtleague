@@ -10,7 +10,7 @@ import { Input } from "@heroui/react/input";
 
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
-import { beschreibeNachweis } from "@/features/spieler/nachweis";
+import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { eingetragenVonLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
@@ -538,9 +538,11 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>WhatsApp</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <p className="muted-hint">
-              {beschreibeNachweis(person.einwilligung.nachweis.umfang, person.einwilligung.bestaetigt_am, person.einwilligung.text_version)}
-            </p>
+            <Beleg
+              nachweis={person.einwilligung.nachweis.umfang}
+              bestaetigtAm={person.einwilligung.bestaetigt_am}
+              textVersion={person.einwilligung.text_version}
+            />
           </div>
 
           <div className="flex flex-col gap-y-1">
@@ -551,9 +553,11 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Fotos, Videos und Interviews</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <p className="muted-hint">
-              {beschreibeNachweis(person.einwilligung.nachweis.medien, person.einwilligung.bestaetigt_am, person.einwilligung.text_version)}
-            </p>
+            <Beleg
+              nachweis={person.einwilligung.nachweis.medien}
+              bestaetigtAm={person.einwilligung.bestaetigt_am}
+              textVersion={person.einwilligung.text_version}
+            />
           </div>
         </div>
       </div>
