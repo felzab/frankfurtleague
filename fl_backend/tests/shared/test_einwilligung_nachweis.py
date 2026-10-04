@@ -5,8 +5,10 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.registrierungen.services import compose_person_update
 from app.api.spieler.schemas import FLEinwilligung
 from app.api.teams.schemas import FLKontaktKenntnisnahme
+from app.core.recording import log_stamp
 from app.shared.einwilligung_nachweis import (
     WAHLEN,
     FLEinwilligungWahl,
@@ -181,13 +183,27 @@ REGISTERED: Final[Mapping[str, Any]] = {
 }
 
 
+def renew(gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any]) -> dict[str, Any]:
+    return compose_erneuert(pfad="einwilligung", gespeichert=gespeichert, erneuert=erneuert, stamp=log_stamp)
+
+
+def unevidenced(block: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
+    """A block confirmed before evidence was kept, its day and label being all that dates its choices."""
+
+    return {**{key: value for key, value in block.items() if key != "nachweis"}, **fields}
+
+
+# The first instant of a German day, as `log_stamp` spells it: what a choice set before evidence is dated.
+START_OF_2026_04_15: Final = "2026-04-14T22:00:00+00:00"
+
+
 class TestARenewalFromTheSamePersonsLaterAnswers:
     """`compose_erneuert`, the admission's renewal: each choice goes to whichever answer is the newer."""
 
     def test_a_newer_answer_renews_its_choice_and_an_older_one_leaves_the_stored(self):
         """`MEDIA_WITHDRAWN`'s media withdrawal postdates the registration; its scope's grant does not."""
 
-        update = compose_erneuert(pfad="einwilligung", gespeichert=MEDIA_WITHDRAWN, erneuert=REGISTERED)
+        update = renew(MEDIA_WITHDRAWN, REGISTERED)
 
         assert "einwilligung.medien" not in update and "einwilligung.nachweis.medien" not in update
         assert (update["einwilligung.umfang"], update["einwilligung.nachweis.umfang"]) == (
@@ -196,7 +212,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         )
 
     def test_every_field_but_the_choices_is_renewed(self):
-        update = compose_erneuert(pfad="einwilligung", gespeichert=MEDIA_WITHDRAWN, erneuert=REGISTERED)
+        update = renew(MEDIA_WITHDRAWN, REGISTERED)
 
         assert {key: update[f"einwilligung.{key}"] for key in ("erteilt_von", "datum", "bestaetigt_am", "text_version")} == {
             "erteilt_von": "volljaehrig",
@@ -211,21 +227,109 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             "nachweis": {"umfang": {"am": GIVEN_AT, "text_version": "x"}, "medien": {"am": WITHDRAWN_AT, "text_version": "x"}},
         }
 
-        update = compose_erneuert(pfad="einwilligung", gespeichert=MEDIA_WITHDRAWN, erneuert=tied)
+        update = renew(MEDIA_WITHDRAWN, tied)
 
         assert not {"einwilligung.umfang", "einwilligung.medien"} & set(update)
 
-    def test_an_answer_without_evidence_is_the_older(self):
-        """A registration confirmed before evidence was kept never overrides a choice, whatever is stored."""
+    @pytest.mark.parametrize(
+        ("registered_on", "renewed"),
+        [
+            pytest.param("2026-04-15", True, id="confirmed after the stored record"),
+            pytest.param("2026-03-15", False, id="confirmed before it"),
+            pytest.param("2026-04-01", False, id="confirmed the same day: a tie keeps what is stored"),
+        ],
+    )
+    def test_with_neither_side_evidenced_the_later_confirmation_day_decides(self, registered_on: str, renewed: bool):
+        """Both stored before evidence was kept: each choice is dated by its own block's `bestaetigt_am`."""
 
-        unevidenced = {key: value for key, value in REGISTERED.items() if key != "nachweis"}
+        update = renew(WITHOUT_EVIDENCE, unevidenced(REGISTERED, bestaetigt_am=registered_on, datum=registered_on))
 
-        for stored in (MEDIA_WITHDRAWN, WITHOUT_EVIDENCE):
-            update = compose_erneuert(pfad="einwilligung", gespeichert=stored, erneuert=unevidenced)
-            assert not {"einwilligung.umfang", "einwilligung.medien"} & set(update)
+        assert ({"einwilligung.umfang", "einwilligung.medien"} <= set(update)) is renewed
+        assert ("einwilligung.nachweis.umfang" in update) is renewed
+
+    def test_a_renewal_dated_by_its_day_is_evidenced_by_that_day_and_its_own_label(self):
+        """The registration's act is its confirmation: the first instant of that German day, under the label it was shown."""
+
+        update = renew(WITHOUT_EVIDENCE, unevidenced(REGISTERED))
+
+        assert (update["einwilligung.umfang"], update["einwilligung.nachweis.umfang"]) == (
+            "intern",
+            {"am": START_OF_2026_04_15, "text_version": "2026-09-spielerseite-3"},
+        )
+
+    def test_stored_evidence_meets_an_unevidenced_answer_by_its_day(self):
+        """Evidence dated before that day loses to it; evidence after it, or on it, stands."""
+
+        update = renew(MEDIA_WITHDRAWN, unevidenced(REGISTERED))
+
+        # The scope's grant (1 April) predates the registration's day; the media withdrawal (2 May) does not.
+        assert "einwilligung.medien" not in update
+        assert (update["einwilligung.umfang"], update["einwilligung.nachweis.umfang"]) == (
+            "intern",
+            {
+                "am": START_OF_2026_04_15,
+                "text_version": "2026-09-spielerseite-3",
+                "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
+            },
+        )
+
+        same_day = {
+            **MEDIA_WITHDRAWN,
+            "nachweis": {**MEDIA_WITHDRAWN["nachweis"], "umfang": {"am": "2026-04-15T06:00:00+00:00", "text_version": "x"}},
+        }
+        assert "einwilligung.umfang" not in renew(same_day, unevidenced(REGISTERED))
+
+    def test_a_block_with_neither_evidence_nor_a_confirmation_day_is_older_than_anything(self):
+        carried_over = unevidenced(CONFIRMED, bestaetigt_am=None, erteilt_von="bestandsuebernahme")
+
+        assert {"einwilligung.umfang", "einwilligung.medien"} <= set(renew(carried_over, unevidenced(REGISTERED)))
+        assert not {"einwilligung.umfang", "einwilligung.medien"} & set(renew(WITHOUT_EVIDENCE, unevidenced(REGISTERED, bestaetigt_am=None)))
+
+    def test_a_returning_pupil_registered_before_evidence_takes_the_answers_they_gave(self):
+        """The case a cold drive found: both sides predate evidence, and the narrowed scope and the declined media must land.
+
+        Left as stored, the name stays published while the record claims the pupil confirmed it on the day they declined.
+        """
+
+        gespeichert = {
+            "umfang": "kader_oeffentlich",
+            "erteilt_von": "bestandsuebernahme",
+            "datum": "2025-09-01",
+            "bestaetigt_am": "2025-09-01",
+            "text_version": "2025-09",
+            "medien": True,
+        }
+        registrierung = {
+            "vorname": "Ida",
+            "nachname": "Muster",
+            "geburtsdatum": "2009-05-04",
+            "einwilligung": {
+                "umfang": "intern",
+                "erteilt_von": "volljaehrig",
+                "datum": "2026-10-01",
+                "bestaetigt_am": "2026-10-01",
+                "text_version": "2026-09-spielerseite-3",
+                "medien": False,
+            },
+        }
+
+        gesetzt = compose_person_update(registrierung_raw=registrierung, gespeichert=gespeichert, adresse="ida@example.com")["$set"]
+
+        stamp = {"am": "2026-09-30T22:00:00+00:00", "text_version": "2026-09-spielerseite-3"}
+        assert {key: value for key, value in gesetzt.items() if key.startswith("einwilligung.")} == {
+            "einwilligung.umfang": "intern",
+            "einwilligung.medien": False,
+            "einwilligung.erteilt_von": "volljaehrig",
+            "einwilligung.datum": "2026-10-01",
+            "einwilligung.bestaetigt_am": "2026-10-01",
+            "einwilligung.text_version": "2026-09-spielerseite-3",
+            # The stored grants carried no evidence, so neither withdrawal names the grant it ended.
+            "einwilligung.nachweis.umfang": stamp,
+            "einwilligung.nachweis.medien": stamp,
+        }
 
     def test_a_record_stored_without_evidence_takes_every_evidenced_answer(self):
-        update = compose_erneuert(pfad="einwilligung", gespeichert=WITHOUT_EVIDENCE, erneuert=REGISTERED)
+        update = renew(WITHOUT_EVIDENCE, REGISTERED)
 
         assert (update["einwilligung.umfang"], update["einwilligung.medien"]) == ("intern", True)
         # The stored grant carried no evidence, so the withdrawal names none.
@@ -237,7 +341,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         offset = {**REGISTERED, "nachweis": {"umfang": {"am": "2026-04-01T12:30:00+02:00", "text_version": "x"}}}
         stored = {**WITHOUT_EVIDENCE, "nachweis": {"umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": "y"}}}
 
-        assert "einwilligung.umfang" not in compose_erneuert(pfad="einwilligung", gespeichert=stored, erneuert=offset)
+        assert "einwilligung.umfang" not in renew(stored, offset)
 
 
 class TestTheStandAPressEchoes:

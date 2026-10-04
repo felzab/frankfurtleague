@@ -30,6 +30,7 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, 
 from app.api.sperrliste.services import withheld_actor
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
+from app.core.recording import log_stamp
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
 from app.shared.einwilligung_nachweis import compose_erneuert, compose_geboren
@@ -905,7 +906,10 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
 
     # A matched person always holds a block, the validator requiring one, so the dotted paths are viable.
     erneuert = compose_erneuert(
-        pfad="einwilligung", gespeichert=gespeichert if isinstance(gespeichert, Mapping) else {}, erneuert=registrierung_raw["einwilligung"]
+        pfad="einwilligung",
+        gespeichert=gespeichert if isinstance(gespeichert, Mapping) else {},
+        erneuert=registrierung_raw["einwilligung"],
+        stamp=log_stamp,
     )
 
     return {"$set": {**_person_fields(registrierung_raw=registrierung_raw, adresse=adresse), **erneuert}}

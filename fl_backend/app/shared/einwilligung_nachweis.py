@@ -12,11 +12,14 @@ Invariants:
 See: docs/glossary.md
 """
 
-from collections.abc import Mapping, Sequence
-from datetime import datetime
+from collections.abc import Callable, Mapping, Sequence
+from datetime import date, datetime, time
 from typing import Any, Final, Literal
+from zoneinfo import ZoneInfo
 
 NACHWEIS: Final = "nachweis"
+# The day `bestaetigt_am` names is a German one.
+_GERMANY: Final = ZoneInfo("Europe/Berlin")
 ERTEILT_ZUVOR: Final = "erteilt_zuvor"
 
 FLEinwilligungWahl = Literal["umfang", "medien"]
@@ -99,23 +102,47 @@ def nachweis_stand_of(*, bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligung
     return stand
 
 
-def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any]) -> dict[str, Any]:
+def _beleg_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> tuple[datetime, str | None] | None:
+    """When a block's choice was set, with the evidence's own spelling of it; `None` where it cannot say.
+
+    Without evidence, the first instant of its block's German confirmation day, so an act evidenced
+    that day is the later.
+    """
+
+    am = _am_of(block, wahl)
+    if am is not None:
+        return am, block[NACHWEIS][wahl]["am"]
+
+    tag = block.get("bestaetigt_am")
+    if not isinstance(tag, str) or not tag:
+        return None
+
+    return datetime.combine(date.fromisoformat(tag), time.min, tzinfo=_GERMANY), None
+
+
+def compose_erneuert(
+    *, pfad: str, gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any], stamp: Callable[[datetime], str]
+) -> dict[str, Any]:
     """The dotted `$set` renewing the block at `pfad` from `erneuert`, the same person's later answers.
 
-    A choice moves only where its instant there is the later (`docs/backend/spec.md :: I867`).
+    A choice moves only where it was set there later (`docs/backend/spec.md :: I867`); `stamp` spells
+    the instant of one set before evidence was kept.
     """
 
     gesetzt: dict[str, Any] = {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS)}
     for wahl in WAHLEN:
-        neu, alt = _am_of(erneuert, wahl), _am_of(gespeichert, wahl)
-        if wahl not in erneuert or neu is None or (alt is not None and neu <= alt):
+        neu, alt = _beleg_of(erneuert, wahl), _beleg_of(gespeichert, wahl)
+        if wahl not in erneuert or neu is None or (alt is not None and neu[0] <= alt[0]):
             continue
 
-        beleg = erneuert[NACHWEIS][wahl]
+        # Without evidence, its act is the block's own confirmation: that day, under that block's label.
+        am, text_version = (
+            (neu[1], erneuert[NACHWEIS][wahl]["text_version"]) if neu[1] is not None else (stamp(neu[0]), erneuert["text_version"])
+        )
         gesetzt[f"{pfad}.{wahl}"] = erneuert[wahl]
         # Judged against the stored block, so a withdrawal names the grant it ended there.
         gesetzt[f"{pfad}.{NACHWEIS}.{wahl}"] = compose_beleg(
-            gespeichert=gespeichert, wahl=wahl, wert=erneuert[wahl], am=beleg["am"], text_version=beleg["text_version"]
+            gespeichert=gespeichert, wahl=wahl, wert=erneuert[wahl], am=am, text_version=text_version
         )
 
     return gesetzt
