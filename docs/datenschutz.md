@@ -676,8 +676,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   sent about and goes with that record: an application's is erased with the application, a
   registration's with the registration at whichever of its clocks takes it, a referee's with
   their row on request or with the link a re-send replaces, and a season contact person's with
-  their seat's link, which a re-send replaces and the seat's emptying, the row's clearing or
-  replacement and the season-and-one clock below each remove; an invite's stays on the invite entry,
+  their seat's link, which a re-send replaces and an erasure, the row's clearing or replacement and
+  the season-and-one clock below each remove. **A Widerspruch empties the seat and keeps its link
+  entry, the delivery state of the message included**, on an application until the application goes
+  and on a team's season row until a save fills that seat again or the row is cleared or replaced
+  (`fl_backend/app/api/teams/services.py :: compose_bestaetigungen_nach`), because that entry is what lets
+  the page answer a second press as already declined
+  (`fl_backend/app/api/bewerbungen/services.py :: compose_decline_update`,
+  `:: compose_saison_decline_update`); it names no address, and nothing reaches it on the person's
+  erasure, their slot holding nobody by then. An invite's stays on the invite entry,
   which nothing deletes (above), past the erasure of the contact person it was mailed to
   ([section 11](#11-open-and-owed-a-decision))
   (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
@@ -923,9 +930,13 @@ the `Entry` column carries a token only where one still resolves in that file.
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen),
   `fl_backend/app/api/einladungen/services.py :: compose_einladung`); the delivery state of the
   message that carried its link stays on it too, past the erasure of the contact person it was mailed
-  to — the provider's message id and its outcome, and no address. The questions to put: whether
-  either may be kept without a bound, and whether a delivery record the provider can join back to an
-  address is still that contact person's data.
+  to — the provider's message id and its outcome, and no address. A seat's link entry after a
+  Widerspruch is the same kind of record: on an application and on a team's season row it keeps the
+  delivery state of the message the person answered, past their leaving the seat, until its
+  application or row goes ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The
+  questions to put: whether the invite's address and delivery state may be kept without a bound, and
+  whether a delivery record the provider can join back to an address, on an invite or on a declined
+  seat's entry, is still that person's data.
 - **One act per choice as the proof of a consent, for the Datenschutzexperte.** What demonstrates a
   consent under Art. 7 (1) is the stored record: each of its choices, the publication scope and the
   media consent, keeps when its person last set it and under which wording, and a withdrawal keeps
