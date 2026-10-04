@@ -61,7 +61,7 @@ const {
 } = await import("./registrierungEmail.ts");
 const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
-const { escapeHtml, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
+const { escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
@@ -546,6 +546,35 @@ describe("the shared email shell", () => {
       assert.ok(mail.html.includes("@media (max-width: 480px)"), `${name} has no rule to stack on a narrow screen`);
       assert.match(stylesheet(mail.html), /\.fl-actions[^}]*display: block !important/, `${name}'s stack rule does not stack`);
       for (const { cell } of buttons(mail.html)) assert.ok(cell.includes("fl-action"), `${name} has a control the stack rule cannot reach`);
+    }
+  });
+
+  /* A reader whose client drew no button reaches a token link only through the address printed again
+     below it, and a token URL is wider than the card unless its paragraph breaks inside the word. */
+  it("prints every token link a control carries as an address to copy, in a paragraph that breaks", () => {
+    const gedruckt = new Set<string>();
+
+    for (const { name, mail } of MESSAGES) {
+      const hrefs = buttons(mail.html).flatMap(({ anchor }) => anchor.match(/href="([^"]*token=[^"]*)"/)?.[1] ?? []);
+      for (const href of hrefs) {
+        const absatz = [...mail.html.matchAll(/<p ([^>]*)>([\s\S]*?)<\/p>/g)].find(([, , inner]) => (inner ?? "").includes(`>${href}</a>`));
+
+        assert.ok(absatz !== undefined, `${name} carries ${href} on a control alone`);
+        assert.ok((absatz[1] ?? "").includes("word-break:break-all"), `${name} prints ${href} in a paragraph that cannot break`);
+      }
+      if (hrefs.length === 1) assert.ok(mail.html.includes(FALLBACK_SATZ), `${name} prints its address with no sentence saying why`);
+      if (hrefs.length > 0) gedruckt.add(name);
+    }
+
+    // Named rather than counted: a builder whose control stopped carrying its token would otherwise drop out in silence.
+    for (const name of [
+      "buildBewerbungBestaetigungEmail",
+      "buildEinladungEmail",
+      "buildKontaktBestaetigungEmail",
+      "buildRegistrierungBestaetigungEmail",
+      "buildSchiedsrichterBestaetigungEmail",
+    ]) {
+      assert.ok(gedruckt.has(name), `${name} carries no token link on a control, so this case no longer reads it`);
     }
   });
 

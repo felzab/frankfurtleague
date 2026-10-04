@@ -157,6 +157,37 @@ export function brandPhrase(inner: string): string {
   return `<strong class="${BRAND_MAIL_CLASS}" style="color:${BRAND_COLOR};">${inner}</strong>`;
 }
 
+/**
+ * One line, whatever was typed. The text branch is line-oriented and `escapeHtml` guards the other
+ * one, so a break here is the text half's injection: a value carrying one would render a line the
+ * reader cannot tell from the facts around it.
+ */
+export function einzeilig(value: string): string {
+  return value.replace(/[\r\n]+/g, " ");
+}
+
+/** One situation reads as one sentence to the person meeting it, in whichever message they meet it. */
+export const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
+
+/** One address a reader can copy. `label` is empty where the message carries a single one and there is nothing to tell apart. */
+export type Fallback = { readonly label: string; readonly url: string };
+
+/** The route for a reader whose client drew no button: the sentence, then each address marked as a link, since one a reader has to select and paste is not a route. */
+export function fallbackBloecke(adressen: readonly Fallback[], satz: string): string[] {
+  const adresse = ({ label, url }: Fallback, index: number): string => {
+    // Breaking inside a word: a token URL is longer than the card is wide and would otherwise push the card open.
+    const stil = `${ASIDE_TEXT}word-break:break-all;`;
+
+    return paragraph(
+      `${label === "" ? "" : `${escapeHtml(label)}: `}${link(url, url)}`,
+      index === adressen.length - 1 ? "0 0 16px" : "0 0 8px",
+      stil,
+    );
+  };
+
+  return [paragraph(satz, "0 0 8px", ASIDE_TEXT), ...adressen.map(adresse)];
+}
+
 /** One no-reply sender carries every message (`fl_frontend/src/core/mail.ts :: MAIL_FROM`), so every close says so. */
 const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand; unsere Adresse ist ";
 export const ANTWORT_SATZ_TEXT = `${ANTWORT_VOR}${KONTAKT_EMAIL}.`;

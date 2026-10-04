@@ -6,7 +6,10 @@ import {
   ANTWORT_SATZ_TEXT,
   ASIDE_TEXT,
   BRAND_NAME,
+  einzeilig,
   escapeHtml,
+  FALLBACK_SATZ,
+  fallbackBloecke,
   link,
   mailOrigin,
   paragraph,
@@ -40,10 +43,6 @@ const UEBERSCHRIFT = "Dein Eintrag als Schiedsrichterin oder Schiedsrichter";
 const ignorierSatz = (kontakt: string): string =>
   `Du weißt nichts von einem Eintrag bei der ${BRAND_NAME}? Dann ignoriere diese E-Mail einfach: Ohne Deine Bestätigung erscheint Dein Name nirgends auf der Website. Sollen wir den Eintrag löschen, schreib uns an ${kontakt}.`;
 
-// Spelled here as well as in `fl_frontend/src/core/bewerbungEmail.ts :: FALLBACK_SATZ`: one situation
-// reads as one sentence to the person meeting it, so the two move together.
-const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
-
 /** Named per message, as every application close is: a sentence saying who else read this has to be true of it. */
 const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
 
@@ -70,14 +69,6 @@ export interface SchiedsrichterBestaetigungData {
 }
 
 /**
- * One line, whatever was typed. The text branch is line-oriented, so a break here is its injection:
- * the value would render a line the reader cannot tell from the facts around it.
- */
-function einzeilig(value: string): string {
-  return value.replace(/[\r\n]+/g, " ");
-}
-
-/**
  * One control, as the sign-in message carries one: the message exists for this link alone, and a
  * second destination beside it competes with the one press a reader came for.
  */
@@ -100,10 +91,7 @@ function renderHtml(vorname: string, url: string, frist: string, origin: string)
       ),
       // The address as a marked link: one a reader has to select and paste is not a route.
       paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
-      paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
-      /* The link runs past the card's width, so this one paragraph breaks inside a word. Marked as a
-         link as well: an address a reader has to select and paste is not a route. */
-      paragraph(link(url, url), "0 0 16px", `${ASIDE_TEXT}word-break:break-all;`),
+      ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
       // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
       paragraph(ignorierSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
     ],

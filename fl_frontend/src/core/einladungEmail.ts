@@ -7,7 +7,8 @@ import {
   BRAND_NAME,
   brandPhrase,
   escapeHtml,
-  link,
+  FALLBACK_SATZ,
+  fallbackBloecke,
   mailOrigin,
   paragraph,
   renderKarte,
@@ -27,8 +28,6 @@ const UEBERSCHRIFT = "Registrierungslink";
  */
 const WEITERGABE_SATZ =
   "Behandle den Link wie einen Schlüssel: Wer ihn hat, kann sich für dieses Team registrieren. Über jede Registrierung entscheidet Dein Team: Erst mit der Aufnahme in den Kader steht die Person darin.";
-
-const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 
 /** What one contact seat is sent, one message per address the fan-out tried. */
 export interface EinladungEmailData {
@@ -61,11 +60,7 @@ function renderHtml({ teamName, saisonId, link: url, origin }: EinladungEmailDat
         `${strong(escapeHtml(teamName))} ist in die ${brandPhrase(`Saison ${escapeHtml(saisonId)}`)} der ${BRAND_NAME} aufgenommen. Über den Link unten registrieren sich die Spielerinnen und Spieler für diese Saison. Gib ihn an alle weiter, die für dieses Team spielen.`,
       ),
       paragraph(`Der Link gilt, solange die Registrierung für diese Saison geöffnet ist.`),
-      paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
-      /* The link runs past the card's width, so this one paragraph breaks inside a word, as the
-         sign-in message's does. Marked as a link as well: an address a reader has to select and
-         paste is not a route. */
-      paragraph(link(url, url), "0 0 16px", `${ASIDE_TEXT}word-break:break-all;`),
+      ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
       paragraph(escapeHtml(WEITERGABE_SATZ), "0", ASIDE_TEXT),
     ],
     aktionen: aktionen(url),

@@ -8,6 +8,8 @@ import {
   BRAND_NAME,
   brandPhrase,
   escapeHtml,
+  FALLBACK_SATZ,
+  fallbackBloecke,
   link,
   mailOrigin,
   paragraph,
@@ -18,8 +20,6 @@ import {
 } from "./emailShell";
 
 import type { Aktion } from "./emailShell";
-
-const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 
 export const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 
@@ -96,11 +96,7 @@ const ignorierSatz = (fristTage: number, kontakt: string): string =>
 
 function linkBloecke(url: string, fristTage: number): readonly string[] {
   return [
-    paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
-    /* The link runs past the card's width, so this one paragraph breaks inside a word, as the
-       sign-in message's does. Marked as a link as well: an address a reader has to select and paste
-       is not a route. */
-    paragraph(link(url, url), "0 0 16px", `${ASIDE_TEXT}word-break:break-all;`),
+    ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
     // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
     paragraph(ignorierSatz(fristTage, link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
   ];

@@ -7,7 +7,10 @@ import {
   ASIDE_TEXT,
   BRAND_NAME,
   brandPhrase,
+  einzeilig,
   escapeHtml,
+  FALLBACK_SATZ,
+  fallbackBloecke,
   link,
   mailOrigin,
   paragraph,
@@ -28,10 +31,6 @@ const UEBERSCHRIFT = "Dein Eintrag als Kontaktperson";
  */
 const ignorierSatz = (kontakt: string): string =>
   `Du weißt nichts von diesem Eintrag? Dann widersprich ihm über den Link, oder schreib uns an ${kontakt}: Wir entfernen Deine Angaben dann.`;
-
-// Spelled here as well as in `fl_frontend/src/core/schiedsrichterEmail.ts :: FALLBACK_SATZ`: one
-// situation reads as one sentence to the person meeting it, so the two move together.
-const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 
 /** Named per message, as every close is: a sentence saying who else read this has to be true of it. */
 const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
@@ -60,14 +59,6 @@ export interface KontaktBestaetigungData {
   token: string;
   /** The deadline as a German date, rendered by the caller for the reason `rollenText` is. */
   fristText: string;
-}
-
-/**
- * One line, whatever was typed. The text branch is line-oriented, so a break here is its injection:
- * the value would render a line the reader cannot tell from the facts around it.
- */
-function einzeilig(value: string): string {
-  return value.replace(/[\r\n]+/g, " ");
 }
 
 /** One control, as the referee's message carries one: the message exists for this link alone. */
@@ -105,10 +96,7 @@ function renderHtml(fakten: Fakten): string {
       ),
       // The address as a marked link: one a reader has to select and paste is not a route.
       paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
-      paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
-      /* The link runs past the card's width, so this one paragraph breaks inside a word. Marked as a
-         link as well: an address a reader has to select and paste is not a route. */
-      paragraph(link(fakten.url, fakten.url), "0 0 16px", `${ASIDE_TEXT}word-break:break-all;`),
+      ...fallbackBloecke([{ label: "", url: fakten.url }], FALLBACK_SATZ),
       paragraph(ignorierSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
     ],
     aktionen: aktionen(fakten.url),
