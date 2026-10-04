@@ -1,6 +1,3 @@
-// The harness that compiles `.tsx`, which Node strips no JSX from: a `route.tsx` is as much a handler.
-import "@/shared/testing/renderTest.ts";
-
 import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
