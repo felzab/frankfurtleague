@@ -357,10 +357,10 @@ _SPIELERSEITE_4: Final[Mapping[str, str]] = MappingProxyType(
         **_SPIELERSEITE_3,
         "frist": (
             "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du "
-            "kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du sie, behalten wir sie, bis "
-            "Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in "
-            "Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende "
-            "der Saison nicht entschieden, löschen wir sie dann."
+            "kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten "
+            "wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen "
+            "von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist "
+            "bis zum Ende der Saison nicht entschieden, löschen wir sie dann."
         ),
     }
 )

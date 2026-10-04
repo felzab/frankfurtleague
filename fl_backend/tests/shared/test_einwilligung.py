@@ -55,7 +55,7 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-konto-spieler": "c1935b5a8d6cf4c2b3a2dd5ec82e8530460813206b68a306ad0944da1f3fa456",
     "2026-10-konto-schiedsrichter": "ce42b5fbac90d520a1aa204e169ecc3c211502287bf9e94b9022331e6bb72e21",
     "2026-10-konto-kontakt": "5ce576610f7d3131202dd6d9c5c99e7dd531fe3de7bd7fc4194e78e28c4b4526",
-    "2026-10-spielerseite-4": "d5a5751c1206a0d769e60e6713a73166d45962e04cb5115d6f568e87797289ea",
+    "2026-10-spielerseite-4": "0490d658a40af1a93a487338c2edaea205073bab924f15a060d236c04812fd5b",
     "2026-10-bestaetigungsseite-7": "5d8b6236e4108a2f06990e7e78e8b6b6189789f911c3f4ae1a656cd1afe82ff4",
     "2026-10-bestaetigungsseite-verwaltung": "4e9764880323bd9996a16c90e4739c6f4fbfc3eaf6ebcc072ac35c7e8180b9d2",
 }
