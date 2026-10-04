@@ -120,10 +120,7 @@ def test_a_handler_taking_the_count_calls_it(path: str, method: str):
 
 
 def test_the_execution_suite_drives_a_grant_on_every_operation_taking_the_count():
-    """The case above reads that a call exists, never that it runs: one on a branch that never runs passes it.
-
-    `CONSENTS` parametrises the database case holding a grant to one unit, so each operation it names is driven to the count.
-    """
+    """The case above passes a call on a branch that never runs; `CONSENTS` parametrises the database case driving a grant to one unit."""
 
     consents = [value for param in CONSENTS for value in param.values if isinstance(value, Consent)]
     driven = {
