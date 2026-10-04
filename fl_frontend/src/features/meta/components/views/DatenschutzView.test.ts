@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "e65aac0a3d625b31d6a02d7f9a839a477dcbbbcd5d4fbc03202e66ce26e8986e" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "cd5922c0fc95e37f6d055f7b1bb9ae15e6ca2fb531d1b225146f2369349d2c03" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -173,13 +173,14 @@ describe("the privacy notice's retention table", () => {
 
   /* One fate per clock the registration sweep and the admission run: the admission erases the row, a
      decline starts a month, and a season ending undecided takes the rest. */
-  it("gives a pupil's registration three fates, one per decision", () => {
+  it("gives a pupil's registration three fates, one per decision, and keeps who declined it as long as the decline", () => {
     assert.equal(
       ANGABEN.get("Registrierung eines Spielers oder einer Spielerin"),
       `${amAnfang(inWorten(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE))} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht ` +
         "bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis " +
         "das Team über sie entscheidet: Nimmt es die Person auf, löschen wir die Registrierung, und ihre Angaben stehen von da an " +
-        "im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht " +
+        "im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung, und mit ihr Datum, Grund und " +
+        "E-Mail-Adresse der Person aus dem Team, die abgelehnt hat. Ist bis zum Ende der Saison nicht " +
         "entschieden, löschen wir sie dann",
     );
   });
@@ -623,7 +624,9 @@ describe("the privacy notice's publication and retention rows keep their ruled b
         "Aufnahme in den Kader entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen " +
         "Deinen Namen, Deine Rückennummer, Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst. Deine " +
         "E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und " +
-        "Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail.",
+        "Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail. Zur " +
+        "Ablehnung halten wir das Datum, den Grund und die E-Mail-Adresse der Person aus dem Team fest, die abgelehnt hat; diese " +
+        "Angaben sehen die Administratorinnen und Administratoren der Liga.",
     );
   });
 
