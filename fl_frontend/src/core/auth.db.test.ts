@@ -17,8 +17,10 @@ import {
 } from "./authDoubles.ts";
 import { startJudgedReplicaSet } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
-import { SITZ } from "./subjectFixtures.ts";
+import { answerAt, SITZ } from "./subjectFixtures.ts";
 import { registrationFor } from "./testAuthenticator.ts";
+
+import type { LookupFixture } from "./subjectFixtures.ts";
 
 // A replica set: why this file needs one is `docs/frontend/spec.md` §1.9's.
 const { mongod, closing } = await startJudgedReplicaSet();
@@ -114,7 +116,7 @@ const { sent } = registerAuthDoubles({
 });
 
 /** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
-let gateAnswer: { sitze: unknown[]; gesperrt: boolean } = { sitze: [], gesperrt: false };
+let gateAnswer: Pick<LookupFixture, "sitze" | "gesperrt"> = { sitze: [], gesperrt: false };
 
 // The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -125,13 +127,13 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
   const granted = email === ADMIN_EMAIL;
-  const body = {
+  const body = answerAt(new URL(url).pathname, {
     ...HOLDS_NOTHING,
     verwaltung: granted ? "administration" : null,
     // Before every session a case makes.
     berechtigt_seit: granted ? "2026-01-01T00:00:00Z" : null,
     ...gateAnswer,
-  };
+  });
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }) as typeof globalThis.fetch;
 

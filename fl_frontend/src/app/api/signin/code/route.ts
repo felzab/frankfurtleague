@@ -11,7 +11,7 @@ import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
 import { CODE_FAILURE_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
-import { GESPERRT, OHNE_FUNKTION } from "@/features/auth/passkeyAnswers";
+import { GESPERRT, OHNE_EINTRAG } from "@/features/auth/passkeyAnswers";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
@@ -46,7 +46,7 @@ const REFUSAL_BY_CODE: Readonly<Record<string, string>> = {
   // The mint's own refusals, met only past a right code, so only the mailbox's holder reads them; the
   // passkey's answers word the same two.
   [SIGN_IN_BARRED]: GESPERRT,
-  [SIGN_IN_HOLDS_NOTHING]: OHNE_FUNKTION,
+  [SIGN_IN_HOLDS_NOTHING]: OHNE_EINTRAG,
 };
 
 /** 200 for every answer this application decided, which is what `postPublicForm` tells an edge's answer apart by. */

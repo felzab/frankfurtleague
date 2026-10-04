@@ -653,10 +653,6 @@ address that record holds:
   moves the stored scope, so the seat still reads as allowing WhatsApp until the page takes that
   choice.
 
-**An address whose only records are a pending application's seat, a `past` season's seat or a
-retired row cannot sign in yet** (`fl_frontend/src/core/signInGate.ts :: signInVerdictOf`), so that
-person cannot reach the page, and the only route the code leaves them is their record's erasure.
-
 **Taking a contact person off their seat is an erasure, unless the seat's own link still takes
 their Widerspruch.** Which of the three you are in is decided by that seat's own link, not by the
 person's role:
@@ -1309,9 +1305,9 @@ carries the address. Ask when they tried and read that window
   On the local stack that is `.tmp-mail/`, which every `./scripts/ops/local.sh` start empties of what
   earlier runs filed, so a code there is this run's.
 
-**A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
-live, or whose only seat is on a `past` season; an address whose records all await confirmation is
-mailed, to be told so once signed in, unless it is barred. So a quiet window means a refusal, or a
+**A refusal by the gate writes no line.** It refuses an address that is barred, or that holds no
+record of its own (`docs/glossary.md :: Konto`) and none awaiting its confirmation; an address whose
+records all await confirmation is mailed, to be told so once signed in, unless it is barred. So a quiet window means a refusal, or a
 message the provider accepted and the mailbox never showed, whose bounce the delivery webhook
 reports (§10). An administrator's grant is read on that same call
 (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an administrator too is mailed
