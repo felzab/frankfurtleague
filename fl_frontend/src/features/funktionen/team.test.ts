@@ -417,6 +417,21 @@ describe("the team's squad, as a seat holder reads it", () => {
     }
   });
 
+  /* As text in the chip and never an `aria-label`, which a screen reader ignores on a span with no role:
+     in the words the pupil's own page uses for the same absence. */
+  it("names a row with no number as the pupil's own page does, in text", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answeringKader({ ...KADER, kader: [zeile(MIA, "Mia", "Schmidt", { nummer: null, nummer_doppelt: false })] });
+    try {
+      const { markup, text } = await renderedKader();
+
+      assert.ok(text.includes("Ohne Nummer"), text);
+      assert.ok(!/aria-label="[^"]*Nummer/.test(markup), "the chip names its absence where no screen reader reads it");
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
   /* The page's own check found the seat and the backend's, a moment later, did not: the page answers as
      the shell does for a seat not held, rather than as a crash. */
   for (const spielerId of [undefined, LENA]) {

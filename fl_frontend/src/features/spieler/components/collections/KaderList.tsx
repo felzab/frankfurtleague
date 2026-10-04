@@ -23,12 +23,12 @@ export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderZeile[]
   /** EMPTY rather than absent where the row has none, for `fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx`' reason. */
   const renderNummer = (zeile: FLKaderZeile) => (
     <span
-      aria-label={zeile.nummer === null ? "Keine Nummer" : undefined}
       // A fixed height, as the admin list's chip: an empty span has no line box to size it.
       className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
         zeile.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
       }`}>
-      {zeile.nummer ?? ""}
+      {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role; the pupil's own page's words. */}
+      {zeile.nummer ?? <span className="sr-only">Ohne Nummer</span>}
     </span>
   );
 
