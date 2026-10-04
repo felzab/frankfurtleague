@@ -125,6 +125,12 @@ the machine is outside the repository. What it does tell you:
   before either tag moves (`scripts/ops/deploy.sh :: check_pin_reads_secret_files`), and a rollback
   restoring such a build names §16's steps rather than its tag: that build is deployed from its own
   commit.
+- **Before a deploy by tag to a build from before the bot check, put `#` in front of the
+  `TURNSTILE_SITE_KEY` line in `fl_frontend/.env`.** That build's frontend declares no such name, and
+  its preflight refuses the file naming it, before anything is recreated
+  (`scripts/ops/deploy.sh :: check_frontend_env_names`). Rolling forward removes the `#` again: the
+  newer build requires the line. The automatic rollback restores images by id and runs no preflight,
+  so it needs neither step.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
   contact seat that build re-staffed, once the current build is back.** That build's contacts editor
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
@@ -1447,9 +1453,11 @@ again, which its preflight refuses, then deploy.
 **A build from before the actor token takes a step more**, and every build published before the
 secret files is one, the two arriving in one release. Its backend's settings forbid a name they do
 not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that line in
-`fl_backend/.env` into a comment by putting `#` in front of it; its frontend also requires an
+`fl_backend/.env` into a comment by putting `#` in front of it, and `TURNSTILE_SITE_KEY` in
+`fl_frontend/.env` the same way, every such build coming from before the bot check too (§1); its
+frontend also requires an
 `ALLOWED_ADMIN_EMAILS` line in `fl_frontend/.env`, put back from the password manager. Rolling
-forward restores the `ACTOR_TOKEN_PUBLIC_KEY` line and deletes the `ALLOWED_ADMIN_EMAILS` one, which
+forward restores the `ACTOR_TOKEN_PUBLIC_KEY` and `TURNSTILE_SITE_KEY` lines and deletes the `ALLOWED_ADMIN_EMAILS` one, which
 the newer deploy refuses.
 
 ## 17. Clearing an address's code lock
