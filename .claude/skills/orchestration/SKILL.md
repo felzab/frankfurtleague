@@ -45,6 +45,8 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
   a stop that gives warning being the exception and an announced one getting one action only
   ([resume-prompt.md](resume-prompt.md)). **The resume point is this session continuing, never a
   handoff** ([handoff-template.md](handoff-template.md)).
+- **No clock time is typed**: `tools/reg.py append` stamps every register UPDATE line, and any
+  other time is read from `date` in the action that writes it.
 - **Before recording that the owner's process lacks a step, check whether the step exists and you
   skipped it.** **A programme's rulings live in its register alone**
   ([register-template.md](register-template.md)).
@@ -60,13 +62,13 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
 
 1. **A commit lands in the turn its report is judged**, from the register's commit table, and its
    audit is dispatched in the same action: a cycle that ends on a commit has skipped its last step.
-   **Land it in your own checkout with
-   `git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>`, then `git commit -F <msg>`**:
-   it runs `.githooks/pre-commit` and `commit-msg`, where a plain cherry-pick runs neither, and one
-   reason spread over two agents' branches is one `-n` over both ranges. On a conflict, `--abort`;
-   the agent rebases onto the session branch and resolves in its own worktree. A branch landed before
-   lands again only after its agent's rebase ([register-template.md](register-template.md)). A
-   later fix to a landed commit lands as a commit of its own, naming the commit it corrects.
+   **Land through `.claude/skills/orchestration/tools/land.py <from> <branch>`**, `<from>` the
+   merge-base on a first landing and the worktree row's recorded tip after it: each pick is committed
+   through both hooks, and the tool prints the tip to record. **No agent rebases just to land** —
+   only for a conflict the tool stops on or a landed change its work needs; a branch not holding
+   its tip was rewritten, and `git range-diff` names what to land
+   ([register-template.md](register-template.md)). A later fix to a landed commit lands as a commit
+   of its own, naming the commit it corrects.
 2. **A commit message is good enough when the `commit-msg` hook accepts it and its claims are true
    of its own diff.** Check it against the diff, never against the proposal it came from: for every
    path in the diff, does the body account for it? The hook is the only reader
@@ -86,9 +88,6 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
 6. **Push once per wave; the bare gate is the ending's** (item 4, §7, CLAUDE.md §2). The local
    stack runs in your checkout, which holds landed work only, so it never waits for the fleet (§4),
    and it still holds port 3000 against the next build.
-7. **A rejected, refused or interrupted command is presumed partly run until `git` says otherwise,
-   and a refused commit's index is read before the next commit**
-   ([register-template.md](register-template.md)).
 
 ## 7. Ending the session
 
@@ -171,6 +170,10 @@ Run it for every agent, the fifteenth as much as the first.
   parallelism is a defect report, never a question.**
 - **Dispatch before you read, and before you reply.** A landed report frees a slot, and the queue's
   next standing action fills it before the report is opened.
+- **You are the fleet's one serial resource**, so every report waits on your turns: bank a report
+  as its saved path and a one-line verdict, its findings as the rows `tools/ledger.py bank` writes;
+  send a fix batch as its ledger rows and one line; land through `tools/land.py`; and ask the owner
+  last in a turn, after every landing and dispatch the question does not block.
 - **An agent is bought for a fresh reader, for breadth you cannot cover, or for tool-hours — never
   for typing**: every dispatch costs a brief, a report you must read, a slot, and the risk of a
   second conclusion to drive.
@@ -182,7 +185,7 @@ Run it for every agent, the fifteenth as much as the first.
   banked into the register in the turn it lands
   ([register-template.md](register-template.md)).
 - **Verify every count, file list and exit code in a report yourself**, against the agent's branch —
-  `git log --stat $(git merge-base HEAD <branch>)..<branch>` and `git show <branch>:<path>` — since
+  `git log --stat <from>..<branch>` (§5 item 1) and `git show <branch>:<path>` — since
   what lands is what it committed, never what its worktree or its report says. **A finding about a
   file its reporter does not own is checked at `HEAD` before it is routed**: findings have dissolved
   that way. Route one agent's conclusion to another as a claim with its source named, never as a

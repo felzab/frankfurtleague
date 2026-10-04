@@ -97,7 +97,10 @@ upper bound.
 13 CLAIMS. What tooling, the harness or a guard permits is established by ATTEMPTING it. What you
 cannot test is "not established", with the command that would settle it.
 
-14 REPORT. Your report is your FINAL MESSAGE; no length limit, no narration. In this order:
+14 REPORT. Your report is your FINAL MESSAGE; no length limit, no narration. Every finding -- a
+judged fix that does not hold, a new defect, something you could not drive, a wrong premise -- opens
+with its label `F<n>`, numbered once through the report: the coordinator's ledger tool writes one
+row per label and sees nothing else. In this order:
 
 - (a) per finding or fix judged: the plant, its exit code red, the restore, its exit code green, or
   why it went undriven;

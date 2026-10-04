@@ -53,6 +53,9 @@ Reports landed and not yet judged:
 Commit about to land (from the commit table):
 Last gate run: <the full `./scripts/gate/verify.sh`: its real exit code, its closing line, when>
 Unattended changes still open, and the command that restores each:
+<UPDATE lines, each written by `tools/reg.py append`, which stamps it from the clock and puts it
+above the marker below; the marker line is copied as it stands>
+<!-- reg.py appends UPDATE lines above this line -->
 
 ## File ownership -- the map every dispatch is checked against
 
@@ -97,15 +100,18 @@ items, one with a fixup squashed into it, and staged a sixth. **After a refused 
 `git diff --cached --stat` before the next one**: the refusal leaves its files staged, and the next
 commit sweeps them in under its own message.
 
-**Landing is stock git, in your own checkout** (`SKILL.md` §5), which no agent writes, so its index
-and tree hold exactly what you staged:
+**Landing is the landing tool, in your own checkout** (`SKILL.md` §5), which no agent writes, so its
+index and tree hold exactly what the tool staged:
 
-    git -C <worktree> status --porcelain   # prints nothing: an uncommitted edit would not land
-    git stash list                         # no entry "On <branch>": a stashed edit would not land either
-    git status --porcelain                 # prints nothing: -n picks onto whatever the index holds
-    git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>   # a second branch: its range here too
-    git diff --cached --stat --summary     # against the Files cell; --summary: created, deleted, modes
-    git commit -F <message file>           # pre-commit formats, commit-msg checks, the trailer included
+    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <from> <branch>
+    git show --stat --summary <landed>     # each one against the Files cell; --summary: created, deleted, modes
+
+The tool refuses before any pick what would land the wrong thing: a checkout holding changes, the
+agent's worktree or a stash entry on its branch holding uncommitted work, a merge commit, and a
+branch not holding `<from>`. Its header gives each exit code; every stop past those refusals
+prints the tip the landings before it took. One reason spread over two agents' branches is one
+commit the tool cannot make: land both, then fold them with `git reset --soft` and one
+`git commit -F`.
 
 **A clean cherry-pick is not a correct one.** Two agents making the same change merge without a
 conflict and land it twice, which no exit code reports; the ownership map prevents it, and the
@@ -113,21 +119,23 @@ conflict and land it twice, which no exit code reports; the ownership map preven
 `git diff --cached -- <file>` read, since a doubled hunk inside a file the Files cell names shows in
 no stat.
 
-**Pick ranges, never a commit named alone.** After a range's conflict, `git cherry-pick --abort`
-returns the index and tree to `HEAD`, dropping every pick staged since the last commit — an earlier
-command's included; after a conflict on one commit named alone it refuses, no pick being in
-progress, and leaves the conflict staged, which `git reset --merge` clears (both driven on git
-2.52). So land an agent's branch whole, or its commits one at a time as `<sha>~1..<sha>`: the
-merge-base range still lists a commit an earlier `-n` already landed.
+**Pick ranges, never a commit named alone**, which is why the tool picks each commit as
+`<sha>~1..<sha>`. After a range's conflict, `git cherry-pick --abort` returns the index and tree to
+`HEAD`, dropping every pick staged since the last commit — an earlier command's included; after a
+conflict on one commit named alone it refuses, no pick being in progress, and leaves the conflict
+staged, which `git reset --merge` clears (both driven on git 2.52).
 
-**A branch lands again only after its agent rebases past what landed.** Record in the worktree row's
-"Commits landed as" the branch tip each landing took. The merge-base range of a branch landed before
-still lists the landed commits, and re-picking one merges it back in: a line a later session commit
-removed returns, with exit 0, inside a file the Files cell already names. So before a follow-up's
-commits land, the agent runs `git rebase --onto <session branch> <recorded tip>`, which keeps only
-the commits no landing took. A plain `git rebase <session branch>` drops a landed commit only while
-its landed copy has the same diff, and kept one the pre-commit hook had reformatted (all three
-driven on git 2.52).
+**A branch lands again from the tip its last landing took**, which the tool prints and the worktree
+row records. `<recorded tip>..<branch>` holds exactly the commits no landing took, where the
+merge-base range still lists landed ones, and re-picking one merges it back in: a line a later
+session commit removed returns, with exit 0, inside a file the Files cell already names. **No agent
+rebases just to land** — only for a conflict the tool stops on, or for a landed change its work
+needs, and then with `git rebase --onto <session branch> <recorded tip>`, which keeps only the
+commits no landing took; a plain `git rebase <session branch>` drops a landed commit only while its
+landed copy has the same diff, and kept one the pre-commit hook had reformatted (all three driven on
+git 2.52). A branch not holding its recorded tip was rewritten by its agent:
+`git range-diff <recorded tip>...<branch>` names the commits no landing took, each landed as
+`land.py <sha>~1 <sha>`.
 
 **Confirm which hooks your commit route actually runs.** A plain `git cherry-pick`, `-e` included,
 runs neither `.githooks/pre-commit` nor `commit-msg`, and says nothing about not having run; the
@@ -197,8 +205,8 @@ Cycle is one of: implement, audit, fix, re-audit, fix, done.
 
 ## Worktrees -- one per writing agent, from dispatch until its branch is deleted
 
-| Agent | Worktree path | Branch | Forked at | Commits landed as | Removed | Branch deleted (was) |
-| ----- | ------------- | ------ | --------- | ----------------- | ------- | -------------------- |
+| Agent | Worktree path | Branch | Forked at | Recorded tip, and the commits it landed as | Removed | Branch deleted (was) |
+| ----- | ------------- | ------ | --------- | ------------------------------------------ | ------- | -------------------- |
 
 ## Standing actions -- queued work and the condition that releases each
 
@@ -269,8 +277,10 @@ name the path.>
 | # | Source report | Finding (file :: anchor) | Status | Owner, or the evidence that closed it |
 |---|---|---|---|---|
 
-<One row per out-of-scope, handoff or not-verified-defect item of every banked report, written in the
-edit that banks the report, before its next dispatch. Status is one of OPEN, ROUTED (named agent),
+<One row per finding of every banked report, each labelled F<n> by its author's definition and
+written by `tools/ledger.py bank <register> <report>` in the turn the report is banked, before its
+next dispatch; `tools/ledger.py open <register>` lists the rows still OPEN, and a report labelling
+no finding is refused rather than banked as empty. Status is one of OPEN, ROUTED (named agent),
 FIXED (commit), RULED (ruling or determination), HANDOFF, NOT A DEFECT, MOOT. A finding routed to a
 fixer is a claim until the fixer has judged it real: every fix brief says so, and one found not to be
 a defect closes as NOT A DEFECT with its evidence rather than as a change. The ending closes every
@@ -278,8 +288,9 @@ row; OPEN is never a status the handoff inherits.>
 
 ## Findings banked, and handoff material
 
-<Per completed agent: the condensed verdict. What the next session's handoff will need is written
-here as it lands, never reconstructed at the end.
+<Per completed agent: its report's path, saved under the scratch path before it is routed, and a
+one-line verdict. What the next session's handoff will need is written here as it lands, never
+reconstructed at the end.
 Before banking a novelty as a preference, run the thing that would fail if it were not one: a
 report saying "these are the first two occurrences in the repository" is describing a convention
 it has just watched being broken, and one command settles whether that is new capability or a

@@ -66,6 +66,13 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   `.claude/hooks/implementer-whole-suite.sh`: CI runs every scope over the combined head once a batch
   lands, and the gate runs once, in the coordinator's checkout, over the finished branch. A blast
   radius your set cannot reach goes in (d).
+- **`fl_backend/openapi.json` and `fl_backend/einwilligung.json` are regenerated at landing, never
+  committed by you**: agents regenerating one in parallel conflict across the whole document.
+  Regenerate either to drive your own tests, then `git restore --source=HEAD -- <path>` before you
+  commit; where your change moves one, the commit body says `` `<path>` is regenerated at landing. ``
+  in those words. The landing tool rewrites that sentence to what it did, and stops on a body naming
+  a move the landing does not make or leaving out one it does. Name in (c) every test that passes
+  only over the regenerated document.
 - `.claude/CLAUDE.md` §2's finished task -- branch pushed, draft pull request open, every check
   concluded -- is the coordinator's. You are finished when your commits are made and your report
   lands.
@@ -191,10 +198,14 @@ the change is wrong, not leftovers to tidy.
 14 REPORT. Your report is your FINAL MESSAGE and there is no second copy of it anywhere, so everything
 you have not said dies with you. Close checklist items in order and leave each one's acceptance
 evidence where it can be found. No length limit; no narration of your own process and no restatement
-of the brief. Exactly, in this order:
+of the brief. Every finding -- a wrong premise, something you could not verify, a defect outside your
+scope, a cheaper shape that shipped -- opens with its label `F<n>`, numbered once through the
+report: the coordinator's ledger tool writes one row per label and sees nothing else. Exactly, in
+this order:
 
-- (a) your branch's commits, `git log --format='%h %s' <session branch>..HEAD` -- the range the
-  landing takes -- and the files each changed;
+- (a) the commits this report covers, `git log --format='%h %s' <from>..HEAD` -- `<from>` your fork
+  on a first report and the tip your last report named after it, which is the range the landing
+  takes -- the files each changed, and the tip itself;
 - (b) every file you broke and restored, with `git status --porcelain` read after the last restore;
 - (c) per checklist item, the acceptance evidence, with real exit codes; and every user-facing string
   you added or changed, with where it renders, each a draft until the owner approves it;

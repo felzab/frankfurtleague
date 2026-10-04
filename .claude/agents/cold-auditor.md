@@ -20,7 +20,9 @@ whatever the brief says:
   no tool that writes one: an audit cut short returns nothing, and everything you have not yet said
   dies with you.
 
-Report, in this order, with no length limit:
+Report, in this order, with no length limit. Every finding -- a defect, a wrong premise, something
+you could not verify, a defect outside your scope -- opens with its label `F<n>`, numbered once
+through the report: the coordinator's ledger tool writes one row per label and sees nothing else.
 
 - **What you verified**, and how.
 - **What you could not verify**, and why.

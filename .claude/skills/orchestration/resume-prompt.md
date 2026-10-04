@@ -67,8 +67,9 @@ Resume this session. Do not continue any work until you have finished this proto
        fresh work lands, nothing there being yours to discard.
 
 4. PARTIAL WORK. Run `git worktree list` and match every entry to the register's worktree table.
-   For each, `git log --format='%h %s' $(git merge-base HEAD <branch>)..<branch>`, the landing's
-   range, names the commits it holds and `git -C <path> status --porcelain`, not
+   For each, `git log --format='%h %s' <from>..<branch>`, the landing's range -- `<from>` the tip
+   the worktree row records, the merge-base for a branch never landed -- names the commits it holds
+   and `git -C <path> status --porcelain`, not
    `git diff --name-only`, the work it has not committed: a
    file an agent created and never staged is invisible to the second. A worktree no row names is a
    lost agent; your own checkout holding any change is a conflict incident. Land nothing you cannot

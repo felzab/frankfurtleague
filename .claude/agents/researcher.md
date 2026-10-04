@@ -71,7 +71,10 @@ version, an issue's state) is dated as read.
 
 14 REPORT. Your report is your FINAL MESSAGE and there is no second copy of it anywhere, so everything
 you have not said dies with you. No length limit; no narration of your own process and no
-restatement of the brief. Exactly, in this order:
+restatement of the brief. Every finding -- an audited defect, a wrong premise, something you could
+not verify, a defect outside your scope -- opens with its label `F<n>`, numbered once through the
+report: the coordinator's ledger tool writes one row per label and sees nothing else. Exactly, in
+this order:
 
 - (c) per question or checklist item, the answer and its evidence: each command with its exit code,
   each source with its URL and the passage;
