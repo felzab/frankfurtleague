@@ -563,13 +563,15 @@ class TestTheMediaConsent:
     def test_a_confirmation_giving_medien_from_a_person_of_age_stores_it_on_the_seat_with_its_evidence(self, mongo_replica_set_url: str):
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["trainer"], medien=True)
+            response = await answer(database, client, RAW["trainer"], medien=True)
 
-            return await stored(database)
+            return response, await stored(database)
 
-        einwilligung = on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"]["einwilligung"]
+        response, document = on_a_league(mongo_replica_set_url, body)
+        einwilligung = document["kontakte"]["trainer"]["einwilligung"]
 
-        assert einwilligung["medien"] is True
+        # The answer carries what it stored, as the referee's answer does.
+        assert response.medien is einwilligung["medien"] is True
         assert einwilligung["nachweis"]["medien"] == {"am": "2026-04-01T10:30:00+00:00", "text_version": BEWERBER_SEITE}
 
     def test_a_trainer_below_the_media_age_giving_medien_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
@@ -719,7 +721,7 @@ class TestADecline:
 
         assert document["kontakte"]["stellvertretung"] is None
         assert document["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
-        assert (response.ergebnis, response.geburtsdatum) == ("abgelehnt", None)
+        assert (response.ergebnis, response.geburtsdatum, response.medien) == ("abgelehnt", None, False)
         assert response.ausstehend == list(KONTAKT_SEATS)
         assert (view.zustand, view.vorname, view.text_version) == ("abgelehnt", None, None)
 

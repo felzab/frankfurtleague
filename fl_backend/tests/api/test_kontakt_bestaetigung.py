@@ -226,14 +226,16 @@ SAISON_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_saison"]
 BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
 
 
-async def answer(database: AsyncDatabase, token: str, *, antwort: str = "erteilt", today: str = TODAY, text_version: str = SAISON_SEITE) -> Any:
+async def answer(
+    database: AsyncDatabase, token: str, *, antwort: str = "erteilt", today: str = TODAY, text_version: str = SAISON_SEITE, medien: bool = False
+) -> Any:
     erteilt = antwort == "erteilt"
     body = {
         "token": token,
         "antwort": antwort,
         "geburtsdatum": AN_ADULTS_BIRTHDATE if erteilt else None,
         "whatsapp": erteilt,
-        "medien": False,
+        "medien": medien,
         "text_version": text_version,
     }
 
@@ -777,12 +779,13 @@ class TestABanAfterTheMint:
             await database[Collection.SPERRLISTE].delete_many({})
             token = response.bestaetigungen[0].token
 
-            return await ansicht(database, token), await answer(database, token)
+            return await ansicht(database, token), await answer(database, token, medien=True)
 
         view, answered = on_a_league(mongo_replica_set_url, body)
 
         assert view.zustand == "gueltig"
-        assert answered.ergebnis == "bestaetigt"
+        # The answer carries the media consent it stored, as the application's does.
+        assert (answered.ergebnis, answered.medien) == ("bestaetigt", True)
 
 
 class TestARowsPeopleLeavingTakeTheirLinks:
@@ -1063,7 +1066,7 @@ class TestALinkOutlivingItsSeason:
 
         answered, row, reopened = on_a_league(mongo_replica_set_url, body)
 
-        assert answered.ergebnis == "abgelehnt"
+        assert (answered.ergebnis, answered.medien) == ("abgelehnt", False)
         assert row["kontakte"]["trainer"] is None
         # Its answer outranks the closed row, as `gesperrt` and `bestaetigt` do.
         assert reopened.zustand == "abgelehnt"

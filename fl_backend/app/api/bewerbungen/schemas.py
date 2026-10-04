@@ -781,9 +781,12 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     ausstehend: list[FLKontaktRolle]
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
+    # As stored on every seat the answer wrote, as the referee's answer carries it: `false` after a
+    # Widerspruch, which stores no answer.
+    medien: bool
 
     # The seven below compose the two outbound messages and are the frontend SERVER's alone; its
-    # route handler answers the browser the four above.
+    # route handler answers the browser the five above.
 
     # The application this seat belongs to, so a message composed here can be tagged with it and the
     # provider's delivery event routed back to the seat that was written to.
@@ -812,6 +815,8 @@ class FLSaisonTeamEinwilligungAntwortResponse(BaseAPIResponse):
     ergebnis: Literal["bestaetigt", "abgelehnt"]
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
+    # `FLBewerbungEinwilligungAntwortResponse.medien`'s.
+    medien: bool
 
 
 FLEinwilligungAntwortResponse = Annotated[

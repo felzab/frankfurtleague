@@ -347,7 +347,9 @@ async def post_einwilligung(
                 return_document=ReturnDocument.BEFORE,
             )
 
-            return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="bestaetigt", geburtsdatum=geburtsdatum, whatsapp=antwort_data.whatsapp)
+            return FLSaisonTeamEinwilligungAntwortResponse(
+                ergebnis="bestaetigt", geburtsdatum=geburtsdatum, whatsapp=antwort_data.whatsapp, medien=antwort_data.medien
+            )
 
         await patch_one_in_db(
             collection=saison_teams_collection,
@@ -366,7 +368,7 @@ async def post_einwilligung(
             session=session,
         )
 
-        return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=antwort_data.whatsapp)
+        return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=antwort_data.whatsapp, medien=False)
 
     async def answer_for_the_person(
         session: AsyncClientSession,
@@ -452,6 +454,7 @@ async def post_einwilligung(
                 ausstehend=ausstehende_seats(kontakte=updated_raw.get("kontakte")),
                 geburtsdatum=geburtsdatum,
                 whatsapp=antwort_data.whatsapp,
+                medien=antwort_data.medien,
                 bewerbung_id=bewerbung_raw["_id"],
                 saison_id=saison_id,
                 rolle=seat,
@@ -488,6 +491,7 @@ async def post_einwilligung(
             ausstehend=ausstehende_seats(kontakte=updated_raw.get("kontakte")),
             geburtsdatum=None,
             whatsapp=antwort_data.whatsapp,
+            medien=False,
             bewerbung_id=bewerbung_raw["_id"],
             saison_id=saison_id,
             rolle=seat,

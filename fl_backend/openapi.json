@@ -10684,6 +10684,10 @@
             "type": "boolean",
             "title": "Whatsapp"
           },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
+          },
           "bewerbung_id": {
             "type": "string",
             "title": "Bewerbung Id"
@@ -10740,6 +10744,7 @@
           "ausstehend",
           "geburtsdatum",
           "whatsapp",
+          "medien",
           "bewerbung_id",
           "saison_id",
           "rolle",
@@ -18260,13 +18265,18 @@
           "whatsapp": {
             "type": "boolean",
             "title": "Whatsapp"
+          },
+          "medien": {
+            "type": "boolean",
+            "title": "Medien"
           }
         },
         "type": "object",
         "required": [
           "ergebnis",
           "geburtsdatum",
-          "whatsapp"
+          "whatsapp",
+          "medien"
         ],
         "title": "FLSaisonTeamEinwilligungAntwortResponse",
         "description": "What an answer on a season row's link did, and nothing to compose a message from.\n\nNo application stands behind the seat, so nobody is told."
