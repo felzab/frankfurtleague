@@ -29,7 +29,9 @@ done
 named="${registers[0]}"
 for register in "${registers[@]:1}"; do named+=", and ${register}"; done
 
-text="This session coordinates the fleet its register records, and it was just compacted, which keeps only the opening of the orchestration skill. Before your next action, invoke the orchestration skill again (/orchestration) to restore its whole text, then read the RESUME POINT in ${named}."
+# Re-invoking unchanged content can answer with an already-loaded note instead of the page, so the
+# text names the fallback the harness's own truncation marker names.
+text="This session coordinates the fleet its register records, and it was just compacted, which keeps only the opening of the orchestration skill. Before your next action, invoke the orchestration skill again (/orchestration). If that answers that the skill is already loaded, or the copy you hold still ends at the truncation marker, Read .claude/skills/orchestration/SKILL.md whole. Then read the RESUME POINT in ${named}."
 text="${text//\\/\\\\}"
 text="${text//\"/\\\"}"
 

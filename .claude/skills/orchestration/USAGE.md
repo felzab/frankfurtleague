@@ -22,11 +22,15 @@ line says what was measured, and the exact message sequences for the three ways 
   points at it. The brief, register and handoff templates therefore cost nothing until used.
 - **Compaction keeps the first 5,000 tokens of each invoked skill**, within a shared budget of
   25,000 for all of them, most recently invoked first; the rule that follows for `SKILL.md` is
-  stated at its top. **Measured**: a coordinator compacted three times on 2026-10-04, and each copy
-  of `SKILL.md` re-attached after the summary stopped at §2 item 3, byte 20,596 of the 22,354 the
-  page then held, behind the harness's own truncation marker. The skills documentation's remedy is to invoke
-  the skill again, and `.claude/hooks/orchestration-compact.sh` asks for that after every
-  compaction of a session whose id a register records (`SKILL.md` §1).
+  stated at its top. **Measured**: a coordinator compacted three times on 2026-10-03 and 2026-10-04,
+  and every copy of `SKILL.md` re-attached after the summary ended on the opening words of §2 item
+  3, `3. **Build the file-ownership map`, byte 20,629 of the 22,354 the page then held, followed by
+  the harness's own truncation marker, which says to Read the skill's path. The skills
+  documentation's remedy is to invoke the skill again, but an unchanged skill may answer that with
+  the already-loaded note above instead of a copy, and which of the two wins after a compaction is
+  not established. `.claude/hooks/orchestration-compact.sh` therefore asks, after every compaction
+  of a session whose id a register records, for the re-invocation and, where it restores nothing,
+  a Read of `SKILL.md` whole (`SKILL.md` §1).
 - **Text after `/orchestration` on the same line is passed as arguments**, appended to the skill
   content as a final `ARGUMENTS: <text>` line. That much is **driven**: an agent in this repository
   invoked the skill through the harness's skill tool with the argument `resume` and read
