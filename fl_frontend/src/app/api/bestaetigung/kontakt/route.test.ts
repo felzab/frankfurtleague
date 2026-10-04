@@ -70,6 +70,7 @@ const GESCHRIEBEN = {
   ausstehend: ["trainer", "stellvertretung"],
   geburtsdatum: "1984-05-09",
   whatsapp: false,
+  medien: true,
   bewerbung_id: "0123456789abcdef01234567",
   saison_id: "2026",
   rolle: "ansprechperson",
@@ -196,7 +197,7 @@ describe("the contact seat's confirmation handler", () => {
 
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, LAUFEND);
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").medien, true);
-    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: false });
+    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: false, medien: true });
   });
 });
 
@@ -269,7 +270,14 @@ describe("what one answered seat sets the confirmation handler sending", () => {
 
 describe("a seat an administrator typed onto a team's season row", () => {
   /* The answer as the endpoint gives it for a season row: the echo alone, no application behind it. */
-  const SAISON_GESCHRIEBEN = { acknowledged: 1, quelle: "saison", ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: true };
+  const SAISON_GESCHRIEBEN = {
+    acknowledged: 1,
+    quelle: "saison",
+    ergebnis: "bestaetigt",
+    geburtsdatum: "1984-05-09",
+    whatsapp: true,
+    medien: false,
+  };
 
   /* No application stands behind the seat, so neither „vollständig“ nor a Widerspruch notice is true
      of it, and the person who would be told is nobody's Ansprechperson. */
@@ -277,7 +285,7 @@ describe("a seat an administrator typed onto a team's season row", () => {
     schreibAntwort = () => SAISON_GESCHRIEBEN;
     await bodyOf(aRequest(gueltigerKoerper));
 
-    schreibAntwort = () => ({ ...SAISON_GESCHRIEBEN, ergebnis: "abgelehnt", geburtsdatum: null, whatsapp: false });
+    schreibAntwort = () => ({ ...SAISON_GESCHRIEBEN, ergebnis: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false });
     await bodyOf(aRequest({ ...gueltigerKoerper, antwort: "abgelehnt", geburtsdatum: null }));
 
     assert.deepEqual(mails, []);
@@ -314,7 +322,7 @@ describe("a seat an administrator typed onto a team's season row", () => {
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: true });
+    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: true, medien: false });
   });
 
   /* The control: the same write answered as an application's last seat does send, so the absence

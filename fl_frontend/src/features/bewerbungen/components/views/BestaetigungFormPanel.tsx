@@ -39,12 +39,12 @@ import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type BestaetigungAbschluss =
-  | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean }
+  | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
   | { zustand: "widersprochen-neu" }
   | { zustand: LinkZustand | "saison_vorbei" };
 
 type EinwilligungAntwort =
-  | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean }
+  | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
   | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei" });
 
 /**
@@ -389,7 +389,7 @@ export function BestaetigungFormPanel({
       setSubmitFieldErrors({}, {});
       onAbschluss(
         antwort.ergebnis === "bestaetigt"
-          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp }
+          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp, medien: antwort.medien }
           : { zustand: "widersprochen-neu" },
       );
     });

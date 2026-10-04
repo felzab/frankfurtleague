@@ -115,7 +115,13 @@ export async function POST(request: NextRequest) {
 
       // The echo alone, never `ausstehend` and never an address: which other seats are open is the
       // submitter's business, and this person is shown what was stored for them and nothing more.
-      return { success: true as const, ergebnis: antwort.ergebnis, geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp };
+      return {
+        success: true as const,
+        ergebnis: antwort.ergebnis,
+        geburtsdatum: antwort.geburtsdatum,
+        whatsapp: antwort.whatsapp,
+        medien: antwort.medien,
+      };
     },
   });
 }

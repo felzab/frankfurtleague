@@ -21,6 +21,7 @@ const fetchMock = doubleFetch();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { BestaetigungFormPanel } = await import("./BestaetigungFormPanel.tsx");
+const { BestaetigungView } = await import("./BestaetigungView.tsx");
 
 const KONTAKT = laufendeKontaktFassung();
 /** Typed rather than taken from a constant: the page offers the switch from the age the link's read serves. */
@@ -54,13 +55,15 @@ const renderPanel = () =>
   );
 
 /** The route handler's answer to every request of the case, each body recorded as it was sent. */
-function answerEveryFetch(): { sent: Record<string, unknown>[] } {
+function answerEveryFetch(medien = false): { sent: Record<string, unknown>[] } {
   const sent: Record<string, unknown>[] = [];
   fetchMock.mock.mockImplementation((_input, init) => {
     sent.push(JSON.parse(typeof init?.body === "string" ? init.body : "null") as Record<string, unknown>);
 
     return Promise.resolve(
-      new Response(JSON.stringify({ success: true, ergebnis: "bestaetigt", geburtsdatum: "2000-01-01", whatsapp: false }), { status: 200 }),
+      new Response(JSON.stringify({ success: true, ergebnis: "bestaetigt", geburtsdatum: "2000-01-01", whatsapp: false, medien: medien }), {
+        status: 200,
+      }),
     );
   });
 
@@ -104,6 +107,42 @@ describe("the media switch, offered from the media age alone", () => {
 
     assert.equal(sent.length, 1, "the press sent nothing, so this case compares nothing");
     assert.equal(sent[0]?.medien, true, "the yes given on the switch was not sent");
+  });
+
+  /* What the press stored, off the echo rather than the draft: the page claims nothing the backend did not keep. */
+  it("names the media consent the echo stored on the panel the press ends on", async () => {
+    answerEveryFetch(true);
+    const user = userEvent.setup();
+    render(
+      h(BestaetigungView, {
+        start: {
+          zustand: "gueltig",
+          token: "kein-echtes-token",
+          fassung: KONTAKT,
+          ansicht: {
+            acknowledged: 1,
+            zustand: "gueltig",
+            quelle: "bewerbung",
+            saison_id: "2026",
+            schule: "Lessing-Kolleg",
+            rolle: "trainer",
+            zugleich_rolle: null,
+            vorname: "Mira",
+            text_version: KONTAKT.textVersion,
+            laufende_fassung: KONTAKT.textVersion,
+            mindestalter: BEWERBUNG_MIN_ALTER,
+            medien_mindestalter: MEDIEN_ALTER,
+          },
+        },
+      }),
+    );
+
+    await tippeGeburtsdatum(user, geborenVor(MEDIEN_ALTER));
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    await act(fetchMock.answered);
+    const zeile = screen.queryByText("Fotos, Videos und Interviews")?.parentElement?.textContent ?? "";
+
+    assert.match(zeile, /Fotos, Videos und Interviews\s*erlaubt/, "the panel names no media consent, or not the one stored");
   });
 
   it("withdraws the switch and its yes when the date moves below the media age", async () => {

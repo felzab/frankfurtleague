@@ -38,7 +38,7 @@ export type BestaetigungStart =
 
 type Stand =
   | BestaetigungStart
-  | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean }
+  | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
   | { zustand: "widersprochen-neu"; ansicht: EinwilligungGeoeffnet };
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
@@ -170,6 +170,8 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
               { label: "WhatsApp", wert: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
+              // The referee page's words for the same consent, as its echo carries it.
+              { label: "Fotos, Videos und Interviews", wert: stand.medien ? "erlaubt" : "nicht erlaubt" },
             ]}
           />
           <p className={ABSATZ_CLASSES}>

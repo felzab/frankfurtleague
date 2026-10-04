@@ -721,6 +721,7 @@ export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchem
   ausstehend: z.array(FLKontaktRolleSchema),
   geburtsdatum: CustomDateStringSchema.nullable(),
   whatsapp: z.boolean(),
+  medien: z.boolean(),
   // Every field below is the route handler's alone:
   // `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` composes the two outbound messages from
   // them and answers the browser those above, so no contact person is handed another one's address.
@@ -744,6 +745,7 @@ export const FLSaisonTeamEinwilligungAntwortResponseSchema = BaseAPIResponseSche
   ergebnis: FLBewerbungEinwilligungAntwortResponseSchema.shape.ergebnis,
   geburtsdatum: CustomDateStringSchema.nullable(),
   whatsapp: z.boolean(),
+  medien: z.boolean(),
 });
 export type FLSaisonTeamEinwilligungAntwortResponse = z.infer<typeof FLSaisonTeamEinwilligungAntwortResponseSchema>;
 
