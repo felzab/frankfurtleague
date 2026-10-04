@@ -31,7 +31,8 @@
 # `scripts/checks/check_gate_budget.py` in the pull request's `docs` job. Lowering one is free.
 #
 # A check joining the gate records its measured cost here, the **gate** clause in
-# `.claude/rules/ops.md` being what asks for it. A cost that sits inside its job's floor moves
+# `.claude/rules/ops.md` being what asks for it. Only a new job is refused without a row; a check
+# joining an existing job is held by review and by that job's budget, no step being measured alone. A cost that sits inside its job's floor moves
 # neither the reference nor the budget and takes no stamp of its own. A row carrying `-` for its
 # reference and floor has no floor to sit inside: the report lists its job as measured rather than
 # comparing it (`scripts/checks/check_gate_budget.py :: report_window`), so a cost joining it is

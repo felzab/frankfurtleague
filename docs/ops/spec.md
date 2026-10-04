@@ -1044,8 +1044,9 @@ same table carries two more columns: `budget`, the most a single run of the job 
 first step to its last, and `measured`, the completed runs the row was taken over, as
 `<runs>@<date>`. After the scope verdict, whatever the scope jobs concluded, and on every event, `scripts/checks/check_gate_budget.py` under
 `--jobs` reads this run's own jobs from the runs API and fails the required check on a job over its budget,
-naming the job and both figures; on a job that ran with no row, so a check added to the gate arrives
-with its measured cost or goes red; and on a successful job the API carries no step timestamp for,
+naming the job and both figures; on a job that ran with no row, so a new job arrives with its
+measured cost or goes red, while a check added inside an existing job is held by review and by that
+job's budget, no step being measured on its own; and on a successful job the API carries no step timestamp for,
 a length nothing measured being no pass. A single run swings far wider than a median,
 which is why a budget is not the reference; the rule each budget is set by is the table's header's.
 **One exceedance
