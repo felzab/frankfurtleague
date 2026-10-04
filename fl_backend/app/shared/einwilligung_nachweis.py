@@ -40,30 +40,39 @@ def ist_erteilt(wahl: FLEinwilligungWahl, wert: Any) -> bool:
     return any(wert is erteilend or (isinstance(erteilend, str) and wert == erteilend) for erteilend in _ERTEILEND[wahl])
 
 
-def compose_beleg(*, gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any, am: str, text_version: str) -> dict[str, Any]:
+# Spells an instant as the evidence stores it: `app/core/recording.py :: log_stamp`, which every
+# writer passes in, this module importing nothing from `app/core`.
+Stamp = Callable[[datetime], str]
+
+
+def compose_beleg(
+    *, gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any, am: str, text_version: str, stamp: Stamp
+) -> dict[str, Any]:
     """The evidence a choice set to `wert` keeps, `gespeichert` being the block as it stood before the act."""
 
     beleg: dict[str, Any] = {"am": am, "text_version": text_version}
     if ist_erteilt(wahl, wert):
         return beleg
 
-    nachweise = gespeichert.get(NACHWEIS)
-    zuvor = nachweise.get(wahl) if isinstance(nachweise, Mapping) else None
-    if not isinstance(zuvor, Mapping):
-        # A grant stored before evidence was kept leaves nothing to name: the withdrawal stands alone.
+    if ist_erteilt(wahl, gespeichert.get(wahl)):
+        # The grant this withdrawal ends, read as the renewal reads it: a grant stored before evidence
+        # was kept is dated by its own block's confirmation.
+        zuvor = beleg_of(gespeichert, wahl, stamp=stamp)
+        if zuvor is not None and zuvor[1] is not None:
+            beleg[ERTEILT_ZUVOR] = zuvor[1]
         return beleg
 
-    if ist_erteilt(wahl, gespeichert.get(wahl)):
-        beleg[ERTEILT_ZUVOR] = {"am": zuvor["am"], "text_version": zuvor["text_version"]}
-    elif isinstance(zuvor.get(ERTEILT_ZUVOR), Mapping):
+    nachweise = gespeichert.get(NACHWEIS)
+    stehend = nachweise.get(wahl) if isinstance(nachweise, Mapping) else None
+    if isinstance(stehend, Mapping) and isinstance(stehend.get(ERTEILT_ZUVOR), Mapping):
         # A withdrawal restated keeps the grant the first one ended.
-        beleg[ERTEILT_ZUVOR] = dict(zuvor[ERTEILT_ZUVOR])
+        beleg[ERTEILT_ZUVOR] = dict(stehend[ERTEILT_ZUVOR])
 
     return beleg
 
 
 def compose_wahlen(
-    *, pfad: str, gespeichert: Mapping[str, Any], gesetzt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
+    *, pfad: str, gespeichert: Mapping[str, Any], gesetzt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str, stamp: Stamp
 ) -> dict[str, Any]:
     """The dotted `$set` moving these choices and their evidence on the block at `pfad`, read in the writer's transaction.
 
@@ -74,7 +83,7 @@ def compose_wahlen(
     for wahl, wert in gesetzt.items():
         gesetzt_set[f"{pfad}.{wahl}"] = wert
         gesetzt_set[f"{pfad}.{NACHWEIS}.{wahl}"] = compose_beleg(
-            gespeichert=gespeichert, wahl=wahl, wert=wert, am=am, text_version=text_version
+            gespeichert=gespeichert, wahl=wahl, wert=wert, am=am, text_version=text_version, stamp=stamp
         )
 
     return gesetzt_set
@@ -106,60 +115,56 @@ def nachweis_stand_of(*, bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligung
     return stand
 
 
-def _beleg_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> tuple[datetime, str | None] | None:
-    """When a block's choice was set, with the evidence's own spelling of it; `None` where it cannot say.
+def beleg_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl, *, stamp: Stamp) -> tuple[datetime, dict[str, str] | None] | None:
+    """When a block's choice was set, and its evidence; `None` where the block cannot say when.
 
-    Without evidence, the first instant of its block's German confirmation day, so an act evidenced
-    that day is the later.
+    Unevidenced, the first instant of the block's German confirmation day, under its label where it has one.
     """
 
     am = _am_of(block, wahl)
     if am is not None:
-        return am, block[NACHWEIS][wahl]["am"]
+        beleg = block[NACHWEIS][wahl]
+        return am, {"am": beleg["am"], "text_version": beleg["text_version"]}
 
     tag = block.get("bestaetigt_am")
     if not isinstance(tag, str) or not tag:
         return None
 
-    return datetime.combine(date.fromisoformat(tag), time.min, tzinfo=_GERMANY), None
+    instant = datetime.combine(date.fromisoformat(tag), time.min, tzinfo=_GERMANY)
+    label = block.get("text_version")
+
+    return instant, ({"am": stamp(instant), "text_version": label} if isinstance(label, str) and label else None)
 
 
-def compose_erneuert(
-    *, pfad: str, gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any], stamp: Callable[[datetime], str]
-) -> dict[str, Any]:
+def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any], stamp: Stamp) -> dict[str, Any]:
     """The dotted `$set` renewing the block at `pfad` from `erneuert`, the same person's later answers.
 
-    A choice moves only where it was set there later (`docs/backend/spec.md :: I867`); `stamp` spells
-    the instant of one set before evidence was kept.
+    A choice moves only where it was set there later (`docs/backend/spec.md :: I867`), and only with evidence to carry.
     """
 
     gesetzt: dict[str, Any] = {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS, *SPRECHER)}
     for wahl in WAHLEN:
-        neu, alt = _beleg_of(erneuert, wahl), _beleg_of(gespeichert, wahl)
-        if wahl not in erneuert or neu is None or (alt is not None and neu[0] <= alt[0]):
+        neu, alt = beleg_of(erneuert, wahl, stamp=stamp), beleg_of(gespeichert, wahl, stamp=stamp)
+        if wahl not in erneuert or neu is None or neu[1] is None or (alt is not None and neu[0] <= alt[0]):
             continue
 
-        # Without evidence, its act is the block's own confirmation: that day, under that block's label.
-        am, text_version = (
-            (neu[1], erneuert[NACHWEIS][wahl]["text_version"]) if neu[1] is not None else (stamp(neu[0]), erneuert["text_version"])
-        )
         gesetzt[f"{pfad}.{wahl}"] = erneuert[wahl]
         # Judged against the stored block, so a withdrawal names the grant it ended there.
         gesetzt[f"{pfad}.{NACHWEIS}.{wahl}"] = compose_beleg(
-            gespeichert=gespeichert, wahl=wahl, wert=erneuert[wahl], am=am, text_version=text_version
+            gespeichert=gespeichert, wahl=wahl, wert=erneuert[wahl], am=neu[1]["am"], text_version=neu[1]["text_version"], stamp=stamp
         )
 
     return gesetzt
 
 
-def compose_geboren(*, block: Mapping[str, Any], am: str) -> dict[str, Any]:
+def compose_geboren(*, block: Mapping[str, Any], am: str, stamp: Stamp) -> dict[str, Any]:
     """A block its person's own confirmation writes whole, each choice it holds evidenced under the block's label."""
 
     if NACHWEIS in block or not isinstance(block.get("text_version"), str) or not block["text_version"]:
         raise ValueError("a block being born carries no evidence of its own, and needs the label its person was shown")
 
     nachweis = {
-        wahl: compose_beleg(gespeichert={}, wahl=wahl, wert=block[wahl], am=am, text_version=block["text_version"])
+        wahl: compose_beleg(gespeichert={}, wahl=wahl, wert=block[wahl], am=am, text_version=block["text_version"], stamp=stamp)
         for wahl in WAHLEN
         if wahl in block
     }

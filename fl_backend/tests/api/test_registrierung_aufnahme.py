@@ -718,15 +718,25 @@ class TestThePersonAnAdmissionNames:
 
         einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        # The withdrawal is newer than the registration's grant, so it stands with its own evidence.
+        # The withdrawal is newer than the registration's grant, so it stands with its own evidence,
+        # naming the stored grant it ended by that record's confirmation day.
         assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
             False,
-            {"am": "2026-04-01T09:00:00+00:00", "text_version": KONTO_LABEL},
+            {
+                "am": "2026-04-01T09:00:00+00:00",
+                "text_version": KONTO_LABEL,
+                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+            },
         )
-        # The scope set at the registration is newer than any evidence the person held, so it is renewed.
+        # The scope set at the registration is newer than the person's stored grant, so it is renewed,
+        # naming that grant by its record's confirmation day.
         assert (einwilligung["umfang"], einwilligung["nachweis"]["umfang"]) == (
             "intern",
-            {"am": "2026-03-31T08:00:00+00:00", "text_version": "2026-09"},
+            {
+                "am": "2026-03-31T08:00:00+00:00",
+                "text_version": "2026-09",
+                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+            },
         )
         assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("2026-03-31", "2026-09")
 

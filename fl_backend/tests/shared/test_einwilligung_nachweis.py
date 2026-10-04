@@ -55,7 +55,10 @@ MEDIA_WITHDRAWN: Final[Mapping[str, Any]] = {
     },
 }
 
-# A record stored before evidence was kept: a grant nothing proves.
+# The first instant of 1 April 2026 in Germany, as `log_stamp` spells it.
+START_OF_2026_04_01: Final = "2026-03-31T22:00:00+00:00"
+
+# A record stored before evidence was kept: a grant only its confirmation day dates.
 WITHOUT_EVIDENCE: Final[Mapping[str, Any]] = {key: value for key, value in CONFIRMED.items() if key != "nachweis"}
 
 # A contact seat's record as the application wrote it, before the field `medien` existed.
@@ -93,13 +96,15 @@ class TestTheEvidenceOfOneChoice:
     def test_a_grant_keeps_when_and_under_which_label_and_nothing_else(self):
         """No speaker: only the person's own write stamps evidence, so a field naming one would say nothing."""
 
-        assert compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=True, am=LATER, text_version=ACCOUNT_LABEL) == {
+        assert compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=True, am=LATER, text_version=ACCOUNT_LABEL, stamp=log_stamp) == {
             "am": LATER,
             "text_version": ACCOUNT_LABEL,
         }
 
     def test_a_withdrawal_keeps_the_grant_it_ended(self):
-        assert compose_beleg(gespeichert=CONFIRMED, wahl="medien", wert=False, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL) == {
+        assert compose_beleg(
+            gespeichert=CONFIRMED, wahl="medien", wert=False, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL, stamp=log_stamp
+        ) == {
             "am": WITHDRAWN_AT,
             "text_version": ACCOUNT_LABEL,
             "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
@@ -108,14 +113,32 @@ class TestTheEvidenceOfOneChoice:
     def test_a_withdrawal_restated_keeps_the_grant_the_first_one_ended(self):
         """Not the first withdrawal itself: what a withdrawal proves is the grant it ended."""
 
-        assert compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=False, am=LATER, text_version=ACCOUNT_LABEL) == {
+        assert compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=False, am=LATER, text_version=ACCOUNT_LABEL, stamp=log_stamp) == {
             "am": LATER,
             "text_version": ACCOUNT_LABEL,
             "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
         }
 
-    def test_a_withdrawal_of_a_grant_stored_before_evidence_names_no_earlier_grant(self):
-        assert compose_beleg(gespeichert=WITHOUT_EVIDENCE, wahl="umfang", wert="intern", am=LATER, text_version=ACCOUNT_LABEL) == {
+    def test_a_withdrawal_of_a_grant_stored_before_evidence_names_it_by_its_confirmation_day(self):
+        """Read as the renewal reads it: the first instant of the block's German confirmation day, under the block's label."""
+
+        assert compose_beleg(
+            gespeichert=WITHOUT_EVIDENCE, wahl="umfang", wert="intern", am=LATER, text_version=ACCOUNT_LABEL, stamp=log_stamp
+        ) == {
+            "am": LATER,
+            "text_version": ACCOUNT_LABEL,
+            "erteilt_zuvor": {"am": START_OF_2026_04_01, "text_version": CONFIRMED_LABEL},
+        }
+
+    @pytest.mark.parametrize(
+        "stored",
+        [
+            pytest.param({**WITHOUT_EVIDENCE, "bestaetigt_am": None}, id="no confirmation day"),
+            pytest.param({**WITHOUT_EVIDENCE, "text_version": None}, id="no label"),
+        ],
+    )
+    def test_a_withdrawal_of_a_grant_that_cannot_be_dated_and_named_stands_alone(self, stored: Mapping[str, Any]):
+        assert compose_beleg(gespeichert=stored, wahl="umfang", wert="intern", am=LATER, text_version=ACCOUNT_LABEL, stamp=log_stamp) == {
             "am": LATER,
             "text_version": ACCOUNT_LABEL,
         }
@@ -123,14 +146,16 @@ class TestTheEvidenceOfOneChoice:
     def test_a_grant_after_a_withdrawal_drops_the_earlier_grant(self):
         """Bounded at one act per choice: the grant standing is its own evidence."""
 
-        beleg = compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=True, am=LATER, text_version=ACCOUNT_LABEL)
+        beleg = compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=True, am=LATER, text_version=ACCOUNT_LABEL, stamp=log_stamp)
 
         assert "erteilt_zuvor" not in beleg
 
     def test_a_seat_answered_without_whatsapp_keeps_no_earlier_grant(self):
         """`kontaktdaten` withholds, so a seat's first answer declining WhatsApp is a withdrawal of nothing."""
 
-        assert compose_beleg(gespeichert=SEAT_BEFORE_MEDIEN, wahl="umfang", wert="kontaktdaten", am=LATER, text_version="v6") == {
+        assert compose_beleg(
+            gespeichert=SEAT_BEFORE_MEDIEN, wahl="umfang", wert="kontaktdaten", am=LATER, text_version="v6", stamp=log_stamp
+        ) == {
             "am": LATER,
             "text_version": "v6",
         }
@@ -141,7 +166,7 @@ class TestTheTwoShapesOfAWrite:
         """Dotted, so `bestaetigt_am`, the confirmed label and the other choice's evidence stay as stored."""
 
         assert compose_wahlen(
-            pfad="einwilligung", gespeichert=CONFIRMED, gesetzt={"medien": False}, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL
+            pfad="einwilligung", gespeichert=CONFIRMED, gesetzt={"medien": False}, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL, stamp=log_stamp
         ) == {
             "einwilligung.medien": False,
             "einwilligung.nachweis.medien": {
@@ -152,19 +177,19 @@ class TestTheTwoShapesOfAWrite:
         }
 
     def test_a_record_born_whole_carries_each_choice_it_holds_evidenced_under_its_own_label(self):
-        born = compose_geboren(block=WITHOUT_EVIDENCE, am=GIVEN_AT)
+        born = compose_geboren(block=WITHOUT_EVIDENCE, am=GIVEN_AT, stamp=log_stamp)
 
         assert born == CONFIRMED
 
     def test_a_block_born_with_no_label_is_refused(self):
         with pytest.raises(ValueError):
-            compose_geboren(block={**WITHOUT_EVIDENCE, "text_version": None}, am=GIVEN_AT)
+            compose_geboren(block={**WITHOUT_EVIDENCE, "text_version": None}, am=GIVEN_AT, stamp=log_stamp)
 
     def test_a_block_already_holding_evidence_is_never_born_again(self):
         """Born over stored evidence, a withdrawal's earlier grant would go in one `$set`."""
 
         with pytest.raises(ValueError):
-            compose_geboren(block=MEDIA_WITHDRAWN, am=LATER)
+            compose_geboren(block=MEDIA_WITHDRAWN, am=LATER, stamp=log_stamp)
 
 
 # A registration confirmed between the record's confirmation and its withdrawal: scope narrowed, media granted.
@@ -257,7 +282,12 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
 
         assert (update["einwilligung.umfang"], update["einwilligung.nachweis.umfang"]) == (
             "intern",
-            {"am": START_OF_2026_04_15, "text_version": "2026-09-spielerseite-3"},
+            {
+                "am": START_OF_2026_04_15,
+                "text_version": "2026-09-spielerseite-3",
+                # The grant it ends, dated the same way by the stored block's own day.
+                "erteilt_zuvor": {"am": START_OF_2026_04_01, "text_version": CONFIRMED_LABEL},
+            },
         )
 
     def test_stored_evidence_meets_an_unevidenced_answer_by_its_day(self):
@@ -322,14 +352,18 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         # `bestandsuebernahme` said nobody was asked, which the renewal makes untrue, so it goes.
         assert update["$unset"] == {"einwilligung.erteilt_von": "", "einwilligung.erfasst_von": ""}
 
-        stamp = {"am": "2026-09-30T22:00:00+00:00", "text_version": "2026-09-spielerseite-3"}
+        stamp = {
+            "am": "2026-09-30T22:00:00+00:00",
+            "text_version": "2026-09-spielerseite-3",
+            # The stored grants carried no evidence, so each withdrawal names its grant by the stored day.
+            "erteilt_zuvor": {"am": "2025-08-31T22:00:00+00:00", "text_version": "2025-09"},
+        }
         assert {key: value for key, value in gesetzt.items() if key.startswith("einwilligung.")} == {
             "einwilligung.umfang": "intern",
             "einwilligung.medien": False,
             "einwilligung.datum": "2026-10-01",
             "einwilligung.bestaetigt_am": "2026-10-01",
             "einwilligung.text_version": "2026-09-spielerseite-3",
-            # The stored grants carried no evidence, so neither withdrawal names the grant it ended.
             "einwilligung.nachweis.umfang": stamp,
             "einwilligung.nachweis.medien": stamp,
         }
@@ -338,8 +372,12 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         update = renew(WITHOUT_EVIDENCE, REGISTERED)
 
         assert (update["einwilligung.umfang"], update["einwilligung.medien"]) == ("intern", True)
-        # The stored grant carried no evidence, so the withdrawal names none.
-        assert update["einwilligung.nachweis.umfang"] == {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3"}
+        # The stored grant carried no evidence, so the withdrawal names it by the stored block's day.
+        assert update["einwilligung.nachweis.umfang"] == {
+            "am": REGISTERED_AT,
+            "text_version": "2026-09-spielerseite-3",
+            "erteilt_zuvor": {"am": START_OF_2026_04_01, "text_version": CONFIRMED_LABEL},
+        }
 
     def test_instants_are_compared_as_instants(self):
         """Two spellings of one instant are a tie, which a comparison of the strings would order."""
@@ -409,7 +447,9 @@ def on_a_stored_record(url: str, einwilligung: Mapping[str, Any], *updates: Mapp
 
 
 def press(stored: Mapping[str, Any], gesetzt: Mapping[FLEinwilligungWahl, Any]) -> Mapping[str, Any]:
-    return {"$set": compose_wahlen(pfad="einwilligung", gespeichert=stored, gesetzt=gesetzt, am=LATER, text_version=ACCOUNT_LABEL)}
+    return {
+        "$set": compose_wahlen(pfad="einwilligung", gespeichert=stored, gesetzt=gesetzt, am=LATER, text_version=ACCOUNT_LABEL, stamp=log_stamp)
+    }
 
 
 @pytest.mark.db
@@ -433,4 +473,14 @@ class TestAPressLandsOnTheStoredRecord:
 
         read = on_a_stored_record(mongo_url, WITHOUT_EVIDENCE, press(WITHOUT_EVIDENCE, {"medien": False}))
 
-        assert read == {**WITHOUT_EVIDENCE, "medien": False, "nachweis": {"medien": {"am": LATER, "text_version": ACCOUNT_LABEL}}}
+        assert read == {
+            **WITHOUT_EVIDENCE,
+            "medien": False,
+            "nachweis": {
+                "medien": {
+                    "am": LATER,
+                    "text_version": ACCOUNT_LABEL,
+                    "erteilt_zuvor": {"am": START_OF_2026_04_01, "text_version": CONFIRMED_LABEL},
+                }
+            },
+        }

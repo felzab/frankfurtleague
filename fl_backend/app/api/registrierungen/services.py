@@ -566,6 +566,7 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
             "medien": medien,
         },
         am=am,
+        stamp=log_stamp,
     )
 
     return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": record}}

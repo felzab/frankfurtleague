@@ -19,6 +19,7 @@ from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
+from app.core.recording import log_stamp
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
 from app.shared.einwilligung_nachweis import SPRECHER, compose_wahlen
 from app.shared.folding import mailbox_key, sign_in_identifier
@@ -993,6 +994,7 @@ def compose_confirmation_update(
                 gesetzt={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "medien": medien},
                 am=am,
                 text_version=text_version,
+                stamp=log_stamp,
             )
         )
 

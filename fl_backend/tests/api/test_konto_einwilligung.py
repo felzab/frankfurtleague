@@ -276,8 +276,15 @@ class TestTheTwoChoices:
 
         assert response.status_code == 200, response.text
         assert _block(after[REFEREE_OID]["einwilligung"]) == {**before[REFEREE_OID]["einwilligung"], "umfang": "intern"}
-        # The moved choice alone, under the account control's label; the stored grant predates evidence.
-        assert after[REFEREE_OID]["einwilligung"][NACHWEIS] == {"umfang": {"am": AM, "text_version": _running_label()}}
+        # The moved choice alone, under the account control's label; the stored grant predates evidence,
+        # so the withdrawal names it by its record's confirmation day.
+        assert after[REFEREE_OID]["einwilligung"][NACHWEIS] == {
+            "umfang": {
+                "am": AM,
+                "text_version": _running_label(),
+                "erteilt_zuvor": {"am": "2026-09-01T22:00:00+00:00", "text_version": CONFIRMATION_LABEL},
+            }
+        }
         assert {key: value for key, value in after.items() if key != REFEREE_OID} == {
             key: value for key, value in before.items() if key != REFEREE_OID
         }
@@ -459,6 +466,13 @@ class TestTheAccountPagesRead:
 
 
 SEAT_RUNNING_LABEL = "2026-10-konto-kontakt"
+# A seated grant's withdrawal: the seeded grants predate evidence, so each names its grant by the seat's
+# own confirmation day (`_seat`'s) under the seat's label.
+SEAT_WITHDRAWAL = {
+    "am": AM,
+    "text_version": SEAT_RUNNING_LABEL,
+    "erteilt_zuvor": {"am": "2026-09-02T22:00:00+00:00", "text_version": SEAT_LABEL},
+}
 
 
 def _seat_path(team_id: ObjectId, saison_id: str) -> str:
@@ -495,7 +509,7 @@ class TestTheSeatsMediaChoice:
         assert response.json()["rollen"] == ["stellvertretung"]
         row_before, row_after = before[(TEAM_B_OID, ACTIVE_SAISON)], after[(TEAM_B_OID, ACTIVE_SAISON)]
         assert _block(row_after["stellvertretung"]["einwilligung"]) == {**row_before["stellvertretung"]["einwilligung"], "medien": False}
-        assert row_after["stellvertretung"]["einwilligung"][NACHWEIS] == {"medien": {"am": AM, "text_version": SEAT_RUNNING_LABEL}}
+        assert row_after["stellvertretung"]["einwilligung"][NACHWEIS] == {"medien": SEAT_WITHDRAWAL}
         assert row_after["trainer"] == row_before["trainer"]
         assert {key: value for key, value in after.items() if key != (TEAM_B_OID, ACTIVE_SAISON)} == {
             key: value for key, value in before.items() if key != (TEAM_B_OID, ACTIVE_SAISON)
@@ -519,7 +533,7 @@ class TestTheSeatsMediaChoice:
         assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
         for slot in ("trainer", "ansprechperson"):
             seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
-            assert (seat["medien"], seat[NACHWEIS]) == (False, {"medien": {"am": AM, "text_version": SEAT_RUNNING_LABEL}})
+            assert (seat["medien"], seat[NACHWEIS]) == (False, {"medien": SEAT_WITHDRAWAL})
 
     @pytest.mark.parametrize(("email", "team_id"), [(IDENTIFIER, TEAM_A_OID), (NOBODY, TEAM_B_OID)], ids=["unconfirmed-seat", "no-seat"])
     def test_a_row_holding_no_confirmed_seat_of_the_address_is_refused_and_unwritten(
@@ -769,7 +783,7 @@ class TestAPendingApplicationsSeats:
         }
         for slot in ("trainer", "ansprechperson"):
             einwilligung = after[PENDING_OID][slot]["einwilligung"]
-            assert (einwilligung["medien"], einwilligung[NACHWEIS]) == (False, {"medien": {"am": AM, "text_version": SEAT_RUNNING_LABEL}})
+            assert (einwilligung["medien"], einwilligung[NACHWEIS]) == (False, {"medien": SEAT_WITHDRAWAL})
         assert after[PENDING_OID]["stellvertretung"] == before[PENDING_OID]["stellvertretung"]
         assert {key: value for key, value in after.items() if key != PENDING_OID} == {
             key: value for key, value in before.items() if key != PENDING_OID

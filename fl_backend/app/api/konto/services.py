@@ -16,6 +16,7 @@ from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, seat_is_confirm
 from app.api.kontakte.services import KONTAKT_SLOTS, same_address
 from app.api.schiedsrichter.services import vorname_of
 from app.core.exceptions import WriteRefusal
+from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
 from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, compose_wahlen, nachweis_stand_of
 
@@ -67,7 +68,7 @@ def compose_selbst_einwilligung_move(
         if medien != bool(gespeichert.get("medien", False)):
             moved["medien"] = medien
         if moved:
-            gesetzt.update(compose_wahlen(pfad=pfad, gespeichert=gespeichert, gesetzt=moved, am=am, text_version=text_version))
+            gesetzt.update(compose_wahlen(pfad=pfad, gespeichert=gespeichert, gesetzt=moved, am=am, text_version=text_version, stamp=log_stamp))
 
     return {"$set": gesetzt} if gesetzt else None
 
