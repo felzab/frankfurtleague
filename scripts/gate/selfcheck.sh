@@ -998,6 +998,53 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     if [[ "$compact_said" == "0 " ]]; then info "compaction hook: ${compact_case%%|*} — silent"
     else note_fail "compaction hook: ${compact_case%%|*} must exit 0 silently, got '${compact_said:0:200}'"; fi
   done
+
+  # A writing or driving agent's MCP and Skill calls refused, because the app ignores the
+  # definitions' `disallowedTools`; every other caller and tool let through.
+  TOOLS_HOOK="${REPO_ROOT}/.claude/hooks/writer-tools.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PreToolUse writer-tools.sh Skill mcp__Claude_Browser__navigate mcp__ccd_session__spawn_task
+  tools_drive() { # $1 payload — prints the exit status and stderr
+    local rc=0 out
+    out="$(printf '%s' "$1" | timeout 10 bash "$TOOLS_HOOK" 2>&1 >/dev/null)" || rc=$?
+    printf '%s %s' "$rc" "$out"
+  }
+  for tools_case in \
+    'implementer|mcp__Claude_Browser__navigate' 'implementer|Skill' 'driving-reauditor|mcp__ccd_session__spawn_task'; do
+    tools_said="$(tools_drive "{\"agent_type\":\"${tools_case%%|*}\",\"tool_name\":\"${tools_case#*|}\",\"tool_input\":{}}")"
+    case "$tools_said" in
+      "2 Refused by .claude/hooks/writer-tools.sh"*) info "writer-tools hook: ${tools_case%%|*} ${tools_case#*|} — refused" ;;
+      *) note_fail "writer-tools hook: ${tools_case%%|*} ${tools_case#*|} must exit 2 naming the hook, got '${tools_said:0:200}'" ;;
+    esac
+  done
+  for tools_case in \
+    'the main session|{"tool_name":"mcp__Claude_Browser__navigate","tool_input":{"note":"implementer"}}' \
+    'a researcher|{"agent_type":"researcher","tool_name":"mcp__Claude_Browser__navigate","tool_input":{}}' \
+    'an implementer reading|{"agent_type":"implementer","tool_name":"Read","tool_input":{}}' \
+    'unreadable input|implementer {'; do
+    tools_said="$(tools_drive "${tools_case#*|}")"
+    if [[ "$tools_said" == "0 " ]]; then info "writer-tools hook: ${tools_case%%|*} — let through"
+    else note_fail "writer-tools hook: ${tools_case%%|*} must exit 0 silently, got '${tools_said:0:200}'"; fi
+  done
+
+  # Every spawned or resumed agent with a definition file is told that file binds as it is on disk.
+  DEFINITION_HOOK="${REPO_ROOT}/.claude/hooks/agent-definition.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" SubagentStart agent-definition.sh implementer driving-reauditor researcher cold-auditor
+  for definition_type in implementer driving-reauditor researcher cold-auditor; do
+    definition_said="$(printf '{"hook_event_name":"SubagentStart","agent_id":"a1","agent_type":"%s"}' "$definition_type" | bash "$DEFINITION_HOOK" 2>&1)"
+    if node -e '
+const said = JSON.parse(process.argv[1]).hookSpecificOutput;
+process.exit(said.hookEventName === "SubagentStart" && said.additionalContext.includes(".claude/agents/" + process.argv[2] + ".md") ? 0 : 1);
+' "$definition_said" "$definition_type" 2>/dev/null; then info "definition hook: ${definition_type} — told its definition file"
+    else note_fail "definition hook: ${definition_type} must be told .claude/agents/${definition_type}.md as JSON, got '${definition_said:0:200}'"; fi
+  done
+  for definition_case in \
+    'a built-in agent|{"hook_event_name":"SubagentStart","agent_type":"Explore"}' \
+    'a path in the type|{"hook_event_name":"SubagentStart","agent_type":"../settings"}' \
+    'unreadable input|not json'; do
+    definition_said="$(printf '%s' "${definition_case#*|}" | bash "$DEFINITION_HOOK" 2>&1)"
+    if [[ -z "$definition_said" ]]; then info "definition hook: ${definition_case%%|*} — silent"
+    else note_fail "definition hook: ${definition_case%%|*} must stay silent, got '${definition_said:0:200}'"; fi
+  done
 fi
 
 step "13. Every deliberate non-run reaches the gate"
