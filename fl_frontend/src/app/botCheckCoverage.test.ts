@@ -17,8 +17,8 @@ const ANONYMOUS_SPINE = /\bhandlePublicRequest\(/;
 const SESSION_SPINES =
   /\b(?:runAdminMutation|runAdminRouteWrite|runPersonMutation|runPersonRecordMutation|runKontoMutation|handleUndoRequest)\(/;
 
-/** Cloudflare's check, as `fl_frontend/src/core/turnstile.ts :: passesTurnstile` asks it. */
-const BOT_CHECK = /\bpassesTurnstile\(/;
+/** Cloudflare's check, as `fl_frontend/src/core/turnstile.ts :: turnstileRefusal` asks it. */
+const BOT_CHECK = /\bturnstileRefusal\(/;
 
 /**
  * Every anonymous entry point that may go without the bot check, and why. A reason names what stops a
@@ -78,7 +78,7 @@ describe("every anonymous entry point", () => {
   it("asks Cloudflare's bot check, or carries an exemption saying why it need not", () => {
     const unchecked = SUBJECTS.filter(({ subject, checked }) => !checked && EXEMPT[subject] === undefined).map(({ subject }) => subject);
 
-    assert.deepEqual(unchecked, [], "these reach no `passesTurnstile` and carry no exemption");
+    assert.deepEqual(unchecked, [], "these reach no `turnstileRefusal` and carry no exemption");
   });
 
   /* A stale exemption would excuse whatever later takes its name; one on an entry point that does ask
@@ -109,12 +109,12 @@ describe("the reader of a server-action module", () => {
   it("tells an unguarded action asking the check, directly or through a helper, from one that does not", () => {
     const sample = [
       '"use server";',
-      "async function admits() { return passesTurnstile(token); }",
-      "export async function direct() { await passesTurnstile(token); }",
+      "async function admits() { return turnstileRefusal(token); }",
+      "export async function direct() { await turnstileRefusal(token); }",
       "export async function viaHelper() { await admits(); }",
       "export async function bare() { await sendMail(); }",
-      "// passesTurnstile(",
-      "export async function commented() { /* passesTurnstile( */ }",
+      "// turnstileRefusal(",
+      "export async function commented() { /* turnstileRefusal( */ }",
       "export async function guarded() { return runAdminMutation(async () => sendMail()); }",
     ].join("\n");
 

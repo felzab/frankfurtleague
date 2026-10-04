@@ -1,7 +1,7 @@
 import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
-import { MENSCH_BESTAETIGEN, passesTurnstile } from "@/core/turnstile";
+import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
 import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, BEWERBUNG_VERALTET) };
 
       // Before the write, which mails three addresses the payload names: a refusal here has written and sent nothing.
-      if (!(await passesTurnstile(request.headers.get(TURNSTILE_HEADER)))) return { success: false as const, error: MENSCH_BESTAETIGEN };
+      const refusal = await turnstileRefusal(request.headers.get(TURNSTILE_HEADER));
+      if (refusal !== null) return { success: false as const, error: refusal };
 
       let eingang;
       try {

@@ -9,7 +9,7 @@ import { afterTheResponse } from "@/core/afterResponse";
 import { readServedSession, sendSignInCode, signOutHere } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
-import { MENSCH_BESTAETIGEN, passesTurnstile } from "@/core/turnstile";
+import { MENSCH_BESTAETIGEN, turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
@@ -31,12 +31,13 @@ const neutralResult = (submittedEmail: string): FormState => ({
 });
 
 /**
- * Whether this request may ask for a code: past the bot check, or from a session already holding `email`,
- * which the account page's confirmation asks with no widget on its page (`docs/frontend/spec.md :: I823`).
+ * The refusal this request is answered with, or `null` where it may ask for a code: past the bot check, or
+ * from a session already holding `email`, which the account page's confirmation asks with no widget on its
+ * page (`docs/frontend/spec.md :: I823`).
  */
-async function admitsCodeRequest(formData: FormData, requestHeaders: Headers, email: string): Promise<"weiter" | "mensch" | "erneut"> {
+async function codeRequestRefusal(formData: FormData, requestHeaders: Headers, email: string): Promise<string | null> {
   const token = formData.get(TURNSTILE_FIELD);
-  if (typeof token === "string" && token !== "") return (await passesTurnstile(token)) ? "weiter" : "mensch";
+  if (typeof token === "string" && token !== "") return turnstileRefusal(token);
 
   let served;
   try {
@@ -44,10 +45,10 @@ async function admitsCodeRequest(formData: FormData, requestHeaders: Headers, em
   } catch (failed) {
     // The NAME alone, for the send's own reason below.
     logger.error("auth.signed_in_unread", undefined, { error_code: "FE-AUTH-002", name: failed instanceof Error ? failed.name : "unknown" });
-    return "erneut";
+    return VERSUCHE_ES_ERNEUT_SATZ;
   }
 
-  return served !== null && asSignInIdentifier(served.user.email) === email ? "weiter" : "mensch";
+  return served !== null && asSignInIdentifier(served.user.email) === email ? null : MENSCH_BESTAETIGEN;
 }
 
 /**
@@ -86,10 +87,8 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     const email = asSignInIdentifier(validated.data.email);
 
     // Before the response and safe there: nothing it reads depends on whether the address holds an account.
-    const admitted = await admitsCodeRequest(formData, requestHeaders, email);
-    if (admitted !== "weiter") {
-      return { success: false, error: admitted === "mensch" ? MENSCH_BESTAETIGEN : VERSUCHE_ES_ERNEUT_SATZ, submittedEmail };
-    }
+    const refusal = await codeRequestRefusal(formData, requestHeaders, email);
+    if (refusal !== null) return { success: false, error: refusal, submittedEmail };
 
     // The whole call, behind the response: the mail cap, the code write, the gate and the send all
     // sit in the branch-dependent half, so no branch does any of it before the caller is answered.
