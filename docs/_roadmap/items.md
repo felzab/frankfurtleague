@@ -396,15 +396,16 @@ to take one.
 | Keeping a raised squad-number clash from being stored       | —                            | Yes              |
 | Rework of the Saison page and its editor                    | whichever of the above lands | Yes              |
 
-**The invite's mail is not the message a team entered by hand is owed.** Both presses mail a link only to a
-seat whose own person confirmed it, a link being a credential — the club panel's through
+**The message a team entered by hand is owed carries no link.** Both invite presses mail a link only
+to a seat whose own person confirmed it, a link being a credential — the club panel's through
 `fl_frontend/src/features/einladungen/empfaenger.ts :: bestaetigteEmpfaenger`, the season's through
-`fl_backend/app/api/einladungen/services.py :: bestaetigte_empfaenger`. A seat entered on the junction is stored unconfirmed
-(`fl_backend/app/api/teams/services.py :: UNCONFIRMED_HERKUNFT`) and only an application's own link confirms
-one, so a team entered by hand is mailed its link by neither press, and its administrator hands the link over
-by other means. The message this part adds cannot carry the link to an address nobody confirmed. What a
-failed notification does is fixed already — no failure to deliver a decision's message retracts the decision
-([`docs/frontend/spec.md`](../frontend/spec.md) I39).
+`fl_backend/app/api/einladungen/services.py :: bestaetigte_empfaenger`. A seat an administrator enters
+on a team's season row is stored unconfirmed and confirms through a link of its own, which the
+contacts save mints and `fl_backend/app/api/teams/admin_router.py :: einladen_kontakt` mints again, so
+the invite reaches such a team once one of its people has answered and not before. Whatever the
+message this part adds is sent to, it cannot carry the invite to an address nobody confirmed. What a
+failed notification does is fixed already — no failure to deliver a decision's
+message retracts the decision ([`docs/frontend/spec.md`](../frontend/spec.md) I39).
 
 **The season's structure is not this entry's to build.**
 `fl_backend/app/api/saisons/schedule.py :: schedule_for` takes a season's rules and returns, per phase the
@@ -455,15 +456,6 @@ structural half is therefore the flow that collects the rules, not a second writ
 operations that remove a season's matchdays, a confirmed replace and the undraw, remove its fixtures
 in the same transaction, so the reference cannot dangle (`fl_backend/app/core/domain.py :: REFERENCES`).
 
-**No public write inserts a person into the league, and the admission will be the first write that
-does.** The application form's `POST /bewerbungen` stores what a school submitted, decided by nobody
-until the triage reaches it ([`docs/backend/spec.md`](../backend/spec.md) §1.1), and
-`POST /registrierungen` stores what a pupil submitted through a team's link, decided by nobody yet; each
-confirmation page writes one person's own answer into the record that named them, authorised by an emailed
-token rather than by a session. **An admission would be the decision standing between a stranger's
-submission and a public squad list**, and the first write to put a squad row and the person behind it
-from text nobody in the league typed.
-
 **Recognising a returning player has a shape already, and the tempting version of it is refused.**
 `spieler` holds the person and the `saison_spieler` junction holds everything a squad list shows;
 `uniq_spieler_id_saison_id` gives a person one row per season, so bringing back somebody who already
@@ -478,19 +470,18 @@ one row carrying their name (`fl_backend/app/api/registrierungen/services.py :: 
 a match and resolves none. `ist_nachnominiert` is the field that already records a squad entry arriving after the season
 began, derived at the squad row's create from whether the first matchday's `beginn` has come rather than asked
 (`fl_backend/app/api/spieltage/crud.py :: nachnominierung_laeuft_in`), and a registration admitted
-into a running season is precisely that case: the marker belongs to the squad row an admission would
-write.
+into a running season is precisely that case: the admission derives the marker on the squad row it
+writes.
 
-**Nothing refuses a shared squad number and nothing reports one, so an admission inherits a question
-rather than a pattern.** A shared shirt is a permitted state on every write path
+**A shared squad number is reported and never refused, so the admission inherits a question rather
+than a pattern.** A shared shirt is a permitted state on every write path, the admission's included
 (`fl_backend/app/core/domain.py :: UNENFORCED`), and a registration judges `nummer` on its format
-alone. The squad editor's rail raises no banner about a number
-(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`);
-the editor's save routes through a confirmation for any banner above `info`
-(`fl_frontend/src/shared/components/ui/railBanner.ts :: resolveBlockingBanners`), and the only one it
-raises is `spieler.team-changed` — a transfer rather than a shirt. A whole team registering itself
-multiplies those writes, so whether a player admitted from a registration may take a shirt somebody in
-the squad already wears — and who is told — is a product call this entry owns, and no admin surface answers it first.
+alone. Only the team's own reads mark the clash; the administrator's squad editor raises no banner
+about a number
+(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`).
+A whole team registering itself multiplies those writes, so whether a player admitted from a
+registration may take a shirt somebody in the squad already wears — and who is told — is a product
+call this entry owns, and no surface answers it first.
 
 **What the Saison page and its editor inherit.** The create form is a dialog today
 (`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over
