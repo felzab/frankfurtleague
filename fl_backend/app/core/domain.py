@@ -914,10 +914,12 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no administrative payload: the admission writes the registration's freshly confirmed record whole onto a person "
         "it creates, and onto one it matches renews it, each choice only where the registration set it later "
-        "(`app/api/registrierungen/services.py :: compose_person_update`), and afterwards "
-        "only the person moves its two choices, `umfang` and `medien`, through `PATCH /spieler/selbst/einwilligung`, every "
-        "other member standing: `bestaetigt_am` is what the panel and the publication mask read, and `text_version` names "
-        "the wording the person confirmed. An administrator can neither state a consent nor overwrite one",
+        "(`app/api/registrierungen/services.py :: compose_person_update`). Its two choices, `umfang` and `medien`, are "
+        "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration, "
+        "which an admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
+        "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
+        "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
+        "evidence (`docs/backend/spec.md :: I869`)",
         "app.api.konto.services.compose_selbst_einwilligung_move",
     ),
     FieldPolicy(
