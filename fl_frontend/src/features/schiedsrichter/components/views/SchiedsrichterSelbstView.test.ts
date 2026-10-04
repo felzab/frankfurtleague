@@ -74,4 +74,12 @@ describe("a referee's own page", () => {
     assert.equal(screen.queryAllByRole("switch").length + screen.queryAllByRole("radiogroup").length, 0);
     assert.equal(within(container).getByRole("link", { name: "Konto" }).getAttribute("href"), "/bereich/konto");
   });
+
+  /* The control it points to moves the schedule listing and the media consent both, so the pointer names both. */
+  it("points to the account page for both choices", () => {
+    const { container } = renderView();
+
+    const pointer = within(container).getByRole("link", { name: "Konto" }).closest("p")?.textContent ?? "";
+    assert.ok(pointer.includes("im Spielplan") && pointer.includes("auf der Website"), pointer);
+  });
 });

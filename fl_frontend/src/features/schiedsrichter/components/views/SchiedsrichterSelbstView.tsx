@@ -57,7 +57,7 @@ export function SchiedsrichterSelbstView({ schiedsrichter }: { schiedsrichter: r
               </dl>
 
               <p className="fluid-sm font-medium text-foreground">
-                Ob Dein Name im Spielplan steht, änderst Du unter{" "}
+                Was von Dir im Spielplan und auf der Website stehen darf, änderst Du unter{" "}
                 <Link
                   href={KONTO_HREF}
                   prefetch={false}
