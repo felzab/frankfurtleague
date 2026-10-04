@@ -4,6 +4,7 @@ import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
+  art21Satz,
   ASIDE_TEXT,
   BRAND_NAME,
   brandPhrase,
@@ -34,11 +35,6 @@ const ignorierSatz = (kontakt: string): string =>
 
 /** Named per message, as every close is: a sentence saying who else read this has to be true of it. */
 const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
-
-// A paragraph and a line group of its own: Art. 21(4) DSGVO asks the objection to reach a person at
-// the first contact, apart from every other piece of information, the entry's own Widerspruch included.
-const art21Satz = (adresse: string): string =>
-  `Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
 
 export type KontaktEmail = { subject: string; html: string; text: string };
 

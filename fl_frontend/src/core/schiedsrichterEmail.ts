@@ -4,6 +4,7 @@ import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
+  art21Satz,
   ASIDE_TEXT,
   BRAND_NAME,
   einzeilig,
@@ -46,11 +47,6 @@ const ignorierSatz = (kontakt: string): string =>
 /** Named per message, as every application close is: a sentence saying who else read this has to be true of it. */
 const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
 
-// A paragraph and a line group of its own: Art. 21(4) DSGVO asks the objection to reach a person at
-// the first contact, apart from every other piece of information.
-const art21Satz = (adresse: string): string =>
-  `Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
-
 export type SchiedsrichterEmail = { subject: string; html: string; text: string };
 
 /** What one referee is asked to confirm. No season: a referee's entry is bound to none, so the deadline is the only date here. */
@@ -90,7 +86,7 @@ function renderHtml(vorname: string, url: string, frist: string, origin: string)
         `Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal. Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.`,
       ),
       // The address as a marked link: one a reader has to select and paste is not a route.
-      paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
+      paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL), { zweck: "für den Spielbetrieb" })),
       ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
       // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
       paragraph(ignorierSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
@@ -112,7 +108,7 @@ function renderText(vorname: string, url: string, frist: string, origin: string)
     `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
     "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
     "",
-    art21Satz(KONTAKT_EMAIL),
+    art21Satz(KONTAKT_EMAIL, { zweck: "für den Spielbetrieb" }),
     "",
     url,
     "",
