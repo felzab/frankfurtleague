@@ -53,8 +53,10 @@ Reports landed and not yet judged:
 Commit about to land (from the commit table):
 Last gate run: <the full `./scripts/gate/verify.sh`: its real exit code, its closing line, when>
 Unattended changes still open, and the command that restores each:
-<UPDATE lines, each written by `tools/reg.py append`, which stamps it from the clock and puts it
-above the marker below; the marker line is copied as it stands>
+<UPDATE lines, each written by
+`uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/reg.py append`,
+which stamps it from the clock and puts it above the marker below; the marker line is copied as it
+stands>
 <!-- reg.py appends UPDATE lines above this line -->
 
 ## Expected red -- every check known to fail at the pushed head, and the landing that clears it
@@ -66,9 +68,8 @@ above the marker below; the marker line is copied as it stands>
 landing that clears it arrives: a contract's halves land apart (`SKILL.md` §2 item 5), so the head
 is red between them by design. A red outside this table is a new defect, routed in the turn the
 run concludes; a row whose clearing landing arrived and still fails is a finding. The deferred
-invariant bands sit here as one row, mapped once at the ending, as does the pull request body's
-check until that body is written there. Nothing checks this table against CI: the coordinator
-reads every concluded run against it.>
+invariant bands sit here as one row, mapped once at the ending. Nothing checks this table against
+CI: the coordinator reads every concluded run against it.>
 
 ## File ownership -- the map every dispatch is checked against
 
@@ -103,9 +104,13 @@ the recipe's `--summary` shows the mode each created file arrived with.
 **A message has one route.** `commit-msg` runs `check_commits.py --message-file`, which refuses
 what fails, judges the `Closes:` trailer against the staged diff -- the landing's own diff, so a
 commit is judged in full as it lands -- and prints an over-long subject or an unknown scope as a
-notice on a message it lets through. Read the notice in the turn the commit lands; a reword is a
+notice on a message it lets through. Read the notice in the turn the commit lands, and the body
+against the landed diff before the push (`SKILL.md` §5 item 2): a pushed body stands. A reword is a
 `git reset --soft HEAD~1` and a second `git commit -F`, never `--amend`, which the hook reads as the
-amend's delta alone.
+amend's delta alone, so it reaches only the last commit a run landed. A body or a hub file to be
+read before anything lands on it goes through `land.py --hold`, which stops with that one commit
+staged and its rewritten message on disk, and prints the command that commits it and the `<from>`
+that continues the run.
 
 **A rejected, refused, interrupted or timed-out command is presumed to have run in part** until
 `git log` and `git status` say what it did: a landing rejected mid-run had already committed five
@@ -129,7 +134,7 @@ commit the tool cannot make: land both, then fold them with `git reset --soft` a
 **A clean cherry-pick is not a correct one.** Two agents making the same change merge without a
 conflict and land it twice, which no exit code reports; the ownership map prevents it, and the
 `--stat` read catches it only at file level — a hub file shared by region needs its whole
-`git diff --cached -- <file>` read, since a doubled hunk inside a file the Files cell names shows in
+`git show <landed> -- <file>` read, since a doubled hunk inside a file the Files cell names shows in
 no stat.
 
 **Pick ranges, never a commit named alone**, which is why the tool picks each commit as
@@ -146,9 +151,10 @@ rebases just to land** — only for a conflict the tool stops on, or for a lande
 needs, and then with `git rebase --onto <session branch> <recorded tip>`, which keeps only the
 commits no landing took; a plain `git rebase <session branch>` drops a landed commit only while its
 landed copy has the same diff, and kept one the pre-commit hook had reformatted (all three driven on
-git 2.52). A branch not holding its recorded tip was rewritten by its agent:
-`git range-diff <recorded tip>...<branch>` names the commits no landing took, each landed as
-`land.py <sha>~1 <sha>`.
+git 2.52). After that rebase the branch no longer holds its recorded tip, and it lands from
+`git merge-base HEAD <branch>`. A branch not holding its recorded tip without one was rewritten by
+its agent: `git range-diff <recorded tip>...<branch>` names the commits no landing took, each landed
+as `land.py <sha>~1 <sha>`.
 
 **Confirm which hooks your commit route actually runs.** A plain `git cherry-pick`, `-e` included,
 runs neither `.githooks/pre-commit` nor `commit-msg`, and says nothing about not having run; the
@@ -251,7 +257,7 @@ it a row and mark it estimated; the landing recipe above is the whole of its per
 round that audit feeds, neither of which belongs to the wave and both of which the ending owes;
 the plan reconciled against the branch, every slice ticked to a landed commit and every enumerated
 row inside a closed entry ticked too; the deferred invariant bands mapped and every expected-red
-row closed; `tools/ledger.py open` printing nothing; the full gate, `./scripts/gate/verify.sh`; the
+row closed; `.claude/skills/orchestration/tools/ledger.py open` printing nothing; the full gate, `./scripts/gate/verify.sh`; the
 draft pull request's body; every started check's conclusion; the handoff and its independent audit; the starter
 prompt. Once one wave plus this list is what remains, dispatch nothing new.>
 
@@ -292,9 +298,11 @@ name the path.>
 |---|---|---|---|---|
 
 <One row per finding of every banked report, each labelled F<n> by its author's definition and
-written by `tools/ledger.py bank <register> <report>` in the turn the report is banked, before its
-next dispatch; `tools/ledger.py open <register>` lists the rows still OPEN, and a report labelling
-no finding is refused rather than banked as empty. Status is one of OPEN, ROUTED (named agent),
+written by
+`uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/ledger.py bank <register> <report>`
+in the turn the report is banked, before its next dispatch; its `open <register>` lists the rows
+still OPEN, a report labelling no finding is refused rather than banked as empty, and a second
+report saved under a banked name is refused until `--as <name>` gives it one of its own. Status is one of OPEN, ROUTED (named agent),
 FIXED (commit), RULED (ruling or determination), HANDOFF, NOT A DEFECT, MOOT. A finding routed to a
 fixer is a claim until the fixer has judged it real: every fix brief says so, and one found not to be
 a defect closes as NOT A DEFECT with its evidence rather than as a change. The ending closes every

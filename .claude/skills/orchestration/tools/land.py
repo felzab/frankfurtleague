@@ -9,7 +9,8 @@ for its body or a hub file to be read.
 
     uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py [--hold] <from> <branch>
 
-`<from>` is the merge-base on a first landing and the recorded tip after it. `EXITS` gives each exit.
+`<from>` is the merge-base on a first landing, the recorded tip after it, and the new merge-base
+after its agent's `git rebase --onto`. `EXITS` gives each exit.
 """
 
 from __future__ import annotations

@@ -35,15 +35,18 @@ where the cut falls, which a fresh invocation restores (§1).
   A `resume` argument is a resume, and so is arriving with no instruction into a transcript already
   carrying this session's work; either way run [resume-prompt.md](resume-prompt.md) to its end
   before anything else.**
-- **After a compaction, invoke `/orchestration` again and read the register's resume point before
-  the next action**: compaction keeps this page's opening only, as
-  `.claude/hooks/orchestration-compact.sh` reminds you.
+- **A compaction is no resume: invoke `/orchestration` again and read the register's resume point
+  before the next action**, and where the answer is an already-loaded note or the page still ends at
+  the truncation marker, Read `.claude/skills/orchestration/SKILL.md` whole. **Where this session's
+  id (§2 item 8) differs from the register's `Coordinator session id`, rewrite that line**: the
+  compaction hook finds the register by it.
 - **A quota stop costs exactly what the register does not hold**: edits on disk survive it, while an
   agent's unreturned findings and your judgement since the last register edit die with it. So the
   register's **resume point** ([register-template.md](register-template.md)) is rewritten in the
   same edit as whatever it names, and is this session continuing, never a handoff.
-- **No clock time is typed**: `tools/reg.py append` stamps every register UPDATE line, and any
-  other time is read from `date` in the action that writes it.
+- **The tools are `.claude/skills/orchestration/tools/<name>.py`, each run as
+  `uv run --project fl_backend --frozen python <path>`. No clock time is typed**: `reg.py append`
+  stamps every register UPDATE line, and any other time is read from `date` as it is written.
 - **Before recording that the owner's process lacks a step, check whether the step exists and you
   skipped it.** **A programme's rulings live in its register alone**
   ([register-template.md](register-template.md)).
@@ -51,45 +54,44 @@ where the cut falls, which a fresh invocation restores (§1).
   moment it arises: owner latency is unbounded and gates whole branches of the schedule, and asking
   one at a time was the programme's largest avoidable delay. **Settle it against the live system
   first** — an owner interrupted for nothing discounts the next.
-- **A stretch nobody will answer is prepared before it starts** — what to disable, on which axis,
-  and how the change is undone without your remembering it, is
-  [register-template.md](register-template.md).
+- **A stretch nobody will answer is prepared before it starts**
+  ([register-template.md](register-template.md)).
 
 ## 5. Commits and the boundary
 
 1. **A commit lands in the turn its report is judged**, from the register's commit table, and its
    audit is dispatched in the same action: a cycle that ends on a commit has skipped its last step.
-   **Land through `.claude/skills/orchestration/tools/land.py <from> <branch>`**, `<from>` the
-   merge-base on a first landing and the worktree row's recorded tip after it: each pick is committed
-   through both hooks, and the tool prints the tip to record. **No agent rebases just to land** —
-   only for a conflict the tool stops on or a landed change its work needs; a branch not holding
-   its tip was rewritten, and `git range-diff` names what to land
+   **Land through `land.py <from> <branch>`** (§1), `<from>` the merge-base on a first landing, the
+   worktree row's recorded tip after it, and the new merge-base after the agent's
+   `git rebase --onto`; it prints the tip to record. **No agent rebases just to land** — only for a
+   conflict the tool stops on or a landed change its work needs
    ([register-template.md](register-template.md)). A later fix to a landed commit lands as a commit
    of its own, naming the commit it corrects.
 2. **A commit message is good enough when the `commit-msg` hook accepts it and its claims are true
    of its own diff.** Check it against the diff, never against the proposal it came from: for every
-   path in the diff, does the body account for it? The hook is the only reader
-   ([register-template.md](register-template.md)).
+   path in the diff, does the body account for it? **Read each landed body against its
+   `git show --stat` before the push**, and land a commit whose body or hub file needs reading
+   first with `land.py --hold` ([register-template.md](register-template.md)).
 3. **Re-establish every fact in the message as you commit it**, never from the agent's report: an
    installed version, a remote setting or a file's presence moves between drafting and permanence.
-   **A claim about the code is checked against that commit**, never against where the branch ends —
-   the tooling claims being the ones nobody re-reads. Qualify every blanket negative to what
-   you checked — "nothing else is shared" missed a process-global two frames down.
+   **A claim about the code is checked against that commit**, never against where the branch ends.
+   Qualify every blanket negative to what you checked — "nothing else is shared" missed a
+   process-global two frames down.
 4. **Only the branch's final state passes the gate**; a commit is held to its hooks, never probed or
-   reordered to be green alone, and CI's run over a batch is read against the expected-red list
-   (item 6), never per commit.
+   reordered to be green alone.
 5. **At the boundary, reconcile mechanically** ([resume-prompt.md](resume-prompt.md) step 4): your
    checkout is clean, and every `git worktree list` entry is a live agent's or a branch the commit
    table has landed. Remove a landed one and delete its branch, never the owner's question
    ([register-template.md](register-template.md)).
-6. **Push once per batch, the first push opening the draft pull request, and start
-   `gh pr checks <n> --watch` in the background in the same action: CI over the combined head is
-   the batch's whole-suite run.** Read its conclusion against the register's **expected-red list**:
-   a red outside it is a new defect, routed at once; a listed one whose landing arrived and still
-   fails is a finding. **Dispatch no writer while `HEAD` holds a landing whose CI has not concluded,
-   and no lens round or driving re-audit over a red outside the list.** A push cancels the run
-   before it. CI is Linux, so run the suites in your checkout every few batches for what only
-   Windows breaks. The bare gate is the ending's (§7, CLAUDE.md §2).
+6. **Push once per batch and start `gh pr checks <n> --watch` in the background in the same action:
+   CI over the combined head is the batch's whole-suite run.** The first push opens the draft pull
+   request, its body in `docs/_git/templates.md`'s form. Read each conclusion against the register's
+   **expected-red list**: a red outside it is a new defect, routed at once; a listed one whose
+   landing arrived and still fails is a finding. **No writer goes out while `HEAD` holds a landing
+   whose CI has not concluded, and no lens round or driving re-audit until it concluded with nothing
+   outside the list.** A push cancels the run before it, so landings made during a run wait for one
+   push after it. CI is Linux: run the suites locally every few batches for what only Windows
+   breaks. The bare gate is the ending's (§7, CLAUDE.md §2).
 
 ## 7. Ending the session
 
@@ -106,7 +108,7 @@ The ending, in order:
    `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. **The branch is
    stable only here** — the last fix committed, the gate green, no live agent still able to return a
    finding, and every worktree row closed ([register-template.md](register-template.md)).
-3. Write the draft pull request's body once, here (CLAUDE.md §2), and **start the handoff in the
+3. Replace the draft pull request's body once, here (CLAUDE.md §2), and **start the handoff in the
    same action, which is its moment**: the checks then run for as long as the handoff takes to
    write, audit and fix.
 4. **Write the handoff ([handoff-template.md](handoff-template.md)) and the next session's starter
@@ -128,10 +130,9 @@ Run it for every agent, the fifteenth as much as the first.
    its partition, so check its files are still free.
 2. **Diff this brief's file list against what every unclosed agent OWNS, path by path** — its whole
    brief list, never the subset it is writing now, because an agent can return to any of its files
-   until it reports. Nothing mechanical sees
-   two owners ([register-template.md](register-template.md)). A file two agents must share is
-   written into both briefs, each naming the other's region ([the brief](agent-brief-template.md)
-   section 1).
+   until it reports. Nothing mechanical sees two owners
+   ([register-template.md](register-template.md)). A file two agents must share is written into both
+   briefs, each naming the other's region ([the brief](agent-brief-template.md) section 1).
 3. **Sum against the budget** — the live count and this agent — and never dispatch blind. **A raised
    cap is a number, not a suspension**, and the sum lapses exactly when requests arrive faster than
    agents finish, each justified alone. **Name which of §4's three reasons buys this agent before
@@ -139,9 +140,9 @@ Run it for every agent, the fifteenth as much as the first.
    dispatch.
 4. **Brief from [agent-brief-template.md](agent-brief-template.md): one to an `implementer` carries
    sections 1 and 3, the values its definition names and its work's own traps**, every path in
-   full. **One
-   prep agent resolves a whole wave's premises against `HEAD` before its briefs are written** —
-   half of them otherwise carry one the tree contradicts, each paid for twice, in the agent's rediscovery and in the fix round that follows.
+   full. **One prep agent resolves a whole wave's premises against `HEAD` before its briefs are
+   written** — half of them otherwise carry one the tree contradicts, each paid for twice, in the
+   agent's rediscovery and in the fix round that follows.
 5. **Dispatch a judging auditor as `cold-auditor`, a writing agent as `implementer`, an auditor that
    must plant or run a suite as `driving-reauditor`, and research or an audit reading only committed
    state as `researcher`**, whose shell writes no repository file; `general-purpose` keeps a
@@ -164,15 +165,15 @@ Run it for every agent, the fifteenth as much as the first.
   proves you did:** `Fleet: 3 of <cap>, two queued behind the gate commit.` No clause explaining a
   blockage, which belongs in the reply's prose.
 - **The gauge cannot test "nothing is dispatchable"**: a truthful count sits happily above a queue
-  nobody examined. Name what would have to become true for one more agent to go out, and check whether it
-  already is; three classes a busy tree almost never blocks are a cold audit over a captured diff
-  (§6), read-only research, and the next wave's prep agent (§3). **The owner asking about
-  parallelism is a defect report, never a question.**
+  nobody examined. Name what would have to become true for one more agent to go out, and check
+  whether it already is; three classes a busy tree almost never blocks are a cold audit over a
+  captured diff (§6), read-only research, and the next wave's prep agent (§3). **The owner asking
+  about parallelism is a defect report, never a question.**
 - **Dispatch before you read, and before you reply.** A landed report frees a slot, and the queue's
   next standing action fills it before the report is opened.
 - **You are the fleet's one serial resource**, so every report waits on your turns: bank a report
-  as its saved path and a one-line verdict, its findings as the rows `tools/ledger.py bank` writes;
-  send a fix batch as its ledger rows and one line; land through `tools/land.py`; and ask the owner
+  as its saved path and a one-line verdict, its findings as the rows `ledger.py bank` writes; send
+  a fix batch as its ledger rows and one line; land through `land.py`; and ask the owner
   last in a turn, after every landing and dispatch the question does not block.
 - **An agent is bought for a fresh reader, for breadth you cannot cover, or for tool-hours — never
   for typing**: every dispatch costs a brief, a report you must read, a slot, and the risk of a
@@ -183,12 +184,12 @@ Run it for every agent, the fifteenth as much as the first.
   instead, being one the author can dispute from inside the reasoning that produced it.
 - **Size a brief by what losing its whole output costs**: a report is the agent's final message.
 - **Verify every count, file list and exit code in a report yourself**, against the agent's branch —
-  `git log --stat <from>..<branch>` (§5 item 1) and `git show <branch>:<path>` — since
-  what lands is what it committed. **A finding about a
-  file its reporter does not own is checked at `HEAD` before it is routed**: findings have dissolved
-  that way. Route one agent's conclusion to another as a claim with its source named, never as a
-  premise; your own inference, stated one notch wider than its evidence, reaches an agent as fact.
-  When two agents disagree about one file, drive the difference — never pick a side, never average.
+  `git log --stat <from>..<branch>` (§5 item 1) and `git show <branch>:<path>` — since what lands is
+  what it committed. **A finding about a file its reporter does not own is checked at `HEAD` before
+  it is routed**: findings have dissolved that way. Route one agent's conclusion to another as a
+  claim with its source named, never as a premise; your own inference, stated one notch wider than
+  its evidence, reaches an agent as fact. When two agents disagree about one file, drive the
+  difference — never pick a side, never average.
 - **Route every ledger row in the turn you bank it, at the class, never at the instance reported**
   — protecting the one file reported lost other agents' commit messages in that directory a wave
   later: a fixer where it is a fix, the owner where unsure, a check where the class is mechanically
@@ -203,14 +204,15 @@ Run it for every agent, the fifteenth as much as the first.
 
 **At the plan and at every wave boundary, write what remains as a block-by-block wall-clock estimate
 ([register-template.md](register-template.md)), each figure marked measured or estimated, then read
-it back for what to change**: the estimate alone has never moved a schedule. **A wave costs its longest agent, never the sum**, so the schedule is a chain of
-longest agents: find the block dominating it and spend the round there, because **an optimisation
-leaving that block untouched buys nothing**, however easy it looks. **A whole exceeding the
-arithmetic of its parts is a serialisation nobody has named**; and where one block dominates two
-read-backs running, the question stops being how to shorten it and becomes what could have started
-earlier. **Re-take any figure a decision rests on with the fleet listed and stopped, and refuse a
-bare number** — every figure a fleet takes is an upper bound, and its spread measures contention
-rather than the change (`.claude/agents/implementer.md` section 12).
+it back for what to change**: the estimate alone has never moved a schedule. **A wave costs its
+longest agent, never the sum**, so the schedule is a chain of longest agents: find the block
+dominating it and spend the round there, because **an optimisation leaving that block untouched
+buys nothing**. **A whole exceeding the arithmetic of its parts is a serialisation nobody has
+named**; and where one block dominates two read-backs running, the question stops being how to
+shorten it and becomes what could have started earlier. **Re-take any figure a decision rests on
+with the fleet listed and stopped, and refuse a bare number** — every figure a fleet takes is an
+upper bound, and its spread measures contention rather than the change
+(`.claude/agents/implementer.md` section 12).
 
 ### Machine and refs are shared
 
@@ -243,8 +245,6 @@ lightening floor and its discriminator [register-template.md](register-template.
   checklist of what changed, and the structural checks. **A look ruling is a class** and binds every
   surface in flight, and **the owner is the primary source on what the owner has looked at**: where
   a handoff's list disagrees, the list is withdrawn.
-- **A ruling's register row closes only when the tree matches the ruling's words**
-  ([register-template.md](register-template.md)).
 - **Audits are bought by blast radius, not by agent count.** One cold auditor per seam takes every
   slice that seam crosses; one driving re-auditor takes every fix landed since the last, across
   seams ([the brief](agent-brief-template.md)); a follow-up found by one audit rides the next

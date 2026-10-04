@@ -68,7 +68,8 @@ Resume this session. Do not continue any work until you have finished this proto
 
 4. PARTIAL WORK. Run `git worktree list` and match every entry to the register's worktree table.
    For each, `git log --format='%h %s' <from>..<branch>`, the landing's range -- `<from>` the tip
-   the worktree row records, the merge-base for a branch never landed -- names the commits it holds
+   the worktree row records, the merge-base for a branch never landed or rebased onto the session
+   branch since (`SKILL.md` §5 item 1) -- names the commits it holds
    and `git -C <path> status --porcelain`, not
    `git diff --name-only`, the work it has not committed: a
    file an agent created and never staged is invisible to the second. A worktree no row names is a
@@ -91,9 +92,11 @@ Resume this session. Do not continue any work until you have finished this proto
    run is not evidence of a clean tree now.
 
 7. RESUME POINT. State the single next action and why it is next, and write it into the register in
-   the same edit as the action itself, not after it. Then continue, at the same parallelism the
-   work can absorb -- a resumed session that runs one agent at a time has lost the fleet as surely
-   as the pause did.
+   the same edit as the action itself, not after it. Where this session's id (`SKILL.md` §2 item 8)
+   differs from the register's, rewrite the line in that edit as `Coordinator session id: <id>`: a
+   continued, forked or pasted-into session carries a new id, and the compaction hook finds the
+   register by the line alone. Then continue, at the same parallelism the work can absorb -- a
+   resumed session that runs one agent at a time has lost the fleet as surely as the pause did.
 
 Quality is the absolute goal here. Where a piece of work cannot be shown to have completed
 correctly, redo it -- I would rather redo than accept bad output. But do not spend tokens
