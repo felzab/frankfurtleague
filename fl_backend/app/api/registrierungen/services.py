@@ -34,7 +34,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_nachweis import SPRECHER, compose_erneuert, compose_geboren
+from app.shared.einwilligung_nachweis import SPRECHER, compose_erneuert, compose_geboren, ohne_sprecher
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -979,7 +979,7 @@ def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adr
         # admission: a new person needs choices nobody was asked for.
         raise ValueError("a returning pupil's registration carries no choice to create a person from")
 
-    einwilligung = {field: value for field, value in registrierung_raw["einwilligung"].items() if field not in SPRECHER}
+    einwilligung = ohne_sprecher(registrierung_raw["einwilligung"])
 
     return {"_id": spieler_id, **fields, "einwilligung": einwilligung}
 
