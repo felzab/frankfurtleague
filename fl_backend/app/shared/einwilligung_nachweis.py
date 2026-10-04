@@ -13,6 +13,7 @@ See: docs/glossary.md
 """
 
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, Final, Literal
 
 NACHWEIS: Final = "nachweis"
@@ -70,6 +71,35 @@ def compose_wahlen(
         )
 
     return gesetzt_set
+
+
+def _am_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> datetime | None:
+    nachweise = block.get(NACHWEIS)
+    beleg = nachweise.get(wahl) if isinstance(nachweise, Mapping) else None
+
+    return datetime.fromisoformat(beleg["am"]) if isinstance(beleg, Mapping) and isinstance(beleg.get("am"), str) else None
+
+
+def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any]) -> dict[str, Any]:
+    """The dotted `$set` renewing the block at `pfad` from `erneuert`, the same person's later answers.
+
+    A choice moves only where its instant there is the later (`docs/backend/spec.md :: I867`).
+    """
+
+    gesetzt: dict[str, Any] = {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS)}
+    for wahl in WAHLEN:
+        neu, alt = _am_of(erneuert, wahl), _am_of(gespeichert, wahl)
+        if wahl not in erneuert or neu is None or (alt is not None and neu <= alt):
+            continue
+
+        beleg = erneuert[NACHWEIS][wahl]
+        gesetzt[f"{pfad}.{wahl}"] = erneuert[wahl]
+        # Judged against the stored block, so a withdrawal names the grant it ended there.
+        gesetzt[f"{pfad}.{NACHWEIS}.{wahl}"] = compose_beleg(
+            gespeichert=gespeichert, wahl=wahl, wert=erneuert[wahl], am=beleg["am"], text_version=beleg["text_version"]
+        )
+
+    return gesetzt
 
 
 def compose_geboren(*, block: Mapping[str, Any], am: str) -> dict[str, Any]:

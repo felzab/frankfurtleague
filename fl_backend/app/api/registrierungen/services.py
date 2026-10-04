@@ -32,7 +32,7 @@ from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_nachweis import compose_geboren
+from app.shared.einwilligung_nachweis import compose_erneuert, compose_geboren
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -896,13 +896,19 @@ def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dic
     }
 
 
-def compose_person_update(*, registrierung_raw: Mapping[str, Any], adresse: str) -> Mapping[str, Any]:
+def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: Any, adresse: str) -> Mapping[str, Any]:
     """What an admission writes onto a matched person: the registration's name, birthdate, consent and address.
 
-    The consent is RENEWED, as the confirmation page promised, its evidence with it.
+    The consent is RENEWED, as the confirmation page promised, each choice only where the registration
+    set it later; `gespeichert` is read in the admission's transaction.
     """
 
-    return {"$set": {**_person_fields(registrierung_raw=registrierung_raw, adresse=adresse), "einwilligung": registrierung_raw["einwilligung"]}}
+    # A matched person always holds a block, the validator requiring one, so the dotted paths are viable.
+    erneuert = compose_erneuert(
+        pfad="einwilligung", gespeichert=gespeichert if isinstance(gespeichert, Mapping) else {}, erneuert=registrierung_raw["einwilligung"]
+    )
+
+    return {"$set": {**_person_fields(registrierung_raw=registrierung_raw, adresse=adresse), **erneuert}}
 
 
 def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:

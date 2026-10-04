@@ -328,10 +328,16 @@ async def aufnehmen(
                 session=session,
             )
         else:
+            # Read here, not by the address lookup, which serves no consent record
+            # (`docs/backend/spec.md :: I955`): a choice the person moved after confirming the
+            # registration stands (`:: I867`).
+            gespeichert = await spieler_collection.find_one({"_id": spieler_id}, projection={"einwilligung": 1}, session=session)
             await patch_one_in_db(
                 collection=spieler_collection,
                 db_filter={"_id": spieler_id},
-                update=compose_person_update(registrierung_raw=registrierung_raw, adresse=adresse),
+                update=compose_person_update(
+                    registrierung_raw=registrierung_raw, gespeichert=(gespeichert or {}).get("einwilligung"), adresse=adresse
+                ),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )

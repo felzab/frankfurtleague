@@ -900,7 +900,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "einwilligung",
         Editability.COMPOSED,
         "on no administrative payload: the admission writes the registration's freshly confirmed record whole onto a person "
-        "it creates, and onto one it matches renews the record whole, its evidence with it "
+        "it creates, and onto one it matches renews it, each choice only where the registration set it later "
         "(`app/api/registrierungen/services.py :: compose_person_update`), and afterwards "
         "only the person moves its two choices, `umfang` and `medien`, through `PATCH /spieler/selbst/einwilligung`, every "
         "other member standing: `bestaetigt_am` is what the panel and the publication mask read, and `text_version` names "

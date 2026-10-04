@@ -7,7 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spieler.schemas import FLEinwilligung
 from app.api.teams.schemas import FLKontaktKenntnisnahme
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, compose_beleg, compose_geboren, compose_wahlen, ist_erteilt
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, compose_beleg, compose_erneuert, compose_geboren, compose_wahlen, ist_erteilt
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -154,6 +154,81 @@ class TestTheTwoShapesOfAWrite:
 
         with pytest.raises(ValueError):
             compose_geboren(block=MEDIA_WITHDRAWN, am=LATER)
+
+
+# A registration confirmed between the record's confirmation and its withdrawal: scope narrowed, media granted.
+REGISTERED_AT: Final = "2026-04-15T09:00:00+00:00"
+REGISTERED: Final[Mapping[str, Any]] = {
+    "umfang": "intern",
+    "erteilt_von": "volljaehrig",
+    "datum": "2026-04-15",
+    "bestaetigt_am": "2026-04-15",
+    "text_version": "2026-09-spielerseite-3",
+    "medien": True,
+    "nachweis": {
+        "umfang": {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3"},
+        "medien": {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3"},
+    },
+}
+
+
+class TestARenewalFromTheSamePersonsLaterAnswers:
+    """`compose_erneuert`, the admission's renewal: each choice goes to whichever answer is the newer."""
+
+    def test_a_newer_answer_renews_its_choice_and_an_older_one_leaves_the_stored(self):
+        """`MEDIA_WITHDRAWN`'s media withdrawal postdates the registration; its scope's grant does not."""
+
+        update = compose_erneuert(pfad="einwilligung", gespeichert=MEDIA_WITHDRAWN, erneuert=REGISTERED)
+
+        assert "einwilligung.medien" not in update and "einwilligung.nachweis.medien" not in update
+        assert (update["einwilligung.umfang"], update["einwilligung.nachweis.umfang"]) == (
+            "intern",
+            {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3", "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
+        )
+
+    def test_every_field_but_the_choices_is_renewed(self):
+        update = compose_erneuert(pfad="einwilligung", gespeichert=MEDIA_WITHDRAWN, erneuert=REGISTERED)
+
+        assert {key: update[f"einwilligung.{key}"] for key in ("erteilt_von", "datum", "bestaetigt_am", "text_version")} == {
+            "erteilt_von": "volljaehrig",
+            "datum": "2026-04-15",
+            "bestaetigt_am": "2026-04-15",
+            "text_version": "2026-09-spielerseite-3",
+        }
+
+    def test_a_tie_keeps_what_is_stored(self):
+        tied = {
+            **REGISTERED,
+            "nachweis": {"umfang": {"am": GIVEN_AT, "text_version": "x"}, "medien": {"am": WITHDRAWN_AT, "text_version": "x"}},
+        }
+
+        update = compose_erneuert(pfad="einwilligung", gespeichert=MEDIA_WITHDRAWN, erneuert=tied)
+
+        assert not {"einwilligung.umfang", "einwilligung.medien"} & set(update)
+
+    def test_an_answer_without_evidence_is_the_older(self):
+        """A registration confirmed before evidence was kept never overrides a choice, whatever is stored."""
+
+        unevidenced = {key: value for key, value in REGISTERED.items() if key != "nachweis"}
+
+        for stored in (MEDIA_WITHDRAWN, WITHOUT_EVIDENCE):
+            update = compose_erneuert(pfad="einwilligung", gespeichert=stored, erneuert=unevidenced)
+            assert not {"einwilligung.umfang", "einwilligung.medien"} & set(update)
+
+    def test_a_record_stored_without_evidence_takes_every_evidenced_answer(self):
+        update = compose_erneuert(pfad="einwilligung", gespeichert=WITHOUT_EVIDENCE, erneuert=REGISTERED)
+
+        assert (update["einwilligung.umfang"], update["einwilligung.medien"]) == ("intern", True)
+        # The stored grant carried no evidence, so the withdrawal names none.
+        assert update["einwilligung.nachweis.umfang"] == {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3"}
+
+    def test_instants_are_compared_as_instants(self):
+        """Two spellings of one instant are a tie, which a comparison of the strings would order."""
+
+        offset = {**REGISTERED, "nachweis": {"umfang": {"am": "2026-04-01T12:30:00+02:00", "text_version": "x"}}}
+        stored = {**WITHOUT_EVIDENCE, "nachweis": {"umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": "y"}}}
+
+        assert "einwilligung.umfang" not in compose_erneuert(pfad="einwilligung", gespeichert=stored, erneuert=offset)
 
 
 class TestARecordStoredBeforeItsEvidence:

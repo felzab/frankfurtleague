@@ -13,6 +13,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
+from app.api.konto.services import compose_selbst_einwilligung_move
 from app.api.registrierungen.einwilligung_router import post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
@@ -79,6 +80,8 @@ NORA = "nora@example.com"
 TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.de"
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
 GEBURTSDATUM = "2009-05-04"
+# The label of the account page's pupil control a press is given under.
+KONTO_LABEL = "2026-10-konto-spieler"
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
 RULES: Mapping[str, Any] = documents.rules_document(max_kadergroesse=3, erlaubte_stufen=["Q1", "Q2"])
@@ -686,6 +689,46 @@ class TestThePersonAnAdmissionNames:
 
         assert fresh["nachweis"], "the registration carries no evidence, so nothing proves it was carried"
         assert einwilligung == fresh
+
+    def test_a_withdrawal_the_person_made_after_confirming_the_registration_stands(self, mongo_replica_set_url: str):
+        """The interleaving the per-choice renewal exists for: media granted at the registration, withdrawn on the account page, then admitted.
+
+        The press is the account page's own composer over the stored block, so the case drives what that write leaves.
+        """
+
+        stored_id = ObjectId()
+        bestaetigt = compose_confirmation_update(
+            geburtsdatum=GEBURTSDATUM, umfang="intern", medien=True, text_version="2026-09", today="2026-03-31", am="2026-03-31T08:00:00+00:00"
+        )["$set"]["einwilligung"]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(
+                a_stored_person(stored_id, einwilligung={**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True})
+            )
+            registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
+            stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
+            press = compose_selbst_einwilligung_move(
+                bloecke=[("einwilligung", stored)], umfang=None, medien=False, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
+            )
+            assert press is not None, "the press moved nothing, so this case proves nothing"
+            await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
+            await admit(database, client, registrierung_id)
+
+            return (await persons(database))[0]["einwilligung"]
+
+        einwilligung = on_a_league(mongo_replica_set_url, body)
+
+        # The withdrawal is newer than the registration's grant, so it stands with its own evidence.
+        assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
+            False,
+            {"am": "2026-04-01T09:00:00+00:00", "text_version": KONTO_LABEL},
+        )
+        # The scope set at the registration is newer than any evidence the person held, so it is renewed.
+        assert (einwilligung["umfang"], einwilligung["nachweis"]["umfang"]) == (
+            "intern",
+            {"am": "2026-03-31T08:00:00+00:00", "text_version": "2026-09"},
+        )
+        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("2026-03-31", "2026-09")
 
     def test_a_body_naming_anyone_but_the_address_match_is_refused(self, mongo_replica_set_url: str):
         legacy_id = ObjectId()

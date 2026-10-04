@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.api.bewerbungen.services import compose_confirmation_update, compose_kontakt_seat_update, compose_kontakte
 from app.api.konto.services import compose_selbst_einwilligung_move
+from app.api.registrierungen.services import compose_person_update
 from app.api.teams.services import compose_kontakte_at_entry, compose_kontakte_herkunft
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
@@ -199,6 +200,28 @@ def _account_press() -> Write:
     return stored, update, ("einwilligung",)
 
 
+def _admission() -> Write:
+    """A registration confirmed after the scope's grant and before the media withdrawal: the withdrawal must stand."""
+
+    stored = {"vorname": "Ida", "nachname": "Musterfrau", "einwilligung": dict(PERSON_RECORD)}
+    registered_at = "2026-03-10T09:00:00+00:00"
+    fresh = {
+        **PERSON_RECORD,
+        "umfang": "intern",
+        "datum": "2026-03-10",
+        "bestaetigt_am": "2026-03-10",
+        "medien": True,
+        NACHWEIS: {
+            "umfang": {"am": registered_at, "text_version": "2026-09-spielerseite-3"},
+            "medien": {"am": registered_at, "text_version": "2026-09-spielerseite-3"},
+        },
+    }
+    registrierung = {"vorname": "Ida", "nachname": "Musterfrau", "geburtsdatum": "2009-05-04", "einwilligung": fresh}
+    update = compose_person_update(registrierung_raw=registrierung, gespeichert=stored["einwilligung"], adresse="ida@example.com")
+    assert "einwilligung.umfang" in update["$set"], "the registration renewed no choice, so this case proves nothing"
+    return stored, update, ("einwilligung",)
+
+
 def _submission() -> Write:
     sent = {
         **_seats(
@@ -253,6 +276,7 @@ def _acceptance() -> Write:
 PERSON_WRITES: Final[Mapping[str, Callable[[], Write]]] = {
     "app/api/bewerbungen/services.py::compose_confirmation_update": _contact_confirmation,
     "app/api/konto/services.py::compose_selbst_einwilligung_move": _account_press,
+    "app/api/registrierungen/services.py::compose_person_update": _admission,
 }
 ADMIN_WRITES: Final[Mapping[str, Callable[[], Write]]] = {
     "app/api/bewerbungen/services.py::compose_kontakte": _submission,
@@ -267,9 +291,8 @@ NOT_DRIVEN_HERE: Final = frozenset(
         # Born whole from the person's own answer, behind a refusal of any second one.
         "app/api/registrierungen/services.py::compose_confirmation_update",
         "app/api/schiedsrichter/services.py::compose_confirmation_update",
-        # A new person carries their registration's block whole, and a returning one is renewed by it.
+        # A new person carries their registration's block whole.
         "app/api/registrierungen/services.py::compose_person",
-        "app/api/registrierungen/services.py::compose_person_update",
         # A registration is submitted with no block: its pupil's confirmation writes one.
         "app/api/registrierungen/services.py::compose_registrierung",
         # Builders the writes above call.
@@ -294,7 +317,7 @@ NOT_DRIVEN_HERE: Final = frozenset(
 # What marks a function as touching a consent block: a mapping keyed by the block or one of its
 # choices, a call stamping evidence, or the provenance an administrative write sets.
 _BLOCK_KEYS: Final = frozenset({"einwilligung", *WAHLEN, NACHWEIS})
-_STAMPING_CALLS: Final = frozenset({"compose_wahlen", "compose_geboren"})
+_STAMPING_CALLS: Final = frozenset({"compose_wahlen", "compose_geboren", "compose_erneuert"})
 _HERKUNFT: Final = "UNCONFIRMED_HERKUNFT"
 APP: Final = Path(__file__).resolve().parents[2] / "app"
 
