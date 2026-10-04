@@ -5,8 +5,8 @@ export const WAHL_GESPEICHERT = "Deine Wahl ist gespeichert";
 
 export const WAHL_NICHT_GESPEICHERT = "Deine Wahl wurde nicht gespeichert";
 
-// A grant names the page's running label, so a page drawn before a new wording deployed is refused,
-// and only a reload draws the words the press would be recorded under.
+// A page drawn before a new wording deployed, or before another press moved a choice, is refused, and
+// only a reload draws what the press would be recorded against.
 export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu und wähle erneut.";
 
 // The retyped floor rather than a served one: the floor is one constant for every record, and none of
@@ -26,6 +26,7 @@ export function mapEinwilligungWahlRefusal(error: unknown): { error: string } | 
 
   switch (error.serverErrorCode) {
     case "REQ-EINWILLIGUNG-001":
+    case "REQ-EINWILLIGUNG-003":
       return { error: SEITE_VERALTET };
     // The switch is offered only from the floor, so this reaches a page drawn before a birthdate was corrected.
     case "REQ-EINWILLIGUNG-002":

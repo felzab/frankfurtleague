@@ -7,13 +7,14 @@ import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { EINTRAG_WEG, mapEigeneEinwilligungRefusal, mapEinwilligungWahlRefusal, MEDIEN_ZU_JUNG, SEITE_VERALTET } from "./einwilligung.ts";
 
 /** One of the three writes the mapper serves; the status is stated, so each code is put at two. */
-const PUPIL_WRITE = "PATCH /spieler/selbst/{spieler_id}/einwilligung";
+const PUPIL_WRITE = "PATCH /spieler/selbst/einwilligung";
 
 describe("the consent writes' one mapper", () => {
   /* Read by its code at any status: a rule the backend moves to another status keeps its words. */
   for (const status of [409, 422]) {
-    it(`words a stale wording and a media consent below the floor at ${String(status)}`, () => {
+    it(`words a stale wording, a stale choice and a media consent below the floor at ${String(status)}`, () => {
       assert.deepEqual(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-EINWILLIGUNG-001", status)), { error: SEITE_VERALTET });
+      assert.deepEqual(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-EINWILLIGUNG-003", status)), { error: SEITE_VERALTET });
       assert.deepEqual(mapEinwilligungWahlRefusal(refusedOn(PUPIL_WRITE, "REQ-EINWILLIGUNG-002", status)), { error: MEDIEN_ZU_JUNG });
     });
   }
