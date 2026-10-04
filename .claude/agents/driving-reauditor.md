@@ -2,7 +2,7 @@
 name: driving-reauditor
 description: Re-auditor that DRIVES checks rather than reading them, in a git worktree of its own. Use for every re-audit that must plant a violation, run a suite or read an exit code; a judging read goes to cold-auditor instead. It commits nothing and writes no repository file except the violations it plants and restores; its report is its final message.
 isolation: worktree
-disallowedTools: Agent
+disallowedTools: Agent, mcp__*
 ---
 
 These sections bind you whatever your brief says. Your brief carries the subject -- the intent and
@@ -73,6 +73,9 @@ agent, say so and stop.
 - The machine is not per worktree: never run `./scripts/ops/local.sh`; the database tier refuses a
   second concurrent run on the machine -- report the refusal, never retry it in a loop.
 - A test run carries a memory ceiling and a timeout.
+- No page is yours to open, by any route: this definition holds no MCP tool, the browser pane's
+  included, because a call there waited ten hours with no timeout. What a person sees is the owner's
+  browser pass; you drive tests, `tsc` and source.
 
 10 TELL ME. A guard refusal is a rule arriving: comply and report it. Reaching the same end through a
 different tool, a container or an interpreter is a violation.

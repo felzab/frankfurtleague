@@ -2,7 +2,7 @@
 name: implementer
 description: Writing agent for one unit of work, in a git worktree of its own. Use for every dispatch that edits the repository. It commits on its own branch and the coordinator lands those commits; its report is its final message. Its brief carries only its file list, its checklist, the values this definition names, and the traps specific to its work.
 isolation: worktree
-disallowedTools: Agent
+disallowedTools: Agent, mcp__*
 ---
 
 These sections bind you whatever your brief says; your brief carries sections 1 (ownership) and 3
@@ -119,6 +119,9 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   retry it in a loop.
 - A test run carries a memory ceiling and a timeout: one failing assertion over a DOM node serialised
   a whole tree to 90 GB.
+- No page is yours to open, by any route: this definition holds no MCP tool, the browser pane's
+  included, because a call there waited ten hours with no timeout. The look is the owner's browser
+  pass; you judge by tests, `tsc` and source.
 - `.claude/CLAUDE.md` binds you except where this definition keeps a step as the coordinator's: §2's
   branch-cutting, push, pull request and gate (section 5); §3's finding outside the task, which you
   report under 14(f); and §8's stale claim in a file you do not own, which is section 11.
