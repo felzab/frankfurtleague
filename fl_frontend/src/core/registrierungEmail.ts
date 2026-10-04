@@ -296,7 +296,7 @@ export function buildRegistrierungAbsageEmail(data: RegistrierungAbsageEmailData
   const [anrede, weiter, loeschung] = absageSaetze(data);
 
   return {
-    subject: `Deine Registrierung bei ${data.teamName}`,
+    subject: `Deine Registrierung für ${data.teamName}`,
     html: renderKarte({
       titel: `${BRAND_NAME}: Registrierung nicht angenommen`,
       ueberschrift: escapeHtml("Registrierung nicht angenommen"),
