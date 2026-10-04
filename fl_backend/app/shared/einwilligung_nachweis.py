@@ -6,7 +6,7 @@ record, `umfang` and `medien`, keeps when they set it and under which wording, a
 the grant it ended: proof for as long as the record stands, bounded at one act per choice.
 
 Invariants:
-- Only the person's own write stamps evidence: no administrative write sets a choice.
+- Only the person's own write stamps evidence: no administrative write grants a choice.
 - A choice and its evidence move in one update, never one without the other.
 
 See: docs/glossary.md
