@@ -100,6 +100,12 @@ VALUES.         Your agent name: <name>. Session branch: <session branch>; your 
 
 Three forms, and the agent type decides which (`SKILL.md` §3).
 
+**Every reviewer or auditor brief, in each form, asks the agent to check the artefact against the
+official authoring guidance for its kind, and to say which constraint the brief states as given that
+it would challenge.** A brief that framed the orchestration skill's byte budget as fixed had three
+reviews optimise inside it, and none asked whether the documented way of building a skill set that
+constraint at all.
+
 ### The cold form — a `cold-auditor`, and the default for every judging audit
 
 Its tools are `Read`, `Grep` and `Glob`: no shell, no `Write`, no `Edit`, no sub-agents, so it
@@ -145,6 +151,8 @@ findings had closed.
                 enforces what the rule CLAIMS or only a fragment of it. The name resolves either
                 way, so a rule and its check can be written in one session, disagree about what is
                 enforced, and leave every gate green.
+                Check the subject against the official authoring guidance for its kind, and say
+                which constraint this brief states as given that you would challenge.
 
 4  PUSH BACK.   This brief may be wrong; more than half of them are. A premise the tree
                 contradicts is reported, not judged by, and one that names its source -- "an
