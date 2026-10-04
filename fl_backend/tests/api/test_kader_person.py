@@ -341,6 +341,17 @@ class TestAnotherTeamsPupil:
         assert answer == (404, DOCUMENT_NOT_FOUND)
         assert untouched
 
+    def test_a_patch_is_not_found_before_any_rule_judges_the_other_team_s_row(self, mongo_replica_set_url: str):
+        """A Stufe the season refuses, so a filter without the team finds team B's row and answers 409 rather than 404.
+
+        The case above cannot tell: there the read-back after the write answers 404 whatever the filter matched.
+        """
+
+        answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(B_PUPIL), ANSPRECH, {**PAYLOAD, "stufe": "E1"})
+
+        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert untouched
+
 
 # A live row of team A whose `spieler` record a hand edit removed.
 ORPHAN = ObjectId("6890a1b2c3d4e5f607920021")
