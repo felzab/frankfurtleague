@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { ADMIN_EMAIL, asDataUrl, HOLDS_NOTHING, memoryAdapterDouble, memoryStore, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 import { SITZ, sitz } from "@/core/subjectFixtures.ts";
+import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -71,6 +72,9 @@ const NEXT_SERVER_DOUBLE = overridingModule(import.meta.resolve("next/server"), 
 // Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
 // would compare two refusals and pass.
 const { sent } = registerAuthDoubles({
+  // Passed at its module: this file's subject is what the gate does past the bot check, which
+  // `fl_frontend/src/features/auth/actions.test.ts` drives at the network edge.
+  core: { turnstile: { passesTurnstile: () => Promise.resolve(true), MENSCH_BESTAETIGEN: "" } },
   specifiers: {
     // Both spellings: the application imports the bare one, and `nextCookies()` reaches for the
     // extension itself -- so a double on one alone leaves the cookie writer on the real module.
@@ -136,6 +140,7 @@ async function signInWith(email: string): Promise<Attempt> {
 
   const submitted = new FormData();
   submitted.set("email", email);
+  submitted.set(TURNSTILE_FIELD, "XXXX.DUMMY.TOKEN.XXXX");
 
   const mailedBefore = sent.length;
   const storedBefore = store.verification.length;
