@@ -23,8 +23,8 @@ line says what was measured, and the exact message sequences for the three ways 
 - **Compaction keeps the first 5,000 tokens of each invoked skill**, within a shared budget of
   25,000 for all of them, most recently invoked first; the rule that follows for `SKILL.md` is
   stated at its top. **Measured**: a coordinator compacted three times on 2026-10-04, and each copy
-  of `SKILL.md` re-attached after the summary stopped at §2 item 3, about 20.4 KB into the 22.4 KB
-  page, behind the harness's own truncation marker. The skills documentation's remedy is to invoke
+  of `SKILL.md` re-attached after the summary stopped at §2 item 3, byte 20,596 of the 22,354 the
+  page then held, behind the harness's own truncation marker. The skills documentation's remedy is to invoke
   the skill again, and `.claude/hooks/orchestration-compact.sh` asks for that after every
   compaction of a session whose id a register records (`SKILL.md` §1).
 - **Text after `/orchestration` on the same line is passed as arguments**, appended to the skill
