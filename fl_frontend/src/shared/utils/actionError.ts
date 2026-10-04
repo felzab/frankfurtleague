@@ -306,7 +306,8 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
     // The person binder reads the ban per request, so a ban entered since the session was judged.
     if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
-    // Every person's write route can answer it, so it is worded here once rather than by each slice.
+    // Every person's write route can answer it, so it is worded here rather than by each slice; the consent
+    // writes' mapper words a refused grant first (`fl_frontend/src/features/konto/einwilligung.ts :: ZUSTIMMEN_MORGEN`).
     if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: HEUTE_GENUG_GEAENDERT };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
