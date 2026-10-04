@@ -204,6 +204,29 @@ describe("what a press sends", () => {
     );
   });
 
+  /* A grant refused at the day's ceiling must not ride along on the press after it: the second press
+     would turn from a lone change into a mixed one, and be refused for the grant it never asked for. */
+  it("builds each press from the record held and its own change, never from a refused press's", async () => {
+    let release: () => void = () => undefined;
+    held = new Promise((resolve) => {
+      release = resolve;
+    });
+    answer = { success: false, error: SEITE_VERALTET };
+    const { user } = renderForm({ gespeichert: { umfang: "kader_oeffentlich", medien: false } });
+
+    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("radio", { name: "Nur Nummer und Position" }));
+    answer = { success: true, nachweis_stand: NEUER_STAND };
+    held = null;
+    release();
+    await act(answered);
+
+    assert.deepEqual(sent, [
+      { umfang: "kader_oeffentlich", medien: true, text_version: WORTE.textVersion, nachweis_stand: STAND },
+      { umfang: "intern", medien: false, text_version: WORTE.textVersion, nachweis_stand: STAND },
+    ]);
+  });
+
   it("sends nothing for a press on the chip already chosen", async () => {
     const { user } = renderForm();
 

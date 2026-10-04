@@ -92,22 +92,26 @@ export function EinwilligungForm({
   // write, and a refused one falls back to what the page last read.
   const [wahl, setWahl] = useOptimistic(gespeichert);
 
-  // Presses go out one at a time: a second sent before the first is answered would carry a stand that
-  // press moves, and be refused as a stale page.
-  const stand = useRef(nachweisStand);
+  // The record and stand the backend holds as far as the page knows: the read's, then each landed press's.
+  const gehalten = useRef({ wahl: gespeichert, stand: nachweisStand });
   const vorige = useRef<Promise<unknown>>(Promise.resolve());
   useEffect(() => {
-    stand.current = nachweisStand;
-  }, [nachweisStand]);
+    gehalten.current = { wahl: gespeichert, stand: nachweisStand };
+  }, [gespeichert, nachweisStand]);
 
-  const waehle = (naechste: EinwilligungWahl): void => {
+  // One press at a time, each the held record plus its own change: built from the screen, a press after
+  // a refused grant would carry the grant along, and one sent unanswered a stand that press moves.
+  const waehle = (aenderung: Partial<EinwilligungWahl>): void => {
     startTransition(async () => {
-      setWahl(naechste);
+      setWahl((gezeigt) => ({ ...gezeigt, ...aenderung }));
       const press = vorige.current.then(async () => {
-        const answer = await speichereAction({ ...naechste, text_version: worte.textVersion, nachweis_stand: stand.current }).catch(
-          rejectedWrite(router),
-        );
-        if (answer.success) stand.current = answer.nachweis_stand;
+        const naechste = { ...gehalten.current.wahl, ...aenderung };
+        const answer = await speichereAction({
+          ...naechste,
+          text_version: worte.textVersion,
+          nachweis_stand: gehalten.current.stand,
+        }).catch(rejectedWrite(router));
+        if (answer.success) gehalten.current = { wahl: naechste, stand: answer.nachweis_stand };
         return answer;
       });
       vorige.current = press;
@@ -141,7 +145,7 @@ export function EinwilligungForm({
             onSelectionChange={(keys: Set<Key>) => {
               const [picked] = [...keys].map(String);
               const gewaehlt = UMFANG_REIHENFOLGE.find((option) => option === picked);
-              if (gewaehlt !== undefined && gewaehlt !== wahl.umfang) waehle({ ...wahl, umfang: gewaehlt });
+              if (gewaehlt !== undefined && gewaehlt !== wahl.umfang) waehle({ umfang: gewaehlt });
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
             {UMFANG_REIHENFOLGE.map((option) => {
@@ -178,7 +182,7 @@ export function EinwilligungForm({
             className="flex w-full flex-col gap-y-1"
             aria-describedby={worte.nurWiderruf === undefined ? medienAbsatzId : `${medienAbsatzId} ${nurWiderrufId}`}
             isSelected={wahl.medien}
-            onChange={(medien) => waehle({ ...wahl, medien: medien })}>
+            onChange={(medien) => waehle({ medien: medien })}>
             <Switch.Content className={panel.switchContent()}>
               {worte.medien.schalter}
               <Switch.Control className={panel.switchControl()}>
