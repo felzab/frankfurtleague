@@ -403,7 +403,7 @@ async def aufnehmen(
     f"{by_id('registrierung_id')}/ablehnen",
     response_model=FLRegistrierungAblehnungResponse,
     summary="Decline a registration",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(gedrosselt)],
 )
 async def ablehnen(

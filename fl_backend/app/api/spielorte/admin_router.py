@@ -115,7 +115,7 @@ async def patch_spielort(
     by_id("spielort_id"),
     response_model=FLSpielortWriteResponse,
     summary="Deactivate a Spielort (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_spielort(
     spielort_id: CustomRouteObjectId,
@@ -157,7 +157,7 @@ async def delete_spielort(
     f"{by_id('spielort_id')}/reactivate",
     response_model=FLSpielortWriteResponse,
     summary="Bring a deactivated Spielort back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_spielort(
     spielort_id: CustomRouteObjectId,

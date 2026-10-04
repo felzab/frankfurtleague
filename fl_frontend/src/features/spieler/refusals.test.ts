@@ -28,7 +28,6 @@ const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
 const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
 const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
-const RETIRE_ROW_OPERATION = "DELETE /spieler/{spieler_id}/saisons/{saison_id}";
 
 const KEY = { spieler_id: "68c1f0a2b3c4d5e6f7a8b9c0", saison_id: "2026" };
 
@@ -109,15 +108,6 @@ describe("what each squad write answers a refusal with", () => {
       refuseWith: answerWith,
       act: () => reactivateSaisonSpielerAction(KEY),
       mapped: mapSquadRefusal,
-    });
-  });
-
-  it("leaves the row retirement's refusals to the shared reader", async () => {
-    await assertEachAnswered({
-      operation: RETIRE_ROW_OPERATION,
-      refuseWith: answerWith,
-      act: () => deleteSaisonSpielerAction(KEY),
-      mapped: () => null,
     });
   });
 });

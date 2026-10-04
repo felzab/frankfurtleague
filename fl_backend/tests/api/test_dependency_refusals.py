@@ -129,7 +129,7 @@ UNREAD_RAISES: Mapping[tuple[str, str, str], str] = {
         "app/core/crud.py",
         "post_many_to_db",
         "refusal",
-    ): "the driver's `DuplicateKeyError`, published by collection (`tests/core/test_duplicate_key_publication.py`)",
+    ): "the driver's `DuplicateKeyError`, published where a write can meet a unique index (`tests/core/test_duplicate_key_publication.py`)",
     (
         "app/core/concurrency.py",
         "gather_cancelling",

@@ -189,9 +189,7 @@ async def post_berechtigung(
     by_id("berechtigung_id"),
     response_model=FLBerechtigungWriteResponse,
     summary="Revoke access to the administration",
-    # 409 `DB-COMMON-002` cannot occur here, and is published all the same: the trace behind it reads
-    # a write by collection and never by field (`tests/core/test_duplicate_key_publication.py`).
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def delete_berechtigung(
@@ -281,9 +279,7 @@ async def delete_berechtigung(
     by_id("berechtigung_id"),
     response_model=FLBerechtigungWriteResponse,
     summary="Change a grant between administrator and owner",
-    # 409 `DB-COMMON-002` cannot occur here, and is published all the same: the trace behind it reads
-    # a write by collection and never by field (`tests/core/test_duplicate_key_publication.py`).
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def patch_berechtigung(

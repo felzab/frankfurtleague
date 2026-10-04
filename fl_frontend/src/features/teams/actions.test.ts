@@ -37,7 +37,6 @@ const {
 const CREATE_OPERATION = "POST /teams";
 const EDIT_OPERATION = "PATCH /teams/{team_id}";
 const RETIRE_OPERATION = "DELETE /teams/{team_id}";
-const REACTIVATE_OPERATION = "POST /teams/{team_id}/reactivate";
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 const REPLACEMENT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/replace";
 /* Neither `ENTRY_OPERATION` nor `REPLACEMENT_OPERATION`: the junction patch is a third endpoint, and the one the undo replays. */
@@ -269,24 +268,6 @@ describe("the team actions against the codes their endpoints publish", () => {
       refuseWith: answerWith,
       act: () => deleteTeamAction({ id: TEAM_ID }),
       mapped: mapRetireRefusal,
-    });
-  });
-
-  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
-     reader's own. A rule published on it later fails here until a mapper words it. */
-  it("leaves every refusal the reactivation publishes to the shared reader", async () => {
-    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
-      assert.notEqual(
-        answerShown(REACTIVATE_OPERATION, code, () => null),
-        null,
-        `${code} reaches the admin with no reason`,
-      );
-    }
-    await assertEachAnswered({
-      operation: REACTIVATE_OPERATION,
-      refuseWith: answerWith,
-      act: () => reactivateTeamAction({ id: TEAM_ID }),
-      mapped: () => null,
     });
   });
 

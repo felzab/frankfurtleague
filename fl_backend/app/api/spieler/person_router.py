@@ -25,7 +25,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.drosselung import gedrosselt
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
@@ -174,7 +174,7 @@ async def get_kader(
     ROW_PATH,
     response_model=FLKaderZeileResponse,
     summary="Update a squad entry as its team's seat holder",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(gedrosselt)],
 )
 async def patch_kader_zeile(
@@ -264,7 +264,7 @@ async def patch_kader_zeile(
     ROW_PATH,
     response_model=FLKaderZeileResponse,
     summary="Take a Spieler out of the squad as its team's seat holder (austragen)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(gedrosselt)],
 )
 async def delete_kader_zeile(

@@ -41,7 +41,6 @@ from app.core.dependencies import (
     DBClient,
     get_germany_now,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
 
@@ -57,8 +56,6 @@ router = APIRouter(
     "",
     response_model=FLBerechtigungAbgleichResponse,
     summary="Claim the grant changes still to be announced",
-    # Published by collection, the trace reading the anchor's write on the grants (`tests/core/test_duplicate_key_publication.py`).
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_berechtigungen_abgleich(
     berechtigungen_collection: BerechtigungenCollection,

@@ -145,7 +145,6 @@ const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
 const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
 const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
-const RETIRE_ROW_OPERATION = "DELETE /spieler/{spieler_id}/saisons/{saison_id}";
 
 /** What the squad mapper answers one code with, on the write the editor saves. */
 const squadAnswer = (code: string) => mapSquadRefusal(refusedOn(SQUAD_PATCH_OPERATION, code));
@@ -182,18 +181,6 @@ describe("the player actions against the codes their endpoints publish", () => {
   it("maps every refusal the row's reactivation publishes", () => {
     for (const code of publishedRefusals(REACTIVATE_ROW_OPERATION)) {
       assert.notEqual(answerShown(REACTIVATE_ROW_OPERATION, code, mapSquadRefusal), null, `${code} reaches the admin as an unhandled conflict`);
-    }
-  });
-
-  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
-     reader's own. A rule published on it later fails here until a mapper words it. */
-  it("leaves every refusal the row's retirement publishes to the shared reader", () => {
-    for (const code of publishedRefusals(RETIRE_ROW_OPERATION)) {
-      assert.notEqual(
-        answerShown(RETIRE_ROW_OPERATION, code, () => null),
-        null,
-        `${code} reaches the admin as an unhandled conflict`,
-      );
     }
   });
 });

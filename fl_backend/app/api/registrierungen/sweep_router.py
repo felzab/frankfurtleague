@@ -37,7 +37,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
@@ -101,7 +101,7 @@ async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any]
     "/{saison_id}",
     response_model=FLRegistrierungSweepResponse,
     summary="Run one season's registration retention clocks",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def sweep_registrierungen(
     saison_id: str,

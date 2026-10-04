@@ -143,7 +143,7 @@ async def get_spieler_nachnominierung(
     by_id("spieler_id"),
     response_model=FLSpielerAdminSingleResponse,
     summary="Update a Spieler's name",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_spieler(
     spieler_id: CustomRouteObjectId,
@@ -172,7 +172,7 @@ async def patch_spieler(
     by_id("spieler_id"),
     response_model=FLSpielerAdminSingleResponse,
     summary="Retire a Spieler (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_spieler(
     spieler_id: CustomRouteObjectId,
@@ -195,7 +195,7 @@ async def delete_spieler(
     f"{by_id('spieler_id')}/reactivate",
     response_model=FLSpielerAdminSingleResponse,
     summary="Bring a retired Spieler back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_spieler(
     spieler_id: CustomRouteObjectId,
@@ -376,7 +376,7 @@ async def post_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
     summary="Update a squad entry",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -455,7 +455,7 @@ async def patch_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
     summary="Remove a Spieler from a squad",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -489,7 +489,7 @@ async def delete_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/reactivate",
     response_model=FLSaisonSpielerResponse,
     summary="Put a Spieler back in a squad they left",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_saison_spieler(
     spieler_id: CustomRouteObjectId,

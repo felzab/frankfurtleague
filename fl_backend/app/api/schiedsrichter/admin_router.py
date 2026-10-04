@@ -255,7 +255,7 @@ async def patch_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLSchiedsrichterWriteResponse,
     summary="Deactivate a Schiedsrichter (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -308,7 +308,7 @@ async def delete_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/reactivate",
     response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -382,7 +382,7 @@ async def reactivate_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/bestaetigung/einladen",
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def einladen_schiedsrichter(

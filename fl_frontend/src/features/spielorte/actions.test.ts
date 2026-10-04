@@ -17,7 +17,6 @@ const { deleteSpielortAction, patchSpielortAction, postSpielortAction, reactivat
 const RETIRE_OPERATION = "DELETE /spielorte/{spielort_id}";
 const CREATE_OPERATION = "POST /spielorte";
 const EDIT_OPERATION = "PATCH /spielorte/{spielort_id}";
-const REACTIVATE_OPERATION = "POST /spielorte/{spielort_id}/reactivate";
 
 const SPIELORT_ID = "6890a1b2c3d4e5f607182934";
 
@@ -80,37 +79,14 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
     assert.match(String(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003"))), /^[^.]+\. [^.]+\.$/);
   });
 
-  it("leaves a conflict it does not know to the shared reader, and words its own code at any status", () => {
-    assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, DUPLICATE_KEY)), null);
+  it("leaves a code it does not know to the shared reader, and words its own code at any status", () => {
+    assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "DB-COMMON-001")), null);
     // Codes are unique across the API, so a rule moved to another status keeps its answer.
     assert.equal(
       mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 422)),
       mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003")),
     );
     assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 500)), null, "a server error was worded as a refusal");
-  });
-
-  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
-     reader's own. A rule published on it later fails here until a mapper words it. */
-  it("leaves every refusal the reactivation publishes to the shared reader", async () => {
-    assert.deepEqual(
-      publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      [],
-      "the reactivation now publishes a rule no mapper words",
-    );
-    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
-      assert.notEqual(
-        answerShown(REACTIVATE_OPERATION, code, () => null),
-        null,
-        `${code} reaches the admin as an unhandled conflict`,
-      );
-    }
-    await assertEachAnswered({
-      operation: REACTIVATE_OPERATION,
-      refuseWith: answerWith,
-      act: () => reactivateSpielortAction({ id: SPIELORT_ID }),
-      mapped: () => null,
-    });
   });
 });
 

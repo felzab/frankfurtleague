@@ -241,7 +241,7 @@ async def annehmen_bewerbung(
     f"{by_id('bewerbung_id')}/ablehnen",
     response_model=FLAblehnenBewerbungResponse,
     summary="Decline a Bewerbung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def ablehnen_bewerbung(

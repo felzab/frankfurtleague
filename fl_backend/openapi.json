@@ -842,9 +842,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-RETIRE-001"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -859,6 +856,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-RETIRE-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1089,9 +1089,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-DATE-002.REQ-DATE-003.REQ-DATE-008"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -1106,6 +1103,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-DATE-002.REQ-DATE-003.REQ-DATE-008"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1325,9 +1325,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -1383,9 +1380,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -1695,9 +1689,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-DATE-004.REQ-RULES-002.REQ-RULES-003.REQ-RULES-004.REQ-RULES-005.REQ-RULES-006.REQ-RULES-009.REQ-RULES-011.REQ-RULES-012"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-DATE-005.REQ-RULES-001.REQ-RULES-007.REQ-RULES-008.REQ-RULES-010.REQ-RULES-013.REQ-VAL-001"
           },
@@ -1712,6 +1703,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-DATE-004.REQ-RULES-002.REQ-RULES-003.REQ-RULES-004.REQ-RULES-005.REQ-RULES-006.REQ-RULES-009.REQ-RULES-011.REQ-RULES-012"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2027,9 +2021,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-RETIRE-003"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -2044,6 +2035,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-RETIRE-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2378,9 +2372,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-RETIRE-004"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -2395,6 +2386,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-RETIRE-004"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3599,9 +3593,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -3750,9 +3741,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-004"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -3767,6 +3755,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-004"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3830,9 +3821,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-KONTAKT-001.REQ-KONTAKT-003"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -3847,6 +3835,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-KONTAKT-001.REQ-KONTAKT-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3989,9 +3980,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-KONTAKT-002.REQ-KONTAKT-003.REQ-KONTAKT-005"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -4006,6 +3994,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-KONTAKT-002.REQ-KONTAKT-003.REQ-KONTAKT-005"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4540,9 +4531,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -4752,9 +4740,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SQUAD-001.REQ-SQUAD-003.REQ-SQUAD-004"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -4769,6 +4754,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SQUAD-001.REQ-SQUAD-003.REQ-SQUAD-004"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4819,9 +4807,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -4890,9 +4875,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SQUAD-001.REQ-SQUAD-003.REQ-SQUAD-004"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -4907,6 +4889,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SQUAD-001.REQ-SQUAD-003.REQ-SQUAD-004"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5254,9 +5239,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPIELPLAN-006"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -5271,6 +5253,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SPIELPLAN-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5452,9 +5437,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -5513,9 +5495,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SCHIEDSRICHTER-007"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -5530,6 +5509,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SCHIEDSRICHTER-007"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5574,9 +5556,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SCHIEDSRICHTER-001.REQ-SCHIEDSRICHTER-004.REQ-SCHIEDSRICHTER-006.REQ-SCHIEDSRICHTER-007"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -5591,6 +5570,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SCHIEDSRICHTER-001.REQ-SCHIEDSRICHTER-004.REQ-SCHIEDSRICHTER-006.REQ-SCHIEDSRICHTER-007"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5965,9 +5947,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -5982,6 +5961,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BEWERBUNG-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6615,9 +6597,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -6632,6 +6611,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-005"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6684,9 +6666,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -6701,6 +6680,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-005"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7206,9 +7188,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-REGISTRIERUNG-004"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-VAL-001"
           },
@@ -7223,6 +7202,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-REGISTRIERUNG-012"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-REGISTRIERUNG-005"
@@ -7322,9 +7304,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-SCHIEDSRICHTER-002"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-SCHIEDSRICHTER-004"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-SCHIEDSRICHTER-005.REQ-SCHIEDSRICHTER-008.REQ-VAL-001"
           },
@@ -7339,6 +7318,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-SCHIEDSRICHTER-009"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-SCHIEDSRICHTER-004"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-SCHIEDSRICHTER-003"
@@ -7487,9 +7469,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -7720,9 +7699,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -8026,9 +8002,6 @@
               }
             }
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "default": {
             "$ref": "#/components/responses/default"
           },
@@ -8229,9 +8202,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SQUAD-004.REQ-SQUAD-005"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -8246,6 +8216,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SQUAD-004.REQ-SQUAD-005"
           },
           "429": {
             "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
@@ -8309,9 +8282,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -8547,9 +8517,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -24170,80 +24137,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BERECHTIGUNG-002",
-                        "REQ-BERECHTIGUNG-004"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BERECHTIGUNG-003",
-                        "REQ-BERECHTIGUNG-007"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-001": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BEWERBUNG-001"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-002.REQ-BEWERBUNG-003.REQ-BEWERBUNG-013.REQ-ENTER-001.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-005": {
         "description": "Conflict",
         "content": {
@@ -24444,64 +24337,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-DATE-002.REQ-DATE-003.REQ-DATE-008": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-DATE-002",
-                        "REQ-DATE-003",
-                        "REQ-DATE-008"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-DATE-004.REQ-RULES-002.REQ-RULES-003.REQ-RULES-004.REQ-RULES-005.REQ-RULES-006.REQ-RULES-009.REQ-RULES-011.REQ-RULES-012": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-DATE-004",
-                        "REQ-RULES-002",
-                        "REQ-RULES-003",
-                        "REQ-RULES-004",
-                        "REQ-RULES-005",
-                        "REQ-RULES-006",
-                        "REQ-RULES-009",
-                        "REQ-RULES-011",
-                        "REQ-RULES-012"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005": {
         "description": "Conflict",
         "content": {
@@ -24585,82 +24420,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-KONTAKT-001.REQ-KONTAKT-003": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-EINWILLIGUNG-001",
-                        "REQ-KONTAKT-001",
-                        "REQ-KONTAKT-003"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-EINWILLIGUNG-001",
-                        "REQ-REGISTRIERUNG-006"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-SCHIEDSRICHTER-004": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-EINWILLIGUNG-001",
-                        "REQ-SCHIEDSRICHTER-004"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.DB-COMMON-002.REQ-ENTER-001.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-005": {
         "description": "Conflict",
         "content": {
@@ -24688,32 +24447,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-004": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-ENTER-002",
-                        "REQ-ENTER-003",
-                        "REQ-ENTER-004"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.DB-COMMON-002.REQ-ENTER-005.REQ-REPLACE-001.REQ-REPLACE-002.REQ-REPLACE-003": {
         "description": "Conflict",
         "content": {
@@ -24732,32 +24465,6 @@
                         "REQ-REPLACE-001",
                         "REQ-REPLACE-002",
                         "REQ-REPLACE-003"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-KONTAKT-002.REQ-KONTAKT-003.REQ-KONTAKT-005": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-KONTAKT-002",
-                        "REQ-KONTAKT-003",
-                        "REQ-KONTAKT-005"
                       ]
                     }
                   }
@@ -24823,105 +24530,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-RETIRE-001": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-RETIRE-001"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-RETIRE-003": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-RETIRE-003"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-RETIRE-004": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-RETIRE-004"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-SCHIEDSRICHTER-001.REQ-SCHIEDSRICHTER-004.REQ-SCHIEDSRICHTER-006.REQ-SCHIEDSRICHTER-007": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-SCHIEDSRICHTER-001",
-                        "REQ-SCHIEDSRICHTER-004",
-                        "REQ-SCHIEDSRICHTER-006",
-                        "REQ-SCHIEDSRICHTER-007"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.DB-COMMON-002.REQ-SCHIEDSRICHTER-007": {
         "description": "Conflict",
         "content": {
@@ -24972,30 +24580,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-SPIELPLAN-006": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-SPIELPLAN-006"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.DB-COMMON-002.REQ-SQUAD-001.REQ-SQUAD-003.REQ-SQUAD-004": {
         "description": "Conflict",
         "content": {
@@ -25013,31 +24597,6 @@
                         "REQ-SQUAD-001",
                         "REQ-SQUAD-003",
                         "REQ-SQUAD-004"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-SQUAD-004.REQ-SQUAD-005": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-SQUAD-004",
-                        "REQ-SQUAD-005"
                       ]
                     }
                   }
@@ -25076,6 +24635,256 @@
           }
         }
       },
+      "409.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BERECHTIGUNG-002",
+                        "REQ-BERECHTIGUNG-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BERECHTIGUNG-003",
+                        "REQ-BERECHTIGUNG-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-BEWERBUNG-001": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-DATE-002.REQ-DATE-003.REQ-DATE-008": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-DATE-002",
+                        "REQ-DATE-003",
+                        "REQ-DATE-008"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-DATE-004.REQ-RULES-002.REQ-RULES-003.REQ-RULES-004.REQ-RULES-005.REQ-RULES-006.REQ-RULES-009.REQ-RULES-011.REQ-RULES-012": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-DATE-004",
+                        "REQ-RULES-002",
+                        "REQ-RULES-003",
+                        "REQ-RULES-004",
+                        "REQ-RULES-005",
+                        "REQ-RULES-006",
+                        "REQ-RULES-009",
+                        "REQ-RULES-011",
+                        "REQ-RULES-012"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-EINWILLIGUNG-001.REQ-KONTAKT-001.REQ-KONTAKT-003": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-EINWILLIGUNG-001",
+                        "REQ-KONTAKT-001",
+                        "REQ-KONTAKT-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-EINWILLIGUNG-001",
+                        "REQ-REGISTRIERUNG-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-EINWILLIGUNG-001.REQ-SCHIEDSRICHTER-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-EINWILLIGUNG-001",
+                        "REQ-SCHIEDSRICHTER-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ENTER-002",
+                        "REQ-ENTER-003",
+                        "REQ-ENTER-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-KONTAKT-002.REQ-KONTAKT-003.REQ-KONTAKT-005": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-KONTAKT-002",
+                        "REQ-KONTAKT-003",
+                        "REQ-KONTAKT-005"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.REQ-PURGE-001": {
         "description": "Conflict",
         "content": {
@@ -25090,6 +24899,196 @@
                     "error_code": {
                       "enum": [
                         "REQ-PURGE-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-RETIRE-001": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-RETIRE-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-RETIRE-003": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-RETIRE-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-RETIRE-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-RETIRE-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SCHIEDSRICHTER-001.REQ-SCHIEDSRICHTER-004.REQ-SCHIEDSRICHTER-006.REQ-SCHIEDSRICHTER-007": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-001",
+                        "REQ-SCHIEDSRICHTER-004",
+                        "REQ-SCHIEDSRICHTER-006",
+                        "REQ-SCHIEDSRICHTER-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SCHIEDSRICHTER-007": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SPIELPLAN-006": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SPIELPLAN-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SQUAD-001.REQ-SQUAD-003.REQ-SQUAD-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SQUAD-001",
+                        "REQ-SQUAD-003",
+                        "REQ-SQUAD-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SQUAD-004.REQ-SQUAD-005": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SQUAD-004",
+                        "REQ-SQUAD-005"
                       ]
                     }
                   }

@@ -316,7 +316,7 @@ async def patch_team(
     by_id("team_id"),
     response_model=FLTeamWriteResponse,
     summary="Retire a team (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_team(
     team_id: CustomRouteObjectId,
@@ -367,7 +367,7 @@ async def delete_team(
     f"{by_id('team_id')}/reactivate",
     response_model=FLTeamWriteResponse,
     summary="Bring a retired team back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_team(
     team_id: CustomRouteObjectId,
@@ -478,7 +478,7 @@ async def post_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonTeamResponse,
     summary="Rewrite a team's season row: group, exit record and kit colour",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison_team(
     team_id: CustomRouteObjectId,
@@ -572,7 +572,7 @@ async def patch_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte",
     response_model=FLPatchSaisonTeamKontakteResponse,
     summary="Rewrite a team's season contacts, and nothing else on the row",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison_team_kontakte(
     team_id: CustomRouteObjectId,
@@ -848,7 +848,7 @@ async def replace_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/bestaetigung/einladen",
     response_model=FLKontaktEinladenResponse,
     summary="Send one contact seat a fresh confirmation link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def einladen_kontakt(
