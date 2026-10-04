@@ -17,7 +17,9 @@ Resume this session. Do not continue any work until you have finished this proto
 
      ls -t ~/.claude/plans/*/REGISTER-*.md          # Git Bash; newest first
 
-   and widen to `find ~/.claude/plans -name 'REGISTER-*.md'` if that matches nothing.
+   and widen to `find ~/.claude/plans -name 'REGISTER-*.md'` if that matches nothing. One whose
+   `Coordinator session id` line names this session's id (`SKILL.md` §2 item 8) is the candidate
+   ahead of every other match.
    Then, before you trust a word of it:
      - one file, recording the branch you are on -> that is the register. Name its path in your
        reply.

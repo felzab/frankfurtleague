@@ -5,9 +5,8 @@ this, wait, paste that — is the owner's to perform; a coordinator reads this p
 mechanics `SKILL.md` cites it for, and can execute none of it.
 
 How the skill reaches a session, read from the Claude Code documentation on 2026-09-02
-(`code.claude.com/docs/en/skills`, `sub-agents`, `sessions`, `desktop`) and not driven — no session
-here has measured a token budget or watched a compaction — and the exact message sequences for the
-three ways a session begins.
+(`code.claude.com/docs/en/skills`, `sub-agents`, `sessions`, `desktop`) and not driven except where a
+line says what was measured, and the exact message sequences for the three ways a session begins.
 
 ## How it loads
 
@@ -23,8 +22,11 @@ three ways a session begins.
   points at it. The brief, register and handoff templates therefore cost nothing until used.
 - **Compaction keeps the first 5,000 tokens of each invoked skill**, within a shared budget of
   25,000 for all of them, most recently invoked first; the rule that follows for `SKILL.md` is
-  stated at its top. After a long session a repeated `/orchestration` costs nothing and removes the
-  doubt.
+  stated at its top. **Measured**: a coordinator compacted three times on 2026-10-04, and each copy
+  of `SKILL.md` re-attached after the summary stopped at §2 item 3, about 20.4 KB into the 22.4 KB
+  page, behind the harness's own truncation marker. The skills documentation's remedy is to invoke
+  the skill again, and `.claude/hooks/orchestration-compact.sh` asks for that after every
+  compaction of a session whose id a register records (`SKILL.md` §1).
 - **Text after `/orchestration` on the same line is passed as arguments**, appended to the skill
   content as a final `ARGUMENTS: <text>` line. That much is **driven**: an agent in this repository
   invoked the skill through the harness's skill tool with the argument `resume` and read

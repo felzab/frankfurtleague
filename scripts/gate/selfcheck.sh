@@ -900,6 +900,38 @@ process.stdout.write(JSON.stringify(input));
     PATH=/nonexistent "$BASH" "$SUITE_HOOK" >/dev/null 2>&1 || suite_rc=$?
   if (( suite_rc == 0 )); then info 'whole-suite hook: no node — let through'
   else note_fail "whole-suite hook: without node it must let the call through, got exit ${suite_rc}"; fi
+
+  # Its whole contract is reaching a coordinator and nobody else, so each arm is a payload that
+  # must be told apart from the one that speaks.
+  COMPACT_HOOK="${REPO_ROOT}/.claude/hooks/orchestration-compact.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" SessionStart orchestration-compact.sh compact
+  compact_home="${SELFCHECK_TMP}/compact-home"
+  mkdir -p "${compact_home}/.claude/plans/programme"
+  printf '# Agent register\n\nCoordinator session id: probe-1\n' > "${compact_home}/.claude/plans/programme/REGISTER-one.md"
+  compact_drive() { # $1 payload — prints the exit status and what the hook said
+    local rc=0 out
+    out="$(printf '%s' "$1" | HOME="$compact_home" bash "$COMPACT_HOOK" 2>&1)" || rc=$?
+    printf '%s %s' "$rc" "$out"
+  }
+  compact_said="$(compact_drive '{"session_id":"probe-1","source":"compact","hook_event_name":"SessionStart"}')"
+  if [[ "$compact_said" == "0 "* ]] && node -e '
+const said = JSON.parse(process.argv[1]).hookSpecificOutput;
+process.exit(said.hookEventName === "SessionStart" && /\/orchestration/.test(said.additionalContext) && /REGISTER-one\.md/.test(said.additionalContext) ? 0 : 1);
+' "${compact_said#0 }" 2>/dev/null; then
+    info 'compaction hook: the coordinator — sent to the skill and its register'
+  else
+    note_fail "compaction hook: the coordinator's compaction must name /orchestration and its register as JSON, got '${compact_said:0:200}'"
+  fi
+  for compact_case in \
+    'another session|{"session_id":"probe-2","source":"compact","hook_event_name":"SessionStart"}' \
+    'a startup|{"session_id":"probe-1","source":"startup","hook_event_name":"SessionStart"}' \
+    'a subagent|{"session_id":"probe-1","source":"compact","agent_id":"a1","hook_event_name":"SessionStart"}' \
+    'a pattern for an id|{"session_id":"probe-.*","source":"compact","hook_event_name":"SessionStart"}' \
+    'unreadable input|not json'; do
+    compact_said="$(compact_drive "${compact_case#*|}")"
+    if [[ "$compact_said" == "0 " ]]; then info "compaction hook: ${compact_case%%|*} — silent"
+    else note_fail "compaction hook: ${compact_case%%|*} must exit 0 silently, got '${compact_said:0:200}'"; fi
+  done
 fi
 
 step "13. Every deliberate non-run reaches the gate"

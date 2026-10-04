@@ -35,6 +35,9 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
   A `resume` argument is a resume, and so is arriving with no instruction into a transcript already
   carrying this session's work; either way run [resume-prompt.md](resume-prompt.md) to its end
   before anything else.**
+- **After a compaction, invoke `/orchestration` again and read the register's resume point before
+  the next action**: compaction keeps this page's opening only, and
+  `.claude/hooks/orchestration-compact.sh` says so to the session whose id the register records.
 - **A quota stop costs exactly what the register does not hold.** Every edit on disk survives it;
   every finding an agent has not yet returned dies with it (§4), and so does your judgement since
   the last register edit — so the register's **resume point**
@@ -283,5 +286,5 @@ Do these in this order. None is skippable.
 6. **Decide each slice's cycle now (§6)**, with its reason. Never decide it while reading findings.
 7. **Enumerate the ending (§7)** so the dispatch floor has something to count.
 8. **Write the register ([register-template.md](register-template.md)) before the first agent
-   runs**, naming step 1's branch and the session's scratch path, whose top level you own. Then send
-   the owner batch.
+   runs**, naming step 1's branch, the session's scratch path, whose top level you own, and this
+   session's id, `${CLAUDE_SESSION_ID}`. Then send the owner batch.

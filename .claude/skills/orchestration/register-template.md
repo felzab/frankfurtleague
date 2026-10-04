@@ -37,6 +37,8 @@ Scratch path: <one directory, outside the repository, a subdirectory per agent, 
 brief>.
 Starter prompt: <path>. Previous handoff: <path, or none>. These two are what a resume re-reads
 (`resume-prompt.md` steps 2 and 5), and a compacted transcript may name neither.
+Coordinator session id: <the id SKILL.md §2 item 8 gives, alone after the colon: the compaction
+hook matches this line to a compacted session, and no other spelling of it>
 
 ## Prepared for the unattended stretch -- and nothing here depends on my remembering it
 
