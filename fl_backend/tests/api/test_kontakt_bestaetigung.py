@@ -38,6 +38,7 @@ from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.identitaet.crud import funktionen_of
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
+from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import einladen_kontakt, patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.api.teams.services import (
@@ -237,7 +238,14 @@ BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
 
 
 async def answer(
-    database: AsyncDatabase, token: str, *, antwort: str = "erteilt", today: str = TODAY, text_version: str = SAISON_SEITE, medien: bool = False
+    database: AsyncDatabase,
+    token: str,
+    *,
+    antwort: str = "erteilt",
+    today: str = TODAY,
+    text_version: str = SAISON_SEITE,
+    medien: bool = False,
+    saisons: Any = None,
 ) -> Any:
     erteilt = antwort == "erteilt"
     body = {
@@ -253,7 +261,7 @@ async def answer(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
+        saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=database.client,
@@ -1143,6 +1151,53 @@ class TestALinkOutlivingItsSeason:
         assert row["kontakte"]["trainer"] is None
         # Its answer outranks the closed row, as `gesperrt` and `bestaetigt` do.
         assert reopened.zustand == "abgelehnt"
+
+
+class SeasonsRunningARivalAfterTheirRead(InterleavedCollection):
+    """The rival lands once the press holds the season's status and before it writes the row."""
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        await self.run_the_rival()
+
+        return found
+
+
+NEXT_SAISON_ID = "2027"
+
+
+class TestARolloverInsideTheConsentPress:
+    """The rollover writes the season and nothing on the row, so the press's season anchor is what makes the two conflict."""
+
+    def test_a_rollover_committing_after_the_presss_status_read_makes_it_retry_and_refuse(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].insert_one(documents.saison_document(NEXT_SAISON_ID, "future"))
+            # What makes the next season activatable (`REQ-ACTIVATE-003`).
+            await database[Collection.SPIELE].insert_one(
+                documents.spiel_document(spiel_id=ObjectId(), saison_id=NEXT_SAISON_ID, spiel_nr=1, spieltag_id=ObjectId())
+            )
+            token = (await save(database, THREE)).bestaetigungen[0].token
+
+            async def roll_over() -> None:
+                await activate_saison(
+                    saison_id=NEXT_SAISON_ID,
+                    saisons_collection=database[Collection.SAISONS],
+                    spiele_collection=database[Collection.SPIELE],
+                    spieltage_collection=database[Collection.SPIELTAGE],
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    db=client,
+                )
+
+            seasons = SeasonsRunningARivalAfterTheirRead(database[Collection.SAISONS], roll_over)
+            code = await refused(answer(database, token, saisons=cast(AsyncCollection, seasons)))
+            seasons.assert_landed_inside(serially=1)
+
+            return code, await row_now(database)
+
+        code, row = on_a_league(mongo_replica_set_url, body)
+
+        assert code == KONTAKT_SAISON_VORBEI
+        assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "a consent landed on a season that has ended"
 
 
 class TestTheLinkLookupWalksAnIndex:
