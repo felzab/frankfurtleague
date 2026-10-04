@@ -102,7 +102,7 @@ CONFLICT = "409"
 
 # The operations the trace reached a unique index from on the tree this was written against, so an
 # equality over two sets that both went empty still fails.
-DECLARING_OPERATIONS_FLOOR = 31
+DECLARING_OPERATIONS_FLOOR = 33
 
 
 def _filter_fields(expression: Any) -> Iterator[str]:
@@ -202,6 +202,13 @@ class _Dump:
 
 
 @dataclass(frozen=True)
+class _Sequence:
+    """A list or tuple, its elements' possible values merged: what a batch insert is handed."""
+
+    elements: Values
+
+
+@dataclass(frozen=True)
 class _Fill:
     """One store into a held dict: a key and its value, or with no key a whole document handed to `update`."""
 
@@ -234,14 +241,31 @@ class Write:
     inner: tuple[Write, ...] = field(default=(), compare=False)
 
 
-def _chooses_id(call: ast.Call, helper: str) -> bool:
-    document = _argument(call, "document", 0 if helper == "insert_one" else None)
+def _names_an_id(document: Any) -> bool:
+    """Whether an inserted document may name its own `_id`; one the trace cannot read may."""
 
-    return (
-        helper in INSERTS
-        and isinstance(document, ast.Dict)
-        and any(isinstance(key, ast.Constant) and key.value == ID_KEY for key in document.keys)
+    if isinstance(document, _Sequence):
+        return any(map(_names_an_id, document.elements))
+    entries = _entries(document)
+    if entries is None:
+        return True
+
+    return any(
+        any(map(_names_an_id, held)) if key is SPREAD else not isinstance(key, str | _Prefix) or _meets(key, ID_KEY)
+        for keys, held in entries
+        for key in keys
     )
+
+
+def _chooses_id(call: ast.Call, helper: str, scope: Mapping[str, Values], module: ModuleType) -> bool:
+    """An insert whose documents, read through composers and list elements, may name their own `_id`."""
+
+    if helper not in INSERTS | DRIVER_INSERTS | {BULK_INSERT}:
+        return False
+    argument = _argument(call, "documents", 0 if helper == "insert_many" else None) if helper in {"insert_many", BULK_INSERT} else None
+    document = argument or _argument(call, "document", 0 if helper == "insert_one" else None)
+
+    return document is None or any(map(_names_an_id, _values(document, scope, module)))
 
 
 def _distinct(values: Iterator[Any]) -> Values:
@@ -409,7 +433,7 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
             DATABASE
             if isinstance(value, Collection) and node.attr == "database"
             else UNRESOLVED
-            if value is UNRESOLVED or isinstance(value, _Literal | _Prefix | _Payload | _Dump | _Typed)
+            if value is UNRESOLVED or isinstance(value, _Literal | _Prefix | _Payload | _Dump | _Typed | _Sequence)
             else getattr(value, node.attr, UNRESOLVED)
             for value in _values(node.value, scope, module)
         )
@@ -437,6 +461,23 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
                 )
             ),
         )
+
+    if isinstance(node, ast.List | ast.Tuple):
+        return (
+            _Sequence(
+                _distinct(
+                    value
+                    for element in node.elts
+                    for value in ((UNRESOLVED,) if isinstance(element, ast.Starred) else _values(element, scope, module))
+                )
+            ),
+        )
+
+    if isinstance(node, ast.ListComp | ast.GeneratorExp):
+        inner = dict(scope) | {
+            target.id: (UNRESOLVED,) for generator in node.generators for target in ast.walk(generator.target) if isinstance(target, ast.Name)
+        }
+        return (_Sequence(_values(node.elt, inner, module)),)
 
     if isinstance(node, ast.DictComp):
         # Each loop variable stands for any value, so a key is read up to its first hole naming one.
@@ -495,6 +536,8 @@ def _read_only(node: ast.AST, parents: Mapping[int, ast.AST]) -> bool:
     if isinstance(parent, ast.keyword) and parent.arg in WRITTEN_ARGUMENTS:
         call = parents.get(id(parent))
         return isinstance(call, ast.Call) and callee(call) in WRITE_HELPERS | DRIVER_WRITES
+    if isinstance(parent, ast.Call) and node in parent.args:
+        return callee(parent) in WRITE_HELPERS | DRIVER_WRITES
     # A literal holding it, bound to a name, is that name's to answer for.
     if isinstance(parent, ast.AnnAssign):
         return isinstance(node, ast.Dict) and isinstance(parent.target, ast.Name)
@@ -724,7 +767,7 @@ def _updated_fields(update: Values) -> FieldWrites | None:
 def _driver_write(
     call: ast.Call, method: str, collections: Values, site: tuple[str, int], scope: Mapping[str, Values], module: ModuleType
 ) -> Write:
-    chooses_id = _chooses_id(call, method)
+    chooses_id = _chooses_id(call, method, scope, module)
     if method in DRIVER_INSERTS:
         return Write(method, collections, site, chooses_id, kind="insert")
     if method in DRIVER_REMOVALS:
@@ -763,7 +806,7 @@ def _write_at(call: ast.Call, chain: tuple[Declaration, ...], path: Path, scope:
     target, target_path = resolved
     argument = _argument(call, "collection", None)
     collections = (UNRESOLVED,) if argument is None else _values(argument, scope, module)
-    chooses_id = _chooses_id(call, target.name)
+    chooses_id = _chooses_id(call, target.name, scope, module)
     taken = {parameter.arg for parameter, _ in _parameters(target)}
 
     if "update" in taken:
@@ -991,13 +1034,13 @@ def test_the_draws_bulk_inserts_reach_a_unique_index_on_their_own():
 
 
 def test_an_insert_naming_its_own_id_reaches_the_id_index():
-    """The season's create is the one insert choosing its `_id`.
+    """The season's create inserts a document choosing its `_id`, seen at the helper and at the driver call it binds.
 
     `saisons` carries a listed index as well, so the write is moved onto a collection carrying none.
     """
 
     _, writes = _write_operations()[f"POST /api/v{API_VERSION}/saisons"]
-    [chosen] = [write for write in writes if write.chooses_id]
+    [chosen] = [write for write in writes if write.chooses_id and write.site[0] != CRUD.relative_to(BACKEND_ROOT).as_posix()]
     uncovered = next(member for member in Collection if member not in UNIQUE_COLLECTIONS)
 
     assert _reaches_a_unique_index((replace(chosen, collections=(uncovered,)),))
@@ -1110,6 +1153,23 @@ def test_a_dict_filled_by_its_own_stores_writes_what_they_name(store: str, reach
 
     assert fields is not None and {path for path, _ in fields} >= {_Prefix("kontakte."), "bestaetigungsfrist"}
     assert _reaches(Write("patch_one_in_db", (Collection.BEWERBUNGEN,), (COMPOSERS, 0), kind="update", sets=fields)) is reaches
+
+
+@pytest.mark.parametrize(
+    ("documents", "names_one"),
+    [
+        ("[{'adresse': address} for address in addresses]", False),
+        ("[{'_id': grant, 'adresse': address} for grant, address in pairs]", True),
+        ("[{'adresse': address}, *more]", True),
+        ("{**base, 'adresse': address}", True),
+    ],
+)
+def test_an_insert_chooses_its_id_wherever_its_documents_may_name_one(documents: str, names_one: bool):
+    """Read through list elements and comprehensions; an element the trace cannot read may name one."""
+
+    held = _values(ast.parse(documents, mode="eval").body, {"base": (UNRESOLVED,), "more": (UNRESOLVED,)}, importlib.import_module(COMPOSERS))
+
+    assert any(map(_names_an_id, held)) is names_one
 
 
 def test_a_route_declares_its_409_exactly_where_a_write_reaches_a_unique_index():

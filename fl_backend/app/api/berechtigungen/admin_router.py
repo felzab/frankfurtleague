@@ -279,7 +279,7 @@ async def delete_berechtigung(
     by_id("berechtigung_id"),
     response_model=FLBerechtigungWriteResponse,
     summary="Change a grant between administrator and owner",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def patch_berechtigung(

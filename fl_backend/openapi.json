@@ -6660,6 +6660,9 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007"
+          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -6674,9 +6677,6 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-005"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8037,6 +8037,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "default": {
             "$ref": "#/components/responses/default"
@@ -24246,6 +24249,31 @@
           }
         }
       },
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERECHTIGUNG-003",
+                        "REQ-BERECHTIGUNG-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-002.REQ-BEWERBUNG-003.REQ-BEWERBUNG-013.REQ-ENTER-001.REQ-ENTER-002.REQ-ENTER-003.REQ-ENTER-005": {
         "description": "Conflict",
         "content": {
@@ -24652,30 +24680,6 @@
                       "enum": [
                         "REQ-BERECHTIGUNG-002",
                         "REQ-BERECHTIGUNG-004"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "REQ-BERECHTIGUNG-003",
-                        "REQ-BERECHTIGUNG-007"
                       ]
                     }
                   }
