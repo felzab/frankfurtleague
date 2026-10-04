@@ -266,10 +266,9 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> 
 
 
 class BanListRunningARivalAfterItsRead(InterleavedCollection):
-    """The ban list a save reads through: the rival lands once the save holds its answer, before the save writes.
+    """The rival lands once the save holds its ban read inside the transaction, before the save writes.
 
-    Hooked at the read inside the transaction alone: the actor check before the handler asks the same
-    list outside it, and a rival landing there is a ban committed before the save began.
+    The actor check reads the same list outside it, where a rival is a ban committed before the save began.
     """
 
     def find(self, *args: Any, **kwargs: Any) -> Any:
@@ -303,10 +302,9 @@ async def _nothing() -> None:
 
 
 def save_racing_a_ban(url: str, *, rival: bool) -> tuple[int, str | None, int]:
-    """`THREE` saved through the served application, so the acting administrator's judge is bound; Ida's ban lands where `rival` is set.
+    """`THREE` saved through the served application, so the administrator's judge is bound; Ida is banned where `rival` is set.
 
-    Answers the status, the refusal's code and how often the save reached its ban read. A handler called
-    directly binds no judge, and with none its attempt meets no conflict and commits Ida's seat.
+    Answers the status, the refusal's code and the arrivals at the ban read. Called directly, a handler binds no judge.
     """
 
     async def seeded(_: AsyncDatabase, __: AsyncMongoClient) -> None:

@@ -643,9 +643,9 @@ async def patch_saison_team_kontakte(
         # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
         # Widerspruch alone (`docs/backend/spec.md :: I935`).
         owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
-        # In the transaction, so the refusal answers the ban as it stands at the write; a ban landing
-        # after it is the confirmation press's to refuse (`docs/backend/spec.md :: I505`). Refused rather
-        # than stored unmailed: a person the league may not mail would learn nothing of the entry.
+        # In the transaction, so the ban is answered as it stands at the write; one landing after is the
+        # press's (`docs/backend/spec.md :: I505`). Refused, never stored unmailed: that person would
+        # learn nothing of the entry.
         barred = await adressen_gesperrt(
             sperrliste,
             {adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)},
