@@ -29,7 +29,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "../../constants";
@@ -112,7 +112,7 @@ export function RegistrierungFormPanel({
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-        appToast.danger(gesendet.wroteNothing ? "Registrierung nicht abgeschickt" : "Unklar, ob es bei uns angekommen ist", {
+        appToast.danger(gesendet.wroteNothing ? "Registrierung nicht abgeschickt" : UNKLAR_TITEL, {
           // Every arm that may have landed gives the one step the outcome-unknown answer gives.
           description: gesendet.wroteNothing ? gesendet.error : REGISTRIERUNG_UNKLAR,
         });
@@ -127,7 +127,7 @@ export function RegistrierungFormPanel({
         if (!antwort.success) {
           // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
           if (antwort.outcome === "unknown") {
-            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: REGISTRIERUNG_UNKLAR });
+            appToast.danger(UNKLAR_TITEL, { description: REGISTRIERUNG_UNKLAR });
             return;
           }
 

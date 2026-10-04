@@ -25,7 +25,7 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
@@ -353,7 +353,7 @@ export function BestaetigungFormPanel({
     if (!gesendet.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(gesendet.wroteNothing ? "Antwort nicht gespeichert" : "Unklar, ob es bei uns angekommen ist", {
+      appToast.danger(gesendet.wroteNothing ? "Antwort nicht gespeichert" : UNKLAR_TITEL, {
         description: gesendet.error,
       });
       return;
@@ -368,7 +368,7 @@ export function BestaetigungFormPanel({
         // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence
         // is an administrator's repair, and a reload of this page has lost its token.
         if (antwort.outcome === "unknown") {
-          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+          appToast.danger(UNKLAR_TITEL, { description: ANTWORT_UNKLAR });
           return;
         }
 

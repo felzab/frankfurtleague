@@ -27,6 +27,9 @@ export type PublicEnvelope = {
   schonAngekommen?: true;
 };
 
+/** The title every public form gives an answer whose outcome is unknown, whichever form sent it. */
+export const UNKLAR_TITEL = "Unklar, ob es bei uns angekommen ist";
+
 /**
  * What each link confirmation tells a visitor whose answer may have landed: reopened, a
  * spent link says so, and a live one takes the answer again.

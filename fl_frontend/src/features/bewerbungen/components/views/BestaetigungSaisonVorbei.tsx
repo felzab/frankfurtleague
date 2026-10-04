@@ -11,7 +11,7 @@ import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
@@ -54,7 +54,7 @@ export function BestaetigungSaisonVorbei({
     const gesendet = await postPublicForm<WiderspruchAntwort>("/api/bestaetigung/kontakt", payload);
 
     if (!gesendet.answered) {
-      appToast.danger(gesendet.wroteNothing ? "Widerspruch nicht gespeichert" : "Unklar, ob es bei uns angekommen ist", {
+      appToast.danger(gesendet.wroteNothing ? "Widerspruch nicht gespeichert" : UNKLAR_TITEL, {
         description: gesendet.error,
       });
       return;
@@ -69,7 +69,7 @@ export function BestaetigungSaisonVorbei({
         return;
       }
       if (antwort.outcome === "unknown") {
-        appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+        appToast.danger(UNKLAR_TITEL, { description: ANTWORT_UNKLAR });
         return;
       }
       if (antwort.zustand !== undefined) {

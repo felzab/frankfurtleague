@@ -15,7 +15,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
-import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
+import { EDGE_RATE_LIMIT_STATUS, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { FormEinwilligungSection, FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
@@ -243,7 +243,7 @@ export function BewerbungForm({
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-        appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : "Unklar, ob es bei uns angekommen ist", {
+        appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : UNKLAR_TITEL, {
           // Every arm that may have landed gives the one step the outcome-unknown answer gives.
           description: gesendet.wroteNothing ? gesendet.error : BEWERBUNG_UNKLAR,
         });
@@ -258,7 +258,7 @@ export function BewerbungForm({
         if (!antwort.success) {
           // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
           if (antwort.outcome === "unknown") {
-            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BEWERBUNG_UNKLAR });
+            appToast.danger(UNKLAR_TITEL, { description: BEWERBUNG_UNKLAR });
             return;
           }
 
