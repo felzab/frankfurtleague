@@ -592,22 +592,23 @@ async def patch_saison_team_kontakte(
     beside the block, and a row whose block answers to another token is refused rather than
     overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
     which nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than
-    `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and
-    `bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat
-    is stored as entered administratively.
+    `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and
+    `bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
+    on is stored as the league's entry, unconfirmed.
 
     **Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the
     caller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person
     keeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing
     live. A save newly seating an address the ban list holds is refused `REQ-KONTAKT-003`, as the re-send to one is. On
     a row of a `past` season, or of a team that has left it, the link is how its person learns of the entry, and it
-    takes their Widerspruch alone. A save minting a link, or voiding one its person could still answer, is refused `REQ-AUTH-009`
-    as the clearing is; a save doing neither is not.
+    takes their Widerspruch alone. A save minting a link, or voiding one its person could still answer, is refused
+    `REQ-AUTH-009` as the clearing is; a save doing neither is not.
 
-    **A seat the same person keeps keeps its record whole**, every act on it included, and the save appends nothing
-    there; a seat newly filled or handed to another person is born with one `erteilt` entry, and its label must be the
-    application form's running one (`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page
-    it is a version of, or the running one, and its record is carried either way.
+    **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
+    or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
+    person's own write grants one. Such a seat's label must be the application form's running one
+    (`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the
+    running one, and its record is carried either way.
     """
 
     if kontakte_data.kontakte is None:
