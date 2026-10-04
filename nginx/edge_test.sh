@@ -515,8 +515,11 @@ while IFS= read -r location_line; do
     /*/) HEADER_PATHS+=( "${location_args}probe" ) ;;
     /) HEADER_PATHS+=( "/" ) ;;
     /*) HEADER_PATHS+=( "${location_args}/probe" ) ;;
-    # A regex or named location answers no path this can derive, and probing around it would call
-    # the file covered while one of its locations went unasked.
+    # Reached through `error_page` alone, never a path: the server-action pair below asks it with a
+    # request the edge refuses.
+    @*) ;;
+    # A regex location answers no path this can derive, and probing around it would call the file
+    # covered while one of its locations went unasked.
     *) refuse "nginx/shared/site.conf declares 'location ${location_args}', whose path this probe cannot derive." ;;
   esac
 done < "${REPO_ROOT}/nginx/shared/site.conf"
@@ -647,6 +650,13 @@ action_request admin-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-T
 action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+# The refusal itself, kept whole: what Next's action client reads as the press's error. Not through
+# `action_request`, whose `-o /dev/null` curl would pair with this transfer in place of the file.
+REFUSAL_HEADERS="${SCRATCH}/refusal.headers"
+REFUSAL_BODY="${SCRATCH}/refusal.body"
+ACTION_LABELS+=( refusal )
+ACTION_REQUESTS+=( --next -s -D "$REFUSAL_HEADERS" -o "$REFUSAL_BODY" -w '%{http_code}\n' --max-time 5 -H "Host: localhost"
+  -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/" )
 # And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
 action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
@@ -675,6 +685,26 @@ expect_action urlencoded 429
 expect_action admin-prefix 429
 expect_action static-prefix 429
 expect_action colon-id 429
+expect_action refusal 429
+
+# The sentence `nginx/shared/site.conf :: @edge_refusal` returns, read off the file so a rewording there
+# is graded too.
+REFUSAL_WRITTEN="$(sed -n 's/^[[:space:]]*return 429 "\(.*\)";$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
+[[ -n "$REFUSAL_WRITTEN" ]] || refuse "nginx/shared/site.conf returns no 429 sentence this test can read."
+read_headers "$REFUSAL_HEADERS"
+# Exactly, as Next compares it: a `charset` appended is the failure this case exists for.
+if [[ "${SENT_VALUE[content-type]:-}" != "text/plain" ]]; then
+  fail "ACTION refusal"
+  detail "expected Content-Type: text/plain, nginx sent '${SENT_VALUE[content-type]:-}'"
+  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+fi
+# Bytes, not a text read: an appended newline or a byte outside ASCII changes what the frontend compares.
+if ! cmp -s "$REFUSAL_BODY" <(printf '%s' "$REFUSAL_WRITTEN") || LC_ALL=C grep -q '[^ -~]' "$REFUSAL_BODY"; then
+  fail "ACTION refusal"
+  detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent '$(cat "$REFUSAL_BODY" 2>/dev/null)'"
+  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+fi
+grade_security_headers "the edge's own 429"
 expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
@@ -821,4 +851,4 @@ ok "${#CASES[@]} redaction cases clean, no visitor in the container's own stream
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
 ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, an empty
 Next-Action handed to no one, server
-actions metered on their own pair and nothing else metered by it, and the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"
+actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, and the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"

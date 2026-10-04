@@ -51,7 +51,7 @@ export type PublicAnswer<T> =
     };
 
 /**
- * The edge's rate limit, generated before any route handler runs: the body is nginx's own HTML
+ * The edge's rate limit, generated before any route handler runs: the body is nginx's own sentence
  * rather than the envelope, so the status is the whole of what arrived.
  */
 export const EDGE_RATE_LIMIT_STATUS = 429;

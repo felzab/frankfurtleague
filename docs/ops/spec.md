@@ -341,6 +341,17 @@ A burst at the Kürzel check was refused past the burst as `429` (not nginx's `5
 refusal being I2's observation. No rate here is measured — the figures remain judgement calls, and
 the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (measured 2026-08-30).
 
+**Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`**,
+the server block's `error_page 429` sending a zone's refusal and the connection ceiling's alike to
+`nginx/shared/site.conf :: @edge_refusal`. Next 16.3.8 hands a server action's caller the body of a
+failed answer that is not RSC as the error's message under that exact type alone, and the frontend
+reads that message as a press that wrote nothing
+([`docs/frontend/spec.md`](../frontend/spec.md) I838). A `charset` makes the header
+`text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
+handler's caller reads the status alone, and a page load past the connection ceiling shows the
+sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
+file, and its security headers.
+
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
 `Referer` with it, and no `map` reaches that log — the open-source build has no option over what a
@@ -1398,6 +1409,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The local database holds real contact records                     | Accepted — a copy I1 keeps off every interface but this host's; `--fresh` removes volume, copy and access log, every `--down` removes `.tmp-mail/`                                                 |
 | A guard the database tier stays green without                     | Narrowed — dropping `session=` at `judge_and_write_the_rules` turns `--db` (§1.6) red; which other callbacks no case drives is [`docs/backend/spec.md`](../backend/spec.md) §4's                   |
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
+| Cloudflare may rewrite the edge's own 429                         | Open — whether the tunnel passes `@edge_refusal`'s body and `Content-Type` unchanged shows only in production, on the 32nd action POST after a deploy (§1.3)                                       |
 | The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |
 | CI's Python can be another patch release than the image's         | Accepted — `actions/setup-python` resolves the series `fl_backend/.python-version` names, while the image holds the release its tag names until Dependabot moves it (I513)                         |
 | A runtime's security release waits for Dependabot's schedule      | Accepted — Dependabot has no base-image security updates, so a Node or Python fix waits for the weekly run and cooldown: eight days at worst                                                       |

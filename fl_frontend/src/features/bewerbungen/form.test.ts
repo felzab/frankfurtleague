@@ -14,6 +14,7 @@ import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { formWiring } from "@/shared/testing/formWiring.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError.ts";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FLPostBewerbungPayloadSchema } from "./schemas.ts";
@@ -350,11 +351,13 @@ describe("the public application form", () => {
     await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Bewerbung schon angekommen", SCHON_DA]]));
   });
 
-  /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's HTML and
+  /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's sentence and
      none of the always-200 envelope. Read as a transport failure it tells an applicant nothing about
      the one remedy it has, which is to wait. */
   it("answers the edge's rate limit in its own words on the availability check", async () => {
-    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response("<html>429</html>", { status: 429 })));
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } })),
+    );
     const { user, kuerzel } = await renderNewSchool();
 
     await typeInto(user, kuerzel, "GG", { leaveBox: true });

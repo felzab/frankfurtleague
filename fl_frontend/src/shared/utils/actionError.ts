@@ -171,24 +171,41 @@ const OUTCOME_UNKNOWN: ActionFailure = {
 export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
 
 /**
+ * The body of every 429 the edge answers itself (`nginx/shared/site.conf :: @edge_refusal`), which Next hands
+ * a rejected action as its error's message only under a content type of exactly `text/plain`: so ASCII,
+ * sent with no charset.
+ */
+export const EDGE_REFUSAL_BODY = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
+
+/** A press the edge's rate refused, which never reached Next: nothing was written, and the meter refills within the minute. */
+export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
+  "Zu viele Versuche in kurzer Zeit. Die Änderung wurde nicht gespeichert. Warte einen Moment und versuche es dann erneut.";
+
+function isEdgeRefusal(error: unknown): boolean {
+  return error instanceof Error && error.message === EDGE_REFUSAL_BODY;
+}
+
+/**
  * An editor's answer to its own action rejecting, a dropped connection among the causes: the press may
  * have reached the server, and uncaught inside a transition the rejection replaces the editor with the
  * error page.
  */
-export function unansweredAction(): ActionFailure {
-  return { ...OUTCOME_UNKNOWN };
+export function unansweredAction(error?: unknown, repair?: string): ActionFailure {
+  // The one rejection that says what became of the press: the edge refused it before Next ran.
+  if (isEdgeRefusal(error)) return { success: false, error: ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT };
+
+  return repair === undefined ? { ...OUTCOME_UNKNOWN } : { ...OUTCOME_UNKNOWN, error: repair };
 }
 
 /**
  * A write action's rejection answered as `unansweredAction` answers it, with the page read again: a rejection brings
- * no server refresh back while the write may stand. `repair` is a control's own sentence where it has one.
+ * no server refresh back while the write may stand. The edge's refusal wrote nothing, so it reads nothing.
  */
-export function rejectedWrite(router: { refresh: () => void }, repair?: string): () => ActionFailure {
-  return () => {
-    router.refresh();
-    const unanswered = unansweredAction();
+export function rejectedWrite(router: { refresh: () => void }, repair?: string): (error?: unknown) => ActionFailure {
+  return (error) => {
+    if (!isEdgeRefusal(error)) router.refresh();
 
-    return repair === undefined ? unanswered : { ...unanswered, error: repair };
+    return unansweredAction(error, repair);
   };
 }
 

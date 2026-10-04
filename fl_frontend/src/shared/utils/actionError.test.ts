@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { z } from "zod";
@@ -8,6 +10,7 @@ import { publishedOperations } from "@/core/openapiDocument.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
 import {
+  EDGE_REFUSAL_BODY,
   FELD_ABGELEHNT,
   HEUTE_GENUG_GEAENDERT,
   isRuleRefusal,
@@ -15,6 +18,7 @@ import {
   rejectedWrite,
   toActionErrorResult,
   unansweredAction,
+  ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT,
   ZUGANG_WEG,
 } from "./actionError.ts";
 import { UNKNOWN_REFUSAL } from "./refusal.ts";
@@ -456,5 +460,38 @@ describe("a write action that rejected", () => {
     assert.deepEqual(rejectedWrite(router)(), unansweredAction());
     assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(), { ...unansweredAction(), error: "Prüfe die Verbindung." });
     assert.equal(refreshed, 2, "a rejected write left the page as it was");
+  });
+
+  /* As Next's action client raises it: the body of a non-RSC answer under exactly `text/plain` becomes the
+     error's message. Anything else it raises carries its own generic message, which stays unclear. */
+  it("says nothing was saved where the edge refused the press, reading nothing again", () => {
+    let refreshed = 0;
+    const router = { refresh: () => void (refreshed += 1) };
+    const edge = new Error(EDGE_REFUSAL_BODY);
+    const refused = { success: false, error: ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT };
+
+    assert.deepEqual(unansweredAction(edge), refused);
+    assert.deepEqual(unansweredAction(edge, "Prüfe die Verbindung."), refused);
+    assert.deepEqual(rejectedWrite(router)(edge), refused);
+    assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(edge), refused);
+    assert.equal(refreshed, 0, "a press the edge refused wrote nothing to read again");
+
+    for (const other of [
+      new Error("An unexpected response was received from the server."),
+      new Error(`${EDGE_REFUSAL_BODY}\n`),
+      EDGE_REFUSAL_BODY,
+    ]) {
+      assert.deepEqual(unansweredAction(other), unansweredAction(), String(other));
+    }
+  });
+
+  /* Source text rather than a served answer: `nginx/edge_test.sh` serves the file and grades the body
+     against this same line, so the two halves meet at it. */
+  it("expects the very sentence the edge returns, in ASCII alone", () => {
+    const site = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "..", "nginx", "shared", "site.conf"), "utf8");
+    const returned = [...site.matchAll(/^\s*return 429 "(.*)";$/gm)].map((match) => match[1]);
+
+    assert.deepEqual(returned, [EDGE_REFUSAL_BODY]);
+    assert.match(EDGE_REFUSAL_BODY, /^[ -~]+$/);
   });
 });

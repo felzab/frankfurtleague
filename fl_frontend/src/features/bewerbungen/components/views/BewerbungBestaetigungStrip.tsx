@@ -512,7 +512,7 @@ function AdresseKorrigieren({
 
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
     // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
-    const res = await kontaktEmailKorrigierenAction(payload).catch(() => ({ ...unansweredAction(), error: KORREKTUR_OHNE_ANTWORT }));
+    const res = await kontaktEmailKorrigierenAction(payload).catch((error: unknown) => unansweredAction(error, KORREKTUR_OHNE_ANTWORT));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
@@ -706,7 +706,7 @@ function SitzNeuBesetzen({
 
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
     // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
-    const res = await besetzeKontaktSitzAction(payload).catch(() => ({ ...unansweredAction(), error: BESETZUNG_OHNE_ANTWORT }));
+    const res = await besetzeKontaktSitzAction(payload).catch((error: unknown) => unansweredAction(error, BESETZUNG_OHNE_ANTWORT));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
