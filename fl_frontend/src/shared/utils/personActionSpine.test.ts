@@ -58,6 +58,7 @@ function countingBody() {
  * kind instead of joining the other.
  */
 const CLAIMS_A_RECORD: ReadonlySet<string> = new Set<string>([
+  "kontakte :: patchBewerbungEinwilligungAction",
   "kontakte :: patchSitzEinwilligungAction",
   "schiedsrichter :: patchSchiedsrichterEinwilligungAction",
   "spieler :: patchSpielerEinwilligungAction",

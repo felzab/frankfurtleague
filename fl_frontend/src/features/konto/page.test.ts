@@ -10,6 +10,7 @@ import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { SubjectSession } from "@/core/subject.ts";
+import type { EinwilligungEintrag } from "./components/forms/EinwilligungForm/EinwilligungPanel.tsx";
 import type { Anmeldung, Sicherheit } from "./types.ts";
 
 const { setSubject } = doubleActionRequest();
@@ -289,7 +290,7 @@ describe("what the security section tells its reader", () => {
 
 const { answerReadsWith, EMPTIEST_ANSWER, renderPage } = await import("@/shared/testing/pageHarness.ts");
 const { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
-const { bestaetigteWorte, sitzMindestalter } = await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
+const { bestaetigteWorte, NUR_WIDERRUF_BIS_ZUSAGE, sitzMindestalter } = await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
 
@@ -308,6 +309,18 @@ const SITZ = {
   medien: false,
   medien_angeboten: true,
   erteilbar: true,
+};
+
+/** A contact person confirmed on a school's application still awaiting its decision. */
+const BEWERBUNG_SITZ = {
+  bewerbung_id: "6890a1b2c3d4e5f607181001",
+  schule: "Goethe-Gymnasium",
+  saison_id: "2627",
+  rollen: ["ansprechperson"],
+  bestaetigt_text_version: "2026-09-bestaetigungsseite-6",
+  medien: true,
+  nachweis_stand: { medien: "2026-09-01T10:00:00+02:00" },
+  kontext: { vorname: "Erika", team: "Goethe", schule: "Goethe-Gymnasium", saison: "2627", rolle: "ansprechperson" },
 };
 
 const EINWILLIGUNG = {
@@ -420,6 +433,22 @@ describe("the account page's consent section", () => {
 
     assert.equal(await disclosures(), 0);
     assert.ok((await sectionText()).includes(publishedLaufendeFassung("konto_spieler").schalter));
+  });
+
+  /* A pending application's seat takes a withdrawal alone, the grant being its confirmation page's: the
+     switch stands while the consent is on, says why it only withdraws, and presses the application's write. */
+  it("lists a pending application's seat as a withdrawal alone, saying why", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ bewerbungen: [BEWERBUNG_SITZ] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Fotos, Videos und Interviews: Bewerbung für Goethe-Gymnasium, Saison 2627"), text);
+    assert.ok(text.includes(NUR_WIDERRUF_BIS_ZUSAGE), "the seat does not say why it only withdraws");
+    assert.equal(await disclosures(), 1);
+
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+    const [eintrag] = panel.props.eintraege;
+    assert.deepEqual([eintrag?.erteilbar, eintrag?.medienAngeboten, eintrag?.nachweisStand], [false, false, BEWERBUNG_SITZ.nachweis_stand]);
   });
 
   /* A control sending another record's stand would be refused as a stale page on every press, or pass

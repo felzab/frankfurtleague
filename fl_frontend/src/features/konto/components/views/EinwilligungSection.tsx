@@ -1,7 +1,7 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { getEinwilligungFassung, getLaufendeFassung } from "@/core/einwilligung";
 import { ABLEHNEN_LABEL, rollenLangform } from "@/features/bewerbungen/constants";
-import { patchSitzEinwilligungAction } from "@/features/kontakte/personActions";
+import { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } from "@/features/kontakte/personActions";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER, SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_MIN_ALTER, SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants";
 import { patchSchiedsrichterEinwilligungAction } from "@/features/schiedsrichter/personActions";
@@ -9,7 +9,15 @@ import { patchSpielerEinwilligungAction } from "@/features/spieler/personActions
 
 import { getKontoEinwilligungen } from "../../queries";
 import { EinwilligungPanel } from "../forms/EinwilligungForm/EinwilligungPanel";
-import { bestaetigteWorte, personWorte, sitzMindestalter, sitzTitel, sitzWorte } from "../forms/EinwilligungForm/kontoWorte";
+import {
+  bestaetigteWorte,
+  bewerbungTitel,
+  bewerbungWorte,
+  personWorte,
+  sitzMindestalter,
+  sitzTitel,
+  sitzWorte,
+} from "../forms/EinwilligungForm/kontoWorte";
 
 import type { EinwilligungEintrag } from "../forms/EinwilligungForm/EinwilligungPanel";
 import type { Fuellung } from "../forms/EinwilligungForm/kontoWorte";
@@ -30,7 +38,7 @@ async function bestaetigt(textVersion: string | null, fuellung: Fuellung) {
  * of its own. Nothing for a person holding none, who is most of the page's readers.
  */
 export async function EinwilligungSection() {
-  const { spieler, schiedsrichter, sitze } = await getKontoEinwilligungen();
+  const { spieler, schiedsrichter, sitze, bewerbungen } = await getKontoEinwilligungen();
   const eintraege: EinwilligungEintrag[] = [];
 
   if (spieler !== null) {
@@ -93,6 +101,30 @@ export async function EinwilligungSection() {
         medienAngeboten: sitz.medien_angeboten,
         erteilbar: sitz.erteilbar,
         speichereAction: patchSitzEinwilligungAction.bind(null, sitz.team_id, sitz.saison_id),
+      });
+    }
+  }
+
+  if (bewerbungen.length > 0) {
+    const fassung = await getLaufendeFassung("konto_kontakt");
+    for (const bewerbung of bewerbungen) {
+      eintraege.push({
+        id: `bewerbung-${bewerbung.bewerbung_id}`,
+        titel: bewerbungTitel(bewerbung),
+        bestaetigt: await bestaetigt(bewerbung.bestaetigt_text_version, {
+          ...KONSTANTEN,
+          ...bewerbung.kontext,
+          rolle: rollenLangform(bewerbung.rollen),
+          minAlter: String(sitzMindestalter(bewerbung.rollen)),
+          ablehnen: ABLEHNEN_LABEL,
+        }),
+        worte: bewerbungWorte(fassung, bewerbung),
+        gespeichert: { medien: bewerbung.medien },
+        nachweisStand: bewerbung.nachweis_stand,
+        // Withdraw-only: a grant on a pending application is its confirmation page's alone.
+        medienAngeboten: false,
+        erteilbar: false,
+        speichereAction: patchBewerbungEinwilligungAction.bind(null, bewerbung.bewerbung_id),
       });
     }
   }

@@ -1,4 +1,5 @@
 import { apiClient } from "@/core/api";
+import { FLBewerbungPersonEinwilligungResponseSchema } from "@/features/bewerbungen/schemas";
 
 import {
   FLKontaktEinladenResponseSchema,
@@ -8,6 +9,7 @@ import {
   FLSaisonTeamPersonEinwilligungResponseSchema,
 } from "./schemas";
 
+import type { FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligungResponse } from "@/features/bewerbungen/schemas";
 import type {
   FLKontaktEinladenPayload,
   FLKontaktEinladenResponse,
@@ -89,6 +91,23 @@ export async function patchSitzEinwilligung(
   return apiClient<FLSaisonTeamPersonEinwilligungResponse>(
     `/teams/${teamId}/saisons/${saisonId}/person/einwilligung`,
     FLSaisonTeamPersonEinwilligungResponseSchema,
+    {
+      method: "PATCH",
+      authType: "admin",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+// A seat holder's withdrawal on a pending application, under the person lane's actor: the backend moves
+// every seat of theirs on it and takes `false` alone, a grant being the confirmation page's.
+export async function patchBewerbungEinwilligung(
+  bewerbungId: string,
+  payload: FLBewerbungPersonEinwilligungPayload,
+): Promise<FLBewerbungPersonEinwilligungResponse> {
+  return apiClient<FLBewerbungPersonEinwilligungResponse>(
+    `/bewerbungen/${bewerbungId}/person/einwilligung`,
+    FLBewerbungPersonEinwilligungResponseSchema,
     {
       method: "PATCH",
       authType: "admin",

@@ -53,6 +53,21 @@ export function sitzWorte(fassung: FLEinwilligungFassung, sitz: { readonly team_
   };
 }
 
+/**
+ * Why a pending application's seat takes a withdrawal alone: a grant there is its confirmation page's,
+ * and the seat reaches the account page's full control once the team is accepted.
+ */
+export const NUR_WIDERRUF_BIS_ZUSAGE =
+  "Solange über die Bewerbung nicht entschieden ist, kannst Du die Einwilligung hier nur widerrufen. Nach einer Zusage kannst Du hier auch wieder zustimmen.";
+
+/** A pending application's seats: a seat's words, with the reason a withdrawal is all they offer. */
+export function bewerbungWorte(
+  fassung: FLEinwilligungFassung,
+  bewerbung: { readonly schule: string; readonly saison_id: string },
+): EinwilligungWorte {
+  return { ...sitzWorte(fassung, { team_name: bewerbung.schule, saison_id: bewerbung.saison_id }), nurWiderruf: NUR_WIDERRUF_BIS_ZUSAGE };
+}
+
 /** Filled by `Gefuellt` itself on every page, so no record has to carry it. */
 const SELBST_GEFUELLT = new Set(["datenschutz"]);
 
@@ -98,3 +113,7 @@ export const sitzMindestalter = (rollen: readonly FLKontaktRolle[]): number =>
 /** A seat's record title, which names the team season the control moves; the switch's own words are the same on every seat. */
 export const sitzTitel = (sitz: { readonly team_name: string; readonly saison_id: string }): string =>
   `Fotos, Videos und Interviews: ${sitz.team_name}, Saison ${sitz.saison_id}`;
+
+/** A pending application's record title, named apart from a season row's so the two never read as one. */
+export const bewerbungTitel = (bewerbung: { readonly schule: string; readonly saison_id: string }): string =>
+  `Fotos, Videos und Interviews: Bewerbung für ${bewerbung.schule}, Saison ${bewerbung.saison_id}`;

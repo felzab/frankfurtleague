@@ -38,6 +38,8 @@ export type EinwilligungWorte = {
   readonly textVersion: string;
   readonly umfang?: { readonly frage: string; readonly optionen: Readonly<Record<Umfang, string>>; readonly absatz: ReactNode };
   readonly medien: { readonly schalter: string; readonly absatz: ReactNode };
+  /** Why a record offers a withdrawal alone where its person would look for a grant too, read with the switch. */
+  readonly nurWiderruf?: string;
   /** What a change takes effect from, and that a record granting no panel takes a withdrawal alone. */
   readonly widerruf: ReactNode;
 };
@@ -83,6 +85,7 @@ export function EinwilligungForm({
   const frageId = useId();
   const umfangAbsatzId = useId();
   const medienAbsatzId = useId();
+  const nurWiderrufId = useId();
   const widerrufId = useId();
 
   // Shown until the press's answer re-reads the page: the action's spine refreshes it after a landed
@@ -173,7 +176,7 @@ export function EinwilligungForm({
         {((erteilbar && medienAngeboten) || gespeichert.medien) && (
           <Switch
             className="flex w-full flex-col gap-y-1"
-            aria-describedby={medienAbsatzId}
+            aria-describedby={worte.nurWiderruf === undefined ? medienAbsatzId : `${medienAbsatzId} ${nurWiderrufId}`}
             isSelected={wahl.medien}
             onChange={(medien) => waehle({ ...wahl, medien: medien })}>
             <Switch.Content className={panel.switchContent()}>
@@ -189,6 +192,13 @@ export function EinwilligungForm({
           className={ABSATZ_CLASSES}>
           {worte.medien.absatz}
         </p>
+        {worte.nurWiderruf !== undefined && (
+          <p
+            id={nurWiderrufId}
+            className={ABSATZ_CLASSES}>
+            {worte.nurWiderruf}
+          </p>
+        )}
       </div>
 
       <p

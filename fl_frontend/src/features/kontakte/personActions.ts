@@ -2,6 +2,7 @@
 
 import z from "zod";
 
+import { FLBewerbungPersonEinwilligungPayloadSchema } from "@/features/bewerbungen/schemas";
 import { mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
@@ -9,7 +10,7 @@ import { refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { patchSitzEinwilligung } from "./mutations";
+import { patchBewerbungEinwilligung, patchSitzEinwilligung } from "./mutations";
 import { FLSaisonTeamPersonEinwilligungPayloadSchema } from "./schemas";
 
 import type { EinwilligungAntwort, EinwilligungStand } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
@@ -44,6 +45,36 @@ export async function patchSitzEinwilligungAction(
       throw error;
     }
 
+    return { success: true, message: WAHL_GESPEICHERT, nachweis_stand: antwort.nachweis_stand };
+  });
+}
+
+/**
+ * A seat holder's withdrawal of their media consent on a pending application, which the page binds. It
+ * claims the person's record, the application granting no Funktion, and the backend judges the seat.
+ */
+export async function patchBewerbungEinwilligungAction(
+  bewerbungId: string,
+  rawPayload: EinwilligungAntwort,
+): Promise<ActionResult<{ nachweis_stand: EinwilligungStand }>> {
+  return runPersonRecordMutation("patchBewerbungEinwilligungAction", async () => {
+    const id = CustomObjectIdStringSchema.safeParse(bewerbungId);
+    const validated = FLBewerbungPersonEinwilligungPayloadSchema.safeParse(rawPayload);
+
+    if (!id.success || !validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
+    }
+
+    let antwort;
+    try {
+      antwort = await patchBewerbungEinwilligung(id.data, validated.data);
+    } catch (error) {
+      const refusal = mapEigeneEinwilligungRefusal(error);
+      if (refusal !== null) return refusalResult(refusal);
+      throw error;
+    }
+
+    // No public read serves an application: the spine's refresh is the page's whole re-read.
     return { success: true, message: WAHL_GESPEICHERT, nachweis_stand: antwort.nachweis_stand };
   });
 }

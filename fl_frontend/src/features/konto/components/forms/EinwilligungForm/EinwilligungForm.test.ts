@@ -283,6 +283,16 @@ describe("on a record that takes a withdrawal alone", () => {
     assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
   });
 
+  /* Where a person would look for a grant and finds none, the switch they can press says why. */
+  it("reads the reason a record takes a withdrawal alone with the switch, after its paragraph", () => {
+    const nurWiderruf = "Hier kannst Du nur widerrufen.";
+    renderForm({ worte: { ...SITZ_WORTE, nurWiderruf }, gespeichert: { medien: true }, erteilbar: false, medienAngeboten: false });
+
+    const schalter = screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter });
+    const beschrieben = (schalter.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
+    assert.deepEqual(beschrieben, [SITZ_WORTE.medien.absatz, nurWiderruf]);
+  });
+
   it("leaves an off media switch out whatever the age allows, and keeps an on one withdrawable", async () => {
     const aus = renderForm({ gespeichert: { umfang: "intern", medien: false }, erteilbar: false });
     assert.equal(screen.queryAllByRole("switch").length, 0, "a grant is offered on a record granting no panel");
