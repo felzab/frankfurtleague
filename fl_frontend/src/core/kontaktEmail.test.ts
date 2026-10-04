@@ -112,6 +112,15 @@ describe("the message a seated contact person is mailed", () => {
     }
   });
 
+  /* On screen „Zugang“ is an administrator's grant alone (`docs/glossary.md`); what a confirmed seat
+     opens is named by the signed-in area's own name. */
+  it("says the team waits in the reader's Bereich, never that a Zugang is granted, in both branches", () => {
+    for (const words of [readable(mail.html), flat(mail.text)]) {
+      assert.match(words, /Erst danach findest Du Dein Team nach der Anmeldung auf der Website in Deinem Bereich\./);
+      assert.doesNotMatch(words, /Zugang/);
+    }
+  });
+
   /* The link's two doors are named before the press: a person entered without asking has to know the
      page takes the entry away as readily as it confirms it. */
   it("names both answers the page offers, in both branches", () => {

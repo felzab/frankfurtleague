@@ -78,6 +78,10 @@ function eintragSatz({ vorname, rollen, schule, saisonId }: Fakten, markup: bool
   return `Hallo ${name}, die Verwaltung der ${BRAND_NAME} hat Dich in der ${saison} als ${markup ? escapeHtml(rollen) : rollen} für ${team} eingetragen.`;
 }
 
+// „Bereich“, the signed-in area's own name on screen, and never „Zugang“: on screen that word names an
+// administrator's grant alone (`docs/glossary.md`), which a confirmed seat is not.
+const DANACH_SATZ = "Erst danach findest Du Dein Team nach der Anmeldung auf der Website in Deinem Bereich.";
+
 // Both answers are named before the press: a reader who came to object and meets a birthdate box was
 // asked something the message did not say.
 const SEITE_SATZ =
@@ -88,9 +92,7 @@ function renderHtml(fakten: Fakten): string {
     titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     ueberschrift: escapeHtml(UEBERSCHRIFT),
     bloecke: [
-      paragraph(
-        `${eintragSatz(fakten, true)} ${strong("Bitte bestätige, dass das stimmt")}: Erst danach erhältst Du über die Anmeldung auf der Website Zugang zu Deinem Team.`,
-      ),
+      paragraph(`${eintragSatz(fakten, true)} ${strong("Bitte bestätige, dass das stimmt")}: ${DANACH_SATZ}`),
       paragraph(
         `${SEITE_SATZ} Der Link ist bis zum ${strong(escapeHtml(fakten.frist))} gültig und funktioniert nur einmal. Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.`,
       ),
@@ -110,7 +112,7 @@ function renderText(fakten: Fakten): string {
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
     eintragSatz(fakten, false),
-    "Bitte bestätige, dass das stimmt: Erst danach erhältst Du über die Anmeldung auf der Website Zugang zu Deinem Team.",
+    `Bitte bestätige, dass das stimmt: ${DANACH_SATZ}`,
     "",
     SEITE_SATZ,
     `Der Link ist bis zum ${fakten.frist} gültig und funktioniert nur einmal.`,
