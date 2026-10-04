@@ -11,10 +11,11 @@ export function mapEinladenRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // The application page's re-send words its twin refusal so (`fl_frontend/src/features/bewerbungen/refusals.ts`).
     case "REQ-KONTAKT-002":
       return buildRefusal({
-        reason: "Dieser Sitz ist inzwischen leer oder schon bestätigt",
-        repair: "Lade die Seite neu, um den aktuellen Stand zu sehen",
+        reason: "Für diese Rolle steht keine Bestätigung mehr aus",
+        repair: "Lade die Seite neu",
       });
     case "REQ-KONTAKT-003":
       return SPERRLISTE_ADRESSE_GESPERRT;

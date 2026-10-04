@@ -453,7 +453,8 @@ describe("the re-send beside an unconfirmed seat", () => {
   });
 
   for (const [code, fragment] of [
-    ["REQ-KONTAKT-002", /leer oder schon bestätigt/],
+    // „Rolle“, the word every screen names a contact seat by.
+    ["REQ-KONTAKT-002", /^Für diese Rolle steht keine Bestätigung mehr aus\. Lade die Seite neu\.$/],
     ["REQ-KONTAKT-003", /Sperrliste/],
     // A reload, the one action left: the reloaded editor offers no send on such a row.
     ["REQ-KONTAKT-005", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
