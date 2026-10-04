@@ -298,6 +298,19 @@ class TestTheTwoChoices:
         assert (response.status_code, response.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
+    def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
+        """The stored answer pressed again: no evidence restamped, and no log row a restore could replay."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            before = await _records(database), await database[Collection.AKTIONEN].count_documents({})
+            response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(), headers=_person(IDENTIFIER))
+            return response, before, (await _records(database), await database[Collection.AKTIONEN].count_documents({}))
+
+        response, before, after = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        assert after == before
+
     def test_moving_the_media_answer_leaves_the_scope(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(medien=True), headers=_person(IDENTIFIER))
@@ -545,6 +558,19 @@ class TestTheSeatsMediaChoice:
         assert (response.status_code, response.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
+    def test_a_press_moving_no_seat_writes_nothing(self, mongo_replica_set_url: str):
+        """The row's held seat already grants media, so pressing it on again restamps nothing and logs nothing."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            before = await _rows(database), await database[Collection.AKTIONEN].count_documents({})
+            response, _, _ = await _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True)(http, database)
+            return response, before, (await _rows(database), await database[Collection.AKTIONEN].count_documents({}))
+
+        response, before, after = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        assert after == before
+
     def test_the_seat_confirmations_label_is_no_version_of_the_control(self, mongo_replica_set_url: str):
         response, before, after = served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, False, label=SEAT_LABEL))
 
@@ -748,6 +774,21 @@ class TestAPendingApplicationsSeats:
         assert {key: value for key, value in after.items() if key != PENDING_OID} == {
             key: value for key, value in before.items() if key != PENDING_OID
         }
+
+    def test_a_withdrawal_finding_every_seat_off_writes_nothing(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _applications(database)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": PENDING_OID}, {"$set": {f"kontakte.{slot}.einwilligung.medien": False for slot in ("trainer", "ansprechperson")}}
+            )
+            before = await _application_docs(database), await database[Collection.AKTIONEN].count_documents({})
+            response = await http.patch(_application_path(PENDING_OID), json=_withdrawal(), headers=_person(IDENTIFIER))
+            return response, before, (await _application_docs(database), await database[Collection.AKTIONEN].count_documents({}))
+
+        response, before, after = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        assert after == before
 
     @pytest.mark.parametrize(("email", "bewerbung_id"), [(IDENTIFIER, DECIDED_OID), (IDENTIFIER, UNANSWERED_OID), (NOBODY, PENDING_OID)])
     def test_a_decided_application_or_one_holding_no_confirmed_seat_of_the_address_is_refused(
