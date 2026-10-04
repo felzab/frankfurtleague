@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { APIError } from "better-auth/api";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { doubleSiteverify, TEST_SECRET, TEST_TOKEN } from "@/shared/testing/siteverifyDouble.ts";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
 
@@ -24,7 +27,10 @@ const PACKAGE_DOUBLES = {
   "next/server": { after: (task: () => Promise<void>) => void deferred.push(task) },
 };
 
-const AUTH_DOUBLE = { sendSignInCode: () => signingIn() };
+/** The session the request's cookie names, which a case without a token is asked under. */
+let servedSession: () => Promise<{ user: { email: string } } | null> = () => Promise.resolve(null);
+
+const AUTH_DOUBLE = { sendSignInCode: () => signingIn(), readServedSession: () => servedSession() };
 const inert = (): undefined => undefined;
 
 /* The sign-in store replaced whole: which outcome the library reaches for an address is
@@ -35,7 +41,24 @@ registerDoubles({
   specifiers: PACKAGE_DOUBLES,
 });
 
+const siteverify = doubleSiteverify();
+
 const { handleSignIn } = await import("./actions.ts");
+
+const ADDRESS = "vorstand@example.org";
+
+beforeEach(() => {
+  servedSession = () => Promise.resolve(null);
+});
+
+/** One press as a form posts it, the bot check's token in its field where `token` names one. */
+function aPress(token: string | null, email = ADDRESS): FormData {
+  const submitted = new FormData();
+  submitted.set("email", email);
+  if (token !== null) submitted.set(TURNSTILE_FIELD, token);
+
+  return submitted;
+}
 
 /**
  * The answer to one press, with the work scheduled behind the response run once it is in hand, and
@@ -46,11 +69,8 @@ async function signInAnswering(outcome: () => Promise<void>): Promise<{ answer: 
     signIns += 1;
     return outcome();
   };
-  const submitted = new FormData();
-  submitted.set("email", "vorstand@example.org");
-
   const before = signIns;
-  const answer = await handleSignIn(undefined, submitted);
+  const answer = await handleSignIn(undefined, aPress(TEST_TOKEN));
   // Read before the deferred work runs, which is the order a caller timing the answer sees.
   const reachedWhileAnswering = signIns - before;
   for (const task of deferred.splice(0)) await task();
@@ -92,6 +112,75 @@ describe("handleSignIn's answer", () => {
       [0, 0, 0],
       "the sign-in ran before the caller was answered",
     );
+  });
+});
+
+describe("the bot check on a code request", () => {
+  const MENSCH = "Bitte bestätige kurz, dass Du ein Mensch bist.";
+
+  /** The answer to `submitted`, and whether a code was asked of the library for it at all. */
+  async function pressed(submitted: FormData): Promise<{ answer: FormState; sent: boolean }> {
+    const before = signIns;
+    const answer = await handleSignIn(undefined, submitted);
+    for (const task of deferred.splice(0)) await task();
+
+    return { answer: answer, sent: signIns > before };
+  }
+
+  it("refuses a press carrying no token, sends nothing and asks Cloudflare nothing", async () => {
+    const { answer, sent } = await pressed(aPress(null));
+
+    assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
+    assert.equal(sent, false, "a code was asked for past a refused check");
+    assert.deepEqual(siteverify.asked(), []);
+  });
+
+  it("refuses a press whose token Cloudflare judged, and sends nothing", async () => {
+    siteverify.judges(false);
+
+    const { answer, sent } = await pressed(aPress(TEST_TOKEN));
+
+    assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
+    assert.equal(sent, false);
+  });
+
+  it("sends past the test key's token, asked of Cloudflare with the test secret", async () => {
+    const { answer, sent } = await pressed(aPress(TEST_TOKEN));
+
+    assert.deepEqual(answer, { success: true, message: NEUTRAL_ANSWER, submittedEmail: ADDRESS });
+    assert.equal(sent, true);
+    assert.deepEqual(siteverify.asked(), [{ secret: TEST_SECRET, response: TEST_TOKEN }]);
+  });
+
+  /* The refusal is the check's, never the address's: one varying with the address would be the
+     membership oracle the neutral sentence withholds. */
+  it("refuses every address with one sentence, its own echo apart", async () => {
+    const one = await pressed(aPress(null, "vorstand@example.org"));
+    const other = await pressed(aPress(null, "niemand@example.org"));
+
+    assert.deepEqual({ ...one.answer, submittedEmail: null }, { ...other.answer, submittedEmail: null });
+  });
+
+  /* The account page's confirmation sends no token, its page carrying no widget: the session that
+     already holds the mailbox is the proof a widget would give. */
+  it("sends with no token for a session already holding the address, and for no other session", async () => {
+    servedSession = () => Promise.resolve({ user: { email: "Vorstand@Example.org" } });
+
+    const holder = await pressed(aPress(null, ADDRESS));
+    const stranger = await pressed(aPress(null, "jemand@example.org"));
+
+    assert.equal(holder.sent, true, "the holder's own confirmation was refused");
+    assert.deepEqual(stranger.answer, { success: false, error: MENSCH, submittedEmail: "jemand@example.org" });
+    assert.equal(stranger.sent, false);
+  });
+
+  it("answers a retry where the session could not be read, and sends nothing", async () => {
+    servedSession = () => Promise.reject(new Error("the store answered nothing"));
+
+    const { answer, sent } = await pressed(aPress(null));
+
+    assert.deepEqual(answer, { success: false, error: VERSUCHE_ES_ERNEUT_SATZ, submittedEmail: ADDRESS });
+    assert.equal(sent, false);
   });
 });
 

@@ -258,6 +258,7 @@ const SECRET_READERS = Object.fromEntries(
     ["src/app/api/mail/zustellung/route.ts", ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
     // The system's key calls the backend as the system, past every guard on an admin's session.
     ["src/core/api.ts", ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
+    ["src/core/turnstile.ts", ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
   ].map(([owner, importNames, secret]) => [
     owner,
     {

@@ -80,6 +80,7 @@ const BANS = [
   ["secret-session", /hands out the key every session is signed with/],
   ["secret-mail", /hands out the provider's key/],
   ["secret-webhook", /hands out the key the provider's delivery reports are verified with/],
+  ["secret-turnstile", /hands out the key the bot check's tokens are verified with/],
   ["secret-backend", /hand out the backend's keys/],
   ["config-load", /config\.ts loaded at run time hands over every secret's reader/],
   ["next-after", /Schedule work behind the response through/],

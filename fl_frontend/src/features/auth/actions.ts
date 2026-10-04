@@ -6,9 +6,11 @@ import { unstable_rethrow } from "next/navigation";
 import { APIError } from "better-auth/api";
 
 import { afterTheResponse } from "@/core/afterResponse";
-import { sendSignInCode, signOutHere } from "@/core/auth";
+import { readServedSession, sendSignInCode, signOutHere } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
+import { MENSCH_BESTAETIGEN, passesTurnstile } from "@/core/turnstile";
+import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
@@ -27,6 +29,26 @@ const neutralResult = (submittedEmail: string): FormState => ({
   message: "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.",
   submittedEmail,
 });
+
+/**
+ * Whether this request may ask for a code: past the bot check, or from a session already holding `email`,
+ * which the account page's confirmation asks with no widget on its page (`docs/frontend/spec.md :: I823`).
+ */
+async function admitsCodeRequest(formData: FormData, requestHeaders: Headers, email: string): Promise<"weiter" | "mensch" | "erneut"> {
+  const token = formData.get(TURNSTILE_FIELD);
+  if (typeof token === "string" && token !== "") return (await passesTurnstile(token)) ? "weiter" : "mensch";
+
+  let served;
+  try {
+    served = await readServedSession(requestHeaders);
+  } catch (failed) {
+    // The NAME alone, for the send's own reason below.
+    logger.error("auth.signed_in_unread", undefined, { error_code: "FE-AUTH-002", name: failed instanceof Error ? failed.name : "unknown" });
+    return "erneut";
+  }
+
+  return served !== null && asSignInIdentifier(served.user.email) === email ? "weiter" : "mensch";
+}
 
 /**
  * Public by necessity. `nginx/shared/site.conf :: location = /signin` bounds that PATH, not this action:
@@ -62,6 +84,12 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     // The library folds CASE alone and refuses a Unicode domain, so the punycode the fold converts
     // one to is the only spelling in which that person signs in at all.
     const email = asSignInIdentifier(validated.data.email);
+
+    // Before the response and safe there: nothing it reads depends on whether the address holds an account.
+    const admitted = await admitsCodeRequest(formData, requestHeaders, email);
+    if (admitted !== "weiter") {
+      return { success: false, error: admitted === "mensch" ? MENSCH_BESTAETIGEN : VERSUCHE_ES_ERNEUT_SATZ, submittedEmail };
+    }
 
     // The whole call, behind the response: the mail cap, the code write, the gate and the send all
     // sit in the branch-dependent half, so no branch does any of it before the caller is answered.

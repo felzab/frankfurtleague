@@ -3,7 +3,7 @@
 import { auth } from "@/core/auth";
 import { signInStore } from "@/core/db"; // expect: sign-in-store
 export { sendSperreNotice } from "@/core/mail"; // expect: sperre-notice
-import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "@/core/config"; // expect: secret-mail expect: secret-session expect: secret-backend expect: secret-store expect: secret-webhook
+import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, turnstileSecretKey } from "@/core/config"; // expect: secret-mail expect: secret-session expect: secret-backend expect: secret-store expect: secret-webhook expect: secret-turnstile
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { Form } from "@heroui/react/form"; // expect: heroui-form
@@ -18,7 +18,7 @@ import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect:
 import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
 import { after } from "next/server"; // expect: next-after
 
-export const USED = [auth, signInStore, authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, PinnedLocale];
+export const USED = [auth, signInStore, authResendKey, authSecret, internalApiKeySystem, mongodbUri, turnstileSecretKey, resendWebhookSecret, PinnedLocale];
 export const MORE_USED = [Button, Form, AppRouterContext, DateField, NumberField, HintPopover, captureStdout, loadVia, SITE_URL];
 export const LAST_USED = [HeroTextField, mintRequestActor];
 export const AFTER_USED = after;

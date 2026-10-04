@@ -37,6 +37,7 @@ const SECRET_FILES = {
   INTERNAL_API_KEY_BASE: "internal_api_key_base",
   INTERNAL_API_KEY_SYSTEM: "internal_api_key_system",
   INTERNAL_API_KEY_ADMIN: "internal_api_key_admin",
+  TURNSTILE_SECRET_KEY: "turnstile_secret_key",
 } as const;
 
 type SecretKey = keyof typeof SECRET_FILES;
@@ -151,7 +152,17 @@ const APP_ENVIRONMENTS = ["production", "local"] as const;
 // The credentials `production` demands and no other deployment holds, refused at boot on the
 // production host alone. Files only: the deploy asks production for them by file, and for no
 // variable beyond `REQUIRED_ENVIRONMENT_NAMES`.
-const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY", "RESEND_WEBHOOK_SECRET"] as const satisfies readonly SecretKey[];
+const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY", "RESEND_WEBHOOK_SECRET", "TURNSTILE_SECRET_KEY"] as const satisfies readonly SecretKey[];
+
+// Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04,
+// which moves without us: every published test key, site and secret alike, takes this shape.
+const TURNSTILE_TEST_KEY = /^\dx0+[A-Z]{2}$/;
+
+/**
+ * The published secret that passes the token its paired site key mints and refuses every real one. Read
+ * wherever no secret file was handed over, which production refuses, so no other deployment needs one.
+ */
+const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 
 // Bound to names rather than written inside the call, so the preflight's sets can be read off the
 // schema itself: a hand-kept copy of those names would be a second artefact to keep current.
@@ -207,6 +218,10 @@ const environment = {
     .transform((value) => value.toLowerCase())
     .pipe(z.enum(["on", "off"]))
     .default("on"),
+
+  // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
+  // is refused before the recreate rather than at the boot.
+  TURNSTILE_SITE_KEY: z.string().min(1),
 };
 
 const fromFiles = {
@@ -231,6 +246,9 @@ const fromFiles = {
   INTERNAL_API_KEY_BASE: INTERNAL_API_KEY,
   INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
   INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
+
+  // Demanded of production alone, `TURNSTILE_TEST_SECRET_KEY` standing in everywhere else.
+  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
 } satisfies Record<SecretKey, z.ZodType>;
 
 const client = {};
@@ -263,6 +281,13 @@ const validated = createEnv({
         // reduces an issue without one to `<unknown>`.
         if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
       }
+
+      // A test key passes every visitor, so production on one would run with no bot check at all.
+      for (const name of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"] as const) {
+        if (TURNSTILE_TEST_KEY.test(values[name] ?? "")) {
+          ctx.addIssue({ code: "custom", path: [name], message: `${name} holds one of Cloudflare's test keys under APP_ENV=production` });
+        }
+      }
     }),
 
   runtimeEnv: {
@@ -277,6 +302,7 @@ const validated = createEnv({
     LOG_FORMAT: process.env.LOG_FORMAT,
     LOG_LEVEL: process.env.LOG_LEVEL,
     BEWERBUNG_SWEEP: process.env.BEWERBUNG_SWEEP,
+    TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
 
     // Off the files alone: a variable of the same name, standing in for a missing file, would hand
     // a credential `docker inspect` prints to a boot that should refuse.
@@ -287,6 +313,7 @@ const validated = createEnv({
     INTERNAL_API_KEY_BASE: secrets.values.INTERNAL_API_KEY_BASE,
     INTERNAL_API_KEY_SYSTEM: secrets.values.INTERNAL_API_KEY_SYSTEM,
     INTERNAL_API_KEY_ADMIN: secrets.values.INTERNAL_API_KEY_ADMIN,
+    TURNSTILE_SECRET_KEY: secrets.values.TURNSTILE_SECRET_KEY,
   },
 });
 
@@ -308,6 +335,7 @@ export const resendWebhookSecret = (): string | undefined => validated.RESEND_WE
 export const internalApiKeyBase = (): string => validated.INTERNAL_API_KEY_BASE;
 export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYSTEM;
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
+export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?? TURNSTILE_TEST_SECRET_KEY;
 
 /**
  * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name

@@ -153,6 +153,8 @@ const COMPLETE_ENV: Record<string, string> = {
   // json, so the refusal below reaches `documentsWrittenByAsync` as a document rather than a
   // colourised line it passes through to the runner's own reporter.
   LOG_FORMAT: "json",
+  // Of no published test key's shape, which production refuses.
+  TURNSTILE_SITE_KEY: "fabricated-site-key",
 };
 
 /** Every secret file a production frontend is handed, by the file's own name, each holding a value the schema accepts. */
@@ -164,6 +166,7 @@ const COMPLETE_FILES: Record<string, string> = {
   internal_api_key_base: "b".repeat(LENGTH),
   internal_api_key_system: "s".repeat(LENGTH),
   internal_api_key_admin: "a".repeat(LENGTH),
+  turnstile_secret_key: "fabricated-turnstile-secret",
 };
 
 /** A file's place taken by a directory. */
@@ -298,6 +301,43 @@ describe("the key a deployment the provider sends its events to must hold", () =
   });
 });
 
+describe("the bot check's two keys", () => {
+  /* Cloudflare's published test keys, from https://developers.cloudflare.com/turnstile/troubleshooting/testing/,
+     read 2026-10-04: each passes every visitor, so production on one would run with no check at all. */
+  const TEST_SITE_KEYS = [
+    "1x00000000000000000000AA",
+    "2x00000000000000000000AB",
+    "1x00000000000000000000BB",
+    "2x00000000000000000000BB",
+    "3x00000000000000000000FF",
+  ];
+  const TEST_SECRETS = ["1x0000000000000000000000000000000AA", "2x0000000000000000000000000000000AA", "3x0000000000000000000000000000000AA"];
+
+  it("refuses production a published test site key, naming the variable", async () => {
+    for (const key of TEST_SITE_KEYS) assert.equal(await refusedNames({ TURNSTILE_SITE_KEY: key }), "TURNSTILE_SITE_KEY", `accepted ${key}`);
+  });
+
+  it("refuses production a published test secret, naming its file", async () => {
+    for (const key of TEST_SECRETS) assert.equal(await refusedFiles({ turnstile_secret_key: key }), "turnstile_secret_key", `accepted ${key}`);
+  });
+
+  it("boots any other deployment on the test keys", async () => {
+    const booted = await bootWith({ APP_ENV: "local", TURNSTILE_SITE_KEY: TEST_SITE_KEYS[0] }, { turnstile_secret_key: TEST_SECRETS[0] });
+
+    assert.equal(booted.frontend_config.TURNSTILE_SITE_KEY, TEST_SITE_KEYS[0]);
+  });
+
+  /* The local stack and a development machine are handed no secret: what verifies there is the published
+     one, which passes the test site key's token alone. */
+  it("verifies with the published passing secret where no deployment but production hands one over", async () => {
+    assert.equal((await bootWith({ APP_ENV: "local" }, { turnstile_secret_key: undefined })).turnstileSecretKey(), TEST_SECRETS[0]);
+  });
+
+  it("refuses production with no secret, and names its file", async () => {
+    assert.equal(await refusedFiles({ turnstile_secret_key: undefined }), "turnstile_secret_key");
+  });
+});
+
 describe("the names the preflight demands a host's file carry", () => {
   /* Derived by booting rather than read off the schema, which is the emitter's own route: two
      listings that must agree (`docs/_standard/standard.md :: PRE-4`). */
@@ -352,7 +392,14 @@ describe("the names the preflight demands a host's file carry", () => {
 });
 
 type SecretReader =
-  "mongodbUri" | "authSecret" | "authResendKey" | "resendWebhookSecret" | "internalApiKeyBase" | "internalApiKeySystem" | "internalApiKeyAdmin";
+  | "mongodbUri"
+  | "authSecret"
+  | "authResendKey"
+  | "resendWebhookSecret"
+  | "internalApiKeyBase"
+  | "internalApiKeySystem"
+  | "internalApiKeyAdmin"
+  | "turnstileSecretKey";
 
 /**
  * Each secret's key, the variable a host's file held before the secret was a file, then its file, a value
@@ -366,6 +413,7 @@ const LEFT_BEHIND: readonly (readonly [variable: string, file: string, value: st
   ["INTERNAL_API_KEY_BASE", "internal_api_key_base", "l".repeat(LENGTH), "internalApiKeyBase"],
   ["INTERNAL_API_KEY_SYSTEM", "internal_api_key_system", "m".repeat(LENGTH), "internalApiKeySystem"],
   ["INTERNAL_API_KEY_ADMIN", "internal_api_key_admin", "n".repeat(LENGTH), "internalApiKeyAdmin"],
+  ["TURNSTILE_SECRET_KEY", "turnstile_secret_key", "turnstile-left-behind", "turnstileSecretKey"],
 ];
 
 describe("the secret files the frontend reads", () => {

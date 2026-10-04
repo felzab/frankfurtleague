@@ -5,6 +5,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
+import { doubleSiteverify, TEST_SECRET, TEST_TOKEN } from "@/shared/testing/siteverifyDouble.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
 
@@ -15,7 +16,7 @@ const logs: string[] = [];
 const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
 const LOGGING = { logger: { info: line, warn: line, error: line } };
 const ORIGIN = "http://localhost:3000";
-const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" }, turnstileSecretKey: () => TEST_SECRET };
 const calls = doubleApiClient(({ endpoint }, schema) =>
   // The accepted-send record every mail reports back; its answer is read by nothing here.
   schema.parse(endpoint === "/bewerbungen" ? schreibAntwort() : { acknowledged: 1, angewendet: [] }),
@@ -26,6 +27,7 @@ const { sent: mails } = doubleSendMail();
 const QUERIES = { getBewerbungSchulen: async () => ({ acknowledged: 1, schulen: [] }) };
 
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG, "features/bewerbungen/queries.ts": QUERIES } });
+const siteverify = doubleSiteverify();
 
 const { POST } = await import("./route.ts");
 const { BEWERBUNG_VERALTET, bewerbungPayload, buildEmptyBewerbungDraft } = await import("@/features/bewerbungen/utils.ts");
@@ -39,6 +41,7 @@ const { buildBewerbungEingangOffenEmail } = await import("@/core/bewerbungEmail.
 const { bestaetigungsLink } = await import("@/features/bewerbungen/bestaetigungLink.ts");
 const { rollenText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
+const { TURNSTILE_HEADER } = await import("@/core/turnstileToken.ts");
 
 /** The label the application form runs, off the registry the backend generated. */
 const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
@@ -79,8 +82,11 @@ const GESCHRIEBEN = {
 
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 
+/** A submission as the form sends it, the bot check's token in its header unless `headers` replaces it. */
 function aRequest(headers: Record<string, string> = {}, body: unknown = BODY) {
-  return { headers: new Headers(headers), json: async () => body } as unknown as Parameters<typeof POST>[0];
+  return { headers: new Headers({ [TURNSTILE_HEADER]: TEST_TOKEN, ...headers }), json: async () => body } as unknown as Parameters<
+    typeof POST
+  >[0];
 }
 
 type Sitz = "ansprechperson" | "stellvertretung" | "trainer";
@@ -342,6 +348,44 @@ describe("what the submission's messages say about themselves", () => {
       mails.map((mail) => mail.idempotencyKey),
       mails.map(() => undefined),
     );
+  });
+});
+
+describe("the application handler's bot check", () => {
+  const MENSCH = "Bitte bestätige kurz, dass Du ein Mensch bist.";
+
+  /* Before the write, which mails three addresses the payload names: a refused check stores nothing and
+     sends nothing. */
+  it("refuses a submission carrying no token, and writes and mails nothing", async () => {
+    const answer = await bodyOf(aRequest({ [TURNSTILE_HEADER]: "" }));
+
+    assert.deepEqual(answer.body, { success: false, error: MENSCH });
+    assert.deepEqual(writes(), []);
+    assert.deepEqual(mails, []);
+  });
+
+  it("refuses a submission whose token Cloudflare judged, and writes nothing", async () => {
+    siteverify.judges(false);
+
+    assert.deepEqual((await bodyOf(aRequest({ "Idempotency-Key": KEY }))).body, { success: false, error: MENSCH });
+    assert.deepEqual(writes(), []);
+  });
+
+  it("writes past the test key's token, asked of Cloudflare with the test secret", async () => {
+    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }));
+
+    assert.equal((answer.body as { success: boolean }).success, true);
+    assert.equal(writes().length, 1);
+    assert.deepEqual(siteverify.asked(), [{ secret: TEST_SECRET, response: TEST_TOKEN }]);
+  });
+
+  it("writes past a check Cloudflare could not answer, with one line saying so", async () => {
+    siteverify.unreachable();
+
+    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }));
+
+    assert.equal((answer.body as { success: boolean }).success, true);
+    assert.equal(logs.filter((entry) => entry.includes("FE-TURNSTILE-001")).length, 1);
   });
 });
 

@@ -50,10 +50,11 @@ import { frontend_config, mongodbUri } from "@/core/config"; // expect: secret-s
 import { authSecret } from "@/core/config.ts"; // expect: secret-session
 import { authResendKey as heldKey } from "@/core/config"; // expect: secret-mail
 import { resendWebhookSecret } from "../../core/config"; // expect: secret-webhook
+import { turnstileSecretKey } from "@/core/config"; // expect: secret-turnstile
 import { internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "@/core/config"; // expect: secret-backend expect: secret-backend expect: secret-backend
 // The whole namespace, and a re-export, hand every reader on.
-import * as wholeConfig from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
-export * from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import * as wholeConfig from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend expect: secret-turnstile
+export * from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend expect: secret-turnstile
 export { authResendKey } from "@/core/config"; // expect: secret-mail
 import { after } from "next/server"; // expect: next-after
 // The bundler resolves a query suffix to the module itself, so each confined module is read through one.
@@ -85,7 +86,7 @@ export const FIGURES = "fluid-xs tabular-nums"; // expect: numeric-pair
 export const TALL = "min-h-[100vh]"; // expect: vh
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
 export const SETTINGS_READ = frontend_config.APP_ENV;
-export const SECRETS_USED = [mongodbUri, authSecret, heldKey, resendWebhookSecret, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, wholeConfig];
+export const SECRETS_USED = [mongodbUri, authSecret, heldKey, resendWebhookSecret, turnstileSecretKey, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, wholeConfig];
 export const CONFIG_LOADED = import("@/core/config"); // expect: config-load expect: config-taken
 export const CONFIG_LOADED_TEMPLATE = import(`../../core/config.ts`); // expect: config-load expect: config-taken
 export const SIGNING_VIA_QUERY = import("@/core/actorToken?probe"); // expect: actor-signing-load
