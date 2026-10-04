@@ -404,7 +404,8 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
 ]
 
-# Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.
+# Split by the methods `app/core/security.py` names as recording nothing, since a read binding no actor
+# misattributes no row; the guard itself exempts none (`TestTheGuardExemptsNoMethod`).
 MUTATIONS = sorted(
     operation
     for operation in ROUTES_BY_OPERATION
