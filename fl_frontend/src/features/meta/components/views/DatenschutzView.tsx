@@ -13,6 +13,7 @@ import {
 } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
+import { Angabe } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
@@ -20,8 +21,6 @@ import { textLink } from "@/shared/components/ui/textLink";
 
 import { DATENSCHUTZ_STAND } from "../../constants";
 import { LegalSection } from "../ui/LegalSection";
-
-import type { ReactNode } from "react";
 
 /** One legal paragraph. Spelled once because the page is nothing but paragraphs, and a copy per section drifts. */
 const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
@@ -215,16 +214,6 @@ const FRISTEN = [
       "Bei Spielerinnen und Spielern: solange die Teilnahme läuft, und darüber hinaus bis zu einer Löschung auf Wunsch; am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
   },
 ];
-
-/** A `<dl>` is this pair's only valid parent: the pairing is what makes the value a fact about the label. */
-function Angabe({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
-      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
 
 function MailLink() {
   return (
