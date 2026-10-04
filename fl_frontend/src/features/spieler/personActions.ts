@@ -12,9 +12,9 @@ import { deleteKaderZeile, patchKaderZeile, patchSpielerSelbstEinwilligung } fro
 import { mapKaderZeileRefusal } from "./refusals";
 import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "./schemas";
 
-import type { EinwilligungAntwort, EinwilligungStand } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
 import type { ActionResult } from "@/shared/types/types";
-import type { FLKaderZeileKeyPayload, FLKaderZeileResponse, FLPatchKaderZeilePayload } from "./schemas";
+import type z from "zod";
+import type { FLEinwilligungStand, FLKaderZeileKeyPayload, FLKaderZeileResponse, FLPatchKaderZeilePayload } from "./schemas";
 
 /**
  * The public squad read is cached for days and joins every squad row, so a seat holder's edit drops its
@@ -74,8 +74,8 @@ export async function deleteKaderZeileAction(
  * seat, so a retired pupil reaches the backend to withdraw a consent the league still holds.
  */
 export async function patchSpielerEinwilligungAction(
-  rawPayload: EinwilligungAntwort,
-): Promise<ActionResult<{ nachweis_stand: EinwilligungStand }>> {
+  rawPayload: z.input<typeof FLSpielerSelbstEinwilligungPayloadSchema>,
+): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchSpielerEinwilligungAction", async () => {
     const validated = FLSpielerSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
 

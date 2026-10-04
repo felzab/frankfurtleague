@@ -6,17 +6,20 @@ import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldSt
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
-import { EinwilligungForm } from "./EinwilligungForm";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
+import type { EinwilligungForm } from "./EinwilligungForm";
 
-import type { ComponentProps, ReactNode } from "react";
-
-/** One consent record on the account page: its control, and the words its person confirmed. */
-export type EinwilligungEintrag = ComponentProps<typeof EinwilligungForm> & {
+/**
+ * One consent record on the account page: its control, and the words its person confirmed. The control
+ * comes rendered, each record typing its own choices and its own write.
+ */
+export type EinwilligungEintrag = {
   readonly id: string;
   /** Names the record, so a person holding several reads which one each control moves. */
   readonly titel: string;
   /** The confirmed wording, read-only; `null` where the record names none the registry holds. */
   readonly bestaetigt: ReactNode;
+  readonly control: ReactElement<ComponentProps<typeof EinwilligungForm>>;
 };
 
 /** The words a person agreed to, apart from the control's own: a press changes the choice, never what was agreed. */
@@ -39,7 +42,7 @@ export function EinwilligungPanel({ eintraege }: { eintraege: readonly Einwillig
         />
       </div>
       <div className={panel.body()}>
-        {eintraege.map(({ id, titel, bestaetigt, ...control }) => (
+        {eintraege.map(({ id, titel, bestaetigt, control }) => (
           // A group named by its title: every seat's switch carries the same stamped words, and only the
           // group says which team season a press moves.
           <section
@@ -52,7 +55,7 @@ export function EinwilligungPanel({ eintraege }: { eintraege: readonly Einwillig
               className={FORM_SECTION_HEADING_CLASSES}>
               {titel}
             </h3>
-            <EinwilligungForm {...control} />
+            {control}
             {bestaetigt !== null && (
               <Disclosure>
                 {/* A rung under the record's own title, which the trigger sits inside. */}

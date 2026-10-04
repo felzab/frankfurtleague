@@ -51,17 +51,20 @@ export type EinwilligungWorte = {
 export type EinwilligungStand = { readonly medien: string | null; readonly umfang?: string | null };
 
 /** What a press sends: the whole record's choices, so moving one never resets the other. */
-export type EinwilligungAntwort = EinwilligungWahl & { readonly text_version: string; readonly nachweis_stand: EinwilligungStand };
+export type EinwilligungAntwort<W extends EinwilligungWahl = EinwilligungWahl, S extends EinwilligungStand = EinwilligungStand> = W & {
+  readonly text_version: string;
+  readonly nachweis_stand: S;
+};
 
 /** A landed press's answer carries the stand it left, which the next press sends. */
-type Gespeichert = { readonly success: true; readonly nachweis_stand: EinwilligungStand };
+type Gespeichert<S> = { readonly success: true; readonly nachweis_stand: S };
 
 /**
  * One consent record's controls, each saved by its own press. Every record a person holds renders
  * through this one component, so the pupil's, the referee's and a seat's cannot drift apart in wording
  * or behaviour (`docs/frontend/spec.md :: I891`).
  */
-export function EinwilligungForm({
+export function EinwilligungForm<W extends EinwilligungWahl, S extends EinwilligungStand>({
   worte,
   gespeichert,
   nachweisStand,
@@ -71,14 +74,15 @@ export function EinwilligungForm({
 }: {
   worte: EinwilligungWorte;
   /** The record as the page read it; the controls show it again once a press has been answered. */
-  gespeichert: EinwilligungWahl;
+  gespeichert: W;
   /** The stand the page was served with the record. */
-  nachweisStand: EinwilligungStand;
+  nachweisStand: S;
   /** The backend's verdict on the person's age; a media consent already given stays withdrawable without it. */
   medienAngeboten: boolean;
   /** Whether the record admits a grant; one that grants no panel takes a withdrawal alone, which is never closed. */
   erteilbar: boolean;
-  speichereAction: (antwort: EinwilligungAntwort) => Promise<Gespeichert | ActionFailure>;
+  /** Typed by the record's own payload, so a field its write's mirror gains fails the page that binds it. */
+  speichereAction: (antwort: EinwilligungAntwort<W, S>) => Promise<Gespeichert<S> | ActionFailure>;
 }) {
   const router = useRouter();
   const panel = formPanel();
@@ -105,7 +109,7 @@ export function EinwilligungForm({
     startTransition(async () => {
       setWahl((gezeigt) => ({ ...gezeigt, ...aenderung }));
       const press = vorige.current.then(async () => {
-        const naechste = { ...gehalten.current.wahl, ...aenderung };
+        const naechste: W = { ...gehalten.current.wahl, ...aenderung };
         const answer = await speichereAction({
           ...naechste,
           text_version: worte.textVersion,

@@ -8,6 +8,7 @@ import { patchSchiedsrichterEinwilligungAction } from "@/features/schiedsrichter
 import { patchSpielerEinwilligungAction } from "@/features/spieler/personActions";
 
 import { getKontoEinwilligungen } from "../../queries";
+import { EinwilligungForm } from "../forms/EinwilligungForm/EinwilligungForm";
 import { EinwilligungPanel } from "../forms/EinwilligungForm/EinwilligungPanel";
 import {
   bestaetigteWorte,
@@ -50,12 +51,16 @@ export async function EinwilligungSection() {
         ...spieler.kontext,
         minAlter: String(REGISTRIERUNG_MIN_ALTER),
       }),
-      worte: personWorte(await getLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE),
-      gespeichert: { umfang: spieler.einwilligung.umfang, medien: spieler.einwilligung.medien },
-      nachweisStand: spieler.nachweis_stand,
-      medienAngeboten: spieler.medien_angeboten,
-      erteilbar: spieler.erteilbar,
-      speichereAction: patchSpielerEinwilligungAction,
+      control: (
+        <EinwilligungForm
+          worte={personWorte(await getLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE)}
+          gespeichert={{ umfang: spieler.einwilligung.umfang, medien: spieler.einwilligung.medien }}
+          nachweisStand={spieler.nachweis_stand}
+          medienAngeboten={spieler.medien_angeboten}
+          erteilbar={spieler.erteilbar}
+          speichereAction={patchSpielerEinwilligungAction}
+        />
+      ),
     });
   }
 
@@ -70,13 +75,17 @@ export async function EinwilligungSection() {
           ...eintrag.kontext,
           minAlter: String(SCHIEDSRICHTER_MIN_ALTER),
         }),
-        worte: personWorte(fassung, SCHIEDSRICHTER_UMFANG_FRAGE),
-        gespeichert: { umfang: eintrag.einwilligung.umfang, medien: eintrag.einwilligung.medien },
-        nachweisStand: eintrag.nachweis_stand,
-        medienAngeboten: eintrag.medien_angeboten,
-        erteilbar: eintrag.erteilbar,
-        // Bound here, never read off the page: one address may hold several referee rows.
-        speichereAction: patchSchiedsrichterEinwilligungAction.bind(null, eintrag.schiedsrichter_id),
+        control: (
+          <EinwilligungForm
+            worte={personWorte(fassung, SCHIEDSRICHTER_UMFANG_FRAGE)}
+            gespeichert={{ umfang: eintrag.einwilligung.umfang, medien: eintrag.einwilligung.medien }}
+            nachweisStand={eintrag.nachweis_stand}
+            medienAngeboten={eintrag.medien_angeboten}
+            erteilbar={eintrag.erteilbar}
+            // Bound here, never read off the page: one address may hold several referee rows.
+            speichereAction={patchSchiedsrichterEinwilligungAction.bind(null, eintrag.schiedsrichter_id)}
+          />
+        ),
       });
     }
   }
@@ -95,12 +104,16 @@ export async function EinwilligungSection() {
           minAlter: String(sitzMindestalter(sitz.rollen)),
           ablehnen: ABLEHNEN_LABEL,
         }),
-        worte: sitzWorte(fassung, sitz),
-        gespeichert: { medien: sitz.medien },
-        nachweisStand: sitz.nachweis_stand,
-        medienAngeboten: sitz.medien_angeboten,
-        erteilbar: sitz.erteilbar,
-        speichereAction: patchSitzEinwilligungAction.bind(null, sitz.team_id, sitz.saison_id),
+        control: (
+          <EinwilligungForm
+            worte={sitzWorte(fassung, sitz)}
+            gespeichert={{ medien: sitz.medien }}
+            nachweisStand={sitz.nachweis_stand}
+            medienAngeboten={sitz.medien_angeboten}
+            erteilbar={sitz.erteilbar}
+            speichereAction={patchSitzEinwilligungAction.bind(null, sitz.team_id, sitz.saison_id)}
+          />
+        ),
       });
     }
   }
@@ -118,13 +131,17 @@ export async function EinwilligungSection() {
           minAlter: String(sitzMindestalter(bewerbung.rollen)),
           ablehnen: ABLEHNEN_LABEL,
         }),
-        worte: bewerbungWorte(fassung, bewerbung),
-        gespeichert: { medien: bewerbung.medien },
-        nachweisStand: bewerbung.nachweis_stand,
-        // Withdraw-only: a grant on a pending application is its confirmation page's alone.
-        medienAngeboten: false,
-        erteilbar: false,
-        speichereAction: patchBewerbungEinwilligungAction.bind(null, bewerbung.bewerbung_id),
+        control: (
+          <EinwilligungForm
+            worte={bewerbungWorte(fassung, bewerbung)}
+            gespeichert={{ medien: bewerbung.medien }}
+            nachweisStand={bewerbung.nachweis_stand}
+            // Withdraw-only: a grant on a pending application is its confirmation page's alone.
+            medienAngeboten={false}
+            erteilbar={false}
+            speichereAction={patchBewerbungEinwilligungAction.bind(null, bewerbung.bewerbung_id)}
+          />
+        ),
       });
     }
   }

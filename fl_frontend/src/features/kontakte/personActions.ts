@@ -13,7 +13,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { patchBewerbungEinwilligung, patchSitzEinwilligung } from "./mutations";
 import { FLSaisonTeamPersonEinwilligungPayloadSchema } from "./schemas";
 
-import type { EinwilligungAntwort, EinwilligungStand } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
+import type { FLMedienStand } from "@/features/spieler/schemas";
 import type { ActionResult } from "@/shared/types/types";
 
 /** The team season the page binds, never a value the reader typed. */
@@ -26,8 +26,8 @@ const SitzAdresseSchema = z.object({ team_id: CustomObjectIdStringSchema, saison
 export async function patchSitzEinwilligungAction(
   teamId: string,
   saisonId: string,
-  rawPayload: EinwilligungAntwort,
-): Promise<ActionResult<{ nachweis_stand: EinwilligungStand }>> {
+  rawPayload: z.input<typeof FLSaisonTeamPersonEinwilligungPayloadSchema>,
+): Promise<ActionResult<{ nachweis_stand: FLMedienStand }>> {
   return runPersonRecordMutation("patchSitzEinwilligungAction", async () => {
     const adresse = SitzAdresseSchema.safeParse({ team_id: teamId, saison_id: saisonId });
     const validated = FLSaisonTeamPersonEinwilligungPayloadSchema.safeParse(rawPayload);
@@ -55,8 +55,9 @@ export async function patchSitzEinwilligungAction(
  */
 export async function patchBewerbungEinwilligungAction(
   bewerbungId: string,
-  rawPayload: EinwilligungAntwort,
-): Promise<ActionResult<{ nachweis_stand: EinwilligungStand }>> {
+  // `medien` widened to the switch's boolean: a grant is the payload's own refusal, in its own words.
+  rawPayload: Omit<z.input<typeof FLBewerbungPersonEinwilligungPayloadSchema>, "medien"> & { medien: boolean },
+): Promise<ActionResult<{ nachweis_stand: FLMedienStand }>> {
   return runPersonRecordMutation("patchBewerbungEinwilligungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(bewerbungId);
     const validated = FLBewerbungPersonEinwilligungPayloadSchema.safeParse(rawPayload);

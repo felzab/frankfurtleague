@@ -11,8 +11,9 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { patchSchiedsrichterSelbstEinwilligung } from "./mutations";
 import { FLSchiedsrichterSelbstEinwilligungPayloadSchema } from "./schemas";
 
-import type { EinwilligungAntwort, EinwilligungStand } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
+import type { FLEinwilligungStand } from "@/features/spieler/schemas";
 import type { ActionResult } from "@/shared/types/types";
+import type z from "zod";
 
 /**
  * A referee's own consent. The page binds the record's id, one address possibly holding several
@@ -21,8 +22,8 @@ import type { ActionResult } from "@/shared/types/types";
  */
 export async function patchSchiedsrichterEinwilligungAction(
   schiedsrichterId: string,
-  rawPayload: EinwilligungAntwort,
-): Promise<ActionResult<{ nachweis_stand: EinwilligungStand }>> {
+  rawPayload: z.input<typeof FLSchiedsrichterSelbstEinwilligungPayloadSchema>,
+): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchSchiedsrichterEinwilligungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(schiedsrichterId);
     const validated = FLSchiedsrichterSelbstEinwilligungPayloadSchema.safeParse(rawPayload);

@@ -448,7 +448,8 @@ describe("the account page's consent section", () => {
 
     const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
     const [eintrag] = panel.props.eintraege;
-    assert.deepEqual([eintrag?.erteilbar, eintrag?.medienAngeboten, eintrag?.nachweisStand], [false, false, BEWERBUNG_SITZ.nachweis_stand]);
+    const control = eintrag?.control.props;
+    assert.deepEqual([control?.erteilbar, control?.medienAngeboten, control?.nachweisStand], [false, false, BEWERBUNG_SITZ.nachweis_stand]);
   });
 
   /* A control sending another record's stand would be refused as a stale page on every press, or pass
@@ -462,10 +463,10 @@ describe("the account page's consent section", () => {
       sitze: [{ ...SITZ, nachweis_stand: { medien: stand("3").medien } }],
     });
 
-    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly { id: string; nachweisStand: unknown }[] } };
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
 
     assert.deepEqual(
-      panel.props.eintraege.map(({ id, nachweisStand }) => [id.split("-")[0], nachweisStand]),
+      panel.props.eintraege.map(({ id, control }) => [id.split("-")[0], control.props.nachweisStand]),
       [
         ["spieler", stand("1")],
         ["schiedsrichter", stand("2")],

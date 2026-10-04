@@ -17,6 +17,7 @@ import type { EinwilligungEintrag } from "./EinwilligungPanel.tsx";
 doubleToasts();
 
 const { EinwilligungPanel } = await import("./EinwilligungPanel.tsx");
+const { EinwilligungForm } = await import("./EinwilligungForm.tsx");
 
 /** Pressed by no case: the panel's own suite reads what it lays out, and the control's presses are its own suite's. */
 const speichereAction = () => Promise.resolve({ success: true as const, nachweis_stand: { medien: null } });
@@ -25,16 +26,18 @@ const eintrag = (id: string, titel: string, bestaetigt: EinwilligungEintrag["bes
   id: id,
   titel: titel,
   bestaetigt: bestaetigt,
-  worte: {
-    textVersion: "konto-test-1",
-    medien: { schalter: `Fotos von mir (${titel})`, absatz: "Fotos kannst Du hier zurücknehmen." },
-    widerruf: "Jede Änderung gilt ab dem Speichern.",
-  },
-  gespeichert: { medien: false },
-  nachweisStand: { medien: null },
-  medienAngeboten: true,
-  erteilbar: true,
-  speichereAction: speichereAction,
+  control: h(EinwilligungForm, {
+    worte: {
+      textVersion: "konto-test-1",
+      medien: { schalter: `Fotos von mir (${titel})`, absatz: "Fotos kannst Du hier zurücknehmen." },
+      widerruf: "Jede Änderung gilt ab dem Speichern.",
+    },
+    gespeichert: { medien: false },
+    nachweisStand: { medien: null },
+    medienAngeboten: true,
+    erteilbar: true,
+    speichereAction: speichereAction,
+  }),
 });
 
 const renderPanel = (eintraege: readonly EinwilligungEintrag[]) => render(underNext(h(EinwilligungPanel, { eintraege })));
