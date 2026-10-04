@@ -25,7 +25,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.konto.services import KONTO_SEITE_KONTAKT, KONTO_SEITE_SCHIEDSRICHTER, KONTO_SEITE_SPIELER
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
+from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_KONTAKT, KONTO_SEITE_SCHIEDSRICHTER, KONTO_SEITE_SPIELER
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_database, get_saison_teams_collection, get_schiedsrichter_collection, get_spieler_collection
@@ -73,6 +74,12 @@ ANY_REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607930098")
 PERSON = "anna.drossel@schule.de"
 OTHER_SEAT = "bernd.drossel@schule.de"
 ADULT_BIRTHDATE = "2000-05-09"
+# A second mailbox holding all three, under the media age and with every media choice off, so a grant
+# reaches every refusal a consent press can meet.
+YOUNG = "carla.drossel@schule.de"
+YOUNG_PUPIL = ObjectId("6890a1b2c3d4e5f607930012")
+YOUNG_REFEREE = ObjectId("6890a1b2c3d4e5f607930022")
+YOUNG_BIRTHDATE = "2010-05-09"
 
 API = f"/api/v{API_VERSION}"
 KADER_ROW = f"{API}/spieler/kader/{TEAM_A}/{ACTIVE_SAISON}/{NOT_IN_THE_SQUAD}"
@@ -95,21 +102,35 @@ def _consent(**fields: Any) -> dict[str, Any]:
     }
 
 
-def _seat(email: str) -> dict[str, Any]:
+def _seat(email: str, *, geburtsdatum: str = ADULT_BIRTHDATE, medien: bool = True) -> dict[str, Any]:
     return {
         "vorname": "Anna",
         "nachname": "Drossel",
         "email": email,
         "telefon": "+49 69 5550111",
-        "geburtsdatum": ADULT_BIRTHDATE,
+        "geburtsdatum": geburtsdatum,
         "einwilligung": {
             "umfang": "kontaktdaten",
             "erfasst_von": "person",
             "text_version": "2026-01-bestaetigungsseite-1",
             "datum": "2026-02-01",
             "bestaetigt_am": "2026-02-02",
-            "medien": True,
+            "medien": medien,
         },
+    }
+
+
+def _referee(referee_id: ObjectId, name: str, email: str, geburtsdatum: str, **einwilligung: Any) -> dict[str, Any]:
+    # A name per referee: `uniq_schiedsrichter_name` indexes it.
+    return {
+        "_id": referee_id,
+        "name": name,
+        "schule": "Adler-Schule",
+        "default_payment": 20,
+        "kontakt": {"telefon": "+49 69 5550222", "email": email},
+        "inactive_since": None,
+        "geburtsdatum": geburtsdatum,
+        "einwilligung": _consent(**einwilligung),
     }
 
 
@@ -123,24 +144,31 @@ async def _seed(database: AsyncDatabase) -> None:
             TEAM_A,
             "Adler",
             "AD",
-            kontakte={"trainer": _seat(OTHER_SEAT), "ansprechperson": _seat(PERSON), "stellvertretung": None, "trainer_ist_zugleich": None},
+            kontakte={
+                "trainer": _seat(OTHER_SEAT),
+                "ansprechperson": _seat(PERSON),
+                "stellvertretung": _seat(YOUNG, geburtsdatum=YOUNG_BIRTHDATE, medien=False),
+                "trainer_ist_zugleich": None,
+            },
         )
     )
-    await database[Collection.SPIELER].insert_one(
-        spieler_document(PUPIL, "Anna", "Drossel", email=PERSON, geburtsdatum=ADULT_BIRTHDATE, einwilligung=_consent())
+    await database[Collection.SPIELER].insert_many(
+        [
+            spieler_document(PUPIL, "Anna", "Drossel", email=PERSON, geburtsdatum=ADULT_BIRTHDATE, einwilligung=_consent()),
+            spieler_document(YOUNG_PUPIL, "Carla", "Drossel", email=YOUNG, geburtsdatum=YOUNG_BIRTHDATE, einwilligung=_consent(medien=False)),
+        ]
     )
-    await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(PUPIL, ACTIVE_SAISON, TEAM_A, nummer="7"))
-    await database[Collection.SCHIEDSRICHTER].insert_one(
-        {
-            "_id": REFEREE,
-            "name": "Anna Drossel",
-            "schule": "Adler-Schule",
-            "default_payment": 20,
-            "kontakt": {"telefon": "+49 69 5550222", "email": PERSON},
-            "inactive_since": None,
-            "geburtsdatum": ADULT_BIRTHDATE,
-            "einwilligung": _consent(),
-        }
+    await database[Collection.SAISON_SPIELER].insert_many(
+        [
+            saison_spieler_document(PUPIL, ACTIVE_SAISON, TEAM_A, nummer="7"),
+            saison_spieler_document(YOUNG_PUPIL, ACTIVE_SAISON, TEAM_A, nummer="8"),
+        ]
+    )
+    await database[Collection.SCHIEDSRICHTER].insert_many(
+        [
+            _referee(REFEREE, "Anna Drossel", PERSON, ADULT_BIRTHDATE),
+            _referee(YOUNG_REFEREE, "Carla Drossel", YOUNG, YOUNG_BIRTHDATE, medien=False),
+        ]
     )
 
 
@@ -318,6 +346,8 @@ class Consent:
     stand: Mapping[str, Any]
     # The dependency handing the handler the collection its press writes.
     collection: Callable[..., Awaitable[AsyncCollection]]
+    # The same operation naming `YOUNG`'s own record.
+    young_path: str
 
     def press(self, medien: bool, stand: Mapping[str, Any] | None = None) -> dict[str, Any]:
         return {
@@ -335,6 +365,7 @@ SPIELER = Consent(
     {"umfang": "kader_oeffentlich"},
     {"umfang": None, "medien": None},
     get_spieler_collection,
+    f"{API}/spieler/selbst/einwilligung",
 )
 CONSENTS = [
     pytest.param(SPIELER, id="a pupil's record"),
@@ -346,6 +377,7 @@ CONSENTS = [
             {"umfang": "kader_oeffentlich"},
             {"umfang": None, "medien": None},
             get_schiedsrichter_collection,
+            f"{API}/schiedsrichter/selbst/{YOUNG_REFEREE}/einwilligung",
         ),
         id="a referee's record",
     ),
@@ -357,6 +389,7 @@ CONSENTS = [
             {},
             {"medien": None},
             get_saison_teams_collection,
+            f"{API}/teams/{TEAM_A}/saisons/{ACTIVE_SAISON}/person/einwilligung",
         ),
         id="a contact seat",
     ),
@@ -455,6 +488,47 @@ class TestAConsentPress:
         # The grant's first attempt met the conflict, so the count was asked twice for one write.
         assert [wrapper.conflicted for wrapper in wrappers] == [True]
         assert stored == {count_id(consent.funktion, PERSON): TAGESBUDGETS[consent.funktion]}
+
+
+# Each a grant `YOUNG` presses that another rule refuses, and the code that rule answers.
+REFUSED_GRANTS = [
+    pytest.param(
+        lambda consent: {**consent.press(True), "nachweis_stand": {**consent.stand, "medien": "2026-03-01T10:00:00+00:00"}},
+        (409, EINWILLIGUNG_STAND_VERALTET),
+        id="a stale page",
+    ),
+    pytest.param(
+        lambda consent: {**consent.press(True), "text_version": "2000-01-unbekannt"}, (409, FASSUNG_UNZULAESSIG), id="an unknown label"
+    ),
+    pytest.param(lambda consent: consent.press(True), (422, SELBST_MEDIEN_ALTER), id="under the media age"),
+]
+
+
+class TestAGrantAnotherRuleRefuses:
+    """Counted only once every other refusal has passed (`docs/backend/spec.md :: I833`): its own reason, never the day's, and no unit spent."""
+
+    @pytest.mark.parametrize("exhausted", [False, True], ids=("an empty count", "an exhausted count"))
+    @pytest.mark.parametrize(("pressed", "refusal"), REFUSED_GRANTS)
+    @pytest.mark.parametrize("consent", CONSENTS)
+    def test_answers_its_own_reason_and_spends_nothing(
+        self,
+        mongo_replica_set_url: str,
+        consent: Consent,
+        pressed: Callable[[Consent], dict[str, Any]],
+        refusal: tuple[int, str],
+        exhausted: bool,
+    ):
+        async def steps(database: AsyncDatabase) -> tuple[Response, dict[str, int]]:
+            if exhausted:
+                await exhaust(database, consent.funktion, YOUNG)
+            async with app_client(mongo_replica_set_url, app=_first(), now=NOW) as http:
+                response = await http.patch(consent.young_path, json=pressed(consent), headers=as_person(YOUNG))
+            return response, await counts(database)
+
+        response, stored = seeded(mongo_replica_set_url, steps)
+
+        assert answered(response) == refusal, response.text
+        assert stored == ({count_id(consent.funktion, YOUNG): TAGESBUDGETS[consent.funktion]} if exhausted else {})
 
 
 class TestAnAdministrator:
