@@ -12,7 +12,7 @@ import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
 import type { OutboundMail } from "@/core/mail";
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { FLZustellungZiel } from "./schemas";
+import type { FLZielJeSitz, FLZustellungZiel } from "./schemas";
 
 /**
  * Which record a fan-out's messages are about, so an accepted send is recorded against it. The
@@ -30,7 +30,8 @@ export type ZielAuftrag = {
   // A team's season row holds three seats, so its message names the ones it covers, at least one; every
   // other kind has one carrier and names none.
   (
-    { ziel: "kontakt"; rollen: readonly [FLKontaktRolle, ...FLKontaktRolle[]] } | { ziel: Exclude<FLZustellungZiel, "kontakt">; rollen?: never }
+    | { ziel: FLZielJeSitz; rollen: readonly [FLKontaktRolle, ...FLKontaktRolle[]] }
+    | { ziel: Exclude<FLZustellungZiel, FLZielJeSitz>; rollen?: never }
   );
 
 /** Every list is in the order the addresses were tried. */

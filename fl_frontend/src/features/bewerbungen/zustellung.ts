@@ -2,7 +2,7 @@ import z from "zod";
 
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "@/core/anmeldeTag";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
-import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema } from "@/features/zustellung/schemas";
+import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema, zielHatSitze } from "@/features/zustellung/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import {
@@ -140,9 +140,9 @@ function leseZielMeldung(tags: Record<string, string>, gemeinsam: ZustellGemeins
   const art = FLZustellungZielSchema.safeParse(tags["ziel"]);
   if (!art.success) return { ziel: "unplatzierbar", grund: "ziel_unbekannt", art: null };
 
-  // A season row's message names the seats it covered, and every other kind's names none: a stray
-  // `rollen` on those is ignored rather than refused, their one carrier needing no seat.
-  const rollen = art.data === "kontakt" ? rollenAus(tags["rollen"]) : [];
+  // A seat-carrying kind's message names the seats it covered, and every other kind's names none: a
+  // stray `rollen` on those is ignored rather than refused, their one carrier needing no seat.
+  const rollen = zielHatSitze(art.data) ? rollenAus(tags["rollen"]) : [];
   if (rollen === null) return { ziel: "unplatzierbar", grund: "rollen_unlesbar", art: art.data };
 
   const zeile = CustomObjectIdStringSchema.safeParse(tags["ziel_id"]);

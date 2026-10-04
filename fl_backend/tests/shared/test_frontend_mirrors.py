@@ -660,6 +660,20 @@ def test_the_bracket_ceiling_the_offer_opens_is_the_one_this_package_caps_a_seas
     )
 
 
+# The frontend's copy of the kinds whose delivery reports name seats. A kind added on one end alone has
+# the webhook send an empty `rollen` the validator here refuses, or a seat the frontend's own refuses.
+SEAT_KINDS: Final = ("features/zustellung/schemas.ts", "ZIELE_JE_SITZ")
+
+
+def test_the_frontend_names_seats_on_exactly_the_kinds_this_package_does():
+    module, name = SEAT_KINDS
+    named = _declared_members(module, name)
+
+    assert set(named) == zustellung_schemas.ZIELE_JE_SITZ, (
+        f"{name} names seats on {sorted(named)}, where this package names them on {sorted(zustellung_schemas.ZIELE_JE_SITZ)}"
+    )
+
+
 # The frontend's copy of the kind-to-origin mapping. `Record<FLAktor["kind"], AktionHerkunft>` refuses
 # a kind nobody places and takes a row moved to another origin, so only a comparison holds the two
 # ends to one origin per kind.

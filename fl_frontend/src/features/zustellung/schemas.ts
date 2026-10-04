@@ -22,6 +22,19 @@ export const FLZustellungZielSchema = z.enum(["schiedsrichter", "einladung", "re
 export type FLZustellungZiel = z.infer<typeof FLZustellungZielSchema>;
 
 /**
+ * Mirrors `fl_backend/app/api/zustellung/schemas.py :: ZIELE_JE_SITZ` — the kinds whose record sits
+ * under each contact seat, so their reports name the seats one message reached and every other kind's
+ * name none. One list on one line, which `fl_backend/tests/shared/test_frontend_mirrors.py` reads.
+ */
+export const ZIELE_JE_SITZ = ["kontakt"] as const satisfies readonly FLZustellungZiel[];
+export type FLZielJeSitz = (typeof ZIELE_JE_SITZ)[number];
+
+/** Whether a kind's reports name the seats they reached. */
+export function zielHatSitze(ziel: FLZustellungZiel): ziel is FLZielJeSitz {
+  return (ZIELE_JE_SITZ as readonly FLZustellungZiel[]).includes(ziel);
+}
+
+/**
  * What every generic delivery write names, mirroring the one private base they share on the backend.
  * Spelled once for the reason the base exists: two copies would let the three writes judge one
  * provider's message differently.
@@ -48,10 +61,11 @@ const zielMeldungFields = {
  * nothing, and a contact message naming none is applied to no seat.
  */
 function sitzeZumZiel({ ziel, rollen }: { ziel: FLZustellungZiel; rollen: readonly unknown[] }, ctx: z.core.$RefinementCtx): void {
-  if (ziel === "kontakt" ? rollen.length === 0 : rollen.length > 0) {
+  const mitSitzen = zielHatSitze(ziel);
+  if (mitSitzen ? rollen.length === 0 : rollen.length > 0) {
     ctx.addIssue({
       code: "custom",
-      message: ziel === "kontakt" ? "Diese Meldung nennt keinen Sitz." : "Diese Meldung nennt einen Sitz, den es hier nicht gibt.",
+      message: mitSitzen ? "Diese Meldung nennt keinen Sitz." : "Diese Meldung nennt einen Sitz, den es hier nicht gibt.",
       path: ["rollen"],
     });
   }
