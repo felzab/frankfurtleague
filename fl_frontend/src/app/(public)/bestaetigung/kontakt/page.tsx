@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
-import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -49,7 +49,7 @@ async function BestaetigungContent(props: NextPageProps) {
   // Beside the link's read rather than after it, and settled to `null` so a dead link's panel never
   // waits on words it does not show. Per request: a deploy moves the label the answer must stamp.
   const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt"))
-    .then((gelesen) => gekeyteFassung(gelesen, KONTAKT_ABSATZ_SCHLUESSEL))
+    .then((gelesen) => gekeyteFassung(gelesen, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL))
     .catch(() => null);
 
   const start: BestaetigungStart = await getEinwilligungAnsicht(token).then(

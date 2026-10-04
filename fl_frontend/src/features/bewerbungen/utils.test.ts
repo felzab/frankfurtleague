@@ -300,7 +300,7 @@ describe("the birthdate window a contact person's date has to fall in", () => {
     for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
       const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", antwort: "erteilt", whatsapp: false, text_version: KONTAKT_LABEL };
+      const antwort = { token: "kein-echtes-token", antwort: "erteilt", whatsapp: false, medien: false, text_version: KONTAKT_LABEL };
 
       assert.equal(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, true, `${String(mindestalter)}: the offer is refused`);
       assert.equal(

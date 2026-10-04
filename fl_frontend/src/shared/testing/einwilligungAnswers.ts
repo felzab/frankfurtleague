@@ -2,12 +2,14 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import {
   gekeyteFassung,
   KONTAKT_ABSATZ_SCHLUESSEL,
+  KONTAKT_BEDIEN_SCHLUESSEL,
   SCHIEDSRICHTER_ABSATZ_SCHLUESSEL,
   SPIELER_ABSATZ_SCHLUESSEL,
 } from "@/core/einwilligungSeiten.ts";
 
 /** The words each keyed page runs, keyed as its page reads them, for a view rendered without its page. */
-export const laufendeKontaktFassung = () => gekeyteFassung(publishedLaufendeFassung("bestaetigung_kontakt"), KONTAKT_ABSATZ_SCHLUESSEL);
+export const laufendeKontaktFassung = () =>
+  gekeyteFassung(publishedLaufendeFassung("bestaetigung_kontakt"), KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
 
 export const laufendeSpielerFassung = () =>
   gekeyteFassung(publishedLaufendeFassung("bestaetigung_spieler"), SPIELER_ABSATZ_SCHLUESSEL, ["kader_oeffentlich", "intern"] as const);

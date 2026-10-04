@@ -260,6 +260,7 @@ const FORMS: Record<string, PublicForm> = {
         saison: "2026",
         rolle: "Ansprechperson",
         mindestalter: 18,
+        medienMindestalter: 18,
         onAbschluss: () => undefined,
       }),
     submit: (user) => pressTwice(user, { resting: "Ich möchte nicht eingetragen sein", armed: /Widerspruch/ }),

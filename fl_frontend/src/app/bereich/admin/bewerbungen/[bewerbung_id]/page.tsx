@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { getLaufendeFassung, getLaufendesLabel } from "@/core/einwilligung";
-import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { AdminBewerbungView } from "@/features/bewerbungen/components/views/AdminBewerbungView";
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { resolveBewerbungId } from "@/features/bewerbungen/resolvers";
@@ -66,7 +66,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
       bewerbung={bewerbung}
       teamName={bewerbungTeamName(bewerbung, teamsRes.teams)}
       saisonStatus={saison?.status ?? null}
-      neubesetzung={{ textVersion: formLabel, absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL).absaetze }}
+      neubesetzung={{ textVersion: formLabel, absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL).absaetze }}
       gruppeOffer={
         saison === null
           ? []

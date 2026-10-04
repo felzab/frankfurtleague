@@ -3,11 +3,11 @@ import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldSt
 
 import { ABSATZ_CLASSES, BestaetigungAbschnitt, Gefuellt } from "./BestaetigungPanels";
 
-import type { GekeyteFassung, KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten";
+import type { GekeyteFassung, KontaktAbsatzSchluessel, KontaktBedienSchluessel } from "@/core/einwilligungSeiten";
 import type { Slots } from "@/shared/utils/stampedSlots";
 
 /** The contact page's words, keyed as the page places them, under the label its answer stamps. */
-export type KontaktFassung = GekeyteFassung<KontaktAbsatzSchluessel>;
+export type KontaktFassung = GekeyteFassung<KontaktAbsatzSchluessel, KontaktBedienSchluessel>;
 
 type KontaktAbsaetze = KontaktFassung["absaetze"];
 
@@ -183,6 +183,21 @@ export function WhatsappHinweis({ absaetze }: { absaetze: KontaktAbsaetze }) {
       <Absatz
         text={absaetze.whatsapp}
         werte={KONSTANTEN}
+      />
+    </p>
+  );
+}
+
+/**
+ * Rendered whole under the media switch, and for every age: the switch alone goes below the served
+ * age, so a record's label reproduces the screen whichever of the two its person was shown.
+ */
+export function MedienHinweis({ absaetze, medienMindestalter }: { absaetze: KontaktAbsaetze; medienMindestalter: number }) {
+  return (
+    <p className={ABSATZ_CLASSES}>
+      <Absatz
+        text={absaetze.medien}
+        werte={{ ...KONSTANTEN, medienMinAlter: String(medienMindestalter) }}
       />
     </p>
   );

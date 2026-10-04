@@ -27,6 +27,7 @@ const { POST } = await import("./route.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { alterAusserhalb } = await import("@/features/bewerbungen/constants.ts");
+const { MEDIEN_NOCH_NICHT } = await import("@/features/bewerbungen/utils.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 const route = await import("./route.ts");
@@ -53,6 +54,7 @@ const ANSICHT = {
   vorname: "Käthe",
   text_version: LAUFEND,
   mindestalter: 18,
+  medien_mindestalter: 18,
 };
 
 /** One refused write as the client raises it, at the status the document publishes for its code. */
@@ -82,6 +84,7 @@ const gueltigerKoerper = {
   antwort: "erteilt",
   geburtsdatum: "1984-05-09",
   whatsapp: false,
+  medien: true,
   text_version: LAUFEND,
 };
 
@@ -146,6 +149,15 @@ describe("the contact seat's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, fieldErrors: { geburtsdatum: alterAusserhalb(18) } });
   });
 
+  /* Spends nothing, as the age refusal does: the form stays, and the sentence names the switch that repairs it. */
+  it("answers the media refusal with its own sentence, keeping the form", async () => {
+    schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-002");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, error: MEDIEN_NOCH_NICHT });
+  });
+
   /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
      form and no Widerspruch button behind. */
   it("answers a barred address with the barred panel, in place of the form", async () => {
@@ -177,11 +189,12 @@ describe("the contact seat's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, zustand: "abgelehnt" });
   });
 
-  it("files the answer under the label this server renders, echoing what was stored", async () => {
+  it("files the answer and its media consent under the label this server renders, echoing what was stored", async () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const geschrieben = calls.find((call) => call.endpoint === WRITE);
 
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, LAUFEND);
+    assert.equal(JSON.parse(geschrieben?.body ?? "{}").medien, true);
     assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: false });
   });
 });

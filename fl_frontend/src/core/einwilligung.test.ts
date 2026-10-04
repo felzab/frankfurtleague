@@ -10,6 +10,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import {
   gekeyteFassung,
   KONTAKT_ABSATZ_SCHLUESSEL,
+  KONTAKT_BEDIEN_SCHLUESSEL,
   SCHIEDSRICHTER_ABSATZ_SCHLUESSEL,
   SPIELER_ABSATZ_SCHLUESSEL,
 } from "./einwilligungSeiten.ts";
@@ -160,7 +161,7 @@ describe("a page's keyed words", () => {
      must hold exactly the page's keys, in the order and with the words its frozen array holds. */
   it("keys each page's running words under exactly that page's keys, in the frozen order", () => {
     for (const [fassung, schluessel, bedien] of [
-      [KONTAKT, KONTAKT_ABSATZ_SCHLUESSEL, []],
+      [KONTAKT, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL],
       [SPIELER, SPIELER_ABSATZ_SCHLUESSEL, UMFANG],
       [SCHIEDSRICHTER, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG],
     ] as const) {
@@ -178,9 +179,16 @@ describe("a page's keyed words", () => {
   it("refuses a map missing one of the page's keys, or holding one more", () => {
     const { worum: _fehlt, ...ohneWorum } = KONTAKT.absaetze_nach_schluessel ?? {};
 
-    assert.throws(() => gekeyteFassung({ ...KONTAKT, absaetze_nach_schluessel: ohneWorum }, KONTAKT_ABSATZ_SCHLUESSEL));
+    // The control keys passed whole, so a throw here is the paragraph map's alone.
     assert.throws(() =>
-      gekeyteFassung({ ...KONTAKT, absaetze_nach_schluessel: { ...KONTAKT.absaetze_nach_schluessel, mehr: "x" } }, KONTAKT_ABSATZ_SCHLUESSEL),
+      gekeyteFassung({ ...KONTAKT, absaetze_nach_schluessel: ohneWorum }, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL),
+    );
+    assert.throws(() =>
+      gekeyteFassung(
+        { ...KONTAKT, absaetze_nach_schluessel: { ...KONTAKT.absaetze_nach_schluessel, mehr: "x" } },
+        KONTAKT_ABSATZ_SCHLUESSEL,
+        KONTAKT_BEDIEN_SCHLUESSEL,
+      ),
     );
   });
 
@@ -260,9 +268,9 @@ describe("the wording the backend runs", () => {
     }
   });
 
-  /* The same article asks the same separation of a page that asks no consent. */
+  /* The same article asks the same separation of a page whose confirmation is no consent. */
   it("gives the objection a paragraph of its own on the contact person's page", () => {
-    const { absaetze } = gekeyteFassung(KONTAKT, KONTAKT_ABSATZ_SCHLUESSEL);
+    const { absaetze } = gekeyteFassung(KONTAKT, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
 
     assert.match(absaetze.art21, /^Der Verarbeitung Deiner Daten .* \(Art\. 21 DSGVO\)\.$/, "the contact page states no objection of its own");
     assert.ok(!absaetze.widerruf.includes("Art. 21"), "the contact page folds the objection into the rights paragraph");

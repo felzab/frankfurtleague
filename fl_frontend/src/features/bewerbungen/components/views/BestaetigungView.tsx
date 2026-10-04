@@ -124,6 +124,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           rolle={linkRollen(stand.ansicht)}
           istSaison={saisonRow}
           mindestalter={stand.ansicht.mindestalter}
+          medienMindestalter={stand.ansicht.medien_mindestalter}
           onAbschluss={(abschluss) => {
             beantwortet();
             setStand(nachAntwort(abschluss, stand.ansicht));

@@ -27,7 +27,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
-import { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
+import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
@@ -59,12 +59,22 @@ const geburtsdatumHinweis = (mindestalter: number): string =>
   `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} Jahre alt sein. Das Datum wird mit Deinem Eintrag gespeichert.`;
 
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
-type Entwurf = { geburtsdatum: string; whatsapp: boolean };
+type Entwurf = { geburtsdatum: string; whatsapp: boolean; medien: boolean };
 
-const beurteilt = (entwurf: Entwurf) => ({
+const beurteilt = (entwurf: Entwurf, medienAngeboten: boolean) => ({
   geburtsdatum: entwurf.geburtsdatum === "" ? null : entwurf.geburtsdatum,
   whatsapp: entwurf.whatsapp,
+  // Never the draft's own `true` where no switch stands: one given before the date moved below the
+  // media age would send a consent this page withheld.
+  medien: medienAngeboten && entwurf.medien,
 });
+
+/**
+ * Off the date the age check reads, at the served media age: with no date yet the age is unknown,
+ * and a switch offered then would be one the write refuses for anybody under it.
+ */
+const bietetMedien = (geburtsdatum: string, medienMindestalter: number): boolean =>
+  geburtsdatum !== "" && geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), medienMindestalter).spaeteste;
 
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -75,14 +85,20 @@ function toCalendarDate(stored: string): CalendarDate | null {
  * An objection sends no date and no consent, whatever the draft holds: an objection carrying a
  * consent switched on is a contradiction the page must not be able to send.
  */
-function antwortPayload(token: string, textVersion: string, entwurf: Entwurf, ablehnen: boolean): FLBewerbungEinwilligungAntwortPayload {
+function antwortPayload(
+  token: string,
+  textVersion: string,
+  entwurf: Entwurf,
+  ablehnen: boolean,
+  medienAngeboten: boolean,
+): FLBewerbungEinwilligungAntwortPayload {
   // Stamped on an objection as well: the record has to name the words that were on screen when the
   // seat was refused, and a null there would leave the refusal citing nothing.
   const fassung = { token: token, text_version: textVersion };
 
-  if (ablehnen) return { ...fassung, antwort: "abgelehnt", geburtsdatum: null, whatsapp: false };
+  if (ablehnen) return { ...fassung, antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false };
 
-  return { ...fassung, antwort: "erteilt", ...beurteilt(entwurf) };
+  return { ...fassung, antwort: "erteilt", ...beurteilt(entwurf, medienAngeboten) };
 }
 
 /**
@@ -97,6 +113,8 @@ function BestaetigungAngaben({
   onGeburtsdatumVerlassen,
   isDisabled,
   mindestalter,
+  medienMindestalter,
+  medienAngeboten,
 }: {
   fassung: KontaktFassung;
   entwurf: Entwurf;
@@ -104,6 +122,9 @@ function BestaetigungAngaben({
   onGeburtsdatumVerlassen: () => void;
   isDisabled: boolean;
   mindestalter: number;
+  medienMindestalter: number;
+  /** Whether the date entered reaches `medienMindestalter`, which the switch stands from. */
+  medienAngeboten: boolean;
 }) {
   const panel = formPanel();
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
@@ -153,6 +174,28 @@ function BestaetigungAngaben({
           </Switch.Content>
         </Switch>
         <WhatsappHinweis absaetze={fassung.absaetze} />
+
+        {/* The pupil's and the referee's pages ask it so: the switch from the served age, the paragraph for every age. */}
+        {medienAngeboten && (
+          // Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing.
+          <Switch
+            className="flex w-full flex-col gap-y-1"
+            name="medien"
+            isDisabled={isDisabled}
+            isSelected={entwurf.medien}
+            onChange={(medien) => onEntwurf({ ...entwurf, medien: medien })}>
+            <Switch.Content className={panel.switchContent()}>
+              {fassung.bedienelemente.medien}
+              <Switch.Control className={panel.switchControl()}>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
+          </Switch>
+        )}
+        <MedienHinweis
+          absaetze={fassung.absaetze}
+          medienMindestalter={medienMindestalter}
+        />
       </section>
     </>
   );
@@ -251,6 +294,7 @@ export function BestaetigungFormPanel({
   rolle,
   istSaison = false,
   mindestalter,
+  medienMindestalter,
   onAbschluss,
 }: {
   /** The words the page shows, under the label its answer stamps. */
@@ -265,10 +309,12 @@ export function BestaetigungFormPanel({
   istSaison?: boolean;
   /** The floor the answer will be judged by, answered by the link's own read for the seats it covers. */
   mindestalter: number;
+  /** The age the media switch is offered from, answered by the link's own read for `mindestalter`'s reason. */
+  medienMindestalter: number;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
   const [isPending, startSending] = useTransition();
-  const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false });
+  const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false, medien: false });
   const widerspruch = useTwoPressConfirm();
   const { isConfirming, press } = widerspruch;
 
@@ -288,7 +334,9 @@ export function BestaetigungFormPanel({
       failureTitle: "Antwort nicht gespeichert",
     });
 
-  useForgiveFixed({ einwilligung: antwortPayload(token, fassung.textVersion, entwurf, isConfirming) });
+  const medienAngeboten = bietetMedien(entwurf.geburtsdatum, medienMindestalter);
+
+  useForgiveFixed({ einwilligung: antwortPayload(token, fassung.textVersion, entwurf, isConfirming, medienAngeboten) });
 
   const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
@@ -347,7 +395,7 @@ export function BestaetigungFormPanel({
 
   /* Both presses of the objection hand the shared control the same write: the arming one drops it,
      and the second runs it, so the two cannot arm and send different payloads. */
-  const sendeWiderspruch = () => sende(antwortPayload(token, fassung.textVersion, entwurf, true));
+  const sendeWiderspruch = () => sende(antwortPayload(token, fassung.textVersion, entwurf, true, medienAngeboten));
 
   const handleSubmit = () => {
     // Armed, this press is the shared control's second one and is graded there — including the
@@ -357,7 +405,7 @@ export function BestaetigungFormPanel({
       return;
     }
 
-    const payload = antwortPayload(token, fassung.textVersion, entwurf, false);
+    const payload = antwortPayload(token, fassung.textVersion, entwurf, false, medienAngeboten);
     guardSubmit({ einwilligung: payload }, () => {
       startSending(async () => {
         await sende(payload);
@@ -395,10 +443,12 @@ export function BestaetigungFormPanel({
           entwurf={entwurf}
           onEntwurf={setEntwurf}
           onGeburtsdatumVerlassen={() =>
-            validatePaths("einwilligung", antwortPayload(token, fassung.textVersion, entwurf, false), ["geburtsdatum"])
+            validatePaths("einwilligung", antwortPayload(token, fassung.textVersion, entwurf, false, medienAngeboten), ["geburtsdatum"])
           }
           isDisabled={isConfirming}
           mindestalter={mindestalter}
+          medienMindestalter={medienMindestalter}
+          medienAngeboten={medienAngeboten}
         />
 
         {istZuJung && (

@@ -9,6 +9,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
@@ -35,6 +36,7 @@ const ANSICHT = {
   vorname: "Mira",
   text_version: KONTAKT.textVersion,
   mindestalter: VERTRETUNG_MIN_ALTER,
+  medien_mindestalter: MEDIEN_MIN_ALTER,
 };
 
 const page = (start: BestaetigungStart): string => textOf(renderMarkup(BestaetigungView, { start }));
@@ -79,6 +81,7 @@ describe("the confirmation page for a seat on a team's season row", () => {
         rolle: "Ansprechperson",
         istSaison: true,
         mindestalter: VERTRETUNG_MIN_ALTER,
+        medienMindestalter: MEDIEN_MIN_ALTER,
         onAbschluss: () => undefined,
       }),
     );

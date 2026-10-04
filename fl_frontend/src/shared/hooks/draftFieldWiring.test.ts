@@ -175,6 +175,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
         saison: "2026",
         rolle: "Ansprechperson",
         mindestalter: 18,
+        medienMindestalter: 18,
         onAbschluss: () => undefined,
       }),
     );

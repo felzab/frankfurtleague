@@ -34,12 +34,16 @@ export const KONTAKT_ABSATZ_SCHLUESSEL = [
   "widerruf",
   "art21",
   "whatsapp",
+  "medien",
   "klickIdentitaet",
   "klickEintrag",
   "klickAlter",
   "klickHinweise",
   "keineEinwilligung",
 ] as const;
+
+/** The contact pages' control words beside their `schalter`, which carries the WhatsApp switch's. */
+export const KONTAKT_BEDIEN_SCHLUESSEL = ["medien"] as const;
 
 export const SPIELER_ABSATZ_SCHLUESSEL = [
   "worum",
@@ -77,6 +81,7 @@ export const SCHIEDSRICHTER_ABSATZ_SCHLUESSEL = [
 ] as const;
 
 export type KontaktAbsatzSchluessel = (typeof KONTAKT_ABSATZ_SCHLUESSEL)[number];
+export type KontaktBedienSchluessel = (typeof KONTAKT_BEDIEN_SCHLUESSEL)[number];
 export type SpielerAbsatzSchluessel = (typeof SPIELER_ABSATZ_SCHLUESSEL)[number];
 export type SchiedsrichterAbsatzSchluessel = (typeof SCHIEDSRICHTER_ABSATZ_SCHLUESSEL)[number];
 

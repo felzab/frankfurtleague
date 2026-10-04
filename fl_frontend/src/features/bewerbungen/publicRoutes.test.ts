@@ -15,6 +15,7 @@ import { userEvent } from "@testing-library/user-event";
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
+import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -79,7 +80,7 @@ const { fensterZustand } = await import("./utils.ts");
 const { FLBewerbungEinwilligungAntwortPayloadSchema } = await import("./schemas.ts");
 const { BestaetigungFormPanel } = await import("./components/views/BestaetigungFormPanel.tsx");
 
-const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
+const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, MedienHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
 const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
@@ -213,6 +214,7 @@ function renderBestaetigung(mindestalter = VERTRETUNG_MIN_ALTER) {
       saison: "2026",
       rolle: "Ansprechperson",
       mindestalter: mindestalter,
+      medienMindestalter: MEDIEN_MIN_ALTER,
       onAbschluss: () => undefined,
     }),
   );
@@ -238,6 +240,7 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
         vorname: "Mira",
         text_version: KONTAKT_LABEL,
         mindestalter: mindestalter,
+        medien_mindestalter: MEDIEN_MIN_ALTER,
       },
     },
   });
@@ -788,6 +791,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     // The Ansprechperson's own floor, because `SLOTS.rolle` is that seat: a stamped paragraph is
     // compared against what THIS reader was shown, and the two seats are shown different numbers.
     minAlter: String(VERTRETUNG_MIN_ALTER),
+    medienMinAlter: String(MEDIEN_MIN_ALTER),
     kontakt: KONTAKT_EMAIL,
     // The slot renders as a link, whose own words are what a reader sees in the sentence.
     datenschutz: "Datenschutzerklärung",
@@ -813,6 +817,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
       ablehnenLabel: ABLEHNEN_LABEL,
     }),
     renderMarkup(WhatsappHinweis, { absaetze: KONTAKT.absaetze }),
+    renderMarkup(MedienHinweis, { absaetze: KONTAKT.absaetze, medienMindestalter: MEDIEN_MIN_ALTER }),
     renderMarkup(KlickBestaetigung, {
       absaetze: KONTAKT.absaetze,
       id: "klick-punkte",
@@ -832,6 +837,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     saison: SLOTS.saison,
     rolle: SLOTS.rolle,
     mindestalter: VERTRETUNG_MIN_ALTER,
+    medienMindestalter: MEDIEN_MIN_ALTER,
     onAbschluss: () => undefined,
   });
 
@@ -914,6 +920,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     vorname: "Mira",
     text_version: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
+    medien_mindestalter: MEDIEN_MIN_ALTER,
   } as const;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
@@ -926,6 +933,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     vorname: OPENED_LINK.vorname,
     ablehnen: ABLEHNEN_LABEL,
     minAlter: String(OPENED_LINK.mindestalter),
+    medienMinAlter: String(OPENED_LINK.medien_mindestalter),
     kontakt: KONTAKT_EMAIL,
     datenschutz: "Datenschutzerklärung",
   };
@@ -980,6 +988,19 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   const withoutEmphasis = (passage: string): string =>
     passage.replace(/<strong class="([^"]*)">[\s\S]*?<\/strong>/g, (whole, classes) => (classes === WERT_CLASS ? "" : whole));
 
+  const BUCHSTABE = /[\p{L}\p{N}]/u;
+
+  /**
+   * Whether `value` stands in `text` as a word of its own: the media paragraph's „Ansprechpersonen“
+   * are the people at a matchday, never this reader's seat.
+   */
+  function standsAsWord(text: string, value: string): boolean {
+    for (let at = text.indexOf(value); at !== -1; at = text.indexOf(value, at + 1)) {
+      if (!BUCHSTABE.test(text.charAt(at - 1)) && !BUCHSTABE.test(text.charAt(at + value.length))) return true;
+    }
+    return false;
+  }
+
   /* The application form's page, not a card of its own: one column measures the same on both ends of
      the workflow, and a cap typed here is one nobody moves when that page's moves. */
   it("stands in the column the application page stands in", () => {
@@ -1016,7 +1037,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
       const bare = textOf(withoutEmphasis(passage));
 
       for (const value of OWN_VALUES) {
-        assert.ok(!bare.includes(value), `„${value}“ stands in the page's prose with nothing making it stand out: ${textOf(passage)}`);
+        assert.ok(!standsAsWord(bare, value), `„${value}“ stands in the page's prose with nothing making it stand out: ${textOf(passage)}`);
       }
     }
   });
@@ -1355,6 +1376,7 @@ describe("what a decline may carry", () => {
       token: "kein-echtes-token",
       antwort: "abgelehnt",
       geburtsdatum: null,
+      medien: false,
       text_version: KONTAKT_LABEL,
     };
     const refused = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: true });
@@ -1381,6 +1403,7 @@ describe("what a link to a barred address opens on", () => {
     vorname: "Mira",
     text_version: KONTAKT_LABEL,
     mindestalter: BEWERBUNG_MIN_ALTER,
+    medien_mindestalter: MEDIEN_MIN_ALTER,
   } as const;
 
   it("is the shared barred page and nothing beside it", () => {
@@ -1450,6 +1473,7 @@ describe("the words the two contact pages are handed", () => {
     vorname: "Mira",
     text_version: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
+    medien_mindestalter: MEDIEN_MIN_ALTER,
   } as const;
 
   /** Every read answered as the backend would, `laufend` overriding what it runs on each page and `scheitert` failing one endpoint. */

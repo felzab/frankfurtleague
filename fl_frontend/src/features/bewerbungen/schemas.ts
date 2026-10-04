@@ -644,6 +644,9 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   // The floor this link's person has to reach, over both their seats: the page bounds its date
   // control and words its own sentences from this rather than from a constant of its own.
   mindestalter: z.number().int(),
+  // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
+  // side's own would offer the switch where the endpoint refuses the answer.
+  medien_mindestalter: z.number().int(),
 });
 export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungEinwilligungAnsichtResponseSchema>;
 
@@ -661,6 +664,9 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
       antwort: z.enum(["erteilt", "abgelehnt"], { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),
       geburtsdatum: CustomDateStringSchema.nullable(),
       whatsapp: z.boolean(),
+      // Never optional, as `whatsapp` is not: a page that dropped the switch is refused rather than
+      // read as a no. An objection sends `false`, its seat storing no person to consent.
+      medien: z.boolean(),
       // The version this page rendered, never the one the submission stamped: the seat's record has to
       // cite the words the confirming person read, and the two are months apart.
       text_version: z

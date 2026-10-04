@@ -199,6 +199,13 @@ export function mapBewerbungSubmitRefusal(
   }
 }
 
+// Off the switch rather than the date: the page offers it from the served age alone, so only a
+// browser whose clock puts the day elsewhere than the backend's shows it to a person below that age,
+// and switching it off is the whole repair. The age stands in the paragraph beside the switch.
+/** What the contact page says where the backend refuses the media consent for the date entered. */
+export const MEDIEN_NOCH_NICHT =
+  "Fotos, Videos und Interviews kannst Du mit diesem Geburtsdatum noch nicht erlauben. Schalte die Erlaubnis aus und bestätige erneut.";
+
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
 export type EinwilligungRefusal = {
   error?: string;
@@ -247,6 +254,9 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-BEWERBUNG-012":
       return { fieldErrors: { geburtsdatum: alterAusserhalb(mindestalter) } };
+    // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
+    case "REQ-EINWILLIGUNG-002":
+      return { error: MEDIEN_NOCH_NICHT };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
     // form either: the page offers no Widerspruch to a barred address (`docs/frontend/spec.md :: I516`).
     case "REQ-BEWERBUNG-020":

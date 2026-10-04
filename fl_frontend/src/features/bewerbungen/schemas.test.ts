@@ -851,6 +851,7 @@ describe("the consenting answer's birth date", () => {
       antwort: "erteilt",
       geburtsdatum: null,
       whatsapp: false,
+      medien: false,
       text_version: "2026-08",
     });
 
@@ -863,7 +864,7 @@ describe("the consenting answer's birth date", () => {
 
 describe("the ceiling on the confirmation link's own token", () => {
   /* A decline, so the body is whole without a date and no clock decides the case. */
-  const antwortBody = { antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, text_version: "2026-08" };
+  const antwortBody = { antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false, text_version: "2026-08" };
 
   const verdicts = (token: string) => [
     FLBewerbungEinwilligungAnsichtPayloadSchema.safeParse({ token: token }),
