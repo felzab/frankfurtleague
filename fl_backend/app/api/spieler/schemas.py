@@ -32,9 +32,8 @@ FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 # An alias rather than inline: the payloads that set it answer in the record's own vocabulary.
 FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
 
-# `bestandsuebernahme` is what a BACKFILLED row carries, so a record carried over from before
-# consent was collected stays distinguishable from one a person actually gave. `volljaehrig` pins no
-# age: the floor is per seat (`docs/backend/spec.md :: I180`).
+# What stored records name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
+# SPRECHER`). `bestandsuebernahme` marks a record carried over from before consent was collected.
 FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
 
 
@@ -46,7 +45,8 @@ class FLEinwilligung(BaseModel):
     """
 
     umfang: FLEinwilligungUmfang
-    erteilt_von: FLEinwilligungQuelle
+    # Read off stored records alone, so defaulted: a record written from now on names no speaker.
+    erteilt_von: FLEinwilligungQuelle | None = None
     # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
     datum: CustomOptionalDateString
     # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves

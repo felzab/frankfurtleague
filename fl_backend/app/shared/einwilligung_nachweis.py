@@ -22,6 +22,10 @@ NACHWEIS: Final = "nachweis"
 _GERMANY: Final = ZoneInfo("Europe/Berlin")
 ERTEILT_ZUVOR: Final = "erteilt_zuvor"
 
+# Who answered, on a person's record and on a seat: stored records carry them, and no write sets
+# either any longer. Who seated a seat's person is `eingetragen_von`, and the evidence names no speaker.
+SPRECHER: Final[tuple[str, ...]] = ("erteilt_von", "erfasst_von")
+
 FLEinwilligungWahl = Literal["umfang", "medien"]
 WAHLEN: Final[tuple[FLEinwilligungWahl, ...]] = ("umfang", "medien")
 
@@ -129,7 +133,7 @@ def compose_erneuert(
     the instant of one set before evidence was kept.
     """
 
-    gesetzt: dict[str, Any] = {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS)}
+    gesetzt: dict[str, Any] = {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS, *SPRECHER)}
     for wahl in WAHLEN:
         neu, alt = _beleg_of(erneuert, wahl), _beleg_of(gespeichert, wahl)
         if wahl not in erneuert or neu is None or (alt is not None and neu[0] <= alt[0]):

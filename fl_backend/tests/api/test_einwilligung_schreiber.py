@@ -147,10 +147,10 @@ OTHER: Final = {"vorname": "Jonas", "nachname": "Beispiel", "email": "jonas@exam
 
 
 def _apply(document: Mapping[str, Any], update: Mapping[str, Any]) -> dict[str, Any]:
-    """The `$set` MongoDB would apply, on dotted paths, and nothing else."""
+    """The `$set` and `$unset` MongoDB would apply, on dotted paths, and nothing else."""
 
     applied = deepcopy(dict(document))
-    assert set(update) <= {"$set"}, f"an operator this reading does not apply: {set(update)}"
+    assert set(update) <= {"$set", "$unset"}, f"an operator this reading does not apply: {set(update)}"
 
     for path, value in update.get("$set", {}).items():
         *steps, leaf = path.split(".")
@@ -158,6 +158,11 @@ def _apply(document: Mapping[str, Any], update: Mapping[str, Any]) -> dict[str, 
         for step in steps:
             node = node.setdefault(step, {})
         node[leaf] = deepcopy(value)
+    for path in update.get("$unset", {}):
+        *steps, leaf = path.split(".")
+        parent = _at(applied, ".".join(steps)) if steps else applied
+        if isinstance(parent, dict):
+            parent.pop(leaf, None)
 
     return applied
 
@@ -326,11 +331,9 @@ NOT_DRIVEN_HERE: Final = frozenset(
 )
 
 # What marks a function as touching a consent block: a mapping key or an assigned subscript naming
-# the block, one of its choices or the evidence, a call stamping evidence, or the provenance an
-# administrative write sets.
+# the block, a choice or the evidence, or a call stamping evidence or holding a seat unconfirmed.
 _BLOCK_KEYS: Final = frozenset({"einwilligung", *WAHLEN, NACHWEIS})
-_STAMPING_CALLS: Final = frozenset({"compose_wahlen", "compose_geboren", "compose_erneuert"})
-_HERKUNFT: Final = "UNCONFIRMED_HERKUNFT"
+_STAMPING_CALLS: Final = frozenset({"compose_wahlen", "compose_geboren", "compose_erneuert", "als_unbestaetigt"})
 APP: Final = Path(__file__).resolve().parents[2] / "app"
 
 
@@ -369,8 +372,6 @@ def _touches_a_block(function: ast.AST) -> bool:
         if any(_names_a_block(key) for key in _assigned_subscripts(node)):
             return True
         if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) in _STAMPING_CALLS:
-            return True
-        if isinstance(node, ast.Name) and node.id == _HERKUNFT:
             return True
     return False
 
@@ -464,7 +465,8 @@ class TestAPersonsWriteKeepsWhatItDoesNotMove:
 
         for pfad in pfade:
             assert pfad not in update["$set"], f"{writer} sets the block at {pfad} whole"
-            named = {path.removeprefix(f"{pfad}.") for path in update["$set"] if path.startswith(f"{pfad}.")}
+            written = [*update["$set"], *update.get("$unset", {})]
+            named = {path.removeprefix(f"{pfad}.") for path in written if path.startswith(f"{pfad}.")}
             before_block, after_block = _at(stored, pfad), _at(after, pfad)
             kept = {field: value for field, value in before_block.items() if field not in named and field != NACHWEIS}
             kept_evidence = {wahl: beleg for wahl, beleg in (before_block.get(NACHWEIS) or {}).items() if f"{NACHWEIS}.{wahl}" not in named}

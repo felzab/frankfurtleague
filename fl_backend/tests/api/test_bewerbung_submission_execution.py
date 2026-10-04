@@ -254,7 +254,6 @@ class TestWhatASubmissionStores:
             # person, and no evidence: no person has set a choice yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "umfang": "kontaktdaten",
-                "erfasst_von": "administrativ",
                 "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
                 "datum": TODAY,
                 "bestaetigt_am": None,

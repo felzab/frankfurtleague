@@ -23,7 +23,6 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import (
     KONTAKTE_MOVED_UNDER_THE_SAVE,
-    UNCONFIRMED_HERKUNFT,
     compose_kontakte_at_entry,
     compose_kontakte_herkunft,
     kontakte_stand_of,
@@ -124,7 +123,7 @@ def born(sent: dict[str, Any]) -> dict[str, Any]:
     Spelled out here rather than composed by the helper, so a composer drifting from it fails.
     """
 
-    return {**sent["einwilligung"], "erfasst_von": "administrativ", "bestaetigt_am": None, "medien": False, "eingetragen_von": "liga"}
+    return {**sent["einwilligung"], "bestaetigt_am": None, "medien": False, "eingetragen_von": "liga"}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -136,10 +135,16 @@ def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def as_kept(stored: dict[str, Any]) -> dict[str, Any]:
-    """A stored seat its unconfirmed person keeps through a save: the whole record, its provenance the server's own."""
+def unbestaetigt(einwilligung: dict[str, Any]) -> dict[str, Any]:
+    """A stored record held unconfirmed: the stamp nulled and the stored speaker dropped, no write naming who answered."""
 
-    return {**stored, "einwilligung": {**stored["einwilligung"], **UNCONFIRMED_HERKUNFT}}
+    return {**{field: value for field, value in einwilligung.items() if field != "erfasst_von"}, "bestaetigt_am": None}
+
+
+def as_kept(stored: dict[str, Any]) -> dict[str, Any]:
+    """A stored seat its unconfirmed person keeps through a save: the whole record, held unconfirmed."""
+
+    return {**stored, "einwilligung": unbestaetigt(stored["einwilligung"])}
 
 
 # The shape every row held before the stamp existed: a dated `person` on each seat, and no stamp key
@@ -297,7 +302,7 @@ class TestTheBlockIsWritten:
         # evidence read as none set.
         assert response.kontakte.model_dump(mode="json") == {
             seat: (
-                {**value, "einwilligung": {**value["einwilligung"], "nachweis": {"umfang": None, "medien": None}}}
+                {**value, "einwilligung": {**value["einwilligung"], "erfasst_von": None, "nachweis": {"umfang": None, "medien": None}}}
                 if isinstance(value, dict)
                 else value
             )
@@ -402,7 +407,7 @@ class TestTheProvenanceIsTheServers:
         stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
 
         for seat in ("ansprechperson", "stellvertretung"):
-            assert stored["kontakte"][seat]["einwilligung"]["erfasst_von"] == "administrativ"
+            assert "erfasst_von" not in stored["kontakte"][seat]["einwilligung"]
             assert stored["kontakte"][seat]["einwilligung"]["bestaetigt_am"] is None
 
     def test_a_confirmed_seat_handed_to_another_address_starts_unconfirmed(self, mongo_replica_set_url: str):
@@ -433,7 +438,8 @@ class TestTheProvenanceIsTheServers:
 
         stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored["kontakte"]["trainer"]["einwilligung"]["erfasst_von"] == "administrativ"
+        assert "erfasst_von" not in stored["kontakte"]["trainer"]["einwilligung"]
+        assert stored["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None
 
 
 @pytest.mark.db
@@ -748,7 +754,7 @@ class TestTheCompositionDecidesFromItsArguments:
         composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=held)
 
         assert composed is not None
-        assert composed["trainer"]["einwilligung"] == {**RESAVED_AS_RENDERED["trainer"]["einwilligung"], **UNCONFIRMED_HERKUNFT}
+        assert composed["trainer"]["einwilligung"] == unbestaetigt(held["trainer"]["einwilligung"])
 
     def test_an_application_seat_stamped_with_an_empty_string_enters_undated_and_unconfirmed(self):
         """The acceptance's arm: the stamped seat beside it keeps its date, so the stamp alone parts the two."""
@@ -760,7 +766,7 @@ class TestTheCompositionDecidesFromItsArguments:
         composed = compose_kontakte_at_entry(kontakte=entering)
 
         assert composed["ansprechperson"]["geburtsdatum"] is None
-        assert composed["ansprechperson"]["einwilligung"] == {**entering["ansprechperson"]["einwilligung"], **UNCONFIRMED_HERKUNFT}
+        assert composed["ansprechperson"]["einwilligung"] == unbestaetigt(entering["ansprechperson"]["einwilligung"])
         assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
     def test_a_null_slot_is_left_null(self):

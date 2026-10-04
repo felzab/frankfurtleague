@@ -31,6 +31,7 @@ from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung_nachweis import SPRECHER
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
@@ -859,8 +860,13 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
     ]
 
 
-# What a seat holds until its person confirms it (`docs/backend/spec.md :: I142`).
-UNCONFIRMED_HERKUNFT: Mapping[str, Any] = {"erfasst_von": "administrativ", "bestaetigt_am": None}
+def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
+    """A seat's record held unconfirmed, as it stands until its person answers (`docs/backend/spec.md :: I142`).
+
+    The stamp nulled and any stored speaker dropped: a blank stamp is no answer, and no write sets a speaker.
+    """
+
+    return {**{field: value for field, value in einwilligung.items() if field not in SPRECHER}, "bestaetigt_am": None}
 
 
 # Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
@@ -921,7 +927,7 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
 
     # The provenance stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
     # makes it `person`, and a stored blank stamp is none.
-    return dict(einwilligung) if _seat_is_stamped(held) else {**einwilligung, **UNCONFIRMED_HERKUNFT}
+    return dict(einwilligung) if _seat_is_stamped(held) else als_unbestaetigt(einwilligung)
 
 
 def _geburtsdatum_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
@@ -962,7 +968,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         if einwilligung is None:
             # Born afresh (`docs/backend/spec.md :: I865`): nothing of a person who left travels to the
             # one seated, and nobody filling a seat for another person may give their media consent.
-            einwilligung = {**seat["einwilligung"], **UNCONFIRMED_HERKUNFT, "medien": False, "eingetragen_von": "liga"}
+            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "medien": False, "eingetragen_von": "liga"}
         composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
 
     return composed
@@ -1011,10 +1017,10 @@ def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
         # Dropped rather than refused: the entry is legitimate, and nobody can put the date right --
         # a decided application mints no confirmation link, so the person has no route to enter theirs.
         stripped: dict[str, Any] = {**seat, "geburtsdatum": None}
-        # Left as it stands where a stored row carries no record at all: the two provenance keys alone
-        # would be a consent record short of the fields every reader of one requires.
+        # Left as it stands where a stored row carries no record at all: a stamp alone would be a
+        # consent record short of the fields every reader of one requires.
         if (einwilligung := _kenntnisnahme_of(seat)) is not None:
-            stripped["einwilligung"] = {**einwilligung, **UNCONFIRMED_HERKUNFT}
+            stripped["einwilligung"] = als_unbestaetigt(einwilligung)
 
         composed[slot] = stripped
 

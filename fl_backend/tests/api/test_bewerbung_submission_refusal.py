@@ -635,13 +635,12 @@ class TestWhatTheServerComposes:
     """The fields a client is offered none of, so nothing submitted can claim them."""
 
     def test_a_seat_records_the_acknowledgement_on_the_persons_behalf_and_who_seated_them(self):
-        """One person ticked for three, so every seat is `administrativ` until its own confirmation writes `person`."""
+        """One person ticked for three: who seated each person is recorded, and nobody's answer is."""
 
         composed = compose_einwilligung(text_version="v3", today=TODAY, eingetragen_von="bewerbung")
 
         assert composed == {
             "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
             "text_version": "v3",
             "datum": TODAY,
             "bestaetigt_am": None,
@@ -656,7 +655,6 @@ class TestWhatTheServerComposes:
 
         assert set(composed["trainer"]["einwilligung"]) == {
             "umfang",
-            "erfasst_von",
             "text_version",
             "datum",
             "bestaetigt_am",
@@ -670,7 +668,7 @@ class TestWhatTheServerComposes:
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
-        assert composed[seat]["einwilligung"]["erfasst_von"] == "administrativ"
+        assert "erfasst_von" not in composed[seat]["einwilligung"]
         assert "bestaetigt_am" in composed[seat]["einwilligung"] and composed[seat]["einwilligung"]["bestaetigt_am"] is None
         assert "geburtsdatum" in composed[seat] and composed[seat]["geburtsdatum"] is None
 

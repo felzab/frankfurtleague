@@ -1150,8 +1150,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "einwilligung",
         Editability.COMPOSED,
         "on no administrative payload and written whole by `POST /schiedsrichter/bestaetigung` alone, from the scope and the "
-        "media answer the person chose: the server stamps `bestaetigt_am` and `datum` with the day it lands and fills "
-        "`erteilt_von` with `volljaehrig`, nobody else being permitted to answer for a referee. It is written whole once -- a "
+        "media answer the person chose: the server stamps `bestaetigt_am` and `datum` with the day it lands, nobody else "
+        "being permitted to answer for a referee, and names no speaker (`erteilt_von` is a stored record's alone). It is "
+        "written whole once -- a "
         "second press is refused (`REQ-SCHIEDSRICHTER-004`) -- and afterwards only the person moves its two choices through "
         "`PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`, every other member standing, `text_version` "
         "included. An erasure deletes the document rather than nulling it",
@@ -1200,8 +1201,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "einwilligung",
         Editability.COMPOSED,
         "on no payload beyond the scope and the media answer the pupil chose: the server stamps `bestaetigt_am` and `datum` "
-        "with the day the confirmation lands and fills `erteilt_von` with `volljaehrig`, nobody else being permitted to "
-        "answer for a pupil, and writes the record born with each choice's evidence. `text_version` arrives on the "
+        "with the day the confirmation lands, nobody else being permitted to answer for a pupil, names no speaker "
+        "(`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
+        "`text_version` arrives on the "
         "payload, and anything but the pupil page's running label is refused (`REQ-EINWILLIGUNG-001`)",
         "app.api.registrierungen.services.find_already_confirmed_refusal",
     ),
@@ -2703,8 +2705,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "which is what lets those rows go on validating. "
             "The league's thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per seat and judged "
             "for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`), and the registration's own "
-            "floor, judged for the pupil answering theirs (`REQ-REGISTRIERUNG-007`); `FLEinwilligung.erteilt_von`'s "
-            "`volljaehrig` names who spoke rather than an age. What still carries no date is the person: a registration "
+            "floor, judged for the pupil answering theirs (`REQ-REGISTRIERUNG-007`); a stored `FLEinwilligung.erteilt_von` "
+            "of `volljaehrig` names who spoke rather than an age. What still carries no date is the person: a registration "
             "holds its own until the admission writes `spieler` from it, and every pupil row standing today is dropped once "
             "at the end of this season (`docs/datenschutz.md`), so the field stays unrequired here until that admission "
             "exists to fill it."

@@ -35,7 +35,6 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ALREADY_CONFIRMED,
     SCHIEDSRICHTER_ALTER,
     SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
-    SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
     SCHIEDSRICHTER_MEDIEN_ALTER,
     SCHIEDSRICHTER_RETIRED,
@@ -733,7 +732,6 @@ class TestTheConfirmation:
         # Frankfurt's summer time.
         assert row[EINWILLIGUNG_FELD] == {
             "umfang": "kader_oeffentlich",
-            "erteilt_von": SCHIEDSRICHTER_ERTEILT_VON,
             "datum": TODAY,
             "bestaetigt_am": TODAY,
             "text_version": TEXT_VERSION,
@@ -847,7 +845,7 @@ class TestTheConfirmation:
 # A record a hand edit stamped `""`: every key the validator requires, which admits a string there.
 EMPTY_STAMPED: Mapping[str, Any] = {
     "umfang": "intern",
-    "erteilt_von": SCHIEDSRICHTER_ERTEILT_VON,
+    "erteilt_von": "volljaehrig",
     "datum": "2026-03-01",
     "bestaetigt_am": "",
 }

@@ -368,7 +368,6 @@ class TestWhatSeatingAnotherPersonWrites:
         # applicant-named one.
         assert slot["einwilligung"] == {
             "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
             "text_version": "2026-09-bestaetigung-4",
             "datum": "2026-03-26",
             "bestaetigt_am": None,

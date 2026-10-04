@@ -164,8 +164,8 @@ class _KontaktKenntnisnahmeWritable(BaseModel):
 # their own confirmation page, and a payload offering it would let an administrator transcribe one.
 FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
 
-# Distinguishing the two is what stops an admin's transcription reading as the person's own answer.
-# `person` is the confirmation link's to write and nobody else's.
+# What stored seats name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
+# SPRECHER`). Whether the person answered is `bestaetigt_am`, and who seated them `eingetragen_von`.
 FLKontaktKenntnisnahmeQuelle = Literal["person", "administrativ"]
 
 # Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
@@ -182,7 +182,8 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
     """
 
     umfang: FLKontaktKenntnisnahmeUmfang
-    erfasst_von: FLKontaktKenntnisnahmeQuelle
+    # For `app/api/spieler/schemas.py :: FLEinwilligung.erteilt_von`'s reason.
+    erfasst_von: FLKontaktKenntnisnahmeQuelle | None = None
     # The day this person confirmed the seat themselves; null until they do. Defaulted for
     # `FLTeam.schulform`'s reason: a record stored before the field carries no key.
     bestaetigt_am: CustomOptionalDateString = None

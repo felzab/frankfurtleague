@@ -17,7 +17,6 @@ from app.api.registrierungen.services import (
     BESTAETIGUNG_ANTWORT_FIELDS,
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
-    REGISTRIERUNG_ERTEILT_VON,
     REGISTRIERUNG_MEDIEN_ALTER,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
@@ -36,7 +35,7 @@ from app.api.registrierungen.services import (
     zustand_of,
 )
 from app.core.collections import Collection
-from app.core.constraints import _EINWILLIGUNG, _EINWILLIGUNG_QUELLEN, _EINWILLIGUNG_UMFANG, _REGISTRIERUNG_BESTAETIGUNG, SUPPORT_INDEXES
+from app.core.constraints import _EINWILLIGUNG, _EINWILLIGUNG_UMFANG, _REGISTRIERUNG_BESTAETIGUNG, SUPPORT_INDEXES
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -61,7 +60,6 @@ def einwilligung(**overrides: Any) -> dict[str, Any]:
 
     return {
         "umfang": "kader_oeffentlich",
-        "erteilt_von": REGISTRIERUNG_ERTEILT_VON,
         "datum": YESTERDAY,
         "bestaetigt_am": YESTERDAY,
         "text_version": A_LABEL,
@@ -445,8 +443,8 @@ class TestWhatAConfirmationWrites:
             "$set": {
                 "geburtsdatum": "2009-05-09",
                 "einwilligung": {
+                    # No speaker: no write names who answered any longer.
                     "umfang": "intern",
-                    "erteilt_von": "volljaehrig",
                     "datum": TODAY,
                     "bestaetigt_am": TODAY,
                     "text_version": A_LABEL,
@@ -474,11 +472,6 @@ class TestWhatAConfirmationWrites:
 
         assert (narrow["$set"]["einwilligung"]["umfang"], narrow["$set"]["einwilligung"]["medien"]) == ("intern", False)
         assert (wide["$set"]["einwilligung"]["umfang"], wide["$set"]["einwilligung"]["medien"]) == ("kader_oeffentlich", True)
-
-    def test_the_source_is_a_member_the_validator_declares(self):
-        """`volljaehrig` names who spoke and pins no age (`docs/glossary.md :: Einwilligung`), so it is right for a sixteen-year-old."""
-
-        assert REGISTRIERUNG_ERTEILT_VON in _EINWILLIGUNG_QUELLEN
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:

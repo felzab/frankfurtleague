@@ -552,13 +552,14 @@ class TestWhatAConfirmationWrites:
             "$set": {
                 "kontakte.trainer.geburtsdatum": "1984-05-09",
                 "kontakte.trainer.einwilligung.bestaetigt_am": TODAY,
-                "kontakte.trainer.einwilligung.erfasst_von": "person",
                 "kontakte.trainer.einwilligung.text_version": "v4",
                 "kontakte.trainer.einwilligung.umfang": "kontaktdaten",
                 "kontakte.trainer.einwilligung.nachweis.umfang": {"am": AM, "text_version": "v4"},
                 "kontakte.trainer.einwilligung.medien": True,
                 "kontakte.trainer.einwilligung.nachweis.medien": {"am": AM, "text_version": "v4"},
-            }
+            },
+            # No speaker is written, and one a seat stored before its answer named goes.
+            "$unset": {"kontakte.trainer.einwilligung.erteilt_von": "", "kontakte.trainer.einwilligung.erfasst_von": ""},
         }
 
     def test_the_whatsapp_tick_widens_the_scope_and_nothing_else(self):
@@ -571,7 +572,8 @@ class TestWhatAConfirmationWrites:
         update = confirmation(seats=("trainer", "ansprechperson"))
 
         assert {key.split(".")[1] for key in update["$set"]} == {"trainer", "ansprechperson"}
-        assert len(update["$set"]) == 16
+        assert len(update["$set"]) == 14
+        assert {key.split(".")[1] for key in update["$unset"]} == {"trainer", "ansprechperson"}
 
     def test_a_decline_empties_the_slot_and_marks_the_day_beside_it(self):
         assert compose_decline_update(seats=("trainer",), today=TODAY) == {

@@ -182,10 +182,6 @@ BESTAETIGUNG_FELD: Final = "bestaetigung"
 
 EINWILLIGUNG_FELD: Final = "einwilligung"
 
-# What a referee's own confirmation records. `volljaehrig` on every row: nobody else may answer for
-# them, so this flow writes neither of the other two sources.
-SCHIEDSRICHTER_ERTEILT_VON: Final = "volljaehrig"
-
 
 def bestaetigung_frist_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
@@ -218,7 +214,6 @@ def compose_einwilligung(*, umfang: str, medien: bool, text_version: str, today:
 
     return {
         "umfang": umfang,
-        "erteilt_von": SCHIEDSRICHTER_ERTEILT_VON,
         "datum": today,
         "bestaetigt_am": today,
         "text_version": text_version,

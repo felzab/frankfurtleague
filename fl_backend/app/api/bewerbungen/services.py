@@ -20,7 +20,7 @@ from app.api.teams.schemas import FLKontaktEingetragenVon, FLPostTeamPayload, FL
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_nachweis import compose_wahlen
+from app.shared.einwilligung_nachweis import SPRECHER, compose_wahlen
 from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -396,17 +396,15 @@ def compose_wiederholung_update(*, hashes: Mapping[str, str], bestaetigungen: An
 
 
 def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKontaktEingetragenVon) -> dict[str, Any]:
-    """The contact seat's record as the server writes it.
+    """The contact seat's record as the server writes it: who seated the person, and nothing they answered.
 
-    `administrativ` on every seat: one person ticked for three, and only a seat's own confirmation
-    writes `person`. Named by no client, who could otherwise dress a transcription as a signature.
+    Named by no client, who could otherwise dress a transcription as a signature.
     """
 
     # `medien` written false rather than left off: nobody filling a seat for another person may give
     # that person's media consent.
     block = {
         "umfang": "kontaktdaten",
-        "erfasst_von": "administrativ",
         "text_version": text_version,
         "datum": today,
         "bestaetigt_am": None,
@@ -987,7 +985,6 @@ def compose_confirmation_update(
         # Field by field, never the block whole: `eingetragen_von` and `datum` are the seating's, and
         # what it tells stands after the answer.
         written[f"{pfad}.bestaetigt_am"] = today
-        written[f"{pfad}.erfasst_von"] = "person"
         written[f"{pfad}.text_version"] = text_version
         written.update(
             compose_wahlen(
@@ -999,7 +996,8 @@ def compose_confirmation_update(
             )
         )
 
-    return {"$set": written}
+    # A speaker a seat stored before its answer names is no truer once its person has answered.
+    return {"$set": written, "$unset": {f"kontakte.{seat}.einwilligung.{field}": "" for seat in seats for field in SPRECHER}}
 
 
 # The two pages' own fills: the account page states a seat's words with these too, so each confirmation

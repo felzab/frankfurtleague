@@ -10881,7 +10881,7 @@
           "erteilt"
         ],
         "title": "FLBewerbungEinwilligungPayload",
-        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang`, `erfasst_von` and `datum` are the SERVER's: a client offered them could claim an\nadministrative transcription, or backdate a record."
+        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang` and `datum` are the SERVER's: a client offered them could claim the person's own\nanswer, or backdate a record."
       },
       "FLBewerbungEntscheidungZeile": {
         "properties": {
@@ -13368,11 +13368,18 @@
             "title": "Umfang"
           },
           "erteilt_von": {
-            "type": "string",
-            "enum": [
-              "erziehungsberechtigt",
-              "volljaehrig",
-              "bestandsuebernahme"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "erziehungsberechtigt",
+                  "volljaehrig",
+                  "bestandsuebernahme"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Erteilt Von"
           },
@@ -13423,7 +13430,6 @@
         "type": "object",
         "required": [
           "umfang",
-          "erteilt_von",
           "datum",
           "bestaetigt_am"
         ],
@@ -14393,10 +14399,17 @@
             "title": "Datum"
           },
           "erfasst_von": {
-            "type": "string",
-            "enum": [
-              "person",
-              "administrativ"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "person",
+                  "administrativ"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Erfasst Von"
           },
@@ -14440,8 +14453,7 @@
         "required": [
           "umfang",
           "text_version",
-          "datum",
-          "erfasst_von"
+          "datum"
         ],
         "title": "FLKontaktKenntnisnahme",
         "description": "Which wording this person was shown, and how the record came to be held.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`)."

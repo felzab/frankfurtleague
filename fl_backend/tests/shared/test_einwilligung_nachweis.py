@@ -211,11 +211,14 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3", "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
         )
 
-    def test_every_field_but_the_choices_is_renewed(self):
+    def test_every_field_but_the_choices_and_the_speaker_is_renewed(self):
+        """The registration's `erteilt_von` stays behind: no write names who answered any longer."""
+
         update = renew(MEDIA_WITHDRAWN, REGISTERED)
 
-        assert {key: update[f"einwilligung.{key}"] for key in ("erteilt_von", "datum", "bestaetigt_am", "text_version")} == {
-            "erteilt_von": "volljaehrig",
+        assert "einwilligung.erteilt_von" not in update
+
+        assert {key: update[f"einwilligung.{key}"] for key in ("datum", "bestaetigt_am", "text_version")} == {
             "datum": "2026-04-15",
             "bestaetigt_am": "2026-04-15",
             "text_version": "2026-09-spielerseite-3",
@@ -313,13 +316,16 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             },
         }
 
-        gesetzt = compose_person_update(registrierung_raw=registrierung, gespeichert=gespeichert, adresse="ida@example.com")["$set"]
+        update = compose_person_update(registrierung_raw=registrierung, gespeichert=gespeichert, adresse="ida@example.com")
+        gesetzt = update["$set"]
+
+        # `bestandsuebernahme` said nobody was asked, which the renewal makes untrue, so it goes.
+        assert update["$unset"] == {"einwilligung.erteilt_von": "", "einwilligung.erfasst_von": ""}
 
         stamp = {"am": "2026-09-30T22:00:00+00:00", "text_version": "2026-09-spielerseite-3"}
         assert {key: value for key, value in gesetzt.items() if key.startswith("einwilligung.")} == {
             "einwilligung.umfang": "intern",
             "einwilligung.medien": False,
-            "einwilligung.erteilt_von": "volljaehrig",
             "einwilligung.datum": "2026-10-01",
             "einwilligung.bestaetigt_am": "2026-10-01",
             "einwilligung.text_version": "2026-09-spielerseite-3",

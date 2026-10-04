@@ -54,7 +54,7 @@ from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
-from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE, UNCONFIRMED_HERKUNFT
+from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DUPLICATE_KEY, DocumentNotFoundException, WriteRefusalException
@@ -370,10 +370,18 @@ class TestAnAcceptanceEntersTheSchool:
         submitted, entered = on_a_league(mongo_replica_set_url, body)
 
         # Against the seed as well as against the application, so a copy of an emptied block cannot pass.
+        # Spelled out: unstamped, and the stored speaker dropped, since no write names who answered.
         assert submitted == KONTAKTE
         assert entered == {
             slot: (
-                {**seat, "geburtsdatum": None, "einwilligung": {**seat["einwilligung"], **UNCONFIRMED_HERKUNFT}}
+                {
+                    **seat,
+                    "geburtsdatum": None,
+                    "einwilligung": {
+                        **{field: value for field, value in seat["einwilligung"].items() if field != "erfasst_von"},
+                        "bestaetigt_am": None,
+                    },
+                }
                 if isinstance(seat, dict)
                 else seat
             )
@@ -1893,7 +1901,6 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             # of the seat travels to the one seated, their evidence included.
             "einwilligung": {
                 "umfang": "kontaktdaten",
-                "erfasst_von": "administrativ",
                 "text_version": RESEAT_TEXT_VERSION,
                 "datum": TODAY,
                 "bestaetigt_am": None,

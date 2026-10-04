@@ -24,7 +24,6 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ADRESSE_GESPERRT,
     SCHIEDSRICHTER_ALREADY_CONFIRMED,
     SCHIEDSRICHTER_ALTER,
-    SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
     SCHIEDSRICHTER_MEDIEN_ALTER,
     SCHIEDSRICHTER_RETIRED,
@@ -141,10 +140,12 @@ class TestTheRecordTheConfirmationWrites:
 
         assert compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)["medien"] is False
 
-    def test_nobody_may_answer_for_a_referee(self):
+    def test_the_record_is_given_and_confirmed_in_one_press_naming_no_speaker(self):
+        """Nobody but the referee answers on their own link, and no write names who answered any longer."""
+
         record = compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)
 
-        assert record["erteilt_von"] == SCHIEDSRICHTER_ERTEILT_VON
+        assert "erteilt_von" not in record
         assert record["datum"] == record["bestaetigt_am"] == TODAY
 
     def test_the_record_carries_every_key_the_validator_requires(self):

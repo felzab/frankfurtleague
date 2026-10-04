@@ -33,7 +33,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_nachweis import compose_erneuert, compose_geboren
+from app.shared.einwilligung_nachweis import SPRECHER, compose_erneuert, compose_geboren
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -315,10 +315,6 @@ REGISTRIERUNG_ALTER = "REQ-REGISTRIERUNG-007"
 REGISTRIERUNG_MEDIEN_ALTER = "REQ-REGISTRIERUNG-010"
 REGISTRIERUNG_BESTAETIGUNG_GESPERRT = "REQ-REGISTRIERUNG-012"
 
-# What a pupil's own press records. `volljaehrig` names who spoke and pins no age
-# (`docs/glossary.md :: Einwilligung`), so it is the member a sixteen-year-old's own answer takes.
-REGISTRIERUNG_ERTEILT_VON: Final = "volljaehrig"
-
 
 def build_bestaetigung_filter(*, token_hash: str) -> Mapping[str, Any]:
     """Both hash fields, so a reminded pupil's two live links each still open the row.
@@ -562,7 +558,6 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
     record = compose_geboren(
         block={
             "umfang": umfang,
-            "erteilt_von": REGISTRIERUNG_ERTEILT_VON,
             # `datum` and `bestaetigt_am` are one day here: this press is both the giving of the
             # consent and the confirming of it.
             "datum": today,
@@ -912,7 +907,11 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
         stamp=log_stamp,
     )
 
-    return {"$set": {**_person_fields(registrierung_raw=registrierung_raw, adresse=adresse), **erneuert}}
+    # A speaker the stored record names is no truer once the person's own answer renews it.
+    return {
+        "$set": {**_person_fields(registrierung_raw=registrierung_raw, adresse=adresse), **erneuert},
+        "$unset": {f"einwilligung.{field}": "" for field in SPRECHER},
+    }
 
 
 def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
@@ -920,7 +919,9 @@ def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adr
 
     fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
 
-    return {"_id": spieler_id, **fields, "einwilligung": registrierung_raw["einwilligung"]}
+    einwilligung = {field: value for field, value in registrierung_raw["einwilligung"].items() if field not in SPRECHER}
+
+    return {"_id": spieler_id, **fields, "einwilligung": einwilligung}
 
 
 def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, ist_nachnominiert: bool) -> dict[str, Any]:

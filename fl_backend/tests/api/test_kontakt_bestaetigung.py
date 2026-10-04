@@ -659,10 +659,10 @@ class TestTheLinkConfirms:
             True,
         )
         seat = row["kontakte"]["ansprechperson"]
-        assert (seat["geburtsdatum"], seat["einwilligung"]["bestaetigt_am"], seat["einwilligung"]["erfasst_von"]) == (
+        assert (seat["geburtsdatum"], seat["einwilligung"]["bestaetigt_am"], seat["einwilligung"].get("erfasst_von")) == (
             AN_ADULTS_BIRTHDATE,
             TODAY,
-            "person",
+            None,
         )
         assert seat["einwilligung"]["umfang"] == "kontaktdaten_whatsapp"
         assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the press reached a seat its link does not open"
@@ -1265,7 +1265,7 @@ class TestThePageASeasonRowsLinkOpens:
         assert refusal == FASSUNG_UNZULAESSIG
         assert unmoved["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the refused answer wrote"
         einwilligung = row["kontakte"]["trainer"]["einwilligung"]
-        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"], einwilligung["erfasst_von"]) == (TODAY, SAISON_SEITE, "person")
+        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"], einwilligung.get("erfasst_von")) == (TODAY, SAISON_SEITE, None)
         assert einwilligung["nachweis"]["umfang"]["text_version"] == SAISON_SEITE
         # The editor seated this person, and the answer leaves that standing.
         assert einwilligung["eingetragen_von"] == "liga"

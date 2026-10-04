@@ -392,10 +392,10 @@ class TestWhatAConfirmationWrites:
 
         trainer = document["kontakte"]["trainer"]
         assert trainer["geburtsdatum"] == AN_ADULTS_BIRTHDATE
-        # The wording the CONFIRMING person saw, not the one the applicant ticked for them.
+        # The wording the CONFIRMING person saw, not the one the applicant ticked for them, and the
+        # stored speaker gone: whether the person answered is the stamp's to say.
         assert trainer["einwilligung"] == {
             "umfang": "kontaktdaten_whatsapp",
-            "erfasst_von": "person",
             "text_version": BEWERBER_SEITE,
             "datum": "2026-03-20",
             "bestaetigt_am": TODAY,

@@ -176,10 +176,11 @@ _NACHWEIS = _object(required=(), properties={"umfang": _NACHWEIS_WAHL, "medien":
 # the consent is UNCONFIRMED rather than absent. Read by `spieler`, `schiedsrichter` and
 # `registrierungen` alike, so widening `umfang` for one widens it for all three.
 _EINWILLIGUNG = _object(
-    required=("umfang", "erteilt_von", "datum", "bestaetigt_am"),
+    required=("umfang", "datum", "bestaetigt_am"),
     properties={
         "umfang": {"bsonType": "string", "enum": _EINWILLIGUNG_UMFANG},
-        "erteilt_von": {"bsonType": "string", "enum": _EINWILLIGUNG_QUELLEN},
+        # Out of `required` and still closed: stored records carry it, and no write sets it.
+        "erteilt_von": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_QUELLEN, None]},
         "datum": {"bsonType": _STRING_OR_NULL},
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
         # Both out of `required` for `saisons.spielplan`'s reason: every stored consent record
@@ -194,10 +195,11 @@ _EINWILLIGUNG = _object(
 # A CONTACT person's record, and never `_EINWILLIGUNG` above: that one records what may be
 # published about a pupil, and one shared sub-schema would let either enum widen the other.
 _KONTAKT_KENNTNISNAHME = _object(
-    required=("umfang", "erfasst_von", "text_version", "datum"),
+    required=("umfang", "text_version", "datum"),
     properties={
         "umfang": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_UMFANG},
-        "erfasst_von": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_QUELLEN},
+        # For `_EINWILLIGUNG`'s `erteilt_von`'s reason.
+        "erfasst_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_KENNTNISNAHME_QUELLEN, None]},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
         # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks

@@ -319,7 +319,6 @@ class TestWhatAConfirmationWrites:
         assert document["geburtsdatum"] == AT_THE_FLOOR
         assert document["einwilligung"] == {
             "umfang": "kader_oeffentlich",
-            "erteilt_von": "volljaehrig",
             "datum": TODAY,
             "bestaetigt_am": TODAY,
             "text_version": THIS_SEASONS_LABEL,
