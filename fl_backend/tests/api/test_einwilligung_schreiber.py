@@ -315,11 +315,16 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/teams/person_router.py::write",
         "app/api/bewerbungen/person_router.py::patch_einwilligung",
         "app/api/bewerbungen/person_router.py::write",
+        # No record at all: a confirmation page's paragraphs keyed by the choice they ask for, and the
+        # contacts token's projection of a read.
+        "app/shared/einwilligung.py::_mit_medien",
+        "app/api/teams/schemas.py::_project_seat",
     }
 )
 
-# What marks a function as touching a consent block: a mapping keyed by the block or one of its
-# choices, a call stamping evidence, or the provenance an administrative write sets.
+# What marks a function as touching a consent block: a mapping key or an assigned subscript naming
+# the block, one of its choices or the evidence, a call stamping evidence, or the provenance an
+# administrative write sets.
 _BLOCK_KEYS: Final = frozenset({"einwilligung", *WAHLEN, NACHWEIS})
 _STAMPING_CALLS: Final = frozenset({"compose_wahlen", "compose_geboren", "compose_erneuert"})
 _HERKUNFT: Final = "UNCONFIRMED_HERKUNFT"
@@ -331,12 +336,34 @@ def _is_projection_flag(value: ast.AST | None) -> bool:
     return isinstance(value, ast.Constant) and type(value.value) is int and value.value in (0, 1)
 
 
+def _names_a_block(key: ast.AST | None) -> bool:
+    """A key naming the block, a choice or the evidence: a constant, or a dotted path, f-string or not, by its literal tail."""
+
+    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+        tail = key.value
+    elif isinstance(key, ast.JoinedStr) and key.values and isinstance(key.values[-1], ast.Constant):
+        tail = str(key.values[-1].value)
+    else:
+        return False
+
+    segments = tail.split(".")
+    return segments[-1] in _BLOCK_KEYS or NACHWEIS in segments
+
+
+def _assigned_subscripts(node: ast.AST) -> list[ast.AST]:
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, (ast.AugAssign, ast.AnnAssign)) else []
+    return [target.slice for target in targets if isinstance(target, ast.Subscript)]
+
+
 def _touches_a_block(function: ast.AST) -> bool:
     for node in ast.walk(function):
         if isinstance(node, ast.Dict) and any(
-            isinstance(key, ast.Constant) and key.value in _BLOCK_KEYS and not _is_projection_flag(value)
-            for key, value in zip(node.keys, node.values, strict=True)
+            _names_a_block(key) and not _is_projection_flag(value) for key, value in zip(node.keys, node.values, strict=True)
         ):
+            return True
+        if isinstance(node, ast.DictComp) and _names_a_block(node.key) and not _is_projection_flag(node.value):
+            return True
+        if any(_names_a_block(key) for key in _assigned_subscripts(node)):
             return True
         if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) in _STAMPING_CALLS:
             return True
@@ -365,6 +392,36 @@ def test_the_reader_of_the_composers_finds_a_writer_by_its_markers():
 
     assert "app/api/teams/services.py::compose_kontakte_herkunft" in _block_composers()
     assert "app/api/teams/services.py::kontakte_fassungen_genannt" not in _block_composers()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param('def f():\n    return {"medien": True}\n', id="a mapping keyed by a choice"),
+        pytest.param('def f(neu):\n    neu["medien"] = True\n', id="a subscript assigned by a constant key"),
+        pytest.param('def f(gesetzt, slot):\n    gesetzt[f"kontakte.{slot}.einwilligung.medien"] = True\n', id="an f-string dotted path"),
+        pytest.param('def f(gesetzt):\n    gesetzt["einwilligung.nachweis"] = {}\n', id="a dotted path to the evidence"),
+        pytest.param('def f():\n    return {f"kontakte.{s}.einwilligung": None for s in "ab"}\n', id="a comprehension keyed by the block"),
+    ],
+)
+def test_the_markers_find_every_shape_this_codebase_writes_a_choice_in(source: str):
+    """Each shape a cold drive slipped a planted writer past, or the codebase writes in, so none escapes the classification above."""
+
+    assert _touches_a_block(ast.parse(source).body[0])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param('def f():\n    return {"einwilligung": 1}\n', id="a projection"),
+        pytest.param('def f(row):\n    return row["einwilligung"]["medien"]\n', id="a read"),
+        pytest.param('def f(gesetzt, p):\n    gesetzt[f"{p}.bestaetigt_am"] = None\n', id="the stamp beside the choices"),
+    ],
+)
+def test_the_markers_pass_over_what_writes_no_choice(source: str):
+    """The other side: a reader matching every key would hold the classification to every function under `app`."""
+
+    assert not _touches_a_block(ast.parse(source).body[0])
 
 
 class TestNoAdministrativeWriteSetsAConsentChoice:
