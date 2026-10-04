@@ -252,6 +252,10 @@ demand a tree spell every code below.
   the actor check. Every admin-tier transaction re-judges its actor first and refuses that one
   `REQ-AUTH-006`, so no write reaches the grants' own refusal; the administration's page answers
   both codes with the same sentence, and the log line's message differs.
+- **`REQ-BEWERBUNG-016`** — a new application named on a seat a consent wording other than the
+  one the form shows. Every write storing a wording label is judged by the backend's registry
+  under one code, `REQ-EINWILLIGUNG-001`, the application's form among them, so the form's own
+  refusal went into it.
 - **`REQ-STATE-001`** — what it refused is unrecorded: no revision this history holds spells it, and
   the family's rows open at `REQ-STATE-002`.
 - **`REQ-OID-001`** — a malformed ObjectId reached a handler past the path convertor and the query
