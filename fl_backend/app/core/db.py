@@ -273,3 +273,9 @@ async def get_berechtigungen_postausgang_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.BERECHTIGUNGEN_POSTAUSGANG]
+
+
+async def get_drosselung_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.DROSSELUNG]

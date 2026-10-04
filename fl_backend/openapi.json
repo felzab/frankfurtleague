@@ -8247,6 +8247,9 @@
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
           },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -8324,6 +8327,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8486,6 +8492,9 @@
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001.REQ-REGISTRIERUNG-009"
           },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -8556,6 +8565,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8631,7 +8643,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/person/einwilligung": {
       "patch": {
         "summary": "Change a seat holder's own media consent on one team's season",
-        "description": "Set the signed-in person's media consent on every seat they hold on this team's season row, and on nothing else.\n\nOne answer for all of them: a person holding two of the row's slots answers once. No other slot of the row, no\nother row and the seats' contact scope are written; a press moving no seat writes nothing. A GRANT (`medien` to\n`true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat, or a grant where the row grants no\npanel (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, their media evidence having moved\nsince the page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's seat control, or a grant\nnaming any but its running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where a held seat's stored\nbirthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes\nnothing.",
+        "description": "Set the signed-in person's media consent on every seat they hold on this team's season row, and on nothing else.\n\nOne answer for all of them: a person holding two of the row's slots answers once. No other slot of the row, no\nother row and the seats' contact scope are written; a press moving no seat writes nothing. A GRANT (`medien` to\n`true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat, or a grant where the row grants no\npanel (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, their media evidence having moved\nsince the page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's seat control, or a grant\nnaming any but its running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where a held seat's stored\nbirthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the\nperson's ceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never\nrefused for it. Each refusal writes nothing.",
         "operationId": "patch_einwilligung_api_v0_teams__team_id__saisons__saison_id__person_einwilligung_patch",
         "security": [
           {
@@ -8700,6 +8712,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8822,7 +8837,7 @@
     "/api/v0/spieler/selbst/einwilligung": {
       "patch": {
         "summary": "Change a signed-in pupil's own publication and media consent",
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, and nothing else: the confirmation day, the day given, who gave it and the\nwording they confirmed stand, and no other document is written. A PATCH moving neither choice writes\nnothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a\nwithdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's pupil control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where the stored birthdate\ndoes not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, and nothing else: the confirmation day, the day given, who gave it and the\nwording they confirmed stand, and no other document is written. A PATCH moving neither choice writes\nnothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a\nwithdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's pupil control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where the stored birthdate\ndoes not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's\nceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never refused for\nit. Each refusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "patch_einwilligung_api_v0_spieler_selbst_einwilligung_patch",
         "requestBody": {
           "content": {
@@ -8865,6 +8880,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8921,7 +8939,7 @@
     "/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": {
       "patch": {
         "summary": "Change a signed-in referee's own publication and media consent",
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, and nothing else: the confirmation day, the day given, who gave it and\nthe wording they confirmed stand, and no fixture is written -- the fixture list reads the scope\non this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to\n`true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's referee control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where the stored birthdate does\nnot reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**: it serves the referee's name by this scope,\nand nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, and nothing else: the confirmation day, the day given, who gave it and\nthe wording they confirmed stand, and no fixture is written -- the fixture list reads the scope\non this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to\n`true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's referee control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where the stored birthdate does\nnot reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling\nfor the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never refused for it. Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**: it serves the referee's name by this scope,\nand nothing here can.",
         "operationId": "patch_einwilligung_api_v0_schiedsrichter_selbst__schiedsrichter_id__einwilligung_patch",
         "security": [
           {
@@ -8981,6 +8999,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -25451,6 +25472,29 @@
                     "error_code": {
                       "enum": [
                         "REQ-VAL-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "429.REQ-DROSSELUNG-001": {
+        "description": "Too Many Requests",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-DROSSELUNG-001"
                       ]
                     }
                   }

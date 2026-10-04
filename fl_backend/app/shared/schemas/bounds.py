@@ -168,3 +168,12 @@ ENROLMENT_WINDOW_MINUTES: Final = 5
 # The frontend's step-up window, which it holds every other step-up write to: the backend refuses
 # those writes from a sign-in older than it, so one the page failed to step up still meets it.
 STEP_UP_WINDOW_HOURS: Final = 2
+
+# A signed-in person's counted writes per German day, by Funktion, each about three to five times its
+# kind's busiest legitimate day (`docs/backend/spec.md :: I831`). A pupil's is the first visit: two
+# choices, each granted and corrected once, 4 grants.
+DROSSELUNG_SPIELER_PRO_TAG: Final = 20
+# A referee's is a season's match work done in one sitting, about 31 writes, beside four consent grants.
+DROSSELUNG_SCHIEDSRICHTER_PRO_TAG: Final = 100
+# A contact seat's is a season start: 25 admissions, 5 declines, two saves per squad row, 4 grants, about 84.
+DROSSELUNG_KONTAKT_PRO_TAG: Final = 300

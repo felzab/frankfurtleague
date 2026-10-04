@@ -34,6 +34,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.drosselung import Drossel
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
 from app.core.routing import by_id
@@ -120,6 +121,7 @@ async def patch_einwilligung(
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     db: DBClient,
+    drossel: Drossel,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterSelbstEinwilligungResponse:
@@ -134,8 +136,10 @@ async def patch_einwilligung(
     Refuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one
     (`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since
     the page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's referee control, or a grant naming
-    any but the page's running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where the stored birthdate does
-    not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
+    any but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where the stored birthdate does
+    not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling
+    for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never refused for it. Each
+    refusal writes nothing.
 
     **The caller drops the cached fixture list after a successful answer**: it serves the referee's name by this scope,
     and nothing here can.
@@ -175,6 +179,10 @@ async def patch_einwilligung(
                 today=today,
             )
         )
+        # Last, so a press another rule refuses spends nothing; and a grant alone, so taking a consent
+        # back stays as easy as giving it was (Art. 7(3) DSGVO).
+        if erteilt:
+            await drossel()
 
         update = compose_selbst_einwilligung_move(
             bloecke=((EINWILLIGUNG_FELD, gespeichert),),

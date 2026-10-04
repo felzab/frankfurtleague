@@ -339,10 +339,18 @@ def test_every_write_the_application_makes_is_reached_from_a_route():
         for module, scope, call in app_calls()
         if module == "app/api/berechtigungen/crud.py" and scope == "anchor_the_actors_grant" and callee(call) in WRITE_HELPERS
     }
+    # A person's day count: reached through a dependency, which no trace follows, and an upsert on
+    # `_id` alone, which the server retries rather than refuses.
+    counted = {
+        (module, call.lineno)
+        for module, scope, call in app_calls()
+        if module == "app/core/drosselung.py" and scope == "drosseln" and callee(call) in DRIVER_WRITES
+    }
 
     assert made, "no write call site was found, so the comparison below holds over nothing"
     assert len(judged) == 1, f"the judge's anchor is {len(judged)} writes, where the exemption below names one"
-    assert sorted(made - reached - judged) == [], (
+    assert len(counted) == 1, f"the day count is {len(counted)} writes, where the exemption below names one"
+    assert sorted(made - reached - judged - counted) == [], (
         "writes no route's trace reaches, so a route making them publishes nothing about their unique indexes"
     )
 

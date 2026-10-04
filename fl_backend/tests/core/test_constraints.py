@@ -110,7 +110,8 @@ from app.shared.schemas.kontakt import FLKontakt
 EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
 
 # Named here so giving one a model later fails this file rather than leaving its validator unmirrored.
-MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS}
+# A day's write count has none because no read serves it (`app/core/drosselung.py`).
+MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.DROSSELUNG}
 
 # Ranges, formats and lengths stay Pydantic's: reaching for one of these widens the scope.
 OUT_OF_SCOPE_KEYWORDS = {
@@ -277,7 +278,14 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.AKTIONEN, ("actor",), "funktion", get_args(FLAktorPerson.model_fields["funktion"].annotation), False),
     # Derived from the roster rather than spelled out, so adding a collection widens this enum and
     # forgetting to widen the validator fails here rather than at the first write to the new one.
-    (Collection.AKTIONEN, (), "collection", tuple(c.value for c in Collection if c is not Collection.AKTIONEN), False),
+    # A day's write count is never logged (`app/core/drosselung.py`).
+    (
+        Collection.AKTIONEN,
+        (),
+        "collection",
+        tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG}),
+        False,
+    ),
     (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),
     # An array: not itself a `Literal`, but its members are, which is what this row compares.
     (Collection.SAISONS, ("rules",), "erlaubte_stufen", get_args(FLSpielerStufe), False),
@@ -516,7 +524,7 @@ def test_every_collection_has_a_validator():
     assert set(COLLECTION_VALIDATORS) == EXPECTED_COLLECTIONS
 
 
-def test_only_the_saison_teams_junction_is_unmirrored():
+def test_only_the_named_collections_are_unmirrored():
     """Root entries only: `saison_teams` has a mirrored sub-document and its row is still modelless."""
     mirrored_rows = {collection for collection, path, _, _ in MIRRORED_MODELS if not path}
     assert set(COLLECTION_VALIDATORS) - mirrored_rows == MODELLESS_COLLECTIONS

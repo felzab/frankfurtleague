@@ -81,8 +81,9 @@ _KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
 _KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
-# Derived, not spelled: these ARE the collection names, and the log never records itself.
-_LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
+# Derived, not spelled: these ARE the collection names. The log never records itself, nor the day's
+# write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`).
+_LOGGED_COLLECTIONS = [str(name) for name in Collection if name not in {Collection.AKTIONEN, Collection.DROSSELUNG}]
 
 # Mirrors `app/core/recording.py :: Operation`, `:: Actor.kind`, `:: PersonActor.kind` and
 # `:: AktorFunktion`, hand-copied. `tests/core/test_constraints.py` pins each against the recording
@@ -1088,6 +1089,17 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.DROSSELUNG: {
+        "$jsonSchema": _object(
+            required=("_id", "n"),
+            properties={
+                # `<Funktion>:<pseudonym>:<YYYY-MM-DD>`, so a new German day is a new row and no reset is written.
+                "_id": {"bsonType": "string"},
+                "n": {"bsonType": "int"},
+                "ablauf": {"bsonType": "date"},
+            },
+        )
+    },
 }
 
 
@@ -1364,6 +1376,8 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         AKTION_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
     ),
+    # Zero: `ablauf` is already the German midnight ending the day the row counts.
+    TTLIndex(Collection.DROSSELUNG, "drosselung_ablauf", "ablauf", 0, "a day's write count is removed once its German day has ended"),
 )
 
 

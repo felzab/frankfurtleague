@@ -30,6 +30,7 @@ from app.core.domain import (
     Action,
     Editability,
 )
+from app.core.drosselung import DROSSELUNG_ERREICHT
 from app.core.exception_handlers import BODY_UNREADABLE, METHOD_NOT_SERVED, NO_ROUTE, PAYLOAD_REFUSED
 from app.core.exceptions import WriteRefusal
 from app.core.security import (
@@ -65,8 +66,8 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SCHIEDSRICHTER: FLSchiedsrichter,
 }
 
-# Not domain rules: each is a property of the transport, and sitting in `app/core/` is what the
-# coverage test keys on — a boundary rather than an exception list.
+# Not domain rules: each is a property of the transport, or of how much one person writes in a day,
+# and sitting in `app/core/` is what the coverage test keys on — a boundary rather than an exception list.
 PROTOCOL_CODES = frozenset(
     {
         MISSING_TOKEN,
@@ -78,6 +79,7 @@ PROTOCOL_CODES = frozenset(
         ACTOR_TOKEN_REFUSED,
         PERSON_BARRED,
         CONFIRMATION_REQUIRED,
+        DROSSELUNG_ERREICHT,
         PAYLOAD_REFUSED,
         BODY_UNREADABLE,
         NO_ROUTE,

@@ -740,11 +740,18 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
         assert _crud_functions_reaching_a_driver_write() == set(WRITE_CALLS)
 
     def test_no_write_reaches_the_driver_past_those_helpers(self):
-        """The log's own row aside, which follows a helper's write: a write sent past them is cut unmarked and called failed."""
+        """A write sent past them is cut unmarked and called failed.
+
+        Excused: the log's row, which follows a helper's write, and a day count, which precedes the
+        write it counts, so a cut one leaves nothing standing.
+        """
 
         outside = {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in DRIVER_WRITES}
 
-        assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {"app/core/recording.py :: record_write"}
+        assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {
+            "app/core/recording.py :: record_write",
+            "app/core/drosselung.py :: drosseln",
+        }
 
     def test_the_method_does_not_decide_it(self):
         """A `GET` that sent a write may have left it standing as surely as a `POST` does."""

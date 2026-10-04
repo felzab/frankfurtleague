@@ -37,6 +37,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.drosselung import Drossel
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
@@ -126,6 +127,7 @@ async def patch_einwilligung(
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
+    drossel: Drossel,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSaisonTeamPersonEinwilligungResponse:
@@ -140,9 +142,10 @@ async def patch_einwilligung(
     Refuses, in this order: a row on which the address holds no confirmed seat, or a grant where the row grants no
     panel (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, their media evidence having moved
     since the page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's seat control, or a grant
-    naming any but its running one (`REQ-EINWILLIGUNG-001`); and `medien` moving to `true` where a held seat's stored
-    birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each refusal writes
-    nothing.
+    naming any but its running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where a held seat's stored
+    birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the
+    person's ceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never
+    refused for it. Each refusal writes nothing.
     """
 
     async def write(session: AsyncClientSession) -> FLSaisonTeamPersonEinwilligungResponse:
@@ -188,6 +191,10 @@ async def patch_einwilligung(
                     today=today,
                 )
             )
+        # Last, so a press another rule refuses spends nothing; and a grant alone, so taking a consent
+        # back stays as easy as giving it was (Art. 7(3) DSGVO).
+        if erteilt:
+            await drossel()
 
         update = compose_selbst_einwilligung_move(
             bloecke=tuple((f"kontakte.{slot}.einwilligung", sitz["einwilligung"]) for slot, sitz in sitze.items()),

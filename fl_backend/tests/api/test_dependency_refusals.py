@@ -38,7 +38,7 @@ from app.core.security import (
     verify_access_base,
     verify_access_system,
 )
-from app.main import DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, create_app, dependency_refusals
+from app.main import COUNTED_REFUSALS, DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, create_app, dependency_refusals
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
 from tests.config import ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
@@ -105,6 +105,9 @@ PROBED_STATUSES = frozenset({HTTPStatus.BAD_REQUEST, HTTPStatus.UNAUTHORIZED, HT
 # The operations a dependency refused on the tree this was written against, so an equality over two
 # maps that both went empty still fails.
 PROBED_OPERATIONS_FLOOR = 100
+
+# Every dependency a refusal table of `app/main.py` names, each table publishing its codes by the same derivation.
+TABLED_DEPENDENCIES = (*DEPENDENCY_REFUSALS, *HANDLER_JUDGED_REFUSALS, *COUNTED_REFUSALS)
 
 # The two refusal classes whose codes reach the document by another route, each held there.
 PUBLISHED_ELSEWHERE: Mapping[type[BaseAPIException], str] = {
@@ -514,7 +517,7 @@ def _raised_in(function: Any) -> set[type[BaseException]]:
 def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_raise():
     """Read off the dependencies' own raises, a second route to the set: a derivation that went empty would sweep nothing, green."""
 
-    raised = set().union(*(_raised_in(dependency) for dependency in (*DEPENDENCY_REFUSALS, *HANDLER_JUDGED_REFUSALS)))
+    raised = set().union(*(_raised_in(dependency) for dependency in TABLED_DEPENDENCIES))
 
     assert raised, "no raise is read off the table's dependencies, so the clause below is vacuous"
     assert all(_is_protocol_refusal(cls) for cls in raised), raised
@@ -523,7 +526,7 @@ def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_ra
 def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_or_in_a_handler_declaring_it():
     """Read off every raise under `app/`, a population the table never feeds."""
 
-    answering = {(module_of(dependency), declared(dependency).name) for dependency in (*DEPENDENCY_REFUSALS, *HANDLER_JUDGED_REFUSALS)} | {
+    answering = {(module_of(dependency), declared(dependency).name) for dependency in TABLED_DEPENDENCIES} | {
         (module_of(route.endpoint), route.endpoint.__name__) for route in api_routes(APP) if route.responses
     }
 

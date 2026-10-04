@@ -135,6 +135,9 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
     ),
     "REGISTRIERUNG_ERINNERUNG_TAGE": "the day the sweep reminds a pupil, which no frontend page or mail states",
     "AKTEUR_PSEUDONYM_SHOWN": "the log read serves the pseudonym already cut to it, and the page shows what it is served",
+    "DROSSELUNG_SPIELER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
+    "DROSSELUNG_SCHIEDSRICHTER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
+    "DROSSELUNG_KONTAKT_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))

@@ -17,7 +17,7 @@ WRITE_DOCUMENTS = frozenset({"document", "update"})
 DRIVER_WRITES = frozenset(
     {"bulk_write", "find_one_and_replace", "find_one_and_update", "insert_many", "insert_one", "replace_one", "update_many", "update_one"}
 )
-WRITE_MODULES = ("app/core/crud.py", "app/core/recording.py")
+WRITE_MODULES = ("app/core/crud.py", "app/core/recording.py", "app/core/drosselung.py")
 
 
 def _literal_writes_of(field: str, *, on: str) -> set[tuple[str, str]]:

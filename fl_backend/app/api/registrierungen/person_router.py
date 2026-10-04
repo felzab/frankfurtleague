@@ -61,6 +61,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.drosselung import gedrosselt
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
@@ -214,6 +215,7 @@ async def get_offene_registrierungen(
     response_model=FLRegistrierungAufnahmeResponse,
     summary="Admit a registration into the team's squad",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(gedrosselt)],
 )
 async def aufnehmen(
     registrierung_id: CustomRouteObjectId,
@@ -402,6 +404,7 @@ async def aufnehmen(
     response_model=FLRegistrierungAblehnungResponse,
     summary="Decline a registration",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(gedrosselt)],
 )
 async def ablehnen(
     registrierung_id: CustomRouteObjectId,

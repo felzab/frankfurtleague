@@ -59,6 +59,7 @@ from app.core.actor_token import ActorTokenKey
 from app.core.config import API_VERSION, BackendConfig
 from app.core.db import get_database, get_db_client, lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
+from app.core.drosselung import DROSSELUNG_ERREICHT, get_drossel
 from app.core.exception_handlers import (
     BODY_UNREADABLE,
     COMPONENT_REF,
@@ -193,6 +194,11 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
 # `fl_backend/tests/api/test_step_up_execution.py` drives them.
 HANDLER_JUDGED_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     get_step_up_check: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
+}
+# Dependencies whose refusal reads the count the database stores, published as the tables above are
+# and driven by `fl_backend/tests/api/test_drosselung_execution.py`: no probe without a database meets it.
+COUNTED_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
+    get_drossel: (HTTPStatus.TOO_MANY_REQUESTS, DROSSELUNG_ERREICHT),
 }
 UNGUARDED_TIER = "none"
 
@@ -404,9 +410,10 @@ def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
 
 
 def dependency_refusals(
-    app: FastAPI, tables: Sequence[Mapping[Callable[..., Any], tuple[HTTPStatus, str]]] = (DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS)
+    app: FastAPI,
+    tables: Sequence[Mapping[Callable[..., Any], tuple[HTTPStatus, str]]] = (DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, COUNTED_REFUSALS),
 ) -> dict[Operation, Refusals]:
-    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them; both tables unless named."""
+    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them; every table unless named."""
 
     table = {call: refusal for named in tables for call, refusal in named.items()}
     found: dict[Operation, Refusals] = {}

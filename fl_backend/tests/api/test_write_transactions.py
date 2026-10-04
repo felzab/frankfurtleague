@@ -4,8 +4,9 @@ API · the static sweep behind `docs/backend/spec.md :: I52`
 The source under `app/` is read as text, never imported: every function's write-helper call sites
 are recorded, and an endpoint's count is the transitive sum over its callees without descending
 into a callback handed to `with_transaction`. `app/core/crud.py` is the chokepoint the helpers
-live in, and `app/core/recording.py` is the log's companion insert -- the pairing gap
-`docs/backend/spec.md` section 4 names -- so neither module is swept.
+live in, `app/core/recording.py` is the log's companion insert -- the pairing gap
+`docs/backend/spec.md` section 4 names -- and `app/core/drosselung.py` counts a person's write
+outside its transaction by design (`docs/backend/spec.md :: I834`), so none of the three is swept.
 
 What the sweep proves is exactly that no endpoint composes a second write outside a transaction.
 Whether a write inside a callback carries `session=` is beyond a lexical read, and stays with the
@@ -49,7 +50,7 @@ DRIVER_WRITE_METHODS = frozenset(
         "bulk_write",
     }
 )
-UNSWEPT_MODULES = frozenset({"app/core/crud.py", "app/core/recording.py"})
+UNSWEPT_MODULES = frozenset({"app/core/crud.py", "app/core/recording.py", "app/core/drosselung.py"})
 HTTP_METHODS = frozenset({"get", "post", "patch", "put", "delete"})
 
 
