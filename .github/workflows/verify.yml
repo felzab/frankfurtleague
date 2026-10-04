@@ -127,7 +127,7 @@ jobs:
             $1 == "-" { next }
             {
               b = "product code"
-              if ($3 == "fl_backend/openapi.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
+              if ($3 == "fl_backend/openapi.json" || $3 == "fl_backend/einwilligung.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
               else if ($3 ~ /^(fl_backend|scripts)\/tests\// || $3 ~ /\.test\.(ts|tsx)$/) b = "tests"
               else if ($3 ~ /\.md$/ || $3 ~ /^docs\//) b = "documentation"
               else if ($3 ~ /^(scripts|nginx|certs)\/|^\.|^docker-compose|(^|\/)(Dockerfile|\.[^\/]+)$/) b = "tooling"
