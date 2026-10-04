@@ -202,10 +202,11 @@ const viewWith = (fields: Record<string, unknown>) =>
   );
 
 /** The admission armed, then `control` pressed past the window the hook reads as one double click. */
-async function armedThen(user: UserEvent, control: string | RegExp): Promise<void> {
+async function armedThen(user: UserEvent, control: string | RegExp, whileArmed?: () => void): Promise<void> {
   mock.timers.enable({ apis: ["Date"] });
   try {
     await user.click(screen.getByRole("button", { name: "Lena Meier aufnehmen" }));
+    whileArmed?.();
     mock.timers.tick(DOUBLE_PRESS_MS);
     await user.click(screen.getByRole("button", { name: control }));
   } finally {
@@ -213,6 +214,9 @@ async function armedThen(user: UserEvent, control: string | RegExp): Promise<voi
   }
   await act(answered);
 }
+
+/** The armed row's primary control, by its accessible name: the press a habitual second click sends. */
+const primaryName = (): string | null => document.querySelector("[data-confirm-press]")?.textContent?.trim() ?? null;
 
 describe("deciding a registration", () => {
   const ZIEL = { ...ADRESSE, registrierung_id: LENA };
@@ -237,8 +241,9 @@ describe("deciding a registration", () => {
     const user = userEvent.setup();
     await pressTwice(user, {
       resting: "Lena Meier aufnehmen",
-      armed: "Ja, aufnehmen",
+      armed: "Als Lena Schulz aufnehmen",
       whileArmed: () => {
+        assert.equal(primaryName(), "Als Lena Schulz aufnehmen", "the stored record is not the armed primary");
         // The question alone: the card above it shows the registration's own date, which is no stored person's.
         const shown = screen.getByRole("alert").textContent;
         assert.ok(shown.includes(`${ANGABEN_WEICHEN_AB} Ist das dieselbe Person wie Lena Schulz?`), shown);
@@ -259,13 +264,17 @@ describe("deciding a registration", () => {
     assert.deepEqual(calls, [{ action: "ablehnenRegistrierungAction", payload: { ...ZIEL, grund: "andere_person" } }]);
   });
 
-  it("admits into a proposed person on that person's yes, and as a new person on the armed press", async () => {
+  /* A name alone is the weaker key, so the armed primary makes a new person and the proposed record
+     is the secondary, each named by its effect. */
+  it("admits as a new person on the armed primary, and into a proposed person on its own control", async () => {
     viewWith({ vorschlag: { spieler_id: VORSCHLAG, vorname: "Lena", nachname: "Meier" } });
-    await armedThen(userEvent.setup(), "Ja, das ist Lena Meier");
-    assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: VORSCHLAG } });
-
-    await armedThen(userEvent.setup(), "Nein, als neue Person aufnehmen");
+    await armedThen(userEvent.setup(), "Als neue Person aufnehmen", () => {
+      assert.equal(primaryName(), "Als neue Person aufnehmen", "a new person is not the armed primary");
+    });
     assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: null } });
+
+    await armedThen(userEvent.setup(), "Als Lena Meier aufnehmen");
+    assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: VORSCHLAG } });
   });
 
   it("declines a row with no reason from its own control", async () => {

@@ -111,8 +111,11 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
   // The address resolved to somebody whose details differ: the yes names that person, and the no is a
   // decline telling the pupil to register under an address of their own.
   const gefragt = person !== null && person.weicht_ab;
-  // A proposal has its own yes, and the armed press is then its no: the pupil becomes a new person.
+  // A name alone proposes: the armed press, the safer answer, makes a new person.
   const vorgeschlagen = person === null ? vorschlag : null;
+  // Each armed control names its effect, so one habitual press means the same in every card: the
+  // primary is the safer answer, the stored record where the address resolved it.
+  const gewaffnet = gefragt ? `Als ${personName(person)} aufnehmen` : vorgeschlagen === null ? "Ja, aufnehmen" : "Als neue Person aufnehmen";
 
   // The row's cancel hands the focus back to the control that armed it, and the row's first press is
   // the admission: a cancelled decline names its own control here, read once the decline has disarmed.
@@ -168,22 +171,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               registrieren.
             </p>
           )}
-          {vorgeschlagen !== null && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="fluid-sm text-pretty text-foreground">{dieselbePerson(personName(vorgeschlagen))}</p>
-              {/* The admission's place: a decided row hands the focus to the next row's admission. */}
-              <FocusSlot name={AUFNEHMEN}>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  isPending={aufnahme.isPending}
-                  onPress={() => aufnehmen(vorgeschlagen.spieler_id)}
-                  className={formButton({ intent: "cancel", stacks: true })}>
-                  {`Ja, das ist ${personName(vorgeschlagen)}`}
-                </Button>
-              </FocusSlot>
-            </div>
-          )}
+          {vorgeschlagen !== null && <p className="fluid-sm text-pretty text-foreground">{dieselbePerson(personName(vorgeschlagen))}</p>}
           {!gefragt && vorgeschlagen === null && (
             <p className="fluid-sm text-pretty text-foreground">{registrierung.vorname} kommt in den Kader dieser Saison.</p>
           )}
@@ -207,7 +195,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               reason={registrierung.aufnehmbar ? null : NOCH_NICHT_BESTAETIGT}
               resting="Aufnehmen"
               restingName={`${name} aufnehmen`}
-              armed={vorgeschlagen === null ? "Ja, aufnehmen" : "Nein, als neue Person aufnehmen"}
+              armed={gewaffnet}
               running="Nimmt auf..."
               icon={
                 <SealCheck
@@ -217,6 +205,18 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               }
               onPress={() => aufnehmen(gefragt ? person.spieler_id : null)}
             />
+          </FocusSlot>
+        )}
+        {aufnahme.isConfirming && vorgeschlagen !== null && (
+          <FocusSlot name={AUFNEHMEN}>
+            <Button
+              type="button"
+              variant="secondary"
+              isPending={aufnahme.isPending}
+              onPress={() => aufnehmen(vorgeschlagen.spieler_id)}
+              className={formButton({ intent: "cancel", stacks: true })}>
+              {`Als ${personName(vorgeschlagen)} aufnehmen`}
+            </Button>
           </FocusSlot>
         )}
         {aufnahme.isConfirming && gefragt && (
