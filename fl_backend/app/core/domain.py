@@ -634,7 +634,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONDITIONAL,
         "written whole at submission, and afterwards by the seat's own person through "
         "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, source, "
-        "wording and scope on every seat that person holds, a decline nulls those slots, and both are refused once "
+        "wording, scope and media answer on every seat that person holds, appending its entry, a decline nulls those "
+        "slots, and both are refused once "
         "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Two administrative "
         "repairs reach it besides, each refused on a seat in any other state (`REQ-BEWERBUNG-011`): "
         "`POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email` moves one address, and "
@@ -862,8 +863,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
         "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`). A seat's own person "
-        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum` "
-        "and the stamp on every seat that person holds, and a Widerspruch nulls those slots; and the seat's own person moves "
+        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum`, "
+        "the stamp and the media answer on every seat that person holds, and a Widerspruch nulls those slots; and the "
+        "seat's own person moves "
         "`medien` on every seat they hold on the row, and nothing else, through "
         "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
@@ -897,8 +899,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELER,
         "einwilligung",
         Editability.COMPOSED,
-        "on no administrative payload: the admission writes it whole, copying the registration's freshly confirmed record "
-        "onto the person it writes or matches (`app/api/registrierungen/services.py :: compose_person_update`), and afterwards "
+        "on no administrative payload: the admission writes the registration's freshly confirmed record whole onto a person "
+        "it creates, and onto one it matches renews its choices and label and appends its entries after the person's own "
+        "(`app/api/registrierungen/services.py :: compose_person_update`), and afterwards "
         "only the person moves its two choices, `umfang` and `medien`, through `PATCH /spieler/selbst/einwilligung`, every "
         "other member standing: `bestaetigt_am` is what the panel and the publication mask read, and `text_version` names "
         "the wording the person confirmed. An administrator can neither state a consent nor overwrite one",
@@ -1185,8 +1188,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no payload beyond the scope and the media answer the pupil chose: the server stamps `bestaetigt_am` and `datum` "
         "with the day the confirmation lands and fills `erteilt_von` with `volljaehrig`, nobody else being permitted to "
-        "answer for a pupil. `text_version` arrives on the payload, and the route handler "
-        "`fl_frontend/src/app/api/bestaetigung/spieler/route.ts` refuses any label but the running one, before the parse",
+        "answer for a pupil, and writes the record born with its one `bestaetigt` entry. `text_version` arrives on the "
+        "payload, and anything but the pupil page's running label is refused (`REQ-EINWILLIGUNG-001`)",
         "app.api.registrierungen.services.find_already_confirmed_refusal",
     ),
     FieldPolicy(

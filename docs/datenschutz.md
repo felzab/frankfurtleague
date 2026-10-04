@@ -54,7 +54,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   assume, enter or transcribe a consent on anybody's behalf.
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(f) rather than an
-  Einwilligung, and the only consent their block holds is the optional WhatsApp scope
+  Einwilligung, and the only consents their block holds are the optional WhatsApp scope and the media
+  answer
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-vocabularies-a-persons-own-consent-and-what-a-contact-seat-was-told)).
   **No such flow exists for organisers or
   administrators:** an organiser is listed on their own word to me
@@ -296,7 +297,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   law is open ([section 11](#11-open-and-owed-a-decision)).
 - **A photograph, a video or an interview needs a consent of its own, and only a person of eighteen
   or over may give it, for the Datenschutzexperte.** The consent is separate from the name and
-  answered as a yes or a no on both a pupil's and a referee's confirmation page
+  answered as a yes or a no on a pupil's, a referee's and a contact person's confirmation page
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, its `medien`); ruled 2026-09-20. I
   ruled on 2026-09-22 that the switch is offered only from eighteen and that nobody younger is ever
   published in media, the supervisory guidance on minors' photographs disagreeing on whether a
@@ -305,7 +306,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`,
   `DatenschutzView.tsx :: Bist Du jünger als`); each confirmation refuses a
   `true` from anyone younger (`fl_backend/app/api/registrierungen/services.py :: find_medien_refusal`,
-  `fl_backend/app/api/schiedsrichter/services.py :: find_medien_refusal`, against
+  `fl_backend/app/api/schiedsrichter/services.py :: find_medien_refusal`,
+  `fl_backend/app/api/einwilligung/services.py :: find_selbst_medien_refusal` for a contact person, against
   `fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS`). Such media is published on this
   website and on the league's Instagram account; ruled 2026-09-23.
 - **The organisers named on the public Organisation page each fully agreed to be listed**, having confirmed

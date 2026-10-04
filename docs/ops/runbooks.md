@@ -259,8 +259,9 @@ image is refused until the new image is up, because it writes the old name.
 `fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
 `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
 editor, a club's season panel and the whole application queue answer 500 on every stored row until
-the rename lands. A junction contacts save over an already-confirmed seat raises too,
-`fl_backend/app/api/teams/services.py :: _confirmation_held_by` indexing the key directly. **A
+the rename lands. A junction contacts save over a seat its person keeps is refused too: it writes
+that seat's stored record back whole (`fl_backend/app/api/teams/services.py :: _confirmation_held_by`),
+under the old name, which the renamed validator refuses. **A
 contact person's own confirmation link still OPENS**, serving no contact record
 (`READ-BEWERBUNG-002`) — but the answer behind its button is a write over the same block and is
 refused with everything else, so a person who confirms or objects in that window is told nothing
