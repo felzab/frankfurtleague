@@ -624,9 +624,12 @@ as them.
 - **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
   itself kills the link that went to the old mailbox, mints a fresh one and mails the corrected
   address, so nothing further is owed and the old link opens nothing.
-- **A referee who HAS confirmed.** Correct `kontakt.email` in the referee editor. Their link is not
-  re-minted — the record is already given — so the correction is the ordinary rectification above
-  and no message goes out. Tell them by hand that the address on file has moved.
+- **A referee who HAS confirmed, retired or not.** Enter the new address in the referee editor. The
+  save keeps the address on file and holds the new one as a pending change with a link of its own;
+  the address moves only once its holder confirms there, so until then the referee still signs in,
+  and is written to, at the address on file (`docs/backend/spec.md :: I_NEW_KONTO-REF_1`). A pending
+  change waits with no clock: re-send its link when it lapses, or discard it when the request turns
+  out to be wrong. Their consent link is not re-minted — the record is already given.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the

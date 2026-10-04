@@ -357,6 +357,9 @@ PUBLIC_WRITES = [
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/schiedsrichter/bestaetigung/ansicht", "POST"),
     ("/api/v0/schiedsrichter/bestaetigung", "POST"),
+    # The holder of a referee's new mailbox holds no session either, for the same reason.
+    ("/api/v0/schiedsrichter/adresswechsel/ansicht", "POST"),
+    ("/api/v0/schiedsrichter/adresswechsel", "POST"),
     # A pupil answering their own link holds no session either, so both endpoints bind the public
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "POST"),
@@ -701,6 +704,8 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/schiedsrichter", id="a referee's entry"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren", id="a referee's anonymisation"),
+    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen", id="a referee's fresh address link"),
+    pytest.param("delete", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change discarded"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
     pytest.param("delete", "/api/v0/spieler/{spieler_id}/erasure", id="a player's erasure"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),

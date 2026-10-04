@@ -266,6 +266,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 3](#3-the-current-pupil-records-are-reset-once)); no link is ever minted to a
   placeholder, the mint refusing it as no address
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
+- **A confirmed referee's address changes only once the new mailbox confirms it**, because the
+  address is what their sign-in and their account page are keyed on: moved at once, it would hand
+  their record to whoever holds a mistyped address. Ruled 2026-10-04. The administrator's save keeps
+  the address on file in force and holds the new one beside it with a link of its own, which
+  confirms the mailbox and asks no consent again; until its holder answers, the new address reaches
+  nothing of the referee's (`docs/backend/spec.md :: I_NEW_KONTO-REF_2`). A referee who has not yet
+  confirmed holds no record an address could reach, so theirs is still replaced at once and the
+  fresh consent link goes to it (`fl_backend/app/api/schiedsrichter/services.py :: save_moves_the_link`).
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
   because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning
   above. Ruled 2026-10-03. The save mints one for each person it newly seats
@@ -385,6 +393,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`REQ-RETIRE-004`) has nothing left to refuse. A fixture played or called off keeps its booking
   and its own `payment` under the ghost: that is the league's record of the match, not of the
   person. A person who officiates again is entered as a new referee.
+- **A referee's pending new address goes with that referee's erasure, and its own holder's request
+  is answered by removing it alone.** Until it confirms, that mailbox owns nothing of the row, so
+  its holder is not the person the referee's erasure is about: the link's own decline or
+  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address and nothing else. `POST /kontakte/erasure` reaches no referee row, a pending address included.
 - **An erasure keyed on an email address names what it reaches.** Every seat the address holds is
   its one person's (the entry below), and each is listed for confirmation before the write — by name
   and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather than inferred on
@@ -636,6 +648,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE`), and each
   new one replaces the whole block, the delivery state of the message the old link went out in
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
+- **A confirmed referee's pending new address has no clock**: it stands beside the referee's row
+  until its holder confirms or declines it, an administrator replaces or discards it, or the
+  referee is erased with it (`fl_backend/app/core/domain.py :: FIELD_POLICIES`). Its link lasts the
+  confirmation link's fourteen days and a re-send restarts them
+  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`); a lapsed change is
+  marked as lapsed to the administrator rather than removed, a sweep being machinery for a row this
+  rare. Ruled 2026-10-04.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.

@@ -243,11 +243,26 @@ class TestTheRefereesSave:
 
         assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, hash_token("seeded-referee")))
 
+    @pytest.mark.parametrize("retired", [False, True], ids=("serving", "retired"))
+    def test_a_confirmed_referee_s_moved_address_from_an_older_sign_in_is_refused_and_asks_nobody(
+        self, mongo_replica_set_url: str, retired: bool
+    ):
+        """The address link hands the referee's record to whoever holds the new mailbox, as a consent link hands the answer."""
+
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
+            response = await http.patch(self.URL, headers=OLDER, json=a_save(MOVED_EMAIL))
+            stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
+            return refused(response), stored and (stored["kontakt"]["email"], "adresswechsel" in stored)
+
+        seed = seeding(a_referee(confirmed=True, retired=retired))
+
+        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, False))
+
     @pytest.mark.parametrize(
         ("referee", "email"),
         [
             pytest.param(a_referee(), "collina@EXAMPLE.com", id="the same mailbox, its domain spelled otherwise"),
-            pytest.param(a_referee(confirmed=True), MOVED_EMAIL, id="a confirmed referee's moved address"),
+            pytest.param(a_referee(confirmed=True), "collina@EXAMPLE.com", id="a confirmed referee's same mailbox"),
         ],
     )
     def test_a_save_touching_no_link_takes_the_older_sign_in(self, mongo_replica_set_url: str, referee: dict[str, Any], email: str):
