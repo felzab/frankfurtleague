@@ -106,12 +106,7 @@ def find_konto_fassung_refusal(*, seite: Seite, text_version: str, erteilt: bool
     than giving it.
     """
 
-    # The judge's kept-label arm is what admits any version of the page: it requires the label to be one.
-    return find_fassung_refusal(
-        seite=seite,
-        genannt={_FASSUNG_ORT: text_version},
-        gespeichert={} if erteilt else {_FASSUNG_ORT: text_version},
-    )
+    return find_fassung_refusal(seite=seite, genannt={_FASSUNG_ORT: text_version}, jede_fassung=not erteilt)
 
 
 # --- The records each read serves: CONFIRMED ones alone, retired rows and past seasons included, a

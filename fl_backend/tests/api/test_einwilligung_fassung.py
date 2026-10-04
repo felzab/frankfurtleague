@@ -46,27 +46,33 @@ class TestTheLabelAWriteStamps:
         assert "ansprechperson" in refusal.message
         assert "trainer" not in refusal.message, "a place naming the running label is named as refused"
 
-    def test_a_place_keeps_the_superseded_label_it_already_holds(self):
-        """An administrator's save over a seat its person confirmed under an earlier wording keeps that record's own label."""
+    @pytest.mark.parametrize(
+        "held",
+        [
+            pytest.param(FRUEHERE, id="a superseded label of the same page"),
+            pytest.param(ANDERE_SEITE, id="the confirmation page's label a confirmed seat holds"),
+        ],
+    )
+    def test_an_unchanged_person_keeps_the_label_they_hold(self, held: str):
+        """Whichever page it is a version of: a confirmed seat holds its confirmation page's label, and the save carries that record."""
 
-        assert find_fassung_refusal(seite="bewerbung", genannt={"trainer": FRUEHERE}, gespeichert={"trainer": FRUEHERE}) is None
+        assert find_fassung_refusal(seite="bewerbung", genannt={"trainer": held}, gehalten={"trainer": held}) is None
 
-    def test_a_stored_label_is_kept_only_where_it_is_stored(self):
-        """Admitted per place: one seat's stored label is no licence for another seat to stamp it."""
+    def test_a_held_label_is_kept_only_where_it_is_held(self):
+        """Admitted per place: one seat's held label is no licence for another seat, or for a person handed that seat."""
 
-        refusal = find_fassung_refusal(seite="bewerbung", genannt={"ansprechperson": FRUEHERE}, gespeichert={"trainer": FRUEHERE})
-
-        assert refusal is not None
-        assert refusal.error_code == FASSUNG_UNZULAESSIG
-
-    @pytest.mark.parametrize("stored", [ANDERE_SEITE, "2026-07"], ids=["another page's label", "a label the registry never held"])
-    def test_a_stored_label_naming_no_version_of_the_page_is_not_kept(self, stored: str):
-        """A hand-edited record is not carried forward: the label must still name a wording this page showed."""
-
-        refusal = find_fassung_refusal(seite="bewerbung", genannt={"trainer": stored}, gespeichert={"trainer": stored})
+        refusal = find_fassung_refusal(seite="bewerbung", genannt={"ansprechperson": FRUEHERE}, gehalten={"trainer": FRUEHERE})
 
         assert refusal is not None
         assert refusal.error_code == FASSUNG_UNZULAESSIG
+
+    def test_a_withdrawal_may_name_any_version_of_its_page_and_nothing_else(self):
+        """A page loaded before a deploy may still take a consent back; it may not name another page's words."""
+
+        assert find_fassung_refusal(seite="bewerbung", genannt={"trainer": FRUEHERE}, jede_fassung=True) is None
+        for label in (ANDERE_SEITE, "2026-07"):
+            refusal = find_fassung_refusal(seite="bewerbung", genannt={"trainer": label}, jede_fassung=True)
+            assert refusal is not None and refusal.error_code == FASSUNG_UNZULAESSIG, label
 
 
 def as_registered(label: str) -> dict[str, Any]:

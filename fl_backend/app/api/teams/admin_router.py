@@ -71,6 +71,7 @@ from app.api.teams.services import (
     find_retire_refusal,
     has_taken_place,
     in_declaration_order,
+    kontakte_fassungen_gehalten,
     kontakte_fassungen_genannt,
     links_owed,
     mint_answer,
@@ -638,9 +639,9 @@ async def patch_saison_team_kontakte(
         )
 
         refuse(find_kontakte_precondition_refusal(erwartet=payload["kontakte_stand"], stored=stored.get("kontakte")))
-        # In session too: the kept arm reads the stored person, whom an erasure or a handover may just have moved.
-        genannt = kontakte_fassungen_genannt(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
-        refuse(find_fassung_refusal(seite="bewerbung", genannt=genannt))
+        # In session too: `gehalten` reads the stored person, whom an erasure or a handover may just have moved.
+        gehalten = kontakte_fassungen_gehalten(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
+        refuse(find_fassung_refusal(seite="bewerbung", genannt=kontakte_fassungen_genannt(kontakte=payload["kontakte"]), gehalten=gehalten))
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"), am=log_stamp(germany_now))
 

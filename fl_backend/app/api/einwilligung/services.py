@@ -23,7 +23,11 @@ _PLATZHALTER: Final = re.compile(r"\{([A-Za-z]+)\}")
 
 
 def find_fassung_refusal(
-    *, seite: Seite, genannt: Mapping[str, str], gespeichert: Mapping[str, str | None] = MappingProxyType({})
+    *,
+    seite: Seite,
+    genannt: Mapping[str, str],
+    gehalten: Mapping[str, str | None] = MappingProxyType({}),
+    jede_fassung: bool = False,
 ) -> WriteRefusal | None:
     """Why a write may not stamp the labels it names, keyed by where each is stamped, or `None`.
 
@@ -32,10 +36,15 @@ def find_fassung_refusal(
     """
 
     laufend = LAUFENDE_FASSUNGEN[seite]
-    # A place keeps the label it already holds, so an administrator's save over a seat confirmed
-    # under an earlier wording is not refused; only while that label is a version of this page.
     abgewiesen = [
-        ort for ort, label in genannt.items() if label != laufend and not (label == gespeichert.get(ort) and _version_of(label, seite=seite))
+        ort
+        for ort, label in genannt.items()
+        if label != laufend
+        # A withdrawal may name any version of its page: taking a consent back is never harder than giving it.
+        and not (jede_fassung and _version_of(label, seite=seite))
+        # Keyed by the places whose PERSON the write leaves unchanged, whichever page the label is a
+        # version of: that record is carried, not stamped (`docs/backend/spec.md :: I866`).
+        and not (label is not None and label == gehalten.get(ort))
     ]
 
     if abgewiesen:

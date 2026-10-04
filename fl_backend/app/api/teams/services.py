@@ -976,31 +976,27 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
     return composed
 
 
-def kontakte_fassungen_genannt(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, str]:
-    """The labels a contacts save stamps, keyed by seat: all but one an unchanged person names back as stored.
+def kontakte_fassungen_genannt(*, kontakte: Mapping[str, Any] | None) -> dict[str, str]:
+    """The label each seat of a contacts save names, keyed by seat."""
 
-    Keyed on the PERSON, never the seat: a seat handed to somebody else is a new acceptance.
-    """
+    seats = {slot: kontakte.get(slot) for slot in KONTAKT_SLOTS} if kontakte is not None else {}
 
-    if kontakte is None:
-        return {}
+    return {slot: str(seat["einwilligung"]["text_version"]) for slot, seat in seats.items() if isinstance(seat, Mapping)}
+
+
+def kontakte_fassungen_gehalten(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, str | None]:
+    """The label each seat holds where the save leaves its PERSON unchanged, never where it hands the seat on."""
 
     stored_block = stored if isinstance(stored, Mapping) else {}
-    genannt: dict[str, str] = {}
+    gehalten: dict[str, str | None] = {}
 
     for slot in KONTAKT_SLOTS:
-        seat = kontakte.get(slot)
-        if not isinstance(seat, Mapping):
-            continue
+        seat = kontakte.get(slot) if kontakte is not None else None
+        held = _confirmation_held_by(stored_block.get(slot), seat=seat) if isinstance(seat, Mapping) else None
+        if held is not None:
+            gehalten[slot] = held.get("text_version")
 
-        label = str(seat["einwilligung"]["text_version"])
-        held = _confirmation_held_by(stored_block.get(slot), seat=seat)
-        # Carried rather than stamped: the save stores the record it holds, whichever page that label is
-        # a version of, so nothing new is claimed by naming it back.
-        if held is None or held.get("text_version") != label:
-            genannt[slot] = label
-
-    return genannt
+    return gehalten
 
 
 def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
