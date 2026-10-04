@@ -4,6 +4,7 @@ import { startTransition } from "react";
 
 import CircleXmark from "@gravity-ui/icons/CircleXmark";
 
+import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ABLEHNEN_LABEL } from "@/features/bewerbungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -13,7 +14,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
-import { ABSATZ_CLASSES, BestaetigungAbschnitt, Wert } from "./BestaetigungPanels";
+import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";

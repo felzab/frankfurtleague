@@ -14,7 +14,8 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { AdresseGesperrt, Gefuellt, useLinkSeite } = await import("./BestaetigungPanels.tsx");
+const { AdresseGesperrt, useLinkSeite } = await import("./BestaetigungPanels.tsx");
+const { Gefuellt } = await import("../ui/Gefuellt.tsx");
 
 const PFAD = "/bestaetigung/kontakt";
 const MIT_TOKEN = `${PFAD}?token=kein-echtes-token`;

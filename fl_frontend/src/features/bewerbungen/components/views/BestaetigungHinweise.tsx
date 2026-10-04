@@ -1,7 +1,8 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { ABSATZ_CLASSES, Gefuellt } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
-import { ABSATZ_CLASSES, BestaetigungAbschnitt, Gefuellt } from "./BestaetigungPanels";
+import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { GekeyteFassung, KontaktAbsatzSchluessel, KontaktBedienSchluessel } from "@/core/einwilligungSeiten";
 import type { Slots } from "@/shared/utils/stampedSlots";
@@ -21,7 +22,7 @@ const KONSTANTEN = { kontakt: KONTAKT_EMAIL } as const;
 
 /**
  * The slots a record fills from the person who opened the link
- * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+ * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
  */
 const EIGENE_SLOTS = new Set(["vorname", "schule", "saison", "rolle"]);
 

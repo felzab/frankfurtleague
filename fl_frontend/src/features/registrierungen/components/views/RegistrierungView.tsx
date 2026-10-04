@@ -4,15 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
-import {
-  ABSATZ_CLASSES,
-  BestaetigungErgebnis,
-  FaktenBanner,
-  FrageStellen,
-  useLinkSeite,
-  Wert,
-} from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { BestaetigungErgebnis, FaktenBanner, FrageStellen, useLinkSeite } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { textLink } from "@/shared/components/ui/textLink";

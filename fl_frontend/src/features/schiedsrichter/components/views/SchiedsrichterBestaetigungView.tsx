@@ -13,17 +13,15 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { ABSATZ_CLASSES, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
-  ABSATZ_CLASSES,
   AdresseGesperrt,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
-  Gefuellt,
   GespeicherteAngaben,
   useLinkSeite,
-  Wert,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
@@ -104,7 +102,7 @@ const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
 
 /**
  * The slots a record fills from the person who opened the link
- * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+ * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
  */
 const EIGENE_SLOTS = new Set(["vorname"]);
 

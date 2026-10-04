@@ -87,7 +87,8 @@ const { BestaetigungFormPanel } = await import("./components/views/BestaetigungF
 
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, MedienHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
-const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");
+const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben } = await import("./components/views/BestaetigungPanels.tsx");
+const { Wert } = await import("./components/ui/Gefuellt.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");

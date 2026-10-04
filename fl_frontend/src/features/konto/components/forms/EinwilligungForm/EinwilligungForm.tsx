@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
-import { ABSATZ_CLASSES } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { ABSATZ_CLASSES } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { FIELD_LABEL_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";

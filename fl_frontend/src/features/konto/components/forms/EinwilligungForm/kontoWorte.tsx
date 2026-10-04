@@ -1,5 +1,5 @@
 import { gekeyteFassung } from "@/core/einwilligungSeiten";
-import { ABSATZ_CLASSES, Gefuellt } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { ABSATZ_CLASSES, Gefuellt } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants";
 

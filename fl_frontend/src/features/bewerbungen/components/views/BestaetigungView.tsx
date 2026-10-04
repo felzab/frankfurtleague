@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, rollenLangform } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
@@ -11,14 +12,12 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
 import {
-  ABSATZ_CLASSES,
   AdresseGesperrt,
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
   GespeicherteAngaben,
   useLinkSeite,
-  Wert,
   ZurLiga,
 } from "./BestaetigungPanels";
 import { BestaetigungSaisonVorbei } from "./BestaetigungSaisonVorbei";
