@@ -1,9 +1,10 @@
 """ORCHESTRATION · a conflicted markdown table merged by row key rather than by line.
 
-Two agents adding rows to one spec-sheet table conflict on lines that touch no shared row: each
-hunk is resolved as the session branch's rows with the landing commit's own row changes applied,
-keyed by each row's first cell. A row both sides changed differently is a true conflict and nothing
-is written.
+Two agents adding rows to one table conflict on lines that touch no shared row: each hunk is
+resolved as the session branch's rows with the landing commit's own row changes applied, keyed by
+each row's first cell. A key the hunk holds that is not unique in the parent, the commit or the
+session branch's side stops the merge, since a first cell such as `GET` names no one row; so does a
+row both sides changed differently. Nothing is written then.
 
     merge_rows.py <path> <base-sha> <commit-sha>     inside the checkout holding the conflict
 
@@ -15,6 +16,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -44,13 +46,17 @@ def row_key(line: str) -> str | None:
 
 
 def rows(text: str) -> dict[str, str]:
-    """Every keyed row of a file, the first of a repeated key winning."""
+    """Every keyed row of a file; `merge_text` refuses a hunk touching a repeated key before it reads one."""
     keyed: dict[str, str] = {}
     for line in text.splitlines():
         key = row_key(line)
         if key is not None:
             keyed.setdefault(key, line)
     return keyed
+
+
+def key_counts(text: str) -> Counter[str]:
+    return Counter(key for key in map(row_key, text.splitlines()) if key is not None)
 
 
 def _same(one: str, other: str) -> bool:
@@ -113,10 +119,19 @@ def merge_text(text: str, base_text: str, commit_text: str) -> Merge:
     if not hunks:
         merge.conflicts.append("no conflict hunk in the file")
         return merge
+    # The session branch's side of the file: every hunk read as its own first half.
+    ours_text = HUNK_RE.sub(lambda hunk: hunk.group("ours"), text)
+    counts = {"the parent": key_counts(base_text), "the commit": key_counts(commit_text), "the session branch": key_counts(ours_text)}
     for hunk in hunks:
         ours, theirs = hunk.group("ours").splitlines(), hunk.group("theirs").splitlines()
         if not all(line.startswith("|") for line in ours + theirs):
             merge.conflicts.append("a hunk holds lines that are not table rows")
+            return merge
+        for key in sorted({key for key in map(row_key, ours + theirs) if key is not None}):
+            for side, count in counts.items():
+                if count[key] > 1:
+                    merge.conflicts.append(f"{key}: {count[key]} rows in {side} open with it, so it names no one row")
+        if merge.conflicts:
             return merge
         pieces.append(text[last : hunk.start()])
         resolved = _resolve(ours, theirs, base, commit, merge)
@@ -128,15 +143,25 @@ def merge_text(text: str, base_text: str, commit_text: str) -> Merge:
     return merge
 
 
-def _show(sha: str, path: str) -> str:
-    done = subprocess.run(("git", "show", f"{sha}:{path}"), capture_output=True, check=True)
-    return done.stdout.decode("utf-8")
+def _show(sha: str, path: str) -> str | None:
+    """The file at one commit, or None where that commit holds no such file."""
+    done = subprocess.run(("git", "show", f"{sha}:{path}"), capture_output=True, check=False)
+    return done.stdout.decode("utf-8") if done.returncode == 0 else None
 
 
 def merge_file(path: str, base_sha: str, commit_sha: str) -> Merge:
     """The conflicted working copy of `path` merged against the commit and its parent, written in bytes where it resolves."""
     target = Path(path)
-    merge = merge_text(target.read_bytes().decode("utf-8"), _show(base_sha, path), _show(commit_sha, path))
+    base_text, commit_text = _show(base_sha, path), _show(commit_sha, path)
+    # An add/add or modify/delete conflict has no parent or no commit side to key rows against.
+    if base_text is None or commit_text is None or not target.is_file():
+        return Merge(
+            text=None,
+            conflicts=[
+                f"{path} is missing from {base_sha if base_text is None else commit_sha if commit_text is None else 'the working tree'}"
+            ],
+        )
+    merge = merge_text(target.read_bytes().decode("utf-8"), base_text, commit_text)
     if merge.text is not None:
         target.write_bytes(merge.text.encode("utf-8"))
     return merge
