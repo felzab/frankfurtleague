@@ -635,8 +635,31 @@ as them.
 notice to the old mailbox, for a case nobody has met twice; the procedure above is the answer, and a
 request for one is answered by performing it rather than by building the route.
 
-**A withdrawal is an erasure, and a contact seat has one case where it is not.** Which of the three
-you are in is decided by that seat's own link, not by the person's role:
+**Withdrawing a consent is the person's own write on their account page, `/bereich/konto`, and
+never an erasure or an edit by hand** (`docs/backend/spec.md :: I869`, `:: I972`). Point a request
+arriving by mail at the control for its record, which the person reaches by signing in with the
+address that record holds:
+
+- **A referee's publication scope and media consent:**
+  `PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`.
+- **A seat's media consent on a team's season row:**
+  `PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`, for every seat the address holds
+  on that row (`docs/backend/spec.md :: I975`).
+- **A seat's media consent on a pending application:**
+  `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws it and never grants it.
+- **A pupil's:** the paragraph below.
+- **A seat's WhatsApp scope:** no control on the account page takes it yet, so its withdrawal is the
+  mail the notice names. Honour it by writing to that person by e-mail alone from then on; no route
+  moves the stored scope, so the seat still reads as allowing WhatsApp until the page takes that
+  choice.
+
+**An address whose only records are a pending application's seat, a `past` season's seat or a
+retired row cannot sign in yet** (`fl_frontend/src/core/signInGate.ts :: signInVerdictOf`), so that
+person cannot reach the page, and the only route the code leaves them is their record's erasure.
+
+**Taking a contact person off their seat is an erasure, unless the seat's own link still takes
+their Widerspruch.** Which of the three you are in is decided by that seat's own link, not by the
+person's role:
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
   page the link opens, empties the seat at once and tells the submitter so the school can name
@@ -659,8 +682,8 @@ you are in is decided by that seat's own link, not by the person's role:
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/selbst/einwilligung` moves the record (`docs/backend/spec.md :: I972`), and no
-administrator route writes it (`fl_backend/app/core/domain.py :: FIELD_POLICIES`). A request arriving
+`PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it
+(`fl_backend/app/core/domain.py :: FIELD_POLICIES`). A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
