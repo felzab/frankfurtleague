@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "6f57ddfcad36b5f4dab9bf86bfcac8889844682e97727f9fee54fe134f607231" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "e65aac0a3d625b31d6a02d7f9a839a477dcbbbcd5d4fbc03202e66ce26e8986e" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -400,6 +400,19 @@ describe("the privacy notice's account of the site's own protection", () => {
 
     assert.ok(absatz.includes("auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular"), absatz);
     assert.ok(absatz.includes("Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung"), absatz);
+  });
+
+  /* A browser that blocks the check stays refused, so the notice says so and names the way in that remains. */
+  it("says a blocked check takes nothing in, and names the league's address and the passkey as the ways in", () => {
+    const absatz = ABSAETZE.find((text) => text.startsWith("Eine zweite Prüfung von Cloudflare, Turnstile,")) ?? "";
+
+    assert.ok(
+      absatz.includes(
+        `Lässt Dein Browser oder ein Werbeblocker diese Prüfung nicht zu, nehmen wir über diese drei Formulare nichts an; dann erreichst Du uns unter ${KONTAKT_EMAIL}`,
+      ),
+      absatz,
+    );
+    assert.ok(absatz.endsWith("und anmelden kannst Du Dich auch mit einem Passkey."), absatz);
   });
 
   it("gives a person's daily count its clock, and says it holds no address", () => {

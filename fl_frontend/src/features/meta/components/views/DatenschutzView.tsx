@@ -607,7 +607,8 @@ export function DatenschutzView() {
               es Dich um einen Klick. Das Ergebnis ist ein Nachweis, den das Formular beim Abschicken mitschickt und den wir bei Cloudflare
               bestätigen lassen, bevor wir einen Anmeldecode verschicken oder eine Bewerbung oder Registrierung speichern. Der Nachweis gilt
               fünf Minuten und nur für ein Abschicken. Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung, um seine Erkennung
-              automatisierter Zugriffe zu verbessern.
+              automatisierter Zugriffe zu verbessern. Lässt Dein Browser oder ein Werbeblocker diese Prüfung nicht zu, nehmen wir über diese
+              drei Formulare nichts an; dann erreichst Du uns unter <MailLink />, und anmelden kannst Du Dich auch mit einem Passkey.
             </li>
             <li className={ABSATZ_CLASSES}>
               Die von Dir gewählte Darstellung, hell oder dunkel. Sie wird im lokalen Speicher Deines Browsers abgelegt, damit die Seite beim
