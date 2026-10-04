@@ -135,7 +135,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklichem Einverständnis",
   },
   {
-    was: `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen, Schiedsrichtern, Trainerinnen, Trainern und Ansprechpersonen ab ${String(MEDIEN_MIN_ALTER)} Jahren, auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser Website und auf dem Instagram-Kanal der Liga`,
+    was: `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen, Schiedsrichtern und Kontaktpersonen eines Teams ab ${String(MEDIEN_MIN_ALTER)} Jahren, auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser Website und auf dem Instagram-Kanal der Liga`,
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung; Zweck ist, über die Liga zu berichten",
   },
   {
@@ -192,13 +192,13 @@ const FRISTEN = [
     frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht, und werden auf Wunsch gelöscht`,
   },
   {
-    daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen an ihren eigenen Angaben",
+    daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen",
     frist: "Zwölf Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
   },
   {
-    daten: "Tageszähler der Änderungen einer angemeldeten Person",
+    daten: "Tageszähler einer angemeldeten Person, je Funktion",
     frist:
-      "Bis Mitternacht des Tages, den er zählt. Er enthält nur die Zahl der Änderungen und Deine Rolle, unter einem unlesbaren Schlüssel statt Deiner Adresse, und begrenzt, wie viel ein Konto an einem Tag ändern kann, damit ein missbrauchtes Konto nicht unbegrenzt schreibt",
+      "Bis kurz nach Mitternacht des Tages, den er zählt. Er enthält nur, als was Du angemeldet bist (Kontaktperson eines Teams, Spielerin oder Spieler, Schiedsrichterin oder Schiedsrichter), und wie oft Du in dieser Funktion an dem Tag etwas ändern wolltest, auch wenn es abgewiesen wurde, unter einem unlesbaren Schlüssel statt Deiner Adresse. Er begrenzt, wie viel Du in jeder dieser Funktionen an einem Tag ändern kannst, damit ein missbrauchtes Konto nicht unbegrenzt schreibt; eine zurückgezogene Einwilligung zählt er nicht",
   },
   {
     daten: "Zugriffsprotokoll des Servers",
@@ -644,7 +644,7 @@ export function DatenschutzView() {
             wiedererkennen. Wir erstellen keine Profile und verkaufen keine Daten.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen Menschen nur
+            Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen Menschen
             zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder
             Schiedsrichter oder als Kontaktperson einer Bewerbung einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter
             über {BEWERBUNG_MAX_ALTER} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf Deinen Wunsch
@@ -653,7 +653,13 @@ export function DatenschutzView() {
             solange er gilt. Liegt Dein Geburtsdatum tatsächlich unter dem Mindestalter, bleibt es auch nach der Prüfung bei der Zurückweisung,
             weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die Verwaltung nach der Prüfung aufheben. Ist der
             Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist eine Grenze des Kaders und keine Entscheidung über Dich.
-            Profiling findet nicht statt.
+            Zwei weitere Grenzen setzt die Website ebenso ohne einen Menschen. Einen Anmeldecode verschickt sie, eine Bewerbung und eine
+            Registrierung nimmt sie erst an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt (Abschnitt 11); bittet
+            Cloudflare Dich um einen Klick, genügt der. Lässt Dich die Prüfung nicht durch, schreib an <MailLink />, dann sieht sich jemand aus
+            der Verwaltung Deinen Fall an. Und wer angemeldet ist, kann in jeder Funktion an einem Tag nur eine begrenzte Zahl von Änderungen
+            abschicken; danach weist die Website weitere Änderungen bis Mitternacht zurück. Das Zurückziehen einer Einwilligung weist sie dabei
+            nie zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an <MailLink /> schreibst. Profiling findet nicht
+            statt.
           </p>
         </LegalSection>
 

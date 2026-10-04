@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "5aaaed070d5d1618faa6ef703a1d879d64265f1bd5fa221f8abbfa493934e083" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "31221406ec949d707f043631ed0eab859d931109ad906c9df67393a84a29f3ab" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -199,7 +199,7 @@ describe("the privacy notice's retention table", () => {
   it("gives a rejected application, the action log and the backups their clocks in words", () => {
     assert.equal(ANGABEN.get("Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen"), "Ein Monat nach der Entscheidung");
     assert.ok(
-      ANGABEN.get("Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen an ihren eigenen Angaben")?.startsWith(
+      ANGABEN.get("Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen")?.startsWith(
         "Zwölf Monate ab dem Eintrag;",
       ),
     );
@@ -332,6 +332,11 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   { weg: "Es findet keine automatisierte Entscheidungsfindung" },
   // The media-consent and Stufe refusals exist too, reachable only by a request no page sends.
   { weg: "Ohne einen Menschen weist die Website nur zweierlei zurück" },
+  // The bot check and the day ceiling refuse without a human too, and the notice names every such refusal.
+  { weg: "weist sie ohne einen Menschen nur zweierlei zurück" },
+  { weg: "an ihren eigenen Angaben", statt: "Änderungen der Verwaltung und Änderungen angemeldeter Personen" },
+  { weg: "Trainerinnen, Trainern und Ansprechpersonen ab", statt: "Schiedsrichtern und Kontaktpersonen eines Teams ab" },
+  { weg: "Er enthält nur die Zahl der Änderungen und Deine Rolle" },
   { weg: "Hältst Du eine solche" },
   { weg: "Unter dem Mindestalter kann Dich auch ein Mensch nicht zulassen" },
   { weg: "den Wettbewerb durchzuführen" },
@@ -398,9 +403,11 @@ describe("the privacy notice's account of the site's own protection", () => {
   });
 
   it("gives a person's daily count its clock, and says it holds no address", () => {
-    const frist = ANGABEN.get("Tageszähler der Änderungen einer angemeldeten Person") ?? "";
+    const frist = ANGABEN.get("Tageszähler einer angemeldeten Person, je Funktion") ?? "";
 
-    assert.ok(frist.startsWith("Bis Mitternacht des Tages, den er zählt."), frist);
+    // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I837`), and per Funktion, never per mailbox.
+    assert.ok(frist.startsWith("Bis kurz nach Mitternacht des Tages, den er zählt."), frist);
+    assert.ok(frist.includes("wie oft Du in dieser Funktion an dem Tag etwas ändern wolltest, auch wenn es abgewiesen wurde"), frist);
     assert.ok(frist.includes("unter einem unlesbaren Schlüssel statt Deiner Adresse"), frist);
   });
 });
@@ -474,7 +481,7 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   it("publishes media only from the floor the confirmations judge, on its own consent", () => {
     assert.equal(
       ANGABEN.get(
-        `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen, Schiedsrichtern, Trainerinnen, Trainern und Ansprechpersonen ab ${String(MEDIEN_MIN_ALTER)} Jahren, ` +
+        `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen, Schiedsrichtern und Kontaktpersonen eines Teams ab ${String(MEDIEN_MIN_ALTER)} Jahren, ` +
           "auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser " +
           "Website und auf dem Instagram-Kanal der Liga",
       ),
@@ -547,10 +554,10 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   });
 
   // The space before the comma is `textOf`'s separator where the mail link's tag closes.
-  it("offers a human review of both automatic refusals and says what it can change", () => {
+  it("offers a human review of every refusal taken without one, and says what it can change", () => {
     rendert(
       "Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen " +
-        "Menschen nur zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder Schiedsrichter oder als " +
+        "Menschen zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder Schiedsrichter oder als " +
         "Kontaktperson einer Bewerbung einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter über " +
         `${String(BEWERBUNG_MAX_ALTER)} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf ` +
         `Deinen Wunsch ein Mensch: Schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an und ` +
@@ -558,7 +565,14 @@ describe("the privacy notice's publication and retention rows keep their ruled b
         "Link das richtige Datum ein, solange er gilt. Liegt Dein Geburtsdatum tatsächlich unter dem Mindestalter, bleibt es auch " +
         "nach der Prüfung bei der Zurückweisung, weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die " +
         "Verwaltung nach der Prüfung aufheben. Ist der Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist " +
-        "eine Grenze des Kaders und keine Entscheidung über Dich. Profiling findet nicht statt.",
+        "eine Grenze des Kaders und keine Entscheidung über Dich. Zwei weitere Grenzen setzt die Website ebenso ohne einen " +
+        "Menschen. Einen Anmeldecode verschickt sie, eine Bewerbung und eine Registrierung nimmt sie erst an, wenn Cloudflare " +
+        "bestätigt hat, dass ein Mensch das Formular abschickt (Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. " +
+        `Lässt Dich die Prüfung nicht durch, schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an. ` +
+        "Und wer angemeldet ist, kann in jeder Funktion an einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach " +
+        "weist die Website weitere Änderungen bis Mitternacht zurück. Das Zurückziehen einer Einwilligung weist sie dabei nie " +
+        `zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an ${KONTAKT_EMAIL} schreibst. Profiling ` +
+        "findet nicht statt.",
     );
   });
 
