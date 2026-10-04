@@ -642,10 +642,10 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     }
   });
 
-  /* Two codes sharing an answer leave the reader no way to tell which one happened. The exempt pair
-     both spend this person's link: a decided application, and a deadline only the league's re-send
-     restarts. */
-  it("gives each code its own answer, the two spent links one panel", () => {
+  /* Three codes, one panel, each spending this person's link: a decided application, an application's
+     passed deadline, and a season row's passed deadline, which no application's link meets and whose
+     wording the view takes from the link's source. */
+  it("gives each code its own answer, the spent links one panel", () => {
     const answers = new Map(
       publishedRefusals(CONFIRM_OPERATION).map((code) => [
         code,
@@ -653,8 +653,10 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       ]),
     );
 
-    assert.equal(answers.get("REQ-BEWERBUNG-017"), answers.get("REQ-BEWERBUNG-010"), "the passed deadline leaves the spent-link panel");
-    answers.delete("REQ-BEWERBUNG-017");
+    for (const code of ["REQ-BEWERBUNG-017", "REQ-KONTAKT-004"]) {
+      assert.equal(answers.get(code), answers.get("REQ-BEWERBUNG-010"), `${code}'s passed deadline leaves the spent-link panel`);
+      answers.delete(code);
+    }
     assert.equal(new Set(answers.values()).size, answers.size, "two codes are answered with the same panel or sentence");
   });
 
