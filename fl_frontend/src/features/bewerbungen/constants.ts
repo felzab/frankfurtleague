@@ -2,6 +2,7 @@ import { joinUnd } from "@/core/joinUnd";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import type { KontaktRolle } from "@/features/teams/constants";
+import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbungStatus } from "./schemas";
 
@@ -99,6 +100,18 @@ export const BEWERBUNG_MAX_ALTER = 120;
  * (its `{ablehnen}` slot): the label and that sentence say the same words wherever either renders.
  */
 export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
+
+const EINGETRAGEN_VON_LABELS: Readonly<Record<NonNullable<FLKontaktKenntnisnahme["eingetragen_von"]>, string>> = {
+  bewerbung: "Mit der Bewerbung eingetragen",
+  liga: "Von der Liga eingetragen",
+};
+
+/**
+ * Who seated a contact person, the Herkunft an administrator reads. Never guessed for a seat stored
+ * before the field, which says so instead.
+ */
+export const eingetragenVonLabel = (von: FLKontaktKenntnisnahme["eingetragen_von"]): string =>
+  von === null ? "Herkunft nicht erfasst" : EINGETRAGEN_VON_LABELS[von];
 
 /**
  * Every seat a contact person holds on one row, as the one phrase the contact page and the account page

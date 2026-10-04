@@ -78,6 +78,27 @@ describe("the panel a triage decision is taken from", () => {
     assert.notEqual(factLine(markup(), "Team"), "", "no fact stands under „Team“ at all");
   });
 
+  /* The Herkunft is who seated the person, `eingetragen_von`: `erfasst_von` is written by nothing new
+     and leaves the stored records at the programme's end, so a label read off it would go blank. */
+  for (const [von, label] of [
+    ["bewerbung", "Mit der Bewerbung eingetragen"],
+    ["liga", "Von der Liga eingetragen"],
+    [null, "Herkunft nicht erfasst"],
+  ] as const) {
+    it(`names a seat stored as ${String(von)} by who seated it, „${label}“`, () => {
+      const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+      assert.ok(ansprechperson !== null);
+      const html = markup({
+        kontakte: {
+          ...BEWERBUNG.kontakte,
+          ansprechperson: { ...ansprechperson, einwilligung: { ...ansprechperson.einwilligung, eingetragen_von: von } },
+        },
+      });
+
+      assert.match(textOf(factLine(html, "Kenntnisnahme")), new RegExp(`^${label}, `));
+    });
+  }
+
   /* An acceptance writes the created club's id back onto the application, so a decided new-school
      application carries a school AND a club. A guard on the school arm drops the link on exactly
      those. */

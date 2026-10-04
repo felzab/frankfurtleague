@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 import { vonOderGesperrt } from "@/features/berechtigungen/constants";
-import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_HERKUNFT_LABELS, eingetragenVonLabel } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
-import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
+import { KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -209,7 +209,7 @@ export function BewerbungAngabenPanel({
                       {/* No `Leer`: an outstanding seat has a state rather than a gap, and a seat
                           reaching no state has its stored record instead. */}
                       {stand === null
-                        ? `${einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
+                        ? `${eingetragenVonLabel(person.einwilligung.eingetragen_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
                         : stand.satz}
                       {/* Over a confirmation that has been given and no other: the version an
                           outstanding seat stores is the wording the SUBMITTER acknowledged, which
