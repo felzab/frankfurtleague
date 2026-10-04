@@ -19,6 +19,7 @@ import {
   laufendeSpielerFassung,
 } from "@/shared/testing/einwilligungAnswers.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
@@ -29,6 +30,8 @@ import type { ReactNode } from "react";
 
 /* The real module hands its raising to HeroUI's queue rather than back to the form that raised. */
 const { raised } = doubleToasts();
+/* Cloudflare's script, which jsdom never loads: without it the two forms holding the bot check wait for a token and post nothing. */
+doubleTurnstile();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
