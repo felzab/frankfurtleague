@@ -36,6 +36,11 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: "postBewerbung",
     run: async () => {
+      // First, before the body is read: nothing an unverified sender posted is parsed, and the write, which
+      // mails three addresses the payload names, is never reached past a refusal.
+      const refusal = await turnstileRefusal(request.headers.get(TURNSTILE_HEADER));
+      if (refusal !== null) return { success: false as const, error: refusal };
+
       const body: unknown = await request.json().catch(() => null);
 
       // No label check here, unlike the confirmation handlers: the backend judges the label after
@@ -43,10 +48,6 @@ export async function POST(request: NextRequest) {
       const parsed = FLPostBewerbungPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, BEWERBUNG_VERALTET) };
-
-      // Before the write, which mails three addresses the payload names: a refusal here has written and sent nothing.
-      const refusal = await turnstileRefusal(request.headers.get(TURNSTILE_HEADER));
-      if (refusal !== null) return { success: false as const, error: refusal };
 
       let eingang;
       try {

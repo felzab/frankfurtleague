@@ -432,9 +432,11 @@ whole site anyway; a secret or request of ours it refuses is refused in a senten
 wrong key shows at the first submission rather than switching the check off. Better Auth's captcha plugin is not the check: it guards the
 library's HTTP endpoints, and the code mail leaves through an in-process call no request reaches.
 The passkey ceremony and the typed code's check mail nothing and carry no check. **No anonymous
-entry point ships without the check**: `fl_frontend/src/app/botCheckCoverage.test.ts` holds every
-route handler running through `handlePublicRequest`, and every server action running no session
-spine, to asking it or to an exemption naming what stops a script mailing through it.
+entry point ships without the check**: `fl_frontend/src/app/botCheckCoverage.test.ts` calls every
+route handler and every server action with no session and no token, and holds each to turning the
+caller away, to answering the check's refusal before it parses or sends anything, or to an exemption
+naming what stops a script mailing through it. The check comes first so that nothing an unverified
+sender posted is parsed: a refused draft costs a real visitor the token the press would have spent anyway.
 
 **The provider's delivery webhook (`fl_frontend/src/app/api/mail/zustellung/route.ts`) takes neither
 spine, and is the one route handler here that answers a status a caller reads.**

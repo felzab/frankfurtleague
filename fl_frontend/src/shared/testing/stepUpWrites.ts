@@ -3,7 +3,7 @@ import path from "node:path";
 
 import ts from "typescript";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile, routeHandlerFiles } from "@/core/treeWalk.ts";
 
 const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
 
@@ -105,8 +105,8 @@ function declaresStepUp(node: ts.Node): boolean {
 
 /** Every undo route, by the slice its directory names, with its syntax tree. */
 const UNDO_ROUTE_SOURCES: ReadonlyMap<string, ts.SourceFile> = new Map(
-  filesUnder(UNDO_ROUTES, (name) => name === "route.ts", 8)
-    .filter((file) => path.basename(path.dirname(file)) === "undo")
+  routeHandlerFiles(8)
+    .filter((file) => path.dirname(path.dirname(path.dirname(file))) === UNDO_ROUTES && path.basename(path.dirname(file)) === "undo")
     .map((file) => [
       path.basename(path.dirname(path.dirname(file))),
       ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true),

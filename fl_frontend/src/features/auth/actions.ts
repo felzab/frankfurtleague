@@ -41,6 +41,13 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
   return runWithIncomingTrace(async () => {
     // The only server action reachable without a session, so its input is parsed and never cast.
     const submittedEmail = String(formData.get("email") ?? "");
+
+    // First, before the address is judged: nothing an unverified sender posted is parsed. The answer is
+    // the same whatever the address, so it says nothing about one.
+    const token = formData.get(TURNSTILE_FIELD);
+    const refusal = await turnstileRefusal(typeof token === "string" ? token : null);
+    if (refusal !== null) return { success: false, error: refusal, submittedEmail };
+
     const validated = SignInPayloadSchema.safeParse({ email: submittedEmail });
     if (!validated.success) {
       // Safe to be specific: a format check on what the user typed leaks no membership.
@@ -64,11 +71,6 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     // The library folds CASE alone and refuses a Unicode domain, so the punycode the fold converts
     // one to is the only spelling in which that person signs in at all.
     const email = asSignInIdentifier(validated.data.email);
-
-    // Before the response and safe there: nothing it reads depends on whether the address holds an account.
-    const token = formData.get(TURNSTILE_FIELD);
-    const refusal = await turnstileRefusal(typeof token === "string" ? token : null);
-    if (refusal !== null) return { success: false, error: refusal, submittedEmail };
 
     // The whole call, behind the response: the mail cap, the code write, the gate and the send all
     // sit in the branch-dependent half, so no branch does any of it before the caller is answered.

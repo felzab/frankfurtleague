@@ -38,3 +38,13 @@ export function filesUnder(root: string, accepts: (name: string) => boolean, flo
 
   return found;
 }
+
+const APP_DIR = path.resolve(import.meta.dirname, "..", "app");
+
+/**
+ * Every route handler Next serves, by its own convention: `route.ts` or `route.tsx` anywhere under `app/`.
+ * One reader, so no sweep of handlers can take a narrower set than Next routes to.
+ */
+export function routeHandlerFiles(floor: number): string[] {
+  return filesUnder(APP_DIR, (name) => name === "route.ts" || name === "route.tsx", floor);
+}

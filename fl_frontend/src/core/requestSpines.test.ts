@@ -1,3 +1,6 @@
+// The harness that compiles `.tsx`, which Node strips no JSX from: a `route.tsx` is as much a handler.
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -5,7 +8,7 @@ import { pathToFileURL } from "node:url";
 
 import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
-import { filesUnder } from "./treeWalk.ts";
+import { routeHandlerFiles } from "./treeWalk.ts";
 
 const APP_DIR = path.resolve(import.meta.dirname, "..", "app");
 
@@ -79,10 +82,9 @@ const UNGUARDED: Record<string, string> = {
 };
 const UNGUARDED_BY_DECISION = Object.keys(UNGUARDED);
 
-// Next's own routing convention decides this listing, so a handler added tomorrow is swept with no
-// edit here. Both suffixes: `route.tsx` is as much a handler as `route.ts`.
+// Next's own routing convention decides this listing, so a handler added tomorrow is swept with no edit here.
 const HANDLERS: { name: string; handler: Handler }[] = [];
-for (const file of filesUnder(APP_DIR, (name) => name === "route.ts" || name === "route.tsx", 8)) {
+for (const file of routeHandlerFiles(8)) {
   const routeModule = (await import(pathToFileURL(file).href)) as Partial<Record<(typeof METHODS)[number], Handler>>;
   for (const method of METHODS) {
     const handler = routeModule[method];

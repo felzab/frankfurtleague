@@ -24,14 +24,15 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: "postRegistrierung",
     run: async () => {
+      // First, before the body is read: nothing an unverified sender posted is parsed, and the write, which
+      // mails the address the visitor typed, is never reached past a refusal.
+      const refusal = await turnstileRefusal(request.headers.get(TURNSTILE_HEADER));
+      if (refusal !== null) return { success: false as const, error: refusal };
+
       const body: unknown = await request.json().catch(() => null);
       const parsed = FLPostRegistrierungPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, REGISTRIERUNG_NEU_OEFFNEN) };
-
-      // Before the write, which mails the address the visitor typed: a refusal here has written and sent nothing.
-      const refusal = await turnstileRefusal(request.headers.get(TURNSTILE_HEADER));
-      if (refusal !== null) return { success: false as const, error: refusal };
 
       let eingang;
       try {
