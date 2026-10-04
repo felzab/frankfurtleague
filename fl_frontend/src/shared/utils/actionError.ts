@@ -29,6 +29,12 @@ export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
 export const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
 
 /**
+ * What a signed-in person is told at their Funktion's ceiling for the day (`REQ-DROSSELUNG-001`): the count
+ * starts again at German midnight, so neither a retry nor a sign-in is offered.
+ */
+export const HEUTE_GENUG_GEAENDERT = "Du hast heute schon sehr viel geändert. Morgen geht es weiter.";
+
+/**
  * What a seat holder whose seat went after the page was drawn is told, by the person spine and by the
  * backend's own seat check: a reload draws the page they still hold, or the forbidden panel.
  */
@@ -263,6 +269,8 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
     // The person binder reads the ban per request, so a ban entered since the session was judged.
     if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
+    // Every person's write route can answer it, so it is worded here once rather than by each slice.
+    if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: HEUTE_GENUG_GEAENDERT };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
   if (isFunktionLost(error)) return { success: false, error: SITZ_WEG };

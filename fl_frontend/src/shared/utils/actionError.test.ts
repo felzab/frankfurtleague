@@ -9,6 +9,7 @@ import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
 import {
   FELD_ABGELEHNT,
+  HEUTE_GENUG_GEAENDERT,
   isRuleRefusal,
   refusedDraftAnswer,
   rejectedWrite,
@@ -38,6 +39,18 @@ describe("toActionErrorResult", () => {
       const result = toActionErrorResult(new APIBadStatusError({ ...sent, message: "bad", statusCode: 403, serverErrorCode: "REQ-AUTH-006" }));
 
       assert.deepEqual(result, { success: false, error: ZUGANG_WEG }, sent.method);
+    }
+  });
+
+  /* Raised before the write on every person's route, so nothing was written; a retry meets the same count
+     until German midnight, which is why the server error's retry is never offered. */
+  it("tells a person at their day's ceiling to come back tomorrow, at any status the code arrives at", () => {
+    for (const statusCode of [429, 409]) {
+      const result = toActionErrorResult(
+        new APIBadStatusError({ ...write, message: "bad", statusCode, serverErrorCode: "REQ-DROSSELUNG-001" }),
+      );
+
+      assert.deepEqual(result, { success: false, error: HEUTE_GENUG_GEAENDERT }, String(statusCode));
     }
   });
 
