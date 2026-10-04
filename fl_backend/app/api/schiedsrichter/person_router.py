@@ -109,11 +109,11 @@ async def patch_einwilligung(
     """
     Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
 
-    Writes those two on this one referee row, and nothing else: the confirmation day, the day given, who gave it and
-    the wording they confirmed stand, and no fixture is written. The fixture list does not read the scope yet: it
-    serves the name each fixture stores, so a withdrawal here changes no fixture page until its read joins this row. A
-    PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to
-    `true`) is taken on a live record alone; a withdrawal on a retired one too.
+    Writes those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing
+    else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
+    fixture list does not read the scope yet: it serves the name each fixture stores, so a withdrawal here changes no
+    fixture page until its read joins this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
+    `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one
     (`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since
