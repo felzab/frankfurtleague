@@ -368,7 +368,8 @@ describe("the re-send beside an unconfirmed seat", () => {
   for (const [code, fragment] of [
     ["REQ-KONTAKT-002", /leer oder schon bestätigt/],
     ["REQ-KONTAKT-003", /Sperrliste/],
-    ["REQ-KONTAKT-005", /Saison ist vorbei oder das Team ist ausgetreten/],
+    // A reload, the one action left: the reloaded editor offers no send on such a row.
+    ["REQ-KONTAKT-005", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
   ] as const) {
     it(`words ${code} beside the seat, and mails nothing`, async () => {
       resend = () => aRefusal(code);
