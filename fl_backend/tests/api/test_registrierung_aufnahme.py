@@ -297,10 +297,12 @@ async def decline(
     )
 
 
-async def read(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ANNA, team_id: ObjectId = TEAM_OID) -> Any:
+async def read(
+    database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ANNA, team_id: ObjectId = TEAM_OID, saison_id: str = SAISON_ID
+) -> Any:
     return await get_offene_registrierungen(
         team_id=team_id,
-        saison_id=SAISON_ID,
+        saison_id=saison_id,
         params=FLOffeneRegistrierungenParams(),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
@@ -888,18 +890,23 @@ class TestEverySeatActsAlike:
 
     @pytest.mark.parametrize("operation", ["read", "admit", "decline"])
     @pytest.mark.parametrize(
-        ("identifier", "stellvertretung_bestaetigt"),
-        [(OTTO, True), (STELLA, False), (PAULA, True), (NORA, True)],
-        ids=("another team's seat", "an unconfirmed seat", "a seat in the past season", "a seat in another season"),
+        ("identifier", "stellvertretung_bestaetigt", "saison_id"),
+        [(OTTO, True, SAISON_ID), (STELLA, False, SAISON_ID), (PAULA, True, PAST_SAISON_ID), (NORA, True, SAISON_ID)],
+        ids=("another team's seat", "an unconfirmed seat", "a past season's seat on its own registration", "a seat in another season"),
     )
     def test_a_seat_granting_nothing_here_is_refused_and_writes_nothing(
-        self, mongo_replica_set_url: str, operation: str, identifier: str, stellvertretung_bestaetigt: bool
+        self, mongo_replica_set_url: str, operation: str, identifier: str, stellvertretung_bestaetigt: bool, saison_id: str
     ):
+        """Paula's registration is in her own seat's season: one submitted before a rollover stays pending past it.
+
+        There the season matches, and the `past` status alone refuses (`docs/backend/spec.md :: I375`).
+        """
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            registrierung_id = await seed(database, registrierung_document())
+            registrierung_id = await seed(database, registrierung_document(saison_id=saison_id))
             before = await snapshot(database)
             call = {
-                "read": lambda: read(database, client, identifier=identifier),
+                "read": lambda: read(database, client, identifier=identifier, saison_id=saison_id),
                 "admit": lambda: admit(database, client, registrierung_id, identifier=identifier),
                 "decline": lambda: decline(database, client, registrierung_id, identifier=identifier),
             }[operation]
