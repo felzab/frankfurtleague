@@ -169,6 +169,20 @@ Every ruling below is the sign-up flow as it stands for the next season.
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
     tells a person whose address holds an account that the sign-in is barred.
 
+  **Two more refusals are taken by the code alone, and the notice does not yet name either as
+  one:**
+  - Cloudflare's bot check on the sign-in code request, the application form and the pupil's
+    registration form, which refuses a submission carrying no token or one Cloudflare judged against, before
+    anything is written or mailed, and asks the person to confirm they are human
+    (`fl_frontend/src/core/turnstile.ts :: passesTurnstile`, `:: MENSCH_BESTAETIGEN`), a check
+    Cloudflare cannot answer letting the submission through
+    (`docs/frontend/spec.md :: I822`);
+  - the daily write ceiling, which refuses a signed-in person's counted writes past their
+    Funktion's bound until German midnight (`REQ-DROSSELUNG-001`, `docs/backend/spec.md :: I831`)
+    and never refuses a withdrawal (`:: I833`).
+
+  Whether the review the notice offers reaches either is not yet ruled.
+
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
   (`DELETE /sperrliste/{sperrliste_id}`), and a date truly below a floor stays refused, the league
@@ -815,7 +829,8 @@ the `Entry` column carries a token only where one still resolves in that file.
   or one similarly serious, its nearest example being a decision affecting access to education, such
   as a university admission, and does not say whether being refused a place in a school league is one
   — read on 2026-09-22. The questions to put: whether any of those refusals meets Art. 22 (1)'s
-  threshold, and if one does, which exception of Art. 22 (2) it rests on.
+  threshold, Cloudflare's bot check and the daily write ceiling among them, and if one does, which
+  exception of Art. 22 (2) it rests on.
 - **An address whose part before the @ is not plain ASCII is refused with nobody deciding, and the
   published notice does not name it, for the Datenschutzexperte.** Every box that stores an address
   refuses one ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), so a person whose only
