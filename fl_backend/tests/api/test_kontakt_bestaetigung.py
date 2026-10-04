@@ -188,7 +188,6 @@ async def save(
             {"kontakte": kontakte, "kontakte_stand": kontakte_stand_of(row.get("kontakte"))}
         ),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
-        saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
         db=database.client,
         refuse_unconfirmed=step_up,
@@ -965,7 +964,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
 
 
 class TestARowNoLongerInTheSeason:
-    """A link asks a person to confirm a seat for a season, which neither a `past` season nor a withdrawn team offers."""
+    """Neither a `past` season nor a withdrawn team offers a seat to confirm, so a link there takes a Widerspruch alone."""
 
     @pytest.mark.parametrize(
         ("saison_status", "row_fields"),
@@ -976,17 +975,24 @@ class TestARowNoLongerInTheSeason:
             ),
         ],
     )
-    def test_a_save_seating_new_people_mints_nothing(self, mongo_replica_set_url: str, saison_status: str, row_fields: dict[str, Any]):
-        """The correction itself lands: such a row's contacts stay correctable, and nobody is mailed for it."""
+    def test_a_person_the_save_newly_seats_is_minted_a_link_taking_their_widerspruch(
+        self, mongo_replica_set_url: str, saison_status: str, row_fields: dict[str, Any]
+    ):
+        """The link is how a person entered there learns of it (Art. 14 (3)(a) GDPR), so the save mints one all the same."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            return await save(database, THREE), await row_now(database)
+            response = await save(database, THREE)
+            token = response.bestaetigungen[0].token
+            view = await ansicht(database, token)
+            consent = await refused(answer(database, token))
 
-        response, row = on_a_league(mongo_replica_set_url, body, saison_status=saison_status, row_fields=row_fields)
+            return response, view, consent, await answer(database, token, antwort="abgelehnt"), await row_now(database)
 
-        assert response.bestaetigungen == []
-        assert row["kontakte"]["trainer"]["email"] == "ida@example.com", "the save did not land, so this case proves nothing"
-        assert row["bestaetigungen"] == dict.fromkeys(SEATS)
+        response, view, consent, widerspruch, row = on_a_league(mongo_replica_set_url, body, saison_status=saison_status, row_fields=row_fields)
+
+        assert [mint.rollen for mint in response.bestaetigungen] == [["trainer"], ["ansprechperson"], ["stellvertretung"]]
+        assert (view.zustand, consent, widerspruch.ergebnis) == ("saison_vorbei", KONTAKT_SAISON_VORBEI, "abgelehnt")
+        assert row["kontakte"]["trainer"] is None
 
     @pytest.mark.parametrize(
         ("saison_status", "row_fields"),

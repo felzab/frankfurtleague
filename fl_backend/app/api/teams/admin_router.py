@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
-from app.api.bewerbungen.services import mint_token, row_takes_links, seat_adressen, seat_named
+from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
@@ -580,7 +580,6 @@ async def patch_saison_team_kontakte(
     saison_id: str,
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
@@ -601,9 +600,10 @@ async def patch_saison_team_kontakte(
     **Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the
     caller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person
     keeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing
-    live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. A row of a `past`
-    season, or of a team that has left it, is minted no link at all. A save minting a link, or voiding one its person
-    could still answer, is refused `REQ-AUTH-009` as the clearing is; a save doing neither is not.
+    live. An address the ban list holds is stored and minted nothing, its seat answered in `gesperrt`. On a row of a
+    `past` season, or of a team that has left it, the link is how its person learns of the entry, and it takes their
+    Widerspruch alone. A save minting a link, or voiding one its person could still answer, is refused `REQ-AUTH-009`
+    as the clearing is; a save doing neither is not.
 
     **A seat the same person keeps keeps its record whole**, every act on it included, and the save appends nothing
     there; a seat newly filled or handed to another person is born with one `erteilt` entry, and its label must be the
@@ -629,7 +629,7 @@ async def patch_saison_team_kontakte(
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
-            projection=["kontakte", "bestaetigungen", "name", "austritt"],
+            projection=["kontakte", "bestaetigungen", "name"],
             session=session,
         )
 
@@ -640,11 +640,9 @@ async def patch_saison_team_kontakte(
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
-        # In session: the save mints nothing for a season it reads as closed. A rollover committing after this
-        # read is not seen, and the link it minted is refused at its press (`docs/backend/spec.md :: I935`).
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
-        nimmt_links = row_takes_links(saison_status=saison_raw.get("status"), austritt=stored.get("austritt"))
-        owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte")) if nimmt_links else []
+        # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
+        # Widerspruch alone (`docs/backend/spec.md :: I935`).
+        owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
         # In the transaction, so whether a link exists answers the ban as it stands at the write; a ban
         # landing after it is the confirmation press's to refuse (`docs/backend/spec.md :: I505`).
         barred = await adressen_gesperrt(

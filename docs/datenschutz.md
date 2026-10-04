@@ -249,9 +249,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
   because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning
   above. Ruled 2026-10-03. The save mints one for each person it newly seats
-  (`fl_backend/app/api/teams/services.py :: links_owed`), and an administrator re-sends one to any
-  seat still unconfirmed, a seat entered before the link existed included
-  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
+  (`fl_backend/app/api/teams/services.py :: links_owed`), on a row whose season has ended or whose
+  team has left it too, where the link takes the person's Widerspruch and no confirmation
+  (`docs/backend/spec.md :: I935`). An administrator re-sends one to any seat
+  still unconfirmed while the season runs and the team is in it, a seat entered before the link
+  existed included (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
   fourteen days, and on it the person confirms the seat or makes their Widerspruch, which empties it.
   No link is minted to an address the ban list holds, so that person is told nothing by the league;
   the notice's own sentence saying so is the published page's
