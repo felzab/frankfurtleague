@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# HOOKS · a compacted coordinator is sent back to its skill and its register
-# SessionStart hook on compact. Compaction keeps only the opening of an invoked skill, and a fleet's
-# state lives in its register's resume point; a register recording the compacted session's own id
-# is what marks it a coordinator, every other session hearing nothing. Silent wherever it cannot read.
+# HOOKS · a compacted coordinator is told where its fleet's state lives
+# SessionStart hook on compact. A fleet's state lives in its register's resume point, which a summary
+# may not carry; a register recording the compacted session's own id is what marks it a coordinator,
+# every other session hearing nothing. Silent wherever it cannot read.
 
 IFS= read -r -d '' payload || true
 
@@ -29,9 +29,8 @@ done
 named="${registers[0]}"
 for register in "${registers[@]:1}"; do named+=", and ${register}"; done
 
-# Re-invoking unchanged content can answer with an already-loaded note instead of the page, so the
-# text names the fallback the harness's own truncation marker names.
-text="This session coordinates the fleet its register records, and it was just compacted, which keeps only the opening of the orchestration skill. Before your next action, invoke the orchestration skill again (/orchestration). If that answers that the skill is already loaded, or the copy you hold still ends at the truncation marker, Read .claude/skills/orchestration/SKILL.md whole. Then read the RESUME POINT in ${named}."
+# Factual statements rather than instructions, as the hooks documentation asks of additionalContext.
+text="This session coordinates the agent fleet recorded in ${named}. Its orchestration core is .claude/skills/orchestration/SKILL.md. Its resume point is in that register."
 text="${text//\\/\\\\}"
 text="${text//\"/\\\"}"
 

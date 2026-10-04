@@ -980,13 +980,13 @@ process.stdout.write(JSON.stringify(input));
   if [[ "$compact_said" == "0 "* ]] && node -e '
 const said = JSON.parse(process.argv[1]).hookSpecificOutput;
 const text = said.additionalContext;
-// The re-invoke, the fallback when it answers "already loaded", and the register: the hook owes all three.
-const whole = /\/orchestration/.test(text) && /Read \.claude\/skills\/orchestration\/SKILL\.md whole/.test(text);
-process.exit(said.hookEventName === "SessionStart" && whole && /REGISTER-one\.md/.test(text) ? 0 : 1);
+// The core, the resume point and the register: the hook owes all three.
+const pointers = /\.claude\/skills\/orchestration\/SKILL\.md/.test(text) && /resume point/.test(text);
+process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\.md/.test(text) ? 0 : 1);
 ' "${compact_said#0 }" 2>/dev/null; then
-    info 'compaction hook: the coordinator — sent to the skill and its register'
+    info 'compaction hook: the coordinator — told its core, its register and its resume point'
   else
-    note_fail "compaction hook: the coordinator's compaction must name /orchestration, the whole-page Read and its register as JSON, got '${compact_said:0:200}'"
+    note_fail "compaction hook: the coordinator's compaction must name the core, the resume point and its register as JSON, got '${compact_said:0:200}'"
   fi
   for compact_case in \
     'another session|{"session_id":"probe-2","source":"compact","hook_event_name":"SessionStart"}' \

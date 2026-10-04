@@ -266,4 +266,7 @@ hand its file to an agent: the first fans out its own auditors, the second edits
 **Comply with every refusal from a permission rule, and never route around it.** Write a multi-line
 file with the `Write` tool, never a heredoc.
 
+When compacting a session that coordinates a fleet, keep its register's path, the session branch
+and every live agent's id.
+
 Every section keeps its number; a clause §6 or §7 hands to `.claude/rules/` is cited by its file.
