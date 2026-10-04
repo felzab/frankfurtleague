@@ -32,7 +32,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   return answer();
 }) as typeof fetch;
 
-const { MENSCH_BESTAETIGEN, PRUEFUNG_GESTOERT, turnstileRefusal } = await import("./turnstile.ts");
+const { PRUEFUNG_GESTOERT, turnstileRefusal } = await import("./turnstile.ts");
+const { MENSCH_BESTAETIGEN } = await import("./turnstileToken.ts");
 
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 

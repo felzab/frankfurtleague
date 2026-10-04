@@ -235,10 +235,18 @@ export function BewerbungForm({
 
   const writeAfterBlock = () => {
     const payload = bewerbungPayload(draft);
-    const turnstileToken = humanCheck.takeToken();
 
     startSending(async () => {
-      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, { idempotencyKey: schluessel, turnstileToken });
+      const anfrage = await humanCheck.takeToken();
+      if ("satz" in anfrage) {
+        appToast.danger("Bewerbung nicht abgeschickt", { description: anfrage.satz });
+        return;
+      }
+
+      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, {
+        idempotencyKey: schluessel,
+        turnstileToken: anfrage.token,
+      });
 
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
@@ -404,6 +412,7 @@ export function BewerbungForm({
 
         {/* One item of the form's gap with the submit: a widget Cloudflare shows nothing in leaves no gap of its own. */}
         <div className="flex flex-col">
+          {humanCheck.widget}
           <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
             <Button
               type="submit"
@@ -412,7 +421,6 @@ export function BewerbungForm({
               {isPending ? "Schickt ab..." : "Bewerbung abschicken"}
             </Button>
           </div>
-          {humanCheck.widget}
         </div>
       </Form>
     </>

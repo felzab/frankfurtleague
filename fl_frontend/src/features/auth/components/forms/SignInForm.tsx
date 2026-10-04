@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { catchError } from "next/error";
 
 import { Button } from "@heroui/react/button";
@@ -37,6 +37,10 @@ import type { ErrorInfo } from "next/error";
 const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 
 const ANMELDEN = { rest: "Anmelden", pending: "Meldet an..." };
+
+/** A check that did not load, naming the passkey, which signs in without it. */
+const PRUEFUNG_NICHT_GELADEN =
+  "Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, oder melde Dich mit einem Passkey an.";
 
 /**
  * Next's own boundary rather than a hand-written class: a class catches every throw, a framework
@@ -85,8 +89,11 @@ function SignInPanel({
   next: string;
   siteKey: string;
 }) {
-  const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
-  const humanCheck = useTurnstile(siteKey);
+  const [state, formAction, isDispatching] = useActionState(handleSignIn, undefined);
+  const humanCheck = useTurnstile(siteKey, PRUEFUNG_NICHT_GELADEN);
+  // The press waits for the bot check's token before the send is dispatched, and is a send all along.
+  const [isAwaitingToken, startAwaitingToken] = useTransition();
+  const isPending = isDispatching || isAwaitingToken;
 
   const { setSubmitFieldErrors, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { signIn: SignInPayloadSchema },
@@ -97,7 +104,9 @@ function SignInPanel({
   // `useActionState` has no reset, so the panel is keyed on a pair: `dismissedAt` is what lets
   // "Andere E-Mail-Adresse verwenden" return the form.
   const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
-  const isSubmitted = state?.success === true && state !== dismissedAt;
+  // The last send that mailed a code: a refused resend leaves the code it mailed standing, and its step with it.
+  const [sent, setSent] = useState<Extract<FormState, { success: true }> | undefined>(undefined);
+  if (state?.success === true && state !== sent) setSent(state);
 
   // The code step unmounts from under the pressed way back, so focus would fall to `<body>`; the box
   // it returns to takes it. Never on the first mount, where nothing was pressed.
@@ -129,13 +138,22 @@ function SignInPanel({
 
   /** The same send for the first code and every resend, so the two cannot come to differ. */
   const send = (address: string) => {
-    setSends((count) => count + 1);
-    const submitted = new FormData();
-    submitted.set("email", address);
-    submitted.set(TURNSTILE_FIELD, humanCheck.takeToken());
-    // Inside a transition, as a dispatch from a handler must be: outside one `isPending` never turns true.
-    startTransition(() => {
-      formAction(submitted);
+    startAwaitingToken(async () => {
+      const anfrage = await humanCheck.takeToken();
+      if ("satz" in anfrage) {
+        appToast.danger("Code nicht gesendet", { description: anfrage.satz });
+        return;
+      }
+
+      const submitted = new FormData();
+      submitted.set("email", address);
+      submitted.set(TURNSTILE_FIELD, anfrage.token);
+      // A transition of its own: React leaves an update after an `await` outside the transition that awaited,
+      // and outside one the action's pending state never turns true.
+      startTransition(() => {
+        setSends((count) => count + 1);
+        formAction(submitted);
+      });
     });
   };
 
@@ -148,62 +166,60 @@ function SignInPanel({
     guardSubmit({ signIn: { email } }, () => send(email));
   };
 
-  if (isSubmitted) {
-    const address = state.submittedEmail ?? "";
+  if (sent !== undefined && sent !== dismissedAt) {
+    const address = sent.submittedEmail ?? "";
     return (
-      <>
-        <CodeStep
-          key={sends}
-          address={address}
-          message={state.message ?? null}
-          hint={KEIN_CODE}
-          submitLabel={ANMELDEN}
-          isSending={isPending}
-          onResend={() => send(address)}
-          onBack={() => setDismissedAt(state)}
-          // A full document load and never a soft navigation: the session has just changed, so every
-          // payload the router holds was rendered for somebody signed out.
-          onSignedIn={() => leaveDocumentFor(next)}
-        />
-        {humanCheck.widget}
-      </>
+      <CodeStep
+        key={sends}
+        address={address}
+        message={sent.message ?? null}
+        hint={KEIN_CODE}
+        submitLabel={ANMELDEN}
+        isSending={isPending}
+        onResend={() => send(address)}
+        resendCheck={humanCheck.widget}
+        onBack={() => setDismissedAt(sent)}
+        // A full document load and never a soft navigation: the session has just changed, so every
+        // payload the router holds was rendered for somebody signed out.
+        onSignedIn={() => leaveDocumentFor(next)}
+      />
     );
   }
 
-  // The widget second in both steps' fragments, so the step changing never remounts it: a resend takes
-  // its next token from the same widget the first send's did.
   return (
-    <>
-      <div className="flex flex-col gap-y-4">
-        <Form
-          wiring={formWiring}
-          onSubmit={handleFormSubmit}
-          className="flex flex-col gap-y-4">
-          {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
+    <div className="flex flex-col gap-y-4">
+      <Form
+        wiring={formWiring}
+        onSubmit={handleFormSubmit}
+        className="flex flex-col gap-y-4">
+        {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
         stopped matching the words a voice-control user reads. `TextField` associates it. */}
-          <TextField
-            className="flex w-full flex-col gap-y-2"
-            name="email"
-            type="email"
-            value={email}
-            onChange={onEmailChange}
-            // Read-only rather than disabled while the code sends: a disabled field drops the focus of
-            // the visitor who pressed `Enter` in it to the page.
-            isReadOnly={isPending}>
-            <Label className={LABEL_CLASSES}>E-Mail-Adresse</Label>
-            {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
+        <TextField
+          className="flex w-full flex-col gap-y-2"
+          name="email"
+          type="email"
+          value={email}
+          onChange={onEmailChange}
+          // Read-only rather than disabled while the code sends: a disabled field drops the focus of
+          // the visitor who pressed `Enter` in it to the page.
+          isReadOnly={isPending}>
+          <Label className={LABEL_CLASSES}>E-Mail-Adresse</Label>
+          {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
             browser's bubble back on the very blur this mode exists to keep quiet. */}
-            <Input
-              ref={addressRef}
-              className="w-full rounded-xl border border-control bg-surface px-4 py-3 fluid-xs text-foreground transition-colors duration-(--motion-base) outline-none placeholder:text-foreground-muted sm:fluid-sm"
-              placeholder="z.B. name@beispiel.de"
-              type="email"
-              // `webauthn` last, where a browser looks for it before it offers a passkey in this box.
-              autoComplete="username webauthn"
-            />
-            <FieldError className={FIELD_ERROR_CLASSES} />
-          </TextField>
+          <Input
+            ref={addressRef}
+            className="w-full rounded-xl border border-control bg-surface px-4 py-3 fluid-xs text-foreground transition-colors duration-(--motion-base) outline-none placeholder:text-foreground-muted sm:fluid-sm"
+            placeholder="z.B. name@beispiel.de"
+            type="email"
+            // `webauthn` last, where a browser looks for it before it offers a passkey in this box.
+            autoComplete="username webauthn"
+          />
+          <FieldError className={FIELD_ERROR_CLASSES} />
+        </TextField>
 
+        {/* One item of the form's gap with the submit: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+        <div className="flex flex-col">
+          {humanCheck.widget}
           <Button
             type="submit"
             variant="primary"
@@ -211,22 +227,21 @@ function SignInPanel({
             className={formButton({ intent: "submit", fullWidth: true })}>
             {isPending ? "Sendet..." : "Code senden"}
           </Button>
-        </Form>
-
-        {/* Decoration: the passkey button carries its own name. */}
-        <div
-          aria-hidden="true"
-          className="flex items-center gap-x-3 fluid-xs text-foreground-muted">
-          <Separator className="flex-1 bg-border" />
-          oder
-          <Separator className="flex-1 bg-border" />
         </div>
+      </Form>
 
-        {/* Outside the form, which it submits nothing to, and mounted with the address step alone: its
-          autofill offer is attached to that step's field. */}
-        <PasskeySignIn />
+      {/* Decoration: the passkey button carries its own name. */}
+      <div
+        aria-hidden="true"
+        className="flex items-center gap-x-3 fluid-xs text-foreground-muted">
+        <Separator className="flex-1 bg-border" />
+        oder
+        <Separator className="flex-1 bg-border" />
       </div>
-      {humanCheck.widget}
-    </>
+
+      {/* Outside the form, which it submits nothing to, and mounted with the address step alone: its
+          autofill offer is attached to that step's field. */}
+      <PasskeySignIn />
+    </div>
   );
 }

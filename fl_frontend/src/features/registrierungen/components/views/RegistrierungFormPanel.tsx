@@ -101,12 +101,17 @@ export function RegistrierungFormPanel({
 
   const writeAfterBlock = () => {
     const payload = registrierungPayload(draft, token);
-    const turnstileToken = humanCheck.takeToken();
 
     startSending(async () => {
+      const anfrage = await humanCheck.takeToken();
+      if ("satz" in anfrage) {
+        appToast.danger("Registrierung nicht abgeschickt", { description: anfrage.satz });
+        return;
+      }
+
       const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, {
         idempotencyKey: schluessel,
-        turnstileToken,
+        turnstileToken: anfrage.token,
       });
 
       if (!gesendet.answered) {
@@ -285,6 +290,7 @@ export function RegistrierungFormPanel({
 
       {/* One item of the form's gap with the submit: a widget Cloudflare shows nothing in leaves no gap of its own. */}
       <div className="flex flex-col">
+        {humanCheck.widget}
         <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
           <Button
             type="submit"
@@ -293,7 +299,6 @@ export function RegistrierungFormPanel({
             {isPending ? "Schickt ab..." : "Registrierung abschicken"}
           </Button>
         </div>
-        {humanCheck.widget}
       </div>
     </Form>
   );

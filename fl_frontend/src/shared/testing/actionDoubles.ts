@@ -31,11 +31,14 @@ const WRITE_MODULE = /\/(?:mutations|notifications)\.ts$|\/core\/mail\.ts$/;
 export function doubleActions({
   modules,
   answer = () => Promise.resolve({ success: true, message: "Gespeichert." }),
+  payloadOf = (args) => args[0],
 }: {
   /** Each module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. */
   modules: readonly (string | RegExp)[];
   /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
   answer?: () => Promise<unknown>;
+  /** The argument recorded as a call's payload: a form action under `useActionState` is handed the previous state first. */
+  payloadOf?: (args: readonly unknown[]) => unknown;
 }): {
   calls: ActionCall[];
   answerWith: (next: () => Promise<unknown>) => void;
@@ -80,8 +83,8 @@ export function doubleActions({
   };
   const act =
     (action: string) =>
-    async (payload: unknown): Promise<unknown> => {
-      calls.push({ action, payload });
+    async (...args: unknown[]): Promise<unknown> => {
+      calls.push({ action, payload: payloadOf(args) });
       return answerOf(action);
     };
 

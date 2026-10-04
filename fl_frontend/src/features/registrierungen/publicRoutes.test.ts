@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
+import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeSpielerFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
@@ -19,6 +20,7 @@ import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pag
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
+import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
@@ -34,6 +36,7 @@ import type { SpielerBestaetigungGeoeffnet, SpielerFassung } from "./types.ts";
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
 // the one reader that decides which answers are this application's.
 const fetchMock = doubleFetch();
+const turnstile = doubleTurnstile();
 
 const { raised } = doubleToasts();
 
@@ -334,6 +337,25 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
     assert.match(worte, new RegExp(String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)), "the answer page states no deadline, or one of its own");
     assert.match(worte, /registriere Dich einfach erneut/, "the answer page offers no way back from a mistyped address");
     assert.equal(raised.length, 0, "a successful submission raised a failure toast");
+  });
+
+  it("carries the token its bot check minted for the press", async () => {
+    const user = userEvent.setup();
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 })));
+    render(h(RegistrierungFormPanel, { token: "kein-echtes-token", ansicht: ANSICHT, siteKey: TEST_SITE_KEY, onLinkTot: () => undefined }));
+    await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
+    await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
+    await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), PUPIL_ADDRESS);
+    const minted = turnstile.lastMinted();
+
+    await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+    await act(fetchMock.answered);
+
+    assert.ok(minted !== undefined, "the form's widget minted nothing");
+    assert.deepEqual(
+      fetchMock.mock.calls.map(({ arguments: [, init] }) => (init?.headers as Record<string, string>)[TURNSTILE_HEADER]),
+      [minted],
+    );
   });
 
   /* The receipt above would otherwise tell a pupil whose address the provider rejected outright to

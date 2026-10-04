@@ -5,6 +5,7 @@ import { z } from "zod";
 import { turnstileSecretKey } from "./config";
 import { logger } from "./logging";
 import { boundCall } from "./requestScope";
+import { MENSCH_BESTAETIGEN } from "./turnstileToken";
 
 import type { LogMeta } from "./logging";
 
@@ -19,9 +20,8 @@ const SITEVERIFY_TIMEOUT_MS = 10_000;
 const TOKEN_MAX_LENGTH = 2048;
 
 /**
- * Cloudflare refusing our own request rather than judging the token: a secret or a request shape of ours
- * that no visitor can repair. Refused, so a wrong key shows at the first submission instead of switching
- * the check off unseen (`docs/frontend/spec.md :: I822`).
+ * Cloudflare refusing our own secret or request shape, which no visitor can repair. Refused, so a wrong
+ * key shows at the first submission instead of switching the check off unseen (`docs/frontend/spec.md :: I822`).
  */
 const OURS = new Set(["missing-input-secret", "invalid-input-secret", "bad-request"]);
 
@@ -30,9 +30,6 @@ const THEIRS = "internal-error";
 
 /** Every field but these two is ignored: the widget sets no action, and a site key's hostnames are the dashboard's. */
 const SiteverifyAnswerSchema = z.object({ success: z.boolean(), "error-codes": z.array(z.string()).default([]) });
-
-/** The refusal a judged token answers, whatever Cloudflare judged, so it says nothing about an address. */
-export const MENSCH_BESTAETIGEN = "Bitte bestätige kurz, dass Du ein Mensch bist.";
 
 /** The refusal a check of ours Cloudflare would not take answers: nothing the visitor does repairs it. */
 export const PRUEFUNG_GESTOERT = "Die Prüfung, ob Du ein Mensch bist, ist gerade gestört. Versuche es später erneut.";
