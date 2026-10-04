@@ -10,7 +10,7 @@ import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answerReadsWith,
@@ -42,6 +42,7 @@ const { FunktionenGuard } = await import("@/features/funktionen/components/provi
 const { default: PersoenlichStartPage } = await import("@/app/bereich/(persoenlich)/page.tsx");
 const { default: PersoenlichSchiedsrichterPage } = await import("@/app/bereich/(persoenlich)/schiedsrichter/page.tsx");
 const { default: PersoenlichSpielerPage } = await import("@/app/bereich/(persoenlich)/spieler/page.tsx");
+const { default: TeamLayout } = await import("@/app/bereich/team/[team_id]/[saison_id]/layout.tsx");
 /** Every redirect the build loads, which Next answers before any route is matched. */
 const { default: nextConfig } = await import("../../../next.config.ts");
 
@@ -54,6 +55,9 @@ const TEAM_A = SITZ.team_id;
 const TEAM_B = "6890a1b2c3d4e5f607250012";
 
 const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
+
+/** The fields of every refusal line logged since the case began. */
+const refusalLines = (): unknown[] => loggedLines.filter(({ message }) => message === "funktion.verweigert").map(({ meta }) => meta);
 
 /** Where a page or a chain of layouts sent the reader, `[]` where it rendered. */
 async function redirectsOf(Page: () => unknown): Promise<string[]> {
@@ -329,10 +333,11 @@ describe("the referee's page", () => {
   });
 
   /* The page speaks to a referee, so a person holding none is sent where their own Funktionen are. */
-  it("sends a person holding no referee row to the landing", async () => {
+  it("sends a person holding no referee row to the landing, logging why", async () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
 
     assert.deepEqual(await redirectsOf(PersoenlichSchiedsrichterPage), ["/bereich"]);
+    assert.deepEqual(refusalLines(), [{ operation: "/bereich/schiedsrichter", grund: "keine_funktion" }]);
   });
 });
 
@@ -368,10 +373,43 @@ describe("the player's page", () => {
   });
 
   /* The page speaks to a player, so a person holding no squad row is sent where their own Funktionen are. */
-  it("sends a person holding no player row to the landing", async () => {
+  it("sends a person holding no player row to the landing, logging why", async () => {
     setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
 
     assert.deepEqual(await redirectsOf(PersoenlichSpielerPage), ["/bereich"]);
+    assert.deepEqual(refusalLines(), [{ operation: "/bereich/spieler", grund: "keine_funktion" }]);
+  });
+
+  /* A page the person may read logs nothing: the line is a turn-away's alone. */
+  it("logs no refusal for a person the page speaks to", async () => {
+    setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
+    answerReadsWith(EMPTIEST_ANSWER);
+    await renderedAlone(PersoenlichSpielerPage);
+
+    assert.deepEqual(refusalLines(), []);
+  });
+});
+
+/* The person write spine logs every turn-away of its own (`fl_frontend/src/shared/utils/personMutation.ts`);
+   a page's is the same event in the same shape, so one query over the logs finds both lanes. */
+describe("a team page's turn-away", () => {
+  const teamAt = (teamId: string) =>
+    h(TeamLayout, { params: Promise.resolve({ team_id: teamId, saison_id: "2526" }), children: h("p", null, "Seite") });
+
+  it("logs the forbidden panel once, by the route's pattern and never the address", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    const markup = await renderPage(underNext(teamAt(TEAM_B), { pathname: `/bereich/team/${TEAM_B}/2526` }));
+
+    assert.ok(!markup.includes("Seite"), "the page renders behind the forbidden panel");
+    assert.deepEqual(refusalLines(), [{ operation: "/bereich/team/[team_id]/[saison_id]", grund: "kein_sitz" }]);
+    assert.ok(!JSON.stringify(loggedLines).includes(TEAM_B), "the line names the address's team");
+  });
+
+  it("logs nothing at an address the person holds a seat on", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    await renderPage(underNext(teamAt(TEAM_A), { pathname: `/bereich/team/${TEAM_A}/2526` }));
+
+    assert.deepEqual(refusalLines(), []);
   });
 });
 

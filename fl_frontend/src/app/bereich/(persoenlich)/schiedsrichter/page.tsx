@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { funktionenOf } from "@/core/funktionen";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
+import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SchiedsrichterSelbstView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelbstView";
 import { getSchiedsrichterSelbst } from "@/features/schiedsrichter/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
@@ -13,7 +14,10 @@ export default async function PersoenlichSchiedsrichterPage() {
 
   // To the landing rather than a 404: the address exists, and the landing sends a person on to
   // whatever they do hold.
-  if (!funktionenOf(subject).funktionen.some((funktion) => funktion.art === "schiedsrichter")) redirect("/bereich");
+  if (!funktionenOf(subject).funktionen.some((funktion) => funktion.art === "schiedsrichter")) {
+    logPageVerweigert("/bereich/schiedsrichter", "keine_funktion");
+    redirect("/bereich");
+  }
 
   let selbst;
   try {
