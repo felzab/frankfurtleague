@@ -4118,9 +4118,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -6017,9 +6014,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-019"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -6034,6 +6028,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-019"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6097,9 +6094,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -6114,6 +6108,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6177,9 +6174,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019.REQ-EINWILLIGUNG-001"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -6194,6 +6188,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019.REQ-EINWILLIGUNG-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6284,9 +6281,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -7018,9 +7012,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-BEWERBUNG-009"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017.REQ-EINWILLIGUNG-001"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-BEWERBUNG-012.REQ-EINWILLIGUNG-002.REQ-VAL-001"
           },
@@ -7035,6 +7026,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-BEWERBUNG-020"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017.REQ-EINWILLIGUNG-001"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-BEWERBUNG-010.REQ-KONTAKT-004.REQ-KONTAKT-006"
@@ -7406,9 +7400,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -7582,9 +7573,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -7637,9 +7625,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -24269,87 +24254,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BEWERBUNG-001",
-                        "REQ-BEWERBUNG-011",
-                        "REQ-BEWERBUNG-014",
-                        "REQ-BEWERBUNG-019"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019.REQ-EINWILLIGUNG-001": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BEWERBUNG-001",
-                        "REQ-BEWERBUNG-011",
-                        "REQ-BEWERBUNG-014",
-                        "REQ-BEWERBUNG-019",
-                        "REQ-EINWILLIGUNG-001"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-019": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BEWERBUNG-001",
-                        "REQ-BEWERBUNG-011",
-                        "REQ-BEWERBUNG-019"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.DB-COMMON-002.REQ-BEWERBUNG-004.REQ-BEWERBUNG-006.REQ-BEWERBUNG-007.REQ-BEWERBUNG-008.REQ-EINWILLIGUNG-001": {
         "description": "Conflict",
         "content": {
@@ -24368,32 +24272,6 @@
                         "REQ-BEWERBUNG-006",
                         "REQ-BEWERBUNG-007",
                         "REQ-BEWERBUNG-008",
-                        "REQ-EINWILLIGUNG-001"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017.REQ-EINWILLIGUNG-001": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BEWERBUNG-011",
-                        "REQ-BEWERBUNG-017",
                         "REQ-EINWILLIGUNG-001"
                       ]
                     }
@@ -24798,6 +24676,109 @@
                     "error_code": {
                       "enum": [
                         "REQ-BEWERBUNG-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-001",
+                        "REQ-BEWERBUNG-011",
+                        "REQ-BEWERBUNG-014",
+                        "REQ-BEWERBUNG-019"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019.REQ-EINWILLIGUNG-001": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-001",
+                        "REQ-BEWERBUNG-011",
+                        "REQ-BEWERBUNG-014",
+                        "REQ-BEWERBUNG-019",
+                        "REQ-EINWILLIGUNG-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-019": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-001",
+                        "REQ-BEWERBUNG-011",
+                        "REQ-BEWERBUNG-019"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-BEWERBUNG-011.REQ-BEWERBUNG-017.REQ-EINWILLIGUNG-001": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-011",
+                        "REQ-BEWERBUNG-017",
+                        "REQ-EINWILLIGUNG-001"
                       ]
                     }
                   }

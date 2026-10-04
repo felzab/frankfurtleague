@@ -4,8 +4,9 @@ TESTS · where a write can answer `DB-COMMON-002`, traced from each route's own 
 Traced rather than declared in a table: nothing states which collections a route writes, so each
 route's handler is followed through the application's helpers to the writes it makes. An insert into
 a collection a unique index covers or naming its own `_id`, an upsert and a replacement can meet the
-code; an update only where it can set one of that collection's index key or partial-filter fields,
-and an update whose fields the trace cannot read counts as setting every one.
+code; an update only where it can set one of that collection's index keys, or a field a partial
+filter alone reads to a value the filter takes. An update whose fields or values the trace cannot
+read counts as setting every one to anything.
 """
 
 import ast
@@ -14,6 +15,7 @@ import functools
 import importlib
 import inspect
 import json
+import os
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -29,7 +31,7 @@ from starlette.requests import Request
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.constraints import UNIQUE_INDEXES
+from app.core.constraints import UNIQUE_INDEXES, UniqueIndex
 from app.core.dependencies import DB
 from app.core.exception_handlers import duplicate_key_exception_handler, refused_codes
 from app.core.exceptions import DUPLICATE_KEY
@@ -100,7 +102,7 @@ CONFLICT = "409"
 
 # The operations the trace reached a unique index from on the tree this was written against, so an
 # equality over two sets that both went empty still fails.
-DECLARING_OPERATIONS_FLOOR = 40
+DECLARING_OPERATIONS_FLOOR = 31
 
 
 def _filter_fields(expression: Any) -> Iterator[str]:
@@ -116,17 +118,31 @@ def _filter_fields(expression: Any) -> Iterator[str]:
             yield from _filter_fields(member)
 
 
-# Each covered collection's fields a write must set to meet one of its indexes: a key, or a field
-# the partial filter reads, since setting one moves a row into what the index holds.
-INDEX_FIELDS: Mapping[Collection, frozenset[str]] = {
-    collection: frozenset(
-        name
-        for index in UNIQUE_INDEXES
-        if Collection(index.collection) is collection
-        for name in (*index.keys, *_filter_fields(index.partial_filter or {}))
-    )
+@dataclass(frozen=True)
+class _Index:
+    """One unique index as a write meets it: its keys, and each field its partial filter alone reads, with the condition there."""
+
+    keys: frozenset[str]
+    conditions: Mapping[str, Any]
+
+
+def _index(index: UniqueIndex) -> _Index:
+    partial = dict(index.partial_filter or {})
+    # Conditions joined through an operator are not read one field at a time: every field they name keys.
+    if any(name.startswith("$") for name in partial):
+        return _Index(frozenset({*index.keys, *_filter_fields(partial)}), {})
+    return _Index(frozenset(index.keys), {name: condition for name, condition in partial.items() if name not in index.keys})
+
+
+INDEXES_ON: Mapping[Collection, tuple[_Index, ...]] = {
+    collection: tuple(_index(index) for index in UNIQUE_INDEXES if Collection(index.collection) is collection)
     for collection in UNIQUE_COLLECTIONS
 }
+
+# The `$type` aliases a partial filter here names, against the Python type a written value needs to meet one.
+BSON_TYPES: Mapping[str, type] = {"null": type(None), "string": str}
+# The annotations a parameter is read as holding an instance of: FastAPI hands it one, and pyright holds a caller to it.
+SCALAR_TYPES: frozenset[type] = frozenset({bool, float, int, str})
 
 
 class _Marker:
@@ -144,6 +160,8 @@ UNRESOLVED = _Marker("<unresolved>")
 DATABASE = _Marker("<database>")
 # Where a dict literal spreads another (`**other`), standing in for the key the spread has none of.
 SPREAD = _Marker("<spread>")
+# What `$unset` leaves at a field: no value at all, which no `$type` condition matches.
+UNSET = _Marker("<unset>")
 
 Values = tuple[Any, ...]
 
@@ -170,14 +188,31 @@ class _Payload:
 
 
 @dataclass(frozen=True)
+class _Typed:
+    """An instance of one scalar type, as a parameter annotated with it is handed one."""
+
+    kind: type
+
+
+@dataclass(frozen=True)
 class _Dump:
-    """What a `_Payload`'s `model_dump()` holds: a dict keyed by its fields."""
+    """What a `model_dump()` holds: a dict keyed by its model's fields, or by the names its `include` keeps."""
 
     fields: frozenset[str]
 
 
+@dataclass(frozen=True)
+class _Fill:
+    """One store into a held dict: a key and its value, or with no key a whole document handed to `update`."""
+
+    key: ast.expr | None
+    value: ast.expr
+
+
 # A field path a write sets: spelled out, or an f-string's leading text.
 FieldPath = str | _Prefix
+# Each path an update sets beside every value it may write there.
+FieldWrites = tuple[tuple[FieldPath, Values], ...]
 
 
 @dataclass(frozen=True)
@@ -193,8 +228,8 @@ class Write:
     #: `insert`, `update`, `removal`, `whole` for a write setting every field it likes (a
     #: replacement, an upsert, a bulk write), or `through` for a helper writing by another helper.
     kind: Literal["insert", "update", "removal", "whole", "through"] = "whole"
-    #: The paths an update sets, `None` where the trace cannot read them.
-    sets: frozenset[FieldPath] | None = None
+    #: The paths an update sets with what it may write there, `None` where the trace cannot read them.
+    sets: FieldWrites | None = None
     #: What a `through` helper writes, judged in its place.
     inner: tuple[Write, ...] = field(default=(), compare=False)
 
@@ -230,6 +265,59 @@ def _model_dump(receiver: Any) -> Any:
     for info in schema.model_fields.values():
         names |= {alias for alias in (info.alias, info.serialization_alias) if isinstance(alias, str)}
     return _Dump(frozenset(names))
+
+
+def _held_at(literal: _Literal, key: str) -> Values:
+    """What a dict literal holds at one key, read only where every key it spells is plain text."""
+
+    if not all(type(spelled) is str for keys, _ in literal.entries for spelled in keys):
+        return (UNRESOLVED,)
+    return _distinct(value for keys, held in literal.entries if key in keys for value in held) or (UNRESOLVED,)
+
+
+def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType) -> str | _Prefix:
+    """An f-string, its holes filled where each holds one plain `str`, read only up to the first that does not."""
+
+    leading = ""
+    for part in node.values:
+        if isinstance(part, ast.Constant) and isinstance(part.value, str):
+            leading += part.value
+            continue
+        plain = isinstance(part, ast.FormattedValue) and part.conversion == -1 and part.format_spec is None
+        held = _values(part.value, scope, module) if isinstance(part, ast.FormattedValue) and plain else ()
+        # `type(...) is str` and never a subclass: an enum member formats as something other than its value.
+        texts = [value if type(value) is str else value.text if isinstance(value, _Prefix) else None for value in held]
+        known = [text for text in texts if isinstance(text, str)]
+        if not known or len(known) != len(texts):
+            return _Prefix(leading)
+        if len(held) == 1 and type(held[0]) is str:
+            leading += known[0]
+            continue
+        return _Prefix(leading + os.path.commonprefix(known))
+
+    return leading
+
+
+def _included(call: ast.Call, scope: Mapping[str, Values], module: ModuleType) -> frozenset[str] | None:
+    """The names a `model_dump` keeps through a set literal `include`, its spreads read off what they name; `None` where unread."""
+
+    include = _argument(call, "include", None)
+    by_alias = _argument(call, "by_alias", None)
+    if not isinstance(include, ast.Set) or not (by_alias is None or (isinstance(by_alias, ast.Constant) and by_alias.value is False)):
+        return None
+
+    names: set[str] = set()
+    for element in include.elts:
+        if isinstance(element, ast.Constant) and type(element.value) is str:
+            names.add(element.value)
+            continue
+        spread = _values(element.value, scope, module) if isinstance(element, ast.Starred) else (UNRESOLVED,)
+        held = [list(value) for value in spread if isinstance(value, Mapping | set | frozenset | list | tuple)]
+        if len(held) != len(spread) or not all(type(name) is str for names_held in held for name in names_held):
+            return None
+        names.update(name for names_held in held for name in names_held)
+
+    return frozenset(names)
 
 
 def _own_nodes(declaration: Declaration) -> Iterator[ast.AST]:
@@ -321,7 +409,7 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
             DATABASE
             if isinstance(value, Collection) and node.attr == "database"
             else UNRESOLVED
-            if value is UNRESOLVED or isinstance(value, _Literal | _Prefix | _Payload | _Dump)
+            if value is UNRESOLVED or isinstance(value, _Literal | _Prefix | _Payload | _Dump | _Typed)
             else getattr(value, node.attr, UNRESOLVED)
             for value in _values(node.value, scope, module)
         )
@@ -334,6 +422,8 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
                     found.append(Collection(key) if key in COLLECTION_NAMES else UNRESOLVED)
                 elif isinstance(container, Mapping):
                     found.extend(container.values() if key is UNRESOLVED else [container.get(key, UNRESOLVED)])
+                elif isinstance(container, _Literal) and type(key) is str:
+                    found.extend(_held_at(container, key))
                 else:
                     found.append(UNRESOLVED)
         return _distinct(iter(found))
@@ -348,13 +438,15 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
             ),
         )
 
+    if isinstance(node, ast.DictComp):
+        # Each loop variable stands for any value, so a key is read up to its first hole naming one.
+        inner = dict(scope) | {
+            target.id: (UNRESOLVED,) for generator in node.generators for target in ast.walk(generator.target) if isinstance(target, ast.Name)
+        }
+        return (_Literal(((_values(node.key, inner, module), _values(node.value, inner, module)),)),)
+
     if isinstance(node, ast.JoinedStr):
-        leading = ""
-        for part in node.values:
-            if not (isinstance(part, ast.Constant) and isinstance(part.value, str)):
-                return (_Prefix(leading),)
-            leading += part.value
-        return (leading,)
+        return (_joined(node, scope, module),)
 
     if isinstance(node, ast.IfExp):
         return _distinct(iter((*_values(node.body, scope, module), *_values(node.orelse, scope, module))))
@@ -364,7 +456,13 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
 
     if isinstance(node, ast.Call):
         if isinstance(node.func, ast.Attribute) and node.func.attr == "model_dump":
-            return _distinct(_model_dump(receiver) for receiver in _values(node.func.value, scope, module))
+            receivers = _values(node.func.value, scope, module)
+            included = _included(node, scope, module)
+            if included is not None and not any(
+                _model_dump(receiver) is UNRESOLVED for receiver in receivers if isinstance(receiver, _Payload)
+            ):
+                return (_Dump(included),)
+            return _distinct(_model_dump(receiver) for receiver in receivers)
         return _distinct(
             value
             for function in _values(node.func, scope, module)
@@ -398,26 +496,82 @@ def _read_only(node: ast.AST, parents: Mapping[int, ast.AST]) -> bool:
         call = parents.get(id(parent))
         return isinstance(call, ast.Call) and callee(call) in WRITE_HELPERS | DRIVER_WRITES
     # A literal holding it, bound to a name, is that name's to answer for.
+    if isinstance(parent, ast.AnnAssign):
+        return isinstance(node, ast.Dict) and isinstance(parent.target, ast.Name)
     return isinstance(parent, ast.Assign) and isinstance(node, ast.Dict) and all(isinstance(target, ast.Name) for target in parent.targets)
 
 
+def _fill(name: ast.Name, parents: Mapping[int, ast.AST]) -> _Fill | None:
+    """A statement storing into the held dict `name` loads: `name[key] = value`, or `name.update(document)` alone."""
+
+    parent = parents.get(id(name))
+    statement = parents.get(id(parent))
+    if isinstance(parent, ast.Subscript) and name is parent.value and isinstance(parent.ctx, ast.Store):
+        return _Fill(parent.slice, statement.value) if isinstance(statement, ast.Assign) and statement.targets == [parent] else None
+    if isinstance(parent, ast.Attribute) and parent.attr == "update" and isinstance(statement, ast.Call) and statement.func is parent:
+        whole = len(statement.args) == 1 and not statement.keywords and isinstance(parents.get(id(statement)), ast.Expr)
+        return _Fill(None, statement.args[0]) if whole else None
+    return None
+
+
+def _is_binding(node: ast.Name, parents: Mapping[int, ast.AST]) -> bool:
+    """A plain assignment, or an annotated one holding a value, which `_local_scope` reads."""
+
+    parent = parents.get(id(node))
+    return isinstance(parent, ast.Assign) or (isinstance(parent, ast.AnnAssign) and parent.target is node and parent.value is not None)
+
+
 @functools.cache
-def _changing_names(declaration: Declaration) -> frozenset[str]:
-    """Every name `declaration` may change a held dict through, so a literal bound to one is no record of its keys."""
+def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tuple[_Fill, ...]]]:
+    """Every name `declaration` may change a held dict through unreadably, and each other's readable stores into it."""
 
     parents = {id(child): node for node in ast.walk(declaration) for child in ast.iter_child_nodes(node)}
     changed: set[str] = set()
+    fills: dict[str, list[_Fill]] = {}
     for node in ast.walk(declaration):
         if not isinstance(node, ast.Name):
             continue
         if isinstance(node.ctx, ast.Load):
-            if not _read_only(node, parents):
+            if _read_only(node, parents):
+                continue
+            if (fill := _fill(node, parents)) is not None:
+                fills.setdefault(node.id, []).append(fill)
+            else:
                 changed.add(node.id)
-        # A binding other than a plain assignment: `+=`, `|=`, a loop target, a walrus, an annotated one.
-        elif not (isinstance(parents.get(id(node)), ast.Assign) and isinstance(node.ctx, ast.Store)):
+        # Any other binding: `+=`, `|=`, a loop target, a walrus, a bare annotation.
+        elif not (isinstance(node.ctx, ast.Store) and _is_binding(node, parents)):
             changed.add(node.id)
 
-    return frozenset(changed)
+    return frozenset(changed), {name: tuple(found) for name, found in fills.items() if name not in changed}
+
+
+def _filled(scope: Mapping[str, Values], declaration: Declaration, module: ModuleType) -> dict[str, Values]:
+    """`scope` with each held dict's stores added to it, and a dict changed past reading unresolved."""
+
+    changed, fills = _changes(declaration)
+    result: dict[str, Values] = {}
+    for name, values in scope.items():
+        added: list[tuple[Values, Values]] | None = []
+        for fill in fills.get(name, ()):
+            if fill.key is not None:
+                added.append((_values(fill.key, scope, module), _values(fill.value, scope, module)))
+                continue
+            documents = [_entries(document) for document in _values(fill.value, scope, module)]
+            if any(entries is None for entries in documents):
+                added = None
+                break
+            added.extend(entry for entries in documents if entries is not None for entry in entries)
+
+        result[name] = tuple(
+            value
+            if not isinstance(value, _Literal | _Dump)
+            else UNRESOLVED
+            if name in changed or added is None
+            else _Literal((*(_entries(value) or ()), *added))
+            for value in values
+        )
+
+    return result
 
 
 def _local_scope(declaration: Declaration, bound: Mapping[str, Values], module: ModuleType) -> dict[str, Values]:
@@ -429,22 +583,22 @@ def _local_scope(declaration: Declaration, bound: Mapping[str, Values], module: 
         if isinstance(node, ast.Assign)
         for target in node.targets
         if isinstance(target, ast.Name)
+    ] + [
+        (node.target.id, node.value)
+        for node in ast.walk(declaration)
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None
     ]
 
-    scope = dict(bound)
+    scope = _filled(bound, declaration, module)
     # One pass per assignment is enough for a chain of them to settle, each pass starting over so
     # a name read before its assignment was reached leaves nothing behind.
     for _ in assignments:
         settled = dict(bound)
         for name, value in assignments:
             settled[name] = _distinct(iter((*settled.get(name, ()), *_values(value, scope, module))))
-        scope = settled
+        scope = _filled(settled, declaration, module)
 
-    changing = _changing_names(declaration)
-    return {
-        name: tuple(UNRESOLVED if name in changing and isinstance(value, _Literal | _Dump) else value for value in values)
-        for name, values in scope.items()
-    }
+    return scope
 
 
 def _parameters(declaration: Declaration) -> list[tuple[ast.arg, int | None]]:
@@ -472,21 +626,26 @@ def _module(path: Path) -> ModuleType:
     return importlib.import_module(".".join(path.relative_to(BACKEND_ROOT).with_suffix("").parts))
 
 
-def _annotated_payloads(annotation: ast.expr | None, module: ModuleType) -> Values:
-    """The models an endpoint parameter's annotation names, through `Annotated[...]` and a `|` union."""
+def _annotated(annotation: ast.expr | None, module: ModuleType) -> Values:
+    """What an endpoint parameter's annotation admits, a model's body or a scalar's instance, through `Annotated[...]` and a `|` union."""
 
     if annotation is None:
         return (UNRESOLVED,)
     if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
-        return _distinct(iter((*_annotated_payloads(annotation.left, module), *_annotated_payloads(annotation.right, module))))
+        return _distinct(iter((*_annotated(annotation.left, module), *_annotated(annotation.right, module))))
     if isinstance(annotation, ast.Subscript) and _values(annotation.value, {}, module) == (Annotated,):
         first = annotation.slice.elts[0] if isinstance(annotation.slice, ast.Tuple) else annotation.slice
-        return _annotated_payloads(first, module)
+        return _annotated(first, module)
     if isinstance(annotation, ast.Constant) and annotation.value is None:
         return (None,)
+    # A builtin is no attribute of the module naming it, unless the module rebinds the name.
+    scalar = next((kind for kind in SCALAR_TYPES if isinstance(annotation, ast.Name) and annotation.id == kind.__name__), None)
+    if scalar is not None and not hasattr(module, scalar.__name__):
+        return (_Typed(scalar),)
 
     return _distinct(
-        _Payload(value) if isinstance(value, type) and issubclass(value, BaseModel) else UNRESOLVED for value in _values(annotation, {}, module)
+        _Payload(value) if isinstance(value, type) and issubclass(value, BaseModel) else _Typed(value) if value in SCALAR_TYPES else UNRESOLVED
+        for value in _values(annotation, {}, module)
     )
 
 
@@ -498,7 +657,7 @@ def _endpoint_scope(declaration: Declaration, module: ModuleType) -> dict[str, V
         if isinstance(argument.annotation, ast.Name) and getattr(module, argument.annotation.id, None) is DB:
             scope[argument.arg] = (DATABASE,)
         elif not argument.arg.endswith(COLLECTION_ARGUMENT_SUFFIX):
-            scope[argument.arg] = _annotated_payloads(argument.annotation, module)
+            scope[argument.arg] = _annotated(argument.annotation, module)
     return scope
 
 
@@ -514,10 +673,10 @@ def _entries(value: Any) -> tuple[tuple[Values, Values], ...] | None:
     return None
 
 
-def _paths(document: Values) -> frozenset[FieldPath] | None:
-    """The field paths a document of fields names, `None` where one of its keys is unreadable."""
+def _fields(document: Values) -> list[tuple[FieldPath, Values]] | None:
+    """Each field path a document of fields names beside the values it holds there, `None` where one of its keys is unreadable."""
 
-    found: set[FieldPath] = set()
+    found: list[tuple[FieldPath, Values]] = []
     for value in document:
         entries = _entries(value)
         if entries is None:
@@ -525,25 +684,25 @@ def _paths(document: Values) -> frozenset[FieldPath] | None:
         for keys, held in entries:
             for key in keys:
                 if key is SPREAD:
-                    spread = _paths(held)
+                    spread = _fields(held)
                     if spread is None:
                         return None
-                    found |= spread
+                    found += spread
                 elif isinstance(key, str | _Prefix):
-                    found.add(key)
+                    found.append((key, held))
                 else:
                     return None
 
-    return frozenset(found)
+    return found
 
 
-def _updated_paths(update: Values) -> frozenset[FieldPath] | None:
-    """The field paths an update document sets; `None` for a replacement, `$rename`, a pipeline or anything unread.
+def _updated_fields(update: Values) -> FieldWrites | None:
+    """Each field path an update document sets with what it may leave there; `None` for a replacement, `$rename`, a pipeline or anything unread.
 
     A composer answering `None` writes nothing there: its caller passes no `None` to a write.
     """
 
-    found: set[FieldPath] = set()
+    found: list[tuple[FieldPath, Values]] = []
     for value in update:
         if value is None:
             continue
@@ -553,12 +712,13 @@ def _updated_paths(update: Values) -> frozenset[FieldPath] | None:
         for keys, operand in entries:
             if not all(isinstance(key, str) and key in FIELD_OPERATORS for key in keys):
                 return None
-            paths = _paths(operand)
-            if paths is None:
+            fields = _fields(operand)
+            if fields is None:
                 return None
-            found |= paths
+            # `$set` leaves the value it names and `$unset` none at all; any other operator a value this does not read.
+            found += [(path, held if keys == ("$set",) else (UNSET,) if keys == ("$unset",) else (UNRESOLVED,)) for path, held in fields]
 
-    return frozenset(found)
+    return tuple(found)
 
 
 def _driver_write(
@@ -579,7 +739,7 @@ def _driver_write(
             site,
             chooses_id,
             kind="update",
-            sets=None if update is None else _updated_paths(_values(update, scope, module)),
+            sets=None if update is None else _updated_fields(_values(update, scope, module)),
         )
 
     return Write(method, collections, site, chooses_id)
@@ -614,7 +774,7 @@ def _write_at(call: ast.Call, chain: tuple[Declaration, ...], path: Path, scope:
             site,
             chooses_id,
             kind="update",
-            sets=None if update is None else _updated_paths(_values(update, scope, module)),
+            sets=None if update is None else _updated_fields(_values(update, scope, module)),
         )
     if taken & {"document", "documents"}:
         return Write(target.name, collections, site, chooses_id, kind="insert")
@@ -699,18 +859,51 @@ def _meets(path: FieldPath, index_field: str) -> bool:
     return path == index_field or path.startswith(f"{index_field}.") or index_field.startswith(f"{path}.")
 
 
+def _may_match(value: Any, condition: Any) -> bool:
+    """Whether a value written at a field may meet a partial filter's condition on it; anything not read here may."""
+
+    plain = value is None or type(value) in SCALAR_TYPES
+    if isinstance(condition, Mapping):
+        if set(condition) != {"$type"} or condition["$type"] not in BSON_TYPES:
+            return True
+        wanted = BSON_TYPES[condition["$type"]]
+        if value is UNSET:
+            return False
+        if isinstance(value, _Typed):
+            return issubclass(value.kind, wanted)
+        return isinstance(value, wanted) if plain else True
+
+    # An equality, which a missing field meets only where it asks for null.
+    if value is UNSET:
+        return condition is None
+    if isinstance(value, _Typed):
+        return isinstance(condition, value.kind)
+    return value == condition if plain else True
+
+
+def _meets_index(path: FieldPath, written: Values, index: _Index) -> bool:
+    """Setting a key reaches the index; setting a field its filter alone reads reaches it only with a value moving the row in."""
+
+    if any(_meets(path, key) for key in index.keys):
+        return True
+    return any(
+        _meets(path, name) and (path != name or any(_may_match(value, condition) for value in written))
+        for name, condition in index.conditions.items()
+    )
+
+
 def _reaches(write: Write) -> bool:
     if write.chooses_id:
         return True
     if write.kind == "through":
         return any(map(_reaches, write.inner))
 
-    fields = frozenset(name for collection in write.collections if collection in UNIQUE_COLLECTIONS for name in INDEX_FIELDS[collection])
-    if not fields or write.kind == "removal":
+    indexes = [index for collection in write.collections if collection in UNIQUE_COLLECTIONS for index in INDEXES_ON[collection]]
+    if not indexes or write.kind == "removal":
         return False
     if write.kind != "update" or write.sets is None:
         return True
-    return any(_meets(path, name) for path in write.sets for name in fields)
+    return any(_meets_index(path, written, index) for path, written in write.sets for index in indexes)
 
 
 def _reaches_a_unique_index(writes: tuple[Write, ...]) -> bool:
@@ -824,7 +1017,7 @@ def _update_reaches(source: str, collection: Collection, scope: Mapping[str, Val
 
     module = importlib.import_module(COMPOSERS)
     update = _values(ast.parse(source, mode="eval").body, scope or {}, module)
-    return _reaches(Write("patch_one_in_db", (collection,), (COMPOSERS, 0), kind="update", sets=_updated_paths(update)))
+    return _reaches(Write("patch_one_in_db", (collection,), (COMPOSERS, 0), kind="update", sets=_updated_fields(update)))
 
 
 @pytest.mark.parametrize(
@@ -832,13 +1025,26 @@ def _update_reaches(source: str, collection: Collection, scope: Mapping[str, Val
     [
         ('{"$set": {"vorname": name}, "$inc": {"bounded_writes": 1}}', Collection.SPIELER, None, False),
         ('{"$set": {"vorname": name, "email": None}}', Collection.SPIELER, None, True),
-        ('{"$unset": {"widerrufen_am": ""}}', Collection.EINLADUNGEN, None, True),
+        # `widerrufen_am` is read by the live invite's filter alone, `{"$type": "null"}`: only a null moves a row in.
+        ('{"$set": {"widerrufen_am": None}}', Collection.EINLADUNGEN, None, True),
+        ('{"$set": {"widerrufen_am": today}}', Collection.EINLADUNGEN, {"today": (_Typed(str),)}, False),
+        ('{"$set": {"widerrufen_am": day}}', Collection.EINLADUNGEN, {"day": (UNRESOLVED,)}, True),
+        ('{"$unset": {"widerrufen_am": ""}}', Collection.EINLADUNGEN, None, False),
         ('{"$set": {f"kontakte.{slot}.einwilligung": block}}', Collection.SAISON_TEAMS, None, False),
         # Only the leading text is known, and `saison_` may go on to `saison_id`.
         ('{"$set": {f"saison_{slot}": block}}', Collection.SAISON_TEAMS, None, True),
         ('{"$set": {f"{slot}.name": name}}', Collection.SPIELE, None, True),
+        ('{"$set": {f"{pfad}.medien": True}}', Collection.SAISON_TEAMS, {"pfad": ("kontakte.trainer.einwilligung",)}, False),
+        ('{"$set": {f"{pfad}.medien": True}}', Collection.SAISON_TEAMS, {"pfad": (_Prefix("saison"),)}, True),
+        ('{"$set": {f"bestaetigungen.{seat}.zustellung": entry for seat in seats}}', Collection.BEWERBUNGEN, None, False),
+        ('{"$set": {f"{seat}.zustellung": entry for seat in seats}}', Collection.BEWERBUNGEN, None, True),
+        ('{"$set": {**{"$set": {"bestaetigungsfrist": day}}["$set"]}}', Collection.BEWERBUNGEN, None, False),
         ('{"$set": payload.model_dump(mode="json")}', Collection.SPIELER, {"payload": (_Payload(_AddressPayload),)}, True),
         ('{"$set": {**payload.model_dump(), "vorname": name}}', Collection.SCHIEDSRICHTER, {"payload": (_Payload(_AddressPayload),)}, False),
+        # An `include` names the keys whatever the dumped object is.
+        ('{"$set": fixture.model_dump(include={"ort", "datum"})}', Collection.SPIELE, None, False),
+        ('{"$set": fixture.model_dump(include={"datum", "spiel_nr"})}', Collection.SPIELE, None, True),
+        ('{"$set": fixture.model_dump(include=kept)}', Collection.SPIELE, {"kept": (UNRESOLVED,)}, True),
         ('compose_ablehnung_update(von=name, grund=None, today="2026-01-01")', Collection.REGISTRIERUNGEN, None, False),
         ('compose_ablehnung_update(von=name, grund=None, today="2026-01-01")', Collection.SAISONS, None, True),
         # What the trace cannot read reaches: an unknown document, a rename's target, a replacement.
@@ -876,11 +1082,34 @@ def test_a_literal_the_function_may_change_after_binding_counts_as_writing_every
     assert isinstance(declaration, ast.FunctionDef)
     module = importlib.import_module(COMPOSERS)
 
-    assert _updated_paths(_return_values(declaration, {"name": (UNRESOLVED,)}, module)) is None
+    assert _updated_fields(_return_values(declaration, {"name": (UNRESOLVED,)}, module)) is None
     # The same function with the change read rather than made keeps its keys.
     [unchanged] = ast.parse(source.replace(f"    {change}\n", "    assert changes['$set'].get('vorname') is not None\n")).body
     assert isinstance(unchanged, ast.FunctionDef)
-    assert _updated_paths(_return_values(unchanged, {"name": (UNRESOLVED,)}, module)) == frozenset({"vorname"})
+    read = _updated_fields(_return_values(unchanged, {"name": (UNRESOLVED,)}, module))
+    assert read is not None and [path for path, _ in read] == ["vorname"]
+
+
+@pytest.mark.parametrize(("store", "reaches"), [("", False), ("    written['idempotenz_schluessel'] = None\n", True)])
+def test_a_dict_filled_by_its_own_stores_writes_what_they_name(store: str, reaches: bool):
+    """A dict built empty and filled key by key, the shape the application's own composers take."""
+
+    source = (
+        "def compose(seats, day):\n"
+        "    written: dict = {}\n"
+        "    for seat in seats:\n"
+        "        written[f'kontakte.{seat}'] = None\n"
+        "    written.update({'bestaetigungsfrist': day})\n"
+        f"{store}"
+        "    return {'$set': written}\n"
+    )
+    [declaration] = ast.parse(source).body
+    assert isinstance(declaration, ast.FunctionDef)
+    update = _return_values(declaration, {"seats": (UNRESOLVED,), "day": (UNRESOLVED,)}, importlib.import_module(COMPOSERS))
+    fields = _updated_fields(update)
+
+    assert fields is not None and {path for path, _ in fields} >= {_Prefix("kontakte."), "bestaetigungsfrist"}
+    assert _reaches(Write("patch_one_in_db", (Collection.BEWERBUNGEN,), (COMPOSERS, 0), kind="update", sets=fields)) is reaches
 
 
 def test_a_route_declares_its_409_exactly_where_a_write_reaches_a_unique_index():

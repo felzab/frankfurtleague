@@ -26,7 +26,6 @@ const { deleteEinladungAction, postEinladungAction, postEinladungVersandAction }
 
 const MINT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/einladung";
 const VERSAND_OPERATION = "POST /saisons/{saison_id}/einladungen/versand";
-const REVOKE_OPERATION = "DELETE /teams/{team_id}/saisons/{saison_id}/einladung";
 /** S9's flow raises it; this slice calls neither endpoint it is published on. */
 const REGISTRIERUNG_OPERATION = "POST /registrierungen";
 
@@ -87,17 +86,6 @@ describe("the invite's refusals against the codes its endpoints publish", () => 
       refuseWith: answerWith,
       act: () => postEinladungVersandAction({ id: KEY.saison_id, erneut: false }),
       mapped: mapEinladungRefusal,
-    });
-  });
-
-  /* The revoke publishes the unique index's code alone, which this slice leaves to the shared reader,
-     so the revoke asks no mapper at all. */
-  it("answers every code the revoke publishes in the shared reader's words", async () => {
-    await assertEachAnswered({
-      operation: REVOKE_OPERATION,
-      refuseWith: answerWith,
-      act: () => deleteEinladungAction(KEY),
-      mapped: () => null,
     });
   });
 
