@@ -1,7 +1,6 @@
 import ast
 import functools
 import importlib
-import re
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from types import ModuleType
@@ -31,31 +30,14 @@ from app.core.domain import (
     Action,
     Editability,
 )
-from app.core.drosselung import DROSSELUNG_ERREICHT
-from app.core.exception_handlers import BODY_UNREADABLE, METHOD_NOT_SERVED, NO_ROUTE, PAYLOAD_REFUSED
 from app.core.exceptions import WriteRefusal
-from app.core.security import (
-    ACTOR_NOT_ADMIN,
-    ACTOR_TOKEN_REFUSED,
-    CONFIRMATION_REQUIRED,
-    MISSING_ACTOR,
-    MISSING_TOKEN,
-    PERSON_BARRED,
-    WRONG_ADMIN_KEY,
-    WRONG_BASE_KEY,
-    WRONG_SYSTEM_KEY,
-)
-from app.main import create_app
+from app.main import PROTOCOL_CODES, PROTOCOL_FAMILIES_EXTENSION, create_app, refusal_family
 from tests.config import build_test_config
 from tests.core.app_source import Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
+from tests.openapi_document import build_document
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
-
-# The frontend's copy of the classes below, which it tells a rule's code from the protocol's by alone:
-# a code it misreads as a rule's is asked of every slice's mapper, and one misread the other way of none.
-FRONTEND_ERRORS = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "errors.ts"
-FRONTEND_PROTOCOL_CLASS = re.compile(r"^const PROTOCOL_CLASS = /\^REQ-\(([A-Z|]+)\)-/;$", re.MULTILINE)
 
 # One file, so the pairing below can be exact in both directions.
 UNENFORCED_TESTS = "tests/core/test_unenforced.py"
@@ -71,27 +53,6 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SPIELORTE: FLSpielort,
     Collection.SCHIEDSRICHTER: FLSchiedsrichter,
 }
-
-# Not domain rules: each is a property of the transport, or of how much one person writes in a day,
-# and sitting in `app/core/` is what the coverage test keys on — a boundary rather than an exception list.
-PROTOCOL_CODES = frozenset(
-    {
-        MISSING_TOKEN,
-        WRONG_BASE_KEY,
-        WRONG_SYSTEM_KEY,
-        WRONG_ADMIN_KEY,
-        MISSING_ACTOR,
-        ACTOR_NOT_ADMIN,
-        ACTOR_TOKEN_REFUSED,
-        PERSON_BARRED,
-        CONFIRMATION_REQUIRED,
-        DROSSELUNG_ERREICHT,
-        PAYLOAD_REFUSED,
-        BODY_UNREADABLE,
-        NO_ROUTE,
-        METHOD_NOT_SERVED,
-    }
-)
 
 _CODE_PATTERN = "REQ-"
 
@@ -322,25 +283,18 @@ def test_the_protocol_codes_are_the_ones_outside_the_api_layer():
     assert in_core == PROTOCOL_CODES
 
 
-def _class_of(code: str) -> str:
-    """`REQ-AUTH-001`'s `AUTH`."""
+def test_no_family_holds_both_a_protocol_code_and_a_rule_s():
+    """What lets the frontend classify a code by its family alone (`fl_frontend/src/core/errors.ts :: isRefusalCode`)."""
 
-    return code.split("-")[1]
+    rule_families = {refusal_family(rule.code) for rule in RULES if rule.code.startswith(_CODE_PATTERN)}
 
-
-def test_no_class_holds_both_a_protocol_code_and_a_rule_s():
-    """What lets the frontend classify a code by its class alone (`fl_frontend/src/core/errors.ts :: isRefusalCode`)."""
-
-    rule_classes = {_class_of(rule.code) for rule in RULES if rule.code.startswith(_CODE_PATTERN)}
-
-    assert not {_class_of(code) for code in PROTOCOL_CODES} & rule_classes
+    assert not {refusal_family(code) for code in PROTOCOL_CODES} & rule_families
 
 
-def test_the_frontend_reads_the_protocol_classes():
-    match = FRONTEND_PROTOCOL_CLASS.search(FRONTEND_ERRORS.read_text(encoding="utf-8"))
+def test_the_document_publishes_every_protocol_family_and_no_other():
+    """The frontend's half is `fl_frontend/src/core/protocolFamilies.test.ts`, against the committed document."""
 
-    assert match is not None, f"{FRONTEND_ERRORS.name} no longer spells PROTOCOL_CLASS as this test reads it"
-    assert set(match[1].split("|")) == {_class_of(code) for code in PROTOCOL_CODES}
+    assert build_document()[PROTOCOL_FAMILIES_EXTENSION] == sorted({refusal_family(code) for code in PROTOCOL_CODES})
 
 
 def test_every_collection_is_declared_once():
