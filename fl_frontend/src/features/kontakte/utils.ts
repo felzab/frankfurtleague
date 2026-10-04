@@ -22,9 +22,9 @@ import type { ErasureAnsicht, SaisonTeamKontaktePayloadDraft } from "./types";
 const ERNEUT_STARTEN = "Brich ab und starte das Löschen erneut.";
 
 /**
- * The block with every seat naming `textVersion`, the label the application form runs: a seat handed
- * to another person is a new acceptance, which only the running label may stamp, and a seat its person
- * keeps carries its stored record whole whatever label is sent (`docs/backend/spec.md :: I866`).
+ * The block with every seat naming `textVersion`, the form's running label: a handed seat is a new
+ * acceptance only that label may stamp, and a kept seat's stored record stands whatever is sent
+ * (`docs/backend/spec.md :: I866`).
  */
 export function mitLaufenderFassung(kontakte: FLSaisonTeamKontaktePayload, textVersion: string): FLSaisonTeamKontaktePayload {
   const gestempelt = (sitz: FLKontaktpersonPayload | null) =>

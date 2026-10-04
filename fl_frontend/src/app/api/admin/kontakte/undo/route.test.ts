@@ -102,8 +102,7 @@ describe("the contacts save's undo", () => {
   });
 
   /* A person put back is entered anew, which the backend admits under the running label alone
-     (`docs/backend/spec.md :: I866`); the label the earlier record stored is one that person accepted
-     then, and the replay sends the one the form runs now. */
+     (`docs/backend/spec.md :: I866`), whatever label that person accepted before. */
   it("replays every seat under the label the form runs, whatever label the earlier record stored", async () => {
     const seat = (textVersion: string) => ({
       vorname: "Ada",

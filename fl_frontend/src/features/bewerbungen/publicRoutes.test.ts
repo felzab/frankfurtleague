@@ -1520,9 +1520,9 @@ describe("the words the two contact pages are handed", () => {
     return body.props.fassung;
   };
 
-  /* The backend picks the seat's page by how it was filled and where it sits, the applicant's, the
-     administration's on an application or on a season row, and the answer must name that page's label: words of this page's own choosing would be judged
-     against a label the seat does not run. */
+  /* The backend picks the seat's page by how it was filled and where it sits, and the answer must
+     name that page's label: words of this page's own choosing are judged against a label the seat
+     does not run. */
   it("hands an open link the words of the label its view names, on every contact page", async () => {
     for (const fassung of [KONTAKT, laufendeKontaktVerwaltungFassung(), laufendeKontaktSaisonFassung()]) {
       backend({ ansichtNennt: fassung.textVersion });

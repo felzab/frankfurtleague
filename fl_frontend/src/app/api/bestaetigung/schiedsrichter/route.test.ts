@@ -112,7 +112,7 @@ beforeEach(() => {
 
 describe("the referee's confirmation handler", () => {
   /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
-     it posts words the backend no longer runs, and only the mail's link reopens the page on them. */
+     it posts words other than those the backend runs, and only the mail's link reopens the page on them. */
   it("answers the backend's refusal of the label with the sentence that reopens the link", async () => {
     schreibAntwort = () => aRefusal(409, "REQ-EINWILLIGUNG-001");
 

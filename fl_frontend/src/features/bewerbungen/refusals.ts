@@ -200,7 +200,7 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
     case "REQ-BEWERBUNG-019":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT } };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
-    // deploy moved the form's label would seat the person under words the backend no longer runs.
+    // deploy moved the form's label would seat the person under words other than those the backend runs.
     case "REQ-EINWILLIGUNG-001":
       return { error: BEWERBUNG_VERALTET };
     default:

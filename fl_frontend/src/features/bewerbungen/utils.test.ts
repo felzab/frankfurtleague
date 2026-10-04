@@ -720,7 +720,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
 
 describe("which wording an answer may be stored under", () => {
   /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
-     it shows words the backend no longer runs, and only the mail's link reopens the page on them. */
+     it shows words other than those the backend runs, and only the mail's link reopens the page on them. */
   it("answers the backend's refusal of the label with the mail's link, saying the words moved", () => {
     assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-EINWILLIGUNG-001"), VERTRETUNG_MIN_ALTER), {
       error: FASSUNG_NEU_OEFFNEN,

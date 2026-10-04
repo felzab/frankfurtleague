@@ -13,7 +13,7 @@ export const ANTWORT_NEU_OEFFNEN =
 
 // Its own sentence beside `ANTWORT_NEU_OEFFNEN`, whose drifted body is another fault with the same repair:
 // a reader told the words moved knows the page they read is not the one they would answer now.
-/** What each link confirmation tells a visitor whose page shows words the backend no longer runs. */
+/** What each link confirmation tells a visitor whose page shows words other than those the backend runs. */
 export const FASSUNG_NEU_OEFFNEN =
   "Die Hinweise auf dieser Seite sind inzwischen geändert worden. Öffne den Link aus Deiner E-Mail erneut und antworte auf die aktuellen Hinweise.";
 

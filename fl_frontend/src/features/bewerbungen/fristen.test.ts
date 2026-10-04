@@ -82,10 +82,8 @@ const MESSAGES = [
 const NUMBER_WORD: Readonly<Record<string, number>> = { drei: 3, sieben: 7, vierzehn: 14 };
 
 /**
- * The deletion clock each page's wordings state, by the page a label names rather than by label: three
- * flows stamp wordings into one registry, and a new label of a known page is held to its flow's
- * clock with no entry here. `null` for a page whose flow sets no clock, so any day count on it fails.
- * Typed over every page, so a page added to the registry fails to compile until its flow is named.
+ * Each page's deletion clock, keyed by page so a known page's new label needs no entry; `null` where
+ * its flow sets none. Typed over every page: a new one fails to compile until its flow is named.
  */
 const STAMPED_CLOCK: Readonly<Record<EinwilligungSeite, number | null>> = {
   bewerbung: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,

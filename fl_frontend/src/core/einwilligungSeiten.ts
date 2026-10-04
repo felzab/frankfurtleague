@@ -19,9 +19,9 @@ export const EINWILLIGUNG_SEITEN = [
 
 export type EinwilligungSeite = (typeof EINWILLIGUNG_SEITEN)[number];
 
-// Each list is its page's whole set: a served map missing a key or holding one more fails
-// `gekeyteFassung` rather than rendering a gap or dropping a paragraph nobody then sees. Every contact
-// page shares the contact keys, so a link's page is placed by whichever label its view names.
+// Each list is its page's whole set: a served map missing or adding a key fails `gekeyteFassung`
+// rather than rendering a gap or dropping a paragraph. The contact pages share one set, placing
+// whichever label a link's view names.
 export const KONTAKT_ABSATZ_SCHLUESSEL = [
   "worum",
   "gespeichert",

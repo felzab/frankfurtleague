@@ -199,9 +199,8 @@ export function mapBewerbungSubmitRefusal(
   }
 }
 
-// Off the switch rather than the date: the page offers it from the served age alone, so only a
-// browser whose clock puts the day elsewhere than the backend's shows it to a person below that age,
-// and switching it off is the whole repair. The age stands in the paragraph beside the switch.
+// Names the switch rather than the date: the page offers it from the served age, so only a browser
+// clock disagreeing with the backend's day shows it below that age, and switching it off repairs that.
 /** What the contact page says where the backend refuses the media consent for the date entered. */
 export const MEDIEN_NOCH_NICHT =
   "Fotos, Videos und Interviews kannst Du mit diesem Geburtsdatum noch nicht erlauben. Schalte die Erlaubnis aus und bestätige erneut.";
@@ -231,7 +230,7 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
-    // deploy moved it posts words the backend no longer runs, and only the mail's link reopens it.
+    // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
       return { error: FASSUNG_NEU_OEFFNEN };
     // With the record missing, the application the link names is gone, which is a link nothing places.

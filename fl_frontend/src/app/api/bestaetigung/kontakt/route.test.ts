@@ -117,7 +117,7 @@ beforeEach(() => {
 
 describe("the contact seat's confirmation handler", () => {
   /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
-     it posts words the backend no longer runs, and only the mail's link reopens the page on them. */
+     it posts words other than those the backend runs, and only the mail's link reopens the page on them. */
   it("answers the backend's refusal of the label with the sentence that reopens the link", async () => {
     schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-001");
 
@@ -190,7 +190,7 @@ describe("the contact seat's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, zustand: "abgelehnt" });
   });
 
-  it("files the answer and its media consent under the label this server renders, echoing what was stored", async () => {
+  it("files the answer under the label this server renders, echoing what was stored", async () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const geschrieben = calls.find((call) => call.endpoint === WRITE);
 
