@@ -3,7 +3,7 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import type { FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload } from "@/features/teams/schemas";
 
 /** The three seats, off the one list every seat control renders. */
-export const SITZE = KONTAKT_ROLLEN.map(({ value }) => value);
+const SITZE = KONTAKT_ROLLEN.map(({ value }) => value);
 
 /**
  * Whether a contacts save may mint or void a seat's link, a step-up write either way
