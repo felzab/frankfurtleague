@@ -27,7 +27,6 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-import app.main as app_main
 from app.core.exception_handlers import refused_codes
 from app.core.exceptions import BaseAPIException, DocumentNotFoundException, WriteRefusalException
 from app.core.security import (
@@ -39,7 +38,7 @@ from app.core.security import (
     verify_access_base,
     verify_access_system,
 )
-from app.main import COUNTED_REFUSALS, DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, REFUSAL_TABLES, create_app, dependency_refusals
+from app.main import DEPENDENCY_REFUSALS, RefusalDriver, create_app, dependency_refusals
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
 from tests.config import ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
@@ -106,9 +105,6 @@ PROBED_STATUSES = frozenset({HTTPStatus.BAD_REQUEST, HTTPStatus.UNAUTHORIZED, HT
 # The operations a dependency refused on the tree this was written against, so an equality over two
 # maps that both went empty still fails.
 PROBED_OPERATIONS_FLOOR = 100
-
-# Every dependency a refusal table of `app/main.py` names, each table publishing its codes by the same derivation.
-TABLED_DEPENDENCIES = (*DEPENDENCY_REFUSALS, *HANDLER_JUDGED_REFUSALS, *COUNTED_REFUSALS)
 
 # The two refusal classes whose codes reach the document by another route, each held there.
 PUBLISHED_ELSEWHERE: Mapping[type[BaseAPIException], str] = {
@@ -322,36 +318,11 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
     return found
 
 
-def _derived(*tables: Any) -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
+def _derived(*drivers: RefusalDriver) -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
     return {
         operation: {(status, code) for status, codes in refusals.items() for code in codes}
-        for operation, refusals in (dependency_refusals(APP, tables) if tables else dependency_refusals(APP)).items()
+        for operation, refusals in (dependency_refusals(APP, frozenset(drivers)) if drivers else dependency_refusals(APP)).items()
     }
-
-
-# Every refusal table `app/main.py` declares, read off the module by its name's suffix rather than off
-# `REFUSAL_TABLES`, which is what the case below holds them to.
-DECLARED_TABLES: Mapping[str, Mapping[Any, Any]] = {
-    name: value for name, value in vars(app_main).items() if name.endswith("_REFUSALS") and isinstance(value, Mapping)
-}
-
-
-def test_every_refusal_table_is_published_by_default():
-    """A table dropped from the default publishes nothing, and only the committed document notices until it is regenerated."""
-
-    default = _derived()
-    unpublished = {
-        name: {
-            operation: answers - default.get(operation, set())
-            for operation, answers in _derived(table).items()
-            if answers - default.get(operation, set())
-        }
-        for name, table in DECLARED_TABLES.items()
-    }
-
-    assert len(DECLARED_TABLES) >= 3, f"only {sorted(DECLARED_TABLES)} were read off app.main, so the comparison below is thin"
-    assert all(any(table is listed for listed in REFUSAL_TABLES) for table in DECLARED_TABLES.values()), sorted(DECLARED_TABLES)
-    assert {name: missing for name, missing in unpublished.items() if missing} == {}
 
 
 def test_every_refusal_a_request_meets_is_one_the_table_publishes_on_its_operation():
@@ -366,12 +337,11 @@ def test_every_refusal_a_request_meets_is_one_the_table_publishes_on_its_operati
 def test_every_refusal_the_table_publishes_is_met_by_a_request():
     """The other way: a code published on an operation no request meets is a response that cannot occur.
 
-    A handler-judged refusal is met only past the database these probes are refused at, and
-    `tests/api/test_step_up_execution.py` drives it.
+    The probed entries alone: every other driver's refusal is met past the database these probes are refused at.
     """
 
     observed = _observed()
-    derived = _derived(DEPENDENCY_REFUSALS)
+    derived = _derived(RefusalDriver.PROBE)
 
     assert {
         operation: codes - observed.get(operation, set()) for operation, codes in derived.items() if codes - observed.get(operation, set())
@@ -519,7 +489,7 @@ def test_the_execution_suite_drives_exactly_the_operations_a_handler_judged_refu
     `test_every_refusal_the_table_publishes_is_met_by_a_request` leaves these operations to that suite.
     """
 
-    published = set(dependency_refusals(APP, (HANDLER_JUDGED_REFUSALS,)))
+    published = set(dependency_refusals(APP, {RefusalDriver.STEP_UP}))
 
     assert published, "no operation publishes a handler-judged refusal, so the comparison below is vacuous"
     assert _driven_past_the_step_up_window() == published
@@ -543,7 +513,7 @@ def _raised_in(function: Any) -> set[type[BaseException]]:
 def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_raise():
     """Read off the dependencies' own raises, a second route to the set: a derivation that went empty would sweep nothing, green."""
 
-    raised = set().union(*(_raised_in(dependency) for dependency in TABLED_DEPENDENCIES))
+    raised = set().union(*(_raised_in(dependency) for dependency in DEPENDENCY_REFUSALS))
 
     assert raised, "no raise is read off the table's dependencies, so the clause below is vacuous"
     assert all(_is_protocol_refusal(cls) for cls in raised), raised
@@ -552,7 +522,7 @@ def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_ra
 def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_or_in_a_handler_declaring_it():
     """Read off every raise under `app/`, a population the table never feeds."""
 
-    answering = {(module_of(dependency), declared(dependency).name) for dependency in TABLED_DEPENDENCIES} | {
+    answering = {(module_of(dependency), declared(dependency).name) for dependency in DEPENDENCY_REFUSALS} | {
         (module_of(route.endpoint), route.endpoint.__name__) for route in api_routes(APP) if route.responses
     }
 

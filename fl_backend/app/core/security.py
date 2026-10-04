@@ -295,7 +295,7 @@ def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]
     """The step-up of a write stepped up on some calls alone (`docs/backend/spec.md :: I524`).
 
     A dependency rather than a raise in the handler, so the document derives the refusal from the
-    operations running it (`app/main.py :: HANDLER_JUDGED_REFUSALS`).
+    operations running it (`app/main.py :: DEPENDENCY_REFUSALS`).
     """
 
     def refuse_unconfirmed() -> None:

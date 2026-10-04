@@ -19,11 +19,12 @@ from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, gedrosselt, g
 from app.core.exceptions import DrosselungException
 from app.core.recording import AktorFunktion
 from app.core.security import PERSON_ACTOR_BINDERS, SAFE_METHODS
-from app.main import _dependency_calls
-from tests.core.app_source import declared
+from app.main import RefusalDriver, _dependency_calls, dependency_refusals
+from tests.core.app_source import application, declared
 
 from .test_actor_binding import ROUTES_BY_OPERATION, binds_a_person
-from .test_drosselung_execution import CONSENTS, Consent
+from .test_admin_guard import strip_convertors
+from .test_drosselung_execution import CONSENTS, COUNTED_ON_EVERY_CALL, Consent
 
 BERLIN = ZoneInfo("Europe/Berlin")
 
@@ -119,21 +120,25 @@ def test_a_handler_taking_the_count_calls_it(path: str, method: str):
     assert called, f"{method} {path} takes `{parameter}` and never calls it"
 
 
-def test_the_execution_suite_drives_a_grant_on_every_operation_taking_the_count():
-    """The case above passes a call on a branch that never runs; `CONSENTS` parametrises the database case driving a grant to one unit."""
+def test_the_execution_suite_drives_exactly_the_operations_the_count_is_published_on():
+    """The holder of the table's `COUNT` entries; a call on a branch that never runs passes every case above.
+
+    `CONSENTS` and `COUNTED_ON_EVERY_CALL` parametrise the database cases driving each operation to the count.
+    """
 
     consents = [value for param in CONSENTS for value in param.values if isinstance(value, Consent)]
+    sent = [("PATCH", consent.path) for consent in consents] + [(param.values[0], param.values[1]) for param in COUNTED_ON_EVERY_CALL]
     driven = {
-        operation
-        for consent in consents
-        for operation, route in ROUTES_BY_OPERATION.items()
-        if operation[1] == "PATCH" and route.path_regex.fullmatch(consent.path)
+        (strip_convertors(path), method.lower())
+        for sent_method, url in sent
+        for (path, method), route in ROUTES_BY_OPERATION.items()
+        if method == sent_method and route.path_regex.fullmatch(str(url))
     }
-    taking = {operation for operation in PERSON_LANE_WRITES if drossel_parameters(ROUTES_BY_OPERATION[operation])}
+    published = set(dependency_refusals(application(), {RefusalDriver.COUNT}))
 
     assert len(consents) == len(CONSENTS), "a `CONSENTS` entry carries no `Consent`, so the comparison below misses it"
-    assert taking, "no operation takes a `Drossel`, so the comparison below holds of nothing"
-    assert driven == taking, f"driven {sorted(driven)}, taking the count {sorted(taking)}"
+    assert published, "no operation publishes the count's refusal, so the comparison below holds of nothing"
+    assert driven == published, f"driven {sorted(driven)}, publishing the count {sorted(published)}"
 
 
 def test_both_declarations_are_in_use():
