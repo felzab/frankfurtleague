@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler
+from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.konto.schemas import FLKontoEinwilligungenResponse
 from app.api.konto.services import (
     build_angenommene_bewerbungen_pipeline,
@@ -84,11 +84,6 @@ async def get_einwilligungen(
         )
         subjekt = await funktionen_of(identifier, records, session=session)
 
-        # The derivation every PATCH authorises a grant against, never a copy of its rule.
-        erteilbare_spieler = {eintrag.spieler_id for eintrag in subjekt.spieler}
-        erteilbare_schiedsrichter = {eintrag.schiedsrichter_id for eintrag in subjekt.schiedsrichter}
-        erteilbare_sitze = {(sitz.team_id, sitz.saison_id) for sitz in subjekt.sitze}
-
         pupil = next((row for row in pupils if ist_eigener_spieler(row)), None)
         zeile = None if pupil is None else kontext_zeile(pupil)
         team_ids = [
@@ -118,17 +113,17 @@ async def get_einwilligungen(
                 if pupil is None
                 else compose_spieler_selbst(
                     pupil,
-                    erteilbar=pupil["_id"] in erteilbare_spieler,
+                    erteilbar=may_grant_on_spieler(subjekt, pupil["_id"]),
                     today=today,
                     team=None if zeile is None else teams.get(zeile["team_id"]),
                 ),
                 "schiedsrichter": [
-                    compose_schiedsrichter_selbst(row, erteilbar=row["_id"] in erteilbare_schiedsrichter, today=today)
+                    compose_schiedsrichter_selbst(row, erteilbar=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
                     for row in referees
                     if ist_eigener_schiedsrichter(row, identifier)
                 ],
                 "sitze": compose_sitze_selbst(
-                    seat_rows, identifier, erteilbar=erteilbare_sitze, today=today, teams=teams, bewerbungen=bewerbungen
+                    seat_rows, identifier, sitze_mit_panel=subjekt.sitze, today=today, teams=teams, bewerbungen=bewerbungen
                 ),
                 "bewerbungen": compose_bewerbungssitze_selbst(bewerbung_rows, identifier, teams=teams),
             }

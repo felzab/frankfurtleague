@@ -9,7 +9,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.api.bewerbungen.services import compose_confirmation_update, compose_kontakt_seat_update, compose_kontakte
-from app.api.konto.services import compose_selbst_einwilligung_move
+from app.api.konto.services import compose_person_move, compose_sitz_move
 from app.api.registrierungen.services import compose_person_update
 from app.api.teams.services import compose_kontakte_at_entry, compose_kontakte_herkunft
 from app.core.config import API_VERSION
@@ -199,11 +199,27 @@ def _contact_confirmation() -> Write:
 
 def _account_press() -> Write:
     stored = {"einwilligung": dict(PERSON_RECORD)}
-    update = compose_selbst_einwilligung_move(
-        bloecke=[("einwilligung", stored["einwilligung"])], umfang="intern", medien=False, am=AM, text_version="2026-10-konto-spieler"
+    update = compose_person_move(
+        gespeichert=stored["einwilligung"], gewaehlt={"umfang": "intern", "medien": False}, am=AM, text_version="2026-10-konto-spieler"
     )
     assert update is not None, "the press moved nothing, so this case proves nothing"
     return stored, update, ("einwilligung",)
+
+
+def _account_seat_press() -> Write:
+    """Two held seats, both answered, one press withdrawing media on both."""
+
+    stored = {
+        "kontakte": _seats(trainer={**SEAT, "einwilligung": dict(ANSWERED_SEAT)}, ansprechperson={**SEAT, "einwilligung": dict(ANSWERED_SEAT)})
+    }
+    update = compose_sitz_move(
+        sitze={slot: stored["kontakte"][slot]["einwilligung"] for slot in ("trainer", "ansprechperson")},
+        gewaehlt={"medien": False},
+        am=AM,
+        text_version="2026-10-konto-kontakt",
+    )
+    assert update is not None, "the press moved nothing, so this case proves nothing"
+    return stored, update, ("kontakte.trainer.einwilligung", "kontakte.ansprechperson.einwilligung")
 
 
 def _admission() -> Write:
@@ -282,7 +298,8 @@ def _acceptance() -> Write:
 # lane. Held to the code below, so a new composer fails by name until it is judged here.
 PERSON_WRITES: Final[Mapping[str, Callable[[], Write]]] = {
     "app/api/bewerbungen/services.py::compose_confirmation_update": _contact_confirmation,
-    "app/api/konto/services.py::compose_selbst_einwilligung_move": _account_press,
+    "app/api/konto/services.py::compose_person_move": _account_press,
+    "app/api/konto/services.py::compose_sitz_move": _account_seat_press,
     "app/api/registrierungen/services.py::compose_person_update": _admission,
 }
 ADMIN_WRITES: Final[Mapping[str, Callable[[], Write]]] = {
@@ -305,12 +322,16 @@ NOT_DRIVEN_HERE: Final = frozenset(
         # Builders the writes above call.
         "app/api/bewerbungen/services.py::compose_einwilligung",
         "app/api/schiedsrichter/services.py::compose_einwilligung",
+        "app/api/konto/services.py::_person_wahl",
+        "app/api/konto/services.py::_sitz_wahl",
+        "app/api/konto/services.py::_sitz_wahlen",
         # Readers: a served body, or the record a seat's person keeps.
         "app/api/konto/services.py::compose_spieler_selbst",
         "app/api/konto/services.py::compose_schiedsrichter_selbst",
         "app/api/konto/services.py::compose_sitze_selbst",
         "app/api/konto/services.py::compose_bewerbungssitze_selbst",
         "app/api/teams/services.py::_confirmation_held_by",
+        "app/api/teams/services.py::kontakte_fassungen_gehalten",
         # Writers at their routes, each through a composer classed above, and each driven by its own
         # route's suite: the pupil's confirmation and the person's own consent PATCHes.
         "app/api/registrierungen/einwilligung_router.py::post_bestaetigung",
@@ -327,6 +348,8 @@ NOT_DRIVEN_HERE: Final = frozenset(
         # contacts token's projection of a read.
         "app/shared/einwilligung.py::_mit_medien",
         "app/api/teams/schemas.py::_project_seat",
+        "app/api/teams/schemas.py::kontakte_stand_of",
+        "app/api/teams/schemas.py::kontakte_stand",
     }
 )
 
@@ -349,6 +372,10 @@ def _names_a_block(key: ast.AST | None) -> bool:
         tail = key.value
     elif isinstance(key, ast.JoinedStr) and key.values and isinstance(key.values[-1], ast.Constant):
         tail = str(key.values[-1].value)
+    elif isinstance(key, ast.JoinedStr) and key.values:
+        # A choice's hole behind a literal path into the block, as `f"einwilligung.{wahl}"` writes one.
+        leading = "".join(str(part.value) for part in key.values if isinstance(part, ast.Constant))
+        return bool({"einwilligung", NACHWEIS} & set(leading.split(".")))
     else:
         return False
 
@@ -381,10 +408,19 @@ def _block_composers() -> set[str]:
 
     found: set[str] = set()
     for path in APP.rglob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _touches_a_block(node):
-                found.add(f"{path.relative_to(APP.parent).as_posix()}::{node.name}")
+        functions = [
+            node for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        touching = {node.name for node in functions if _touches_a_block(node)}
+        # A function composing through a helper of its own module composes too, so extracting a helper hides no writer.
+        while grown := {node.name for node in functions if node.name not in touching and _calls_one_of(node, touching)}:
+            touching |= grown
+        found |= {f"{path.relative_to(APP.parent).as_posix()}::{name}" for name in touching}
     return found
+
+
+def _calls_one_of(function: ast.AST, names: set[str]) -> bool:
+    return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names for node in ast.walk(function))
 
 
 def test_every_composer_of_a_consent_block_is_judged_here():
@@ -406,6 +442,7 @@ def test_the_reader_of_the_composers_finds_a_writer_by_its_markers():
         pytest.param('def f(gesetzt, slot):\n    gesetzt[f"kontakte.{slot}.einwilligung.medien"] = True\n', id="an f-string dotted path"),
         pytest.param('def f(gesetzt):\n    gesetzt["einwilligung.nachweis"] = {}\n', id="a dotted path to the evidence"),
         pytest.param('def f():\n    return {f"kontakte.{s}.einwilligung": None for s in "ab"}\n', id="a comprehension keyed by the block"),
+        pytest.param('def f(wahl, wert):\n    return {f"einwilligung.{wahl}": wert}\n', id="a choice's hole behind the block's path"),
     ],
 )
 def test_the_markers_find_every_shape_this_codebase_writes_a_choice_in(source: str):

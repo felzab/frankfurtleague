@@ -102,7 +102,7 @@ CONFLICT = "409"
 
 # The operations the trace reached a unique index from on the tree this was written against, so an
 # equality over two sets that both went empty still fails.
-DECLARING_OPERATIONS_FLOOR = 33
+DECLARING_OPERATIONS_FLOOR = 29
 
 
 def _filter_fields(expression: Any) -> Iterator[str]:

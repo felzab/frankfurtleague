@@ -924,7 +924,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
         "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
         "evidence (`docs/backend/spec.md :: I869`)",
-        "app.api.konto.services.compose_selbst_einwilligung_move",
+        "app.api.konto.services.compose_person_move",
     ),
     FieldPolicy(
         Collection.SPIELER,

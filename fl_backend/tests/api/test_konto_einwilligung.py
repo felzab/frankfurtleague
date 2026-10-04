@@ -34,7 +34,7 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, spieler_document, team_document
 from tests.worker import worker_database
 
-from .conftest import config_for
+from .conftest import AUSTRITT, config_for
 
 DATABASE_NAME = worker_database("fl_konto_einwilligung_test")
 
@@ -381,6 +381,107 @@ class TestARecordNotHeld:
         assert withdrawn.status_code == 200, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
         assert (after[RETIRED_OID]["einwilligung"]["umfang"], after[RETIRED_OID]["einwilligung"]["medien"]) == ("intern", False)
+
+
+@pytest.mark.db
+class TestThePressesOrder:
+    """One sequence for every kind of record: the stale page is judged before whether the record takes a grant."""
+
+    def test_a_stale_grant_on_a_retired_record_is_refused_as_stale(self, mongo_replica_set_url: str):
+        """The withdrawal moves the stand, so the page still showing the grant is stale before it is anything else."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            withdrawn = await http.patch(f"{PATH}/{RETIRED_OID}/einwilligung", json=_payload(medien=False), headers=_person(RETIRED))
+            before = await _records(database)
+            stale = await http.patch(f"{PATH}/{RETIRED_OID}/einwilligung", json=_payload(medien=True), headers=_person(RETIRED))
+            return withdrawn, stale, before, await _records(database)
+
+        withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
+
+        assert withdrawn.status_code == 200, withdrawn.text
+        assert (stale.status_code, stale.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert after == before
+
+
+SPIELER_PATCH_PATH = f"/api/v{API_VERSION}/spieler/selbst/einwilligung"
+
+
+async def _withdrawn_then_granted(http: AsyncClient, path: str, payload: Callable[[bool, Any], dict[str, Any]], email: str) -> Any:
+    """A media withdrawal, then a grant from the page its answer leaves: the grant's status alone is the record's to answer."""
+
+    withdrawn = await http.patch(path, json=payload(False, None), headers=_person(email))
+    assert withdrawn.status_code == 200, withdrawn.text
+
+    return await http.patch(path, json=payload(True, withdrawn.json()["nachweis_stand"]), headers=_person(email))
+
+
+@pytest.mark.db
+class TestErteilbarIsTheGrantThePressTakes:
+    """`docs/backend/spec.md :: I973`: every entry the account read serves is offered a grant exactly where its PATCH takes one."""
+
+    @staticmethod
+    async def _a_withdrawn_teams_confirmed_seat(database: AsyncDatabase) -> None:
+        # Beside the asker's live seat of the same season, so an `erteilbar` judged by the season alone offers it a grant.
+        await database[Collection.SAISON_TEAMS].update_one(
+            {"team_id": TEAM_A_OID, "saison_id": ACTIVE_SAISON},
+            {"$set": {"kontakte.trainer.einwilligung.bestaetigt_am": "2026-09-03", "austritt": dict(AUSTRITT)}},
+        )
+
+    @pytest.mark.parametrize("email", [IDENTIFIER, RETIRED], ids=["a live person", "a retired referee"])
+    def test_a_grant_is_taken_on_each_served_entry_exactly_where_the_read_offered_one(self, mongo_replica_set_url: str, email: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> list[tuple[str, bool, int]]:
+            await self._a_withdrawn_teams_confirmed_seat(database)
+            body = (await http.get(KONTO_PATH, headers=_person(email))).json()
+            outcomes: list[tuple[str, bool, int]] = []
+
+            if body["spieler"] is not None:
+                spieler_label = LAUFENDE_FASSUNGEN["konto_spieler"]
+                granted = await _withdrawn_then_granted(
+                    http,
+                    SPIELER_PATCH_PATH,
+                    lambda medien, stand: {
+                        "umfang": body["spieler"]["einwilligung"]["umfang"],
+                        "medien": medien,
+                        "text_version": spieler_label,
+                        "nachweis_stand": body["spieler"]["nachweis_stand"] if stand is None else stand,
+                    },
+                    email,
+                )
+                outcomes.append(("spieler", body["spieler"]["erteilbar"], granted.status_code))
+
+            for eintrag in body["schiedsrichter"]:
+                granted = await _withdrawn_then_granted(
+                    http,
+                    f"{PATH}/{eintrag['schiedsrichter_id']}/einwilligung",
+                    lambda medien, stand, eintrag=eintrag: _payload(
+                        umfang=eintrag["einwilligung"]["umfang"], medien=medien, stand=eintrag["nachweis_stand"] if stand is None else stand
+                    ),
+                    email,
+                )
+                outcomes.append((eintrag["schiedsrichter_id"], eintrag["erteilbar"], granted.status_code))
+
+            for sitz in body["sitze"]:
+                granted = await _withdrawn_then_granted(
+                    http,
+                    f"/api/v{API_VERSION}/teams/{sitz['team_id']}/saisons/{sitz['saison_id']}/person/einwilligung",
+                    lambda medien, stand, sitz=sitz: {
+                        "medien": medien,
+                        "text_version": SEAT_RUNNING_LABEL,
+                        "nachweis_stand": sitz["nachweis_stand"] if stand is None else stand,
+                    },
+                    email,
+                )
+                outcomes.append((f"{sitz['team_id']}/{sitz['saison_id']}", sitz["erteilbar"], granted.status_code))
+
+            return outcomes
+
+        outcomes = served(mongo_replica_set_url, steps)
+
+        assert outcomes, "the read served nothing, so nothing was compared"
+        assert [(entry, erteilbar, status == 200) for entry, erteilbar, status in outcomes] == [
+            (entry, erteilbar, erteilbar) for entry, erteilbar, _ in outcomes
+        ]
+        assert {erteilbar for _, erteilbar, _ in outcomes} == ({True, False} if email == IDENTIFIER else {False})
 
 
 @pytest.mark.db

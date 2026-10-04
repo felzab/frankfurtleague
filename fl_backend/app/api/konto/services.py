@@ -12,13 +12,14 @@ from typing import Any, Final
 
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze
+from app.api.identitaet.schemas import FLSubjektSitz
+from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat
 from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
 from app.api.schiedsrichter.services import vorname_of
 from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, compose_wahlen, nachweis_stand_of
+from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, FLEinwilligungWahl, compose_beleg, ist_erteilt, nachweis_stand_of
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
 KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
@@ -34,41 +35,118 @@ EINWILLIGUNG_STAND_VERALTET: Final = "REQ-EINWILLIGUNG-003"
 SITZ_WAHLEN: Final[tuple[FLEinwilligungWahl, ...]] = ("medien",)
 
 
-def erteilt_etwas(*, gespeichert: Mapping[str, Any], umfang: str | None, medien: bool) -> bool:
-    """Whether a PATCH GRANTS anything the stored record withholds; `umfang` is `None` where the payload carries none.
+def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any]) -> bool:
+    """Whether a press GRANTS a choice the stored record withholds, in either vocabulary.
 
-    A grant is admitted only on a record that grants a panel, a withdrawal on every confirmed one (Art. 7(3) DSGVO).
+    A grant is admitted only where its record's grant predicate allows it, a withdrawal on every confirmed one (Art. 7(3) DSGVO).
     """
 
-    return (umfang == "kader_oeffentlich" and gespeichert.get("umfang") != "kader_oeffentlich") or (
-        medien and gespeichert.get("medien") is not True
-    )
+    return any(ist_erteilt(wahl, wert) and not ist_erteilt(wahl, gespeichert.get(wahl)) for wahl, wert in gewaehlt.items())
 
 
-def bewegt_etwas(*, gespeichert: Mapping[str, Any], umfang: str | None, medien: bool) -> bool:
-    """Whether a PATCH moves either choice. A stored record carrying no `medien` predates the field and is off."""
+def _bewegt(gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any) -> bool:
+    # A stored record carrying no `medien` predates the field and is off.
+    return wert != (bool(gespeichert.get("medien", False)) if wahl == "medien" else gespeichert.get(wahl))
 
-    return (umfang is not None and gespeichert.get("umfang") != umfang) or bool(gespeichert.get("medien", False)) != medien
+
+# --- The MOVE, one composer per kind of block, every key a literal path: a key built in a loop reads to
+# `fl_backend/tests/core/test_duplicate_key_publication.py` as every field, publishing a 409 no press can produce.
 
 
-def compose_selbst_einwilligung_move(
-    *, bloecke: Sequence[tuple[str, Mapping[str, Any]]], umfang: str | None, medien: bool, am: str, text_version: str
+def _person_wahl(*, gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any, am: str, text_version: str) -> dict[str, Any]:
+    return {
+        f"einwilligung.{wahl}": wert,
+        f"einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
+            gespeichert=gespeichert, wahl=wahl, wert=wert, am=am, text_version=text_version, stamp=log_stamp
+        ),
+    }
+
+
+def compose_person_move(
+    *, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
 ) -> dict[str, dict[str, Any]] | None:
-    """One update moving a press's choices and each moved choice's evidence; `None` where none moves.
+    """The update moving a person's own block, at `einwilligung`, by the choices that change; `None` where none does.
 
     Never `bestaetigt_am`, read by the panel and the publication mask, nor the block's CONFIRMED
     `text_version`: the press's label is its evidence's.
     """
 
-    gesetzt: dict[str, Any] = {}
-    for pfad, gespeichert in bloecke:
-        moved: dict[FLEinwilligungWahl, Any] = {}
-        if umfang is not None and umfang != gespeichert.get("umfang"):
-            moved["umfang"] = umfang
-        if medien != bool(gespeichert.get("medien", False)):
-            moved["medien"] = medien
-        if moved:
-            gesetzt.update(compose_wahlen(pfad=pfad, gespeichert=gespeichert, gesetzt=moved, am=am, text_version=text_version, stamp=log_stamp))
+    umfang = "umfang" in gewaehlt and _bewegt(gespeichert, "umfang", gewaehlt["umfang"])
+    medien = "medien" in gewaehlt and _bewegt(gespeichert, "medien", gewaehlt["medien"])
+    if not (umfang or medien):
+        return None
+
+    return {
+        "$set": {
+            **(
+                _person_wahl(gespeichert=gespeichert, wahl="umfang", wert=gewaehlt["umfang"], am=am, text_version=text_version)
+                if umfang
+                else {}
+            ),
+            **(
+                _person_wahl(gespeichert=gespeichert, wahl="medien", wert=gewaehlt["medien"], am=am, text_version=text_version)
+                if medien
+                else {}
+            ),
+        }
+    }
+
+
+def _sitz_wahl(*, slot: str, gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any, am: str, text_version: str) -> dict[str, Any]:
+    return {
+        f"kontakte.{slot}.einwilligung.{wahl}": wert,
+        f"kontakte.{slot}.einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
+            gespeichert=gespeichert, wahl=wahl, wert=wert, am=am, text_version=text_version, stamp=log_stamp
+        ),
+    }
+
+
+def _sitz_wahlen(
+    *, slot: str, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
+) -> dict[str, Any]:
+    umfang = "umfang" in gewaehlt and _bewegt(gespeichert, "umfang", gewaehlt["umfang"])
+    medien = "medien" in gewaehlt and _bewegt(gespeichert, "medien", gewaehlt["medien"])
+
+    return {
+        **(
+            _sitz_wahl(slot=slot, gespeichert=gespeichert, wahl="umfang", wert=gewaehlt["umfang"], am=am, text_version=text_version)
+            if umfang
+            else {}
+        ),
+        **(
+            _sitz_wahl(slot=slot, gespeichert=gespeichert, wahl="medien", wert=gewaehlt["medien"], am=am, text_version=text_version)
+            if medien
+            else {}
+        ),
+    }
+
+
+# Unpacked rather than looped over, for the move's reason above: a fourth slot fails here at import.
+_ERSTER_SITZ, _ZWEITER_SITZ, _DRITTER_SITZ = KONTAKT_SLOTS
+
+
+def compose_sitz_move(
+    *, sitze: Mapping[str, Mapping[str, Any]], gewaehlt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
+) -> dict[str, dict[str, Any]] | None:
+    """The update moving every held seat's block of one row or application, `sitze` keyed by slot; `None` where none moves."""
+
+    gesetzt = {
+        **(
+            _sitz_wahlen(slot=_ERSTER_SITZ, gespeichert=sitze[_ERSTER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
+            if _ERSTER_SITZ in sitze
+            else {}
+        ),
+        **(
+            _sitz_wahlen(slot=_ZWEITER_SITZ, gespeichert=sitze[_ZWEITER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
+            if _ZWEITER_SITZ in sitze
+            else {}
+        ),
+        **(
+            _sitz_wahlen(slot=_DRITTER_SITZ, gespeichert=sitze[_DRITTER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
+            if _DRITTER_SITZ in sitze
+            else {}
+        ),
+    }
 
     return {"$set": gesetzt} if gesetzt else None
 
@@ -250,7 +328,7 @@ def compose_sitze_selbst(
     rows: Sequence[Mapping[str, Any]],
     identifier: str,
     *,
-    erteilbar: Collection[tuple[Any, str]],
+    sitze_mit_panel: Sequence[FLSubjektSitz],
     today: str,
     teams: Mapping[Any, Mapping[str, Any]],
     bewerbungen: Mapping[tuple[Any, str], Mapping[str, Any]],
@@ -277,7 +355,7 @@ def compose_sitze_selbst(
                 "medien": any(seat["einwilligung"].get("medien") is True for seat in held),
                 "nachweis_stand": nachweis_stand_of(bloecke=[seat["einwilligung"] for seat in held], wahlen=SITZ_WAHLEN),
                 "medien_angeboten": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
-                "erteilbar": (row["team_id"], row["saison_id"]) in erteilbar,
+                "erteilbar": holds_a_seat(sitze_mit_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
                 # The first held slot's, as `rollen` orders them: one person holding two answers by one name.
                 "kontext": {
                     "vorname": held[0].get("vorname"),

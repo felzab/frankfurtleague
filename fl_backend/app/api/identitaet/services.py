@@ -13,7 +13,7 @@ from typing import Any, Literal
 from bson import ObjectId
 
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identitaet.schemas import FLSubjektSitz
+from app.api.identitaet.schemas import FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
@@ -223,6 +223,18 @@ def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id
     """
 
     return any(sitz.team_id == team_id and sitz.saison_id == saison_id for sitz in sitze)
+
+
+# The grant predicates, one per kind of own record: each consent PATCH grants by its record's, and each
+# read's `erteilbar` is that same predicate (`docs/backend/spec.md :: I973`).
+
+
+def may_grant_on_spieler(subjekt: FLSubjekt, spieler_id: ObjectId) -> bool:
+    return any(eintrag.spieler_id == spieler_id for eintrag in subjekt.spieler)
+
+
+def may_grant_on_schiedsrichter(subjekt: FLSubjekt, schiedsrichter_id: ObjectId) -> bool:
+    return any(eintrag.schiedsrichter_id == schiedsrichter_id for eintrag in subjekt.schiedsrichter)
 
 
 def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, saison_id: str) -> WriteRefusal | None:

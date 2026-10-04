@@ -13,7 +13,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.services import compose_selbst_einwilligung_move
+from app.api.konto.services import compose_person_move
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
@@ -709,8 +709,8 @@ class TestThePersonAnAdmissionNames:
             )
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
-            press = compose_selbst_einwilligung_move(
-                bloecke=[("einwilligung", stored)], umfang=None, medien=False, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
+            press = compose_person_move(
+                gespeichert=stored, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
             )
             assert press is not None, "the press moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
@@ -874,8 +874,8 @@ class TestAReturningRegistration:
                 today=TODAY,
             )
             held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
-            press = compose_selbst_einwilligung_move(
-                bloecke=[("einwilligung", held)], umfang=None, medien=False, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
+            press = compose_person_move(
+                gespeichert=held, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
             )
             assert press is not None, "the withdrawal moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
