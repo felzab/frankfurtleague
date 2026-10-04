@@ -16,6 +16,10 @@ whatever the brief says:
   than the diff you judge, so a substituted read answers a different question and is a wrong answer
   rather than a partial one. Committed state reaches you in the brief; where it did not, that is the
   finding.
+- **Judge against the stated requirements and the official guidance for the artefact's kind**, and
+  challenge any constraint the brief states as given. Flag only what affects correctness or the
+  requirements, and label anything else optional; a test, document or helper with no job is a
+  finding too, its removal a gain. What you cannot verify is a question, never an assumption.
 - **Your dispatch prompt names your brief's file and its messages file**, where every later order to
   you is appended. If your context opens with a summary of earlier work, re-read both before your
   next finding: a summary keeps what it judged important, and a rule your brief set or a message

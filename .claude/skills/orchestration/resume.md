@@ -57,7 +57,8 @@ Resume this session. Do not continue any work until you have finished this proto
 
 7. RESUME POINT. State the single next action and why, and write it into the register in the same
    edit as the action. Where this session's id differs from the register's, rewrite the
-   `Coordinator session id:` line in that edit. Then continue at the parallelism the work can absorb.
+   `Coordinator session id:` line in that edit. Then continue, running in parallel what shortens
+   the critical path.
 
 Redo what cannot be shown complete; re-derive nothing a command answers in one line; re-audit no
 work whose acceptance evidence is on disk and still valid.

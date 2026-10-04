@@ -1,6 +1,6 @@
 ---
 name: orchestration
-description: Coordinates a long multi-agent session — planning file ownership before dispatch, briefing and dispatching subagents, landing their branches, reading CI, judging reports, running the audit cycle to its stopping rule, and handing off between sessions. Use it whenever work needs more than a handful of subagents, when several agents' edits must be assembled into one branch and pull request, when a fleet's work runs one agent at a time though it need not, when planning a multi-session programme or writing its starter prompt, when writing or auditing a handoff, or when resuming a session that was paused, killed, or stopped for quota — even when nobody named the skill.
+description: Coordinates a long multi-agent session — planning file ownership before dispatch, briefing and dispatching subagents, landing their branches, reading CI, judging reports, running the audit cycle to its stopping rule, and handing off between sessions. Use it whenever work needs more than a handful of subagents, when several agents' edits must be assembled into one branch and pull request, when independent work could shorten the critical path by running in parallel, when planning a multi-session programme or writing its starter prompt, when writing or auditing a handoff, or when resuming a session that was paused, killed, or stopped for quota — even when nobody named the skill.
 ---
 
 # Coordinating a multi-agent session
@@ -16,7 +16,29 @@ commits, where a defect can sit in no single diff.
 
 ## Goal and quality bar
 
-<!-- PENDING: the owner's standing goal and quality bar, whose final text the coordinator sends. -->
+Done means all nine, met in full and never traded; the effort scales to the change, the bar does
+not.
+
+1. What the owner meant, built right: every ruling and plan item met, and an instruction that
+   conflicts with documented practice or the evidence challenged before it is built. The owner
+   decides; never quietly improve an instruction.
+2. Nothing assumed: every premise verified or asked.
+3. Proven: each behaviour that could regress held by a test shown to fail when broken, every check
+   passing, every visible change seen by the owner.
+4. Independently reviewed, in proportion to what a defect could break.
+5. Best practice and lean: official documentation followed, no workaround, no suppression. A test
+   exists only where a behaviour could regress unnoticed and it is the cheapest guard; the change is
+   the smallest that fully solves the problem; removing an unneeded test, doc or helper is a gain.
+6. Safe: secrets and privacy.
+7. Documented only where the code cannot speak.
+8. Nothing open.
+9. Deploy steps listed for the owner.
+
+Speed comes from cutting waste — runs that check nothing new, duplicate agents, re-reading what is
+known, rounds that follow no risk — and from parallel work only where it shortens the critical path.
+Tokens are never a reason to lower quality: no deadline or token budget for any agent, and a quota
+stop is waited out. Ask rather than assume, batching questions so they stall nothing independent.
+Stop once the bar is met.
 
 ## State lives in the register
 
@@ -42,7 +64,7 @@ commits, where a defect can sit in no single diff.
 - Name the couplings that are not file edges — a script parsing another, a rule and its check, a
   message, exit code or flag one file emits and another asserts. Coupled files share a wave and a
   re-auditor.
-- The ownership map is the commit plan: fill the register's commit table with its ordering
+- The ownership map is the landing plan: fill the register's landings table with its ordering
   constraints. A contract two agents build against lands before the second forks. One session, one
   branch, one pull request.
 - Have one prep agent resolve a whole wave's premises against `HEAD` before its briefs are written.
@@ -75,7 +97,7 @@ commits, where a defect can sit in no single diff.
 7. An agent that writes or plants runs in its own worktree (`isolation: "worktree"`), forked from your
    `HEAD`: commit what it needs first. A reader runs in your checkout.
 8. An `implementer` or `driving-reauditor` may message you mid-task through `SendMessage`, to ask for a
-   file outside its list or to report a broken premise; answer the same way and append the answer to
+   file outside its list, to report a broken premise or to ask what it cannot verify; answer the same way and append the answer to
    its messages file. A `researcher` or `cold-auditor` reaches you only through its report.
 9. Dispatch no writer while `HEAD` holds a landing whose CI has not concluded. Once what remains is one
    wave plus [ending.md](ending.md)'s list, start nothing new.
@@ -84,9 +106,8 @@ commits, where a defect can sit in no single diff.
 
 - Dispatch before you read a landed report, and before you reply. End every reply to the owner with
   the gauge: `Fleet: 3 of <cap>, two queued behind the gate commit.` Then name what would have to
-  become true for one more agent to go out, and check whether it already is: a cold audit over a
-  captured diff, read-only research and the next wave's prep agent are rarely blocked. The gauge is
-  a check that nothing dispatchable waits, never a target.
+  become true for the next agent on the critical path to go out, and check whether it already is.
+  The gauge is a check that nothing on the critical path waits, never a target.
 - You are the fleet's one serial resource: bank a report as its saved path and a one-line verdict,
   its findings with `ledger.py bank`; send a fix batch as its ledger rows and one line.
 - Verify every count, file list and exit code in a report against the agent's branch

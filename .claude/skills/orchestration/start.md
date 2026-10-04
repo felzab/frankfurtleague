@@ -10,7 +10,7 @@ applied to the whole session.
    same pass.
 4. Build the file-ownership map from every file each slice writes, hubs and leaves marked, and name
    the couplings and shared contracts that are not file edges.
-5. Fill the register's commit table from the map, with its ordering constraints.
+5. Fill the register's landings table from the map, with its ordering constraints.
 6. Decide each slice's cycle now, with its reason, by whether a wrong result would be silent. A slice
    whose output a person looks at carries the owner's browser pass beside its rounds; that pass is
    its audit. Where the session builds a mechanism meant to change what people write — a rule set, a
