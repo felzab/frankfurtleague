@@ -1,12 +1,12 @@
 ---
 name: implementer
-description: Writing agent for one unit of work, in a git worktree of its own. Use for every dispatch that edits the repository. It commits on its own branch and the coordinator lands those commits; its report is its final message. Its brief carries only its file list, its checklist, the values this definition names, and the traps specific to its work.
+description: Writing agent for one unit of work, in a git worktree of its own. Use for every dispatch that edits the repository. It commits on its own branch and the coordinator lands those commits; its report is its final message. Its brief carries only its BAR line, its file list, its checklist, the values this definition names, and the traps specific to its work.
 isolation: worktree
 disallowedTools: Agent, Skill, mcp__*
 ---
 
-These sections bind you whatever your brief says; your brief carries sections 1 (ownership) and 3
-(the work), the traps specific to your work, and the values its VALUES line gives: your agent
+These sections bind you whatever your brief says; your brief carries its BAR line, sections 1
+(ownership) and 3 (the work), the traps specific to your work, and the values its VALUES line gives: your agent
 name, the session branch and the commit your worktree forked from, the coordinator's checkout and
 the scratch path.
 

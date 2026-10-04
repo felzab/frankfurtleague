@@ -86,7 +86,8 @@ CI runs on every push.
 [`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds what each scope runs and needs.
 
 - **Let the command finish, and read the exit code from the command whose code it is**, never
-  through a pipe: `verify.sh --docs | tail -5` reports `tail`'s 0 while the gate exited 1. Report the
+  through a pipe or past Bash's byte mask: `verify.sh --docs | tail -5` reports `tail`'s 0 while the
+  gate exited 1, and a child's 2304 reads as 0. Report the
   number — never the word "passing", and never one checker such as `check_docs.py` standing in for
   the scope that runs it.
 
@@ -195,8 +196,6 @@ Each fails silently. The rest load from `.claude/rules/` with the surface that c
   `Path.write_text()`, `open(path, "w")` and a redirect of a program's stdout each turn every `\n`
   into `\r\n`. Write bytes, or pass `newline=""`. Git Bash strips a carriage return before a
   pattern sees it, so count one from the bytes.
-- **Never read an exit code through a pipe or past Bash's byte mask**: a pipe reports its last
-  command's status, and a child's 2304 reads as 0. Read it from the command itself.
 - **Never let a command whose file operand is a variable read stdin**: with the variable empty,
   `grep` waits on stdin with nothing to show it. Guard the empty case and pass `< /dev/null`.
 - **Never hand a native program an argument opening with `/` from Git Bash without

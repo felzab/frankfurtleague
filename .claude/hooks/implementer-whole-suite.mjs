@@ -8,7 +8,7 @@ const REFUSE = [
 ].join(" ");
 const RULE =
   "An implementer runs its targeted set and never a whole suite, the gate or the local stack " +
-  "(.claude/agents/implementer.md section 5): CI runs every scope over the combined head once a batch lands.";
+  "(.claude/agents/implementer.md section 5): CI runs every scope over the combined head once a wave lands.";
 
 // Flags taking their value as the next word, skipped so that a value naming a file is not read as an
 // operand. Narrowing is decided positively, so an unknown flag's value narrows nothing.

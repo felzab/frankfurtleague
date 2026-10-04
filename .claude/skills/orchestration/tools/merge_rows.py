@@ -5,21 +5,14 @@ resolved as the session branch's rows with the agent branch's own row changes ap
 each row's first cell. A key the hunk holds that is not unique in the merge-base, the agent's branch
 or the session branch's side stops the merge, since a first cell such as `GET` names no one row; so
 do a row both sides changed differently and a keyless continuation row only one side holds. Nothing
-is written then.
-
-    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/merge_rows.py <path> [<base> <theirs>]
-
-Run inside a checkout mid-merge; the defaults `:1` and `:3` are the index's merge-base and
-agent-branch stages.
-
-Exit 0 resolved and written, 2 a true conflict or a hunk that is not table rows (nothing written).
+is written then. `land.py` calls `merge_file` inside a merge, whose defaults `:1` and `:3` read the
+index's merge-base and agent-branch stages.
 """
 
 from __future__ import annotations
 
 import re
 import subprocess
-import sys
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -182,19 +175,3 @@ def merge_file(path: str, base_ref: str = ":1", agent_ref: str = ":3") -> Merge:
     if merge.text is not None:
         target.write_bytes(merge.text.encode("utf-8"))
     return merge
-
-
-def main(argv: list[str]) -> int:
-    if len(argv) not in (1, 3):
-        print(__doc__, file=sys.stderr)
-        return 2
-    merge = merge_file(*argv)
-    for line in merge.done:
-        print(line)
-    for line in merge.conflicts:
-        print(f"CONFLICT {line}", file=sys.stderr)
-    return 0 if merge.text is not None else 2
-
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
