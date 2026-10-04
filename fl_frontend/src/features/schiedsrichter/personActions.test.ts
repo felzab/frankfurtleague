@@ -35,7 +35,8 @@ const LANDED = {
     medien: true,
     nachweis: { umfang: null, medien: null },
   },
-  nachweis_stand: { umfang: null, medien: null },
+  // Moved by the press, so an answer echoing the sent stand would not pass for this one.
+  nachweis_stand: { umfang: null, medien: "2026-10-04T09:30:00+02:00" },
 };
 
 /** Every invalidation the write made, by the export it called and what it handed it. */
@@ -50,7 +51,7 @@ describe("a referee's own consent write", () => {
 
     const answer = await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, WAHL);
 
-    assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT });
+    assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT, nachweis_stand: LANDED.nachweis_stand });
     assert.deepEqual(requestsOf(calls), [
       { endpoint: `/schiedsrichter/selbst/${SCHIEDSRICHTER_ID}/einwilligung`, method: "PATCH", body: WAHL },
     ]);

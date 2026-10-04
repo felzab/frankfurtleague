@@ -19,7 +19,7 @@ doubleToasts();
 const { EinwilligungPanel } = await import("./EinwilligungPanel.tsx");
 
 /** Pressed by no case: the panel's own suite reads what it lays out, and the control's presses are its own suite's. */
-const speichereAction = (): Promise<{ success: true }> => Promise.resolve({ success: true });
+const speichereAction = () => Promise.resolve({ success: true as const, nachweis_stand: { medien: null } });
 
 const eintrag = (id: string, titel: string, bestaetigt: EinwilligungEintrag["bestaetigt"]): EinwilligungEintrag => ({
   id: id,
@@ -31,6 +31,7 @@ const eintrag = (id: string, titel: string, bestaetigt: EinwilligungEintrag["bes
     widerruf: "Jede Änderung gilt ab dem Speichern.",
   },
   gespeichert: { medien: false },
+  nachweisStand: { medien: null },
   medienAngeboten: true,
   erteilbar: true,
   speichereAction: speichereAction,

@@ -11,7 +11,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { patchSchiedsrichterSelbstEinwilligung } from "./mutations";
 import { FLSchiedsrichterSelbstEinwilligungPayloadSchema } from "./schemas";
 
-import type { EinwilligungAntwort } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
+import type { EinwilligungAntwort, EinwilligungStand } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
 import type { ActionResult } from "@/shared/types/types";
 
 /**
@@ -19,7 +19,10 @@ import type { ActionResult } from "@/shared/types/types";
  * referee rows, and the write claims that record, so a retired referee can still withdraw
  * (`docs/frontend/spec.md :: I893`).
  */
-export async function patchSchiedsrichterEinwilligungAction(schiedsrichterId: string, rawPayload: EinwilligungAntwort): Promise<ActionResult> {
+export async function patchSchiedsrichterEinwilligungAction(
+  schiedsrichterId: string,
+  rawPayload: EinwilligungAntwort,
+): Promise<ActionResult<{ nachweis_stand: EinwilligungStand }>> {
   return runPersonRecordMutation("patchSchiedsrichterEinwilligungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(schiedsrichterId);
     const validated = FLSchiedsrichterSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
@@ -28,8 +31,9 @@ export async function patchSchiedsrichterEinwilligungAction(schiedsrichterId: st
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
+    let antwort;
     try {
-      await patchSchiedsrichterSelbstEinwilligung(id.data, validated.data);
+      antwort = await patchSchiedsrichterSelbstEinwilligung(id.data, validated.data);
     } catch (error) {
       const refusal = mapEigeneEinwilligungRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
@@ -40,6 +44,6 @@ export async function patchSchiedsrichterEinwilligungAction(schiedsrichterId: st
     // is written on the referee's row alone, so nothing in the write drops that read.
     updateTag("spiele");
 
-    return { success: true, message: WAHL_GESPEICHERT };
+    return { success: true, message: WAHL_GESPEICHERT, nachweis_stand: antwort.nachweis_stand };
   });
 }

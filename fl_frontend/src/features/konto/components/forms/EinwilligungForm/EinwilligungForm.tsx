@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useId, useOptimistic } from "react";
+import { startTransition, useEffect, useId, useOptimistic, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { ToggleButton } from "@heroui/react/toggle-button";
@@ -42,8 +42,17 @@ export type EinwilligungWorte = {
   readonly widerruf: ReactNode;
 };
 
+/**
+ * Each choice's evidence instant as the backend last served it, echoed unchanged: a press from a page
+ * another press has moved since is refused rather than undoing that press. A seat holds no `umfang`.
+ */
+export type EinwilligungStand = { readonly medien: string | null; readonly umfang?: string | null };
+
 /** What a press sends: the whole record's choices, so moving one never resets the other. */
-export type EinwilligungAntwort = EinwilligungWahl & { readonly text_version: string };
+export type EinwilligungAntwort = EinwilligungWahl & { readonly text_version: string; readonly nachweis_stand: EinwilligungStand };
+
+/** A landed press's answer carries the stand it left, which the next press sends. */
+type Gespeichert = { readonly success: true; readonly nachweis_stand: EinwilligungStand };
 
 /**
  * One consent record's controls, each saved by its own press. Every record a person holds renders
@@ -53,6 +62,7 @@ export type EinwilligungAntwort = EinwilligungWahl & { readonly text_version: st
 export function EinwilligungForm({
   worte,
   gespeichert,
+  nachweisStand,
   medienAngeboten,
   erteilbar,
   speichereAction,
@@ -60,11 +70,13 @@ export function EinwilligungForm({
   worte: EinwilligungWorte;
   /** The record as the page read it; the controls show it again once a press has been answered. */
   gespeichert: EinwilligungWahl;
+  /** The stand the page was served with the record. */
+  nachweisStand: EinwilligungStand;
   /** The backend's verdict on the person's age; a media consent already given stays withdrawable without it. */
   medienAngeboten: boolean;
   /** Whether the record admits a grant; one that grants no panel takes a withdrawal alone, which is never closed. */
   erteilbar: boolean;
-  speichereAction: (antwort: EinwilligungAntwort) => Promise<{ readonly success: true } | ActionFailure>;
+  speichereAction: (antwort: EinwilligungAntwort) => Promise<Gespeichert | ActionFailure>;
 }) {
   const router = useRouter();
   const panel = formPanel();
@@ -77,10 +89,26 @@ export function EinwilligungForm({
   // write, and a refused one falls back to what the page last read.
   const [wahl, setWahl] = useOptimistic(gespeichert);
 
+  // Presses go out one at a time: a second sent before the first is answered would carry a stand that
+  // press moves, and be refused as a stale page.
+  const stand = useRef(nachweisStand);
+  const vorige = useRef<Promise<unknown>>(Promise.resolve());
+  useEffect(() => {
+    stand.current = nachweisStand;
+  }, [nachweisStand]);
+
   const waehle = (naechste: EinwilligungWahl): void => {
     startTransition(async () => {
       setWahl(naechste);
-      const result = await speichereAction({ ...naechste, text_version: worte.textVersion }).catch(rejectedWrite(router));
+      const press = vorige.current.then(async () => {
+        const answer = await speichereAction({ ...naechste, text_version: worte.textVersion, nachweis_stand: stand.current }).catch(
+          rejectedWrite(router),
+        );
+        if (answer.success) stand.current = answer.nachweis_stand;
+        return answer;
+      });
+      vorige.current = press;
+      const result = await press;
 
       if (result.success) appToast.success(WAHL_GESPEICHERT);
       else appToast.failure(WAHL_NICHT_GESPEICHERT, result);

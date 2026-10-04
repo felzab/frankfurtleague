@@ -14,7 +14,7 @@ import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { ActionFailure } from "@/shared/types/types.ts";
-import type { EinwilligungAntwort, EinwilligungWahl, EinwilligungWorte } from "./EinwilligungForm.tsx";
+import type { EinwilligungAntwort, EinwilligungStand, EinwilligungWahl, EinwilligungWorte } from "./EinwilligungForm.tsx";
 
 const { raised } = doubleToasts();
 const { track, answered } = answersInFlight();
@@ -42,21 +42,37 @@ const SITZ_WORTE: EinwilligungWorte = { textVersion: WORTE.textVersion, medien: 
 
 const GESPEICHERT: EinwilligungWahl = { umfang: "kader_oeffentlich", medien: false };
 
+/** The stand the page was served, which a press echoes. */
+const STAND: EinwilligungStand = { umfang: "2026-09-01T10:00:00+02:00", medien: null };
+
+/** The stand a landed press leaves, which the next press sends. */
+const NEUER_STAND: EinwilligungStand = { umfang: "2026-09-01T10:00:00+02:00", medien: "2026-10-04T09:30:00+02:00" };
+
+type Antwort = { success: true; nachweis_stand: EinwilligungStand } | ActionFailure;
+
 /** Every press the form sent, in order. */
 const sent: EinwilligungAntwort[] = [];
 
 /** What the next press is answered with. */
-let answer: { success: true } | ActionFailure = { success: true };
+let answer: Antwort = { success: true, nachweis_stand: NEUER_STAND };
 
-const speichereAction = (antwort: EinwilligungAntwort): Promise<{ success: true } | ActionFailure> => {
+/** Where set, the next answer waits until the case releases it. */
+let held: Promise<void> | null = null;
+
+const speichereAction = (antwort: EinwilligungAntwort): Promise<Antwort> => {
   sent.push(antwort);
-  return track("speichereAction", Promise.resolve(answer));
+  const given = answer;
+  return track(
+    "speichereAction",
+    (held ?? Promise.resolve()).then(() => given),
+  );
 };
 
 beforeEach(() => {
   sent.length = 0;
   raised.length = 0;
-  answer = { success: true };
+  answer = { success: true, nachweis_stand: NEUER_STAND };
+  held = null;
 });
 
 function renderForm({
@@ -67,7 +83,9 @@ function renderForm({
 }: { worte?: EinwilligungWorte; gespeichert?: EinwilligungWahl; medienAngeboten?: boolean; erteilbar?: boolean } = {}) {
   const { router } = recordingRouter();
   const user = userEvent.setup();
-  const mounted = render(underNext(h(EinwilligungForm, { worte, gespeichert, medienAngeboten, erteilbar, speichereAction }), { router }));
+  const mounted = render(
+    underNext(h(EinwilligungForm, { worte, gespeichert, nachweisStand: STAND, medienAngeboten, erteilbar, speichereAction }), { router }),
+  );
 
   return { ...mounted, user };
 }
@@ -134,7 +152,7 @@ describe("the consent control a sixteen-year-old reads before pressing", () => {
 
     await user.keyboard(" ");
     await act(answered);
-    assert.deepEqual(sent, [{ umfang: "kader_oeffentlich", medien: true, text_version: WORTE.textVersion }]);
+    assert.deepEqual(sent, [{ umfang: "kader_oeffentlich", medien: true, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
   });
 });
 
@@ -147,7 +165,7 @@ describe("what a press sends", () => {
     await user.click(screen.getByRole("radio", { name: "Nur Nummer und Position" }));
     await act(answered);
 
-    assert.deepEqual(sent, [{ umfang: "intern", medien: true, text_version: WORTE.textVersion }]);
+    assert.deepEqual(sent, [{ umfang: "intern", medien: true, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
     assert.deepEqual(
       raised.map(({ variant, title }) => [variant, title]),
       [["success", WAHL_GESPEICHERT]],
@@ -160,7 +178,30 @@ describe("what a press sends", () => {
     await user.click(screen.getByRole("switch"));
     await act(answered);
 
-    assert.deepEqual(sent, [{ umfang: "intern", medien: true, text_version: WORTE.textVersion }]);
+    assert.deepEqual(sent, [{ umfang: "intern", medien: true, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
+  });
+
+  /* The backend refuses a press whose stand another press has moved since, so a second press sent
+     before the first is answered would be refused as a stale page on the person's own quick change. */
+  it("sends a second press after the first is answered, with the stand that answer left", async () => {
+    let release: () => void = () => undefined;
+    held = new Promise((resolve) => {
+      release = resolve;
+    });
+    const { user } = renderForm({ gespeichert: { umfang: "intern", medien: false } });
+
+    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("radio", { name: "Vorname und Initiale" }));
+    assert.equal(sent.length, 1, "the second press went out before the first was answered");
+
+    held = null;
+    release();
+    await act(answered);
+
+    assert.deepEqual(
+      sent.map(({ nachweis_stand }) => nachweis_stand),
+      [STAND, NEUER_STAND],
+    );
   });
 
   it("sends nothing for a press on the chip already chosen", async () => {
@@ -195,7 +236,7 @@ describe("what a press sends", () => {
     await user.click(screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter }));
     await act(answered);
 
-    assert.deepEqual(sent, [{ medien: true, text_version: SITZ_WORTE.textVersion }]);
+    assert.deepEqual(sent, [{ medien: true, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
   });
 });
 
@@ -215,7 +256,7 @@ describe("when the media switch is offered", () => {
     await user.click(screen.getByRole("switch", { name: WORTE.medien.schalter }));
     await act(answered);
 
-    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion }]);
+    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
   });
 });
 
@@ -239,7 +280,7 @@ describe("on a record that takes a withdrawal alone", () => {
     await user.click(screen.getByRole("radio", { name: "Nur Nummer und Position" }));
     await act(answered);
 
-    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion }]);
+    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
   });
 
   it("leaves an off media switch out whatever the age allows, and keeps an on one withdrawable", async () => {
@@ -251,6 +292,6 @@ describe("on a record that takes a withdrawal alone", () => {
     await user.click(screen.getByRole("switch", { name: WORTE.medien.schalter }));
     await act(answered);
 
-    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion }]);
+    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
   });
 });

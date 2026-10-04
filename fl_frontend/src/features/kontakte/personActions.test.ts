@@ -22,7 +22,8 @@ const LANDED = {
   saison_id: SITZ.saison_id,
   rollen: ["trainer"],
   medien: true,
-  nachweis_stand: { medien: null },
+  // Moved by the press, so an answer echoing the sent stand would not pass for this one.
+  nachweis_stand: { medien: "2026-10-04T09:30:00+02:00" },
 };
 
 /** Every invalidation the write made, by the export it called and what it handed it. */
@@ -35,7 +36,7 @@ describe("a seat holder's own media consent write", () => {
 
     const answer = await patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, WAHL);
 
-    assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT });
+    assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT, nachweis_stand: LANDED.nachweis_stand });
     assert.deepEqual(requestsOf(calls), [
       { endpoint: `/teams/${SITZ.team_id}/saisons/${SITZ.saison_id}/person/einwilligung`, method: "PATCH", body: WAHL },
     ]);

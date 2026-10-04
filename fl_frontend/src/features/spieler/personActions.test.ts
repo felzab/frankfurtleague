@@ -131,7 +131,8 @@ const EINWILLIGUNG_LANDED = {
     medien: false,
     nachweis: { umfang: null, medien: null },
   },
-  nachweis_stand: { umfang: null, medien: null },
+  // Moved by the press, so an answer echoing the sent stand would not pass for this one.
+  nachweis_stand: { umfang: "2026-10-04T09:30:00+02:00", medien: null },
 };
 
 describe("a pupil's own consent write", () => {
@@ -144,7 +145,7 @@ describe("a pupil's own consent write", () => {
 
     const answer = await patchSpielerEinwilligungAction(WAHL);
 
-    assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT });
+    assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT, nachweis_stand: EINWILLIGUNG_LANDED.nachweis_stand });
     assert.deepEqual(requestsOf(calls), [{ endpoint: "/spieler/selbst/einwilligung", method: "PATCH", body: WAHL }]);
     assert.deepEqual(invalidations(), [["updateTag", "spieler"], ["refresh"]]);
   });

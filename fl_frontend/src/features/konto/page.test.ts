@@ -422,6 +422,29 @@ describe("the account page's consent section", () => {
     assert.ok((await sectionText()).includes(publishedLaufendeFassung("konto_spieler").schalter));
   });
 
+  /* A control sending another record's stand would be refused as a stale page on every press, or pass
+     a check meant for a different record. */
+  it("hands each control the stand its own record was served with", async () => {
+    setSubject(OHNE_FUNKTION);
+    const stand = (tag: string) => ({ umfang: null, medien: `2026-10-0${tag}T09:00:00+02:00` });
+    answeringKonto({
+      spieler: { ...SPIELER, nachweis_stand: stand("1") },
+      schiedsrichter: [{ ...SCHIEDSRICHTER, nachweis_stand: stand("2") }],
+      sitze: [{ ...SITZ, nachweis_stand: { medien: stand("3").medien } }],
+    });
+
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly { id: string; nachweisStand: unknown }[] } };
+
+    assert.deepEqual(
+      panel.props.eintraege.map(({ id, nachweisStand }) => [id.split("-")[0], nachweisStand]),
+      [
+        ["spieler", stand("1")],
+        ["schiedsrichter", stand("2")],
+        ["sitz", { medien: stand("3").medien }],
+      ],
+    );
+  });
+
   it("names the highest floor any seat held asks, as the contact page judged the person", () => {
     assert.equal(sitzMindestalter(["trainer"]), 16);
     assert.equal(sitzMindestalter(["trainer", "ansprechperson"]), 18);

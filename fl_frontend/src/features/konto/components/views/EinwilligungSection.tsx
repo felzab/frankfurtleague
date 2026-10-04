@@ -44,6 +44,7 @@ export async function EinwilligungSection() {
       }),
       worte: personWorte(await getLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE),
       gespeichert: { umfang: spieler.einwilligung.umfang, medien: spieler.einwilligung.medien },
+      nachweisStand: spieler.nachweis_stand,
       medienAngeboten: spieler.medien_angeboten,
       erteilbar: spieler.erteilbar,
       speichereAction: patchSpielerEinwilligungAction,
@@ -63,6 +64,7 @@ export async function EinwilligungSection() {
         }),
         worte: personWorte(fassung, SCHIEDSRICHTER_UMFANG_FRAGE),
         gespeichert: { umfang: eintrag.einwilligung.umfang, medien: eintrag.einwilligung.medien },
+        nachweisStand: eintrag.nachweis_stand,
         medienAngeboten: eintrag.medien_angeboten,
         erteilbar: eintrag.erteilbar,
         // Bound here, never read off the page: one address may hold several referee rows.
@@ -87,6 +89,7 @@ export async function EinwilligungSection() {
         }),
         worte: sitzWorte(fassung, sitz),
         gespeichert: { medien: sitz.medien },
+        nachweisStand: sitz.nachweis_stand,
         medienAngeboten: sitz.medien_angeboten,
         erteilbar: sitz.erteilbar,
         speichereAction: patchSitzEinwilligungAction.bind(null, sitz.team_id, sitz.saison_id),

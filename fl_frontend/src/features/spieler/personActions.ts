@@ -12,7 +12,7 @@ import { deleteKaderZeile, patchKaderZeile, patchSpielerSelbstEinwilligung } fro
 import { mapKaderZeileRefusal } from "./refusals";
 import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "./schemas";
 
-import type { EinwilligungAntwort } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
+import type { EinwilligungAntwort, EinwilligungStand } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm";
 import type { ActionResult } from "@/shared/types/types";
 import type { FLKaderZeileKeyPayload, FLKaderZeileResponse, FLPatchKaderZeilePayload } from "./schemas";
 
@@ -73,7 +73,9 @@ export async function deleteKaderZeileAction(
  * The pupil's own consent, pressed on the account page. It claims the pupil's record rather than a
  * seat, so a retired pupil reaches the backend to withdraw a consent the league still holds.
  */
-export async function patchSpielerEinwilligungAction(rawPayload: EinwilligungAntwort): Promise<ActionResult> {
+export async function patchSpielerEinwilligungAction(
+  rawPayload: EinwilligungAntwort,
+): Promise<ActionResult<{ nachweis_stand: EinwilligungStand }>> {
   return runPersonRecordMutation("patchSpielerEinwilligungAction", async () => {
     const validated = FLSpielerSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
 
@@ -81,8 +83,9 @@ export async function patchSpielerEinwilligungAction(rawPayload: EinwilligungAnt
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    let antwort;
     try {
-      await patchSpielerSelbstEinwilligung(validated.data);
+      antwort = await patchSpielerSelbstEinwilligung(validated.data);
     } catch (error) {
       const refusal = mapEigeneEinwilligungRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
@@ -93,6 +96,6 @@ export async function patchSpielerEinwilligungAction(rawPayload: EinwilligungAnt
     // that drops no tag keeps the name published until it expires.
     invalidateSpieler();
 
-    return { success: true, message: WAHL_GESPEICHERT };
+    return { success: true, message: WAHL_GESPEICHERT, nachweis_stand: antwort.nachweis_stand };
   });
 }
