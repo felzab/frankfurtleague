@@ -162,25 +162,7 @@ export const EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH = 64;
  */
 export const EINWILLIGUNG_UMFANG = "kontaktdaten" as const;
 
-type EinwilligungHerkunftOption = {
-  readonly value: FLKontaktKenntnisnahme["erfasst_von"];
-  readonly label: string;
-};
-
-/** In the order the contacts facet offers them as filters — no form picks between the two. */
-export const EINWILLIGUNG_HERKUNFT_OPTIONS: readonly EinwilligungHerkunftOption[] = [
-  // Neither label may name a source other than the person: the second is a transcription, and a label
-  // naming the school would record the school as having acknowledged for somebody.
-  { value: "person", label: "Von der Person selbst" },
-  { value: "administrativ", label: "Von der Verwaltung übertragen" },
-];
-
-/** What every surface renders for a stored Kenntnisnahme. */
-export function einwilligungHerkunftLabel(herkunft: FLKontaktKenntnisnahme["erfasst_von"]): string {
-  return EINWILLIGUNG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
-}
-
-type EintragHerkunftOption = {
+type EingetragenVonOption = {
   readonly value: NonNullable<FLKontaktKenntnisnahme["eingetragen_von"]>;
   readonly label: string;
 };
@@ -189,14 +171,17 @@ type EintragHerkunftOption = {
  * Who seated a contact person, in the order the contacts facet offers them: the applicant on the form,
  * or the league. The person's own answer is the confirmation stamp's to say, never this one's.
  */
-export const EINTRAG_HERKUNFT_OPTIONS: readonly EintragHerkunftOption[] = [
-  { value: "bewerbung", label: "Aus der Bewerbung" },
-  { value: "liga", label: "Von der Verwaltung eingetragen" },
+export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
+  { value: "bewerbung", label: "Mit der Bewerbung eingetragen" },
+  { value: "liga", label: "Von der Liga eingetragen" },
 ];
 
-/** What every surface renders for who seated a contact person. */
-export function eintragHerkunftLabel(herkunft: EintragHerkunftOption["value"]): string {
-  return EINTRAG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
+/**
+ * The Herkunft every surface renders for a contact seat: who seated the person. Never guessed for a seat
+ * stored before the field, which says so instead.
+ */
+export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von"]): string {
+  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? "Herkunft nicht erfasst";
 }
 
 /**

@@ -1,4 +1,4 @@
-import { eintragHerkunftLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
+import { eingetragenVonLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
 import { holdsNobody } from "@/features/teams/utils";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -51,7 +51,7 @@ const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields
 
   // Who seated the person, where the record says: a new seat's is the save's to stamp, and a seat
   // seated before the field names nobody, so neither is guessed.
-  return record.eingetragen_von === null ? `${fassung} (${datum})` : `${eintragHerkunftLabel(record.eingetragen_von)}, ${fassung} (${datum})`;
+  return record.eingetragen_von === null ? `${fassung} (${datum})` : `${eingetragenVonLabel(record.eingetragen_von)}, ${fassung} (${datum})`;
 };
 
 /**

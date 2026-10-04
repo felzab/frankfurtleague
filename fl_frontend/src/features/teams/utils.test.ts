@@ -5,7 +5,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
-import { EINTRAG_HERKUNFT_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
+import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
 import { FLGruppenTeamSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
@@ -712,7 +712,7 @@ describe("the club filter a link into the contacts list preselects", () => {
     assert.deepEqual([...facet.read(row)].sort(), ["bewerbung", "liga"], "the facet reads an origin other than who seated each person");
     assert.deepEqual(
       facet.options.map((option) => option.value),
-      EINTRAG_HERKUNFT_OPTIONS.map((option) => option.value),
+      EINGETRAGEN_VON_OPTIONS.map((option) => option.value),
     );
   });
 

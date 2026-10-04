@@ -146,7 +146,10 @@ describe("deriveKontakteDraftStatus", () => {
     const stored = block({ trainer: person({ einwilligung: { ...person().einwilligung, eingetragen_von: "bewerbung" } }) });
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
-    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Aus der Bewerbung, Fassung 2025-08 (ab 01.09.2025)");
+    assert.equal(
+      status.byPath.get("kontakte.trainer.einwilligung")?.draftText,
+      "Mit der Bewerbung eingetragen, Fassung 2025-08 (ab 01.09.2025)",
+    );
   });
 
   it("finds an unpicked Kenntnisnahme under the Kenntnisnahme's row, and renders it as still open", () => {

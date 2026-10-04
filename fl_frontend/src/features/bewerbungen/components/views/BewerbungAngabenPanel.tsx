@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 import { vonOderGesperrt } from "@/features/berechtigungen/constants";
-import { BEWERBUNG_HERKUNFT_LABELS, eingetragenVonLabel } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
-import { KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
+import { eingetragenVonLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";

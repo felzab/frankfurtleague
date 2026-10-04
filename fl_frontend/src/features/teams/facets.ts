@@ -1,4 +1,4 @@
-import { EINTRAG_HERKUNFT_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
+import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminKontakteRow, AdminTeamRow } from "./types";
@@ -123,7 +123,7 @@ export const KONTAKTE_FACETS: readonly Facet<AdminKontakteRow>[] = [
     // while the label reads the seat's own word.
     param: "einwilligung",
     label: "Eingetragen",
-    options: EINTRAG_HERKUNFT_OPTIONS.map(({ value, label }) => ({ value, label })),
+    options: EINGETRAGEN_VON_OPTIONS.map(({ value, label }) => ({ value, label })),
     /* Across all three seats, because the row is now the club: a club answers every herkunft one of
        its people was seated by. Seats holding nobody, or seated before the field, answer with none. */
     read: (row) => [

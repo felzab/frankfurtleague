@@ -13,7 +13,7 @@ import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
-import { eintragHerkunftLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
+import { eingetragenVonLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -49,7 +49,6 @@ import type { KontakteBanner } from "./banners";
  * rather than left blank: an empty box on a read-only field reads as a value that failed to load.
  */
 const NOCH_OFFEN = "Noch offen";
-const NICHT_ERFASST = "Nicht erfasst";
 
 /** The two words the contact confirmation's receipt answers a choice with, so both surfaces say it alike. */
 const ERLAUBT = "erlaubt";
@@ -481,11 +480,9 @@ function KontaktpersonInputs({
           <TextField
             isReadOnly
             value={
-              person.einwilligung.eingetragen_von !== null
-                ? eintragHerkunftLabel(person.einwilligung.eingetragen_von)
-                : istGespeichert
-                  ? NICHT_ERFASST
-                  : NOCH_OFFEN
+              person.einwilligung.eingetragen_von === null && !istGespeichert
+                ? NOCH_OFFEN
+                : eingetragenVonLabel(person.einwilligung.eingetragen_von)
             }
             onChange={() => undefined}>
             <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Eingetragen</FieldLabel>
