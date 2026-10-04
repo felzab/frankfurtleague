@@ -348,8 +348,9 @@ every file this Scope names.
   an invariant row leaving the comment as the line citing it; whether every surviving sentence has an
   answer, because density is the repair and compression is not; and whether it constrains more than
   one line, which makes it more than one constraint, each going to the line it is about. A block
-  still over the bound once all three are answered is content in the wrong place and it **moves**
-  (COR-14); one that is a single line's constraint and irreducible stays over it. The bound is
+  still over the bound once all three are answered is never left over it: what is not that line's
+  constraint **moves** to its own rung (COR-14), and the constraint that stays is written more
+  densely until it fits. The bound is
   measured on the comment text with markers and indentation stripped — a list's markers among them,
   so the shape COR-8 asks for never costs a block anything — one number for every shape, inline
   comment, symbol doc and test docstring alike, so it cannot be avoided by moving a paragraph from

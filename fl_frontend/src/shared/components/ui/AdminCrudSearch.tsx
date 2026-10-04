@@ -30,9 +30,8 @@ export function AdminCrudSearch({
       placeholder={searchPlaceholder}
       value={inputValue}
       onChange={setInputValue}
-      // The `sm` cap is room kept for the trigger beside it. With no trigger the row is the bar's alone, so the bar takes
-      // the shell's column and lines up with the table under it — `--container-page`, not the `--container-toolbar` a
-      // public toolbar caps at.
+      // The `sm` cap keeps room for the trigger beside it. With no trigger the bar takes the shell's column, lining up
+      // with the table under it: `--container-page`, never a public toolbar's `--container-toolbar`.
       className={attachEnd ? "min-w-0 flex-1 sm:max-w-md" : "w-full min-w-0"}
       attachEnd={attachEnd}
     />

@@ -15,7 +15,7 @@ not change at all, which is the result the rules are meant to produce.
 | [A paragraph loses its re-deriving tail](#a-paragraph-loses-the-tail-that-re-derives-it)             | How to tell a re-derivation from the reason a constraint exists                  |
 | [An enumeration becomes a list](#an-enumeration-written-as-prose-becomes-a-list)                     | Why a change saving almost no words is still the right change                    |
 | [A comment over the bound moves](#a-comment-over-the-bound-moves-rather-than-shrinking)              | What to do when every sentence earns its place and the block is still over       |
-| [A block over the bound stays](#a-block-over-the-bound-can-be-finished-already)                      | When the answer to a bound is to leave the passage alone, and who may            |
+| [A block over the bound gets denser](#a-block-over-the-bound-gets-denser-when-nothing-moves)         | What to do when nothing in a block belongs at another rung and it is still over  |
 | [Derivable, and not](#a-directory-answers-one-column-a-decision-answers-the-other)                   | The same table read as an inventory and read as a contract                       |
 | [A file only a model reads](#a-file-only-a-model-reads-keeps-the-caveat-and-loses-the-pacing)        | What COR-15 cuts that COR-5 leaves, and what it protects harder                  |
 
@@ -313,11 +313,12 @@ here that is three tests: two sweep the refusal, and the third holds the fronten
 numbers. A fact spread across comments leaves a reader to find each; a row states what they prove
 in one place.
 
-## A block over the bound can be finished already
+## A block over the bound gets denser when nothing moves
 
 Rules: INC-9, COR-5, INC-1.
 
-In `fl_frontend/src/shared/components/ui/AdminCrudSearch.tsx`, on the bar's own `className`:
+In `fl_frontend/src/shared/components/ui/AdminCrudSearch.tsx`, on the bar's own `className`,
+before:
 
 ```typescript
       // The `sm` cap is room kept for the trigger beside it. With no trigger the row is the bar's alone, so the bar takes
@@ -326,8 +327,16 @@ In `fl_frontend/src/shared/components/ui/AdminCrudSearch.tsx`, on the bar's own 
       className={attachEnd ? "min-w-0 flex-1 sm:max-w-md" : "w-full min-w-0"}
 ```
 
-**The block is over INC-9's bound and stays exactly as it is.** Each of that rule's three questions
-answers here:
+After:
+
+```typescript
+      // The `sm` cap keeps room for the trigger beside it. With no trigger the bar takes the shell's column, lining up
+      // with the table under it: `--container-page`, never a public toolbar's `--container-toolbar`.
+      className={attachEnd ? "min-w-0 flex-1 sm:max-w-md" : "w-full min-w-0"}
+```
+
+**Nothing here moves, and the block still comes under the bound.** Each of INC-9's three questions
+answers that nothing belongs at another rung:
 
 - **No invariant row would hold it.** It constrains the two class strings this one attribute picks
   between, not anything a caller of this bar may rely on.
@@ -337,25 +346,27 @@ answers here:
 - **There is no second line to send half of it to.** Both sentences are about the single ternary
   underneath.
 
-A block that answers all three and is still over the bound cannot be made smaller without losing one
-of its two halves, so it stays over it (INC-9).
+So the repair is density, and both halves survive it.
 
-**This lesson reaches an existing block, and the gate agrees only for a block the fork already
-carried over the bound.** Gate check `comment-length` holds such a block to the count it ran to at
-the fork rather than to the bound, matched to its earlier self by the lines the two share
-(`scripts/checks/docs_gate/branch.py :: _fork_ancestor`), so improving this block's opening
-sentence costs nothing and a clause added to it fails the branch. A pass is the check's answer
-about matching and never a verdict on the prose, and a rename git does not recognise — more than
-half a file rewritten while it moves — is charged as a fresh file; how the matching charges a
-split or a copy is stated at `:: _fork_ceiling`.
+**What went**
 
-**A truly new block comes under the bound or the gate stays red**, INC-9's stay-over-it clause
-being no answer to a gate that has already refused. Where the fact will not compress, it is at the
-wrong rung: take INC-9's first question again and move the contract half out, as the example
-above does.
+- **"the row is the bar's alone, so"** — the condition "with no trigger" already states.
+- **"caps at"** — `--container-toolbar` is named for what it caps, so "a public toolbar's" says it.
 
-**The split INC-9 asks for needs no ceiling to reach**: it puts each half at the line it constrains,
-where each is a single constraint under the bound on its own.
+**What stayed**
+
+- **Both failure modes**: the room kept for the trigger, and the line-up with the table under the
+  bar. A pass cutting by appearance takes the second first, because it reads like a description of
+  the layout.
+
+**The gate's leniency towards an older block is no verdict on it.** Gate check `comment-length`
+holds a block the fork already carried over the bound to the count it ran to at the fork rather
+than to the bound, matched to its earlier self by the lines the two share
+(`scripts/checks/docs_gate/branch.py :: _fork_ancestor`), so a branch improving such a block's
+opening sentence is not failed for the rest, and a clause added to it is. That block is still owed
+this repair, which is `/docs:audit`'s while no branch touches it (CUR-6). A rename git does not
+recognise — more than half a file rewritten while it moves — is charged as a fresh file; how the
+matching charges a split or a copy is stated at `:: _fork_ceiling`.
 
 ## A directory answers one column; a decision answers the other
 
