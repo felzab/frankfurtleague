@@ -64,7 +64,11 @@ async def _read_the_squad(
 
 
 async def _erlaubte_stufen(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
+    # `find_one` rather than `pull_one_from_db`: every caller passed `refuse_without_a_seat` first on this
+    # session, which read this season for the seat, and no season is ever deleted, so a miss is a broken
+    # invariant rather than a 404.
+    saison_raw = await saisons_collection.find_one({"_id": saison_id}, projection={"rules": 1}, session=session)
+    assert saison_raw is not None
 
     # Through the model the rules are written under, as `refuse_a_full_squad` reads the cap: a list
     # that model refuses, an empty one included, fails here rather than reaching the page.
@@ -94,9 +98,7 @@ async def _the_row_as_written(
     return FLKaderZeileResponse.model_validate(zeile.model_dump())
 
 
-@router.get(
-    SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
-)
+@router.get(SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder")
 async def get_kader(
     team_id: CustomRouteObjectId,
     saison_id: str,
