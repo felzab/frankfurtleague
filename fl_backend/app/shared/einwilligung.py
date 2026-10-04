@@ -33,6 +33,7 @@ Seite = Literal[
     "bestaetigung_kontakt_verwaltung",
     "bestaetigung_kontakt_saison",
     "bestaetigung_spieler",
+    "bestaetigung_spieler_wiederkehrend",
     "bestaetigung_schiedsrichter",
     "konto_spieler",
     "konto_schiedsrichter",
@@ -166,10 +167,19 @@ _BESTAETIGUNGSSEITE_VERWALTUNG_TEXTE: Final[Mapping[str, str]] = MappingProxyTyp
     }
 )
 
-# What a contact page says once it offers the media consent too: its own paragraph beside the
-# WhatsApp one, and the two sentences that called WhatsApp the page's only consent.
+# The contact pages' words from the label offering the media consent on: its own paragraph after the
+# WhatsApp one, the two sentences calling WhatsApp the only consent, and the WhatsApp paragraph
+# naming the account page.
 _KONTAKT_MEDIEN: Final[Mapping[str, str]] = MappingProxyType(
     {
+        "whatsapp": (
+            "Dieser Schalter ist freiwillig und hat mit der Bestätigung oben nichts zu tun. Lässt Du ihn aus, "
+            "erreichen wir Dich per E-Mail und, wenn es eilt, telefonisch, und es entsteht Dir kein Nachteil. "
+            "Schaltest Du ihn ein, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu "
+            "WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Du "
+            "kannst diese Einwilligung jederzeit zurücknehmen, in Deinem Konto oder formlos mit einer E-Mail an "
+            "{kontakt}. Was bis dahin geschah, bleibt rechtmäßig."
+        ),
         "widerruf": (
             "Auch nach einer Bestätigung kannst Du jederzeit die Löschung Deiner Daten verlangen (Art. 17 DSGVO). "
             "Eine Einwilligung, die man widerrufen müsste, gibt es hier nicht, außer den freiwilligen für WhatsApp und "
@@ -425,6 +435,44 @@ _SPIELERSEITE_4: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
+# The pupil page for a pupil the league already holds, confirmed, under this address and name: the
+# choices they gave stand and are shown back rather than asked again, so nothing here asks or clicks one.
+_SPIELERSEITE_WIEDERKEHREND: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "worum": (
+            "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League "
+            "registriert. Auf dieser Seite bestätigst Du diese Registrierung. Erst danach kann Dein Team Dich in "
+            "seinen Kader aufnehmen."
+        ),
+        "gespeichert": (
+            "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position, "
+            "Deine Stufe und Dein Geburtsdatum. Mit Deiner E-Mail-Adresse hast Du ein Konto auf der Website: Du "
+            "meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben."
+        ),
+        "geburtsdatum": (
+            "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: "
+            "Kennen wir es schon, steht es unten, sonst trägst Du es hier ein. Ein falsches Geburtsdatum beendet die "
+            "Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue "
+            "Registrierung möglich."
+        ),
+        "wer": _SPIELERSEITE_4["wer"],
+        "einwilligungen": (
+            "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des "
+            "Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt "
+            "weiter. Deshalb fragen wir es hier nicht erneut; unten steht, wie Du entschieden hast. In Deinem Konto "
+            "kannst Du das jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine Erlaubnis "
+            "nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen."
+        ),
+        "rechtsgrundlage": _SPIELERSEITE_4["rechtsgrundlage"],
+        "frist": _SPIELERSEITE_4["frist"],
+        "widerruf": _SPIELERSEITE_4["widerruf"],
+        "art21": _SPIELERSEITE_4["art21"],
+        "klickIdentitaet": _SPIELERSEITE_4["klickIdentitaet"],
+        "klickAlter": "dass Du mindestens {minAlter} Jahre alt bist, was wir an Deinem Geburtsdatum prüfen,",
+        "klickHinweise": _SPIELERSEITE_4["klickHinweise"],
+    }
+)
+
 # The account page's three controls, each a page of its own: a press there is no confirmation, so
 # it never stamps a confirmation page's label, and the words beside the switch say what it does now.
 _KONTO_SPIELER: Final[Mapping[str, str]] = MappingProxyType(
@@ -466,6 +514,12 @@ _KONTO_SCHIEDSRICHTER: Final[Mapping[str, str]] = MappingProxyType(
 
 _KONTO_KONTAKT: Final[Mapping[str, str]] = MappingProxyType(
     {
+        "whatsapp": (
+            "Ob wir Dich für {team} in der Saison {saison} auch über WhatsApp erreichen dürfen, entscheidest Du hier. "
+            "Ist es eingeschaltet, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu "
+            "WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Ist es "
+            "aus, erreichen wir Dich per E-Mail und, wenn es eilt, telefonisch."
+        ),
         "medien": (
             "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Trainerinnen, Trainer und "
             "Ansprechpersonen zu sehen sind, und führt Interviews. Ab {medienMinAlter} Jahren entscheidest Du hier für "
@@ -474,9 +528,9 @@ _KONTO_KONTAKT: Final[Mapping[str, str]] = MappingProxyType(
             "berührt und nirgends veröffentlicht."
         ),
         "widerruf": (
-            "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin veröffentlicht wurde, bleibt "
-            "rechtmäßig (Art. 7 Abs. 3 DSGVO). Für eine vergangene Saison kannst Du die Erlaubnis hier nur noch "
-            "zurücknehmen, nicht neu erteilen."
+            "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin geschah, bleibt rechtmäßig "
+            "(Art. 7 Abs. 3 DSGVO). Für eine vergangene Saison kannst Du eine Erlaubnis hier nur noch zurücknehmen, "
+            "nicht neu erteilen."
         ),
     }
 )
@@ -1400,6 +1454,20 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 }
             ),
         ),
+        "2026-10-spielerseite-wiederkehrend": Fassung(
+            seite="bestaetigung_spieler_wiederkehrend",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND.values()),
+            absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND,
+            # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
+            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
+                    "intern": "Intern: nur Nummer und Position, ohne Namen",
+                }
+            ),
+        ),
         "2026-10-konto-spieler": Fassung(
             seite="konto_spieler",
             gilt_ab=date(2026, 10, 3),
@@ -1426,14 +1494,14 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 }
             ),
         ),
-        # No `umfang` control: a seat's scope is its contact scope, which the account page leaves alone.
         "2026-10-konto-kontakt": Fassung(
             seite="konto_kontakt",
             gilt_ab=date(2026, 10, 3),
             absaetze=tuple(_KONTO_KONTAKT.values()),
             absaetze_nach_schluessel=_KONTO_KONTAKT,
             schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-            bedienelemente=MappingProxyType({}),
+            # A switch's words, keyed by the scope it writes when on: off writes `kontaktdaten`, which has none.
+            bedienelemente=MappingProxyType({"kontaktdaten_whatsapp": "Die Liga darf mich auch über WhatsApp erreichen."}),
         ),
     }
 )
@@ -1448,6 +1516,7 @@ LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
         "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung",
         "bestaetigung_kontakt_saison": "2026-10-bestaetigungsseite-saison",
         "bestaetigung_spieler": "2026-10-spielerseite-4",
+        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend",
         "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
         "konto_spieler": "2026-10-konto-spieler",
         "konto_schiedsrichter": "2026-10-konto-schiedsrichter",

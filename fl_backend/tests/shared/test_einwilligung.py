@@ -54,11 +54,12 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     # The account page's three, minted over the backend's words: no frontend copy of them ever existed.
     "2026-10-konto-spieler": "c1935b5a8d6cf4c2b3a2dd5ec82e8530460813206b68a306ad0944da1f3fa456",
     "2026-10-konto-schiedsrichter": "ce42b5fbac90d520a1aa204e169ecc3c211502287bf9e94b9022331e6bb72e21",
-    "2026-10-konto-kontakt": "5ce576610f7d3131202dd6d9c5c99e7dd531fe3de7bd7fc4194e78e28c4b4526",
+    "2026-10-konto-kontakt": "bf42b63cfefde223e0e4a86fd83cae35839b13508cb8755c8322ba2e367082b0",
     "2026-10-spielerseite-4": "0490d658a40af1a93a487338c2edaea205073bab924f15a060d236c04812fd5b",
-    "2026-10-bestaetigungsseite-7": "5d8b6236e4108a2f06990e7e78e8b6b6189789f911c3f4ae1a656cd1afe82ff4",
-    "2026-10-bestaetigungsseite-verwaltung": "73f6c142721d4d3af6cb9901b44f9d4c45f4f5c1e3dba68ca8b8026f3e8cc55e",
-    "2026-10-bestaetigungsseite-saison": "79313f1307ccdd46c8f074db55660d2b59be436eb669f0b07455c5657d0234f3",
+    "2026-10-bestaetigungsseite-7": "a1bf0c258ad2019700f90118ec528276c06acea380b6a35deb4760482995d492",
+    "2026-10-bestaetigungsseite-verwaltung": "68cea3976da34c093508553ea68c9b800ea46a78d90cf745ad5ecd5fa1d01323",
+    "2026-10-bestaetigungsseite-saison": "77c13af28768f27a1caa3a4c5b8a570965fc1d016a3d78fd053e3e33f8e720a2",
+    "2026-10-spielerseite-wiederkehrend": "3f77c8bf080b11a7609697ffdab2712d1b4502a5229736b5d94950e6154952e8",
 }
 
 
@@ -168,6 +169,7 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
         "konto_kontakt",
         date(2026, 10, 3),
         (
+            "whatsapp",
             "medien",
             "widerruf",
         ),
@@ -270,6 +272,24 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "klickHinweise",
         ),
     ),
+    "2026-10-spielerseite-wiederkehrend": (
+        "bestaetigung_spieler_wiederkehrend",
+        date(2026, 10, 3),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "einwilligungen",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickHinweise",
+        ),
+    ),
 }
 
 
@@ -345,13 +365,14 @@ class TestTheRegistryOfWordings:
             assert nach_schluessel == absaetze, label
 
     def test_every_running_label_a_page_places_by_key_carries_its_keys(self):
-        """The three confirmation pages render by key; a running label of theirs without keys leaves the page nothing to place."""
+        """The confirmation pages render by key; a running label of theirs without keys leaves the page nothing to place."""
 
         for seite in (
             "bestaetigung_kontakt",
             "bestaetigung_kontakt_verwaltung",
             "bestaetigung_kontakt_saison",
             "bestaetigung_spieler",
+            "bestaetigung_spieler_wiederkehrend",
             "bestaetigung_schiedsrichter",
         ):
             assert FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze_nach_schluessel is not None, seite
@@ -407,6 +428,33 @@ class TestTheRegistryOfWordings:
         assert {key for key, text in running.items() if earlier.get(key) != text} == {"frist"}
         assert "bis in der nächsten Saison die Registrierung geschlossen ist" not in running["frist"]
         assert "einen Monat nach der Entscheidung" in running["frist"]
+
+    def test_the_returning_pupils_page_keeps_the_pupil_pages_words_but_where_they_ask_a_choice_or_the_birthdate(self):
+        """One registration under one set of rules: a sentence reworded on one page alone would tell two pupils two rules.
+
+        No choice is asked, its switch and controls being the words the stored choices are shown back under.
+        """
+
+        neu = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]]
+        wiederkehrend = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler_wiederkehrend"]]
+        assert neu.absaetze_nach_schluessel is not None and wiederkehrend.absaetze_nach_schluessel is not None
+
+        geteilt = {key for key, text in wiederkehrend.absaetze_nach_schluessel.items() if neu.absaetze_nach_schluessel.get(key) == text}
+
+        assert geteilt == {"wer", "rechtsgrundlage", "frist", "widerruf", "art21", "klickIdentitaet", "klickHinweise"}
+        assert not {"veroeffentlichung", "medien", "klickEinwilligung"} & set(wiederkehrend.absaetze_nach_schluessel)
+        assert (wiederkehrend.schalter, dict(wiederkehrend.bedienelemente)) == (neu.schalter, dict(neu.bedienelemente))
+
+    @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
+    def test_the_whatsapp_consent_is_taken_back_on_the_account_page_under_the_words_it_was_given(self, seite: Seite):
+        """The contact page names the account page, and the account page's switch reads as the one the consent was given on."""
+
+        kontakt = FASSUNGEN[LAUFENDE_FASSUNGEN[seite]]
+        konto = FASSUNGEN[LAUFENDE_FASSUNGEN["konto_kontakt"]]
+        assert kontakt.absaetze_nach_schluessel is not None
+
+        assert "in Deinem Konto" in kontakt.absaetze_nach_schluessel["whatsapp"]
+        assert konto.bedienelemente["kontaktdaten_whatsapp"] == kontakt.schalter
 
     def test_no_word_is_empty_or_padded(self):
         for label, fassung in FASSUNGEN.items():
