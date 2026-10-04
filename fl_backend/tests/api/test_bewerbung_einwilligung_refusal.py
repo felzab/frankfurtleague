@@ -667,7 +667,7 @@ def seat_record(*, ueber: str | None, datum: str = "2026-03-20") -> dict[str, An
 
 
 class TestWhichPageASeatOpens:
-    """The person reads a page true for them: the applicant's where the applicant named them, the administration's elsewhere."""
+    """The person reads a page true for them: the applicant's where the applicant named them, their home's own elsewhere."""
 
     @pytest.mark.parametrize(
         ("ueber", "seite"),
@@ -680,9 +680,27 @@ class TestWhichPageASeatOpens:
     def test_the_first_entry_decides_whatever_came_after_it(self, ueber: str, seite: str):
         """The later entries name the confirmation; only the act that seated the person says who named them."""
 
-        assert kontakt_seite_of(einwilligung=seat_record(ueber=ueber), ohne_eintraege_vom_bewerber=ueber == "POST /bewerbungen") == seite
-        # The fallback is never read where an entry stands.
-        assert kontakt_seite_of(einwilligung=seat_record(ueber=ueber), ohne_eintraege_vom_bewerber=ueber != "POST /bewerbungen") == seite
+        for fallback in (True, False):
+            # The fallback is never read where an entry stands.
+            entschieden = kontakt_seite_of(
+                einwilligung=seat_record(ueber=ueber), ohne_eintraege_vom_bewerber=fallback, verwaltet="bestaetigung_kontakt_verwaltung"
+            )
+            assert entschieden == seite
+
+    @pytest.mark.parametrize(
+        ("ueber", "seite"),
+        [
+            pytest.param("POST /bewerbungen", "bestaetigung_kontakt", id="named by the applicant, carried at acceptance"),
+            pytest.param("POST /bewerbungen/{bewerbung_id}/kontakte/{seat}", "bestaetigung_kontakt_saison", id="reseated, then carried"),
+            pytest.param("PATCH /teams/{team_id}/saisons/{saison_id}/kontakte", "bestaetigung_kontakt_saison", id="entered by the editor"),
+        ],
+    )
+    def test_a_season_row_seat_an_administrator_filled_opens_the_season_rows_page(self, ueber: str, seite: str):
+        """A season row's seat speaks of no application, however the administrator came to fill it."""
+
+        row = {"kontakte": {"trainer": {"email": "ida@example.org", "einwilligung": seat_record(ueber=ueber)}}}
+
+        assert saison_kontakt_seite(row=row, seat="trainer", bewerbung_raw=None) == seite
 
     @pytest.mark.parametrize(
         ("datum", "seite"),
@@ -702,8 +720,8 @@ class TestWhichPageASeatOpens:
         ("beworben", "seite"),
         [
             pytest.param("Ida@Example.org", "bestaetigung_kontakt", id="the accepted application named this address there"),
-            pytest.param("jo@example.org", "bestaetigung_kontakt_verwaltung", id="it named somebody else there"),
-            pytest.param(None, "bestaetigung_kontakt_verwaltung", id="no accepted application is kept"),
+            pytest.param("jo@example.org", "bestaetigung_kontakt_saison", id="it named somebody else there"),
+            pytest.param(None, "bestaetigung_kontakt_saison", id="no accepted application is kept"),
         ],
     )
     def test_a_season_row_seat_without_entries_is_read_off_its_accepted_application(self, beworben: str | None, seite: str):

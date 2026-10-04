@@ -992,12 +992,13 @@ def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str
     return str(club_name or "")
 
 
-# The two pages a contact seat's link opens, named as the registry names them.
-KontaktSeite = Literal["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung"]
+# The pages a contact seat's link opens, named as the registry names them: the applicant's, and one
+# for a person the administration seated on each home.
+KontaktSeite = Literal["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"]
 
 
-def kontakt_seite_of(*, einwilligung: Any, ohne_eintraege_vom_bewerber: bool) -> KontaktSeite:
-    """The page this seat's link opens: the applicant's where the applicant named the person, the administration's otherwise.
+def kontakt_seite_of(*, einwilligung: Any, ohne_eintraege_vom_bewerber: bool, verwaltet: KontaktSeite) -> KontaktSeite:
+    """The page this seat's link opens: the applicant's where the applicant named the person, else its home's own.
 
     Read off the FIRST entry, the act that seated the person; a record without entries takes the
     caller's reading of its home.
@@ -1010,7 +1011,7 @@ def kontakt_seite_of(*, einwilligung: Any, ohne_eintraege_vom_bewerber: bool) ->
     else:
         vom_bewerber = ohne_eintraege_vom_bewerber
 
-    return "bestaetigung_kontakt" if vom_bewerber else "bestaetigung_kontakt_verwaltung"
+    return "bestaetigung_kontakt" if vom_bewerber else verwaltet
 
 
 def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
@@ -1035,7 +1036,7 @@ def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> K
     # day it seats somebody, so a seat dated otherwise was filled by an administrator.
     vom_bewerber = einwilligung.get("datum") == bewerbung_raw.get("eingereicht_am")
 
-    return kontakt_seite_of(einwilligung=einwilligung, ohne_eintraege_vom_bewerber=vom_bewerber)
+    return kontakt_seite_of(einwilligung=einwilligung, ohne_eintraege_vom_bewerber=vom_bewerber, verwaltet="bestaetigung_kontakt_verwaltung")
 
 
 def build_angenommene_bewerbung_filter(*, row: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -1057,7 +1058,15 @@ def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str, bewerbung_raw: Ma
     # Before its entries the seat itself cannot tell a person carried over from the application at
     # acceptance from one the contacts editor entered; the application still holding them in that
     # seat can, while it is kept.
-    return kontakt_seite_of(einwilligung=_einwilligung_of(kontakte, seat), ohne_eintraege_vom_bewerber=bool(adresse) and adresse == beworben)
+    vom_bewerber = bool(adresse) and adresse == beworben
+
+    # The season row's page for a seat an administrator filled on the application too: that
+    # application is decided.
+    return kontakt_seite_of(
+        einwilligung=_einwilligung_of(kontakte, seat),
+        ohne_eintraege_vom_bewerber=vom_bewerber,
+        verwaltet="bestaetigung_kontakt_saison",
+    )
 
 
 def compose_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:

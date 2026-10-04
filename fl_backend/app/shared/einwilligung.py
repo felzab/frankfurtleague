@@ -31,6 +31,7 @@ Seite = Literal[
     "bewerbung",
     "bestaetigung_kontakt",
     "bestaetigung_kontakt_verwaltung",
+    "bestaetigung_kontakt_saison",
     "bestaetigung_spieler",
     "bestaetigung_schiedsrichter",
     "konto_spieler",
@@ -200,6 +201,50 @@ def _mit_medien(seite: Mapping[str, str]) -> Mapping[str, str]:
 
 _BESTAETIGUNGSSEITE_7: Final[Mapping[str, str]] = _mit_medien(_BESTAETIGUNGSSEITE_6)
 _BESTAETIGUNGSSEITE_VERWALTUNG: Final[Mapping[str, str]] = _mit_medien(_BESTAETIGUNGSSEITE_VERWALTUNG_TEXTE)
+
+# The page for a person the administration entered on a team's season row: no application stands
+# behind that seat and no submitter is told anything, so every paragraph about either is its own.
+_BESTAETIGUNGSSEITE_SAISON: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        **_BESTAETIGUNGSSEITE_7,
+        "worum": (
+            "Die Verwaltung der Frankfurt League hat Dich für das Team {schule} in der Saison {saison} als {rolle} "
+            "eingetragen und dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu "
+            "dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst "
+            "hören möchten, dass es stimmt."
+        ),
+        "gespeichert": (
+            "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse und Deine Telefonnummer. Wir brauchen "
+            "sie, um Dein Team während der Saison zu erreichen, also für Spielansetzungen, Absagen und Rückfragen."
+        ),
+        "geburtsdatum": (
+            "Dein Geburtsdatum hat die Verwaltung nicht eingetragen. Du trägst es gleich hier selbst ein, und wir "
+            "prüfen damit, ob Du mindestens {minAlter} Jahre alt bist. So alt muss sein, wer diese Rolle übernimmt. "
+            "Vorher hatte es niemand, und niemand hat es für Dich angegeben."
+        ),
+        "fristAbgelehnt": "Widersprichst Du Deinem Eintrag, löschen wir Deine Angaben sofort.",
+        "fristAngenommen": (
+            "Sonst behalten wir Deine Angaben bis zum Ende der Saison, die auf {saison} folgt, und löschen sie dann. "
+            "Für Dein Geburtsdatum gilt dieselbe Frist."
+        ),
+        "fristUnvollstaendig": (
+            "Dieser Link gilt vierzehn Tage ab seinem Versand. Bestätigst Du bis dahin nicht, öffnet er nichts mehr, "
+            "und Dein Eintrag bleibt unbestätigt, bis die Verwaltung Dir einen neuen Link schickt; mit ihm beginnt die "
+            "Frist von vorn."
+        ),
+        "fristOhneEntscheidung": ("Übernimmt ein anderes Team den Platz Deines Teams in dieser Saison, löschen wir Deine Angaben sofort."),
+        "ablehnen": (
+            "Du musst nicht bestätigen. Wenn Du nicht möchtest, dass wir Deine Daten haben, sag uns das über "
+            "„{ablehnen}“ oder mit einer E-Mail an {kontakt}; wir löschen Deinen Eintrag dann, und die Verwaltung kann "
+            "für diese Rolle jemand anderen eintragen."
+        ),
+        "ablehnenFolge": "Wir entfernen Deine Angaben sofort aus dem Eintrag Deines Teams für diese Saison.",
+        "keineEinwilligung": (
+            "Eine Einwilligung ist das nicht; einwilligen kannst Du hier nur mit den beiden freiwilligen Schaltern. Du "
+            "bestätigst Deinen Eintrag und ergänzt Dein Geburtsdatum; die Grundlage dafür steht oben."
+        ),
+    }
+)
 
 # The media switch, worded as the account page's own for a seat.
 _KONTAKT_MEDIEN_SCHALTER: Final = "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen."
@@ -980,6 +1025,14 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
             bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
         ),
+        "2026-10-bestaetigungsseite-saison": Fassung(
+            seite="bestaetigung_kontakt_saison",
+            gilt_ab=date(2026, 10, 3),
+            absaetze=tuple(_BESTAETIGUNGSSEITE_SAISON.values()),
+            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_SAISON,
+            schalter="Die Liga darf mich auch über WhatsApp erreichen.",
+            bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
+        ),
         "2026-09-schiedsrichterseite": Fassung(
             seite="bestaetigung_schiedsrichter",
             gilt_ab=date(2026, 9, 22),
@@ -1378,6 +1431,7 @@ LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
         "bewerbung": "2026-09-bestaetigung-5",
         "bestaetigung_kontakt": "2026-10-bestaetigungsseite-7",
         "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung",
+        "bestaetigung_kontakt_saison": "2026-10-bestaetigungsseite-saison",
         "bestaetigung_spieler": "2026-10-spielerseite-4",
         "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
         "konto_spieler": "2026-10-konto-spieler",

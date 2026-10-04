@@ -58,6 +58,7 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-spielerseite-4": "0490d658a40af1a93a487338c2edaea205073bab924f15a060d236c04812fd5b",
     "2026-10-bestaetigungsseite-7": "5d8b6236e4108a2f06990e7e78e8b6b6189789f911c3f4ae1a656cd1afe82ff4",
     "2026-10-bestaetigungsseite-verwaltung": "4e9764880323bd9996a16c90e4739c6f4fbfc3eaf6ebcc072ac35c7e8180b9d2",
+    "2026-10-bestaetigungsseite-saison": "3a33871b7a79e43322e0fd882d552d4bb9ce175af785972bf6c5433626e3c54e",
 }
 
 
@@ -223,6 +224,32 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "keineEinwilligung",
         ),
     ),
+    "2026-10-bestaetigungsseite-saison": (
+        "bestaetigung_kontakt_saison",
+        date(2026, 10, 3),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "rechtsgrundlage",
+            "nichtOeffentlich",
+            "fristAbgelehnt",
+            "fristAngenommen",
+            "fristUnvollstaendig",
+            "fristOhneEntscheidung",
+            "ablehnen",
+            "ablehnenFolge",
+            "widerruf",
+            "art21",
+            "whatsapp",
+            "medien",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickHinweise",
+            "keineEinwilligung",
+        ),
+    ),
     "2026-10-spielerseite-4": (
         "bestaetigung_spieler",
         date(2026, 10, 3),
@@ -320,7 +347,13 @@ class TestTheRegistryOfWordings:
     def test_every_running_label_a_page_places_by_key_carries_its_keys(self):
         """The three confirmation pages render by key; a running label of theirs without keys leaves the page nothing to place."""
 
-        for seite in ("bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_spieler", "bestaetigung_schiedsrichter"):
+        for seite in (
+            "bestaetigung_kontakt",
+            "bestaetigung_kontakt_verwaltung",
+            "bestaetigung_kontakt_saison",
+            "bestaetigung_spieler",
+            "bestaetigung_schiedsrichter",
+        ):
             assert FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze_nach_schluessel is not None, seite
 
     def test_the_seated_persons_page_differs_from_the_applicants_by_its_opening_alone(self):
@@ -336,7 +369,7 @@ class TestTheRegistryOfWordings:
         assert anders == {"worum"}
         assert (verwaltung.schalter, dict(verwaltung.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
 
-    @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung"])
+    @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
     def test_both_contact_pages_offer_the_media_consent_beside_the_whatsapp_one(self, seite: Seite):
         """A seat's `medien` is asked on whichever page the link opens, its paragraph naming the age the switch is offered from."""
 
@@ -346,6 +379,20 @@ class TestTheRegistryOfWordings:
         assert set(fassung.bedienelemente) == {"medien"}
         assert "{medienMinAlter}" in fassung.absaetze_nach_schluessel["medien"]
         assert "außer der freiwilligen für WhatsApp" not in fassung.absaetze_nach_schluessel["widerruf"]
+
+    def test_the_season_rows_page_keeps_the_applicants_words_but_where_they_speak_of_the_application(self):
+        """A person the administration entered on a team's season row reads nothing of an application or its submitter."""
+
+        bewerbung = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]]
+        saison = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_kontakt_saison"]]
+        assert bewerbung.absaetze_nach_schluessel is not None and saison.absaetze_nach_schluessel is not None
+
+        anders = {key for key, text in saison.absaetze_nach_schluessel.items() if bewerbung.absaetze_nach_schluessel.get(key) != text}
+
+        assert list(saison.absaetze_nach_schluessel) == list(bewerbung.absaetze_nach_schluessel)
+        assert {key for key, text in bewerbung.absaetze_nach_schluessel.items() if "Bewerbung" in text} <= anders
+        assert not [key for key, text in saison.absaetze_nach_schluessel.items() if "Bewerbung" in text]
+        assert (saison.schalter, dict(saison.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
 
     def test_the_pupil_page_changed_its_retention_paragraph_alone(self):
         """The running pupil label is the earlier one but for when a registration goes, which the notice states the same way."""

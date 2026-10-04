@@ -219,14 +219,12 @@ async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) ->
     )
 
 
-# A seat the contacts editor entered opens the administration's page; an application's own seat the applicant's.
-VERWALTUNG_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_verwaltung"]
+# A seat the contacts editor entered opens the season row's page; an application's own seat the applicant's.
+SAISON_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_saison"]
 BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
 
 
-async def answer(
-    database: AsyncDatabase, token: str, *, antwort: str = "erteilt", today: str = TODAY, text_version: str = VERWALTUNG_SEITE
-) -> Any:
+async def answer(database: AsyncDatabase, token: str, *, antwort: str = "erteilt", today: str = TODAY, text_version: str = SAISON_SEITE) -> Any:
     erteilt = antwort == "erteilt"
     body = {
         "token": token,
@@ -1041,7 +1039,7 @@ def angenommene_bewerbung(trainer: Mapping[str, Any]) -> dict[str, Any]:
 class TestThePageASeasonRowsLinkOpens:
     """A season row's seat reads the page true for its person, and its answer is judged against that page."""
 
-    def test_a_seat_the_editor_entered_opens_the_administrations_page_and_takes_its_label_alone(self, mongo_replica_set_url: str):
+    def test_a_seat_the_editor_entered_opens_the_season_rows_page_and_takes_its_label_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             token = (await save(database, THREE)).bestaetigungen[0].token
             view = await ansicht(database, token)
@@ -1053,15 +1051,15 @@ class TestThePageASeasonRowsLinkOpens:
 
         view, refusal, unmoved, row = on_a_league(mongo_replica_set_url, body)
 
-        assert view.laufende_fassung == VERWALTUNG_SEITE
+        assert view.laufende_fassung == SAISON_SEITE
         assert refusal == FASSUNG_UNZULAESSIG
         assert unmoved["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the refused answer wrote"
         einwilligung = row["kontakte"]["trainer"]["einwilligung"]
-        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == (TODAY, VERWALTUNG_SEITE)
+        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == (TODAY, SAISON_SEITE)
         assert {key: einwilligung["verlauf"][-1][key] for key in ("akt", "ueber", "text_version", "erfasst_von")} == {
             "akt": "bestaetigt",
             "ueber": "POST /bewerbungen/einwilligung",
-            "text_version": VERWALTUNG_SEITE,
+            "text_version": SAISON_SEITE,
             "erfasst_von": "person",
         }
 
@@ -1069,8 +1067,8 @@ class TestThePageASeasonRowsLinkOpens:
         ("beworben", "fassung"),
         [
             pytest.param("Ida", BEWERBER_SEITE, id="the accepted application named this person in this seat"),
-            pytest.param("Lea", VERWALTUNG_SEITE, id="it named somebody else there"),
-            pytest.param(None, VERWALTUNG_SEITE, id="no accepted application is kept"),
+            pytest.param("Lea", SAISON_SEITE, id="it named somebody else there"),
+            pytest.param(None, SAISON_SEITE, id="no accepted application is kept"),
         ],
     )
     def test_a_seat_stored_before_its_entries_is_read_off_the_accepted_application(
