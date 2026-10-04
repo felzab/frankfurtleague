@@ -12,7 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
-import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
+import { eintragHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/teams/schemas";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -1126,19 +1126,37 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
   /* The server composes both fields. A control offering either would let an administrator record a
      Kenntnisnahme as the person's own, or overwrite the stamp a confirmation wrote — which no rendered
      surface would show afterwards. */
-  it("renders the origin and the confirmation stamp, and offers a control for neither", () => {
-    const renderedSeats = sectionMarkup(BLOCK);
+  it("renders who seated the person and the confirmation stamp, and offers a control for neither", () => {
+    const seated = (eingetragen_von: FLKontaktperson["einwilligung"]["eingetragen_von"]) => ({
+      ...ADA,
+      einwilligung: { ...ADA.einwilligung, eingetragen_von },
+    });
+    const renderedSeats = sectionMarkup({ ...BLOCK, trainer: seated("bewerbung"), ansprechperson: seated("liga") });
 
-    assert.match(renderedSeats, />Erfasst</, "the Kenntnisnahme's origin is no longer shown at all");
+    assert.match(renderedSeats, />Eingetragen</, "who seated the person is not shown at all");
     assert.match(renderedSeats, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
-    assert.ok(renderedSeats.includes(einwilligungHerkunftLabel("person")), "the origin renders as its stored slug rather than its label");
+    assert.ok(renderedSeats.includes(`value="${eintragHerkunftLabel("bewerbung")}"`), "an applicant's seat does not say so");
+    assert.ok(renderedSeats.includes(`value="${eintragHerkunftLabel("liga")}"`), "a seat the league filled does not say so");
+    // The Stellvertretung was seated before the field: stored, so its origin is unrecorded rather than pending.
+    assert.ok(renderedSeats.includes('value="Nicht erfasst"'), "a seat stored before the field reads as one still pending");
     assert.ok(renderedSeats.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
 
-    for (const fieldName of ["erfasst_von", "bestaetigt_am"]) {
+    for (const fieldName of ["erfasst_von", "eingetragen_von", "bestaetigt_am"]) {
       assert.ok(!renderedSeats.includes(`einwilligung.${fieldName}"`), `${fieldName} is still a named field, so a save can carry it`);
     }
-    // The chips themselves, because a disabled group would still read as a question with an answer.
-    assert.ok(!renderedSeats.includes(einwilligungHerkunftLabel("administrativ")), "the origin is still offered as a pick");
+  });
+
+  /* A seat opened in the editor has nobody who seated it until the save stamps the league. */
+  it("reads a seat not yet saved as one whose origin is still open", async () => {
+    const user = userEvent.setup({ delay: null });
+    const stored: FLSaisonTeamKontakte = { ...BLOCK, stellvertretung: null };
+    render(editorElement(viewElement(stored), stored));
+
+    await user.click(screen.getByRole("switch", { name: "Stellvertretung hinterlegt" }));
+    const herkuenfte = screen.queryAllByRole<HTMLInputElement>("textbox", { name: "Eingetragen" }).map((box) => box.value);
+
+    assert.equal(herkuenfte.length, 3, "a seat renders no origin box, so the comparison below reads the wrong seats");
+    assert.ok(herkuenfte.includes("Noch offen"), "a seat not yet saved reads as one whose origin went unrecorded");
   });
 });
 

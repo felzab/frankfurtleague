@@ -5,7 +5,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
-import { GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
+import { EINTRAG_HERKUNFT_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
 import { FLGruppenTeamSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
@@ -692,6 +692,27 @@ describe("the club filter a link into the contacts list preselects", () => {
       teamFacet.options.map((option) => option.value),
       [rows[0]!.teamId],
       "the club facet offers clubs the list does not hold",
+    );
+  });
+
+  /* Who seated a person is the one origin a seat keeps from now on; a seat seated before the field
+     names nobody, so it answers no origin rather than a guessed one. */
+  it("reads who seated each person, across the club's seats", () => {
+    const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["eingetragen_von"]) => ({
+      ...kontaktperson("Tim"),
+      einwilligung: { ...kontaktperson("Tim").einwilligung, eingetragen_von },
+    });
+    const [row] = buildKontaktRows(
+      [club({ trainer: geseated("bewerbung"), ansprechperson: geseated("liga"), stellvertretung: geseated(null), trainer_ist_zugleich: null })],
+      SAISON,
+    );
+    const facet = buildKontakteFacets([]).find((each) => each.param === "einwilligung");
+
+    assert.ok(facet !== undefined && row !== undefined, "the contacts list offers no origin filter, or no row");
+    assert.deepEqual([...facet.read(row)].sort(), ["bewerbung", "liga"], "the facet reads an origin other than who seated each person");
+    assert.deepEqual(
+      facet.options.map((option) => option.value),
+      EINTRAG_HERKUNFT_OPTIONS.map((option) => option.value),
     );
   });
 

@@ -49,7 +49,8 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(status.isDirty, false);
     assert.equal(status.fields.length, 7);
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
-    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Von der Person selbst, Fassung 2025-08 (ab 01.09.2025)");
+    // No origin: the fixture's seat was seated before the field, and nothing guesses one for it.
+    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Fassung 2025-08 (ab 01.09.2025)");
     // Read from the table rather than quoted: the wording is the product's, and pinning it here
     // makes rewording the question read as a regression.
     assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText, trainerZugleichLabel(null));
@@ -141,6 +142,13 @@ describe("deriveKontakteDraftStatus", () => {
     );
   });
 
+  it("names who seated the person where the record says", () => {
+    const stored = block({ trainer: person({ einwilligung: { ...person().einwilligung, eingetragen_von: "bewerbung" } }) });
+    const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
+
+    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Aus der Bewerbung, Fassung 2025-08 (ab 01.09.2025)");
+  });
+
   it("finds an unpicked Kenntnisnahme under the Kenntnisnahme's row, and renders it as still open", () => {
     const status = deriveKontakteDraftStatus({
       stored: EMPTY,
@@ -163,9 +171,9 @@ describe("deriveKontakteDraftStatus", () => {
 
     const row = status.byPath.get("kontakte.trainer.einwilligung");
     assert.equal(row?.error, "Bitte gib an, wann die Kenntnisnahme erfasst wurde.");
-    // All three fallbacks render rather than hiding: they are the mid-edit states the schema rejects
-    // on save, and the change list is where the admin sees what is still missing.
-    assert.equal(row?.draftText, "Noch offen, ohne Fassung (ohne Datum)");
+    // Both fallbacks render rather than hiding: they are the mid-edit states the schema rejects on
+    // save, and the change list is where the admin sees what is still missing.
+    assert.equal(row?.draftText, "ohne Fassung (ohne Datum)");
   });
 
   /* A seat holds a person once anybody is recorded in it, and a name is one of the fields that

@@ -180,6 +180,25 @@ export function einwilligungHerkunftLabel(herkunft: FLKontaktKenntnisnahme["erfa
   return EINWILLIGUNG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
 }
 
+type EintragHerkunftOption = {
+  readonly value: NonNullable<FLKontaktKenntnisnahme["eingetragen_von"]>;
+  readonly label: string;
+};
+
+/**
+ * Who seated a contact person, in the order the contacts facet offers them: the applicant on the form,
+ * or the league. The person's own answer is the confirmation stamp's to say, never this one's.
+ */
+export const EINTRAG_HERKUNFT_OPTIONS: readonly EintragHerkunftOption[] = [
+  { value: "bewerbung", label: "Aus der Bewerbung" },
+  { value: "liga", label: "Von der Verwaltung eingetragen" },
+];
+
+/** What every surface renders for who seated a contact person. */
+export function eintragHerkunftLabel(herkunft: EintragHerkunftOption["value"]): string {
+  return EINTRAG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
+}
+
 /**
  * The scheme every stored website URL carries, rendered as the field's uneditable prefix rather than
  * typed (`WebsiteUrlField`). So every box's `maxLength` is the payload ceiling minus this length: the

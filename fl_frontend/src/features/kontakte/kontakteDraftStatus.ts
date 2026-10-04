@@ -1,4 +1,4 @@
-import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
+import { eintragHerkunftLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
 import { holdsNobody } from "@/features/teams/utils";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -46,11 +46,12 @@ const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
 const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
   const record = seatOf(rolle)(source)?.einwilligung ?? null;
   if (record === null) return null;
-  const herkunft = record.erfasst_von === null ? "Noch offen" : einwilligungHerkunftLabel(record.erfasst_von);
   const fassung = record.text_version === "" ? "ohne Fassung" : `Fassung ${record.text_version}`;
   const datum = record.datum === "" ? "ohne Datum" : `ab ${formatSpielDatum(record.datum)}`;
 
-  return `${herkunft}, ${fassung} (${datum})`;
+  // Who seated the person, where the record says: a new seat's is the save's to stamp, and a seat
+  // seated before the field names nobody, so neither is guessed.
+  return record.eingetragen_von === null ? `${fassung} (${datum})` : `${eintragHerkunftLabel(record.eingetragen_von)}, ${fassung} (${datum})`;
 };
 
 /**

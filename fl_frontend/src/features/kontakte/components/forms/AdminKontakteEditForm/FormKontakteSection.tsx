@@ -12,7 +12,7 @@ import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
-import { einwilligungHerkunftLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
+import { eintragHerkunftLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -48,6 +48,7 @@ import type { KontakteBanner } from "./banners";
  * rather than left blank: an empty box on a read-only field reads as a value that failed to load.
  */
 const NOCH_OFFEN = "Noch offen";
+const NICHT_ERFASST = "Nicht erfasst";
 
 /** The two words the contact confirmation's receipt answers a choice with, so both surfaces say it alike. */
 const ERLAUBT = "erlaubt";
@@ -199,6 +200,7 @@ export function FormKontakteSection({
             rolle={rolle}
             label={label}
             person={basis[rolle]}
+            istGespeichert={stored?.[rolle] != null}
             isMirrored={isMirrored(rolle)}
             /* The question belongs to the Trainer seat: it asks who the Trainer IS, and the answer is
              what that seat's boxes then read. */
@@ -271,6 +273,7 @@ function KontaktpersonFields({
   rolle,
   label,
   person,
+  istGespeichert,
   isMirrored,
   zugleich,
   einladen,
@@ -283,6 +286,8 @@ function KontaktpersonFields({
   label: string;
   /** Null where the seat holds nobody, which is a saveable state rather than a half-finished one. */
   person: KontaktpersonDraft | null;
+  /** The row stores a person on this seat, so a record naming no one who seated them predates the field. */
+  istGespeichert: boolean;
   /** This seat IS another seat's person, so its boxes read out rather than take input. */
   isMirrored: boolean;
   /** The claim's picker, on the Trainer seat alone. `null` on the two seats the claim can name. */
@@ -330,6 +335,7 @@ function KontaktpersonFields({
             rolle={rolle}
             label={label}
             person={person}
+            istGespeichert={istGespeichert}
             isMirrored={isMirrored}
             onChange={onChange}
             onFieldLeft={onFieldLeft}
@@ -357,6 +363,7 @@ function KontaktpersonInputs({
   rolle,
   label,
   person,
+  istGespeichert,
   isMirrored,
   onChange,
   onFieldLeft,
@@ -364,6 +371,7 @@ function KontaktpersonInputs({
   rolle: KontaktRolle;
   label: string;
   person: KontaktpersonDraft;
+  istGespeichert: boolean;
   isMirrored: boolean;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
@@ -448,13 +456,19 @@ function KontaktpersonInputs({
         <h4 className={FORM_SECTION_HEADING_CLASSES}>Kenntnisnahme</h4>
 
         <div className={FIELD_PAIR_CLASSES}>
-          {/* Read out and never picked: an administrator may not record a Kenntnisnahme as the person's
-              own, and the server preserves whatever the seat's own Bestätigung wrote here. */}
+          {/* Read out and never picked: the save that seats the person stamps who did, and nothing moves it
+              afterwards. A stored seat without it was seated before the field, which no reading here guesses. */}
           <TextField
             isReadOnly
-            value={person.einwilligung.erfasst_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}
+            value={
+              person.einwilligung.eingetragen_von !== null
+                ? eintragHerkunftLabel(person.einwilligung.eingetragen_von)
+                : istGespeichert
+                  ? NICHT_ERFASST
+                  : NOCH_OFFEN
+            }
             onChange={() => undefined}>
-            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Erfasst</FieldLabel>
+            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Eingetragen</FieldLabel>
             <Input className={FIELD_INPUT_CLASSES} />
           </TextField>
 
