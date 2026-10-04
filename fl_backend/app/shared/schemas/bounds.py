@@ -169,6 +169,10 @@ ENROLMENT_WINDOW_MINUTES: Final = 5
 # those writes from a sign-in older than it, so one the page failed to step up still meets it.
 STEP_UP_WINDOW_HOURS: Final = 2
 
+# The ceilings below assume a person-lane write persists at most 10 KB, its action-log row included:
+# one person at the highest then takes over a year to reach the 3.5 GB storage alert. A redesigned log
+# keeps that bound.
+
 # A signed-in person's counted writes per German day, by Funktion, each about three to five times its
 # kind's busiest legitimate day (`docs/backend/spec.md :: I831`). A pupil's is the first visit: two
 # choices, each granted and corrected once, 4 grants.
