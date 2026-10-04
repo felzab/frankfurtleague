@@ -200,6 +200,13 @@ HANDLER_JUDGED_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
 COUNTED_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     get_drossel: (HTTPStatus.TOO_MANY_REQUESTS, DROSSELUNG_ERREICHT),
 }
+# Every table the document publishes from, a table left out of it publishing nothing at all
+# (`fl_backend/tests/api/test_dependency_refusals.py :: test_every_refusal_table_is_published_by_default`).
+REFUSAL_TABLES: tuple[Mapping[Callable[..., Any], tuple[HTTPStatus, str]], ...] = (
+    DEPENDENCY_REFUSALS,
+    HANDLER_JUDGED_REFUSALS,
+    COUNTED_REFUSALS,
+)
 UNGUARDED_TIER = "none"
 
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
@@ -410,8 +417,7 @@ def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
 
 
 def dependency_refusals(
-    app: FastAPI,
-    tables: Sequence[Mapping[Callable[..., Any], tuple[HTTPStatus, str]]] = (DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, COUNTED_REFUSALS),
+    app: FastAPI, tables: Sequence[Mapping[Callable[..., Any], tuple[HTTPStatus, str]]] = REFUSAL_TABLES
 ) -> dict[Operation, Refusals]:
     """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them; every table unless named."""
 
