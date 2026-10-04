@@ -646,10 +646,12 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "kontakte",
         Editability.CONDITIONAL,
         "written whole at submission, and afterwards by the seat's own person through "
-        "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, source, "
+        "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, "
         "wording, scope and media answer on every seat that person holds, each answer with its evidence, a decline nulls those "
         "slots, and both are refused once "
-        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Two administrative "
+        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Once answered, the same "
+        "person withdraws the media answer, with its evidence, on every seat they hold while the application is pending, "
+        "through `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`. Two administrative "
         "repairs reach it besides, each refused on a seat in any other state (`REQ-BEWERBUNG-011`): "
         "`POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email` moves one address, and "
         "`POST /bewerbungen/{bewerbung_id}/kontakte/{seat}` seats another person where one stepped out. An erasure "
@@ -879,7 +881,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum`, "
         "the stamp and the media answer on every seat that person holds, and a Widerspruch nulls those slots; and the "
         "seat's own person moves "
-        "`medien` on every seat they hold on the row, and nothing else, through "
+        "`medien` with its evidence (`nachweis.medien`) on every seat they hold on the row, and nothing else, through "
         "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
     ),
