@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -19,13 +19,10 @@ from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANTWORT_FIELDS,
     SAISON_EINWILLIGUNG_ANTWORT_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
-    KontaktSeite,
     ansprechperson_mailbox,
-    antwort_seite,
     ausstehende_seats,
     bewerbung_antwort_seite,
     bewerbung_schule,
-    build_angenommene_bewerbung_filter,
     build_saison_token_filter,
     build_token_filter,
     compose_confirmation_update,
@@ -40,10 +37,9 @@ from app.api.bewerbungen.services import (
     find_unknown_token_refusal,
     hash_token,
     mindestalter_for,
-    nennt_eingetragen_von,
     paired_seat,
+    saison_antwort_seite,
     saison_frist_of,
-    saison_kontakt_seite,
     saison_link_pair,
     saison_schule,
     saison_zustand_of,
@@ -94,40 +90,11 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
     return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=team_raw.get("name"))
 
 
-async def _saison_seite(
-    *, row: Mapping[str, Any], seat: str, bewerbungen_collection: BewerbungenCollection, session: AsyncClientSession | None = None
-) -> KontaktSeite:
-    """The page a season row's seat opens, asking its accepted application only where the seat names no `eingetragen_von`."""
-
-    bewerbung_raw = (
-        None
-        if nennt_eingetragen_von(kontakte=row.get("kontakte"), seat=seat)
-        else await bewerbungen_collection.find_one(
-            build_angenommene_bewerbung_filter(row=row), projection={f"kontakte.{seat}.email": 1, "_id": 0}, session=session
-        )
-    )
-
-    return saison_kontakt_seite(row=row, seat=seat, bewerbung_raw=bewerbung_raw)
-
-
-async def _saison_antwort_seite(
-    *, row: Mapping[str, Any], seats: Sequence[str], bewerbungen_collection: BewerbungenCollection, session: AsyncClientSession | None = None
-) -> KontaktSeite:
-    """The page a season row's link opens for the seats its answer writes: the view's and both judges' one source."""
-
-    seiten: list[KontaktSeite] = [
-        await _saison_seite(row=row, seat=seat, bewerbungen_collection=bewerbungen_collection, session=session) for seat in seats
-    ]
-
-    return antwort_seite(seiten=seiten, verwaltet="bestaetigung_kontakt_saison")
-
-
 async def _saison_ansicht(
     *,
     token_hash: str,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    bewerbungen_collection: BewerbungenCollection,
     sperrliste: SperrlisteLookup,
     today: str,
 ) -> FLBewerbungEinwilligungAnsichtResponse:
@@ -156,7 +123,7 @@ async def _saison_ansicht(
         zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
-        laufende_fassung=LAUFENDE_FASSUNGEN[await _saison_antwort_seite(row=row, seats=seats, bewerbungen_collection=bewerbungen_collection)],
+        laufende_fassung=LAUFENDE_FASSUNGEN[saison_antwort_seite(row=row, seats=seats)],
         mindestalter=mindestalter_for(seats),
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
     )
@@ -208,7 +175,6 @@ async def get_einwilligung_ansicht(
             token_hash=token_hash,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
-            bewerbungen_collection=bewerbungen_collection,
             sperrliste=sperrliste,
             today=today,
         )
@@ -318,7 +284,7 @@ async def post_einwilligung(
             refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
 
             # Against the one page the view answered for these seats.
-            seite = await _saison_antwort_seite(row=row, seats=seats, bewerbungen_collection=bewerbungen_collection, session=session)
+            seite = saison_antwort_seite(row=row, seats=seats)
             refuse(find_fassung_refusal(seite=seite, genannt={seat: antwort_data.text_version}))
 
             # Asked at the press, however old the link, as the application's consent asks it

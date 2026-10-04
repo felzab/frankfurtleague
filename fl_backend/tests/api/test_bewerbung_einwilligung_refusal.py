@@ -716,7 +716,7 @@ class TestWhichPageASeatOpens:
 
         row = {"kontakte": {"trainer": {"email": "ida@example.org", "einwilligung": seat_record(eingetragen_von=eingetragen_von)}}}
 
-        assert saison_kontakt_seite(row=row, seat="trainer", bewerbung_raw=None) == seite
+        assert saison_kontakt_seite(row=row, seat="trainer") == seite
 
     @pytest.mark.parametrize(
         ("datum", "seite"),
@@ -735,25 +735,9 @@ class TestWhichPageASeatOpens:
 
         assert bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat="trainer") == seite
 
-    @pytest.mark.parametrize(
-        ("beworben", "seite"),
-        [
-            pytest.param("Ida@Example.org", "bestaetigung_kontakt", id="the accepted application named this address there"),
-            pytest.param("jo@example.org", "bestaetigung_kontakt_saison", id="it named somebody else there"),
-            pytest.param(None, "bestaetigung_kontakt_saison", id="no accepted application is kept"),
-        ],
-    )
-    def test_a_season_row_seat_stored_before_the_field_is_read_off_its_accepted_application(self, beworben: str | None, seite: str):
-        """Folded as sign-in folds an address, so a capital typed on one side moves no page."""
+    def test_a_season_row_seat_stored_before_the_field_opens_the_season_rows_page(self):
+        """Whoever named its person: the applicant's page promises a deadline and a message a season row's link never brings."""
 
         row = {"kontakte": {"trainer": {"email": "ida@example.org", "einwilligung": seat_record(eingetragen_von=None)}}}
-        bewerbung_raw = None if beworben is None else {"kontakte": {"trainer": {"email": beworben}}}
 
-        assert saison_kontakt_seite(row=row, seat="trainer", bewerbung_raw=bewerbung_raw) == seite
-
-    def test_a_season_row_seat_naming_who_seated_them_never_asks_the_application(self):
-        """An applicant-named seat carried at acceptance keeps the applicant's page, whatever the application now holds."""
-
-        row = {"kontakte": {"trainer": {"email": "ida@example.org", "einwilligung": seat_record(eingetragen_von="bewerbung")}}}
-
-        assert saison_kontakt_seite(row=row, seat="trainer", bewerbung_raw=None) == "bestaetigung_kontakt"
+        assert saison_kontakt_seite(row=row, seat="trainer") == "bestaetigung_kontakt_saison"

@@ -755,8 +755,6 @@ SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
-    # With `saison_id`, the key of the accepted application a seat stored before `eingetragen_von` is asked about.
-    "team_id": 1,
     "name": 1,
     # A team that left the season holds no seat a consent could be given for.
     "austritt": 1,
@@ -1047,12 +1045,6 @@ def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
     return einwilligung if isinstance(einwilligung, Mapping) else {}
 
 
-def nennt_eingetragen_von(*, kontakte: Any, seat: str) -> bool:
-    """Whether this seat's record says who seated its person, so its page needs no second read."""
-
-    return _einwilligung_of(kontakte, seat).get("eingetragen_von") is not None
-
-
 def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> KontaktSeite:
     """The page an application's seat opens."""
 
@@ -1082,34 +1074,25 @@ def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence
     )
 
 
-def build_angenommene_bewerbung_filter(*, row: Mapping[str, Any]) -> Mapping[str, Any]:
-    """The accepted application a season row was entered from, if one is still kept."""
+def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str) -> KontaktSeite:
+    """The page a season row's seat opens.
 
-    return {"saison_id": row.get("saison_id"), "team_id": row.get("team_id"), "status": "angenommen"}
+    A seat stored before `eingetragen_von` opens the season row's own page, even where the accepted
+    application named its person: the applicant's page promises a deadline deleting the application
+    and a message to its submitter, and a season row's link brings neither.
+    """
 
-
-def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str, bewerbung_raw: Mapping[str, Any] | None) -> KontaktSeite:
-    """The page a season row's seat opens; `bewerbung_raw` is its accepted application, read only for a seat naming no `eingetragen_von`."""
-
-    kontakte = row.get("kontakte")
-    adresse = {sign_in_identifier(adresse) for adresse in seat_adressen(kontakte=kontakte, seats=(seat,))}
-    beworben = {
-        sign_in_identifier(adresse)
-        for adresse in seat_adressen(kontakte=None if bewerbung_raw is None else bewerbung_raw.get("kontakte"), seats=(seat,))
-    }
-
-    # Before `eingetragen_von` the seat itself cannot tell a person carried over from the application at
-    # acceptance from one the contacts editor entered; the application still holding them in that
-    # seat can, while it is kept.
-    vom_bewerber = bool(adresse) and adresse == beworben
-
-    # The season row's page for a seat an administrator filled on the application too: that
-    # application is decided.
     return kontakt_seite_of(
-        einwilligung=_einwilligung_of(kontakte, seat),
-        sonst_vom_bewerber=vom_bewerber,
+        einwilligung=_einwilligung_of(row.get("kontakte"), seat),
+        sonst_vom_bewerber=False,
         verwaltet="bestaetigung_kontakt_saison",
     )
+
+
+def saison_antwort_seite(*, row: Mapping[str, Any], seats: Sequence[str]) -> KontaktSeite:
+    """The page a season row's link opens for the seats its answer writes: the view's and the press's one source."""
+
+    return antwort_seite(seiten=[saison_kontakt_seite(row=row, seat=seat) for seat in seats], verwaltet="bestaetigung_kontakt_saison")
 
 
 def compose_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:

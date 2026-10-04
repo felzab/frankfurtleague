@@ -1188,27 +1188,20 @@ class TestThePageASeasonRowsLinkOpens:
         # The editor seated this person, and the answer leaves that standing.
         assert einwilligung["eingetragen_von"] == "liga"
 
-    @pytest.mark.parametrize(
-        ("beworben", "fassung"),
-        [
-            pytest.param("Ida", BEWERBER_SEITE, id="the accepted application named this person in this seat"),
-            pytest.param("Lea", SAISON_SEITE, id="it named somebody else there"),
-            pytest.param(None, SAISON_SEITE, id="no accepted application is kept"),
-        ],
-    )
-    def test_a_seat_stored_before_the_field_is_read_off_the_accepted_application(
-        self, mongo_replica_set_url: str, beworben: str | None, fassung: str
-    ):
-        """The seat itself cannot tell a person carried over at acceptance from one the editor entered."""
+    def test_a_seat_stored_before_the_field_opens_the_season_rows_page_whoever_named_its_person(self, mongo_replica_set_url: str):
+        """The accepted application named this person in this seat, and the link still opens the page true of a season row's link."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            if beworben is not None:
-                await database[Collection.BEWERBUNGEN].insert_one(angenommene_bewerbung(documents.kontaktperson_document(beworben)))
+            await database[Collection.BEWERBUNGEN].insert_one(angenommene_bewerbung(documents.kontaktperson_document("Ida")))
             token = (await resend(database, "trainer")).bestaetigung.token
+            view = await ansicht(database, token)
+            refusal = await refused(answer(database, token, text_version=BEWERBER_SEITE))
 
-            return await ansicht(database, token)
+            return view, refusal, await answer(database, token)
 
-        assert on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED).laufende_fassung == fassung
+        view, refusal, answered = on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED)
+
+        assert (view.laufende_fassung, refusal, answered.ergebnis) == (SAISON_SEITE, FASSUNG_UNZULAESSIG, "bestaetigt")
 
     def test_a_seat_carried_from_the_application_keeps_the_applicants_page(self, mongo_replica_set_url: str):
         """It names the application as who seated its person, so no application is asked and none needs to be kept."""
