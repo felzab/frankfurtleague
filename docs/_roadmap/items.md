@@ -451,7 +451,7 @@ their own evidence; nothing is backfilled into a history.
 every write stamping a label is judged there, after the replay; the frontend holds no label check;
 a record carries its time; and a withdrawal is appended rather than overwriting what it withdraws.
 
-### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
+### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and a squad-number clash is stored once raised
 
 | Status | Depends on |
 | ------ | ---------- |
@@ -466,15 +466,16 @@ where the players of that team enter themselves with their position, squad numbe
 returning player recognised rather than duplicated, a number clash raised rather than stored. The
 Saison page and its editor change with it.
 
-**The representatives' page, the link and the page it opens are built; nothing admits what that page
-collects.** `/bereich/admin/kontakte` lists the representatives a season holds. An accepted application tells
+**The representatives' page, the link, the page it opens and the team's admission are built.** `/bereich/admin/kontakte` lists the representatives a season holds. An accepted application tells
 its own contacts (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`); what
 is still owed is that message for a team entered by hand. How a link is minted, mailed, replaced and
 shut is the contract of [`docs/backend/spec.md`](../backend/spec.md) I277 to I282 and I336. A link names the team
 and the season and nobody in them. A registration a pupil submits through it and confirms at their
-own link then waits in `registrierungen` as `eingereicht`: `fl_backend/app/api/registrierungen/router.py` lists
-the rows and no route admits or declines one, so every `saison_spieler` row is still one an
-administrator wrote, and a registered pupil is on no squad list. **The wait is bounded**: an
+own link then waits in `registrierungen` as `eingereicht` until a seat holder of the team admits or
+declines it (`fl_backend/app/api/registrierungen/person_router.py`). The admission writes the pupil
+into the person their address resolves to, or the one addressless namesake the team confirms, rather
+than a second one ([`docs/backend/spec.md`](../backend/spec.md) I951, I952). The team's pending read
+marks a squad number the live squad already wears, and the admission stores it all the same. **The wait is bounded**: an
 unconfirmed registration is erased the day after its link's deadline, and one still `eingereicht` when
 its season turns `past` is erased whatever the pupil answered
 ([`docs/backend/spec.md`](../backend/spec.md) I290, I292), so an admission has until its season ends
@@ -487,9 +488,7 @@ to take one.
 | The guided creation flow, as a page over the create payload | —                            | Yes              |
 | Drawing the season from that flow rather than by hand       | the flow                     | No               |
 | Telling a representative entered by hand their team is in   | —                            | Yes              |
-| Admitting a confirmed registration into its squad           | —                            | Yes              |
-| Recognising a returning player                              | the admission                | No               |
-| Raising a squad-number clash                                | the admission                | No               |
+| Keeping a raised squad-number clash from being stored       | —                            | Yes              |
 | Rework of the Saison page and its editor                    | whichever of the above lands | Yes              |
 
 **The invite's mail is not the message a team entered by hand is owed.** Both presses mail a link only to a
