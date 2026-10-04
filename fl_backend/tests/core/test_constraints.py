@@ -955,14 +955,25 @@ def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
     assert declared.get("bsonType") == "date", f"{ttl.name} expires on {ttl.key!r}, declared as {declared.get('bsonType')!r}"
 
 
-@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
-def test_no_ttl_index_key_is_required_of_a_row(ttl):
-    """Required, the key invalidates every row the collection already held, and strict validation validates an UPDATE of one too.
+# The TTL indexes built over a collection already holding rows without the key, each by name. Its
+# rows stand unexpired (`fl_backend/tests/core/test_aktionen_validator_execution.py ::
+# test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+RETROFITTED_TTL_INDEXES = frozenset({"aktionen_retention"})
 
-    What the retention costs instead is that those rows are never expired
-    (`fl_backend/tests/core/test_aktionen_validator_execution.py :: test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+
+@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
+def test_a_ttl_key_is_required_exactly_where_no_row_predates_it(ttl):
+    """Retrofitted, a required key invalidates every row standing, strict validation refusing an UPDATE of one.
+
+    Anywhere else, an unrequired key admits a row never expired.
     """
-    assert ttl.key not in required_at(ttl.collection, ())
+    assert (ttl.key in required_at(ttl.collection, ())) is (ttl.name not in RETROFITTED_TTL_INDEXES)
+
+
+def test_every_retrofitted_ttl_index_is_one_declared():
+    """A stale name would excuse nothing while reading as a decision."""
+
+    assert RETROFITTED_TTL_INDEXES <= {ttl.name for ttl in TTL_INDEXES}
 
 
 @pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)

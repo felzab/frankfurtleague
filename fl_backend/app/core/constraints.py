@@ -1093,7 +1093,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.DROSSELUNG: {
         "$jsonSchema": _object(
-            required=("_id", "n"),
+            # `ablauf` too: the collection held no row before its TTL index, and a row without it is never expired.
+            required=("_id", "n", "ablauf"),
             properties={
                 # `<Funktion>:<pseudonym>:<YYYY-MM-DD>`, so a new German day is a new row and no reset is written.
                 "_id": {"bsonType": "string"},
