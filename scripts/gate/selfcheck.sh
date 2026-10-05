@@ -980,8 +980,8 @@ process.stdout.write(JSON.stringify(input));
   if [[ "$compact_said" == "0 "* ]] && node -e '
 const said = JSON.parse(process.argv[1]).hookSpecificOutput;
 const text = said.additionalContext;
-// The core, the resume point and the register: the hook owes all three.
-const pointers = /\.claude\/skills\/orchestration\/SKILL\.md/.test(text) && /resume point/.test(text);
+// The core as the file on disk, the resume point and the register: the hook owes all three.
+const pointers = /\.claude\/skills\/orchestration\/SKILL\.md as it is on disk/.test(text) && /resume point/.test(text);
 process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\.md/.test(text) ? 0 : 1);
 ' "${compact_said#0 }" 2>/dev/null; then
     info 'compaction hook: the coordinator — told its core, its register and its resume point'

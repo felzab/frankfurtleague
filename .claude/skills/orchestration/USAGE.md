@@ -11,7 +11,9 @@ Addressed to the owner: every step below is yours to perform. The coordinator ne
   submit a first turn whose skills are processed, which could invoke the skill at launch. It is
   untried here, and unknown in the desktop app.
 - The skill stays in the conversation once invoked; an edit to it mid-session needs a fresh
-  `/orchestration`.
+  `/orchestration`. A compaction after that re-attached the session's first, older copy rather
+  than the latest the documentation names, so the compaction hook tells the coordinator that the
+  file on disk is the current core.
 - Compaction re-attaches the first 5,000 tokens of each invoked skill, within 25,000 shared by all of
   them and filled from the most recent: the skill's core is held under that size by
   `scripts/tests/test_orchestration_skill.py`, so it comes back whole, and its other files are read
