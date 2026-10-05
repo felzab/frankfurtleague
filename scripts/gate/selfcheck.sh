@@ -1026,16 +1026,20 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     else note_fail "writer-tools hook: ${tools_case%%|*} must exit 0 silently, got '${tools_said:0:200}'"; fi
   done
 
-  # Every spawned or resumed agent with a definition file is told that file binds as it is on disk.
+  # Every spawned or resumed agent with a definition file is told that file binds as it is on disk,
+  # by the checkout's absolute path: the copy in its own worktree is as old as its fork. A Windows
+  # project directory's backslashes must still leave parseable JSON.
   DEFINITION_HOOK="${REPO_ROOT}/.claude/hooks/agent-definition.sh"
   check_hook_matcher "${REPO_ROOT}/.claude/settings.json" SubagentStart agent-definition.sh implementer driving-reauditor researcher cold-auditor
   for definition_type in implementer driving-reauditor researcher cold-auditor; do
-    definition_said="$(printf '{"hook_event_name":"SubagentStart","agent_id":"a1","agent_type":"%s"}' "$definition_type" | bash "$DEFINITION_HOOK" 2>&1)"
+    definition_said="$(printf '{"hook_event_name":"SubagentStart","agent_id":"a1","agent_type":"%s"}' "$definition_type" | CLAUDE_PROJECT_DIR='C:\probe\checkout' bash "$DEFINITION_HOOK" 2>&1)"
     if node -e '
 const said = JSON.parse(process.argv[1]).hookSpecificOutput;
-process.exit(said.hookEventName === "SubagentStart" && said.additionalContext.includes(".claude/agents/" + process.argv[2] + ".md") ? 0 : 1);
-' "$definition_said" "$definition_type" 2>/dev/null; then info "definition hook: ${definition_type} — told its definition file"
-    else note_fail "definition hook: ${definition_type} must be told .claude/agents/${definition_type}.md as JSON, got '${definition_said:0:200}'"; fi
+const text = said.additionalContext;
+const absolute = text.includes("C:\\probe\\checkout/.claude/agents/" + process.argv[2] + ".md");
+process.exit(said.hookEventName === "SubagentStart" && absolute && /own worktree can be older/.test(text) ? 0 : 1);
+' "$definition_said" "$definition_type" 2>/dev/null; then info "definition hook: ${definition_type} — told its definition file by absolute path"
+    else note_fail "definition hook: ${definition_type} must be told the project directory's .claude/agents/${definition_type}.md, and that its worktree's copy can be older, as JSON, got '${definition_said:0:200}'"; fi
   done
   for definition_case in \
     'a built-in agent|{"hook_event_name":"SubagentStart","agent_type":"Explore"}' \

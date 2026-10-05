@@ -15,6 +15,11 @@ here="${BASH_SOURCE[0]%/*}"
 [[ -f "${here}/../agents/${type}.md" ]] || exit 0
 
 # Factual statements rather than instructions, as the hooks documentation asks of additionalContext.
-text="This agent's standing definition is the file .claude/agents/${type}.md as it is on disk now. Where that file differs from the definition this agent started with, the file binds."
+# The path is absolute: a relative one resolves inside the agent's worktree, whose copy is as old as
+# its fork, and agents resumed after a definition changed read that stale copy as current.
+definition="${CLAUDE_PROJECT_DIR:-$(cd "${here}/.." && pwd)}/.claude/agents/${type}.md"
+text="This agent's standing definition is the file ${definition} as it is on disk now; a copy of .claude/agents/${type}.md inside the agent's own worktree can be older. Where that file differs from the definition this agent started with, the file binds."
+text="${text//\\/\\\\}"
+text="${text//\"/\\\"}"
 printf '{"hookSpecificOutput":{"hookEventName":"SubagentStart","additionalContext":"%s"}}' "$text"
 exit 0
