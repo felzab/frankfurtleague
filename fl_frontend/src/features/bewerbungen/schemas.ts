@@ -613,15 +613,15 @@ export const FLBewerbungEinwilligungAnsichtPayloadSchema = z.object({
 export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEinwilligungAnsichtPayloadSchema>;
 
 /**
- * What a link is told before any press: school, season, seat and first name, and nothing else of
- * the person. The surname never travels, so a leaked link learns no name to look anything up against.
- */
-/**
  * Mirrors `FLKontaktZeile` — the season row's state a link was minted on or is read against, which fixes
  * what its page takes. An ended season outranks a team that left it.
  */
 export const FLKontaktZeileSchema = z.enum(["offen", "saison_vorbei", "ausgetreten"] as const satisfies readonly KontaktZeile[]);
 
+/**
+ * What a link is told before any press: school, season, seat and first name, and nothing else of
+ * the person. The surname never travels, so a leaked link learns no name to look anything up against.
+ */
 export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
   // unknown token has nothing to answer with and reaches the page as a 409.

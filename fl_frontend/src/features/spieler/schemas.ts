@@ -381,13 +381,13 @@ export const FLSpielerSelbstResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSpielerSelbstResponse = z.infer<typeof FLSpielerSelbstResponseSchema>;
 
+/** A consent press's scope no control offers: a drifted page, which a reload repairs. */
+export const WAHL_UNBEKANNT = "Diese Wahl kennen wir nicht. Lade die Seite neu.";
+
 /**
  * Mirrors `FLSpielerSelbstEinwilligungPayload`, and the referee's payload is this same schema: the two
  * writes are one shape, so the one consent control cannot send either a member the other lacks.
  */
-/** A consent press's scope no control offers: a drifted page, which a reload repairs. */
-export const WAHL_UNBEKANNT = "Diese Wahl kennen wir nicht. Lade die Seite neu.";
-
 export const FLSpielerSelbstEinwilligungPayloadSchema = z.object({
   umfang: z.enum(FLEinwilligungSchema.shape.umfang.options, { error: WAHL_UNBEKANNT }),
   medien: z.boolean(),
