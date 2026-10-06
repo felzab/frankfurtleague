@@ -80,11 +80,12 @@
 # against a job this size. The ceiling it answers to is the `docs` row's budget, the total row
 # carrying none behind it.
 #
-# `backend` gained a check: `check_test_estate.py` costs 1.90-1.96 s over six interleaved runs, each
-# returning exit 0, measured locally on 2026-09-03 on a sixteen-core machine carrying ten other
-# workloads, so both ends are upper bounds reading that contention as much as the check. It is
-# pooled with the scope's other units, so the job pays that span only where the pool cannot start
-# them all at once, and every run the `backend` row's stamp counts carries it.
+# `backend` gained a check: `check_test_estate.py` costs 6.28-7.53 s end to end over four runs, each
+# returning exit 0, measured locally on 2026-10-06 over a tree of 199 test modules on a sixteen-core
+# machine carrying a fleet of agent sessions, so both ends are upper bounds reading that contention
+# as much as the check. It is pooled with the scope's other units, so the job pays that span only
+# where the pool cannot start them all at once, and every run the `backend` row's stamp counts
+# carries it.
 #
 # `docs` gained five checks -- `diagram`, `error-codes`, `invariant-number`, `output-verbs` and
 # `wrapped-path` -- and widened two populations, the module-header scope to every file the hash
