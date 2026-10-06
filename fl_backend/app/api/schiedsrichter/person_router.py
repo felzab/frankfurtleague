@@ -33,7 +33,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
@@ -90,7 +89,6 @@ async def get_selbst(
     f"{by_id('schiedsrichter_id')}/einwilligung",
     response_model=FLSchiedsrichterSelbstEinwilligungResponse,
     summary="Change a signed-in referee's own publication and media consent",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_einwilligung(
     schiedsrichter_id: CustomRouteObjectId,

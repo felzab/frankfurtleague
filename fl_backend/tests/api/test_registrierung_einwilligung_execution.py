@@ -27,7 +27,7 @@ from app.api.registrierungen.services import (
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
@@ -319,11 +319,13 @@ class TestWhatALinkOpens:
 
         assert (first.zustand, fresh.zustand) == ("gueltig", "gueltig")
 
-    def test_a_registration_whose_team_is_gone_is_a_miss_rather_than_a_consent_text_with_a_hole(self, mongo_replica_set_url: str):
+    def test_a_registration_whose_team_is_gone_fails_rather_than_rendering_a_consent_text_with_a_hole(self, mongo_replica_set_url: str):
+        """No code deletes a team, so this is a broken database: a server fault, never a 404 the page could answer, and never a gap."""
+
         orphan = registrierung_document(team_id=ObjectId("6890a1b2c3d4e5f607960099"))
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> None:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(AssertionError):
                 await ansicht(database, RAW)
 
         on_a_league(mongo_replica_set_url, body, registrierungen=[orphan])
