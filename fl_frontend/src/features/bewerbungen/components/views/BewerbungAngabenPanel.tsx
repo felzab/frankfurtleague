@@ -3,11 +3,17 @@ import Link from "next/link";
 import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
-// The contacts editor's words for a seat's WhatsApp scope, so one seat reads alike on both administrator screens.
-import { ERLAUBT, NICHT_ERLAUBT } from "@/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
-import { eingetragenVonLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
+import {
+  eingetragenVonLabel,
+  KONTAKT_ROLLEN,
+  KONTAKT_WHATSAPP_FRAGE,
+  KONTAKT_WHATSAPP_LABELS,
+  schulformLabel,
+  trikotFarbeHex,
+  trikotFarbeLabel,
+} from "@/features/teams/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -217,8 +223,8 @@ export function BewerbungAngabenPanel({
                         decided application's copy is frozen, the seats' choices living on the team's row. */}
                     {bewerbung.status === "eingereicht" && (
                       <>
-                        <Angabe label="WhatsApp">
-                          {person.einwilligung.umfang === "kontaktdaten_whatsapp" ? ERLAUBT : NICHT_ERLAUBT}
+                        <Angabe label={KONTAKT_WHATSAPP_FRAGE}>
+                          {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
                           <Beleg
                             nachweis={person.einwilligung.nachweis.umfang}
                             bestaetigtAm={person.einwilligung.bestaetigt_am}
