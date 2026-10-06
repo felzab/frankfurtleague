@@ -41,7 +41,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -176,6 +176,7 @@ export function BewerbungBestaetigungStrip({
       pending: (running) =>
         setSendendeRollen((vorher) => (running ? new Set(vorher).add(rolle) : new Set([...vorher].filter((sendend) => sendend !== rolle)))),
       write: () => einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }),
+      repair: LINK_ERNEUT_OHNE_ANTWORT,
     });
     if (res === null) return;
 

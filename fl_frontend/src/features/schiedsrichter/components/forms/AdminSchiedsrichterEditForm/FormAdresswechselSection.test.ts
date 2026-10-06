@@ -4,22 +4,26 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
-import { doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/schemas.ts";
 
-/* Every write hangs: a real action needs a session and a backend, and these cases press nothing. */
-doubleActions({
+/* Every write hangs until a case answers it: a real action needs a session and a backend. */
+const { answerWith, answered } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
+
+/* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
+const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET, FormAdresswechselSection } =
@@ -77,4 +81,43 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
 
     assert.ok(shown.includes(ZUSTELLUNG_CHIP.unzustellbar?.label ?? "-"), "the refused delivery is not named");
   });
+});
+
+describe("a press of the address change's link nobody can tell landed", () => {
+  /* No answer came back, so each control's own repair names the next step: a second send replaces the
+     link, but a second discard of a change already gone is refused, so the page, reloaded, decides. */
+  const repairs: Record<string, { control: string; repair: string }> = {
+    send: {
+      control: ADRESSWECHSEL_ERNEUT,
+      repair: "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+    },
+    discard: {
+      control: ADRESSWECHSEL_VERWERFEN,
+      repair: "Prüfe die Verbindung und lade die Seite neu. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.",
+    },
+  };
+  for (const [arm, { control, repair }] of Object.entries(repairs)) {
+    it(`names the ${arm}'s own next step, and reads the page again`, async () => {
+      answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
+      const { router, seen } = recordingRouter();
+      const before = toasts.length;
+      const { unmount } = render(
+        underNext(h(FormAdresswechselSection, { schiedsrichterId: "6890a1b2c3d4e5f607800001", adresswechsel: OFFEN, isDirty: false }), {
+          router,
+        }),
+      );
+
+      await userEvent.setup().click(screen.getByRole("button", { name: control }));
+      await act(answered);
+
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.slice(before).map((shown) => [shown.title, shown.description, shown.options?.outcome]),
+          [["Unklar, ob es gespeichert wurde", repair, "unknown"]],
+        ),
+      );
+      assert.equal(seen.refresh, 1, `the ${arm} left the page unread after a press nobody can tell landed`);
+      unmount();
+    });
+  }
 });
