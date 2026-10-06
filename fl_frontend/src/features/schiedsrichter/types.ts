@@ -13,8 +13,14 @@ export type SchiedsrichterAnsichtGeoeffnet = FLSchiedsrichterBestaetigungAnsicht
 
 export type SchiedsrichterAnsicht = { zustand: "gueltig"; ansicht: SchiedsrichterAnsichtGeoeffnet } | { zustand: SchiedsrichterLinkZustand };
 
-/** Every state an address link can be in but open. No `bestaetigt`: an answer removes what the link opens. */
-export type AdresswechselLinkZustand = "abgelaufen" | "ungueltig" | "gesperrt";
+/**
+ * Every state an address link can be in but open. No `bestaetigt`: an answer removes what the link opens.
+ * `nicht_bestaetigbar` is a change whose replaced address is barred, which the page words without the ban.
+ */
+export type AdresswechselLinkZustand = "abgelaufen" | "ungueltig" | "gesperrt" | "nicht_bestaetigbar";
+
+/** The states whose link the backend still takes the decline through, so the page keeps its token. */
+export type AdresswechselNurAblehnbar = Extract<AdresswechselLinkZustand, "abgelaufen" | "nicht_bestaetigbar">;
 
 export type AdresswechselAnsicht = { zustand: "gueltig"; vorname: string; frist: string } | { zustand: AdresswechselLinkZustand };
 

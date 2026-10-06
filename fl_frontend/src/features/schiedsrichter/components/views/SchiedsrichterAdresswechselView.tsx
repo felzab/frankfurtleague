@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
-import CircleXmark from "@gravity-ui/icons/CircleXmark";
 
 import { Button } from "@heroui/react/button";
 
@@ -12,9 +11,13 @@ import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefue
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AdresseGesperrt,
+  ANTWORT_NICHT_GESPEICHERT,
+  ANTWORT_NICHT_GESPEICHERT_SATZ,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
@@ -24,16 +27,31 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
-import type { AdresswechselLinkZustand } from "@/features/schiedsrichter/types";
+import type { AdresswechselAnsicht, AdresswechselLinkZustand, AdresswechselNurAblehnbar } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 
 type Antwort = "bestaetigt" | "abgelehnt";
 
 /** What the page opens on. The token rides only with a link a press can still spend, for the consent page's reason. */
 export type SchiedsrichterAdresswechselStart =
-  { zustand: "gueltig"; vorname: string; frist: string; token: string } | { zustand: AdresswechselLinkZustand | "unlesbar" };
+  | { zustand: "gueltig"; vorname: string; frist: string; token: string }
+  | { zustand: AdresswechselNurAblehnbar; token: string }
+  | { zustand: Exclude<AdresswechselLinkZustand, AdresswechselNurAblehnbar> | "unlesbar" };
+
+const NUR_ABLEHNBAR: readonly AdresswechselLinkZustand[] = ["abgelaufen", "nicht_bestaetigbar"] satisfies readonly AdresswechselNurAblehnbar[];
+
+const istNurAblehnbar = (zustand: AdresswechselLinkZustand): zustand is AdresswechselNurAblehnbar => NUR_ABLEHNBAR.includes(zustand);
+
+/** A dead link's state, the token kept where the backend still takes the decline through it. */
+function totStand(zustand: AdresswechselLinkZustand, token: string): SchiedsrichterAdresswechselStart {
+  return istNurAblehnbar(zustand) ? { zustand: zustand, token: token } : { zustand: zustand };
+}
+
+/** What the page opens on for what the read answered. */
+export function startOf(gelesen: AdresswechselAnsicht, token: string): SchiedsrichterAdresswechselStart {
+  return gelesen.zustand === "gueltig" ? { ...gelesen, token: token } : totStand(gelesen.zustand, token);
+}
 
 type Stand = SchiedsrichterAdresswechselStart | { zustand: Antwort };
 
@@ -44,29 +62,17 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Neue E-Mail-Adresse bestätigen",
   bestaetigt: "Adresse bestätigt",
   abgelehnt: "Adresse entfernt",
-  abgelaufen: "Link ungültig",
+  abgelaufen: "Link abgelaufen",
+  nicht_bestaetigbar: "Änderung nicht mehr möglich",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
-
-/** This page's own word for the failure, for the consent page's reason. */
-const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
-const NICHT_GESPEICHERT = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 export const JA_MEINE_ADRESSE = "Ja, das ist meine Adresse";
 export const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
 
-function AntwortPanel({
-  vorname,
-  frist,
-  token,
-  onAbschluss,
-}: {
-  vorname: string;
-  frist: string;
-  token: string;
-  onAbschluss: (stand: Stand) => void;
-}) {
+/** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
+function useAntwort(token: string, onAbschluss: (stand: Stand) => void) {
   const [isPending, startSending] = useTransition();
   const [gedrueckt, setGedrueckt] = useState<Antwort | null>(null);
 
@@ -96,13 +102,50 @@ function AntwortPanel({
         }
         // The link died between the open and the press: the answer is the panel, never a toast.
         if (body.zustand !== undefined) {
-          onAbschluss({ zustand: body.zustand });
+          onAbschluss(totStand(body.zustand, token));
           return;
         }
-        appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: body.error ?? body.unplacedError ?? NICHT_GESPEICHERT });
+        appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: body.error ?? body.unplacedError ?? ANTWORT_NICHT_GESPEICHERT_SATZ });
       });
     });
   };
+
+  return { sende: sende, isPending: isPending, gedrueckt: gedrueckt };
+}
+
+/**
+ * The decline, the one press every link a referee still holds takes, worn as the contact page wears
+ * its Widerspruch (`BestaetigungFormPanel.tsx`): the action bar's exit, beside and after the confirmation.
+ */
+function AblehnenButton({ antwort }: { antwort: ReturnType<typeof useAntwort> }) {
+  const { sende, isPending, gedrueckt } = antwort;
+
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      isPending={isPending && gedrueckt === "abgelehnt"}
+      isDisabled={isPending}
+      onPress={() => sende("abgelehnt")}
+      className={formButton({ intent: "cancel", stacks: true })}>
+      {NICHT_MEINE_ADRESSE}
+    </Button>
+  );
+}
+
+function AntwortPanel({
+  vorname,
+  frist,
+  token,
+  onAbschluss,
+}: {
+  vorname: string;
+  frist: string;
+  token: string;
+  onAbschluss: (stand: Stand) => void;
+}) {
+  const antwort = useAntwort(token, onAbschluss);
+  const { sende, isPending, gedrueckt } = antwort;
 
   return (
     <BestaetigungAbschnitt titel="Deine Adresse">
@@ -116,18 +159,6 @@ function AntwortPanel({
       <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:justify-end">
         <Button
           type="button"
-          isPending={isPending && gedrueckt === "abgelehnt"}
-          isDisabled={isPending}
-          onPress={() => sende("abgelehnt")}
-          className={formButton({ intent: "nav", stacks: true })}>
-          <CircleXmark
-            className="size-4.5"
-            aria-hidden="true"
-          />
-          {NICHT_MEINE_ADRESSE}
-        </Button>
-        <Button
-          type="button"
           isPending={isPending && gedrueckt === "bestaetigt"}
           isDisabled={isPending}
           onPress={() => sende("bestaetigt")}
@@ -138,6 +169,24 @@ function AntwortPanel({
           />
           {JA_MEINE_ADRESSE}
         </Button>
+        <AblehnenButton antwort={antwort} />
+      </div>
+    </BestaetigungAbschnitt>
+  );
+}
+
+/**
+ * A link whose confirmation is closed: the decline stays open, since the backend removes an address
+ * nobody proved however late the press and whatever the ban list holds (`docs/frontend/spec.md :: I_NEW_KREF_6`).
+ */
+function NurAblehnen({ token, onAbschluss }: { token: string; onAbschluss: (stand: Stand) => void }) {
+  const antwort = useAntwort(token, onAbschluss);
+
+  return (
+    <BestaetigungAbschnitt titel="Deine Adresse">
+      <p className={ABSATZ_CLASSES}>Ist das nicht Deine Adresse, entfernen wir sie sofort.</p>
+      <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:justify-end">
+        <AblehnenButton antwort={antwort} />
       </div>
     </BestaetigungAbschnitt>
   );
@@ -147,6 +196,10 @@ function AntwortPanel({
 export function SchiedsrichterAdresswechselView({ start }: { start: SchiedsrichterAdresswechselStart }) {
   const [stand, setStand] = useState<Stand>(start);
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
+  const onAbschluss = (naechster: Stand) => {
+    beantwortet();
+    setStand(naechster);
+  };
 
   if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
@@ -161,10 +214,7 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
           vorname={stand.vorname}
           frist={stand.frist}
           token={stand.token}
-          onAbschluss={(naechster) => {
-            beantwortet();
-            setStand(naechster);
-          }}
+          onAbschluss={onAbschluss}
         />
       )}
 
@@ -173,6 +223,11 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>Deine neue E-Mail-Adresse gilt jetzt. Melde Dich künftig mit ihr an.</p>
+          {/* A passkey belongs to the account of the address it was set up under, which the move leaves behind. */}
+          <p className={ABSATZ_CLASSES}>
+            Hattest Du für die bisherige Adresse einen Passkey eingerichtet, gilt er für die neue nicht: Richte nach der Anmeldung in Deinem
+            Konto einen neuen ein.
+          </p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -186,31 +241,61 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
         </BestaetigungErgebnis>
       )}
 
-      {/* One wording for both, for the consent page's reason: a replaced or answered link and a
-          lapsed one cannot be told apart after the fact without telling a guessed link more. */}
-      {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
+      {/* Told apart from the dead link, which the consent page cannot do: the backend serves a lapsed
+          change as lapsed, and only a link it still holds can be. */}
+      {stand.zustand === "abgelaufen" && (
+        <>
+          <BestaetigungErgebnis
+            panelRef={ergebnisRef}
+            tone="hinweis">
+            <p className={ABSATZ_CLASSES}>
+              Dieser Link ist abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage; einen neuen schickt Dir die
+              Verwaltung, wenn Du an {KONTAKT_EMAIL} schreibst. Bis dahin gilt die bisherige Adresse.
+            </p>
+          </BestaetigungErgebnis>
+          <NurAblehnen
+            token={stand.token}
+            onAbschluss={onAbschluss}
+          />
+        </>
+      )}
+
+      {/* Naming neither the ban nor the address it holds: the holder of this mailbox may be a stranger to
+          both (`REQ-SCHIEDSRICHTER-010`). */}
+      {stand.zustand === "nicht_bestaetigbar" && (
+        <>
+          <BestaetigungErgebnis
+            panelRef={ergebnisRef}
+            tone="hinweis">
+            <p className={ABSATZ_CLASSES}>
+              Diese Änderung der E-Mail-Adresse kann nicht mehr bestätigt werden. Fragen jederzeit per E-Mail an {KONTAKT_EMAIL}.
+            </p>
+          </BestaetigungErgebnis>
+          <NurAblehnen
+            token={stand.token}
+            onAbschluss={onAbschluss}
+          />
+        </>
+      )}
+
+      {/* Words true however the link died: the commonest way here is reopening it after a confirmation,
+          which already moved the address, and a decline, a newer link or a discard left the old one. */}
+      {stand.zustand === "ungueltig" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
           <p className={ABSATZ_CLASSES}>
-            Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage, und ein neuer ersetzt
-            jeden früheren.
+            Dieser Link ist ungültig: Er wurde schon beantwortet oder durch einen neueren ersetzt, oder die Änderung gibt es nicht mehr.
           </p>
-          <p className={ABSATZ_CLASSES}>Deine bisherige Adresse gilt weiter. Fragen jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>
+            Hast Du die neue Adresse schon bestätigt, gilt sie bereits; sonst gilt die bisherige weiter. Fragen jederzeit per E-Mail an{" "}
+            {KONTAKT_EMAIL}.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "unlesbar" && (
-        <BestaetigungErgebnis
-          panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
     </section>
   );
 }

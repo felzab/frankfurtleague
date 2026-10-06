@@ -40,6 +40,7 @@ from app.api.schiedsrichter.services import (
     EINWILLIGUNG_FELD,
     SCHIEDSRICHTER_ADRESSE_GESPERRT,
     SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
+    SCHIEDSRICHTER_ERSETZTE_ADRESSE_GESPERRT,
     SCHIEDSRICHTER_TOKEN_EXPIRED,
     SCHIEDSRICHTER_TOKEN_UNKNOWN,
     bestaetigung_frist_from,
@@ -184,7 +185,11 @@ async def resend(
 
 async def discard(database: AsyncDatabase, client: AsyncMongoClient, *, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID) -> Any:
     return await delete_adresswechsel(
-        schiedsrichter_id=schiedsrichter_id, schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], db=client
+        schiedsrichter_id=schiedsrichter_id,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        germany_now=NOW,
     )
 
 
@@ -202,8 +207,10 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         antwort_data=FLSchiedsrichterAdresswechselPayload.model_validate({"token": token, "antwort": antwort}),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=today,
+        germany_now=NOW,
     )
 
 
@@ -374,6 +381,23 @@ class TestTheConfirmation:
         assert row[EINWILLIGUNG_FELD] == before[EINWILLIGUNG_FELD]
         assert row[BESTAETIGUNG_FELD] == before[BESTAETIGUNG_FELD]
 
+    def test_it_drops_the_consent_link_s_delivery_state_with_the_address_it_described(self, mongo_replica_set_url: str):
+        """A bounce of the consent link's message is about the replaced address, so it must not stand beside the new one."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SCHIEDSRICHTER].update_one(
+                {"_id": SCHIEDSRICHTER_OID}, {"$set": {f"{BESTAETIGUNG_FELD}.zustellung": dict(A_BOUNCE)}}
+            )
+            before = await stored(database)
+            saved = await save(database, client, email=NEW_EMAIL)
+            await answer(database, client, saved.adresswechsel.token, "bestaetigt")
+
+            return before, await stored(database)
+
+        before, row = on_a_league(mongo_replica_set_url, body)
+
+        assert row[BESTAETIGUNG_FELD] == {key: value for key, value in before[BESTAETIGUNG_FELD].items() if key != "zustellung"}
+
     def test_the_record_then_belongs_to_the_new_mailbox_and_no_longer_to_the_old(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             saved = await save(database, client, email=NEW_EMAIL)
@@ -420,6 +444,57 @@ class TestTheConfirmation:
         assert row["kontakt"]["email"] == EMAIL
 
 
+class TestAChangeReplacingABarredAddress:
+    """`REQ-SCHIEDSRICHTER-010`: a ban entered on the address on file while a change is pending stops the change's confirmation."""
+
+    def test_the_view_answers_it_as_not_confirmable(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await save(database, client, email=NEW_EMAIL)
+            await ban(database, client, email=EMAIL)
+
+            return await view(database, saved.adresswechsel.token)
+
+        seen = on_a_league(mongo_replica_set_url, body)
+
+        assert (seen.zustand, seen.vorname) == ("nicht_bestaetigbar", "Ortwin")
+
+    def test_the_confirmation_is_refused_and_moves_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await save(database, client, email=NEW_EMAIL)
+            await ban(database, client, email=EMAIL)
+
+            return await refused_code(answer(database, client, saved.adresswechsel.token, "bestaetigt")), await stored(database)
+
+        code, row = on_a_league(mongo_replica_set_url, body)
+
+        assert code == SCHIEDSRICHTER_ERSETZTE_ADRESSE_GESPERRT
+        assert row["kontakt"]["email"] == EMAIL
+        assert row[ADRESSWECHSEL_FELD]["email"] == NEW_EMAIL
+
+    def test_the_decline_still_removes_the_change(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await save(database, client, email=NEW_EMAIL)
+            await ban(database, client, email=EMAIL)
+            await answer(database, client, saved.adresswechsel.token, "abgelehnt")
+
+            return await stored(database)
+
+        assert ADRESSWECHSEL_FELD not in on_a_league(mongo_replica_set_url, body)
+
+    def test_a_ban_on_both_addresses_answers_the_link_s_own(self, mongo_replica_set_url: str):
+        """Where both are barred, the link's holder is the barred person, so `-009` and `gesperrt` are true of them."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await save(database, client, email=NEW_EMAIL)
+            await ban(database, client, email=EMAIL)
+            await ban(database, client, email=NEW_EMAIL)
+            token = saved.adresswechsel.token
+
+            return (await view(database, token)).zustand, await refused_code(answer(database, client, token, "bestaetigt"))
+
+        assert on_a_league(mongo_replica_set_url, body) == ("gesperrt", SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT)
+
+
 class TestTheDecline:
     def test_it_removes_the_change_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -450,6 +525,18 @@ class TestTheDecline:
 
         assert ADRESSWECHSEL_FELD not in row
         assert row["kontakt"]["email"] == EMAIL
+
+    def test_the_whole_database_holds_the_disowned_address_nowhere_afterwards(self, mongo_replica_set_url: str):
+        """The re-send and the decline each file an image carrying the address, which the decline's redaction reaches."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
+            resent = await resend(database, client)
+            await answer(database, client, resent.adresswechsel.token, "abgelehnt")
+
+            return await every_collection_as_text(database)
+
+        assert NEW_EMAIL not in on_a_league(mongo_replica_set_url, body)
 
 
 class TestTheView:
@@ -549,6 +636,16 @@ class TestTheDiscard:
             return "not found"
 
         assert on_a_league(mongo_replica_set_url, body) == "not found"
+
+    def test_the_whole_database_holds_the_discarded_address_nowhere_afterwards(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
+            await resend(database, client)
+            await discard(database, client)
+
+            return await every_collection_as_text(database)
+
+        assert NEW_EMAIL not in on_a_league(mongo_replica_set_url, body)
 
 
 class TestTheDeliveryState:

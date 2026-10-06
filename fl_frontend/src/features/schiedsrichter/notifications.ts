@@ -2,14 +2,15 @@ import "server-only";
 
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
-import { MailBarredError, MailWithheldError, sendMail } from "@/core/mail";
+import { sendMail } from "@/core/mail";
+import { markOutcomeUnknown } from "@/core/requestScope";
 import {
   buildSchiedsrichterAdresswechselEmail,
   buildSchiedsrichterAdresswechselHinweisEmail,
   buildSchiedsrichterBestaetigungEmail,
 } from "@/core/schiedsrichterEmail";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
-import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
+import { linkVersandOf, sendZielMail, versandAusfallOf } from "@/features/zustellung/notifications";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { schiedsrichterVorname } from "./constants";
@@ -106,8 +107,12 @@ async function sendeHinweis(adresse: string, vorname: string, operation: string)
     await sendMail({ to: adresse, ...buildSchiedsrichterAdresswechselHinweisEmail({ origin: frontend_config.AUTH_URL, vorname: vorname }) });
     return "gesendet";
   } catch (error) {
-    if (error instanceof MailBarredError) return "gesperrt";
-    if (error instanceof MailWithheldError) return "zurueckgehalten";
+    // The fan-out's own reading, so this lone send ends in the words a link mail's do.
+    const ausfall = versandAusfallOf(error);
+    if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return ausfall;
+    // A send that broke off unanswered may have landed, so the request is of unknown outcome, as the
+    // fan-out marks it (`docs/frontend/spec.md :: I366`); reported as not sent, as `linkVersandOf` reports it.
+    if (ausfall === "ungewiss") markOutcomeUnknown();
     // Name only, never the error, which carries the address (`docs/logging/spec.md :: L9`).
     logger.error("schiedsrichter.adresshinweis_failed", undefined, {
       error_code: "FE-MAIL-002",

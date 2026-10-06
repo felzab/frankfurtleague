@@ -176,6 +176,12 @@ const FRISTEN = [
     frist: `Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt ${ZAHLWORT[SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE]} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem Eintrag gelöscht`,
   },
   {
+    daten:
+      "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+    frist:
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
+  },
+  {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
     frist:
       "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Saisonaktivierung von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
@@ -573,7 +579,8 @@ export function DatenschutzView() {
           </p>
           <p className={ABSATZ_CLASSES}>
             Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den Link
-            bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige, und sie erfährt von der Änderung.
+            bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis
+            auf die Änderung.
           </p>
           <p className={ABSATZ_CLASSES}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn

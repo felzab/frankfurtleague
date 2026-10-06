@@ -27,10 +27,9 @@ import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
-import { BestaetigungAbschnitt } from "./BestaetigungPanels";
+import { ANTWORT_NICHT_GESPEICHERT, ANTWORT_NICHT_GESPEICHERT_SATZ, BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
 import type { LinkZustand } from "@/features/bewerbungen/types";
@@ -54,8 +53,6 @@ type EinwilligungAntwort =
  * `docs/glossary.md` points for the word the screen calls this act.
  */
 const WIDERSPRUCH_SENDEN = "Widerspruch senden";
-
-const NICHT_GESPEICHERT = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 // The floor is the person's rather than a seat's — one press answers for both seats of a mirrored
 // pair, and the link's read hands over the higher of the two.
@@ -335,7 +332,7 @@ export function BestaetigungFormPanel({
       schemas: { einwilligung: antwortSchema },
       // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
       // change nobody here made, and two titles for one failure read as two failures.
-      failureTitle: "Antwort nicht gespeichert",
+      failureTitle: ANTWORT_NICHT_GESPEICHERT,
     });
 
   const medienAngeboten = bietetMedien(entwurf.geburtsdatum, medienMindestalter);
@@ -354,7 +351,7 @@ export function BestaetigungFormPanel({
     if (!gesendet.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(gesendet.wroteNothing ? "Antwort nicht gespeichert" : UNKLAR_TITEL, {
+      appToast.danger(gesendet.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, {
         description: gesendet.error,
       });
       return;
@@ -373,12 +370,12 @@ export function BestaetigungFormPanel({
             reportSubmitFailure(
               {
                 success: false,
-                error: antwort.error ?? NICHT_GESPEICHERT,
+                error: antwort.error ?? ANTWORT_NICHT_GESPEICHERT_SATZ,
                 fieldErrors: antwort.fieldErrors,
                 unplacedError: antwort.unplacedError,
               },
               { einwilligung: payload },
-              { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+              { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
             ),
         });
         return;

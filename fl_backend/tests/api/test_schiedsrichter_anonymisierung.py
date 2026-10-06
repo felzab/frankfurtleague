@@ -393,8 +393,10 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         antwort_data=FLSchiedsrichterAdresswechselPayload(token=saved.adresswechsel.token, antwort="bestaetigt"),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
+        germany_now=NOW,
     )
 
 

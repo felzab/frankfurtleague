@@ -107,7 +107,14 @@ export async function patchSchiedsrichterAction(
   rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
   // A flag beside the message rather than a sentence the caller parses: the editor grades the toast
   // a warning on it, and the save landed either way.
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
+): Promise<
+  ActionResult<{
+    updated_document?: FLSchiedsrichter;
+    versandSatz?: string;
+    versandFehlgeschlagen?: boolean;
+    adresswechselGespeichert?: boolean;
+  }>
+> {
   return runAdminMutation("patchSchiedsrichterAction", async (session) => {
     const validated = FLPatchSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
@@ -187,6 +194,9 @@ export async function patchSchiedsrichterAction(
             ? describeAdresswechselMail(wechsel.email, wechselVersand)
             : undefined,
       versandFehlgeschlagen: versand === "fehlgeschlagen" || wechselVersand?.link === "fehlgeschlagen",
+      // The backend's own word that THIS save left a new address waiting, for the undo to tell apart
+      // from a save that moved only the fee while an earlier change waited.
+      adresswechselGespeichert: wechsel !== null,
     };
   });
 }

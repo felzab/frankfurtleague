@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { SchiedsrichterAdresswechselView } from "@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView";
+import { SchiedsrichterAdresswechselView, startOf } from "@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView";
 import { getSchiedsrichterAdresswechselAnsicht } from "@/features/schiedsrichter/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
@@ -38,7 +38,7 @@ async function SchiedsrichterAdresswechselContent(props: NextPageProps) {
 
   // Caught, so a failed read is its own state: the dead-link panel would call a live link void.
   const start: SchiedsrichterAdresswechselStart = await getSchiedsrichterAdresswechselAnsicht(token).then(
-    (gelesen): SchiedsrichterAdresswechselStart => (gelesen.zustand === "gueltig" ? { ...gelesen, token: token } : gelesen),
+    (gelesen) => startOf(gelesen, token),
     () => ({ zustand: "unlesbar" }),
   );
 

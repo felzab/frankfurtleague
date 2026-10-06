@@ -140,20 +140,28 @@ class TestWhatALeakedLinkLearns:
     def test_the_answer_echoes_the_press_alone(self):
         assert set(FLSchiedsrichterAdresswechselResponse.model_fields) - {"acknowledged"} == {"antwort"}
 
-    def test_the_read_projects_no_hash_and_no_stored_address(self):
+    def test_the_read_projects_no_hash_and_of_the_contact_the_address_alone(self):
+        """The two addresses are read for the ban list, the response model being what keeps them off the answer."""
+
         projected = set(ADRESSWECHSEL_ANSICHT_FIELDS)
 
         assert f"{ADRESSWECHSEL_FELD}.token_hash" not in projected
-        assert not any(path.startswith("kontakt") for path in projected)
+        assert {path for path in projected if path.startswith("kontakt")} == {"kontakt.email"}
 
 
 class TestTheState:
+    """Ranked as the press refuses a confirmation: `-009`, then `-003`, then `-010`."""
+
     def test_a_ban_ranks_ahead_of_the_deadline(self):
-        assert adresswechsel_zustand_of(wechsel={"frist": "2026-01-01"}, today=TODAY, gesperrt=True) == "gesperrt"
+        assert adresswechsel_zustand_of(wechsel={"frist": "2026-01-01"}, today=TODAY, gesperrt=True, ersetzte_gesperrt=True) == "gesperrt"
 
     @pytest.mark.parametrize(("frist", "zustand"), [(TODAY, "gueltig"), ("2026-03-31", "abgelaufen"), (None, "abgelaufen")])
     def test_the_last_valid_day_is_the_deadline_itself(self, frist: Any, zustand: str):
-        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False) == zustand
+        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False, ersetzte_gesperrt=False) == zustand
+
+    @pytest.mark.parametrize(("frist", "zustand"), [(TODAY, "nicht_bestaetigbar"), ("2026-03-31", "abgelaufen")])
+    def test_a_ban_on_the_replaced_address_ranks_behind_the_deadline(self, frist: str, zustand: str):
+        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False, ersetzte_gesperrt=True) == zustand
 
 
 class TestTheLookups:
