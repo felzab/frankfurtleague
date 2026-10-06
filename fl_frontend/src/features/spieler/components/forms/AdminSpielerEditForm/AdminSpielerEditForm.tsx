@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
-import { rolleLabel } from "@/features/spieler/constants";
+import { kaderName, rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
 import { judgeRowReturn, nummerPayload } from "@/features/spieler/utils";
@@ -393,7 +393,7 @@ export function AdminSpielerEditForm({
               rendered — closed, it is where the admin reads that retirement comes first. */}
           <FormLoeschenSection
             spielerId={spieler.id}
-            fullName={spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`}
+            fullName={kaderName(spieler)}
             isRetired={spieler.inactive_since !== null}
             membershipCount={membershipCount}
           />

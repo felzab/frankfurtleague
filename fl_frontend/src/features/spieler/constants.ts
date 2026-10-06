@@ -195,7 +195,10 @@ export function spielerInitialen(name: SpielerName): string {
   return `${name.vorname.charAt(0)}${name.nachname?.charAt(0) ?? ""}`.toUpperCase();
 }
 
-/** A squad row's pupil as the team's seat holder reads them: the surname whole, never the public initial. */
+/**
+ * A pupil as everyone but the public reads them: the surname whole, never the public initial, and the
+ * first name alone on a record entered before the surname was asked.
+ */
 export function kaderName({ vorname, nachname }: { vorname: string; nachname: string | null }): string {
   return nachname === null ? vorname : `${vorname} ${nachname}`;
 }
