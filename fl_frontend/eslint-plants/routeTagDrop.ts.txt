@@ -10,6 +10,14 @@ export async function plantedAfterAnswer(write: () => Promise<void>): Promise<vo
   nextCache.revalidatePath("/"); // expect: route-tag-drop
   nextCache["revalidateTag"]("spieler", { expire: 0 }); // expect: route-tag-drop
   nextCache["revalidatePath"]("/"); // expect: route-tag-drop
+  nextCache[`revalidateTag`]("spieler", { expire: 0 }); // expect: route-tag-drop
+  const { revalidatePath: dropPath, updateTag } = nextCache; // expect: route-tag-drop expect: tag-drop
+  const { "revalidateTag": dropQuoted } = nextCache; // expect: route-tag-drop
+  const { [`revalidatePath`]: dropTemplated } = nextCache; // expect: route-tag-drop
+  dropPath("/");
+  updateTag("spieler");
+  dropQuoted("spieler", { expire: 0 });
+  dropTemplated("/");
 }
 
 // The route's own tags, handed to its spine; a name merely holding the word is no call.

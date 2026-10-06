@@ -9,6 +9,13 @@ export async function plantedAfterWrite(write: () => Promise<void>): Promise<voi
   updateTag("spieler");
   nextCache.updateTag("spieler"); // expect: tag-drop
   nextCache["updateTag"]("spieler"); // expect: tag-drop
+  nextCache[`updateTag`]("spieler"); // expect: tag-drop
+  const { updateTag: dropTag } = nextCache; // expect: tag-drop
+  const { "updateTag": dropQuoted } = nextCache; // expect: tag-drop
+  const { [`updateTag`]: dropTemplated } = nextCache; // expect: tag-drop
+  dropTag("spieler");
+  dropQuoted("spieler");
+  dropTemplated("spieler");
   refresh();
 }
 

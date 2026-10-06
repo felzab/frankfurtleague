@@ -272,3 +272,7 @@ import { useFormState as domFormState } from "react-dom"; // expect: action-stat
 declare const ReactDOM: { useFormState: unknown };
 export const FORM_STATE_TAKEN = [domFormState, ReactDOM.useFormState]; // expect: action-state
 export const FORM_STATE_NAMED = "useFormState"; // expect: action-state
+declare const ReactDom: { useFormState: unknown; useActionState: unknown };
+const { useFormState: destructuredFormState } = ReactDom; // expect: action-state
+const { useActionState } = React; // expect: action-state
+export const STATE_DESTRUCTURED = [destructuredFormState, useActionState];

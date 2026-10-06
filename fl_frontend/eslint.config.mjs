@@ -547,6 +547,8 @@ const ACTION_STATE_BAN = {
   selector: [
     `ImportSpecifier[imported.name=${ACTION_STATE_HOOKS}]`,
     `MemberExpression[property.name=${ACTION_STATE_HOOKS}]`,
+    // A destructured key: the two below hold every quoted spelling, a computed key's among them.
+    `ObjectPattern > Property[key.name=${ACTION_STATE_HOOKS}]`,
     `Literal[value=${ACTION_STATE_HOOKS}]`,
     `TemplateElement[value.cooked=${ACTION_STATE_HOOKS}]`,
   ].join(", "),
@@ -884,6 +886,20 @@ function takenFromLoad(pattern, names) {
 /** A call declaring a write's cache tags: `invalidatesOnWrite`, or a slice's helper over it (`invalidateSpieler`). */
 const DECLARES_TAGS = "CallExpression[callee.name=/^invalidates?[A-Z]/]";
 
+/**
+ * Every read of `name` off a module's namespace: a member, keyed by a string or a template, or a
+ * destructured key in either spelling. A ban naming fewer is escaped by the next one.
+ */
+const readsOff = (name) =>
+  [
+    `MemberExpression[property.name=${name}]`,
+    `MemberExpression[computed=true][property.value=${name}]`,
+    `MemberExpression[computed=true] > TemplateLiteral.property > TemplateElement[value.cooked=${name}]`,
+    `ObjectPattern > Property[key.name=${name}]`,
+    `ObjectPattern > Property[key.value=${name}]`,
+    `ObjectPattern > Property > TemplateLiteral.key > TemplateElement[value.cooked=${name}]`,
+  ].join(", ");
+
 const SOURCE_BANS = [
   {
     // A test's router double counts `seen.back` and destructures `back` off itself, which the
@@ -1136,8 +1152,7 @@ const SOURCE_BANS = [
   {
     // The spine alone drops a tag, wherever a write may stand: one dropped after an awaited write is
     // never reached by a write whose answer was lost.
-    selector:
-      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], MemberExpression[property.name="updateTag"], MemberExpression[computed=true][property.value="updateTag"])',
+    selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
     message:
       "Declare a write's cache tags with `invalidatesOnWrite` before the write: fl_frontend/src/shared/utils/adminMutation.ts drops them, a lost answer included (docs/frontend/spec.md :: I894).",
     exempt: ["src/shared/utils/adminMutation.ts"],
@@ -1152,8 +1167,7 @@ const SOURCE_BANS = [
   {
     // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
     // write may stand, where a drop of its own after the answer misses a lost one.
-    selector:
-      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], MemberExpression[property.name=/^revalidate(?:Tag|Path)$/], MemberExpression[computed=true][property.value=/^revalidate(?:Tag|Path)$/])',
+    selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
     message:
       "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts, an undo route's `tags` under fl_frontend/src/shared/utils/undoRoute.ts.",
     exempt: ["src/shared/utils/publicRoute.ts", "src/shared/utils/undoRoute.ts"],
