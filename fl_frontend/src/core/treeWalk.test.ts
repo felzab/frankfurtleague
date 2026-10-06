@@ -66,6 +66,16 @@ describe("the predicate shape a sweep excluding its fixtures takes", () => {
   });
 });
 
+describe("the files Next routes", () => {
+  /* `routeHandlerFiles`, the lint globs and tsc (`allowJs` off) read `.ts` and `.tsx` alone, so an
+     extension Next serves beyond those is a handler or a page nothing here checks. */
+  it("are spelled only in the extensions the compiler checks", async () => {
+    const { default: nextConfig } = await import("../../next.config.ts");
+
+    assert.deepEqual([...(nextConfig.pageExtensions ?? ["tsx", "ts", "jsx", "js"])].sort(), ["ts", "tsx"]);
+  });
+});
+
 describe("the server actions every action sweep reads", () => {
   /* Next serves a module by its directive and never by its name, so each file here is one a name rule
      or a first-characters pattern would decide wrong; the tree holds none of them to redden that reader. */
