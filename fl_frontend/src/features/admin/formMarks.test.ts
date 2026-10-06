@@ -252,6 +252,7 @@ const FORMS: Record<string, FormCase> = {
             geburtsdatum: null,
             einwilligung: null,
             bestaetigung: null,
+            adresswechsel: null,
           },
           isRetired: false,
           pageHeader: { title: REFEREE.name },

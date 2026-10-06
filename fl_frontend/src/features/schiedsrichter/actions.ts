@@ -10,15 +10,18 @@ import { returnMayMint, saveMayMint } from "./linkMint";
 import {
   anonymiseSchiedsrichter,
   deleteSchiedsrichter,
+  einladeAdresswechsel,
   einladeSchiedsrichter,
   patchSchiedsrichter,
   postSchiedsrichter,
   reactivateSchiedsrichter,
+  verwirfAdresswechsel,
 } from "./mutations";
-import { describeLinkMail, mailSchiedsrichterLink } from "./notifications";
+import { describeAdresswechselMail, describeLinkMail, mailSchiedsrichterAdresswechsel, mailSchiedsrichterLink } from "./notifications";
 import { getSchiedsrichterById } from "./queries";
 import {
   KEINE_ADRESSE,
+  mapAdresswechselRefusal,
   mapAnonymiseRefusal,
   mapEinladenRefusal,
   mapGesperrteAdresseRefusal,
@@ -30,6 +33,8 @@ import {
   FLAnonymiseSchiedsrichterPayloadSchema,
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
+  FLSchiedsrichterAdresswechselEinladenPayloadSchema,
+  FLSchiedsrichterAdresswechselVerwerfenPayloadSchema,
   FLSchiedsrichterEinladenPayloadSchema,
   FLSchiedsrichterKeyPayloadSchema,
   hatAdresse,
@@ -42,6 +47,8 @@ import type {
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
   FLSchiedsrichter,
+  FLSchiedsrichterAdresswechselEinladenPayload,
+  FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterEinladenPayload,
   FLSchiedsrichterKeyPayload,
 } from "./schemas";
@@ -154,14 +161,32 @@ export async function patchSchiedsrichterAction(
             anlass: "erneut",
           });
 
+    // Non-null only where the save moved a confirmed referee's address, which waits on the new mailbox.
+    const wechsel = postOperation.adresswechsel;
+    const wechselVersand =
+      wechsel === null
+        ? null
+        : await mailSchiedsrichterAdresswechsel({
+            operation: "patchSchiedsrichterAction",
+            schiedsrichterId: validated.data.id,
+            name: validated.data.name,
+            mint: wechsel,
+            anlass: "empfang",
+          });
+
     return {
       success: true,
       updated_document: postOperation.updated_document,
       message: "Schiedsrichter bearbeitet",
       // Its own field rather than folded into the message: the editor hands this to the undo offer,
       // and a save that mailed nothing has no sentence to hand it.
-      versandSatz: mint === null || versand === null ? undefined : describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === "fehlgeschlagen",
+      versandSatz:
+        mint !== null && versand !== null
+          ? describeLinkMail(mint.email, versand)
+          : wechsel !== null && wechselVersand !== null
+            ? describeAdresswechselMail(wechsel.email, wechselVersand)
+            : undefined,
+      versandFehlgeschlagen: versand === "fehlgeschlagen" || wechselVersand?.link === "fehlgeschlagen",
     };
   });
 }
@@ -224,6 +249,80 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
       message: `${describeLinkMail(mint.email, versand)} Der vorherige Link gilt nicht mehr.`,
+    };
+  });
+}
+
+/** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
+export async function einladeAdresswechselAction(rawPayload: FLSchiedsrichterAdresswechselEinladenPayload): Promise<ActionResult<object>> {
+  return runAdminMutation("einladeAdresswechselAction", { stepUp: true }, async () => {
+    const validated = FLSchiedsrichterAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // The first name the mails greet with. Read before the mint, for the consent re-send's reason.
+    const gelesen = await getSchiedsrichterById(validated.data.id);
+    if (gelesen === null) {
+      return { success: false, error: buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: "Lade die Seite neu" }) };
+    }
+
+    let mintOperation;
+    try {
+      mintOperation = await einladeAdresswechsel(validated.data);
+    } catch (error) {
+      const refusal = mapAdresswechselRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!mintOperation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    // Both addresses as the mint read them in its own transaction, never as this action's read had them.
+    const wechsel = mintOperation.adresswechsel;
+    const versand = await mailSchiedsrichterAdresswechsel({
+      operation: "einladeAdresswechselAction",
+      schiedsrichterId: validated.data.id,
+      name: gelesen.schiedsrichter.name,
+      mint: wechsel,
+      anlass: "erneut",
+    });
+
+    return { success: true, message: `${describeAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.` };
+  });
+}
+
+/** Discards the pending address and its link; the stored address stays, and nobody is mailed. */
+export async function verwirfAdresswechselAction(
+  rawPayload: FLSchiedsrichterAdresswechselVerwerfenPayload,
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
+  return runAdminMutation("verwirfAdresswechselAction", { stepUp: true }, async () => {
+    const validated = FLSchiedsrichterAdresswechselVerwerfenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    let operation;
+    try {
+      operation = await verwirfAdresswechsel(validated.data);
+    } catch (error) {
+      const refusal = mapAdresswechselRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!operation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht verworfen", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    return {
+      success: true,
+      updated_document: operation.updated_document,
+      message: "Der Link an die neue Adresse gilt nicht mehr; die bisherige Adresse bleibt.",
     };
   });
 }

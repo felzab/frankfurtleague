@@ -345,6 +345,10 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
     einladeSchiedsrichterAction: "one-press",
   },
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx": {
+    einladeAdresswechselAction: "one-press",
+    verwirfAdresswechselAction: "one-press",
+  },
   "features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": { reactivateSchiedsrichterAction: "one-press" },
   "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx": { deleteSperreAction: "two-press" },
   "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": { postBerechtigungAction: "create" },

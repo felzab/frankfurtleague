@@ -41,6 +41,7 @@ describe("the referee list's read", () => {
       geburtsdatum: null,
       einwilligung: null,
       bestaetigung: null,
+      adresswechsel: null,
     };
 
     assert.equal(FLSchiedsrichterListResponseSchema.safeParse({ acknowledged: 1, schiedsrichter: [row] }).success, true);

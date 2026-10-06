@@ -71,6 +71,8 @@ const { bestaetigungsStand } = await import("@/features/bewerbungen/bestaetigung
 const { BewerbungBestaetigungStrip } = await import("@/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx");
 const { FormBestaetigungSection } =
   await import("@/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx");
+const { FormAdresswechselSection } =
+  await import("@/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx");
 const { AdminSchiedsrichterEditForm } =
   await import("@/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx");
 const { AdminSchiedsrichterTable } = await import("@/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx");
@@ -151,6 +153,7 @@ const retiredReferee = (answered: boolean) => ({
   geburtsdatum: answered ? "1990-01-01" : null,
   einwilligung: answered ? BESTAETIGT : null,
   bestaetigung: null,
+  adresswechsel: null,
 });
 
 const seat = (vorname: string, email: string, bestaetigtAm: string | null = null) => ({
@@ -208,6 +211,17 @@ const refereeEditor = (answered: boolean) =>
       pageHeader: { title: "Anna Körner" },
     } as never),
     { router: nextRouter(), search: "saison_id=2526" },
+  );
+
+/** A confirmed referee's new address waiting on its mailbox, the panel's two controls each minting or voiding its link. */
+const adresswechselPanel = () =>
+  underNext(
+    h(FormAdresswechselSection, {
+      schiedsrichterId: REFEREE_ID,
+      adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-09-01", frist: "2099-12-31", zustellung: null },
+      isDirty: false,
+    }),
+    { router: nextRouter() },
   );
 
 const moveAddress = async (user: User) => {
@@ -350,8 +364,16 @@ const DRIVES: Record<string, Drive[]> = {
     },
   ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx :: patchSchiedsrichterAction": [
+    // A moved address mints on either side of the referee's answer: a consent link before it, an address link after.
     { render: () => refereeEditor(false), reach: moveAddress, press: "Speichern", asks: true },
-    { render: () => refereeEditor(true), reach: moveAddress, press: "Speichern", asks: false },
+    { render: () => refereeEditor(true), reach: moveAddress, press: "Speichern", asks: true },
+    { render: () => refereeEditor(true), reach: retype("Telefon", "069 7654321"), press: "Speichern", asks: false },
+  ],
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: einladeAdresswechselAction": [
+    { render: () => adresswechselPanel(), press: "Link erneut senden", asks: true },
+  ],
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: verwirfAdresswechselAction": [
+    { render: () => adresswechselPanel(), press: "Änderung verwerfen", asks: true },
   ],
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx :: mailEinladungAction": [
     {

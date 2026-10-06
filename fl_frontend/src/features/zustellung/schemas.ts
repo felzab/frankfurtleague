@@ -16,7 +16,7 @@ import { CustomObjectIdStringSchema } from "@/shared/schemas";
  * report is about. Closed on both sides, so a kind the register has no home for is refused here
  * rather than dispatched to nothing.
  */
-export const FLZustellungZielSchema = z.enum(["schiedsrichter", "einladung", "registrierung", "kontakt"], {
+export const FLZustellungZielSchema = z.enum(["schiedsrichter", "einladung", "registrierung", "kontakt", "schiedsrichter_adresswechsel"], {
   error: "Diesen Empfängertyp gibt es nicht.",
 });
 export type FLZustellungZiel = z.infer<typeof FLZustellungZielSchema>;

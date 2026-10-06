@@ -61,6 +61,7 @@ const referee = () => ({
       }
     : null,
   bestaetigung: null,
+  adresswechsel: null,
 });
 
 /** Each request answered as the backend answers it where it landed, the ones a case here reaches past its step-up. */
@@ -74,7 +75,7 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   if (endpoint.startsWith("/schiedsrichter/")) {
     return method === undefined
       ? { acknowledged: 1, schiedsrichter: referee() }
-      : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null };
+      : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null };
   }
   if (endpoint.endsWith("/spielplan")) {
     return {
@@ -382,8 +383,8 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.notDeepEqual(await draw({ id: SAISON_ID }), refused, "a stale session was refused a first draw");
   });
 
-  /* The save mints where it moves an unanswered referee's address, and only there: a fee changed on a
-     stale session asks nothing, nor does an address moved on a referee who has answered. */
+  /* The save mints where it moves a referee's address, a consent link before their answer and an
+     address link after it, and only there: a fee changed on a stale session asks nothing. */
   it("refuses a referee's save only where it mints a new link", async () => {
     const save = await action("patchSchiedsrichterAction");
     const payload = (email: string) => ({
@@ -399,7 +400,8 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.notDeepEqual(await save(payload(STORED_EMAIL)), refused, "a stale session was refused a save moving no address");
 
     answered = true;
-    assert.notDeepEqual(await save(payload("anna@neu.example")), refused, "a stale session was refused an answered referee's new address");
+    assert.deepEqual(await save(payload("anna@neu.example")), refused, "a stale session moved an answered referee's address");
+    assert.notDeepEqual(await save(payload(STORED_EMAIL)), refused, "a stale session was refused an answered referee's unmoved address");
   });
 
   /* A return asks the referee again only where they never answered, which is the return that mints. */
@@ -607,6 +609,8 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": { name: "reactivateSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren": { name: "anonymiseSchiedsrichterAction", payload: { id: REFEREE_ID } },
+  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },
+  "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
   "DELETE /spieler/{spieler_id}/erasure": { name: "eraseSpielerAction", payload: { id: SPIELER_ID } },
   "POST /teams/{team_id}/saisons": { name: "postSaisonTeamAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" } },

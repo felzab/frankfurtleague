@@ -66,6 +66,7 @@ const referee = (id: string, name: string, inactiveSince: string | null): FLSchi
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 });
 
 type List = { live: string; retired: string; html: string };

@@ -105,6 +105,28 @@ export const FLSchiedsrichterMintSchema = z.object({
 });
 export type FLSchiedsrichterMint = z.infer<typeof FLSchiedsrichterMintSchema>;
 
+/**
+ * Mirrors a confirmed referee's address waiting on its own mailbox. No `token_hash`, for
+ * `FLSchiedsrichterBestaetigungSchema`'s reason.
+ */
+export const FLSchiedsrichterAdresswechselSchema = z.object({
+  // The address on its way in, which nothing but this editor shows: no read keys on it until it confirms.
+  email: z.string(),
+  verschickt_am: CustomDateStringSchema,
+  frist: CustomDateStringSchema,
+  zustellung: FLBewerbungZustellungSchema.nullable(),
+});
+export type FLSchiedsrichterAdresswechsel = z.infer<typeof FLSchiedsrichterAdresswechselSchema>;
+
+/**
+ * A freshly minted address link, answered ONCE, for `FLSchiedsrichterMintSchema`'s reason, with the
+ * address the change was asked from: that mailbox still holds the record and is told a change was asked.
+ */
+export const FLSchiedsrichterAdresswechselMintSchema = FLSchiedsrichterMintSchema.extend({
+  bisherige_email: z.string().nullable(),
+});
+export type FLSchiedsrichterAdresswechselMint = z.infer<typeof FLSchiedsrichterAdresswechselMintSchema>;
+
 export const FLSchiedsrichterSchema = z.object({
   id: CustomObjectIdStringSchema,
 
@@ -127,6 +149,8 @@ export const FLSchiedsrichterSchema = z.object({
   // retyped: one shape read by two collections, so a member added on one side reaches both.
   einwilligung: FLEinwilligungSchema.nullable(),
   bestaetigung: FLSchiedsrichterBestaetigungSchema.nullable(),
+  // Null unless an administrator moved a confirmed referee's address and its new mailbox has not answered.
+  adresswechsel: FLSchiedsrichterAdresswechselSchema.nullable(),
 });
 export type FLSchiedsrichter = z.infer<typeof FLSchiedsrichterSchema>;
 
@@ -154,8 +178,27 @@ export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend(
   // Non-null only where the correction moved an UNCONFIRMED referee's address: the old link was
   // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
   bestaetigung: FLSchiedsrichterMintSchema.nullable(),
+  // Non-null only where the save moved a CONFIRMED referee's address, which waits on the new mailbox.
+  adresswechsel: FLSchiedsrichterAdresswechselMintSchema.nullable(),
 });
 export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichterResponseSchema>;
+
+/** The address link's re-send and its discard: the id in the path, no request body. One schema per control, for `FLAnonymiseSchiedsrichterPayloadSchema`'s reason. */
+export const FLSchiedsrichterAdresswechselEinladenPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLSchiedsrichterAdresswechselEinladenPayload = z.infer<typeof FLSchiedsrichterAdresswechselEinladenPayloadSchema>;
+
+export const FLSchiedsrichterAdresswechselVerwerfenPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLSchiedsrichterAdresswechselVerwerfenPayload = z.infer<typeof FLSchiedsrichterAdresswechselVerwerfenPayloadSchema>;
+
+/** The address link's re-send echo. Never null: a referee holding no pending change is answered 404. */
+export const FLSchiedsrichterAdresswechselMintResponseSchema = BaseAPIResponseSchema.extend({
+  adresswechsel: FLSchiedsrichterAdresswechselMintSchema,
+});
+export type FLSchiedsrichterAdresswechselMintResponse = z.infer<typeof FLSchiedsrichterAdresswechselMintResponseSchema>;
 
 /** The re-send's whole argument: the id in the path, no request body. Its own schema for `FLAnonymiseSchiedsrichterPayloadSchema`'s reason. */
 export const FLSchiedsrichterEinladenPayloadSchema = z.object({
@@ -284,6 +327,36 @@ export const FLSchiedsrichterBestaetigungResponseSchema = BaseAPIResponseSchema.
   bestaetigt_am: CustomDateStringSchema,
 });
 export type FLSchiedsrichterBestaetigungResponse = z.infer<typeof FLSchiedsrichterBestaetigungResponseSchema>;
+
+/** The address link's read, its token in a body for the consent link's reason. */
+export const FLSchiedsrichterAdresswechselAnsichtPayloadSchema = z.object({
+  token: bestaetigungToken,
+});
+export type FLSchiedsrichterAdresswechselAnsichtPayload = z.infer<typeof FLSchiedsrichterAdresswechselAnsichtPayloadSchema>;
+
+/**
+ * What an address link is told before any press: a first name, its standing and its deadline. Never
+ * either address: a leaked link learns no mailbox to write to.
+ */
+export const FLSchiedsrichterAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
+  // No `bestaetigt`: an answer removes what the link opens, so a reopened link is an unknown token.
+  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt"]),
+  vorname: z.string().nullable(),
+  frist: CustomDateStringSchema,
+});
+export type FLSchiedsrichterAdresswechselAnsichtResponse = z.infer<typeof FLSchiedsrichterAdresswechselAnsichtResponseSchema>;
+
+/** Whether the mailbox the link reached is the referee's: `bestaetigt` moves the address there, `abgelehnt` discards the change. */
+export const FLSchiedsrichterAdresswechselPayloadSchema = z.object({
+  token: bestaetigungToken,
+  antwort: z.enum(["bestaetigt", "abgelehnt"], { error: LINK_UNVOLLSTAENDIG }),
+});
+export type FLSchiedsrichterAdresswechselPayload = z.infer<typeof FLSchiedsrichterAdresswechselPayloadSchema>;
+
+export const FLSchiedsrichterAdresswechselResponseSchema = BaseAPIResponseSchema.extend({
+  antwort: z.enum(["bestaetigt", "abgelehnt"]),
+});
+export type FLSchiedsrichterAdresswechselResponse = z.infer<typeof FLSchiedsrichterAdresswechselResponseSchema>;
 
 /** Mirrors `FLSchiedsrichterKontext`: the first part of the one stored name, cut as the confirmation page cuts it. */
 export const FLSchiedsrichterKontextSchema = z.object({
