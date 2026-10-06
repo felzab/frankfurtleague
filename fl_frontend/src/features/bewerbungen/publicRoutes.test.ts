@@ -1495,7 +1495,7 @@ describe("the words the two contact pages are handed", () => {
   /**
    * Every read answered as the backend would: `laufend` overriding what it runs on each page,
    * `ansichtNennt` and `zustand` the label and state the link's view answers, `scheitert` failing
-   * one endpoint, and `worte` answering every words read.
+   * one endpoint, `worte` answering every words read, and `seiten` the registry's answer whole.
    */
   function backend({
     laufend,
@@ -1503,10 +1503,19 @@ describe("the words the two contact pages are handed", () => {
     zustand,
     scheitert,
     worte,
-  }: { laufend?: Record<string, string>; ansichtNennt?: string; zustand?: string; scheitert?: string; worte?: unknown } = {}): void {
+    seiten,
+  }: {
+    laufend?: Record<string, string>;
+    ansichtNennt?: string;
+    zustand?: string;
+    scheitert?: string;
+    worte?: unknown;
+    seiten?: unknown;
+  } = {}): void {
     answerReadsWith((endpoint, schema, params) => {
       if (endpoint === scheitert) throw new Error(`the backend failed ${endpoint}`);
       if (worte !== undefined && endpoint.startsWith("/einwilligung/fassungen/")) return worte;
+      if (endpoint === "/einwilligung/seiten" && seiten !== undefined) return seiten;
       if (endpoint === "/einwilligung/seiten" && laufend !== undefined) return { acknowledged: 1, laufende_fassungen: laufend };
       if (endpoint === "/bewerbungen/einwilligung/ansicht")
         return { ...GEOEFFNET, zustand: zustand ?? GEOEFFNET.zustand, laufende_fassung: ansichtNennt ?? GEOEFFNET.laufende_fassung };
@@ -1619,5 +1628,8 @@ describe("the words the two contact pages are handed", () => {
   it("lets a registry breaking its contract on the form reach the error boundary", async () => {
     backend({ laufend: {} });
     await assert.rejects(formFassung(), { name: "ContractBreakError" }, "no label for the form was absorbed into a panel");
+
+    backend({ seiten: { acknowledged: 1 } });
+    await assert.rejects(formFassung(), { name: "APIMalformedDataError" }, "a registry answer off its schema was absorbed into a panel");
   });
 });
