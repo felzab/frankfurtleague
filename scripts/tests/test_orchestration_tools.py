@@ -885,7 +885,8 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
     register.write_bytes(register.read_bytes().replace(b"## Findings ledger", (LIVE + STANDING + "## Findings ledger").encode("utf-8")))
     ledger.route(register, "WORKER", ["A-F1", "A-F4", "A-F11"])
     ledger.route(register, "OTHER", ["A-F2"])
-    _agent_commit(root, "Docs: A note\n\nRows fixed: A-F11, A-F2, A-F3.\n\nA-F4 stays open, unlike A-F1.", NOTE, branch=branch)
+    body = "Rows fixed: A-F11.\nRows fixed: A-F2, A-F3.\n\nA-F4 stays open, unlike A-F1."
+    _agent_commit(root, f"Docs: A note\n\n{body}", NOTE, branch=branch)
     done = _land(root, branch)
     assert done.returncode == 0, done.stderr
     merge = git(root, "rev-parse", "--short", "HEAD")

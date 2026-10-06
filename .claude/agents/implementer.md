@@ -48,9 +48,9 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   `--amend`, which the hook reads as the amend's delta alone. To fold commits, `git reset --soft`
   onto a hash `git merge-base HEAD <session branch>` printed, never onto the branch's name: it moves
   as I land, and a reset onto a newer tip commits the reversal of everything landed since. A commit
-  fixing findings-ledger rows says so in one body line, `Rows fixed: <id>, <id>.`: the landing closes
-  each one routed to you, and a row named anywhere else stays open. The coordinator merges your branch into the session branch
-  whole, your commits as you made them.
+  fixing findings-ledger rows says so in body lines `Rows fixed: <id>, <id>.`: the landing closes
+  each one routed to you, and a row named anywhere else stays open. The coordinator merges your
+  branch into the session branch whole, your commits as you made them.
 - **Commit everything before you report**: the landing merges your branch's commits and nothing
   else, and refuses a worktree holding uncommitted work. `git status --porcelain` prints nothing
   when your report lands.
