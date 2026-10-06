@@ -78,17 +78,21 @@ the machine is outside the repository. What it does tell you:
   **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
   from the shell that ran compose, which holds none for it, and reaching the container as nothing at
   all. That is where a
-  release adding a required name meets a host nobody edited. Every VALUE is judged at boot and
-  nowhere else, a sign-in secret below its library's floor of 32 characters among them — each a
-  refusal this reader and the secret files' reader both pass and the recreated container meets. It does catch the misspelling whose value is EMPTY
+  release adding a required name meets a host nobody edited. Every VALUE is the frontend's own boot's
+  to judge, in the step below. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
-- **Each application service's own container then judges its secret files**, started as the stack
-  starts it, so as its own user and in its own group, and by its own image's list: the frontend's
-  reads every file its schema requires (`scripts/lib/_lib.sh :: check_frontend_secret_files`), and
-  **a file missing, not a file, unreadable by that user or blank refuses the deploy at exit 2** with
-  nothing recreated, naming the file and never its contents. The remedy is §16's owner, mode or
-  contents for that file. The backend's container builds its settings as its boot does
+- **Each application service's own boot then judges its settings and secret files, before anything
+  is recreated**, in a one-off container started as the stack starts the service, so with its
+  variables, as its own user and in its own group. The frontend's runs the image's own server, which
+  runs every boot gate and ends there (`scripts/lib/_lib.sh :: check_frontend_boot_config`): **a value
+  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, a signing
+  key it cannot read, and an `APP_ENV` naming another deployment than the one being deployed each
+  refuse the deploy at exit 2** with nothing recreated — Cloudflare's published test site key under
+  production and a sign-in secret below its library's floor of 32 characters among them. The
+  `CRITICAL` line above the refusal names the variable, the file or the key's path and never a value:
+  correct a variable in `fl_frontend/.env`, and give a file §16's contents, owner or mode. The
+  backend's container builds its settings as its boot does
   (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
   validators refuse — an internal key outside its alphabet among them — refuse there, naming the
   variable or the file.
@@ -120,17 +124,14 @@ the machine is outside the repository. What it does tell you:
   pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/ops/deploy.sh <tag>`,
   the tag the rollback names — until a good build is published. Nothing is put back where the pull left
   `:latest` naming the images that were already running: restoring them would restore the build that
-  just failed, and the script says so instead ([`spec.md`](spec.md) §4). **A deploy by tag to a build
-  from before the secret files is refused by this checkout whatever the environment files hold**,
-  before either tag moves (`scripts/ops/deploy.sh :: check_pin_reads_secret_files`), and a rollback
-  restoring such a build names §16's steps rather than its tag: that build is deployed from its own
-  commit.
-- **Before a deploy by tag to a build from before the bot check, put `#` in front of the
-  `TURNSTILE_SITE_KEY` line in `fl_frontend/.env`.** That build's frontend declares no such name, and
-  its preflight refuses the file naming it, before anything is recreated
-  (`scripts/ops/deploy.sh :: check_frontend_env_names`). Rolling forward removes the `#` again: the
-  newer build requires the line. The automatic rollback restores images by id and runs no preflight,
-  so it needs neither step.
+  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
+- **Never deploy by tag a build from before the frontend's boot check.** Its image does not know
+  `BOOT_CHECK`, so the preflight's one-off frontend serves instead of ending, and the deploy waits on
+  it with nothing recreated until Ctrl-C. Every such image is deleted from the registry, where the
+  pull of its tag refuses before anything moves. **The automatic rollback is not a deploy by tag**: it
+  restores the running build by image id and runs no preflight, so the first deploy of a build
+  carrying the check can still fall back to the build before it. Then publish a fixed build rather
+  than deploying the restored one by the tag the script names.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
   contact seat that build re-staffed, once the current build is back.** That build's contacts editor
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
@@ -1378,8 +1379,7 @@ editor, never through a shell command that echoes it.
 
 **No line in either package file names a value a secret file holds**: the deploy and `local.sh`
 refuse one before compose reads the file ([`spec.md`](spec.md) §1.5). Delete such a line in an
-editor, never with `cat`. Keep each value's password-manager entry: a rollback by hand to a build
-from before the files puts the lines back, as below.
+editor, never with `cat`.
 
 **On the server, each file is owned by the user that reads it** ([`spec.md`](spec.md) §1.2): a new
 value is written without ever existing under another owner or mode, and without passing through the
@@ -1391,6 +1391,10 @@ sudo install -o 1001 -g 1001 -m 400 /dev/stdin secrets/<a frontend file>
 sudo install -o 1002 -g 1002 -m 400 /dev/stdin secrets/<a backend file>
 sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 ```
+
+**Each service reads its files once, as it boots**, so a value replaced on a running stack — a
+wrong `secrets/turnstile_secret_key` among them, which fails every bot check until then — takes
+effect only with the next `./scripts/ops/deploy.sh`, which judges it and recreates both containers.
 
 **Where a deploy refuses naming a file**, the refusal says
 which fault: a missing one is written, an unreadable one is given the user and mode above, a blank
@@ -1437,43 +1441,13 @@ Then put the private half in place, from the same shell, which still holds `$t`:
   finished until `aktionen` has been read for every `berechtigungen` write since the leak, and every
   grant nobody can account for is revoked in the Playground.
 
-`deploy.sh` and `local.sh` refuse a missing key file before anything starts. They then have the
-frontend service's own container, started as the stack starts it and handed the
-`ACTOR_TOKEN_PUBLIC_KEY` line alone, judge the pair: a key it cannot read where its environment
-points it, a key that is not Ed25519, or an `ACTOR_TOKEN_PUBLIC_KEY` that is missing, malformed or
-not its public half. Each refusal names the fault and never a value. The remedy is to run the command
-above again, or, where the refusal names `ACTOR_SIGNING_KEY_FILE`, to delete that line from
-`fl_frontend/.env`.
-
-**A deploy by tag to a build from before the secret files is refused by this checkout**, whatever
-the environment files hold and before either tag moves: that build was released with another
-compose file, edge and preflight than this checkout's, and runs under these only as the automatic
-rollback's accepted limit: the rollback a failed health wait makes restores images and reads no
-environment file, so an image from before the files finds none of the lines it reads and refuses
-its boot, and that rollback names these steps rather than the restored build's tag. To roll back
-across that release by hand, on the server at the checkout root:
-
-1. `git checkout <commit>`, the older build's own commit, so the deploy script, the compose file and
-   nginx's configuration are the ones that build was released with.
-2. Put each value back as the line that build reads, from its file, printing nothing — for the
-   backend's database URI,
-   `{ printf 'MONGODB_URI='; sudo cat secrets/backend_mongodb_uri; echo; } >> fl_backend/.env`, and
-   the same shape for every other line into the package file of the service that reads it, the
-   three internal keys into both.
-3. `./scripts/ops/deploy.sh sha-<commit>`.
-
-Rolling forward undoes each step before deploying: check out the newer commit and delete the lines
-again, which its preflight refuses, then deploy.
-
-**A build from before the actor token takes a step more**, and every build published before the
-secret files is one, the two arriving in one release. Its backend's settings forbid a name they do
-not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that line in
-`fl_backend/.env` into a comment by putting `#` in front of it, and `TURNSTILE_SITE_KEY` in
-`fl_frontend/.env` the same way, every such build coming from before the bot check too (§1); its
-frontend also requires an
-`ALLOWED_ADMIN_EMAILS` line in `fl_frontend/.env`, put back from the password manager. Rolling
-forward restores the `ACTOR_TOKEN_PUBLIC_KEY` and `TURNSTILE_SITE_KEY` lines and deletes the `ALLOWED_ADMIN_EMAILS` one, which
-the newer deploy refuses.
+`deploy.sh` and `local.sh` refuse a missing key file before anything starts. The frontend's boot,
+run as §1 says, then refuses a key it cannot read where its environment points it or one that is not
+Ed25519, naming the path: where that path is not `/run/secrets/fl_actor_signing_key`, delete the
+`ACTOR_SIGNING_KEY_FILE` line from `fl_frontend/.env`. Last, the frontend service's own container,
+handed the `ACTOR_TOKEN_PUBLIC_KEY` line alone, judges the pair: an `ACTOR_TOKEN_PUBLIC_KEY` that is
+missing, malformed or not the key's public half. Each refusal names the fault and never a value, and
+the remedy is to run the command above again.
 
 ## 17. Clearing an address's code lock
 

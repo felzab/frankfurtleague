@@ -181,42 +181,6 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
-# 3 where the backend image predates the secret files, whose release added `read_secrets`; 4 where it
-# could not be asked. The module is imported apart, so a missing one is no answer about its age.
-SECRET_FILES_READER_CHECK='
-import sys
-
-try:
-    import app.core.config as config
-except Exception as unavailable:
-    print(type(unavailable).__name__, file=sys.stderr)
-    raise SystemExit(4)
-
-raise SystemExit(0 if hasattr(config, "read_secrets") else 3)
-'
-
-# A build from before the secret files was released with another compose file, edge and preflight
-# than this checkout's, so this checkout deploys it by no tag (docs/ops/runbooks.md §16).
-reads_secret_files() { # $1 a backend image this host holds
-  docker run --rm --pull never --network none "$1" python -c "$SECRET_FILES_READER_CHECK"
-}
-
-# Before either tag moves, so a refused pin leaves the host's pair as it found it.
-check_pin_reads_secret_files() {
-  local rc=0 said=""
-  said="$(reads_secret_files "${REPO_BACKEND}:${PIN}" 2>&1)" || rc=$?
-  if (( rc == 3 )); then
-    refuse "${PIN} is a build from before the secret files. It was released with another compose file,
-edge and preflight than this checkout's, so it is deployed from its own commit, as
-docs/ops/runbooks.md §16 says. NOTHING has been recreated, and neither :latest tag has moved."
-  elif (( rc )); then
-    if [[ -n "$said" ]]; then printf '%s\n' "$said" | detail; fi
-    # An advisory: every check after this one still runs against the pinned pair.
-    warn "the pinned backend image could not be asked whether it reads the secret files (exit ${rc}), so
-nothing here says whether ${PIN} predates them. Its own answer is above."
-  fi
-}
-
 # One mount, one user and one filter for either package's reader: the two judge different things and
 # each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
 read_env_names() {
@@ -612,17 +576,7 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
 # Nothing here reaches the registry, so its `:latest` still resolves to the build that just failed
 # and a bare re-run fetches it, fails again, and pays the whole outage a second time.
 rollback_advice() {
-  local reads=0
   if [[ -n "$PREV_PIN" ]]; then
-    # Asked of the image restored: a tag this checkout refuses is no way back to it.
-    reads_secret_files "$PREV_BE_IMG" >/dev/null 2>&1 || reads=$?
-  fi
-  if [[ -n "$PREV_PIN" ]] && (( reads == 3 )); then
-    detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
-           "script bare. ${PREV_PIN} is from before the secret files, which this checkout deploys by no tag:" \
-           "publish a good build (gh workflow run publish.yml --ref main), or deploy ${PREV_PIN} from its" \
-           "own commit as docs/ops/runbooks.md §16 says."
-  elif [[ -n "$PREV_PIN" ]]; then
     detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
            "script bare. Deploy by tag until a good build is published:" \
            "  ./scripts/ops/deploy.sh ${PREV_PIN}"
@@ -1018,7 +972,6 @@ Published builds are at https://github.com/felzab?tab=packages"
   docker pull "${REPO_BACKEND}:${PIN}"  || refuse "could not pull ${REPO_BACKEND}:${PIN} — docker's
 own reason is above. The frontend's :latest has NOT moved yet, so this host is untouched."
   compare_pulled_pair "${REPO_FRONTEND}:${PIN}" "${REPO_BACKEND}:${PIN}"
-  check_pin_reads_secret_files
   # Only now, with both pulls behind us and the pair accepted, do the moving tags compose reads by
   # name move.
   quietly docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND" || die "could not point ${IMAGE_FRONTEND} at ${PIN}."
@@ -1048,18 +1001,20 @@ fi
 step "The environment files, read by the builds about to run"
 check_env_names
 check_frontend_env_names
-# Through compose, as `local.sh` asks it: only the service's own container reads the key where its
-# environment files point it. It holds nothing the running frontend does not, on the frontend's network.
-check_actor_key "NOTHING has been recreated, and the site is untouched." \
-  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
 
-step "The secret files, read by the containers about to run"
-# Each service's own container, for the key check's reason: only it runs as the user, and in the
-# group, the files are handed over to (`docs/ops/spec.md :: I510`).
-check_frontend_secret_files "NOTHING has been recreated, and the site is untouched." production \
+step "Each service's settings and secret files, as its own boot builds them"
+# Through compose: only the service's own container holds its variables, mounts and the user its files
+# are handed to (`docs/ops/spec.md :: I510`). `run` publishes no port or alias, so nothing reaches the
+# frontend's one-off server.
+check_frontend_boot_config "NOTHING has been recreated, and the site is untouched." production \
   docker compose -f "$COMPOSE" run --rm --no-deps -T
 check_backend_boot_config "NOTHING has been recreated, and the site is untouched." \
   docker compose -f "$COMPOSE" run --rm --no-deps -T
+
+step "The actor token's key pair"
+# After the frontend's boot, which has refused a key it cannot read where its environment points it.
+check_actor_key "NOTHING has been recreated, and the site is untouched." \
+  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
 
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 
@@ -1141,8 +1096,7 @@ No rollback runs on that: it would be undoing a build nothing here has judged.
 Reload the edge first, which answers 200 once applied:
   docker compose -f ${COMPOSE} exec -T nginx curl -s -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config
 Then ask what is running:  docker compose -f ${COMPOSE} ps
-And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}
-(a build from before the secret files is refused by tag; docs/ops/runbooks.md §16 deploys it)."
+And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}"
   fi
 fi
 
