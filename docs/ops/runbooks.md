@@ -26,6 +26,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [16. The secret files](#16-the-secret-files)                                                                                                    | What each holds, and how each machine makes its own            |
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                                    | What `pnpm install` fetches, and what a bare `node` still runs |
+| [19. The database's storage alert](#19-the-databases-storage-alert)                                                                             | What fills the tier unseen, and the one alert that shows it    |
 
 ---
 
@@ -1518,3 +1519,27 @@ needs nothing more on a machine than the next `pnpm install`.
 `.claude/hooks/implementer-whole-suite.sh` and `scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
 https://nodejs.org/en/download, and again whenever the pin moves: a machine left on an older release
 of the line keeps every security flaw fixed since.
+
+## 19. The database's storage alert
+
+**Nothing in this repository watches how full the database is, and the production tier stops at a
+hard limit**: 5 GB of documents and indexes together, past which every write fails, so the
+application shows it as every save failing at once. What keeps one person from filling it is the
+daily write ceiling (`docs/backend/spec.md :: I831`, its numbers
+`fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two siblings), sized
+so that no one person writing 10 KB a write at their ceiling every day reaches the alert below within
+a year. The alert shows the rest: many people at once, the action log's own growth, or counts that
+stopped expiring.
+
+1. In the Atlas console's alert settings for the project, add an alert on `DB Data Size is` above
+   3.5 GB, notifying the league's own address. Atlas's built-in `Flex metric outside threshold`
+   fires only past 4 GB, too close to the limit to act on.
+2. Read the alert back in the console's list of alert settings.
+
+Both names and both figures are copied from MongoDB's Atlas documentation on alert conditions and on
+Flex limitations, which move without us; read 2026-10-07.
+
+**When it fires, find the collection that grew**, from the cluster's collection sizes in the Atlas
+console. `drosselung` holds one row per person, kind of person and day, which its TTL index removes
+(`docs/backend/spec.md :: I837`), so a large one there is the TTL monitor stopping rather than people
+writing.
