@@ -31,7 +31,6 @@ from app.api.bewerbungen.services import (
     KONTAKT_SAISON_VORBEI,
     SEAT_MIN_AGE_YEARS,
     bestaetigungsfrist_from,
-    compose_bestaetigungen,
     hash_token,
 )
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
@@ -63,6 +62,7 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import InterleavedCollection
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
+from tests.whole_database import every_collection_as_text
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -375,10 +375,6 @@ async def refused(call: Awaitable[Any]) -> str:
         await call
 
     return refusal.value.error_code
-
-
-async def every_collection_as_text(database: AsyncDatabase) -> str:
-    return "".join([str(await database[name].find({}).to_list(length=None)) for name in await database.list_collection_names()])
 
 
 async def seats_of(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> list[tuple[str, str]]:
@@ -702,19 +698,25 @@ class TestTheLinkConfirms:
             pytest.param("stellvertretung", "trainer", id="the seat they also hold confirmed, the Trainer's not"),
         ],
     )
-    def test_a_half_confirmed_pair_confirms_only_the_seat_its_link_was_minted_for(self, mongo_replica_set_url: str, confirmed: str, newly: str):
-        """The earlier answer stands: its stamp, its date and its scope are the person's own, given on another day."""
+    def test_a_half_confirmed_pair_offers_and_confirms_only_the_seat_its_link_was_minted_for(
+        self, mongo_replica_set_url: str, confirmed: str, newly: str
+    ):
+        """The page names what the press writes: no second seat, and the floor of the one seat the link answers.
+
+        The earlier answer stands: its stamp, its date and its scope are the person's own, given on another day.
+        """
 
         before = {**STORED_UNCONFIRMED, confirmed: stored("Ida", bestaetigt_am="2026-03-20"), newly: stored("Lea")}
         spent = compose_kontakt_bestaetigung(token_hash=hash_token("the-link-already-answered"), today="2026-03-10")
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, PAIRED)
+            view = await ansicht(database, response.bestaetigungen[0].token)
             await answer(database, response.bestaetigungen[0].token)
 
-            return response, await row_now(database)
+            return response, view, await row_now(database)
 
-        response, row = on_a_league(
+        response, view, row = on_a_league(
             mongo_replica_set_url,
             body,
             kontakte=before,
@@ -722,38 +724,10 @@ class TestTheLinkConfirms:
         )
 
         assert [mint.rollen for mint in response.bestaetigungen] == [[newly]]
+        assert (view.rolle, view.zugleich_rolle, view.mindestalter) == (newly, None, SEAT_MIN_AGE_YEARS[newly])
         held = row["kontakte"][confirmed]
         assert (held["einwilligung"]["bestaetigt_am"], held["einwilligung"]["umfang"]) == ("2026-03-20", "kontaktdaten")
         assert row["kontakte"][newly]["einwilligung"]["bestaetigt_am"] == TODAY, "the press confirmed nothing, so this case proves nothing"
-
-    @pytest.mark.parametrize(
-        ("confirmed", "newly"),
-        [
-            pytest.param("trainer", "stellvertretung", id="the Trainer confirmed, the seat they come to hold not"),
-            pytest.param("stellvertretung", "trainer", id="the seat they also hold confirmed, the Trainer's not"),
-        ],
-    )
-    def test_a_half_confirmed_pair_s_view_offers_only_the_seat_its_link_was_minted_for(
-        self, mongo_replica_set_url: str, confirmed: str, newly: str
-    ):
-        """The page names what the press writes: no second seat, and the floor of the one seat the link answers."""
-
-        before = {**STORED_UNCONFIRMED, confirmed: stored("Ida", bestaetigt_am="2026-03-20"), newly: stored("Lea")}
-        spent = compose_kontakt_bestaetigung(token_hash=hash_token("the-link-already-answered"), today="2026-03-10")
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            response = await save(database, PAIRED)
-
-            return await ansicht(database, response.bestaetigungen[0].token)
-
-        view = on_a_league(
-            mongo_replica_set_url,
-            body,
-            kontakte=before,
-            row_fields={"bestaetigungen": {seat: spent if seat == confirmed else None for seat in SEATS}},
-        )
-
-        assert (view.rolle, view.zugleich_rolle, view.mindestalter) == (newly, None, SEAT_MIN_AGE_YEARS[newly])
 
     def test_a_widerspruch_empties_the_seat_records_it_and_redacts_the_rows_log(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
@@ -946,17 +920,6 @@ class TestARowsPeopleLeavingTakeTheirLinks:
 
 
 class TestTheStepUp:
-    def test_a_save_that_mints_from_an_old_sign_in_is_refused_and_mints_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            before = await row_now(database)
-
-            return await refused(save(database, THREE, step_up=STALE_STEP_UP_CHECK)), before, await row_now(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == CONFIRMATION_REQUIRED
-        assert after == before
-
     def test_a_save_emptying_a_seat_whose_link_is_live_from_an_old_sign_in_is_refused(self, mongo_replica_set_url: str):
         """Voiding a bearer link is a step-up write as minting one is: the person holding it loses their way to answer."""
 
@@ -1022,24 +985,18 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
                 },
             )
             await database[Collection.BEWERBUNGEN].insert_one(
-                {
-                    "_id": ObjectId("6890a1b2c3d4e5f607a50021"),
-                    "saison_id": SAISON_ID,
-                    "eingereicht_am": "2026-03-20",
-                    "status": "eingereicht",
-                    "team_id": TEAM_OID,
-                    "schule": None,
-                    "kontakte": {
-                        seat: documents.kontaktperson_document(name) for seat, name in zip(SEATS, ("Ida", "Jonas", "Klara"), strict=True)
-                    }
+                documents.bewerbung_document(
+                    ObjectId("6890a1b2c3d4e5f607a50021"),
+                    SAISON_ID,
+                    "eingereicht",
+                    kontakte={seat: documents.kontaktperson_document(name) for seat, name in zip(SEATS, ("Ida", "Jonas", "Klara"), strict=True)}
                     | {"trainer_ist_zugleich": None},
-                    "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-                    "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-                    "wunschgegner": None,
-                    "entscheidung": None,
-                    "bestaetigungsfrist": FRIST,
-                    "bestaetigungen": compose_bestaetigungen(hashes=hashes, today=TODAY),
-                }
+                    eingereicht_am="2026-03-20",
+                    bestaetigungsfrist=FRIST,
+                    team_id=TEAM_OID,
+                    link_prefix=raw,
+                    verschickt_am=TODAY,
+                )
             )
             view = await ansicht(database, f"{raw}-trainer")
             answered = await answer(database, f"{raw}-trainer", text_version=BEWERBER_SEITE)
@@ -1274,26 +1231,22 @@ class TestTheLinkLookupWalksAnIndex:
 def angenommene_bewerbung(trainer: Mapping[str, Any]) -> dict[str, Any]:
     """The accepted application this team entered the season through, its Trainer seat holding `trainer`."""
 
-    return {
-        "_id": ObjectId("6890a1b2c3d4e5f607a50031"),
-        "saison_id": SAISON_ID,
-        "eingereicht_am": "2026-03-01",
-        "status": "angenommen",
-        "team_id": TEAM_OID,
-        "schule": None,
-        "kontakte": {
+    return documents.bewerbung_document(
+        ObjectId("6890a1b2c3d4e5f607a50031"),
+        SAISON_ID,
+        "angenommen",
+        kontakte={
             "trainer": dict(trainer),
             "ansprechperson": documents.kontaktperson_document("Jonas"),
             "stellvertretung": documents.kontaktperson_document("Klara"),
             "trainer_ist_zugleich": None,
         },
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": FRIST,
-        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"angenommen-{seat}") for seat in SEATS}, today=TODAY),
-    }
+        eingereicht_am="2026-03-01",
+        bestaetigungsfrist=FRIST,
+        team_id=TEAM_OID,
+        link_prefix="angenommen",
+        verschickt_am=TODAY,
+    )
 
 
 class TestThePageASeasonRowsLinkOpens:

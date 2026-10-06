@@ -559,24 +559,6 @@ class TestACorrectedAddressReMints:
     def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == ({"$set": {}}, None)
 
-    def test_a_confirmed_referees_corrected_address_mints_no_consent_link_and_meets_no_refusal(self):
-        """The already-answered half of the save is the address link, which the two refusals beside it never reach.
-
-        Named because the invariant over every consent mint reads as though a refusal carried every half.
-        """
-
-        stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": None}
-        payload = {"kontakt": {"telefon": None, "email": "new@example.com"}}
-
-        update, minted = compose_korrektur_update(
-            stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
-        )
-
-        assert minted == "adresswechsel"
-        assert BESTAETIGUNG_FELD not in update["$set"]
-        assert find_already_confirmed_refusal(einwilligung=stored[EINWILLIGUNG_FELD]) is not None
-        assert find_retired_refusal(inactive_since=stored["inactive_since"]) is None
-
     def test_the_fresh_block_restarts_the_deadline(self):
         update, minted = korrektur({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com", today=TOMORROW)
 

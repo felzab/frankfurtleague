@@ -666,7 +666,11 @@ class TestWhatThePayloadRefuses:
 
 
 class TestTheTwoContactRules:
-    """The application's two rules on the season row too, an empty seat comparing with nothing."""
+    """The application's two rules on the season row too, an empty seat comparing with nothing.
+
+    One refusal per rule, which a rule moved down to the application's payload fails; the rules' own
+    table is `tests/api/test_bewerbung_submission_refusal.py :: TestTheThreeSeatsAreThreePeople`.
+    """
 
     def block(self, **seats: Any) -> dict[str, Any]:
         return {"kontakte": {**RESAVED_AS_RENDERED, **seats}, "kontakte_stand": kontakte_stand_of(SEEDED_KONTAKTE)}
@@ -679,13 +683,6 @@ class TestTheTwoContactRules:
 
         assert "denen des Trainers" in str(failure.value)
 
-    def test_a_trainer_holding_a_seat_whose_block_agrees_is_taken(self):
-        """The control: one person in two seats is a legitimate block."""
-
-        sent = self.block(ansprechperson=person("Ida", text_version=STORED_LABEL), trainer_ist_zugleich="ansprechperson")
-
-        assert FLPatchSaisonTeamKontaktePayload.model_validate(sent).kontakte is not None
-
     @pytest.mark.parametrize(
         "emptied",
         [pytest.param("trainer", id="the Trainer emptied"), pytest.param("ansprechperson", id="the seat they also hold emptied")],
@@ -697,18 +694,11 @@ class TestTheTwoContactRules:
 
         assert FLPatchSaisonTeamKontaktePayload.model_validate(sent).kontakte is not None
 
-    @pytest.mark.parametrize(
-        ("field", "value", "message"),
-        [
-            pytest.param("email", "IDA@example.com", "E-Mail-Adressen", id="one mailbox on the sign-in fold"),
-            pytest.param("telefon", "+49 151 10000001", "Telefonnummern", id="one number however spelled"),
-        ],
-    )
-    def test_two_different_people_sharing_a_mailbox_or_a_number_are_refused(self, field: str, value: str, message: str):
+    def test_two_different_people_sharing_a_mailbox_on_the_sign_in_fold_are_refused(self):
         with pytest.raises(ValidationError) as failure:
-            FLPatchSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), field: value}))
+            FLPatchSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
 
-        assert message in str(failure.value)
+        assert "E-Mail-Adressen" in str(failure.value)
 
     def test_an_empty_seat_shares_nothing(self):
         """Two empty seats are not two people at one address."""
