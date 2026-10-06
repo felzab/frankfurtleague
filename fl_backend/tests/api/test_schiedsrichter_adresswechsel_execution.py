@@ -165,8 +165,10 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=today,
+        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
@@ -308,6 +310,21 @@ class TestTheSaveOnAConfirmedReferee:
         assert row[ADRESSWECHSEL_FELD]["email"] == THIRD_EMAIL
         assert row[ADRESSWECHSEL_FELD]["token_hash"] == hash_token(third.adresswechsel.token)
         assert old_link == SCHIEDSRICHTER_TOKEN_UNKNOWN
+
+    def test_the_whole_database_holds_the_replaced_address_nowhere_afterwards(self, mongo_replica_set_url: str):
+        """The first save, its re-send and the replacing save each file an image carrying the replaced address."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
+            await resend(database, client)
+            await save(database, client, email=THIRD_EMAIL)
+
+            return await every_collection_as_text(database)
+
+        whole = on_a_league(mongo_replica_set_url, body)
+
+        assert NEW_EMAIL not in whole
+        assert THIRD_EMAIL in whole, "the scan read nothing the replacing save wrote"
 
     def test_a_barred_new_address_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

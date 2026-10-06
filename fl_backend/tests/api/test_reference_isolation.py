@@ -53,6 +53,8 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_reference_isolation_test")
 
+# The instant a redaction stamps, which the endpoint reads from `get_germany_now`.
+NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 
 
@@ -402,8 +404,10 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
         spiele_collection=handles[Collection.SPIELE],
         sperrliste=ban_list(handles),
+        aktionen_collection=handles[Collection.AKTIONEN],
         db=client,
         today=TODAY,
+        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 

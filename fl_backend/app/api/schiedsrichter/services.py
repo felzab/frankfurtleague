@@ -558,6 +558,20 @@ def build_pending_adresswechsel_filter(schiedsrichter_id: Any) -> Mapping[str, A
     return {**build_referee_filter(schiedsrichter_id), ADRESSWECHSEL_FELD: {"$type": "object"}}
 
 
+def save_drops_a_pending_address(*, stored: Mapping[str, Any], payload_email: str) -> bool:
+    """Whether this save replaces a pending address with another mailbox's, dropping an address nobody proved.
+
+    A save keeping the address on file leaves the change standing, and one typing the pending address
+    again re-mints it for the same mailbox: neither drops it.
+    """
+
+    pending = (stored.get(ADRESSWECHSEL_FELD) or {}).get("email")
+    if not isinstance(pending, str) or not save_asks_an_address_change(stored=stored, payload_email=payload_email):
+        return False
+
+    return mailbox_key(pending) != mailbox_key(payload_email)
+
+
 def compose_adresswechsel_antwort(*, antwort: str, email: Any) -> Mapping[str, Any]:
     """The ONE update an answer is: a confirmation moves the address and ends the change, a decline ends it alone.
 
