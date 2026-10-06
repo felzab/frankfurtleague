@@ -377,6 +377,18 @@ class TestWhatARemovalFilterMayName:
 
         assert unscoped == []
 
+    def test_no_removal_reaches_a_team_or_a_season(self):
+        """What lets reads assert a team or season present rather than answer 404.
+
+        `app/api/registrierungen/einwilligung_router.py :: get_bestaetigung_ansicht`,
+        `app/api/bewerbungen/einwilligung_router.py :: _schule_name`, `:: _saison_ansicht`, `:: post_einwilligung`,
+        `app/api/spieler/person_router.py :: _erlaubte_stufen`.
+        """
+
+        removed = sorted({removal.collection for removal in removals()} & {str(Collection.TEAMS), str(Collection.SAISONS)})
+
+        assert removed == []
+
     def test_every_removal_from_bewerbungen_is_an_erasure(self):
         """Swap one sweep call to `delete_many_from_db` and this fails.
 
