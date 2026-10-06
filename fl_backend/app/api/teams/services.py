@@ -879,8 +879,7 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
 def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> list[dict[str, Any]]:
     """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`).
 
-    Lapsed only where the seat's person has not answered: an answered seat's link has nothing left to
-    collect, so its deadline costs nothing, as the referee editor marks no lapse for an answered referee.
+    Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect.
     """
 
     def judged(row: Mapping[str, Any]) -> Any:
