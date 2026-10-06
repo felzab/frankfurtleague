@@ -396,6 +396,23 @@ class TestTheConfirmation:
         assert row[EINWILLIGUNG_FELD] == before[EINWILLIGUNG_FELD]
         assert row[BESTAETIGUNG_FELD] == before[BESTAETIGUNG_FELD]
 
+    def test_it_drops_the_consent_link_s_delivery_state_with_the_address_it_described(self, mongo_replica_set_url: str):
+        """A bounce of the consent link's message is about the replaced address, so it must not stand beside the new one."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SCHIEDSRICHTER].update_one(
+                {"_id": SCHIEDSRICHTER_OID}, {"$set": {f"{BESTAETIGUNG_FELD}.zustellung": dict(A_BOUNCE)}}
+            )
+            before = await stored(database)
+            saved = await save(database, client, email=NEW_EMAIL)
+            await answer(database, client, saved.adresswechsel.token, "bestaetigt")
+
+            return before, await stored(database)
+
+        before, row = on_a_league(mongo_replica_set_url, body)
+
+        assert row[BESTAETIGUNG_FELD] == {key: value for key, value in before[BESTAETIGUNG_FELD].items() if key != "zustellung"}
+
     def test_the_record_then_belongs_to_the_new_mailbox_and_no_longer_to_the_old(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             saved = await save(database, client, email=NEW_EMAIL)

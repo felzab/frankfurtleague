@@ -149,10 +149,10 @@ class TestTheSaveOnAConfirmedReferee:
 
 
 class TestTheAnswer:
-    def test_a_confirmation_moves_the_address_and_ends_the_change(self):
+    def test_a_confirmation_moves_the_address_ends_the_change_and_drops_the_replaced_address_s_delivery_state(self):
         assert compose_adresswechsel_antwort(antwort="bestaetigt", email=NEW) == {
             "$set": {"kontakt.email": NEW},
-            "$unset": {ADRESSWECHSEL_FELD: ""},
+            "$unset": {ADRESSWECHSEL_FELD: "", f"{BESTAETIGUNG_FELD}.zustellung": ""},
         }
 
     def test_a_decline_ends_the_change_alone(self):
