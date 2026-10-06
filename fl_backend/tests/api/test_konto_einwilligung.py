@@ -29,7 +29,7 @@ from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
-from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
@@ -555,6 +555,7 @@ class TestTheAccountPagesRead:
             REGISTRIERUNG_MIN_ALTER_JAHRE,
             SCHIEDSRICHTER_MIN_AGE_YEARS,
         )
+        assert {entry["medien_mindestalter"] for entry in [body["spieler"], *body["schiedsrichter"], *body["sitze"]]} == {MEDIEN_MIN_AGE_YEARS}
         # A pupil with no squad row names nothing but themselves; the referee's one name is cut to its first part.
         assert body["spieler"]["kontext"] == {"vorname": "Ortrud", "team": None, "schule": None, "saison": None}
         assert body["schiedsrichter"][0]["kontext"] == {"vorname": "Ortrud"}
@@ -986,6 +987,7 @@ class TestAPendingApplicationsSeats:
                         "kontext": {"vorname": "Ortrud", "team": PENDING_SCHULE, "schule": PENDING_SCHULE, "saison": ACTIVE_SAISON},
                     }
                 ],
+                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
             }
         ]
 

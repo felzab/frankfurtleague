@@ -332,6 +332,8 @@ class FLSchiedsrichterSelbst(BaseModel):
     medien_angeboten: bool
     # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     mindestalter: int
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    medien_mindestalter: int
     kontext: FLSchiedsrichterKontext
 
 

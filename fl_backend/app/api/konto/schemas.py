@@ -51,6 +51,8 @@ class FLKontoSitzEinwilligung(BaseModel):
     erteilbar: bool
     # Never empty, a held seat being a confirmed one.
     bestaetigt: list[FLSitzBestaetigt] = Field(min_length=1)
+    # One per entry: every confirmation and the control's own words name the same media floor.
+    medien_mindestalter: int
 
 
 class FLKontoBewerbungSitzEinwilligung(BaseModel):
@@ -70,6 +72,8 @@ class FLKontoBewerbungSitzEinwilligung(BaseModel):
     medien: bool
     nachweis_stand: FLEinwilligungStand
     bestaetigt: list[FLSitzBestaetigt] = Field(min_length=1)
+    # One per entry: every confirmation and the control's own words name the same media floor.
+    medien_mindestalter: int
 
 
 class FLKontoRegistrierungEinwilligung(BaseModel):
@@ -88,6 +92,8 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     nachweis_stand: FLEinwilligungStand
     # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     mindestalter: int
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    medien_mindestalter: int
     # What the pupil's confirmation page filled its words with, read today.
     kontext: FLSpielerKontext
     # As the registration stores them: the account page shows what is kept about the pupil.
