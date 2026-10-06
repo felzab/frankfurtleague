@@ -73,6 +73,20 @@ export function linkVersandOf({ delivered, withheld, gesperrt }: Pick<ZielMailOu
   return withheld.length > 0 ? "zurueckgehalten" : "fehlgeschlagen";
 }
 
+/**
+ * How one send that did not go out ended: kept back by the ban list, filed by a deployment that mails
+ * nothing, broken off unanswered so the provider may still have taken it, or failed. The one reading of
+ * a send's failure, for the fan-out below and for a message sent on its own, so neither drifts from it.
+ */
+export type VersandAusfall = "gesperrt" | "zurueckgehalten" | "ungewiss" | "fehlgeschlagen";
+
+export function versandAusfallOf(reason: unknown): VersandAusfall {
+  if (reason instanceof MailBarredError) return "gesperrt";
+  if (reason instanceof MailWithheldError) return "zurueckgehalten";
+
+  return reason instanceof APINetworkError ? "ungewiss" : "fehlgeschlagen";
+}
+
 /** One message as its builder composed it, without the envelope the fan-out fills in. */
 export type ZielMail = Pick<OutboundMail, "subject" | "html" | "text">;
 
@@ -220,19 +234,21 @@ export async function sendZielMail({
       return;
     }
 
+    const ausfall = versandAusfallOf(result.reason);
+
     // Counted and nothing more: no failure line, the gate's own being the record, and no refusal
     // recorded, which would store on the record that its address is barred (`docs/frontend/spec.md :: I542`).
-    if (result.reason instanceof MailBarredError) {
+    if (ausfall === "gesperrt") {
       gesperrt += 1;
       return;
     }
 
-    if (result.reason instanceof APINetworkError) {
+    if (ausfall === "ungewiss") {
       ungewiss.push(address);
       markOutcomeUnknown();
     } else unreachable.push(address);
     // Beside rather than instead: every caller reading `unreachable` alone keeps the answer it had.
-    if (result.reason instanceof MailWithheldError) {
+    if (ausfall === "zurueckgehalten") {
       withheld.push(address);
       // No failure line: the mailer's own records a filed message, and a deployment that mails nothing failed nothing.
       return;
