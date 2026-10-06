@@ -1297,5 +1297,5 @@ printf '\n'
 if (( FAILURES == 0 )); then
   ok "All script self-checks passed."
 else
-  die "${FAILURES} script self-check(s) failed."
+  die --summary "${FAILURES} script self-check(s) failed."
 fi

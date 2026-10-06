@@ -208,10 +208,21 @@ skip() { _emit "$C_DIM"    "  --" "$*"; _escalate 1; }
 # An advisory, never a finding — use `fail` where the run must not stay green.
 warn() { _emit "$C_YELLOW" "  !!" "$*" >&2; _record_advisory; }
 
+# Under Actions, one error annotation per finding, on stdout beside the output it follows, and none
+# for a statement summing findings already annotated: `.claude/skills/orchestration/tools/ci.py`
+# reads a run's findings off these lines.
+_annotate() {
+  if [[ -z "${GITHUB_ACTIONS:-}" ]]; then return 0; fi
+  local message="${*//'%'/%25}"
+  message="${message//$'\r'/}"
+  printf '::error::%s\n' "${message//$'\n'/ }"
+}
+
 # `die` without the exit, for a script collecting every finding before it reports. It closes the
-# step: a later verdict carries no duration.
+# step: a later verdict carries no duration. `--summary` first: the line sums findings annotated above.
 fail() {
   local s; s="$(_step_suffix)"
+  if [[ "${1-}" == --summary ]]; then shift; else _annotate "$*"; fi
   _emit "$C_RED" "   ✗" "$*${s}" >&2
   add_findings 1
   _escalate 5
@@ -220,6 +231,7 @@ fail() {
 
 die() {
   local s; s="$(_step_suffix)"
+  if [[ "${1-}" == --summary ]]; then shift; else _annotate "$*"; fi
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*${s}" >&2
   printf '\n' >&2
@@ -376,7 +388,7 @@ section() {
   _SECTION_FINDINGS+=(0); _SECTION_ADVISORIES+=(0)
   _SECTION_OPEN=$(( ${#_SECTION_NAMES[@]} - 1 ))
   _SECTION_T0="$(_now_ms)"
-  # Findings annotations stay off: they surface out of order and duplicate the closing table.
+  # A fold and no annotation: each finding carries its own (`_annotate`), and the table only sums them.
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     printf '::group::%s\n' "$name"
   else
@@ -642,6 +654,7 @@ refuse() {
   # Closed first, so the message lands outside the Actions fold: a reader told to look above must
   # not be sent into something collapsed.
   end_section
+  _annotate "$*"
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*" >&2
   _closing refused
@@ -659,6 +672,7 @@ on_error() {
   _escalate 5
   # Outside the fold, for `refuse`'s reason.
   end_section
+  _annotate "${SELF##*/} failed at line ${line}: ${cmd} (exit status ${rc})"
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "${SELF##*/} failed
 line ${line}:  ${cmd}
