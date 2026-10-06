@@ -4,7 +4,14 @@ import { describe, it } from "node:test";
 import { APINetworkError } from "@/core/errors.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import {
+  answerShown,
+  assertEachAnswered,
+  DUPLICATE_KEY,
+  publishedRefusals,
+  refusedOn,
+  unpublishedOn,
+} from "@/shared/testing/publishedRefusals.ts";
 import { outcomeUnknown } from "@/shared/utils/actionError.ts";
 
 import {
@@ -197,7 +204,7 @@ describe("a club created whose entry into the season is refused", () => {
         traceId: "0",
         isTimeout: false,
       }),
-      refusedOn(ENTRY_OPERATION, "DB-FAIL-002", 500),
+      unpublishedOn(ENTRY_OPERATION, "DB-FAIL-002", 500),
     ];
     for (const failure of lost) {
       cacheCalls.length = 0;

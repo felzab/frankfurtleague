@@ -43,30 +43,46 @@ export function publishedRefusals(operation: string): string[] {
   return [...codes].sort();
 }
 
-/**
- * The one status `operation` publishes `code` under. Throws for a code published under none or under
- * two, where a caller asking for it names the status itself.
- */
-function publishedStatus(operation: string, code: string): number {
-  const statuses = publishedOperation(operation)
+/** Every status `operation` publishes `code` under, none where it publishes the code nowhere. */
+function publishedStatuses(operation: string, code: string): number[] {
+  return publishedOperation(operation)
     .answers.filter((answer) => answer.code === code)
     .map(({ status }) => status);
-  if (statuses.length !== 1) {
-    throw new Error(`${operation} publishes ${code} under ${String(statuses.length)} statuses; name the one this case asks about`);
-  }
-
-  return statuses[0] ?? 0;
 }
 
 /**
  * The refusal the API client raises when `operation` answers `serverErrorCode`, at the status the
- * document publishes it under unless a case names another, so a mapper is asked rather than read.
+ * document publishes it under unless a case moves it to another, so a mapper is asked rather than
+ * read. Throws for a code the operation publishes under no status: a moved status moves the code,
+ * never stands in for its being published.
  */
-export function refusedOn(
-  operation: string,
-  serverErrorCode: string,
-  statusCode = publishedStatus(operation, serverErrorCode),
-): APIBadStatusError {
+export function refusedOn(operation: string, serverErrorCode: string, statusCode?: number): APIBadStatusError {
+  const statuses = publishedStatuses(operation, serverErrorCode);
+  if (statuses.length === 0) {
+    throw new Error(`${operation} publishes no ${serverErrorCode}; a code nothing sends there is \`unpublishedOn\`'s`);
+  }
+  if (statusCode === undefined && statuses.length !== 1) {
+    throw new Error(`${operation} publishes ${serverErrorCode} under ${String(statuses.length)} statuses; name the one this case asks about`);
+  }
+
+  return raised(operation, serverErrorCode, statusCode ?? statuses[0] ?? 0);
+}
+
+/**
+ * What the API client raises for a code `operation` does not publish: an invented one, another flow's,
+ * a routing refusal or a server failure, which a case hands a mapper to see it answer nothing. Throws
+ * once the operation publishes the code, where the case's premise no longer holds.
+ */
+export function unpublishedOn(operation: string, serverErrorCode: string, statusCode: number): APIBadStatusError {
+  if (publishedStatuses(operation, serverErrorCode).length > 0) {
+    throw new Error(`${operation} publishes ${serverErrorCode}; build its refusal with \`refusedOn\``);
+  }
+
+  return raised(operation, serverErrorCode, statusCode);
+}
+
+/** The error itself, as `fl_frontend/src/core/api.ts` raises one for `operation`. */
+function raised(operation: string, serverErrorCode: string, statusCode: number): APIBadStatusError {
   const [method = "", endpoint = ""] = operation.split(" ", 2);
 
   return new APIBadStatusError({
@@ -94,7 +110,7 @@ function shownFrom(operation: string, refusal: APIBadStatusError, own: unknown):
   if (own !== null) return own;
 
   const shared = toActionErrorResult(refusal).error;
-  const unclaimed = toActionErrorResult(refusedOn(operation, UNCLAIMED, refusal.statusCode)).error;
+  const unclaimed = toActionErrorResult(unpublishedOn(operation, UNCLAIMED, refusal.statusCode)).error;
   return refusal.serverErrorCode === DUPLICATE_KEY || shared !== unclaimed ? shared : null;
 }
 
