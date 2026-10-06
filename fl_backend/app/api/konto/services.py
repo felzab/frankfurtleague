@@ -305,6 +305,34 @@ def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {**sitz_wahlen_der_zeile(bloecke), "nachweis_stand": nachweis_stand_of(bloecke=bloecke)}
 
 
+def bestaetigungsgruppen(kontakte: Mapping[str, Any], rollen: Sequence[str]) -> list[list[str]]:
+    """The held slots grouped by the confirmation each answered, one group per label and day, in `rollen` order.
+
+    A seat's link is answered on its own, so one person's two seats may stand on two pages and two floors.
+    """
+
+    gruppen: dict[tuple[Any, Any], list[str]] = {}
+    for slot in rollen:
+        block = kontakte[slot]["einwilligung"]
+        gruppen.setdefault((block.get("text_version"), block.get("bestaetigt_am")), []).append(slot)
+
+    return list(gruppen.values())
+
+
+def _bestaetigt(kontakte: Mapping[str, Any], gruppe: Sequence[str], *, team: str, schule: str | None, saison: str) -> dict[str, Any]:
+    """One confirmation a person gave on a row: its roles, its words, the floor its page named and what filled them."""
+
+    block = kontakte[gruppe[0]]["einwilligung"]
+
+    return {
+        "rollen": list(gruppe),
+        "text_version": block.get("text_version"),
+        "bestaetigt_am": block.get("bestaetigt_am"),
+        "mindestalter": mindestalter_for(gruppe),
+        "kontext": {"vorname": kontakte[gruppe[0]].get("vorname"), "team": team, "schule": schule, "saison": saison},
+    }
+
+
 def compose_sitze_selbst(
     rows: Sequence[Mapping[str, Any]],
     identifier: str,
@@ -332,18 +360,19 @@ def compose_sitze_selbst(
                 "team_name": row["name"],
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
-                "bestaetigt_text_version": held[0]["einwilligung"].get("text_version"),
                 **_sitz_wahlen_gehalten(held),
-                "mindestalter": mindestalter_for(rollen),
                 "medien_angeboten": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
                 "erteilbar": holds_a_seat(sitze_mit_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
-                # The first held slot's, as `rollen` orders them: one person holding two answers by one name.
-                "kontext": {
-                    "vorname": held[0].get("vorname"),
-                    "team": row["name"],
-                    "schule": _sitz_schule(row, rollen[0], teams=teams, bewerbungen=bewerbungen),
-                    "saison": row["saison_id"],
-                },
+                "bestaetigt": [
+                    _bestaetigt(
+                        row["kontakte"],
+                        gruppe,
+                        team=row["name"],
+                        schule=_sitz_schule(row, gruppe[0], teams=teams, bewerbungen=bewerbungen),
+                        saison=row["saison_id"],
+                    )
+                    for gruppe in bestaetigungsgruppen(row["kontakte"], rollen)
+                ],
             }
         )
 
@@ -389,16 +418,12 @@ def compose_bewerbungssitze_selbst(
                 "schule": schule,
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
-                "bestaetigt_text_version": held[0]["einwilligung"].get("text_version"),
                 **_sitz_wahlen_gehalten(held),
-                "mindestalter": mindestalter_for(rollen),
                 # `{team}` is the school too: an application names no season row.
-                "kontext": {
-                    "vorname": held[0].get("vorname"),
-                    "team": schule,
-                    "schule": schule,
-                    "saison": row["saison_id"],
-                },
+                "bestaetigt": [
+                    _bestaetigt(row["kontakte"], gruppe, team=schule, schule=schule, saison=row["saison_id"])
+                    for gruppe in bestaetigungsgruppen(row["kontakte"], rollen)
+                ],
             }
         )
 

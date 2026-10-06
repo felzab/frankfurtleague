@@ -15132,17 +15132,6 @@
             "minItems": 1,
             "title": "Rollen"
           },
-          "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Text Version"
-          },
           "umfang": {
             "type": "string",
             "enum": [
@@ -15158,12 +15147,13 @@
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
           },
-          "mindestalter": {
-            "type": "integer",
-            "title": "Mindestalter"
-          },
-          "kontext": {
-            "$ref": "#/components/schemas/FLSitzKontext"
+          "bestaetigt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSitzBestaetigt"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Bestaetigt"
           }
         },
         "type": "object",
@@ -15172,12 +15162,10 @@
           "schule",
           "saison_id",
           "rollen",
-          "bestaetigt_text_version",
           "umfang",
           "medien",
           "nachweis_stand",
-          "mindestalter",
-          "kontext"
+          "bestaetigt"
         ],
         "title": "FLKontoBewerbungSitzEinwilligung",
         "description": "One pending application on which the address holds a confirmed contact seat, with its two choices to withdraw.\n\nPending alone: an accepted application's seats are its season row's, listed under `sitze`."
@@ -15427,17 +15415,6 @@
             "minItems": 1,
             "title": "Rollen"
           },
-          "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Text Version"
-          },
           "umfang": {
             "type": "string",
             "enum": [
@@ -15453,10 +15430,6 @@
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
           },
-          "mindestalter": {
-            "type": "integer",
-            "title": "Mindestalter"
-          },
           "medien_angeboten": {
             "type": "boolean",
             "title": "Medien Angeboten"
@@ -15465,8 +15438,13 @@
             "type": "boolean",
             "title": "Erteilbar"
           },
-          "kontext": {
-            "$ref": "#/components/schemas/FLSitzKontext"
+          "bestaetigt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSitzBestaetigt"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Bestaetigt"
           }
         },
         "type": "object",
@@ -15475,14 +15453,12 @@
           "team_name",
           "saison_id",
           "rollen",
-          "bestaetigt_text_version",
           "umfang",
           "medien",
           "nachweis_stand",
-          "mindestalter",
           "medien_angeboten",
           "erteilbar",
-          "kontext"
+          "bestaetigt"
         ],
         "title": "FLKontoSitzEinwilligung",
         "description": "One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both."
@@ -20626,6 +20602,63 @@
         ],
         "title": "FLSchiedsrichterWriteResponse",
         "description": "Shared by delete and anonymisieren.\n\nThe retirement answers with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
+      },
+      "FLSitzBestaetigt": {
+        "properties": {
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Rollen"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "kontext": {
+            "$ref": "#/components/schemas/FLSitzKontext"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rollen",
+          "text_version",
+          "bestaetigt_am",
+          "mindestalter",
+          "kontext"
+        ],
+        "title": "FLSitzBestaetigt",
+        "description": "One confirmation a person gave on a row: the seats it answered, its words and the floor its page named."
       },
       "FLSitzKontext": {
         "properties": {

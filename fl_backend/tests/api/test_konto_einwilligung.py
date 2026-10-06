@@ -20,7 +20,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token, mindestalter_for
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung
+from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung, FLSitzBestaetigt
 from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SCHIEDSRICHTER
 from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -121,9 +121,8 @@ def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
 # `NOW` in UTC, as evidence spells its instant.
 AM = "2026-10-03T10:00:00+00:00"
 
-# The clock of every case reading the day's count back, a century ahead: a count expires at the midnight
-# ending its day and the TTL monitor deletes it at its next sweep, so under `NOW` a count read back may be
-# gone, and a case asserting none was spent passes whatever was spent.
+# A century ahead, for every case reading the day's count back: the TTL monitor deletes a count whose day
+# has ended, so under `NOW` one may be gone, and a case asserting none was spent would pass.
 COUNTED_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 COUNTED_AM = "2126-10-03T10:00:00+00:00"
 
@@ -225,7 +224,7 @@ async def _records(database: AsyncDatabase) -> dict[Any, Any]:
     return {row["_id"]: row async for row in database[Collection.SCHIEDSRICHTER].find({}, {"einwilligung": 1})}
 
 
-@pytest.mark.parametrize("model", [FLKontoSitzEinwilligung, FLKontoBewerbungSitzEinwilligung])
+@pytest.mark.parametrize("model", [FLKontoSitzEinwilligung, FLKontoBewerbungSitzEinwilligung, FLSitzBestaetigt])
 def test_a_seat_entry_names_at_least_one_role_and_publishes_the_floor(model: type[BaseModel]):
     """The page parses `rollen` as non-empty, and a contract compared past its bounds would not see the backend serve `[]`."""
 
@@ -525,14 +524,18 @@ class TestTheAccountPagesRead:
         assert (body["spieler"]["spieler_id"], body["spieler"]["erteilbar"]) == (str(PUPIL_OID), True)
         assert [(record["schiedsrichter_id"], record["honorar"]) for record in body["schiedsrichter"]] == [(str(REFEREE_OID), 20)]
         assert [
-            (sitz["team_name"], sitz["saison_id"], sorted(sitz["rollen"]), sitz["medien"], sitz["erteilbar"], sitz["bestaetigt_text_version"])
-            for sitz in body["sitze"]
+            (sitz["team_name"], sitz["saison_id"], sorted(sitz["rollen"]), sitz["medien"], sitz["erteilbar"]) for sitz in body["sitze"]
         ] == [
-            (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True, SEAT_LABEL),
-            (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False, SEAT_LABEL),
+            (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True),
+            (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False),
         ]
         assert all(sitz["medien_angeboten"] for sitz in body["sitze"])
-        assert [sitz["kontext"] for sitz in body["sitze"]] == [
+        # Both seats of the past row answered one page: one confirmation, both roles, under the seat label.
+        assert [[(eintrag["rollen"], eintrag["text_version"]) for eintrag in sitz["bestaetigt"]] for sitz in body["sitze"]] == [
+            [(["stellvertretung"], SEAT_LABEL)],
+            [(["trainer", "ansprechperson"], SEAT_LABEL)],
+        ]
+        assert [sitz["bestaetigt"][0]["kontext"] for sitz in body["sitze"]] == [
             {
                 "vorname": "Ortrud",
                 "team": ROW_NAME_B,
@@ -893,7 +896,7 @@ class TestTheWordsAreFilledAsTheirPageFilledThem:
 
         assert (konto.status_code, bewerbung.status_code, saison.status_code) == (200, 200, 200), (bewerbung.text, saison.text)
         eintraege = {(entry["team_id"], entry["saison_id"]): entry for entry in konto.json()["sitze"]}
-        kontexte = {key: entry["kontext"] for key, entry in eintraege.items()}
+        kontexte = {key: entry["bestaetigt"][0]["kontext"] for key, entry in eintraege.items()}
 
         for (team_id, saison_id), page in (((TEAM_A_OID, PAST_SAISON), bewerbung.json()), ((TEAM_B_OID, ACTIVE_SAISON), saison.json())):
             kontext = kontexte[(str(team_id), saison_id)]
@@ -965,12 +968,18 @@ class TestAPendingApplicationsSeats:
                 "schule": PENDING_SCHULE,
                 "saison_id": ACTIVE_SAISON,
                 "rollen": ["trainer", "ansprechperson"],
-                "bestaetigt_text_version": SEAT_LABEL,
                 "umfang": "kontaktdaten",
                 "medien": True,
                 "nachweis_stand": {"umfang": None, "medien": None},
-                "mindestalter": mindestalter_for(["trainer", "ansprechperson"]),
-                "kontext": {"vorname": "Ortrud", "team": PENDING_SCHULE, "schule": PENDING_SCHULE, "saison": ACTIVE_SAISON},
+                "bestaetigt": [
+                    {
+                        "rollen": ["trainer", "ansprechperson"],
+                        "text_version": SEAT_LABEL,
+                        "bestaetigt_am": "2026-09-03",
+                        "mindestalter": mindestalter_for(["trainer", "ansprechperson"]),
+                        "kontext": {"vorname": "Ortrud", "team": PENDING_SCHULE, "schule": PENDING_SCHULE, "saison": ACTIVE_SAISON},
+                    }
+                ],
             }
         ]
 
@@ -1415,3 +1424,34 @@ def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsapp_answ
         ("kontaktdaten_whatsapp", False),
         ("kontaktdaten", False),
     ]
+
+
+@pytest.mark.db
+def test_seats_confirmed_apart_are_served_as_their_own_confirmations(mongo_replica_set_url: str):
+    """A Trainer confirmed before taking a second seat answered a page for that role alone, at that role's floor."""
+
+    later_label = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
+
+    async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+        await database[Collection.SAISON_TEAMS].update_one(
+            {"team_id": TEAM_A_OID, "saison_id": PAST_SAISON},
+            {
+                "$set": {
+                    "kontakte.ansprechperson.einwilligung.text_version": later_label,
+                    "kontakte.ansprechperson.einwilligung.bestaetigt_am": "2026-09-10",
+                }
+            },
+        )
+        return await http.get(KONTO_PATH, headers=_person(IDENTIFIER))
+
+    response = served(mongo_replica_set_url, steps)
+
+    assert response.status_code == 200, response.text
+    [eintrag] = [sitz for sitz in response.json()["sitze"] if sitz["saison_id"] == PAST_SAISON]
+    assert [
+        (gegeben["rollen"], gegeben["text_version"], gegeben["bestaetigt_am"], gegeben["mindestalter"]) for gegeben in eintrag["bestaetigt"]
+    ] == [
+        (["trainer"], SEAT_LABEL, "2026-09-03", mindestalter_for(["trainer"])),
+        (["ansprechperson"], later_label, "2026-09-10", mindestalter_for(["ansprechperson"])),
+    ]
+    assert mindestalter_for(["trainer"]) < mindestalter_for(["trainer", "ansprechperson"]), "the floors agree, so this case proves nothing"
