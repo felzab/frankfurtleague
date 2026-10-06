@@ -233,11 +233,13 @@ const RECORD = {
 let stored: Record<string, unknown> = { ...RECORD, inactive_since: null };
 /** The registry's read failing, where a case asks it to: with a failure, or with words off their schema. */
 let registerFehlt: boolean | "vertragsbruch" = false;
+/** The read's judgement of each link's deadline, served beside the record. */
+let lapse = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false };
 answerReadsWith((endpoint, schema, params) => {
   if (registerFehlt === true && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error("backend unreachable");
   if (registerFehlt === "vertragsbruch" && endpoint.startsWith("/einwilligung/fassungen/")) return { acknowledged: 1 };
   return endpoint === `/schiedsrichter/${RECORD.id}`
-    ? answer(schema, endpoint, { schiedsrichter: stored })
+    ? answer(schema, endpoint, { schiedsrichter: stored, ...lapse })
     : EMPTIEST_ANSWER(endpoint, schema, params);
 });
 
@@ -560,6 +562,58 @@ describe("the erasure on the referee's editor", () => {
       "Anna Beispiel-Berg",
       "the box keeps the draft over the record the save stored",
     );
+  });
+});
+
+/* The page hands each panel the read's flag for that panel's own link: two booleans of one type,
+   which a swap anywhere between the read and the panel moves with nothing failing to compile. */
+describe("which link the editor's page marks as lapsed", () => {
+  const props = { params: Promise.resolve({ schiedsrichter_id: RECORD.id }), searchParams: Promise.resolve({}) };
+  // One deadline for both links, so only the served flag can tell the two panels apart.
+  const frist = "2026-10-05";
+  const bestaetigung = { verschickt_am: "2026-09-21", erinnert_am: null, frist, zustellung: null };
+  const BESTAETIGT = {
+    umfang: "intern",
+    erteilt_von: "volljaehrig",
+    datum: "2026-09-22",
+    bestaetigt_am: "2026-09-22",
+    text_version: "2026-09-schiedsrichterseite",
+    medien: false,
+    nachweis: { umfang: null, medien: null },
+  };
+
+  /** The text of the panel headed `title`, as the page renders it over the read answered with `served`. */
+  async function shownIn(record: Record<string, unknown>, served: typeof lapse, title: string): Promise<string> {
+    stored = { ...RECORD, inactive_since: null, ...record };
+    lapse = served;
+    try {
+      const { unmount } = render(underRecordingNext(await pageBody(AdminSchiedsrichterEditPage, props)));
+      const text = screen.getByRole("heading", { level: 2, name: title }).closest("section")?.textContent ?? "";
+      unmount();
+      return text;
+    } finally {
+      stored = { ...RECORD, inactive_since: null };
+      lapse = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false };
+    }
+  }
+
+  it("marks the consent link's panel where only that link has lapsed", async () => {
+    const shown = await shownIn({ bestaetigung }, { bestaetigung_abgelaufen: true, adresswechsel_abgelaufen: false }, "Bestätigung");
+
+    assert.match(shown, /abgelaufen/, "the consent link's panel says nothing of the lapse the read served for it");
+  });
+
+  // A confirmed referee: the only one an address change waits on, and one whose consent link no lapse costs.
+  it("marks the address change's panel, and not the consent link's, where only the change has lapsed", async () => {
+    const record = {
+      einwilligung: BESTAETIGT,
+      bestaetigung,
+      adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-10-01", frist, zustellung: null },
+    };
+    const served = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: true };
+
+    assert.match(await shownIn(record, served, "Neue E-Mail-Adresse"), /abgelaufen/, "the change's panel misses the lapse served for it");
+    assert.doesNotMatch(await shownIn(record, served, "Bestätigung"), /abgelaufen/, "the consent link's panel took the change's lapse");
   });
 });
 
