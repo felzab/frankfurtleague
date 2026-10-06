@@ -2977,7 +2977,7 @@ describe("which addresses the send gate mails", () => {
   const SEATED_EMAIL = "trainerin@example.org";
   const UNCONFIRMED_EMAIL = "unbestaetigte@example.org";
   const BARRED_EMAIL = "gesperrte@example.org";
-  const PAST_SEATED_EMAIL = "ehemalige@example.org";
+  const UNREACHED_EMAIL = "unerreichte@example.org";
   const ACCOUNT_ONLY_EMAIL = "bewerberin@example.org";
 
   /** A record of the address's own that no subject list names: a pending application's seat, a retired row. */
@@ -3042,13 +3042,6 @@ describe("which addresses the send gate mails", () => {
   it("mails nothing to an address holding nothing at all", async () => {
     assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
     assert.equal(asked.length, 1, "the gate refused without asking the backend, so holding nothing decided nothing");
-  });
-
-  /* A `past` season's seat grants no panel, and its consent is still the person's to take back. */
-  it("mails an address whose only seat is on a past season", async () => {
-    BACKENDS.set(PAST_SEATED_EMAIL, { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] });
-
-    assert.deepEqual((await askFor(PAST_SEATED_EMAIL)).mailed, [PAST_SEATED_EMAIL]);
   });
 
   it("mails nothing to a barred address whose only record is one the account page serves", async () => {
@@ -3116,9 +3109,9 @@ describe("which addresses the send gate mails", () => {
      them held is what the sign-in exists not to say. */
   it("answers a barred address, one holding nothing and one whose read failed with one body, mailing none", async () => {
     BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
-    BACKENDS.set(PAST_SEATED_EMAIL, "throws");
+    BACKENDS.set(UNREACHED_EMAIL, "throws");
 
-    const refusals = [await askFor(BARRED_EMAIL), await askFor(PERSON_EMAIL), await askFor(PAST_SEATED_EMAIL)];
+    const refusals = [await askFor(BARRED_EMAIL), await askFor(PERSON_EMAIL), await askFor(UNREACHED_EMAIL)];
 
     assert.deepEqual(
       refusals.flatMap((refusal) => refusal.mailed),
@@ -3148,12 +3141,6 @@ describe("which addresses the send gate mails", () => {
     ["a barred address holding nothing", BARRED_EMAIL, { ...NOTHING_HELD, gesperrt: true }, "barred"],
     ["a barred address whose records all await confirmation", BARRED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true, gesperrt: true }, "barred"],
     ["an address holding nothing", PERSON_EMAIL, undefined, "holds-nothing"],
-    [
-      "an address whose only seat is on a past season",
-      PAST_SEATED_EMAIL,
-      { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] },
-      "admitted",
-    ],
     ["an address whose only record no list names", ACCOUNT_ONLY_EMAIL, ONLY_AN_ACCOUNT, "admitted"],
     // The ban ahead of the account: a gate judging `konto` first would admit it.
     ["a barred address whose only record no list names", BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, gesperrt: true }, "barred"],

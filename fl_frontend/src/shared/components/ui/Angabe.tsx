@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+/** What a stored fact reads where the record holds none, on every page that shows one. */
+export const NICHT_HINTERLEGT = "Nicht hinterlegt";
+
 /** One stored fact. A `<dl>` is its only valid parent: the pair is what makes the value a fact about the label. */
 export function Angabe({ label, children }: { label: string; children: ReactNode }) {
   return (

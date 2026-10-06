@@ -153,4 +153,4 @@ export const QA_QUESTIONS: QaQuestion[] = [
  * The day the privacy notice's words took effect: its „Stand“, and the sitemap's date for it. Hand-set,
  * since a live `new Date()` is a dynamic read, which would take the notice off the static shell.
  */
-export const DATENSCHUTZ_STAND = "2026-10-04";
+export const DATENSCHUTZ_STAND = "2026-10-06";

@@ -41,7 +41,6 @@ const BACKEND_ONLY: Record<string, string> = {
   FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
   FLRegistrierung: "the row of that read, which no page consumes",
   FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
-  FLRegistrierungEinwilligung: "that row's consent block, which no page consumes",
   FLRegistrierungEntscheidungZeile: "that row's decision block, which no page consumes",
 };
 
@@ -347,7 +346,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 301;
+const EXPECTED_PAIRS = 303;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

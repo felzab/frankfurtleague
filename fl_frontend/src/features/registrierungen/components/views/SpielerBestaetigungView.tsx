@@ -127,7 +127,7 @@ type HinweisSchluessel = SpielerAbsatzSchluessel & SpielerWiederkehrendAbsatzSch
 function wahlZeilen(fassung: SpielerSeitenFassung, umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
   return [
     ...(umfang === null ? [] : [{ label: "Auf der Website", wert: fassung.bedienelemente[umfang] }]),
-    ...(medien === null ? [] : [{ label: "Fotos und Videos", wert: medien ? "erlaubt" : "nicht erlaubt" }]),
+    ...(medien === null ? [] : [{ label: "Fotos, Videos und Interviews", wert: medien ? "erlaubt" : "nicht erlaubt" }]),
   ];
 }
 
@@ -513,15 +513,14 @@ function SpielerBestaetigungForm({
               />
             </p>
             <GespeicherteAngaben zeilen={wahlZeilen(fassung, ansicht.umfang, ansicht.medien)} />
+            {/* The way there alone: the stamped paragraph above already says what the account page changes. */}
             <p className={ABSATZ_CLASSES}>
-              Was von Dir veröffentlicht werden darf, änderst Du unter{" "}
               <Link
                 href={KONTO_HREF}
                 prefetch={false}
                 className={textLink()}>
-                Konto
+                Zum Konto
               </Link>
-              .
             </p>
           </section>
         )}

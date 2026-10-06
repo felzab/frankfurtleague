@@ -54,13 +54,17 @@ DATABASE_NAME = worker_database("fl_drosselung_test")
 CONFIG = config_for(DATABASE_NAME)
 
 BERLIN = ZoneInfo("Europe/Berlin")
-NOW = datetime(2026, 4, 1, 12, tzinfo=BERLIN)
-TODAY = "2026-04-01"
+# A century ahead of the real clock: a count expires at the midnight ending `NOW`'s day, and the TTL
+# monitor deletes an expired one at its next sweep, under a case reading it back. The birthdates move with it.
+NOW = datetime(2126, 4, 1, 12, tzinfo=BERLIN)
+TODAY = NOW.date().isoformat()
 SECONDS_TO_MIDNIGHT = 12 * 60 * 60
 # The midnight ending `TODAY`, as the driver reads a stored date back: naive, in UTC.
-MIDNIGHT_UTC = datetime(2026, 4, 1, 22)
+MIDNIGHT_UTC = datetime(2126, 4, 1, 22)
 # Half a minute into the next German day.
-NEXT_DAY = datetime(2026, 4, 2, 0, 0, 30, tzinfo=BERLIN)
+NEXT_DAY = datetime(2126, 4, 2, 0, 0, 30, tzinfo=BERLIN)
+TOMORROW = NEXT_DAY.date().isoformat()
+NEXT_MIDNIGHT_UTC = datetime(2126, 4, 2, 22)
 
 ACTIVE_SAISON = "2026"
 TEAM_A = ObjectId("6890a1b2c3d4e5f607930001")
@@ -73,13 +77,13 @@ ANY_REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607930098")
 # One mailbox holding all three Funktionen, so a count is seen to be the Funktion's and not the mailbox's.
 PERSON = "anna.drossel@schule.de"
 OTHER_SEAT = "bernd.drossel@schule.de"
-ADULT_BIRTHDATE = "2000-05-09"
+ADULT_BIRTHDATE = "2100-05-09"
 # A second mailbox holding all three, under the media age and with every media choice off, so a grant
 # reaches every refusal a consent press can meet.
 YOUNG = "carla.drossel@schule.de"
 YOUNG_PUPIL = ObjectId("6890a1b2c3d4e5f607930012")
 YOUNG_REFEREE = ObjectId("6890a1b2c3d4e5f607930022")
-YOUNG_BIRTHDATE = "2010-05-09"
+YOUNG_BIRTHDATE = "2110-05-09"
 
 API = f"/api/v{API_VERSION}"
 KADER_ROW = f"{API}/spieler/kader/{TEAM_A}/{ACTIVE_SAISON}/{NOT_IN_THE_SQUAD}"
@@ -359,14 +363,14 @@ class TestAnExhaustedCount:
                 today = await http.patch(KADER_ROW, json=KADER_EDIT, headers=as_person(PERSON))
             async with app_client(mongo_replica_set_url, app=_first(), now=NEXT_DAY) as http:
                 tomorrow = await http.patch(KADER_ROW, json=KADER_EDIT, headers=as_person(PERSON))
-            return today, tomorrow, await database[Collection.DROSSELUNG].find_one({"_id": count_id("kontakt", PERSON, "2026-04-02")})
+            return today, tomorrow, await database[Collection.DROSSELUNG].find_one({"_id": count_id("kontakt", PERSON, TOMORROW)})
 
         today, tomorrow, fresh = seeded(mongo_replica_set_url, steps)
 
         assert refused_until_midnight(today)
         assert answered(tomorrow) == (404, DOCUMENT_NOT_FOUND)
         # Its own row, expiring at the midnight ending the day it counts.
-        assert (fresh["n"], fresh["ablauf"]) == (1, datetime(2026, 4, 2, 22))
+        assert (fresh["n"], fresh["ablauf"]) == (1, NEXT_MIDNIGHT_UTC)
 
 
 @dataclass(frozen=True)

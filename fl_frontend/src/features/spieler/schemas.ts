@@ -50,23 +50,16 @@ export const FLEinwilligungNachweiseSchema = z.object({
 export type FLEinwilligungNachweise = z.infer<typeof FLEinwilligungNachweiseSchema>;
 
 /**
- * Mirrors `FLMedienStand` — the instant the media choice's evidence carried when the page was served,
- * which a consent press sends back unchanged as its precondition: never derived here.
+ * Mirrors `FLEinwilligungStand` — each choice's stand as the page was served it, null where no evidence
+ * backs that choice: a consent press echoes it as its precondition, so nothing here reads or derives it.
  */
-export const FLMedienStandSchema = z.object({
-  medien: z.string().nullable(),
-});
-export type FLMedienStand = z.infer<typeof FLMedienStandSchema>;
-
-/** Mirrors `FLEinwilligungStand` — `FLMedienStand` for a control moving both choices. */
-export const FLEinwilligungStandSchema = FLMedienStandSchema.extend({
+export const FLEinwilligungStandSchema = z.object({
   umfang: z.string().nullable(),
+  medien: z.string().nullable(),
 });
 export type FLEinwilligungStand = z.infer<typeof FLEinwilligungStandSchema>;
 
-// The press echoes the stand as the read served it, so the payloads are the read shapes themselves.
-export const FLMedienStandPayloadSchema = FLMedienStandSchema;
-export type FLMedienStandPayload = z.infer<typeof FLMedienStandPayloadSchema>;
+// The press echoes the stand as the read served it, so the payload is the read shape itself.
 export const FLEinwilligungStandPayloadSchema = FLEinwilligungStandSchema;
 export type FLEinwilligungStandPayload = z.infer<typeof FLEinwilligungStandPayloadSchema>;
 
