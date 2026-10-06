@@ -250,7 +250,6 @@ const destinationOf = (session: AdminSessionDouble): string => (session === null
 
 const answering = (answer: unknown): Promise<unknown> => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
 
-// Served in the real guard's shape: the admin shell reads the step-up window off the row.
 /**
  * The session, recorded as the request's actor where it is an administrator's, as the real
  * `getAdminSession` records it. Imported at the call, so the scope is the one the code under test loaded.
@@ -264,6 +263,7 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
     setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", token: "doubled-actor-token-not-a-credential" });
   }
 
+  // Served in the real guard's shape: the admin shell reads the step-up window off the row.
   return answering(served);
 }
 

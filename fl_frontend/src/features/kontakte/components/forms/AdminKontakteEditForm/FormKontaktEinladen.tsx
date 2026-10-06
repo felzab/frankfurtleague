@@ -12,7 +12,7 @@ import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_UNKLAR } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
@@ -53,6 +53,7 @@ export function FormKontaktEinladen({
       router,
       pending: setSendet,
       write: () => einladeKontaktAction({ team_id: teamId, saison_id: saisonId, rolle: rolle }),
+      repair: LINK_ERNEUT_OHNE_ANTWORT,
     });
     if (res === null) return;
 

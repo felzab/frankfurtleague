@@ -272,3 +272,14 @@ import { useFormState as domFormState } from "react-dom"; // expect: action-stat
 declare const ReactDOM: { useFormState: unknown };
 export const FORM_STATE_TAKEN = [domFormState, ReactDOM.useFormState]; // expect: action-state
 export const FORM_STATE_NAMED = "useFormState"; // expect: action-state
+declare const ReactDom: { useFormState: unknown; useActionState: unknown };
+const { useFormState: destructuredFormState } = ReactDom; // expect: action-state
+const { useActionState } = React; // expect: action-state
+export const STATE_DESTRUCTURED = [destructuredFormState, useActionState];
+declare const unansweredAction: (error: unknown, repair?: string) => unknown;
+declare const actionError: { unansweredAction: typeof unansweredAction };
+declare const rejection: unknown;
+export const UNANSWERED_EMPTY = unansweredAction(undefined, "Versuche es erneut."); // expect: unanswered-rejection
+export const UNANSWERED_NULL = actionError.unansweredAction(null); // expect: unanswered-rejection
+export const UNANSWERED_VOID = unansweredAction(void 0); // expect: unanswered-rejection
+export const UNANSWERED_READ = [unansweredAction(rejection), unansweredAction(rejection, undefined)];

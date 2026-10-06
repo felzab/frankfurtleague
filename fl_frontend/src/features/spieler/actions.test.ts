@@ -454,6 +454,27 @@ describe("the player editor over a registry it cannot read", () => {
   });
 });
 
+describe("a player holding no surname", () => {
+  /* The squad's one full-name rule names such a player by the first name alone; a page joining the two
+     fields itself prints the missing surname as „null". */
+  it("is named by the first name alone on the list and over the editor", async () => {
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
+    const list = await pageBody(AdminSpielerPage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: SAISON_ID }) });
+
+    assert.deepEqual(
+      (list.props as { spieler: { fullName: string }[] }).spieler.map(({ fullName }) => fullName),
+      ["Lena"],
+      "the list names the player otherwise",
+    );
+
+    render(underSaison(await editorPageBody()));
+    const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
+
+    assert.ok(headings.includes("Lena"), `the editor is headed otherwise: ${JSON.stringify(headings)}`);
+    assert.ok(!document.body.textContent.includes("null"), "the editor prints a missing surname");
+  });
+});
+
 describe("REQ-SQUAD-001 where no form is on screen", () => {
   /* Two of the four writes that raise it are row buttons: a reactivate names the row's STORED club,
      which a replacement can take out of the season. A refusal carrying only a field message reaches

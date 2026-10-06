@@ -19,7 +19,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_UNKLAR } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
@@ -34,6 +34,9 @@ export const ADRESSWECHSEL_WARTET = "Neue Adresse wartet auf Bestätigung";
  */
 export const ADRESSWECHSEL_ERNEUT = benannt("Link erneut senden", "Neue E-Mail-Adresse");
 export const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
+
+/** Unlike a re-send, a second discard of a change already gone is refused, so the page, reloaded, decides. */
+const VERWERFEN_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.";
 
 /**
  * Shown only while a confirmed referee's new address waits on its mailbox. **The address above is
@@ -66,6 +69,7 @@ export function FormAdresswechselSection({
       router,
       pending: (running) => setLaeuft(running ? art : null),
       write: () => (art === "senden" ? einladeAdresswechselAction : verwirfAdresswechselAction)({ id: schiedsrichterId }),
+      repair: art === "senden" ? LINK_ERNEUT_OHNE_ANTWORT : VERWERFEN_OHNE_ANTWORT,
     });
     if (res === null) return;
 

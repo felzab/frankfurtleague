@@ -27,7 +27,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_UNKLAR } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
@@ -171,6 +171,7 @@ export function FormBestaetigungSection({
       router,
       pending: setSendet,
       write: () => einladeSchiedsrichterAction({ id: schiedsrichterId }),
+      repair: LINK_ERNEUT_OHNE_ANTWORT,
     });
     if (res === null) return;
 

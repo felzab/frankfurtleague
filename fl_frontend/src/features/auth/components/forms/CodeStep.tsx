@@ -14,7 +14,7 @@ import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { BRAND_INK_OUTSIDE_PROSE_CLASSES } from "@/shared/components/ui/textLink";
 import { appToast } from "@/shared/utils/appToast";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
@@ -134,7 +134,7 @@ export function CodeStep({
 
     if (!checked.answered) {
       setIsChecking(false);
-      appToast.danger("Nicht angemeldet", { description: checked.error });
+      appToast.danger(checked.wroteNothing ? "Nicht angemeldet" : UNKLAR_TITEL, { description: checked.error });
       return;
     }
 

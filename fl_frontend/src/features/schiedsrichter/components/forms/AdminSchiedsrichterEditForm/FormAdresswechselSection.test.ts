@@ -11,7 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/schemas.ts";
@@ -97,40 +97,49 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
   });
 });
 
-/* A send saves nothing, so a send nobody can tell landed is titled by what is unknown of it rather than
-   by a save's „gespeichert“, and the repair says sending again is safe. */
-describe("an address link send nobody can tell landed", () => {
-  it("is titled by the link it may have sent, and offers sending again", async () => {
-    toasts.length = 0;
-    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
-    render(
-      underNext(
-        h(FormAdresswechselSection, {
-          schiedsrichterId: "6890a1b2c3d4e5f607800001",
-          adresswechsel: OFFEN,
-          istAbgelaufen: false,
-          isDirty: false,
-        }),
-        {
-          router: nextRouter(),
-        },
-      ),
-    );
+describe("a press of the address change's link nobody can tell landed", () => {
+  /* No answer came back. A send saves nothing, so its title names the link, and sending again is safe;
+     a second discard of a change already gone is refused, so the page, reloaded, decides. */
+  const arms: Record<string, { control: string; title: string; repair: string }> = {
+    send: {
+      control: ADRESSWECHSEL_ERNEUT,
+      title: "Unklar, ob der Link verschickt wurde",
+      repair: "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+    },
+    discard: {
+      control: ADRESSWECHSEL_VERWERFEN,
+      title: "Unklar, ob es gespeichert wurde",
+      repair: "Prüfe die Verbindung und lade die Seite neu. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.",
+    },
+  };
+  for (const [arm, { control, title, repair }] of Object.entries(arms)) {
+    it(`titles the ${arm} by what is unknown of it, names its own next step, and reads the page again`, async () => {
+      answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
+      const { router, seen } = recordingRouter();
+      const before = toasts.length;
+      const { unmount } = render(
+        underNext(
+          h(FormAdresswechselSection, {
+            schiedsrichterId: "6890a1b2c3d4e5f607800001",
+            adresswechsel: OFFEN,
+            istAbgelaufen: false,
+            isDirty: false,
+          }),
+          { router },
+        ),
+      );
 
-    await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT }));
-    await act(answered);
+      await userEvent.setup().click(screen.getByRole("button", { name: control }));
+      await act(answered);
 
-    await waitFor(() =>
-      assert.deepEqual(
-        toasts.map((raised) => [raised.title, raised.description, raised.options?.outcome]),
-        [
-          [
-            "Unklar, ob der Link verschickt wurde",
-            "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
-            "unknown",
-          ],
-        ],
-      ),
-    );
-  });
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.slice(before).map((shown) => [shown.title, shown.description, shown.options?.outcome]),
+          [[title, repair, "unknown"]],
+        ),
+      );
+      assert.equal(seen.refresh, 1, `the ${arm} left the page unread after a press nobody can tell landed`);
+      unmount();
+    });
+  }
 });

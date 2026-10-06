@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
+
+import ts from "typescript";
 
 import { isRefusalCode } from "@/core/errors.ts";
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
+import { routeHandlerFiles } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 /* The request the public mappers' reads and the undo spine load in, doubled before the `await import`s below. */
@@ -176,6 +182,7 @@ describe("every published refusal against the mapper answering it", () => {
 /** Each undo route's replay table, with the operations its replay sends. */
 const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...operations: string[]])[] = [
   [kontakte.KONTAKTE_REPLAY_REFUSALS, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
+  [kontakte.STALE_BLOCK_REFUSAL, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
   [saisons.SAISON_REPLAY_REFUSALS, "PATCH /saisons/{saison_id}"],
   [schiedsrichter.SCHIEDSRICHTER_REPLAY_REFUSALS, "PATCH /schiedsrichter/{schiedsrichter_id}"],
   [spiele.PAARUNGEN_REPLAY_REFUSALS, "PATCH /spiele/paarungen"],
@@ -185,16 +192,63 @@ const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...
   [teams.TEAM_REPLAY_REFUSALS, "PATCH /teams/{team_id}", "PATCH /teams/{team_id}/saisons/{saison_id}"],
 ];
 
+const SRC = path.resolve(import.meta.dirname, "..");
+
+/** Every undo route Next serves: a route handler under `api/admin/<slice>/undo`. */
+const UNDO_ROUTES = routeHandlerFiles(15).filter((file) => /^api\/admin\/[^/]+\/undo\/route\.tsx?$/.test(relativeTo(file)));
+
+function relativeTo(file: string, root = path.join(SRC, "app")): string {
+  return path.relative(root, file).split(path.sep).join("/");
+}
+
+/**
+ * Each table `file` hands `refusedReplay` or `replayRefusal`, read off its syntax tree, as the module
+ * it imports the table from exports it: `undefined` for one no import reaches, a table of the route's own.
+ */
+async function replayTablesOf(file: string): Promise<{ name: string; table: unknown }[]> {
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const imported = new Map<string, { module: string; name: string }>();
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const specifier = statement.moduleSpecifier.text;
+    const resolved = specifier.startsWith("@/") ? path.join(SRC, specifier.slice(2)) : path.resolve(path.dirname(file), specifier);
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings === undefined || !ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements)
+      imported.set(element.name.text, { module: resolved, name: (element.propertyName ?? element.name).text });
+  }
+
+  const passed: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && /^(?:refusedReplay|replayRefusal)$/.test(node.expression.text)) {
+      passed.push(node.arguments[1]?.getText(source) ?? "");
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+
+  return Promise.all(
+    passed.map(async (name) => {
+      const from = imported.get(name);
+      if (from === undefined) return { name, table: undefined };
+      const exports = (await import(pathToFileURL(`${from.module}.ts`).href)) as Record<string, unknown>;
+      return { name, table: exports[from.name] };
+    }),
+  );
+}
+
 describe("every undo route's replay table", () => {
-  /* Read off the slices' exports rather than this table, so a replay table left out of it fails here
-     instead of going unjudged. */
-  it("is judged here, each one a slice exports", () => {
-    const exported = [kontakte, saisons, schiedsrichter, spiele, spieler, spielorte, spieltage, teams].flatMap((slice) =>
-      Object.entries(slice).filter(([name]) => name.endsWith("_REPLAY_REFUSALS")),
+  /* Read off the undo routes rather than this table, so a table a route replays through and this file
+     leaves out, or one the route keeps to itself, fails here instead of going unjudged. */
+  it("is judged here, each one an undo route replays through", async () => {
+    const replayed = (await Promise.all(UNDO_ROUTES.map(async (file) => ({ file, tables: await replayTablesOf(file) })))).flatMap(
+      ({ file, tables }) => tables.map(({ name, table }) => ({ route: relativeTo(file), name, table })),
     );
 
+    assert.ok(UNDO_ROUTES.length >= 8, `${String(UNDO_ROUTES.length)} undo routes, under this sweep's floor of 8`);
+    assert.ok(replayed.length >= UNDO_ROUTES.length, "the reader found fewer replay tables than undo routes");
     assert.deepEqual(
-      exported.filter(([, table]) => !REPLAYED.some(([judged]) => judged === table)).map(([name]) => name),
+      replayed.filter(({ table }) => !REPLAYED.some(([judged]) => judged === table)).map(({ route, name }) => `${route}: ${name}`),
       [],
       "a replay table this file does not judge",
     );
