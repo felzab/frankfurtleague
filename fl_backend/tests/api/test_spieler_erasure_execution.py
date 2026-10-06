@@ -23,7 +23,7 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spieler_document
-from tests.whole_database import every_collection_as_text
+from tests.whole_database import where_held
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -387,14 +387,14 @@ class TestNothingOfTheirsIsLeftAnywhere:
             await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
             await call_erasure(database, client, spieler_id)
 
-            return await every_collection_as_text(database)
+            return await where_held(database, ERASED_VORNAME, f"{OTHER_VORNAME}-Mustermann")
 
-        rendered = on_a_league(mongo_replica_set_url, body)
+        held = on_a_league(mongo_replica_set_url, body)
 
         # Both surnames carry the given name, so one substring answers for all three of their values.
-        assert ERASED_VORNAME not in rendered
+        assert held[ERASED_VORNAME] == []
         # Their REPLACED surname, not their live one: only what an edit replaced is ever in the log.
-        assert f"{OTHER_VORNAME}-Mustermann" in rendered
+        assert held[f"{OTHER_VORNAME}-Mustermann"]
 
 
 class TestAPupilWhoNeverJoinedASquad:
@@ -421,12 +421,12 @@ class TestAPupilWhoNeverJoinedASquad:
             spieler_id = await a_pupil_who_never_joined_a_squad(database)
             await call_erasure(database, client, spieler_id)
 
-            return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await every_collection_as_text(database)
+            return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await where_held(database, LONE_VORNAME)
 
-        remaining, rendered = on_a_league(mongo_replica_set_url, body)
+        remaining, held = on_a_league(mongo_replica_set_url, body)
 
         assert remaining == 0
-        assert LONE_VORNAME not in rendered
+        assert held == {LONE_VORNAME: []}
 
 
 class TestTheErasureIsRefusedUntilTheyAreRetired:

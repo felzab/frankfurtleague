@@ -58,7 +58,7 @@ from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.records import record_collections
-from tests.whole_database import every_collection_as_text
+from tests.whole_database import where_held
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -608,6 +608,6 @@ class TestTheErasure:
                 germany_now=NOW,
             )
 
-            return await every_collection_as_text(database)
+            return await where_held(database, NEW_EMAIL)
 
-        assert NEW_EMAIL not in on_a_league(mongo_replica_set_url, body)
+        assert on_a_league(mongo_replica_set_url, body) == {NEW_EMAIL: []}
