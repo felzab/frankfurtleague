@@ -26,13 +26,10 @@ function redactedParameterNames(): string[] {
   return erste === undefined ? [] : erste.filter((name) => weitere.every((arm) => arm.includes(name)));
 }
 
-// In `core` rather than `shared/testing`: `core`'s own tests call it, and
-// `eslint.config.mjs :: LAYER_BOUNDARY` lets nothing there reach `shared`. It reads the tree off
-// disk, so `:: TEST_ONLY` keeps production code out.
 /**
- * Fails unless `link` carries its credential in a parameter the edge redacts. The name is the whole of
- * what the edge matches on (`docs/logging/spec.md :: L11`), so any other writes the credential into the
- * access line and the referer.
+ * Fails unless `link`'s credential rides in a parameter the edge redacts, matched by name alone
+ * (`docs/logging/spec.md :: L11`). In `core` because core's tests call it and import no `shared`;
+ * `eslint.config.mjs :: TEST_ONLY` keeps it out of production code.
  */
 export function assertRedactedAtTheEdge(link: string): void {
   const redacted = redactedParameterNames();
