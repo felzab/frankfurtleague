@@ -13,8 +13,9 @@ from typing import Any, Final
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze
-from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
+from app.api.kontakte.services import rows_possibly_naming
 from app.api.schiedsrichter.services import vorname_of
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
@@ -203,8 +204,8 @@ def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
-                **{f"bestaetigungen.{slot}.verschickt_am": 1 for slot in KONTAKT_SLOTS},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
+                **{f"bestaetigungen.{slot}.verschickt_am": 1 for slot in KONTAKT_ROLLEN},
             }
         },
         {"$sort": {"saison_id": -1, "name": 1, "team_id": 1}},
@@ -306,7 +307,7 @@ def build_selbst_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "schule.team_name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("vorname", "email", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "einwilligung")},
             }
         },
         {"$sort": {"saison_id": -1, "_id": 1}},

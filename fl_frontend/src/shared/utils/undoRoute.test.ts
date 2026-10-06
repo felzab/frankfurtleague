@@ -91,8 +91,9 @@ async function undo(restore: () => Promise<UndoReport>, origin: string | null = 
     mutationName: "undoRouteTest",
     schema: z.object({ id: z.string() }),
     restore,
-    invalidate: (payload) => {
+    tags: (payload) => {
       invalidated.push(payload);
+      return [];
     },
   })) as unknown as { body: Undone["answer"]; status: number };
 

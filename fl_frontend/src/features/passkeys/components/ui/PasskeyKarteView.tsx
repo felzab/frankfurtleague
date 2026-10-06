@@ -22,6 +22,7 @@ import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow } from "@/shared/utils/focusAfterWrite";
 
 import { PASSKEY_NAME_MAX, PasskeyNamePayloadSchema } from "../../schemas";
@@ -43,11 +44,12 @@ export const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
  * The name a card's control goes by for a screen reader, which meets it once per card: the passkey's
  * own name, or its set-up date where it has none but the fallback (WCAG 2.4.6).
  */
-function kontrollname(karte: PasskeyKarte, tat: "löschen" | "umbenennen"): string {
+function kontrollname(karte: PasskeyKarte, worte: "Löschen" | "Umbenennen"): string {
   const name = passkeyAnzeigename(karte);
-  return karte.name === null && karte.anbieter === null
-    ? `Passkey vom ${DATUM.format(new Date(karte.eingerichtetAm))} ${tat}`
-    : `Passkey „${name}“ ${tat}`;
+  return benannt(
+    worte,
+    karte.name === null && karte.anbieter === null ? `Passkey vom ${DATUM.format(new Date(karte.eingerichtetAm))}` : `Passkey „${name}“`,
+  );
 }
 
 /** The place the rename control and the form it opens share. */
@@ -145,7 +147,7 @@ export function PasskeyKarteView({
                 <Button
                   type="button"
                   variant="secondary"
-                  aria-label={kontrollname(karte, "umbenennen")}
+                  aria-label={kontrollname(karte, "Umbenennen")}
                   onPress={() => setIsRenaming(true)}
                   className={formButton({ intent: "cancel" })}>
                   <PencilToLine
@@ -162,7 +164,7 @@ export function PasskeyKarteView({
                 confirm={twoPress}
                 reason={reason}
                 resting="Löschen"
-                restingName={kontrollname(karte, "löschen")}
+                restingName={kontrollname(karte, "Löschen")}
                 armed="Ja, Passkey löschen"
                 running="Löscht..."
                 icon={

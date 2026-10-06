@@ -7,9 +7,12 @@
 // below it: `include` is read relative to this file, and a copy inside a category would type-check
 // that category alone.
 
+// `include` reaches the orchestration skill's tools too, python no other scope reads; the gate's
+// ruff unit lists the same folder.
+
 // `extraPaths` names the directories a run puts on `sys.path` for itself, which pyright emulates
-// for none of them: `lib/` through each entry point's own insert, `checks/` because python seeds
-// the script's directory.
+// for none of them: `lib/` through each entry point's own insert, `checks/` and the tools' folder
+// because python seeds the script's directory.
 
 // `venvPath` and `venv` name the backend's virtualenv, the one every python scope of the gate runs
 // in, so the documentation gate's markdown-it-py import resolves for the gate and for a plain
@@ -19,8 +22,8 @@
 // for the reason its own block records, so the two settings are measured separately rather than
 // one following the other.
 {
-  "include": ["."],
-  "extraPaths": ["lib", "checks"],
+  "include": [".", "../.claude/skills/orchestration/tools"],
+  "extraPaths": ["lib", "checks", "../.claude/skills/orchestration/tools"],
   "venvPath": "../fl_backend",
   "venv": ".venv",
   "typeCheckingMode": "standard",

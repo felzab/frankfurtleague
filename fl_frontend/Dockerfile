@@ -90,13 +90,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Root-owned, as public/ is: only the preflights read these
-# (`scripts/ops/deploy.sh :: check_frontend_env_names`, `scripts/lib/_lib.sh :: check_frontend_secret_files`),
-# and the running app has no business rewriting them.
+# Root-owned, as public/ is: only the deploy's preflight reads these
+# (`scripts/ops/deploy.sh :: check_frontend_env_names`), and the running app has no business rewriting them.
 
-# The mode is spelled rather than left to the builder's umask: the two readers run as the host's user
-# and as the image's, neither root, so a 0600 pair would answer the advisory on every deploy, never
-# the refusal.
+# The mode is spelled rather than left to the builder's umask: the reader runs as the host's user, not
+# root, so a 0600 pair would answer the advisory on every deploy, never the refusal.
 COPY --from=builder --chmod=644 /app/environment-names.json /app/scripts/check-environment-names.mjs ./
 
 USER nextjs

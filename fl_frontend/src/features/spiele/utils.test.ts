@@ -1447,6 +1447,22 @@ describe("the names a score surface sets", () => {
   }
 });
 
+describe("a card's info control", () => {
+  /* „Spielinfo“ is the only word the icon shows, in its tooltip, so speech input says it: the name opens with it
+     (WCAG 2.5.3) and the fixture follows. */
+  const open = () => undefined;
+  const CARDS: readonly [string, string][] = [
+    ["SpielCard", renderMarkup(SpielCard, { spielData: CARD_SPIEL, onOpenInfoModal: open, today: TODAY, isFinishedSaison: false })],
+    ["SpielCardCompact", renderMarkup(SpielCardCompact, { spielData: CARD_SPIEL, onOpenInfoModal: open, isFinishedSaison: false })],
+  ];
+
+  for (const [name, html] of CARDS) {
+    it(`${name} is named by its tooltip's word, then the fixture`, () => {
+      assert.match(html, new RegExp(`aria-label="Spielinfo: Spiel Nr\\. ${String(CARD_SPIEL.spiel_nr)}"`));
+    });
+  }
+});
+
 describe("the tint a score carries", () => {
   /* `ergebnisTone` decides every grade and is held above, so one fixture per grade shows a surface
      paints that decision through `ERGEBNIS_INK_CLASSES` rather than through a palette of its own. */

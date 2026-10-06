@@ -532,6 +532,18 @@ const PASSKEY_DELETION = {
     "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts (docs/frontend/spec.md :: I312).",
 };
 
+/**
+ * React's `useActionState` hands an action's rejection to the nearest error boundary, which reads nothing
+ * of it, the edge's own 429 included. The hook the codebase takes it through answers that one.
+ */
+const ACTION_STATE_BAN = {
+  selector:
+    'ImportSpecifier[imported.name="useActionState"], MemberExpression[property.name="useActionState"], Literal[value="useActionState"]',
+  message:
+    "Take `useActionState` through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I838).",
+  exempt: ["src/shared/hooks/useAnsweredActionState.ts"],
+};
+
 /** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
 const handedOnError = (object) =>
   [
@@ -858,6 +870,9 @@ function takenFromLoad(pattern, names) {
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
  * spell it, `tests` puts test files in the population, and `production: false` takes production out.
  */
+/** A call declaring a write's cache tags: `invalidatesOnWrite`, or a slice's helper over it (`invalidateSpieler`). */
+const DECLARES_TAGS = "CallExpression[callee.name=/^invalidates?[A-Z]/]";
+
 const SOURCE_BANS = [
   {
     // A test's router double counts `seen.back` and destructures `back` off itself, which the
@@ -869,6 +884,7 @@ const SOURCE_BANS = [
   },
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
+  ACTION_STATE_BAN,
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
     // A module double's source text, or a specifier held in a name for a later load. A path assembled
@@ -1116,13 +1132,29 @@ const SOURCE_BANS = [
     exempt: ["src/shared/utils/adminMutation.ts"],
   },
   {
+    // The FIRST declaration in a block, after an awaited statement of that block: a write awaited before
+    // it never has its tags dropped. A later one stays free, a tag known only from the answer.
+    selector: `BlockStatement > :has(AwaitExpression) ~ :has(${DECLARES_TAGS}):not(BlockStatement > :has(${DECLARES_TAGS}) ~ *)`,
+    message:
+      "Declare a write's first cache tags before the body's first `await`: a write awaited ahead of the declaration whose answer is lost drops nothing.",
+  },
+  {
+    // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
+    // write may stand, where a drop of its own after the answer misses a lost one.
+    selector:
+      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], MemberExpression[property.name=/^revalidate(?:Tag|Path)$/])',
+    message:
+      "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts, an undo route's `tags` under fl_frontend/src/shared/utils/undoRoute.ts.",
+    exempt: ["src/shared/utils/publicRoute.ts", "src/shared/utils/undoRoute.ts"],
+  },
+  {
     // Per function, so a module caching a public read beside a caller's own is held too, which the
     // module list below cannot do.
     // Anchored on the directive: esquery's `:has` takes no chained child combinator.
     selector:
       ':function:has(CallExpression[callee.name="runPersonRead"], Property[key.name="authType"][value.value="admin"]) > BlockStatement > ExpressionStatement[directive=/^use cache/]',
     message:
-      "A read made for its caller is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares (docs/frontend/spec.md §1.2).",
+      "A function reading for its caller directly, through runPersonRead or with the admin key, is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares (docs/frontend/spec.md §1.2).",
   },
 ];
 

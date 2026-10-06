@@ -15,15 +15,8 @@ import type * as ConfigModule from "./config.ts";
 
 registerDoubles();
 
-const {
-  DECLARED_ENVIRONMENT_NAMES,
-  failingVariableNames,
-  INTERNAL_API_KEY,
-  PRODUCTION_REQUIRED_SECRET_FILES,
-  refuseInvalidEnvironment,
-  REQUIRED_ENVIRONMENT_NAMES,
-  REQUIRED_SECRET_FILES,
-} = await import("./config.ts");
+const { DECLARED_ENVIRONMENT_NAMES, failingVariableNames, INTERNAL_API_KEY, refuseInvalidEnvironment, REQUIRED_ENVIRONMENT_NAMES } =
+  await import("./config.ts");
 
 const LENGTH = 64;
 const pad = (head: string): string => head + "k".repeat(LENGTH - [...head].length);
@@ -368,26 +361,6 @@ describe("the names the preflight demands a host's file carry", () => {
     });
 
     assert.deepEqual(refused, []);
-  });
-
-  /* The files' two sets, derived by booting without each file in turn: the preflight's container-side
-     reader checks exactly these, and a set the schema disagrees with passes a host the boot refuses. */
-  it("names every secret file each deployment may not go without, and no other", async () => {
-    const refused: Record<string, string[]> = { local: [], production: [] };
-
-    await documentsWrittenByAsync(async () => {
-      for (const deployment of ["local", "production"]) {
-        for (const file of Object.keys(COMPLETE_FILES)) {
-          await bootWith({ APP_ENV: deployment }, { [file]: undefined }).catch(() => refused[deployment]?.push(file));
-        }
-      }
-    });
-
-    assert.deepEqual(Object.fromEntries(Object.entries(refused).map(([deployment, files]) => [deployment, files.sort()])), {
-      local: [...REQUIRED_SECRET_FILES].sort(),
-      production: [...REQUIRED_SECRET_FILES, ...PRODUCTION_REQUIRED_SECRET_FILES].sort(),
-    });
-    assert.ok(REQUIRED_SECRET_FILES.length > 0 && PRODUCTION_REQUIRED_SECRET_FILES.length > 0, "a set the schema derived is empty");
   });
 });
 

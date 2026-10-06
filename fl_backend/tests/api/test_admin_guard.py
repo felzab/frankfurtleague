@@ -92,6 +92,9 @@ PUBLIC_WRITES = [
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/schiedsrichter/bestaetigung/ansicht", "post"),
     ("/api/v0/schiedsrichter/bestaetigung", "post"),
+    # A referee's address link, on a base-tier router of its own for the same reason.
+    ("/api/v0/schiedsrichter/adresswechsel/ansicht", "post"),
+    ("/api/v0/schiedsrichter/adresswechsel", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),

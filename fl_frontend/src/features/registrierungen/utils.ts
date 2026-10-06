@@ -158,6 +158,9 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     // The page offers no media switch below the served age, so only a page older than that rule
     // sends this answer, and its repair is the refused payload's.
     case "REQ-REGISTRIERUNG-010":
+    // Choices the link's page did not ask, or none where it asked both: each page sends its own pair,
+    // so only one older than the backend's answer sends this, and the mail's link reopens it.
+    case "REQ-REGISTRIERUNG-017":
       return { error: ANTWORT_NEU_OEFFNEN };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
@@ -239,6 +242,13 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
       return buildRefusal({
         reason: "Wen diese Registrierung meint, hat sich seit dem Laden der Seite geändert",
         repair: "Lade die Seite neu und entscheide erneut",
+      });
+    // The pupil confirmed as a person the league has erased since, and gave no answers a new person
+    // could stand on: only a fresh registration asks them.
+    case "REQ-REGISTRIERUNG-018":
+      return buildRefusal({
+        reason: "Die Person zu dieser Registrierung ist bei uns nicht mehr gespeichert",
+        repair: "Lehne die Registrierung ab; die Person kann sich danach erneut registrieren",
       });
     case "REQ-REGISTRIERUNG-015":
       return buildRefusal({

@@ -5,7 +5,6 @@ from itertools import combinations, product
 from typing import Any, get_args
 
 from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations
-from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
@@ -15,6 +14,7 @@ from app.api.spiele.schemas import (
     records_an_absence,
 )
 from app.api.teams.schemas import (
+    KONTAKT_ROLLEN,
     FLGruppen,
     FLGruppenNames,
     FLGruppenTeam,
@@ -32,7 +32,7 @@ from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import SPRECHER
+from app.shared.einwilligung_nachweis import ohne_sprecher
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
@@ -867,7 +867,7 @@ def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
     The stamp nulled and any stored speaker dropped: a blank stamp is no answer, and no write sets a speaker.
     """
 
-    return {**{field: value for field, value in einwilligung.items() if field not in SPRECHER}, "bestaetigt_am": None}
+    return {**ohne_sprecher(einwilligung), "bestaetigt_am": None}
 
 
 # Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
@@ -959,7 +959,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
     stored_block = stored if isinstance(stored, Mapping) else {}
     composed = dict(kontakte)
 
-    for slot in KONTAKT_SLOTS:
+    for slot in KONTAKT_ROLLEN:
         seat = kontakte.get(slot)
         if not isinstance(seat, Mapping):
             continue
@@ -978,7 +978,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
 def kontakte_fassungen_genannt(*, kontakte: Mapping[str, Any] | None) -> dict[str, str]:
     """The label each seat of a contacts save names, keyed by seat."""
 
-    seats = {slot: kontakte.get(slot) for slot in KONTAKT_SLOTS} if kontakte is not None else {}
+    seats = {slot: kontakte.get(slot) for slot in KONTAKT_ROLLEN} if kontakte is not None else {}
 
     return {slot: str(seat["einwilligung"]["text_version"]) for slot, seat in seats.items() if isinstance(seat, Mapping)}
 
@@ -989,7 +989,7 @@ def kontakte_fassungen_gehalten(*, kontakte: Mapping[str, Any] | None, stored: A
     stored_block = stored if isinstance(stored, Mapping) else {}
     gehalten: dict[str, str | None] = {}
 
-    for slot in KONTAKT_SLOTS:
+    for slot in KONTAKT_ROLLEN:
         seat = kontakte.get(slot) if kontakte is not None else None
         held = _confirmation_held_by(stored_block.get(slot), seat=seat) if isinstance(seat, Mapping) else None
         if held is not None:
@@ -1010,9 +1010,15 @@ def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
 
     composed = dict(kontakte)
 
-    for slot in KONTAKT_SLOTS:
+    for slot in KONTAKT_ROLLEN:
         seat = composed.get(slot)
-        if not isinstance(seat, Mapping) or _seat_is_stamped(seat):
+        if not isinstance(seat, Mapping):
+            continue
+
+        # A confirmed seat moves whole but for a speaker its application stored: the row is a new
+        # document, and no write sets one there.
+        if _seat_is_stamped(seat):
+            composed[slot] = {**seat, "einwilligung": ohne_sprecher(seat["einwilligung"])}
             continue
 
         # Dropped rather than refused: the entry is legitimate, and nobody can put the date right --
@@ -1040,10 +1046,6 @@ def compose_kontakt_bestaetigung(*, token_hash: str, today: str) -> dict[str, An
     """
 
     return {"token_hash": token_hash, "verschickt_am": today, "frist": bestaetigungsfrist_from(today=today), "abgelehnt_am": None}
-
-
-# The wire's closed set, read off rather than spelled, so a seat this module answers is typed as one.
-KONTAKT_ROLLEN: tuple[FLKontaktRolle, ...] = get_args(FLKontaktRolle)
 
 
 def in_declaration_order(seats: Iterable[str]) -> list[FLKontaktRolle]:
@@ -1115,7 +1117,7 @@ def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_b
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
     block: dict[str, Any] = {}
 
-    for slot in KONTAKT_SLOTS:
+    for slot in KONTAKT_ROLLEN:
         if slot in minted:
             block[slot] = minted[slot]
             continue
@@ -1153,7 +1155,7 @@ def voids_a_live_link(*, stored_kontakte: Any, stored_bestaetigungen: Any, besta
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
     left = bestaetigungen if isinstance(bestaetigungen, Mapping) else {}
 
-    for slot in KONTAKT_SLOTS:
+    for slot in KONTAKT_ROLLEN:
         live = _live_link(kontakte=stored_slots, bestaetigungen=stored_links, slot=slot, today=today)
         kept = left.get(slot)
         if live is not None and (not isinstance(kept, Mapping) or kept.get("token_hash") != live):
@@ -1167,7 +1169,7 @@ def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[st
 
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
 
-    return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_SLOTS}
+    return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_ROLLEN}
 
 
 def mint_answer(

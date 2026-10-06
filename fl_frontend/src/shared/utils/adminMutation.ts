@@ -157,8 +157,9 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
 }
 
 /**
- * The cache tags a body's write feeds, declared before the write is sent: the spine drops them once the
- * body settles, a write whose answer was lost included, which a drop after the awaited write never reaches.
+ * The cache tags a body's write feeds, declared before the write is sent: this spine, and a public
+ * route's (`fl_frontend/src/shared/utils/publicRoute.ts`), drop them once the body settles, a lost
+ * answer included, which a drop after the awaited write never reaches.
  */
 export function invalidatesOnWrite(...tags: readonly string[]): void {
   declareWriteTags(tags);

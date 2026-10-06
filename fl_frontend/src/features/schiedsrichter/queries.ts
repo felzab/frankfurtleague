@@ -9,12 +9,18 @@ import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenL
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
-import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
+import { postSchiedsrichterAdresswechselAnsicht, postSchiedsrichterBestaetigungAnsicht } from "./mutations";
 import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSelbstResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSchiedsrichterListResponse, FLSchiedsrichterSelbstResponse, FLSchiedsrichterSingleResponse } from "./schemas";
-import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
+import type {
+  AdresswechselAnsicht,
+  AdresswechselLinkZustand,
+  FLSchiedsrichterFilterParams,
+  SchiedsrichterAnsicht,
+  SchiedsrichterLinkZustand,
+} from "./types";
 
 /**
  * Every referee, with their contact details, school and fee. Admin-tier: a referee is a pupil
@@ -146,6 +152,56 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
       },
     ),
   );
+}
+
+/**
+ * What one address link opens, narrowed here for the consent link's reason: a dead link's panel
+ * names nobody, and an open one with no name left has nobody to name.
+ */
+export async function getSchiedsrichterAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
+  return runWithIncomingTrace(() =>
+    postSchiedsrichterAdresswechselAnsicht({ token: token }).then(
+      (ansicht): AdresswechselAnsicht =>
+        ansicht.zustand !== "gueltig"
+          ? { zustand: ansicht.zustand }
+          : ansicht.vorname === null
+            ? { zustand: "ungueltig" }
+            : { zustand: "gueltig", vorname: ansicht.vorname, frist: ansicht.frist },
+      (error: unknown): AdresswechselAnsicht => {
+        // The consent link's reading of a refused read: a token nothing could place.
+        const zustand = mapSchiedsrichterAnsichtRefusal(error);
+        if (zustand !== null) return { zustand: zustand };
+        throw error;
+      },
+    ),
+  );
+}
+
+export type SchiedsrichterAdresswechselRefusal = {
+  error?: string;
+  fieldErrors?: FieldErrors;
+  unplacedError?: string;
+  zustand?: AdresswechselLinkZustand;
+};
+
+/** A refused answer as the panel or the sentence the address page shows, or `null` where the code is none of these. */
+export function mapSchiedsrichterAdresswechselRefusal(error: unknown): SchiedsrichterAdresswechselRefusal | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    // The body shape is mirrored, so a refused one is a drifted page, which the mail's link replaces.
+    case "REQ-VAL-002":
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
+    case "REQ-SCHIEDSRICHTER-002":
+      return { zustand: "ungueltig" };
+    case "REQ-SCHIEDSRICHTER-003":
+      return { zustand: "abgelaufen" };
+    case "REQ-SCHIEDSRICHTER-009":
+      return { zustand: "gesperrt" };
+    default:
+      return null;
+  }
 }
 
 /**

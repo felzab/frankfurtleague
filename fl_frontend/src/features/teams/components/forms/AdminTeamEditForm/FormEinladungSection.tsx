@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState, useTransition } from "react";
+import { startTransition, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import Ban from "@gravity-ui/icons/Ban";
@@ -88,6 +88,7 @@ export function FormEinladungSection({
   // Held outside this panel's own subtree, which the editor re-keys on every stored value a save
   // moves (`fl_frontend/src/features/einladungen/components/EinladungLinkHolder.tsx`).
   const { frisch, setFrisch } = useEinladungLink();
+  const linkHeadingId = useId();
   const [gewaehlt, setGewaehlt] = useState<Operation | null>(null);
   // Its own transition beside the shared hook, for the FIRST mint alone: that press destroys
   // nothing, so escalating it would grade a create as a loss.
@@ -264,12 +265,16 @@ export function FormEinladungSection({
 
             {frisch !== null && (
               <div className="flex w-full flex-col gap-y-2">
-                <h3 className={FORM_SECTION_HEADING_CLASSES}>Der Link</h3>
+                <h3
+                  id={linkHeadingId}
+                  className={FORM_SECTION_HEADING_CLASSES}>
+                  Der Link
+                </h3>
                 {/* Read-only rather than a paragraph: the value is long and is meant to be selected,
                     and a textarea is the one field that wraps it without a scroll bar. */}
                 <textarea
                   readOnly
-                  aria-label="Registrierungslink"
+                  aria-labelledby={linkHeadingId}
                   rows={2}
                   value={frisch.link}
                   className={`${FIELD_TEXTAREA_CLASSES} w-full break-all`}

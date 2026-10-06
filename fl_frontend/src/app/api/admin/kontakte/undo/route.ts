@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Nothing to clear, for the reason `fl_frontend/src/features/kontakte/actions.ts :: patchSaisonTeamKontakteAction`
     // states at the save this replays: no cached read holds a contact person. The screen is refreshed
     // by the caller instead.
-    invalidate: () => undefined,
+    tags: () => [],
     // The replay is a save, judged as the save's own action judges one (`docs/frontend/spec.md :: I432`):
     // undoing a first entry clears the block, and putting an earlier person back mints a link and voids one.
     stepUp: async ({ team_id, saison_id, kontakte }) => {

@@ -4,11 +4,11 @@ import { frontend_config } from "@/core/config";
 import { buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
 import { rollenText } from "@/features/bewerbungen/notifications";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
-import { sendZielMail } from "@/features/zustellung/notifications";
+import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { LinkVersand } from "@/features/schiedsrichter/notifications";
+import type { LinkVersand } from "@/features/zustellung/notifications";
 import type { FLKontaktMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: the
@@ -35,7 +35,7 @@ export async function mailKontaktLink({
   // A mint naming no seat has nothing to record its delivery against, and the endpoint refuses that record.
   if (erste === undefined) return "fehlgeschlagen";
 
-  const { delivered, withheld, gesperrt } = await sendZielMail({
+  return sendZielMail({
     operation: operation,
     // No `idempotenzTag`: the body carries a freshly minted token, and a key reused over a changed
     // body is refused rather than ignored.
@@ -56,12 +56,7 @@ export async function mailKontaktLink({
         fristText: formatSpielDatum(mint.frist),
         zeile: mint.zeile,
       }),
-  });
-
-  if (delivered.length > 0) return "gesendet";
-  if (gesperrt > 0) return "gesperrt";
-
-  return withheld.length > 0 ? "zurueckgehalten" : "fehlgeschlagen";
+  }).then(linkVersandOf);
 }
 
 /** One mint's message and how it ended. */

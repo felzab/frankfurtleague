@@ -225,6 +225,7 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 /** The record the editor page's read answers with, as the backend holds it at that moment. */

@@ -15,7 +15,6 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
@@ -44,9 +43,11 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { benannt } from "@/shared/utils/benannt";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { Absatz } from "./BestaetigungHinweise";
 
@@ -294,8 +295,8 @@ function SitzZeile({
 }) {
   const Glyph = STAND_ICON[sitz.stand.art];
   const zustellung = sitz.zustellung === null ? null : ZUSTELLUNG_CHIP[sitz.zustellung.stand];
-  const erneutLabel = `Link erneut senden an ${sitz.label}`;
-  const besetzenLabel = `${sitz.label} neu besetzen`;
+  const erneutLabel = benannt("Link erneut senden", sitz.label);
+  const besetzenLabel = benannt("Neu besetzen", sitz.label);
 
   return (
     // Each editor stands in the place of the control that opened it, so its close lands there, or on the
@@ -327,7 +328,7 @@ function SitzZeile({
               <Button
                 type="button"
                 isPending={sendet}
-                aria-label={`E-Mail-Adresse von ${sitz.nameSatz} korrigieren`}
+                aria-label={benannt("Adresse korrigieren", sitz.nameSatz)}
                 onPress={() => {
                   onOeffne("korrektur");
                 }}

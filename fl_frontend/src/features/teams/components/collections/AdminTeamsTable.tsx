@@ -116,7 +116,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       <RowActionLink
         href={withSaisonId(`/bereich/admin/teams/${team.id}`, selectedFromUrl)}
         label="Bearbeiten"
-        ariaLabel={`Team ${team.name} bearbeiten`}>
+        subject={`Team ${team.name}`}>
         <Pencil
           className="size-4.5"
           aria-hidden="true"
@@ -125,7 +125,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       {team.inactive_since !== null ? (
         <RowActionRestore
           label="Reaktivieren"
-          ariaLabel={`Team ${team.name} reaktivieren`}
+          subject={`Team ${team.name}`}
           isPending={isReactivating}
           onPress={(pressed) => reactivate({ id: team.id }, { pressed })}
         />
@@ -137,13 +137,13 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             team.isRetireable ? null : "Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt."
           }
           label="Stilllegen"
-          ariaLabel={`Team ${team.name} stilllegen`}
+          subject={`Team ${team.name}`}
           onPress={(pressed) => setDeletingTeam(team, pressed)}
         />
       )}
       {/* Every one leaves the row for another list or page, and as inline icons they put six controls
           in a row that has 631px for everything. */}
-      <RowActionMenu ariaLabel={`Weitere Aktionen für Team ${team.name}`}>
+      <RowActionMenu subject={`Team ${team.name}`}>
         {/* `team` as `buildSpielerFacets` declares it, keyed by the club's id. The season's own clubs
             are that facet's options, so a club outside the season drops out and the link widens. */}
         <RowActionMenuItem

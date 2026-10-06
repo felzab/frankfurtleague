@@ -73,7 +73,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing_when
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, stores_nothing_when
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
@@ -482,7 +482,7 @@ async def previewing(
     by_id("spiel_id"),
     response_model=FLPatchSpielDataResponse,
     summary="Update a Spiel",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_spiel_data(
     spiel_id: CustomRouteObjectId,
@@ -528,7 +528,7 @@ async def patch_spiel_data(
     "/paarungen",
     response_model=FLPatchSpielePaarungenResponse,
     summary="Restore the Paarungen one save moved",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_spiele_paarungen(
     payload: Annotated[FLPatchSpielePaarungenPayload, Body()],

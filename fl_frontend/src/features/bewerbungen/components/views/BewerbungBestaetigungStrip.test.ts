@@ -1,4 +1,7 @@
 import "@/shared/testing/dom.ts";
+
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal.ts";
+
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
@@ -10,7 +13,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
-import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten.ts";
 import { bestaetigungsStand } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/schemas.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -124,9 +126,9 @@ function renderStrip({
   );
 }
 
-const pencil = (name: string) => screen.queryByRole("button", { name: `E-Mail-Adresse von ${name} korrigieren` });
-const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden an ${rolle}` });
-const reseat = (rolle: string) => screen.queryByRole("button", { name: `${rolle} neu besetzen` });
+const pencil = (name: string) => screen.queryByRole("button", { name: `Adresse korrigieren: ${name}` });
+const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden: ${rolle}` });
+const reseat = (rolle: string) => screen.queryByRole("button", { name: `Neu besetzen: ${rolle}` });
 const addressBox = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
 
 /** Fills the reseat box with a whole person, the address last so a case can press Enter in it. */
@@ -202,7 +204,7 @@ describe("the re-send on a seat with no address", () => {
     renderStrip({ stands: standsOf({ kontakte: { trainer: person("Clara", "") } }) });
     const withoutAddress = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „Adresse korrigieren“ ein.";
 
-    closedControl("Link erneut senden an Trainer", withoutAddress);
+    closedControl("Link erneut senden: Trainer", withoutAddress);
     assert.equal(isInTheFlow(withoutAddress), false, "the reason stands in the flow, which this row takes away with its controls");
     assert.equal(pencil("Clara Meier")?.hasAttribute("disabled"), false, "the pencil that would give the seat an address is closed");
   });
@@ -214,7 +216,7 @@ describe("the reseat over a registry the page could not read", () => {
   it("closes the reseat with the reason, and leaves the re-sends standing", () => {
     const { unmount } = renderStrip({ stands: standsOf(claraStieAus), neubesetzung: null });
 
-    closedControl("Trainer neu besetzen", FASSUNG_UNLESBAR);
+    closedControl("Neu besetzen: Trainer", FASSUNG_UNLESBAR);
     const sendStands = send("Stellvertretung") !== null;
     unmount();
 

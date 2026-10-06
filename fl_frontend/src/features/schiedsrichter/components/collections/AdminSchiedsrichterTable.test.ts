@@ -26,6 +26,7 @@ const LIVE: FLSchiedsrichter = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 /**
@@ -78,7 +79,7 @@ describe("the referee row's copy control", () => {
       "a row carrying only a name still offers to copy its contact details",
     );
     assert.ok(
-      accessibleNames(html).some((name) => name === `Schiedsrichter ${LIVE.name ?? ""} bearbeiten`),
+      accessibleNames(html).some((name) => name === `Bearbeiten: Schiedsrichter ${LIVE.name ?? ""}`),
       "the named row lost the link to its editor, so the case above passes for the wrong reason",
     );
   });
@@ -117,7 +118,7 @@ describe("the referee row's copy control", () => {
     const nameless = accessibleNames(table([NAMENLOS]));
 
     assert.ok(
-      nameless.some((name) => name.includes("bearbeiten")),
+      nameless.some((name) => name.startsWith("Bearbeiten: ")),
       "the nameless row lost the link to its editor",
     );
   });

@@ -5,14 +5,26 @@ import {
   KONTAKT_BEDIEN_SCHLUESSEL,
   SCHIEDSRICHTER_ABSATZ_SCHLUESSEL,
   SPIELER_ABSATZ_SCHLUESSEL,
+  SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL,
 } from "@/core/einwilligungSeiten.ts";
 
 /** The words each keyed page runs, keyed as its page reads them, for a view rendered without its page. */
 export const laufendeKontaktFassung = () =>
   gekeyteFassung(publishedLaufendeFassung("bestaetigung_kontakt"), KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
 
-export const laufendeSpielerFassung = () =>
-  gekeyteFassung(publishedLaufendeFassung("bestaetigung_spieler"), SPIELER_ABSATZ_SCHLUESSEL, ["kader_oeffentlich", "intern"] as const);
+/** Each tagged with its page, as the pupil's confirmation page hands the words of the one a link opens. */
+export const laufendeSpielerFassung = () => ({
+  ...gekeyteFassung(publishedLaufendeFassung("bestaetigung_spieler"), SPIELER_ABSATZ_SCHLUESSEL, ["kader_oeffentlich", "intern"] as const),
+  seite: "bestaetigung_spieler" as const,
+});
+
+export const laufendeSpielerWiederkehrendFassung = () => ({
+  ...gekeyteFassung(publishedLaufendeFassung("bestaetigung_spieler_wiederkehrend"), SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL, [
+    "kader_oeffentlich",
+    "intern",
+  ] as const),
+  seite: "bestaetigung_spieler_wiederkehrend" as const,
+});
 
 export const laufendeSchiedsrichterFassung = () =>
   gekeyteFassung(publishedLaufendeFassung("bestaetigung_schiedsrichter"), SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, [

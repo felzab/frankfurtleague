@@ -10,7 +10,7 @@ from pymongo.errors import WriteError
 from app.api.bewerbungen.services import days_after
 from app.api.registrierungen.services import build_erinnerung_filter
 from app.api.registrierungen.services import compose_bestaetigung as compose_registrierung_bestaetigung
-from app.api.schiedsrichter.services import compose_bestaetigung
+from app.api.schiedsrichter.services import compose_adresswechsel, compose_bestaetigung
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.api.zustellung.router import abgewiesen_zustellung, angenommen_zustellung, post_zustellung
 from app.api.zustellung.schemas import (
@@ -81,6 +81,15 @@ ZIEL_FIXTURES: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
         "entscheidung": None,
     },
     "kontakt": {"_id": ZIEL_OID, **saison_team_document("2026", ObjectId("6890a1b2c3d4e5f607970002"), "Adler", "AD")},
+    # The referee row again: the address link's carrier sits beside the confirmation's on it.
+    "schiedsrichter_adresswechsel": {
+        "_id": ZIEL_OID,
+        "name": "Bramblewick Quillon",
+        "schule": "Zorbanax-Gesamtschule",
+        "default_payment": 25,
+        "kontakt": {"telefon": "+49 170 1234567", "email": "bramblewick@example.com"},
+        "inactive_since": None,
+    },
 }
 
 ZIELE = sorted(ZIEL_PFADE)
@@ -98,6 +107,7 @@ CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     "registrierung": compose_registrierung_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON, frist="2026-04-04"),
     # The Trainer's seat, the one every case below reports on; the seat axis's own cases reach the others.
     "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "schiedsrichter_adresswechsel": compose_adresswechsel(email="quillon@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
 }
 
 # The seats each kind's report names: the Trainer's for a seat kind, none for every other.

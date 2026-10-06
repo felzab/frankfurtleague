@@ -12,9 +12,10 @@ import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
+import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { laufendeSpielerFassung } from "@/shared/testing/einwilligungAnswers.ts";
+import { laufendeSpielerFassung, laufendeSpielerWiederkehrendFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
@@ -31,7 +32,7 @@ import { MAIL_ABGEWIESEN } from "./utils.ts";
 
 import type { ReactElement } from "react";
 import type { FLEinladungAnsichtResponse } from "./schemas.ts";
-import type { SpielerBestaetigungGeoeffnet, SpielerFassung } from "./types.ts";
+import type { SpielerBestaetigungGeoeffnet, SpielerFassung, SpielerSeitenFassung, SpielerWiederkehrendFassung } from "./types.ts";
 
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
 // the one reader that decides which answers are this application's.
@@ -115,7 +116,7 @@ const GEOEFFNET: SpielerBestaetigungGeoeffnet = {
   schule: TEAM.full_name,
   saison_id: "2026",
   vorname: "Mira",
-  text_version: FASSUNG.textVersion,
+  seite: FASSUNG.seite,
   mindestalter: MIN_ALTER,
   medien_mindestalter: MEDIEN_ALTER,
   geburtsdatum: null,
@@ -138,6 +139,27 @@ const bestaetigungSeite = (ansicht: SpielerBestaetigungGeoeffnet = GEOEFFNET): s
   renderMarkup(SpielerBestaetigungView, {
     start: { zustand: "gueltig", ansicht: ansicht, token: "kein-echtes-token" },
     fassung: FASSUNG,
+  });
+
+/** The returning pupil's page's words, off the registry for `FASSUNG`'s reason. */
+const WIEDERKEHREND: SpielerWiederkehrendFassung = laufendeSpielerWiederkehrendFassung();
+
+/**
+ * A link the backend resolved to a person it holds, confirmed, at this address and name: the stored
+ * pair is media on, so a page reading it as a draft would send a grant.
+ */
+const WIEDERKEHREND_GEOEFFNET: SpielerBestaetigungGeoeffnet = {
+  ...GEOEFFNET,
+  seite: WIEDERKEHREND.seite,
+  geburtsdatum: "2008-09-01",
+  umfang: "intern",
+  medien: true,
+};
+
+const wiederkehrendeSeite = (ansicht: SpielerBestaetigungGeoeffnet = WIEDERKEHREND_GEOEFFNET): string =>
+  renderMarkup(SpielerBestaetigungView, {
+    start: { zustand: "gueltig", ansicht: ansicht, token: "kein-echtes-token" },
+    fassung: WIEDERKEHREND,
   });
 
 /** Every paragraph and list item a render puts on the page, as a reader reads them. */
@@ -552,37 +574,85 @@ describe("which of the confirmation page's words its stamped version covers", ()
     );
   });
 
-  /** The page's body as the backend's reads answer it, `laufend` being what the backend runs on this page and `scheitert` failing the words read. */
-  async function handedFassung(laufend?: string, scheitert = false): Promise<SpielerFassung | null> {
+  /**
+   * The page's body for an open link the backend resolved to `seite`, `laufend` being what it runs on
+   * that page, `seiten` the registry's whole answer and `scheitert` failing the words read.
+   */
+  async function handedFassung({
+    seite = FASSUNG.seite,
+    laufend,
+    seiten,
+    scheitert = false,
+  }: {
+    seite?: SpielerSeitenFassung["seite"];
+    laufend?: string;
+    seiten?: unknown;
+    scheitert?: boolean;
+  } = {}): Promise<SpielerSeitenFassung | null> {
     answerReadsWith((endpoint, schema, params) => {
       if (scheitert && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error(`the backend failed ${endpoint}`);
+      if (endpoint === "/registrierungen/bestaetigung/ansicht") return { ...GEOEFFNET, seite: seite };
+      if (endpoint === "/einwilligung/seiten" && seiten !== undefined) return seiten;
+      // Over the registry's other labels: the page reads both pupil pages' words, whichever the link names.
       if (endpoint === "/einwilligung/seiten" && laufend !== undefined) {
-        return { acknowledged: 1, laufende_fassungen: { bestaetigung_spieler: laufend } };
+        const registry = einwilligungAnswer(endpoint) as { laufende_fassungen: Record<string, string> };
+
+        return { acknowledged: 1, laufende_fassungen: { ...registry.laufende_fassungen, [seite]: laufend } };
       }
       return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
     });
-    const body = (await pageBody(SpielerBestaetigungPage, { params: Promise.resolve({}), searchParams: Promise.resolve({}) })) as ReactElement<{
-      fassung: SpielerFassung | null;
-    }>;
+    const body = (await pageBody(SpielerBestaetigungPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+    })) as ReactElement<{ fassung: SpielerSeitenFassung | null }>;
 
     return body.props.fassung;
   }
 
   /* The words are the backend's, read per request for the label it runs: a page holding its own copy
      renders a wording the backend may have moved past, under a label it does not stamp. */
-  it("is handed the words the backend serves for the label it runs on this page", async () => {
+  it("is handed the words the backend serves for the label it runs on the page the link opens", async () => {
     assert.deepEqual(await handedFassung(), FASSUNG, "the page renders words other than the ones the backend serves");
+    assert.deepEqual(
+      await handedFassung({ seite: WIEDERKEHREND.seite }),
+      WIEDERKEHREND,
+      "a returning pupil's link is handed words other than its own page's",
+    );
   });
 
   /* A label whose sections were never kept by key is a broken contract rather than a failed read: it
      reaches the error boundary, which logs it, never the panel asking for a reload. */
   it("lets a running label the page cannot place reach the error boundary", async () => {
-    await assert.rejects(handedFassung("2026-09-spielerseite-2"), { name: "ZodError" }, "the page absorbed words it holds no keys for");
+    await assert.rejects(
+      handedFassung({ laufend: "2026-09-spielerseite-2" }),
+      { name: "ZodError" },
+      "the page absorbed words it holds no keys for",
+    );
+    // The new pupil's words where the returning pupil's page runs: they ask choices that page has no place for.
+    await assert.rejects(
+      handedFassung({ seite: WIEDERKEHREND.seite, laufend: FASSUNG.textVersion }),
+      { name: "ZodError" },
+      "the returning page absorbed words asking choices it does not ask",
+    );
+  });
+
+  /* A registry answering against what this page was built for is no failed read: only a deploy repairs
+     it, so it reaches the error boundary, which logs it, never the panel asking for a reload. */
+  it("lets a registry breaking its contract reach the error boundary", async () => {
+    const registry = einwilligungAnswer("/einwilligung/seiten") as { laufende_fassungen: Record<string, string> };
+    const ohneWiederkehrend = Object.fromEntries(
+      Object.entries(registry.laufende_fassungen).filter(([seite]) => seite !== WIEDERKEHREND.seite),
+    );
+
+    // The returning pupil's page missing fails a new pupil's link too: one registry serves both pages.
+    await assert.rejects(handedFassung({ seiten: { acknowledged: 1, laufende_fassungen: ohneWiederkehrend } }), { name: "ContractBreakError" });
+    await assert.rejects(handedFassung({ laufend: "2026-01-nirgends" }), { name: "ContractBreakError" }, "a label serving no words");
+    await assert.rejects(handedFassung({ seiten: { acknowledged: 1 } }), { name: "APIMalformedDataError" }, "an answer off its schema");
   });
 
   /* The read failing is a state of its own, which a reload may clear. */
   it("hands the view no words where the words read fails", async () => {
-    assert.equal(await handedFassung(undefined, true), null, "a failed words read reached the view as words");
+    assert.equal(await handedFassung({ scheitert: true }), null, "a failed words read reached the view as words");
     assert.equal(
       textOf(
         renderMarkup(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: null }),
@@ -633,19 +703,19 @@ describe("the three answers the confirmation page collects", () => {
     assert.equal(schalter.checked, false, "the media consent is pre-selected, so nobody gave it");
   });
 
-  /* A returning pupil confirms rather than re-enters: the date is shown as stored and both answers
-     stand at what they were, or the page asks a question that was settled once. */
-  it("shows a stored birthdate rather than asking again, and stands both answers at what they hold", () => {
-    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: "2008-09-01", umfang: "intern", medien: true });
+  /* A stored pair is the returning page's to show, never this page's to start from: a chip or a switch
+     opening on it is a consent nobody gave here, and a press would stamp it as given today. */
+  it("starts from nothing on the new pupil's page, whatever pair the read served", () => {
+    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER + 2), umfang: "intern", medien: true });
     const schalter = /<input\b[^>]*name="medien"[^>]*>/.exec(html)?.[0] ?? "";
 
-    assert.ok(!html.includes('name="geburtsdatum"'), "the page asks a returning pupil for a date it already holds");
-    assert.ok(textOf(html).includes("01.09.2008"), "the stored date is not shown at all");
-    assert.match(schalter, /\bchecked\b/, "a stored media consent opens as though it had never been given");
-
-    const gewaehlt = scopeChips(html).filter((chip) => /aria-checked="true"/.test(chip.tag));
-    assert.equal(gewaehlt.length, 1, "the page opens on no scope, or on both");
-    assert.equal(gewaehlt[0]?.label, FASSUNG.bedienelemente.intern, "the page opens on a scope other than the stored one");
+    assert.notEqual(schalter, "", "the date offers the switch, so this case compares nothing without it");
+    assert.doesNotMatch(schalter, /\bchecked\b/, "the media switch opens on the served answer");
+    assert.deepEqual(
+      scopeChips(html).filter((chip) => /aria-checked="true"/.test(chip.tag)),
+      [],
+      "the page opens on the served scope",
+    );
   });
 
   /* One mailbox behind two pupils: the read narrows by the folded name as well as the address, so it
@@ -811,24 +881,16 @@ describe("the media switch, offered from the media age alone", () => {
     assert.equal(schalterIn(bestaetigungSeite()), "", "a pupil of unknown age is offered a consent the write refuses below the media age");
   });
 
-  it("offers no switch to a returning pupil a day short of the media age", () => {
-    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER, 1), umfang: "intern", medien: false });
+  it("offers no switch to a pupil whose read date is a day short of the media age", () => {
+    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER, 1) });
 
     assert.equal(schalterIn(html), "", "a pupil under the media age is offered the media switch");
   });
 
-  it("offers the switch to a returning pupil of the media age to the day", () => {
-    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER), umfang: "intern", medien: false });
+  it("offers the switch to a pupil whose read date is the media age to the day", () => {
+    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER) });
 
     assert.notEqual(schalterIn(html), "", "a pupil of the media age is refused the switch the ruling offers them");
-  });
-
-  /* The stored answer is shown back whole, so a yes given before the rule would ride the press unseen. */
-  it("sends no media consent for a returning pupil under the media age whose stored answer is yes", async () => {
-    const gesendet = await gesendetBeiDruck({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER - 1), umfang: "intern", medien: true });
-
-    assert.equal(gesendet.length, 1, "the press sent nothing, so this case compares nothing");
-    assert.equal((gesendet[0] as { medien?: unknown }).medien, false, "a consent the page never offered was sent");
   });
 
   it("withdraws the switch and its yes when the typed date moves below the media age", async () => {
@@ -851,6 +913,89 @@ describe("the media switch, offered from the media age alone", () => {
       false,
       "the yes given at the older date was sent for the younger one",
     );
+  });
+});
+
+describe("the returning pupil's confirmation page", () => {
+  const STANDING = wiederkehrendeSeite();
+
+  /** The body the press sends, and the panel it lands on, the route answering as it does for this page. */
+  async function gedrueckt(ansicht: SpielerBestaetigungGeoeffnet = WIEDERKEHREND_GEOEFFNET) {
+    const antwort = { success: true, ergebnis: "bestaetigt", geburtsdatum: ansicht.geburtsdatum ?? "2008-09-01", umfang: null, medien: null };
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(antwort), { status: 200 })));
+    const bisher = fetchMock.mock.callCount();
+
+    const user = userEvent.setup();
+    const { unmount } = render(
+      h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: ansicht, token: "kein-echtes-token" }, fassung: WIEDERKEHREND }),
+    );
+    await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    await act(fetchMock.answered);
+    await screen.findByRole("heading", { name: "Registrierung bestätigt" });
+    const panel = textOf(document.querySelector('section[role="status"]')?.innerHTML ?? "", " ");
+    unmount();
+
+    const gesendet = fetchMock.mock.calls.slice(bisher).map((call) => {
+      const body = call.arguments[1]?.body;
+
+      return JSON.parse(typeof body === "string" ? body : "null") as Record<string, unknown>;
+    });
+
+    return { gesendet, panel };
+  }
+
+  /* The choices stand on the person's own record, so a control for either here would take an answer
+     the page then stamps as given today over whatever the person moved since. */
+  it("asks no choice, and shows the stored pair read-only beside the way to the account page", () => {
+    const text = textOf(STANDING, " ");
+
+    assert.ok(!STANDING.includes('role="radiogroup"'), "the returning page offers the publication scopes");
+    assert.ok(!STANDING.includes('name="umfang"') && !STANDING.includes('name="medien"'), "the returning page renders a choice's control");
+    assert.ok(text.includes(WIEDERKEHREND.bedienelemente.intern), "the stored scope is not shown in its label's words");
+    assert.match(text, /Fotos und Videos\s*erlaubt/, "the stored media answer is not shown");
+    assert.ok(STANDING.includes(`href="${KONTO_HREF}"`), "the page names no way to the account page, where the choices are changed");
+  });
+
+  it("shows a stored birthdate rather than asking again, and asks one where none is stored", () => {
+    assert.ok(!STANDING.includes('name="geburtsdatum"'), "the page asks for a date the league already holds");
+    assert.ok(textOf(STANDING).includes("01.09.2008"), "the stored date is not shown at all");
+    assert.ok(
+      wiederkehrendeSeite({ ...WIEDERKEHREND_GEOEFFNET, geburtsdatum: null }).includes('name="geburtsdatum"'),
+      "no date is asked where none is stored",
+    );
+  });
+
+  /* A record cites its label alone, as on the new pupil's page. */
+  it("renders every paragraph its version holds, exactly once, and no slot as its own literal", () => {
+    const gezaehlt = new Map<string, number>();
+
+    for (const absatz of paragraphsOf(STANDING)) {
+      for (const [schluessel, text] of Object.entries(WIEDERKEHREND.absaetze)) {
+        if (absatz === filledSlots(text, SLOTS)) gezaehlt.set(schluessel, (gezaehlt.get(schluessel) ?? 0) + 1);
+      }
+    }
+
+    assert.deepEqual([...gezaehlt.keys()].sort(), Object.keys(WIEDERKEHREND.absaetze).sort(), "the page drops a stamped paragraph");
+    for (const [schluessel, wieOft] of gezaehlt) assert.equal(wieOft, 1, `${schluessel} stands on the page ${String(wieOft)} times`);
+    assert.doesNotMatch(textOf(STANDING, " "), /\{\w+\}/, "the text spells a placeholder at its reader");
+  });
+
+  /* The stale re-grant this page exists to end: a press carrying the pair the page opened on stamps it
+     later than a withdrawal made meanwhile on the account page, and the admission carries it. */
+  it("sends neither choice, under its own page's label", async () => {
+    const { gesendet } = await gedrueckt();
+
+    assert.equal(gesendet.length, 1, "the press sent nothing, so this case compares nothing");
+    assert.deepEqual([gesendet[0]?.["umfang"], gesendet[0]?.["medien"]], [null, null], "the press sent a choice the page did not ask");
+    assert.equal(gesendet[0]?.["text_version"], WIEDERKEHREND.textVersion, "the press names a label other than its page's");
+  });
+
+  /* The answer carries no choice, the page having sent none, so the panel states the pair that stands. */
+  it("states the stored pair in the answer panel", async () => {
+    const { panel } = await gedrueckt();
+
+    assert.ok(panel.includes(WIEDERKEHREND.bedienelemente.intern), "the answer panel drops the standing scope");
+    assert.match(panel, /Fotos und Videos\s*erlaubt/, "the answer panel drops the standing media answer");
   });
 });
 

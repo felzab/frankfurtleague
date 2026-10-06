@@ -161,7 +161,7 @@ const FRISTEN = [
   },
   {
     daten: "Registrierung eines Spielers oder einer Spielerin",
-    frist: `${amSatzanfang(ZAHLWORT[REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE])} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis das Team über sie entscheidet: Nimmt es die Person auf, löschen wir die Registrierung, und ihre Angaben stehen von da an im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann`,
+    frist: `${amSatzanfang(ZAHLWORT[REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE])} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis das Team über sie entscheidet: Nimmt es die Person auf, löschen wir die Registrierung, und ihre Angaben stehen von da an im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung, und mit ihr Datum, Grund und E-Mail-Adresse der Person aus dem Team, die abgelehnt hat. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann`,
   },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   {
@@ -533,7 +533,9 @@ export function DatenschutzView() {
             entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen Deinen Namen, Deine Rückennummer,
             Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga
             eingetragen warst. Deine E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen
-            und Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail.
+            und Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail. Zur Ablehnung
+            halten wir das Datum, den Grund und die E-Mail-Adresse der Person aus dem Team fest, die abgelehnt hat; diese Angaben sehen die
+            Administratorinnen und Administratoren der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
             Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person
@@ -568,6 +570,10 @@ export function DatenschutzView() {
             geht Dein üblicher Betrag mit ihm; verlangst Du die Löschung, bleibt an einem Spiel, das schon angesetzt oder gespielt ist, der
             Betrag für dieses Spiel ohne Deinen Namen stehen. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt Dein Eintrag mit dem Betrag
             bestehen.
+          </p>
+          <p className={ABSATZ_CLASSES}>
+            Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den Link
+            bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige, und sie erfährt von der Änderung.
           </p>
           <p className={ABSATZ_CLASSES}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn
@@ -605,9 +611,11 @@ export function DatenschutzView() {
               läuft in einem eingebetteten Fenster von Cloudflare und fragt dabei Merkmale Deines Browsers und Deiner Verbindung ab, darunter
               Deine IP-Adresse und die Kennung Deines Browsers. Meist merkst Du davon nichts; nur wenn Cloudflare sich nicht sicher ist, bittet
               es Dich um einen Klick. Das Ergebnis ist ein Nachweis, den das Formular beim Abschicken mitschickt und den wir bei Cloudflare
-              bestätigen lassen, bevor wir einen Anmeldecode verschicken oder eine Bewerbung oder Registrierung speichern. Der Nachweis gilt
-              fünf Minuten und nur für ein Abschicken. Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung, um seine Erkennung
-              automatisierter Zugriffe zu verbessern.
+              bestätigen lassen, bevor wir über die Anmeldeseite einen Anmeldecode verschicken oder eine Bewerbung oder Registrierung speichern;
+              antwortet Cloudflare dabei nicht, nehmen wir das Formular ungeprüft an. Der Nachweis gilt fünf Minuten und nur für ein Abschicken.
+              Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern.
+              Lässt Dein Browser oder ein Werbeblocker diese Prüfung nicht zu, nehmen wir über diese drei Formulare nichts an; dann erreichst Du
+              uns unter <MailLink />, und anmelden kannst Du Dich auch mit einem Passkey.
             </li>
             <li className={ABSATZ_CLASSES}>
               Die von Dir gewählte Darstellung, hell oder dunkel. Sie wird im lokalen Speicher Deines Browsers abgelegt, damit die Seite beim
@@ -635,20 +643,20 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen Menschen
             zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder
-            Schiedsrichter oder als Kontaktperson einer Bewerbung einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter
-            über {BEWERBUNG_MAX_ALTER} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf Deinen Wunsch
-            ein Mensch: Schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an und antwortet Dir. Ein
+            Schiedsrichter oder als Kontaktperson einer Bewerbung oder eines Teams einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt
+            oder ein Alter über {BEWERBUNG_MAX_ALTER} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf
+            Deinen Wunsch ein Mensch: Schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an und antwortet Dir. Ein
             zurückgewiesenes Geburtsdatum wird nicht gespeichert; war es ein Tippfehler, trägst Du über denselben Link das richtige Datum ein,
             solange er gilt. Liegt Dein Geburtsdatum tatsächlich unter dem Mindestalter, bleibt es auch nach der Prüfung bei der Zurückweisung,
             weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die Verwaltung nach der Prüfung aufheben. Ist der
             Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist eine Grenze des Kaders und keine Entscheidung über Dich.
-            Zwei weitere Grenzen setzt die Website ebenso ohne einen Menschen. Einen Anmeldecode verschickt sie, eine Bewerbung und eine
-            Registrierung nimmt sie erst an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt (Abschnitt 11); bittet
-            Cloudflare Dich um einen Klick, genügt der. Lässt Dich die Prüfung nicht durch, schreib an <MailLink />, dann sieht sich jemand aus
-            der Verwaltung Deinen Fall an. Und wer angemeldet ist, kann in jeder Funktion an einem Tag nur eine begrenzte Zahl von Änderungen
-            abschicken; danach weist die Website weitere Änderungen bis Mitternacht zurück. Das Zurückziehen einer Einwilligung weist sie dabei
-            nie zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an <MailLink /> schreibst. Profiling findet nicht
-            statt.
+            Zwei weitere Grenzen setzt die Website ebenso ohne einen Menschen. Einen Anmeldecode über die Anmeldeseite verschickt sie, eine
+            Bewerbung und eine Registrierung nimmt sie erst an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt, oder wenn
+            Cloudflare nicht antwortet (Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. Lässt Dich die Prüfung nicht durch,
+            schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an. Und wer angemeldet ist, kann in jeder Funktion an
+            einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach weist die Website weitere Änderungen bis Mitternacht zurück. Das
+            Zurückziehen einer Einwilligung weist sie dabei nie zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an{" "}
+            <MailLink /> schreibst. Profiling findet nicht statt.
           </p>
         </LegalSection>
 

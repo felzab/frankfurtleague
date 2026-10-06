@@ -1,5 +1,3 @@
-import { revalidateTag } from "next/cache";
-
 import { z } from "zod";
 
 import { patchSaisonTeam, patchTeam } from "@/features/teams/mutations";
@@ -63,15 +61,9 @@ export async function POST(request: NextRequest) {
 
       return {};
     },
-    invalidate: ({ saison }) => {
-      const tags = new Set(["teams", "spiele"]);
-      if (saison !== undefined) {
-        tags.add(`teams:saison_id:${saison.saison_id}`);
-        tags.add(`spiele:saison_id:${saison.saison_id}`);
-      }
-      for (const tag of tags) {
-        revalidateTag(tag, { expire: 0 });
-      }
-    },
+    tags: ({ saison }) =>
+      saison === undefined
+        ? ["teams", "spiele"]
+        : ["teams", "spiele", `teams:saison_id:${saison.saison_id}`, `spiele:saison_id:${saison.saison_id}`],
   });
 }

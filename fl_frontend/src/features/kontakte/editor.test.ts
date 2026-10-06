@@ -1,4 +1,7 @@
 import "@/shared/testing/dom.ts";
+
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal.ts";
+
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
@@ -10,9 +13,9 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
-import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
+import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { eingetragenVonLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/teams/schemas";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
@@ -330,14 +333,17 @@ const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchPara
 
 /** The block the page's memberships read answers with, as the backend holds it at that moment. */
 let storedBlock: FLSaisonTeamKontakte = BLOCK;
-/** The registry's running-label read failing, where a case asks it to. */
-let seitenFehlen = false;
+/** The registry's answer where a case names one, an `Error` failing its read. */
+let seitenAntwort: unknown = undefined;
 
 /** The season the address names. */
 const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
 
 answerReadsWith((endpoint, schema, params) => {
-  if (seitenFehlen && endpoint === "/einwilligung/seiten") throw new Error("backend unreachable");
+  if (seitenAntwort !== undefined && endpoint === "/einwilligung/seiten") {
+    if (seitenAntwort instanceof Error) throw seitenAntwort;
+    return seitenAntwort;
+  }
   const einwilligung = einwilligungAnswer(endpoint);
   if (einwilligung !== undefined) return einwilligung;
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
@@ -432,12 +438,26 @@ describe("the editor's shape", () => {
   /* A blank seat stamps the running label, and only that needs it: its failed read hands the editor
      none, and the page stands. */
   it("hands the editor no label, and renders, where the running label could not be read", async () => {
-    seitenFehlen = true;
+    seitenAntwort = new Error("backend unreachable");
     try {
       const body = await pageBody(AdminKontakteEditPage, PAGE_PROPS);
       assert.equal((body.props as { laufendesLabel: unknown }).laufendesLabel, null, "a failed read reached the editor as a label");
     } finally {
-      seitenFehlen = false;
+      seitenAntwort = undefined;
+    }
+  });
+
+  /* A registry answering against what this page was built for: only a deploy repairs it, so it reaches
+     the error boundary, which logs it, never an editor closing blank seats in silence. */
+  it("lets a registry breaking its contract reach the error boundary", async () => {
+    try {
+      seitenAntwort = { acknowledged: 1, laufende_fassungen: {} };
+      await assert.rejects(pageBody(AdminKontakteEditPage, PAGE_PROPS), { name: "ContractBreakError" }, "no label for the form");
+
+      seitenAntwort = { acknowledged: 1 };
+      await assert.rejects(pageBody(AdminKontakteEditPage, PAGE_PROPS), { name: "APIMalformedDataError" }, "an answer off its schema");
+    } finally {
+      seitenAntwort = undefined;
     }
   });
 
@@ -581,7 +601,7 @@ describe("the editor's shape", () => {
   it("offers the re-send on every unconfirmed person once, a half-confirmed pair included", () => {
     const offen = (person: FLKontaktperson): FLKontaktperson => ({ ...person, einwilligung: { ...person.einwilligung, bestaetigt_am: null } });
     const offers = (kontakte: FLSaisonTeamKontakte, nimmtLinks = true): string[] =>
-      [...sectionMarkup(kontakte, true, nimmtLinks).matchAll(/aria-label="[^"]*senden an ([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
+      [...sectionMarkup(kontakte, true, nimmtLinks).matchAll(/aria-label="[^"]*senden: ([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
     const grace = BLOCK.ansprechperson ?? assert.fail("the block seats no Ansprechperson");
     const ada = BLOCK.trainer ?? assert.fail("the block seats no Trainer");
 
@@ -606,7 +626,7 @@ describe("the editor's shape", () => {
       stellvertretung: { ...stellvertretung, einwilligung: { ...stellvertretung.einwilligung, bestaetigt_am: null } },
     };
     const offers = (row: Parameters<typeof viewElement>[3]): number =>
-      [...editorTree(viewElement(offen, true, "t1", row), offen).matchAll(/aria-label="[^"]*senden an /g)].length;
+      [...editorTree(viewElement(offen, true, "t1", row), offen).matchAll(/aria-label="[^"]*senden: /g)].length;
 
     assert.equal(offers({}), 1, "an open seat on a running row offers no re-send, so the absences below prove nothing");
     assert.equal(offers({ saisonStatus: "past" }), 0, "a past season's row offers a re-send");
@@ -1230,7 +1250,11 @@ describe("the contact person's own two choices", () => {
     const html = sectionMarkup({ ...BLOCK, trainer: geantwortet });
 
     assert.match(html, />WhatsApp<[\s\S]*?value="erlaubt"/, "the WhatsApp answer is not shown");
-    assert.match(html, />Fotos, Videos und Interviews<[\s\S]*?value="nicht erlaubt"/, "the media answer is not shown");
+    // The one wording every admin readout gives the media consent (`fl_frontend/src/features/spieler/constants.ts`).
+    assert.ok(
+      new RegExp(`>${EINWILLIGUNG_MEDIEN_FRAGE}<[\\s\\S]*?value="${EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}"`).test(html),
+      "the media answer is not shown in the readouts' one wording",
+    );
     assert.ok(
       html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt; zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1"),
       "the media choice reads without its own act",

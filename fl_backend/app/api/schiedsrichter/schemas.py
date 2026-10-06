@@ -33,6 +33,12 @@ FLSchiedsrichterUmfang = Literal["kader_oeffentlich", "intern"]
 # (`docs/backend/spec.md :: I515`).
 FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
+# What an address link shows. No `bestaetigt`: an answer removes the block the link opens, so a
+# reopened link is a token no referee holds.
+FLSchiedsrichterAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt"]
+
+FLSchiedsrichterAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
+
 # The raw token as it arrives on the two base-tier endpoints. `BEWERBUNG_TOKEN_MAX_LENGTH` and not a
 # referee's own: one `mint_token` spells every confirmation link this application hands out.
 CustomSchiedsrichterToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
@@ -98,6 +104,30 @@ class FLSchiedsrichterMint(BaseModel):
     email: CustomNonEmptyString
 
 
+class FLSchiedsrichterAdresswechsel(BaseModel):
+    """A confirmed referee's address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.
+
+    Kept off the wire for `FLSchiedsrichterBestaetigung`'s reason.
+    """
+
+    email: str
+    verschickt_am: CustomDateString
+    # Stored for `FLSchiedsrichterBestaetigung.frist`'s reason.
+    frist: CustomDateString
+    zustellung: FLBewerbungZustellung | None = None
+
+
+class FLSchiedsrichterAdresswechselMint(FLSchiedsrichterMint):
+    """A freshly minted address link, answered once, with the address the change was asked from.
+
+    The caller tells the stored address that a change was asked, so a change nobody wanted is
+    noticed by the person still holding the record.
+    """
+
+    # Null only where the row holds no address to tell.
+    bisherige_email: str | None
+
+
 class FLSchiedsrichter(_SchiedsrichterWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Nullable where the payload is not, for the one row that stands behind nobody
@@ -114,6 +144,9 @@ class FLSchiedsrichter(_SchiedsrichterWritable):
     bestaetigung: FLSchiedsrichterBestaetigung | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
+    # Defaulted and on no payload, for the three above's reasons: only a confirmed referee whose
+    # address an administrator moved carries one.
+    adresswechsel: FLSchiedsrichterAdresswechsel | None = None
 
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
@@ -144,8 +177,11 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
     # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
     fanned_out_to_spiele: int
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
-    # the mailbox nobody reads. A confirmed referee's address change mints nothing.
+    # the mailbox nobody reads.
     bestaetigung: FLSchiedsrichterMint | None = None
+    # Null unless the save moved a CONFIRMED referee's address, which waits on the new mailbox.
+    # Never both: a referee is confirmed or not.
+    adresswechsel: FLSchiedsrichterAdresswechselMint | None = None
 
 
 class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
@@ -160,6 +196,44 @@ class FLSchiedsrichterMintResponse(BaseAPIResponse):
     """The re-send's answer. Never null: where no link may be minted a refusal answers instead."""
 
     bestaetigung: FLSchiedsrichterMint
+
+
+class FLSchiedsrichterAdresswechselMintResponse(BaseAPIResponse):
+    """The address link's re-send answer. Never null: where no change is pending a 404 answers instead."""
+
+    adresswechsel: FLSchiedsrichterAdresswechselMint
+
+
+class FLSchiedsrichterAdresswechselAnsichtPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomSchiedsrichterToken
+
+
+class FLSchiedsrichterAdresswechselAnsichtResponse(BaseAPIResponse):
+    """What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).
+
+    A first name and a deadline: never either address, the school, the fee or the id.
+    """
+
+    zustand: FLSchiedsrichterAdresswechselZustand
+    vorname: CustomNonEmptyString | None
+    frist: CustomDateString
+
+
+class FLSchiedsrichterAdresswechselPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomSchiedsrichterToken
+    # Required rather than defaulted: a page that omitted it would have the model answer for the
+    # person whether a mailbox is theirs.
+    antwort: FLSchiedsrichterAdresswechselAntwort
+
+
+class FLSchiedsrichterAdresswechselResponse(BaseAPIResponse):
+    """The answer recorded, and nothing of the row: a leaked link learns only what it posted."""
+
+    antwort: FLSchiedsrichterAdresswechselAntwort
 
 
 class FLSchiedsrichterBestaetigungAnsichtPayload(BaseModel):

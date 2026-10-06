@@ -370,8 +370,8 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
 
         assert on_a_league(mongo_replica_set_url, body).error_code == SCHIEDSRICHTER_TOKEN_UNKNOWN
 
-    def test_a_confirmed_referees_address_change_mints_nothing(self, mongo_replica_set_url: str):
-        """Their link keeps working: the address change is a procedure rather than a fresh collection."""
+    def test_a_confirmed_referees_address_change_mints_no_consent_link(self, mongo_replica_set_url: str):
+        """Their consent link's block stands: the record is already given, and the new address is proved by a link of its own."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await resend(database, client)
@@ -383,8 +383,9 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
         first, corrected, row = on_a_league(mongo_replica_set_url, body)
 
         assert corrected.bestaetigung is None
+        assert corrected.adresswechsel is not None
         assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(first.bestaetigung.token)
-        assert row["kontakt"]["email"] == CORRECTED_EMAIL
+        assert row["kontakt"]["email"] == EMAIL
 
     def test_a_save_leaving_the_address_alone_mints_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

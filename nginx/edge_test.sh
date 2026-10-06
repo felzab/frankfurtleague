@@ -652,11 +652,14 @@ action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-
 action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # The refusal itself, kept whole: what Next's action client reads as the press's error. Not through
 # `action_request`, whose `-o /dev/null` curl would pair with this transfer in place of the file.
-REFUSAL_HEADERS="${SCRATCH}/refusal.headers"
-REFUSAL_BODY="${SCRATCH}/refusal.body"
 ACTION_LABELS+=( refusal )
-ACTION_REQUESTS+=( --next -s -D "$REFUSAL_HEADERS" -o "$REFUSAL_BODY" -w '%{http_code}\n' --max-time 5 -H "Host: localhost"
-  -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/" )
+ACTION_REQUESTS+=( --next -s -D "${SCRATCH}/refusal.headers" -o "${SCRATCH}/refusal.body" -w '%{http_code}\n' --max-time 5
+  -H "Host: localhost" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/" )
+# Asked as a browser asks, `gzip_types` naming text/plain: `--compressed` decodes whatever body comes back.
+ACTION_LABELS+=( refusal-gzip )
+ACTION_REQUESTS+=( --next -s --compressed -H "Accept-Encoding: gzip" -D "${SCRATCH}/refusal-gzip.headers" -o "${SCRATCH}/refusal-gzip.body"
+  -w '%{http_code}\n' --max-time 5
+  -H "Host: localhost" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/" )
 # And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
 action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
@@ -686,25 +689,32 @@ expect_action admin-prefix 429
 expect_action static-prefix 429
 expect_action colon-id 429
 expect_action refusal 429
+expect_action refusal-gzip 429
 
 # The sentence `nginx/shared/site.conf :: @edge_refusal` returns, read off the file so a rewording there
 # is graded too.
 REFUSAL_WRITTEN="$(sed -n 's/^[[:space:]]*return 429 "\(.*\)";$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
 [[ -n "$REFUSAL_WRITTEN" ]] || refuse "nginx/shared/site.conf returns no 429 sentence this test can read."
-read_headers "$REFUSAL_HEADERS"
-# Exactly, as Next compares it: a `charset` appended is the failure this case exists for.
-if [[ "${SENT_VALUE[content-type]:-}" != "text/plain" ]]; then
-  fail "ACTION refusal"
-  detail "expected Content-Type: text/plain, nginx sent '${SENT_VALUE[content-type]:-}'"
-  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
-fi
-# Bytes, not a text read: an appended newline or a byte outside ASCII changes what the frontend compares.
-if ! cmp -s "$REFUSAL_BODY" <(printf '%s' "$REFUSAL_WRITTEN") || LC_ALL=C grep -q '[^ -~]' "$REFUSAL_BODY"; then
-  fail "ACTION refusal"
-  detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent '$(cat "$REFUSAL_BODY" 2>/dev/null)'"
-  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
-fi
-grade_security_headers "the edge's own 429"
+grade_refusal() { # $1 the transfer's label, its files named for it
+  read_headers "${SCRATCH}/$1.headers"
+  # Exactly, as Next compares it: a `charset` appended is the failure this case exists for.
+  if [[ "${SENT_VALUE[content-type]:-}" != "text/plain" ]]; then
+    fail "ACTION $1"
+    detail "expected Content-Type: text/plain, nginx sent '${SENT_VALUE[content-type]:-}'"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+  # Bytes, not a text read: an appended newline or a byte outside ASCII changes what the frontend compares.
+  if ! cmp -s "${SCRATCH}/$1.body" <(printf '%s' "$REFUSAL_WRITTEN") || LC_ALL=C grep -q '[^ -~]' "${SCRATCH}/$1.body"; then
+    fail "ACTION $1"
+    detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent '$(cat "${SCRATCH}/$1.body" 2>/dev/null)'"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+  grade_security_headers "the edge's own 429, $1"
+}
+grade_refusal refusal
+# nginx's gzip filter leaves a 429 plain, compressing a 200, 403 or 404 alone (observed 2026-10-04); asked
+# anyway, so an encoding a later configuration adds is held to the same type and decoded bytes.
+grade_refusal refusal-gzip
 expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200

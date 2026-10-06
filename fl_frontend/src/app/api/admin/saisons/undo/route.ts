@@ -1,5 +1,3 @@
-import { revalidateTag } from "next/cache";
-
 import { patchSaison } from "@/features/saisons/mutations";
 import { SAISON_REPLAY_REFUSALS } from "@/features/saisons/refusals";
 import { FLPatchSaisonPayloadSchema } from "@/features/saisons/schemas";
@@ -21,9 +19,6 @@ export async function POST(request: NextRequest) {
 
       return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten." };
     },
-    invalidate: () => {
-      revalidateTag("saisons", { expire: 0 });
-      revalidateTag("teams", { expire: 0 });
-    },
+    tags: () => ["saisons", "teams"],
   });
 }

@@ -9,6 +9,7 @@ import { act, createElement as h } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { MENSCH_BESTAETIGEN, TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -16,6 +17,7 @@ import { closedControl } from "@/shared/testing/closedControl.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
+import { EDGE_REFUSAL_BODY, ZU_VIELE_VERSUCHE } from "@/shared/utils/actionError.ts";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -121,6 +123,26 @@ describe("the sign-in card's address step", () => {
 
     assert.equal(calls.length - before, 1, "a second Enter during the send sent a second code");
   });
+
+  /* As Next's action client raises the edge's own 429: the body becomes the rejection's message. Read as
+     any other rejection, it would replace the card with the boundary's "not reachable". */
+  it("says the edge refused the send and when to try again, and keeps the address step", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error(EDGE_REFUSAL_BODY)));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
+
+    await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+    await act(codeSent);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ title, description }) => ({ title, description })),
+        [{ title: "Code nicht gesendet", description: ZU_VIELE_VERSUCHE }],
+      ),
+    );
+    assert.equal(screen.queryAllByRole("textbox", { name: "E-Mail-Adresse" }).length, 1, "the refused send took the address step down");
+    assert.equal(screen.queryAllByText("Die Website ist gerade nicht erreichbar.").length, 0, "the edge's refusal reached the boundary");
+  });
 });
 
 describe("the sign-in card's look", () => {
@@ -214,7 +236,9 @@ describe("the sign-in card's code step", () => {
   it("raises a toast for an answer the edge gave instead, and leaves nothing behind at the field", async () => {
     const user = userEvent.setup();
     const field = await atTheCodeStep(user);
-    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } })),
+    );
 
     await user.type(field, "048213");
     await act(fetchMock.answered);
@@ -252,7 +276,9 @@ describe("the sign-in card's code step", () => {
   it("hands the code field the focus once a pressed check is refused", async () => {
     const user = userEvent.setup();
     const field = await atTheCodeStep(user);
-    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } })),
+    );
     await user.type(field, "048213");
     await act(fetchMock.answered);
     await waitFor(() => assert.equal(raised.at(-1)?.title, "Nicht angemeldet"));
@@ -344,7 +370,7 @@ describe("the sign-in card's bot check", () => {
     }
   });
 
-  it("sends nothing while its check has not loaded, and says so with the passkey as the way in", async () => {
+  it("sends nothing while its check has not loaded, and says so with the passkey and the league's address as the ways in", async () => {
     fetchMock.mock.mockImplementation(async () => new Response(null, { status: 204 }));
     turnstile.mintsAtOnce(false);
     const before = calls.length;
@@ -396,7 +422,8 @@ describe("the sign-in card's bot check", () => {
 
 /** The card's own sentence for a check that did not load. */
 const NICHT_GELADEN_HIER =
-  "Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, oder melde Dich mit einem Passkey an.";
+  "Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker " +
+  `und lade die Seite neu, melde Dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`;
 
 /* The step on its own, as a page confirming a signed-in person mounts it: the caller decides what a
    finished sign-in does, and an address that may not change is offered no way to change it. */

@@ -10,7 +10,6 @@ from app.api.einwilligung.services import find_selbst_medien_refusal
 from app.api.identitaet.crud import funktionen_of, refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import eigene_sitze, seat_is_confirmed
-from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.konto.services import (
     KONTO_SEITE_KONTAKT,
     SITZ_WAHLEN,
@@ -21,6 +20,7 @@ from app.api.konto.services import (
     find_nachweis_stand_refusal,
 )
 from app.api.teams.schemas import (
+    KONTAKT_ROLLEN,
     FLSaisonTeamPersonEinwilligungPayload,
     FLSaisonTeamPersonEinwilligungResponse,
     FLTeamSitz,
@@ -35,9 +35,8 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -47,8 +46,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
-
-Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
 
 
 def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
@@ -71,7 +68,7 @@ def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
 async def get_team_sitze(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,
     db: DBClient,
@@ -90,25 +87,24 @@ async def get_team_sitze(
         # The seat just judged lives on this row, read in the same snapshot, so it stands and no 404 is owed.
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            [f"kontakte.{slot}.{field}" for slot in KONTAKT_SLOTS for field in ("vorname", "nachname", "einwilligung.bestaetigt_am")],
+            [f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("vorname", "nachname", "einwilligung.bestaetigt_am")],
             session=session,
         )
         kontakte = (row or {}).get("kontakte") or {}
 
-    return FLTeamSitzeResponse(team_id=team_id, saison_id=saison_id, sitze=[_as_sitz(kontakte, slot) for slot in KONTAKT_SLOTS])
+    return FLTeamSitzeResponse(team_id=team_id, saison_id=saison_id, sitze=[_as_sitz(kontakte, slot) for slot in KONTAKT_ROLLEN])
 
 
 @router.patch(
     "/{team_id:objectid}/saisons/{saison_id}/person/einwilligung",
     response_model=FLSaisonTeamPersonEinwilligungResponse,
     summary="Change a seat holder's own media consent on one team's season",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_einwilligung(
     team_id: CustomRouteObjectId,
     saison_id: str,
     einwilligung_data: Annotated[FLSaisonTeamPersonEinwilligungPayload, Body()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,
     db: DBClient,
@@ -136,7 +132,7 @@ async def patch_einwilligung(
     async def write(session: AsyncClientSession) -> FLSaisonTeamPersonEinwilligungResponse:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "geburtsdatum", "einwilligung")},
+            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
             session=session,
         )
         rollen = [] if row is None else eigene_sitze(row, identifier)

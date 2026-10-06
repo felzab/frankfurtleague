@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { EDGE_REFUSAL_BODY, ZU_VIELE_VERSUCHE } from "@/shared/utils/actionError.ts";
 
 const ADDRESS = "spielerin@example.org";
 
@@ -54,6 +55,29 @@ describe("the step-up's send", () => {
       calls.slice(before).map((call) => ({ action: call.action, payload: call.payload })),
       [{ action: "sendeBestaetigungscodeAction", payload: undefined }],
     );
+  });
+
+  /* As Next's action client raises the edge's own 429. Read as any other rejection, it would replace the
+     account page with its route's error boundary. */
+  it("says the edge refused the send and when to try again, the send still offered", async () => {
+    const user = userEvent.setup();
+    raised.length = 0;
+    answerWith(() => Promise.reject(new Error(EDGE_REFUSAL_BODY)));
+    render(h(CodeConfirmation, { address: ADDRESS, istInhaber: () => Promise.resolve(true), onConfirmed: () => undefined }));
+
+    await user.click(screen.getByRole("button", { name: "Code per E-Mail senden" }));
+    await act(answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ title, description }) => ({ title, description })),
+        [{ title: "Code nicht gesendet", description: ZU_VIELE_VERSUCHE }],
+      ),
+    );
+    assert.equal(screen.queryAllByRole("button", { name: "Code per E-Mail senden" }).length, 1, "the refused send took its control down");
+    // The suite's toasts and answer as the cases after this one find them.
+    raised.length = 0;
+    answerWith(() => Promise.resolve(SENT));
   });
 
   /* The code the first send mailed stays good, so a refused resend says why and leaves its step standing. */

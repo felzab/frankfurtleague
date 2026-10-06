@@ -312,9 +312,10 @@ async def _nothing() -> None:
 
 
 def save_racing_a_ban(url: str, *, rival: bool) -> tuple[int, str | None, int]:
-    """`THREE` saved by one administrator through the served application, Ida banned inside it by another where `rival` is set.
+    """`THREE` saved by one administrator, Ida banned inside it by another where `rival` is set.
 
-    Answers the status, the refusal's code and the arrivals at the ban read. Called directly, a handler binds no judge and commits Ida's seat.
+    Answers status, code and arrivals at the ban read.
+    Through the served application: a handler called directly binds no judge, and commits Ida's seat.
     """
 
     async def seeded(_: AsyncDatabase, __: AsyncMongoClient) -> None:
@@ -1046,7 +1047,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
 
         view, answered = on_a_league(mongo_replica_set_url, body)
 
-        assert (view.quelle, view.schule, view.rolle) == ("bewerbung", TEAM_NAME, "trainer")
+        assert (view.quelle, view.schule, view.rolle, view.zeile) == ("bewerbung", TEAM_NAME, "trainer", None)
         assert (answered.quelle, answered.ergebnis) == ("bewerbung", "bestaetigt")
 
 
@@ -1125,23 +1126,33 @@ class TestALinkOutlivingItsSeason:
     """A link minted while the season ran asks no consent once it has ended or the team left it (`docs/backend/spec.md :: I935`)."""
 
     async def closed(self, database: AsyncDatabase, how: str) -> None:
-        if how == "past":
+        if how in ("past", "both"):
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
-        else:
+        if how in ("austritt", "both"):
             await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, ITS_TEAM_LEFT)
 
-    @pytest.mark.parametrize("how", [pytest.param("past", id="the season ended"), pytest.param("austritt", id="the team left")])
-    def test_its_view_offers_a_widerspruch_alone_and_its_refused_consent_writes_nothing(self, mongo_replica_set_url: str, how: str):
+    @pytest.mark.parametrize(
+        ("how", "zeile"),
+        [
+            pytest.param("past", "saison_vorbei", id="the season ended"),
+            pytest.param("austritt", "ausgetreten", id="the team left"),
+            # The season's end is what the page names: no team is still in a season that is over.
+            pytest.param("both", "saison_vorbei", id="the team left a season that has since ended"),
+        ],
+    )
+    def test_its_view_offers_a_widerspruch_alone_and_its_refused_consent_writes_nothing(self, mongo_replica_set_url: str, how: str, zeile: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             token = (await save(database, THREE)).bestaetigungen[0].token
+            open_view = await ansicht(database, token)
             await self.closed(database, how)
             before = await row_now(database)
 
-            return await ansicht(database, token), await refused(answer(database, token)), before, await row_now(database)
+            return open_view, await ansicht(database, token), await refused(answer(database, token)), before, await row_now(database)
 
-        view, code, before, after = on_a_league(mongo_replica_set_url, body)
+        open_view, view, code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert view.zustand == "saison_vorbei"
+        assert open_view.zeile == "offen"
+        assert (view.zustand, view.zeile) == ("saison_vorbei", zeile)
         assert code == KONTAKT_SAISON_VORBEI
         assert after == before
 
@@ -1193,9 +1204,12 @@ NEXT_SAISON_ID = "2027"
 
 
 class TestARolloverInsideTheConsentPress:
-    """The rollover writes the season and nothing on the row, so the press's season anchor is what makes the two conflict."""
+    """The rollover reads nothing the press writes, so a press that read `active` commits across one landing inside it.
 
-    def test_a_rollover_committing_after_the_presss_status_read_makes_it_retry_and_refuse(self, mongo_replica_set_url: str):
+    An anchor on the season would make it retry against every write to the season document instead.
+    """
+
+    def test_a_press_that_read_the_season_active_commits_across_a_rollover_inside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISONS].insert_one(documents.saison_document(NEXT_SAISON_ID, "future"))
             # What makes the next season activatable (`REQ-ACTIVATE-003`).
@@ -1215,15 +1229,17 @@ class TestARolloverInsideTheConsentPress:
                 )
 
             seasons = SeasonsRunningARivalAfterTheirRead(database[Collection.SAISONS], roll_over)
-            code = await refused(answer(database, token, saisons=cast(AsyncCollection, seasons)))
-            seasons.assert_landed_inside(serially=1)
+            answered = await answer(database, token, saisons=cast(AsyncCollection, seasons))
+            saison = await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, projection={"status": 1})
 
-            return code, await row_now(database)
+            return answered.ergebnis, seasons.passes, saison, await row_now(database)
 
-        code, row = on_a_league(mongo_replica_set_url, body)
+        ergebnis, passes, saison, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == KONTAKT_SAISON_VORBEI
-        assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "a consent landed on a season that has ended"
+        # Both landed: the season ended under the press, and the press it read as running committed.
+        assert saison is not None and saison["status"] == "past"
+        assert (ergebnis, row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"]) == ("bestaetigt", TODAY)
+        assert passes == 1, "the press read the season again, so something it writes now conflicts with the rollover"
 
 
 class TestTheLinkLookupWalksAnIndex:

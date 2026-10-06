@@ -857,10 +857,17 @@ class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
 
 
 class TestTheAnchorClosesEachRace:
-    """Each outcome equals a serial order of the pair; with the anchor gone, both commit and the list breaks its own rule."""
+    """Each outcome equals a serial order of the pair.
+
+    Each administrator's judge anchors only their own grant row, so between two administrators only the list anchor
+    conflicts: with it gone, both commit.
+    """
 
     def test_two_revokes_that_each_leave_the_floor_do_not_both_commit(self, mongo_replica_set_url: str):
-        """Three grants, two revokes: either alone leaves two, both together leave the `owner` grant alone."""
+        """Three grants, two revokes: either alone leaves two, both together leave the `owner` grant alone.
+
+        One owner on both sides, the only revoker three grants allow, so its own anchor conflicts too.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, BERND_ID))
@@ -873,7 +880,7 @@ class TestTheAnchorClosesEachRace:
 
     def test_a_ban_landing_beside_a_grant_of_its_address_refuses_the_grant(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
-            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: ban(database, client))
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: ban(database, client, als=BERND))
             outcome = await outcome_of(grant(database, client, berechtigungen=racing))
             racing.assert_landed_inside(serially=1)
 
@@ -883,7 +890,7 @@ class TestTheAnchorClosesEachRace:
 
     def test_a_grant_landing_beside_a_ban_of_its_address_refuses_the_ban(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
-            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: grant(database, client))
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: grant(database, client, als=BERND))
             outcome = await outcome_of(ban(database, client, berechtigungen=racing))
             racing.assert_landed_inside(serially=1)
 

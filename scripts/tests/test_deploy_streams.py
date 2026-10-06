@@ -591,36 +591,6 @@ def test_the_key_is_read_where_the_environment_names_it_rather_than_at_the_mount
             "ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env",
             id="no-public-half",
         ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 other.pem env.txt',
-            "absent.pem",
-            "the signing key could not be read by the frontend user (ENOENT)",
-            id="unreadable-key",
-        ),
-        pytest.param(
-            "node -e \"$PAIR_JS\" ed25519 other.pem env.txt\nprintf 'not a key\\n' > key.pem",
-            "key.pem",
-            "the signing key file holds no private key in PEM",
-            id="no-key-in-the-file",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" x25519 key.pem env.txt',
-            "key.pem",
-            "the signing key is x25519, not Ed25519",
-            id="not-a-signing-key",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key',
-            "key.pem",
-            "which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there (ENOENT)",
-            id="a-dev-path-the-environment-names-over-a-good-mount",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=',
-            "key.pem",
-            "which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there",
-            id="an-empty-path-the-frontend-s-config-refuses",
-        ),
     ],
 )
 def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, key: str, said: str) -> None:
@@ -629,6 +599,21 @@ def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, k
 
     assert "check=3" in output, output
     assert said in output, output
+
+
+@pytest.mark.parametrize(
+    ("setup", "key"),
+    [
+        pytest.param('node -e "$PAIR_JS" ed25519 other.pem env.txt', "absent.pem", id="absent"),
+        pytest.param("node -e \"$PAIR_JS\" ed25519 other.pem env.txt\nprintf 'not a key\\n' > key.pem", "key.pem", id="no-key-in-the-file"),
+        pytest.param('node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=', "key.pem", id="an-empty-path"),
+    ],
+)
+def test_a_key_the_check_cannot_read_is_no_verdict_on_the_pair(setup: str, key: str) -> None:
+    """The frontend's boot refuses such a key before this check runs (`fl_frontend/src/instrumentation.test.ts`), so here it is the advisory."""
+    output = _judged(setup, key, "env.txt")
+
+    assert "check=4" in output, output
 
 
 KEY_CHECK: Final = 'check_actor_key "NOTHING has been recreated." docker compose -f docker-compose.yml run --rm --no-deps -T frontend'
@@ -732,16 +717,14 @@ def test_the_deploy_reads_the_key_s_mode_once_it_knows_the_key_is_there() -> Non
 
 
 @pytest.mark.parametrize(
-    ("script", "after", "before"),
-    [
-        (DEPLOY, "\ncheck_frontend_env_names\n", 'step "Recreating the application containers"'),
-        (LOCAL, 'ok "images built"', 'section "start"'),
-    ],
+    ("script", "before"),
+    [(DEPLOY, 'step "Recreating the application containers"'), (LOCAL, 'section "start"')],
 )
-def test_the_pair_is_judged_after_the_build_it_runs_in_and_before_anything_starts(script: Path, after: str, before: str) -> None:
+def test_the_pair_is_judged_after_the_frontend_s_boot_and_before_anything_starts(script: Path, before: str) -> None:
+    """The boot has refused a key it cannot read where its environment points it, which the pair check takes as read."""
     text = script.read_text(encoding="utf-8")
 
-    assert text.index(after) < text.index("\ncheck_actor_key ") < text.index(before), script.name
+    assert text.index("\ncheck_frontend_boot_config ") < text.index("\ncheck_actor_key ") < text.index(before), script.name
     assert text.index('\nrequire_file "$SIGNING_KEY_FILE"') < text.index("\ncheck_actor_key "), script.name
 
 
@@ -824,10 +807,10 @@ def test_the_local_stacks_health_read_names_no_file_and_leaves_the_choice_to_com
     assert argv[:3] == ["compose", "ps", "-q"], argv
 
 
-# --- the secret files, read by each service's own container ---------------------------------------------
+# --- each service's settings and secret files, built by its own container ---------------------------------
 
 RUNNER: Final = 'docker compose -f "$COMPOSE" run --rm --no-deps -T'
-FILES_CHECK: Final = f'check_frontend_secret_files "NOTHING has been recreated." production {RUNNER}'
+FRONTEND_BOOT: Final = f'check_frontend_boot_config "NOTHING has been recreated." production {RUNNER}'
 BOOT_CHECK: Final = f'check_backend_boot_config "NOTHING has been recreated." {RUNNER}'
 
 
@@ -835,10 +818,10 @@ def _lib_array(name: str) -> list[str]:
     return lift_assignment(LIB, name).split("=", 1)[1].strip("()").split()
 
 
-def test_a_file_the_container_cannot_use_refuses_with_nothing_recreated() -> None:
-    """Exit 3 is the image's own answer, and the remedy names where each file is written."""
-    said = "Unusable secret files: /run/secrets/auth_secret (ENOENT)"
-    code, output, _ = _run(FILES_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
+def test_settings_the_frontend_refuses_stop_the_run_with_nothing_recreated() -> None:
+    """Exit 3 is the boot's own refusal; its CRITICAL line is what names the setting, so it is printed."""
+    said = '{"level":"CRITICAL","error_code":"FE-BOOT-004","files":"auth_secret"}'
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
 
     assert code == 2, output
     assert said in output, output
@@ -846,49 +829,33 @@ def test_a_file_the_container_cannot_use_refuses_with_nothing_recreated() -> Non
     assert "NOTHING has been recreated." in output, output
 
 
-def test_a_file_check_that_could_not_be_made_is_an_advisory() -> None:
-    """An image older than the mode answers here too, so a check that could not run leaves the deploy where it stood."""
-    code, output, _ = _run(FILES_CHECK, FL_DEPLOY_RUN_RC="1", FL_DEPLOY_RUN_SAYS="Error: Cannot find module")
+def test_a_frontend_boot_that_could_not_be_asked_is_an_advisory() -> None:
+    """A fault ends the boot on 1, which is no verdict on the host's files."""
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_RC="1", FL_DEPLOY_RUN_SAYS="Error: Cannot find module")
 
     assert code == 0, output
     assert "(exit 1)" in output, output
+    assert "Error: Cannot find module" in output, output
 
 
-@pytest.mark.parametrize(("deployment", "flags"), [("production", ["--secret-files", "--production"]), ("local", ["--secret-files"])])
-def test_the_file_check_asks_the_image_s_own_list_as_the_service_s_own_user(deployment: str, flags: list[str]) -> None:
-    """The service's user, mounts and groups are what the answer is about, so no `--user` overrides them; local asks no provider key."""
-    code, output, fixture = _run(FILES_CHECK.replace(" production ", f" {deployment} "))
+def test_a_passing_boot_prints_nothing_its_server_said() -> None:
+    """Next's start banner is all a pass writes, and it names a listening address nobody can reach."""
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_SAYS="Next.js banner")
+
+    assert code == 0, output
+    assert "Next.js banner" not in output, output
+
+
+@pytest.mark.parametrize("deployment", ["production", "local"])
+def test_the_boot_runs_the_image_s_own_command_as_the_service_told_which_deployment_it_is(deployment: str) -> None:
+    """No command after the service, so the image's server runs the gates; no `--user`, the files being its user's."""
+    code, output, fixture = _run(FRONTEND_BOOT.replace(" production ", f" {deployment} "))
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
 
     assert code == 0, output
     run = argv.index("run")
-    assert argv[run:] == ["run", "--rm", "--no-deps", "-T", "frontend", "node", "check-environment-names.mjs", *flags], argv
+    assert argv[run:] == ["run", "--rm", "--no-deps", "-T", "-e", f"BOOT_CHECK={deployment}", "frontend"], argv
     assert "--user" not in argv, argv
-
-
-# The image's checker, handed the flags the function passes; the stand-in drops the service and names
-# the case's own key set, the image's living at a path no checkout has. `omega_file` is production's
-# alone.
-FRONTEND_FILES: Final = """mkdir -p run-secrets
-printf 'a placeholder' > run-secrets/alpha_file
-printf '%s' '{{"secretFiles": ["alpha_file"], "productionSecretFiles": ["omega_file"]}}' > sets.json
-in_the_image() {{ shift; local here="$PWD"; ( cd "{checker}" && SECRETS_DIR="$here/run-secrets" "$@" "$here/sets.json" ); }}
-check_frontend_secret_files "NOTHING has been started." {deployment} in_the_image
-echo files-judged
-"""
-
-
-@pytest.mark.parametrize(("deployment", "code_wanted"), [("local", 0), ("production", 2)])
-def test_the_image_s_checker_takes_the_flags_the_preflight_passes(deployment: str, code_wanted: int) -> None:
-    """Run for real: a stub proves the argv, and only the checker proves it reads those flags as the list it judges."""
-    checker = (REPO_ROOT / "fl_frontend" / "scripts").as_posix()
-    code, output, _ = _run(FRONTEND_FILES.format(checker=checker, deployment=deployment))
-
-    assert code == code_wanted, output
-    assert ("omega_file (ENOENT)" in output) == (deployment == "production"), output
-    # The advisory passes a deployment too, so a mode the checker lost would pass `local` unseen.
-    assert "could not be asked" not in output, output
-    assert "a placeholder" not in output, output
 
 
 def test_settings_the_backend_refuses_stop_the_run_with_nothing_recreated() -> None:
@@ -927,109 +894,38 @@ def test_the_settings_program_answers_3_naming_what_it_refuses_and_never_a_value
 @pytest.mark.parametrize(
     ("script", "after", "before"),
     [
-        (DEPLOY, "\ncheck_actor_key ", 'step "Recreating the application containers"'),
-        (LOCAL, "\ncheck_actor_key ", 'section "start"'),
+        (DEPLOY, "\ncheck_frontend_env_names\n", 'step "Recreating the application containers"'),
+        (LOCAL, 'ok "images built"', 'section "start"'),
     ],
 )
-def test_the_files_are_judged_after_the_key_and_before_anything_starts(script: Path, after: str, before: str) -> None:
+def test_each_boot_is_judged_after_the_build_it_runs_in_and_before_anything_starts(script: Path, after: str, before: str) -> None:
     text = script.read_text(encoding="utf-8")
 
-    for call in ("\ncheck_frontend_secret_files ", "\ncheck_backend_boot_config "):
+    for call in ("\ncheck_frontend_boot_config ", "\ncheck_backend_boot_config "):
         assert text.index(after) < text.index(call) < text.index(before), (script.name, call)
 
 
 @pytest.mark.parametrize(("script", "deployment"), [(DEPLOY, "production"), (LOCAL, "local")])
 def test_each_script_names_the_deployment_its_frontend_is_judged_as(script: Path, deployment: str) -> None:
-    """The local stack sends no mail, so its frontend holds no provider key and is asked for none."""
+    """The boot holds `APP_ENV` to it, so a production host whose file says `local` is not judged as the local stack."""
     text = script.read_text(encoding="utf-8")
 
-    assert re.search(rf'\ncheck_frontend_secret_files "[^"]*" {deployment} ', text), script.name
+    assert re.search(rf'\ncheck_frontend_boot_config "[^"]*" {deployment} ', text), script.name
 
 
-# --- a pin to a build from before the secret files --------------------------------------------------------
+# --- what the rollback tells the operator ---------------------------------------------------------------
 
-PIN_CHECK: Final = "\n".join(
-    (
-        _assignment("SECRET_FILES_READER_CHECK"),
-        _lifted("reads_secret_files"),
-        _lifted("check_pin_reads_secret_files"),
-        'PIN="sha-0123abc"',
-        "check_pin_reads_secret_files",
-        "echo pin-judged",
-    )
-)
+ADVICE: Final = "\n".join((_lifted("rollback_advice"), "rollback_advice"))
 
 
-def test_a_pin_from_before_the_secret_files_is_refused_before_either_tag_moves() -> None:
-    code, output, fixture = _run(PIN_CHECK, FL_DEPLOY_RUN_RC="3")
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-
-    assert code == 2, output
-    assert "pin-judged" not in output, output
-    assert "docs/ops/runbooks.md §16" in output, output
-    assert "neither :latest tag has moved" in output, output
-    assert argv[: argv.index("python") - 1] == ["run", "--rm", "--pull", "never", "--network", "none"], argv
-    assert argv[argv.index("python") - 1].endswith("/frankfurtleague-backend:sha-0123abc"), argv
-
-
-@pytest.mark.parametrize(("rc", "advisory"), [("0", False), ("125", True)])
-def test_a_pin_that_reads_them_or_could_not_be_asked_goes_on(rc: str, advisory: bool) -> None:
-    code, output, _ = _run(PIN_CHECK, FL_DEPLOY_RUN_RC=rc, FL_DEPLOY_RUN_SAYS="Error" if advisory else "")
+@pytest.mark.parametrize(("pin", "named"), [("sha-0123abc", "./scripts/ops/deploy.sh sha-0123abc"), ("", "./scripts/ops/deploy.sh <tag>")])
+def test_the_rollback_names_the_tag_it_restored_or_asks_for_one(pin: str, named: str) -> None:
+    """The registry's `:latest` still names the failed build, so a bare re-run would fetch it again."""
+    code, output, _ = _run(f'PREV_PIN="{pin}"\n{ADVICE}')
 
     assert code == 0, output
-    assert "pin-judged" in output, output
-    assert ("could not be asked" in output) == advisory, output
-
-
-def test_the_pin_is_judged_after_the_pair_and_before_the_tags_move() -> None:
-    text = DEPLOY.read_text(encoding="utf-8")
-    pinned = text[text.index('step "Pinning to ${PIN}"') :]
-
-    assert pinned.index("compare_pulled_pair") < pinned.index("\n  check_pin_reads_secret_files\n") < pinned.index("docker tag")
-
-
-# A backend of the case's own: an `app.core.config` without `read_secrets`, as a build from before the files carries.
-READER: Final = """mkdir -p old/app/core empty
-printf 'def get_config():\\n    pass\\n' > old/app/core/config.py
-for where in "{backend}" old empty; do
-  reader_rc=0
-  PYTHONPATH="$where" "$(venv_python)" -c "$SECRET_FILES_READER_CHECK" || reader_rc=$?
-  printf 'reader=%s\\n' "$reader_rc"
-done
-"""
-
-
-def test_the_program_tells_a_backend_from_before_the_files_from_one_it_cannot_ask() -> None:
-    """Run for real: this tree's backend reads them, one without `read_secrets` predates them, and no module is no answer."""
-    body = _assignment("SECRET_FILES_READER_CHECK") + "\n" + READER.format(backend=(REPO_ROOT / "fl_backend").as_posix())
-    code, output, _ = _run(body)
-
-    assert code == 0, output
-    assert re.findall(r"reader=(\d+)", output) == ["0", "3", "4"], output
-
-
-ADVICE: Final = "\n".join(
-    (
-        _assignment("SECRET_FILES_READER_CHECK"),
-        _lifted("reads_secret_files"),
-        _lifted("rollback_advice"),
-        'PREV_PIN="sha-0123abc"',
-        'PREV_BE_IMG="sha256:restored"',
-        "rollback_advice",
-    )
-)
-
-
-@pytest.mark.parametrize(("rc", "by_tag"), [("0", True), ("3", False), ("125", True)])
-def test_the_rollback_names_a_tag_only_for_a_build_this_checkout_deploys_by_one(rc: str, by_tag: bool) -> None:
-    """A tag the restored build cannot be deployed by is no way back to it; an unasked image keeps the tag."""
-    code, output, fixture = _run(ADVICE, FL_DEPLOY_RUN_RC=rc)
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-
-    assert code == 0, output
-    assert ("./scripts/ops/deploy.sh sha-0123abc" in output) == by_tag, output
-    assert ("docs/ops/runbooks.md §16" in output) != by_tag, output
-    assert "sha256:restored" in argv, argv
+    assert named in output, output
+    assert "DO NOT re-run this" in output, output
 
 
 # --- a credential's line in an environment file -------------------------------------------------------------
@@ -1111,6 +1007,8 @@ def test_a_multi_line_quoted_value_every_reader_takes_alike_is_clean() -> None:
     [
         pytest.param('NOTE="first\nsecond $base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="dollar-inside"),
         pytest.param('NOTE="first\nsecond\n', "line 1: NOTE's quoted value never closes", id="unclosed"),
+        # The credential check reads the colon form's quote as opening a value too, so both read line 2 as data.
+        pytest.param('NOTE: "first\nBASE=$base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="opened-by-a-colon-line"),
     ],
 )
 def test_a_multi_line_quoted_value_the_readers_disagree_on_refuses(text: str, said: str) -> None:
@@ -1122,7 +1020,7 @@ def test_a_multi_line_quoted_value_the_readers_disagree_on_refuses(text: str, sa
 
 def test_a_byte_order_mark_refuses_as_a_spelling_and_the_line_is_still_judged() -> None:
     """Compose, python-dotenv 1.2.4 and `@next/env` 16.3.8 drop the mark; `parseEnv`, driven, keeps it in the first name."""
-    code, output = _env_spellings("﻿API_URL=http://backend:8000/$base\nLOG_FORMAT=json\n")
+    code, output = _env_spellings("\ufeffAPI_URL=http://backend:8000/$base\nLOG_FORMAT=json\n")
 
     assert code == 2, output
     assert "line 1 opens with a byte-order mark" in output, output
@@ -1131,7 +1029,7 @@ def test_a_byte_order_mark_refuses_as_a_spelling_and_the_line_is_still_judged() 
 
 
 def test_a_byte_order_mark_alone_refuses() -> None:
-    code, output = _env_spellings("﻿LOG_FORMAT=json\n")
+    code, output = _env_spellings("\ufeffLOG_FORMAT=json\n")
 
     assert code == 2, output
     assert "line 1 opens with a byte-order mark" in output, output

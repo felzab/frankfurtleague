@@ -31,6 +31,7 @@ from app.api.registrierungen.services import (
     compose_person,
     compose_person_update,
     find_gesperrt_refusal,
+    find_person_fehlt_refusal,
     find_person_refusal,
     find_schon_im_kader_refusal,
     find_stufe_refusal,
@@ -63,7 +64,7 @@ from app.core.drosselung import gedrosselt
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -75,9 +76,6 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
 
-# The binder's own run, yielding the folded identifier the seat is judged against.
-Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
-
 
 @router.get(
     "/kader/{team_id:objectid}/{saison_id}",
@@ -88,7 +86,7 @@ async def get_offene_registrierungen(
     team_id: CustomRouteObjectId,
     saison_id: str,
     params: Annotated[FLOffeneRegistrierungenParams, Query()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
@@ -183,7 +181,7 @@ async def get_offene_registrierungen(
 async def aufnehmen(
     registrierung_id: CustomRouteObjectId,
     aufnahme_data: Annotated[FLRegistrierungAufnehmenPayload, Body()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
@@ -213,7 +211,9 @@ async def aufnehmen(
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
     (`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban
     list holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no
-    longer offers (`REQ-REGISTRIERUNG-003`), a `spieler_id` that is not the person this registration may be admitted
+    longer offers (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds
+    no stored person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, a namesake the body names
+    included, and the pupil registers again), a `spieler_id` that is not the person this registration may be admitted
     into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a
     full squad (`REQ-SQUAD-003`). Nothing is written on any of them.
     """
@@ -247,6 +247,8 @@ async def aufnehmen(
         adresse = sign_in_identifier(str(registrierung_raw["email"]))
         resolved = await persons_at(spieler_collection=spieler_collection, adressen=[adresse], session=session)
         adresse_raw = resolved[0] if resolved else None
+        # Before a namesake is read: the team's answer cannot stand in for the person the pupil confirmed as.
+        refuse(find_person_fehlt_refusal(registrierung_raw=registrierung_raw, adresse_raw=adresse_raw))
         benannt_raw = (
             await spieler_collection.find_one({"_id": aufnahme_data.spieler_id}, session=session)
             if adresse_raw is None and aufnahme_data.spieler_id is not None
@@ -362,7 +364,7 @@ async def aufnehmen(
 async def ablehnen(
     registrierung_id: CustomRouteObjectId,
     ablehnung_data: Annotated[FLRegistrierungAblehnenPayload, Body()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,

@@ -1603,4 +1603,14 @@ describe("the words the two contact pages are handed", () => {
     assert.ok(!html.includes('name="team_id"'), "the page offers a form it holds no words for");
     assert.ok(textOf(html).includes("Wir können das Formular gerade nicht laden"), "the page does not say why no form stands");
   });
+
+  /* A registry answering against what the form was built for is no failed read: only a deploy repairs
+     it, so it reaches the error boundary, which logs it, never the panel asking for a reload. */
+  it("lets a registry breaking its contract on the form reach the error boundary", async () => {
+    backend({ laufend: {} });
+    await assert.rejects(formFassung(), { name: "ContractBreakError" }, "no label for the form was absorbed into a panel");
+
+    backend({ laufend: { bewerbung: "2026-01-nirgends" } });
+    await assert.rejects(formFassung(), { name: "ContractBreakError" }, "a label serving no words was absorbed into a panel");
+  });
 });

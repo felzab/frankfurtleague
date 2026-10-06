@@ -11,7 +11,8 @@ import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
@@ -68,15 +69,11 @@ export function BestaetigungSaisonVorbei({
         onAbschluss({ zustand: "widersprochen-neu" });
         return;
       }
-      if (antwort.outcome === "unknown") {
-        appToast.danger(UNKLAR_TITEL, { description: ANTWORT_UNKLAR });
-        return;
-      }
-      if (antwort.zustand !== undefined) {
-        onAbschluss({ zustand: antwort.zustand });
-        return;
-      }
-      appToast.danger("Widerspruch nicht gespeichert", { description: antwort.error ?? antwort.unplacedError ?? NICHT_GESPEICHERT });
+      reportRefusedConfirmation(antwort, {
+        onZustand: (zustand) => onAbschluss({ zustand }),
+        onRefusal: () =>
+          appToast.danger("Widerspruch nicht gespeichert", { description: antwort.error ?? antwort.unplacedError ?? NICHT_GESPEICHERT }),
+      });
     });
   };
 

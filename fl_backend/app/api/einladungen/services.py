@@ -9,8 +9,9 @@ from collections.abc import Collection, Mapping
 from http import HTTPStatus
 from typing import Any, NamedTuple
 
-from app.api.bewerbungen.services import KONTAKT_SEATS, seat_named
+from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersandGrund
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import mailbox_key
@@ -186,7 +187,7 @@ def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLEinladungEmpfaenger]:
     empfaenger: list[FLEinladungEmpfaenger] = []
     seen: set[str] = set()
 
-    for seat in KONTAKT_SEATS:
+    for seat in KONTAKT_ROLLEN:
         entry = _confirmed_seat(kontakte, seat)
         rolle = seat_named(seat)
         if entry is None or rolle is None:

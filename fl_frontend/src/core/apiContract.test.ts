@@ -41,6 +41,7 @@ const BACKEND_ONLY: Record<string, string> = {
   FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
   FLRegistrierung: "the row of that read, which no page consumes",
   FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
+  FLRegistrierungEinwilligung: "that row's consent block, which no page consumes",
   FLRegistrierungEntscheidungZeile: "that row's decision block, which no page consumes",
 };
 
@@ -122,6 +123,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterEinladenPayload: "the referee's re-send POST takes its id from the path and has no request body",
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
+  FLSchiedsrichterAdresswechselEinladenPayload: "the address link's re-send POST takes its id from the path and has no request body",
+  FLSchiedsrichterAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
