@@ -3,7 +3,14 @@ import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import {
+  answerShown,
+  assertEachAnswered,
+  DUPLICATE_KEY,
+  publishedRefusals,
+  refusedOn,
+  unpublishedOn,
+} from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal, mapRetireRefusal } from "./refusals.ts";
 
@@ -119,7 +126,7 @@ describe("the venue name a unique index already holds", () => {
       mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY, 422)),
       mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)),
     );
-    assert.equal(mapNameRefusal(refusedOn(CREATE_OPERATION, "DB-COMMON-001", 404)), null);
+    assert.equal(mapNameRefusal(unpublishedOn(CREATE_OPERATION, "DB-COMMON-001", 404)), null);
   });
 
   it("answers the create's and the edit's refusals on the name box, the two writes that send a name", async () => {

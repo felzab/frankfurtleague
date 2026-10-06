@@ -2,7 +2,7 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { isRecordMissing } from "@/core/errors";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
@@ -205,7 +205,7 @@ export const dieselbePerson = (name: string): string => `Ist das dieselbe Person
 /** A registration another seat decided since the page was drawn: the press meets no pending row. */
 export const REGISTRIERUNG_SCHON_ENTSCHIEDEN = buildRefusal({
   reason: "Diese Registrierung ist schon entschieden",
-  repair: "Lade die Seite neu",
+  repair: LADE_DIE_SEITE_NEU,
 });
 
 /**

@@ -8,7 +8,7 @@ import { notifyPasskeyRemoved, PASSKEY_LIMIT, passkeysOf, removePasskey, renameP
 import { recordWriteSent } from "@/core/requestScope";
 import { stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { PasskeyNamePayloadSchema } from "./schemas";
@@ -31,7 +31,7 @@ const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
  */
 const GLEICHZEITIG_GEAENDERT = buildRefusal({
   reason: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert",
-  repair: "Lade die Seite neu",
+  repair: LADE_DIE_SEITE_NEU,
 });
 
 /** `diesesGeraet` says the removal ended the session the request came with, which the page then leaves. */

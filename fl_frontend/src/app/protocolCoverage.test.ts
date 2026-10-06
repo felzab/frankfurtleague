@@ -17,7 +17,7 @@ import type { KeyTier } from "@/core/keyTiers.ts";
 doubleActionRequest({ subject: person({ sitze: [sitz()] }) });
 
 const { NextRequest } = await import("next/server");
-const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { GESPERRT_KEINE_AENDERUNG, HEUTE_GENUG_GEAENDERT, ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { runPersonMutation, runPersonRecordMutation } = await import("@/shared/utils/personMutation.ts");
@@ -252,7 +252,7 @@ describe("every published credential, request-validation and day-ceiling code ag
 
       const shown = await shownBySpines(tier, person, refusedOn(operation, code, status));
       const unclaimed =
-        answer.kind === "worded" ? null : await shownBySpines(tier, person, refusedOn(operation, unclaimedBeside(code), status));
+        answer.kind === "worded" ? null : await shownBySpines(tier, person, unpublishedOn(operation, unclaimedBeside(code), status));
       for (const [spine, words] of Object.entries(shown)) {
         assert.equal(words, answer.kind === "worded" ? answer.words : unclaimed?.[spine], `${key}, on ${spine}: ${answer.because}`);
       }

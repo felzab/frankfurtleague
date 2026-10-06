@@ -28,12 +28,11 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
@@ -174,21 +173,17 @@ export function FormBestaetigungSection({
         : SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE;
 
   const sende = async () => {
-    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
-
     // The page re-keys on the minted link's record, drawing this control anew under its next label.
     const landing = focusAfterWrite();
-    setSendet(true);
-    // A new link voids the one the referee holds (`docs/frontend/spec.md :: I432`).
-    if (!(await stepUp.confirm(true))) {
-      setSendet(false);
-      return;
-    }
-
-    // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
-    // leaves „Sendet...“ standing for good and reports nothing.
-    const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(rejectedWrite(router, LINK_ERNEUT_OHNE_ANTWORT));
-    setSendet(false);
+    // A new link voids the one the referee holds.
+    const res = await pressLinkWrite({
+      isDirty,
+      stepUp,
+      router,
+      pending: setSendet,
+      write: () => einladeSchiedsrichterAction({ id: schiedsrichterId }),
+    });
+    if (res === null) return;
 
     // A rejection, which no answer came back from, carries this control's repair naming the connection; an
     // answer, an unknown outcome among them, carries its own sentence.

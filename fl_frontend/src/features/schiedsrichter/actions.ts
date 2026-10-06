@@ -2,7 +2,7 @@
 
 import { isFreshlySignedIn } from "@/core/auth";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants";
@@ -201,6 +201,9 @@ export async function patchSchiedsrichterAction(
   });
 }
 
+/** A row gone before a mint could read its address: both link sends meet it. */
+const EINTRAG_WEG = buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: LADE_DIE_SEITE_NEU });
+
 /**
  * The address is read BEFORE the mint, which replaces the whole block: a read failing afterwards
  * would leave the referee with no working link and no message.
@@ -219,7 +222,7 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
 
     const gelesen = await getSchiedsrichterById(validated.data.id);
     if (gelesen === null) {
-      return { success: false, error: buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: "Lade die Seite neu" }) };
+      return { success: false, error: EINTRAG_WEG };
     }
 
     // No address, or the placeholder a row without one is given, rather than making the round trip to
@@ -275,7 +278,7 @@ export async function einladeAdresswechselAction(rawPayload: FLSchiedsrichterAdr
     // The first name the mails greet with. Read before the mint, for the consent re-send's reason.
     const gelesen = await getSchiedsrichterById(validated.data.id);
     if (gelesen === null) {
-      return { success: false, error: buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: "Lade die Seite neu" }) };
+      return { success: false, error: EINTRAG_WEG };
     }
 
     let mintOperation;

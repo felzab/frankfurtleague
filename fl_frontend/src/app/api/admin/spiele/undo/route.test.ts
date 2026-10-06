@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
-import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
@@ -139,7 +139,7 @@ describe("the undo route, driven", () => {
 
   it("does not resolve a rejection it cannot word as a success", async () => {
     for (const rejection of [
-      refusedOn(REPLAY_OPERATION, "REQ-INVENTED-001", 409),
+      unpublishedOn(REPLAY_OPERATION, "REQ-INVENTED-001", 409),
       refusedOn(REPLAY_OPERATION, "REQ-WIRING-001", 500),
       new Error("socket"),
     ]) {
