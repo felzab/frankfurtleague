@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
@@ -33,6 +33,10 @@ const FILES = {
   "todo-beside-case.test.mjs": 'import { it } from "node:test";\nit.todo("reads");\nit("runs", () => {});\n',
 };
 for (const [name, source] of Object.entries(FILES)) writeFileSync(path.join(SCRATCH, name), source);
+// A route folder's spelling, which a named path carries and a glob would read as a class and a group.
+const ROUTE_FOLDER = path.join("(public)", "[saison_id]");
+mkdirSync(path.join(SCRATCH, ROUTE_FOLDER), { recursive: true });
+writeFileSync(path.join(SCRATCH, ROUTE_FOLDER, "page.test.mjs"), FILES["cases.test.mjs"]);
 
 /** A run of `node --test` over `files` under this reporter alone, as `test:base` adds it. */
 function run(files, flags = []) {
@@ -111,5 +115,21 @@ describe("the case-count reporter", () => {
     assert.equal(status, 1);
     assert.match(said, /bare-skipped-suite\.test\.mjs ran no case/);
     assert.match(said, /bare-skipped-case\.test\.mjs ran no case/);
+  });
+
+  /* The runner drops a named path it finds nothing at whenever another argument matched, so a run
+     naming a moved file passed over the rest and claimed them. */
+  it("fails a run naming a path that matches no file, naming that path alone", () => {
+    const { status, said } = run(["cases.test.mjs", "moved.test.mjs"]);
+
+    assert.equal(status, 1);
+    assert.match(said, /^\u2716 moved\.test\.mjs matched no file/m);
+    assert.doesNotMatch(said, /cases\.test\.mjs/);
+  });
+
+  /* The suite's own patterns hold wildcards some of which match nothing in a tree, by design. */
+  it("leaves a wildcard matching nothing, and a named path in a route folder's spelling, passing", () => {
+    assert.deepEqual(run(["cases.test.mjs", "*.nothing.mjs"]), { status: 0, said: "" });
+    assert.deepEqual(run([path.join(ROUTE_FOLDER, "page.test.mjs")]), { status: 0, said: "" });
   });
 });
