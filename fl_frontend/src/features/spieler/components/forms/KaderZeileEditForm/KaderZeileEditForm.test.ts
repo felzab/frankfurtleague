@@ -20,6 +20,7 @@ doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { KaderZeileEditForm } = await import("./KaderZeileEditForm.tsx");
+const { KaderZeileAusgetragen } = await import("./KaderZeileAusgetragen.tsx");
 
 const TEAM_A = "6890a1b2c3d4e5f607250011";
 const MIA = "68c1f0a2b3c4d5e6f7a8b932";
@@ -110,5 +111,16 @@ describe("saving one squad row", () => {
 
     assert.deepEqual(calls, [], "a draft the schema refuses was sent");
     assert.equal(screen.getByRole("textbox", { name: "Nummer" }).getAttribute("aria-invalid"), "true");
+  });
+});
+
+describe("an ausgetragen row's own page", () => {
+  /* The squad list one click back says „Ohne Nummer“ for the same row: one wording for an empty number. */
+  it("names an empty shirt number in the squad lists' words", () => {
+    const { container } = render(
+      underNext(h(KaderZeileAusgetragen, { zeile: { ...MIAS_ZEILE, nummer: null, inactive_since: "2026-03-01" }, kaderHref: KADER_HREF })),
+    );
+
+    assert.match(container.textContent.replace(/\s+/g, " "), /Nummer\s?Ohne Nummer/);
   });
 });

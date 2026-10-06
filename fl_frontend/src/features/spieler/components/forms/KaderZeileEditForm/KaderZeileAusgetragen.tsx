@@ -1,6 +1,6 @@
 "use client";
 
-import { ausgetragenSeit, KADER_AUSTRAGEN_FOLGE, kaderName, rolleLabel } from "@/features/spieler/constants";
+import { ausgetragenSeit, KADER_AUSTRAGEN_FOLGE, kaderName, OHNE_NUMMER, rolleLabel } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { BackButton } from "@/shared/components/ui/BackButton";
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -21,7 +21,7 @@ import type { FLKaderZeile } from "@/features/spieler/schemas";
 export function KaderZeileAusgetragen({ zeile, kaderHref }: { zeile: FLKaderZeile & { inactive_since: string }; kaderHref: string }) {
   const panel = formPanel();
   const facts = [
-    { term: "Nummer", value: zeile.nummer },
+    { term: "Nummer", value: zeile.nummer ?? OHNE_NUMMER },
     { term: "Position", value: zeile.position },
     { term: "Stufe", value: zeile.stufe },
     { term: "Rolle", value: zeile.rolle === null ? null : rolleLabel(zeile.rolle) },
