@@ -106,8 +106,9 @@ Stop once the bar is met.
    the same way. An answer reaches it at its next tool call, so one sent after its last is lost:
    re-send it once the report lands, which resumes the agent. A `researcher` or `cold-auditor`
    reaches you only through its report.
-9. Dispatch no writer while `HEAD` holds a landing whose CI has not concluded. Once what remains is
-   one wave plus [ending.md](ending.md)'s list, start nothing new.
+9. Dispatch no writer, and have none merge the session branch, while `HEAD` holds a landing whose CI
+   has not concluded. Once what remains is one wave plus [ending.md](ending.md)'s list, start nothing
+   new.
 
 ## Running the fleet
 
