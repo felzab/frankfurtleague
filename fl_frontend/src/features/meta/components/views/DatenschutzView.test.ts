@@ -639,9 +639,9 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* The account page lists every consent stored under the address it signs in with, so the notice says
-     where to sign in to take one back (Art. 7(3): withdrawing is as easy as giving). */
-  it("names the account as the place to take back any consent, signed in with the address it was given under", () => {
+  /* The account page lists every consent something still rests on, under today's address, so the notice
+     says where to take one back (Art. 7(3)) and which decided records it leaves out. */
+  it("names the account as the place to take back a consent something still rests on, signed in with today's address", () => {
     assert.equal(
       vorkommen(
         "Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du außerdem selbst in Deinem Konto zurücknehmen: Melde " +

@@ -28,6 +28,7 @@ import {
   GespeicherteAngaben,
   LINK_UNLESBAR_TITEL,
   LinkUnlesbar,
+  medienZeile,
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
@@ -128,7 +129,7 @@ type HinweisSchluessel = SpielerAbsatzSchluessel & SpielerWiederkehrendAbsatzSch
 function wahlZeilen(fassung: SpielerSeitenFassung, umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
   return [
     ...(umfang === null ? [] : [{ label: "Auf der Website", wert: fassung.bedienelemente[umfang] }]),
-    ...(medien === null ? [] : [{ label: "Fotos, Videos und Interviews", wert: medien ? "erlaubt" : "nicht erlaubt" }]),
+    ...(medien === null ? [] : [medienZeile(medien)]),
   ];
 }
 

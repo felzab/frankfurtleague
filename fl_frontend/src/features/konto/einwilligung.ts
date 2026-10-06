@@ -33,28 +33,26 @@ export const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen. La
 export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du morgen wieder. Widerrufen geht jederzeit.";
 
 /**
- * The code set every consent write shares: one set behind one control, so a refusal reads the same
- * whichever record it refused. A lost seat and a barred address are the person spine's to word, never
- * this mapper's.
+ * The code set every consent write shares, each with its sentence, so a refusal reads the same whichever
+ * record it refused; a lost seat and a barred address are the person spine's. Exported for the
+ * publication sweep.
  */
-function mapEinwilligungWahlRefusal(error: unknown): { error: string } | null {
-  if (!isRefusal(error)) return null;
+export const EINWILLIGUNG_WAHL_SAETZE: Readonly<Record<string, string>> = {
+  "REQ-EINWILLIGUNG-001": SEITE_VERALTET,
+  "REQ-EINWILLIGUNG-003": SEITE_VERALTET,
+  // The switch is offered only from the floor, so this reaches a page drawn before a birthdate was corrected.
+  "REQ-EINWILLIGUNG-002": MEDIEN_ZU_JUNG,
+  "REQ-EINWILLIGUNG-004": NUR_WIDERRUF,
+  // Only a grant is counted, so this reaches a press that would have switched a choice on.
+  "REQ-DROSSELUNG-001": ZUSTIMMEN_MORGEN,
+};
 
-  switch (error.serverErrorCode) {
-    case "REQ-EINWILLIGUNG-001":
-    case "REQ-EINWILLIGUNG-003":
-      return { error: SEITE_VERALTET };
-    // The switch is offered only from the floor, so this reaches a page drawn before a birthdate was corrected.
-    case "REQ-EINWILLIGUNG-002":
-      return { error: MEDIEN_ZU_JUNG };
-    case "REQ-EINWILLIGUNG-004":
-      return { error: NUR_WIDERRUF };
-    // Only a grant is counted, so this reaches a press that would have switched a choice on.
-    case "REQ-DROSSELUNG-001":
-      return { error: ZUSTIMMEN_MORGEN };
-    default:
-      return null;
-  }
+function mapEinwilligungWahlRefusal(error: unknown): { error: string } | null {
+  if (!isRefusal(error) || error.serverErrorCode === undefined) return null;
+  // Own keys alone, so a code spelling an inherited member never reads as worded.
+  const satz = Object.hasOwn(EINWILLIGUNG_WAHL_SAETZE, error.serverErrorCode) ? EINWILLIGUNG_WAHL_SAETZE[error.serverErrorCode] : undefined;
+
+  return satz === undefined ? null : { error: satz };
 }
 
 /**

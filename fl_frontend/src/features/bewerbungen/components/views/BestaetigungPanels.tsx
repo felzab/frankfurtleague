@@ -128,6 +128,15 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
 }
 
 /**
+ * The media consent's row on every confirmation page's receipt, in the words each page asks it in, so the
+ * three pages cannot read the one consent three ways.
+ */
+export const medienZeile = (medien: boolean): { label: string; wert: string } => ({
+  label: "Fotos, Videos und Interviews",
+  wert: medien ? "erlaubt" : "nicht erlaubt",
+});
+
+/**
  * **Sized to its content and never to the width**: two cells spread across a panel put the second
  * alone at the far edge, which reads as a column that lost its table rather than as a pair.
  */

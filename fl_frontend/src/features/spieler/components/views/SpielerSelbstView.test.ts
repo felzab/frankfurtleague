@@ -61,6 +61,15 @@ describe("a pupil's own page", () => {
     assert.ok(screen.getByText("02.05.2008"));
   });
 
+  /* A pupil the league holds no surname for reads by the first name alone, never with the empty one spelled out. */
+  it("shows the first name alone where no surname is stored", () => {
+    renderView({ ...SPIELERIN, nachname: null });
+
+    const name = screen.getByText("Alina");
+    assert.equal(name.textContent, "Alina");
+    assert.ok(!document.body.textContent.includes("null"), "the missing surname is spelled out");
+  });
+
   it("links each squad to the season it played in, under the name the club played it under", () => {
     renderView();
 

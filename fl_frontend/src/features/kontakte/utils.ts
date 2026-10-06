@@ -217,11 +217,6 @@ export function teamPageHref(teamId: string, saisonId: string): string {
 }
 
 /**
- * The selected season's junction row for one club, or `null` where the club does not play it. Never
- * another season's row: the header names the selected one and a save writes onto it, so a fallback
- * would move three people between seasons.
- */
-/**
  * The state that fixes what a link minted on the row opens: once its season is over or its team has
  * left it, the backend mints a newcomer a link taking the Widerspruch alone and sends no fresh one
  * (`REQ-KONTAKT-005`).
@@ -232,6 +227,11 @@ export function kontaktZeile(saisonStatus: TeamSaisonMembership["saisonStatus"],
   return austritt === null ? "offen" : "ausgetreten";
 }
 
+/**
+ * The selected season's junction row for one club, or `null` where the club does not play it. Never
+ * another season's row: the header names the selected one and a save writes onto it, so a fallback
+ * would move three people between seasons.
+ */
 export function resolveTeamSaisonMembership(
   memberships: readonly FLTeamMembership[],
   saison: { id: string; status: TeamSaisonMembership["saisonStatus"] },

@@ -19,6 +19,7 @@ import {
   GespeicherteAngaben,
   LINK_UNLESBAR_TITEL,
   LinkUnlesbar,
+  medienZeile,
   useLinkSeite,
   ZurLiga,
 } from "./BestaetigungPanels";
@@ -172,8 +173,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
               { label: "WhatsApp", wert: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
-              // The referee page's words for the same consent, as its echo carries it.
-              { label: "Fotos, Videos und Interviews", wert: stand.medien ? "erlaubt" : "nicht erlaubt" },
+              medienZeile(stand.medien),
             ]}
           />
           <p className={ABSATZ_CLASSES}>

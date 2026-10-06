@@ -191,12 +191,6 @@ export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von
  */
 export const WEBSITE_URL_SCHEME = "https://";
 
-/**
- * The three seats a season holds per club, in both surfaces' order.
- *
- * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
- * the long form. Both live here, so no two surfaces name a seat differently.
- */
 /** What an administrator's readout labels a seat's contact scope with, and its two values keyed by the scope. */
 export const KONTAKT_WHATSAPP_FRAGE = "WhatsApp";
 export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahme["umfang"], string>> = {
@@ -204,6 +198,12 @@ export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahme["um
   kontaktdaten: "nicht erlaubt",
 };
 
+/**
+ * The three seats a season holds per club, in both surfaces' order.
+ *
+ * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
+ * the long form. Both live here, so no two surfaces name a seat differently.
+ */
 export const KONTAKT_ROLLEN = [
   // The Ansprechperson leads and the Trainer closes: the coach claim is answered on the Trainer's
   // own panel, and it names a seat the reader has already typed.
