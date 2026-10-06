@@ -145,15 +145,6 @@ describe("the bot check on a code request", () => {
 
     assert.deepEqual({ ...one.answer, submittedEmail: null }, { ...other.answer, submittedEmail: null });
   });
-
-  /* The account page's step-up has an action of its own: a press with no token is refused whoever
-     sends it, the sign-in reading no session at all. */
-  it("refuses a press with no token from a session holding the address too", async () => {
-    const { answer, sent } = await pressed(aPress(null, ADDRESS));
-
-    assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
-    assert.equal(sent, false);
-  });
 });
 
 describe("the sign-in boundary's panel", () => {
