@@ -2544,6 +2544,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
     ),
     Rule(
+        code="REQ-REGISTRIERUNG-018",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Registrierung",
+        summary="a registration confirmed on the returning pupil's page admits nobody where its address holds no stored person",
+        implemented_by="app.api.registrierungen.services.find_person_fehlt_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestAReturningRegistration",
+    ),
+    Rule(
         code="REQ-EINWILLIGUNG-002",
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation=(

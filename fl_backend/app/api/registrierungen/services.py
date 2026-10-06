@@ -794,6 +794,7 @@ REGISTRIERUNG_UNBESTAETIGT = "REQ-REGISTRIERUNG-013"
 REGISTRIERUNG_PERSON_NICHT_BENANNT = "REQ-REGISTRIERUNG-014"
 REGISTRIERUNG_SCHON_IM_KADER = "REQ-REGISTRIERUNG-015"
 REGISTRIERUNG_SCHON_AUFGENOMMEN = "REQ-REGISTRIERUNG-016"
+REGISTRIERUNG_PERSON_FEHLT = "REQ-REGISTRIERUNG-018"
 
 
 def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
@@ -857,6 +858,23 @@ def sole_vorschlag(*, registrierung_raw: Mapping[str, Any], ohne_adresse: Sequen
     """The one addressless namesake, or `None` where there is none or there are several (`sole_person`'s reason)."""
 
     return sole_person([row for row in ohne_adresse if ist_vorschlag(spieler_raw=row, registrierung_raw=registrierung_raw)])
+
+
+def find_person_fehlt_refusal(*, registrierung_raw: Mapping[str, Any], adresse_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+    """`REQ-REGISTRIERUNG-018`: a returning pupil's registration whose person its address holds nobody for.
+
+    It carries no choice, so it can neither create a person nor stand on a namesake's record;
+    registering again asks them.
+    """
+
+    if adresse_raw is not None or traegt_wahlen(registrierung_raw.get("einwilligung")):
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_PERSON_FEHLT,
+        status=HTTPStatus.CONFLICT,
+        message="the person this registration was confirmed as is not stored at its address, so it admits nobody; decline it instead",
+    )
 
 
 def find_person_refusal(
@@ -975,8 +993,7 @@ def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adr
     fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
 
     if not traegt_wahlen(registrierung_raw["einwilligung"]):
-        # Only where the person a returning registration was confirmed against is gone by its
-        # admission: a new person needs choices nobody was asked for.
+        # Refused ahead of every write by `find_person_fehlt_refusal`; reaching here is a caller that skipped it.
         raise ValueError("a returning pupil's registration carries no choice to create a person from")
 
     einwilligung = {field: value for field, value in registrierung_raw["einwilligung"].items() if field not in SPRECHER}
