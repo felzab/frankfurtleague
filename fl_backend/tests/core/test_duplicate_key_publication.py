@@ -755,9 +755,9 @@ def _entries(value: Any) -> tuple[tuple[Values, Values], ...] | None:
 
 
 def _fields(document: Values) -> list[tuple[FieldPath, Values]] | None:
-    """Each field path a document of fields names beside the values it holds there, an unreadable key as `UNRESOLVED`, any path at all.
+    """Each field path a document names with the values it holds there, an unreadable key as `UNRESOLVED`.
 
-    `None` where a spread or the document itself is unreadable, which may name operators as well as fields.
+    `None` where a spread or the document itself is unreadable, which may name operators too.
     """
 
     found: list[tuple[FieldPath, Values]] = []
@@ -1013,10 +1013,9 @@ def _indexed_with(field_name: str, value: Any, index: _Index) -> bool:
 
 
 def _meets_index(path: FieldPath, written: Values, index: _Index) -> bool:
-    """Setting a key reaches the index; setting a field its filter alone reads reaches it only with a value moving the row in.
+    """Setting a key reaches the index; a field its filter alone reads, only with a value moving the row in.
 
-    A path the trace cannot name reaches only a field whose validator admits what it leaves: the
-    validators are applied strict and refusing, so a write leaving anything else fails before the index.
+    A path the trace cannot name reaches only a field whose validator admits what it leaves: validators refuse the rest.
     """
 
     fields = (*index.keys, *index.conditions)
