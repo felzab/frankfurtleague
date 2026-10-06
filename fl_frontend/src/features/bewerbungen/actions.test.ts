@@ -75,7 +75,7 @@ const answerWith = (next: () => Promise<unknown>): void =>
 /** The label the backend runs on the application form, off the registry it generated. */
 const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
 // The running label's read answered at its module, so the writes below are the client's whole record:
-// `kontaktSitz.test.ts` drives the read itself.
+// `fl_frontend/src/core/einwilligung.test.ts` drives the read itself.
 doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
 const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const { answerWith: clubsWith } = doubleActions({
