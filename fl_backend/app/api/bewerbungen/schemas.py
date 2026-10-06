@@ -8,12 +8,14 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 # no model in `teams` imports this slice.
 from app.api.teams.schemas import (
     FLGruppenNames,
+    FLKontaktKenntnisnahmeUmfang,
     FLKontaktRolle,
     FLKontaktZeile,
     FLSaisonTeamKontakte,
     FLSaisonTeamKontaktePayload,
     FLSchulform,
     FLTrikotFarbe,
+    SitzEinwilligungPayload,
     _KontaktpersonWritablePayload,
 )
 from app.shared.alter import whole_years_between
@@ -45,7 +47,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import FLMedienStand, FLMedienStandPayload
+from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -1050,26 +1052,19 @@ class FLBewerbungZustellungResponse(BaseAPIResponse):
     angewendet: list[FLKontaktRolle]
 
 
-class FLBewerbungPersonEinwilligungPayload(BaseModel):
-    """A seat holder's own withdrawal of their media consent on every seat they hold on one pending application.
+class FLBewerbungPersonEinwilligungPayload(SitzEinwilligungPayload):
+    """The season seat's payload on a pending application, where its press takes withdrawals alone.
 
-    Withdraw-only: a grant is the confirmation page's to take, and the account page offers none here.
+    The same shape, so one control serves both; a grant on it is refused rather than unrepresentable.
     """
-
-    model_config = ConfigDict(extra="forbid")
-
-    medien: Literal[False]
-    # For `app/api/teams/schemas.py :: FLSaisonTeamPersonEinwilligungPayload`'s reason.
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
-    # The application's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I995`).
-    nachweis_stand: FLMedienStandPayload
 
 
 class FLBewerbungPersonEinwilligungResponse(BaseAPIResponse):
-    """Which of the application's seats the withdrawal reached; every one holds `medien` off now."""
+    """Which of the application's seats the withdrawal reached, and the two answers they now all hold."""
 
     bewerbung_id: CustomObjectId
     rollen: list[FLKontaktRolle]
-    medien: Literal[False]
+    umfang: FLKontaktKenntnisnahmeUmfang
+    medien: bool
     # The precondition a next press on this application echoes.
-    nachweis_stand: FLMedienStand
+    nachweis_stand: FLEinwilligungStand

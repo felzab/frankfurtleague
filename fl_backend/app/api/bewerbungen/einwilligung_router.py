@@ -304,7 +304,7 @@ async def post_einwilligung(
             )
             refuse(find_einwilligung_gesperrt_refusal(gesperrt=bool(gesperrt)))
             refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter_for(seats)))
-            refuse(find_selbst_medien_refusal(geburtsdatum=geburtsdatum, medien_erteilt=antwort_data.medien, today=today))
+            refuse(find_selbst_medien_refusal(gespeichert=None, medien=antwort_data.medien, geburtsdatum=geburtsdatum, today=today))
 
             await patch_one_in_db(
                 collection=saison_teams_collection,
@@ -403,7 +403,7 @@ async def post_einwilligung(
             # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
             refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter_for(seats)))
-            refuse(find_selbst_medien_refusal(geburtsdatum=geburtsdatum, medien_erteilt=antwort_data.medien, today=today))
+            refuse(find_selbst_medien_refusal(gespeichert=None, medien=antwort_data.medien, geburtsdatum=geburtsdatum, today=today))
 
             updated_raw = await patch_one_in_db(
                 collection=bewerbungen_collection,

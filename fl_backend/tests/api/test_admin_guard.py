@@ -234,6 +234,7 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/konto/einwilligungen", "get"),
         ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/einwilligung", "patch"),
         ("/api/v0/bewerbungen/{bewerbung_id}/person/einwilligung", "patch"),
+        ("/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung", "patch"),
     }
 )
 

@@ -615,13 +615,14 @@ def build_selbst_referee_filter(identifier: str, *, schiedsrichter_id: Any = Non
     }
 
 
-# An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason: the fee and the link's hash stay off a
-# person-tier read.
+# An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason: the link's hash stays off a person-tier read.
+# The fee is the referee's own data, which the confirmation page says they can always see.
 SELBST_FIELDS: Mapping[str, int] = {
     "name": 1,
     "schule": 1,
     "kontakt": 1,
     "geburtsdatum": 1,
+    "default_payment": 1,
     "inactive_since": 1,
     EINWILLIGUNG_FELD: 1,
 }

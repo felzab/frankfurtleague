@@ -651,7 +651,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "wording, scope and media answer on every seat that person holds, each answer with its evidence, a decline nulls those "
         "slots, and both are refused once "
         "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Once answered, the same "
-        "person withdraws the media answer, with its evidence, on every seat they hold while the application is pending, "
+        "person withdraws the WhatsApp scope and the media answer, each with its evidence, on every seat they hold while the "
+        "application is pending, "
         "through `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`. Two administrative "
         "repairs reach it besides, each refused on a seat in any other state (`REQ-BEWERBUNG-011`): "
         "`POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email` moves one address, and "
@@ -885,7 +886,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "and the consent record's stamp, wording, scope and media answer on every seat that person holds, each answer "
         "with its evidence, and a Widerspruch nulls those slots; and the "
         "seat's own person moves "
-        "`medien` with its evidence (`nachweis.medien`) on every seat they hold on the row, and nothing else, through "
+        "`umfang` and `medien`, each with its evidence, on every seat they hold on the row, and nothing else, through "
         "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
     ),
@@ -927,7 +928,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
         "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
         "evidence (`docs/backend/spec.md :: I869`)",
-        "app.api.konto.services.compose_selbst_einwilligung_move",
+        "app.api.konto.services.compose_person_move",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -1227,7 +1228,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "names no speaker (`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
         "The returning pupil's page asks no choice, so its record is `bestaetigt_am` and `text_version` alone "
         "(`REQ-REGISTRIERUNG-017`). `text_version` arrives on the payload, and anything but the running label of the page "
-        "the press resolves is refused (`REQ-EINWILLIGUNG-001`)",
+        "the press resolves is refused (`REQ-EINWILLIGUNG-001`). Until the admission, only the pupil moves a choice the "
+        "new pupil's record holds, withdrawing it on the account page with its evidence and granting nothing there "
+        "(`app.api.konto.services.compose_person_move`)",
         "app.api.registrierungen.services.find_already_confirmed_refusal",
     ),
     FieldPolicy(
@@ -2494,7 +2497,8 @@ RULES: tuple[Rule, ...] = (
             "POST /registrierungen/bestaetigung · "
             "POST /schiedsrichter/bestaetigung · PATCH /teams/{team_id}/saisons/{saison_id}/kontakte · "
             "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
         ),
         aggregate="Bewerbung",
         summary="a consent label a write stamps names a version of that write's page, and a new acceptance the running one",
@@ -2510,7 +2514,8 @@ RULES: tuple[Rule, ...] = (
             "POST /registrierungen/{registrierung_id}/aufnehmen · POST /registrierungen/{registrierung_id}/ablehnen · "
             "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
             "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
         ),
         aggregate="Saison",
         summary=(
@@ -2592,7 +2597,8 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
         ),
         aggregate="Spieler",
         summary="a press on the account page answers the consent evidence its page was served, never evidence moved since",

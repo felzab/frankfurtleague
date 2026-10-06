@@ -51,14 +51,15 @@ class Actor:
         return {"kind": self.kind, "email": self.email}
 
 
-# The Funktion a signed-in person's write was authorised under: a contact seat, a squad row or a
-# referee row, re-derived by the handler rather than taken from the request.
+# The kind of person a person's write was made as: a contact person, a pupil, a pending registrant
+# among them, or a referee, fixed by the route's binder. Not a panel's Funktion: an account-only person
+# holds none yet withdraws.
 AktorFunktion = Literal["kontakt", "spieler", "schiedsrichter"]
 
 
 @dataclass(frozen=True)
 class PersonActor:
-    """A signed-in person, recorded under a pseudonym and the Funktion the write was authorised under.
+    """A signed-in person, recorded under a pseudonym and the kind they wrote as.
 
     Never an address, not even in a field of another name: the log outlives the person's erasure in
     every row they wrote (`app/core/security.py :: akteur_pseudonym`).

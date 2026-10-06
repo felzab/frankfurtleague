@@ -37,6 +37,7 @@ PERSON_LANE_WRITES = sorted(
 # The person writes that count nothing, each with why: a withdrawal stays as easy as the grant was.
 UNCOUNTED_PERSON_WRITES: Mapping[tuple[str, str], str] = {
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"): "withdraw-only, and a withdrawal is never counted",
+    ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"): "withdraw-only, and a withdrawal is never counted",
 }
 
 
@@ -114,10 +115,16 @@ def test_a_handler_taking_the_count_calls_it(path: str, method: str):
     called = [
         node
         for node in ast.walk(declared(route.endpoint))
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == parameter
+        if isinstance(node, ast.Call)
+        and (
+            (isinstance(node.func, ast.Name) and node.func.id == parameter)
+            # Or handed on, as a consent press hands it to `app/api/konto/crud.py :: press_einwilligung`;
+            # the case below drives each such grant to its one unit.
+            or any(isinstance(keyword.value, ast.Name) and keyword.value.id == parameter for keyword in node.keywords)
+        )
     ]
 
-    assert called, f"{method} {path} takes `{parameter}` and never calls it"
+    assert called, f"{method} {path} takes `{parameter}` and neither calls it nor hands it on"
 
 
 def test_the_execution_suite_drives_exactly_the_operations_the_count_is_published_on():

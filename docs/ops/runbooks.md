@@ -653,16 +653,13 @@ address that record holds:
 
 - **A referee's publication scope and media consent:**
   `PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`.
-- **A seat's media consent on a team's season row:**
+- **A seat's WhatsApp scope and media consent on a team's season row:**
   `PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`, for every seat the address holds
   on that row (`docs/backend/spec.md :: I975`).
-- **A seat's media consent on a pending application:**
-  `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws it and never grants it.
+- **A seat's WhatsApp scope and media consent on a pending application:**
+  `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
+  either.
 - **A pupil's:** the paragraph below.
-- **A seat's WhatsApp scope:** no control on the account page takes it yet, so its withdrawal is the
-  mail the notice names. Honour it by writing to that person by e-mail alone from then on; no route
-  moves the stored scope, so the seat still reads as allowing WhatsApp until the page takes that
-  choice.
 
 **Taking a contact person off their seat is an erasure, unless the seat's own link still takes
 their Widerspruch.** On an application, which of the three cases below you are in is decided by

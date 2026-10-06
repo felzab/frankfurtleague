@@ -13,7 +13,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.services import compose_selbst_einwilligung_move
+from app.api.konto.services import compose_person_move
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
@@ -22,7 +22,9 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAufnehmenPayload,
     FLRegistrierungBestaetigungAnsichtPayload,
     FLRegistrierungBestaetigungPayload,
+    FLRegistrierungSelbstEinwilligungPayload,
 )
+from app.api.registrierungen.selbst_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.services import (
     REGISTRIERUNG_ADRESSE_GESPERRT,
     REGISTRIERUNG_PERSON_FEHLT,
@@ -43,6 +45,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.einwilligung_nachweis import WAHLEN, nachweis_stand_of
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -65,6 +68,8 @@ NEXT_SAISON_ID = "2027"
 PAST_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# The morning before the admission, when the pupil withdrew on the account page.
+WITHDRAWN_AT = datetime(2026, 4, 1, 9, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607970001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607970002")
@@ -711,8 +716,8 @@ class TestThePersonAnAdmissionNames:
             )
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
-            press = compose_selbst_einwilligung_move(
-                bloecke=[("einwilligung", stored)], umfang=None, medien=False, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
+            press = compose_person_move(
+                gespeichert=stored, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
             )
             assert press is not None, "the press moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
@@ -743,6 +748,51 @@ class TestThePersonAnAdmissionNames:
             },
         )
         assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("2026-03-31", "2026-09")
+
+    def test_a_withdrawal_the_pupil_made_on_the_pending_registration_is_carried(self, mongo_replica_set_url: str):
+        """The account page's registration control, then the admission: the withdrawal is newer than every grant, so it stands."""
+
+        stored_id = ObjectId()
+        bestaetigt = compose_confirmation_update(
+            geburtsdatum=GEBURTSDATUM, umfang="intern", medien=True, text_version="2026-09", today="2026-03-31", am="2026-03-31T08:00:00+00:00"
+        )["$set"]["einwilligung"]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(
+                a_stored_person(stored_id, einwilligung={**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True})
+            )
+            registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
+            await patch_registrierung_einwilligung(
+                registrierung_id=registrierung_id,
+                einwilligung_data=FLRegistrierungSelbstEinwilligungPayload.model_validate(
+                    {
+                        "umfang": "intern",
+                        "medien": False,
+                        "text_version": KONTO_LABEL,
+                        "nachweis_stand": nachweis_stand_of(bloecke=[bestaetigt], wahlen=WAHLEN),
+                    }
+                ),
+                identifier=FOLDED_EMAIL,
+                registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+                db=client,
+                germany_now=WITHDRAWN_AT,
+            )
+            await admit(database, client, registrierung_id)
+
+            return (await persons(database))[0]["einwilligung"]
+
+        einwilligung = on_a_league(mongo_replica_set_url, body)
+
+        # Carried onto the person, the withdrawal ends the grant the PERSON's record held, named by that
+        # record's confirmation day, as the account page's own press on it would.
+        assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
+            False,
+            {
+                "am": "2026-04-01T07:00:00+00:00",
+                "text_version": KONTO_LABEL,
+                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+            },
+        )
 
     def test_a_body_naming_anyone_but_the_address_match_is_refused(self, mongo_replica_set_url: str):
         legacy_id = ObjectId()
@@ -910,9 +960,7 @@ class TestAReturningRegistration:
                 today=TODAY,
             )
             held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
-            press = compose_selbst_einwilligung_move(
-                bloecke=[("einwilligung", held)], umfang=None, medien=False, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
-            )
+            press = compose_person_move(gespeichert=held, gewaehlt={"medien": False}, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL)
             assert press is not None, "the withdrawal moved nothing, so this case proves nothing"
             await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
             await confirm_as_returning(database, client)

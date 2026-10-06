@@ -40,7 +40,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLMedienStand, FLMedienStandPayload
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -631,19 +631,24 @@ class FLPatchSaisonTeamKontaktePayload(BaseModel):
     kontakte_stand: str
 
 
-class FLSaisonTeamPersonEinwilligungPayload(BaseModel):
-    """A seat holder's own media answer for every seat they hold on one team's season row.
+class SitzEinwilligungPayload(BaseModel):
+    """A seat holder's own two choices for every seat they hold on one row, under the name each seat control publishes.
 
-    No `umfang`: a seat's scope is its contact scope, which this write leaves alone.
+    Both choices on every press: a page that sent one alone would leave the other judged by nothing.
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     # The label of the account page's seat control the press was given under, recorded on its evidence.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
     # The row's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I995`).
-    nachweis_stand: FLMedienStandPayload
+    nachweis_stand: FLEinwilligungStandPayload
+
+
+class FLSaisonTeamPersonEinwilligungPayload(SitzEinwilligungPayload):
+    pass
 
 
 class FLReplaceSaisonTeamPayload(BaseModel):
@@ -872,14 +877,15 @@ class FLTeamSitzeResponse(BaseAPIResponse):
 
 
 class FLSaisonTeamPersonEinwilligungResponse(BaseAPIResponse):
-    """Which of the row's seats the press reached, and the media answer they now all hold."""
+    """Which of the row's seats the press reached, and the two answers they now all hold."""
 
     team_id: CustomObjectId
     saison_id: str
     rollen: list[FLKontaktRolle]
+    umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     # The precondition a next press on this row echoes.
-    nachweis_stand: FLMedienStand
+    nachweis_stand: FLEinwilligungStand
 
 
 FLTeamsResponse = Annotated[

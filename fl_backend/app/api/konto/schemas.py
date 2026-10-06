@@ -2,25 +2,25 @@ from pydantic import BaseModel, Field
 
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
-from app.api.spieler.schemas import FLSpielerSelbst
-from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import FLMedienStand
+from app.api.spieler.schemas import FLEinwilligungUmfang, FLSpielerKontext, FLSpielerPosition, FLSpielerSelbst, FLSpielerStufe
+from app.api.teams.schemas import FLKontaktKenntnisnahmeUmfang
+from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.responses import BaseAPIResponse
 
 
 class FLSitzKontext(BaseModel):
-    """What the contact confirmation page's slots name for this seat today; `rolle` the first held slot's."""
+    """What the contact confirmation page's slots name for this seat today."""
 
     vorname: str | None
     team: str
     # The club's own name, today; null where its document is gone.
     schule: str | None
     saison: str
-    rolle: FLKontaktRolle
 
 
 class FLKontoSitzEinwilligung(BaseModel):
-    """One team season on which the address holds a confirmed contact seat, with its media choice.
+    """One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.
 
     Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
     """
@@ -33,16 +33,21 @@ class FLKontoSitzEinwilligung(BaseModel):
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # The first held slot's, for `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     bestaetigt_text_version: str | None
+    # Each on where any held slot's is, so a withdrawal stays offered.
+    umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     # Over every held slot, for `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    nachweis_stand: FLMedienStand
+    nachweis_stand: FLEinwilligungStand
+    # The person's age floor over the held slots, as the confirmation page is served it, so the page
+    # fills `{minAlter}` from the rule rather than from a copy of it.
+    mindestalter: int
     medien_angeboten: bool
     erteilbar: bool
     kontext: FLSitzKontext
 
 
 class FLKontoBewerbungSitzEinwilligung(BaseModel):
-    """One pending application on which the address holds a confirmed contact seat, with its media choice to withdraw.
+    """One pending application on which the address holds a confirmed contact seat, with its two choices to withdraw.
 
     Pending alone: an accepted application's seats are its season row's, listed under `sitze`.
     """
@@ -55,9 +60,37 @@ class FLKontoBewerbungSitzEinwilligung(BaseModel):
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # For `FLKontoSitzEinwilligung`'s reasons.
     bestaetigt_text_version: str | None
+    umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
-    nachweis_stand: FLMedienStand
+    nachweis_stand: FLEinwilligungStand
+    mindestalter: int
     kontext: FLSitzKontext
+
+
+class FLKontoRegistrierungEinwilligung(BaseModel):
+    """One pending registration its pupil confirmed with their choices, which the account page may only withdraw.
+
+    A returning pupil's registration is never one: it carries no choice, its person's own record standing.
+    """
+
+    registrierung_id: CustomObjectId
+    team_id: CustomObjectId
+    # The club's own name, today; null where its document is gone.
+    team_name: str | None
+    saison_id: str
+    bestaetigt_text_version: str | None
+    umfang: FLEinwilligungUmfang
+    medien: bool
+    nachweis_stand: FLEinwilligungStand
+    # What the pupil's confirmation page filled its words with, read today.
+    kontext: FLSpielerKontext
+    # As the registration stores them: the account page shows what is kept about the pupil.
+    vorname: str
+    nachname: str
+    geburtsdatum: CustomOptionalDateString
+    nummer: str | None
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
 
 
 class FLKontoEinwilligungenResponse(BaseAPIResponse):
@@ -71,3 +104,5 @@ class FLKontoEinwilligungenResponse(BaseAPIResponse):
     sitze: list[FLKontoSitzEinwilligung]
     # Withdraw-only on the page: nothing on an application grants a panel to answer a grant against.
     bewerbungen: list[FLKontoBewerbungSitzEinwilligung]
+    # Withdraw-only too, until the admission makes the pupil's own record the place for a grant.
+    registrierungen: list[FLKontoRegistrierungEinwilligung]

@@ -165,6 +165,7 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         records=record_collections(database),
         db=client,
         today=TODAY,
