@@ -1,0 +1,6 @@
+// Linted as src/app/zzplant/route.tsx.
+export const REFUSAL = "REQ-EINLADUNG-001"; // expect: invite-refusal
+
+export function GET(): Response {
+  return new Response(REFUSAL);
+}
