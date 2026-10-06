@@ -964,6 +964,11 @@ describe("the returning pupil's confirmation page", () => {
     assert.ok(STANDING.includes(`href="${KONTO_HREF}"`), "the page names no way to the account page, where the choices are changed");
   });
 
+  /* The section heads the consent alone, where the account page's panel, „Deine Einträge“, heads stored data too. */
+  it("heads its consent section by the consent", () => {
+    assert.match(STANDING, /<h3[^>]*>Deine Einwilligung<\/h3>/);
+  });
+
   it("shows a stored birthdate rather than asking again, and asks one where none is stored", () => {
     assert.ok(!STANDING.includes('name="geburtsdatum"'), "the page asks for a date the league already holds");
     assert.ok(textOf(STANDING).includes("01.09.2008"), "the stored date is not shown at all");
