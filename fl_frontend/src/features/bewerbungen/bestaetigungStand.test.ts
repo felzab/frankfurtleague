@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+
 import {
   adressenAndererPersonen,
   bestaetigungsStand,
@@ -28,16 +30,12 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
     email: `${vorname.toLowerCase()}@schule.example`,
     telefon: "069 1234567",
     geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-    einwilligung: {
-      umfang: "kontaktdaten",
+    einwilligung: kenntnisnahme({
       erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
       text_version: "2026-09-bestaetigungsseite",
       datum: "2026-09-01",
       bestaetigt_am: bestaetigtAm,
-      medien: false,
-      eingetragen_von: null,
-      nachweis: { umfang: null, medien: null },
-    },
+    }),
   };
 }
 

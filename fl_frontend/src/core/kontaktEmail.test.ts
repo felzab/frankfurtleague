@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { redactedParameterNames } from "./edgeRedaction.ts";
+import { assertRedactedAtTheEdge } from "./edgeRedaction.ts";
 import { registerDoubles } from "./exportingModule.ts";
-import { readable } from "./mailText.ts";
+import { flat, readable } from "./mailText.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -16,8 +16,6 @@ const { KONTAKT_EMAIL } = await import("./brand.ts");
 
 const TOKEN = "abc123";
 const FRIST = "05.10.2026";
-
-const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 const daten = {
   origin: ORIGIN,
@@ -35,14 +33,8 @@ describe("the seat link this message spells", () => {
     assert.equal(kontaktBestaetigungsLink(ORIGIN, TOKEN), `${ORIGIN}${KONTAKT_BESTAETIGUNG_PATH}?token=${TOKEN}`);
   });
 
-  /* The name is the whole of what the edge matches on (`docs/logging/spec.md :: L11`), so a link
-     spelled with any other parameter writes the credential into the access line and the referer. */
   it("names a parameter the edge's own redaction map replaces", () => {
-    const redacted = redactedParameterNames();
-    const name = /\?(\w+)=/.exec(kontaktBestaetigungsLink(ORIGIN, TOKEN))?.[1] ?? "";
-
-    assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
-    assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
+    assertRedactedAtTheEdge(kontaktBestaetigungsLink(ORIGIN, TOKEN));
   });
 
   /* The origin is normalised INSIDE the builder, which is what puts a trailing slash on

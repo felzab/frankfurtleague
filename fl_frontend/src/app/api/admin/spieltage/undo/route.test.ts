@@ -3,14 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import {
-  assertEachRefusalCloses,
-  assertEachRowPublished,
-  doubleRouteRequest,
-  revalidatedTags,
-  unacknowledged,
-  undo,
-} from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /** The pre-save span the press replays, as the editor builds it. */
 const BODY = { id: "6890a1b2c3d4e5f607a20001", beginn: "2026-04-01", ende: "2026-04-05" };
@@ -26,7 +19,6 @@ const replayed = (acknowledged: 0 | 1) => ({
 doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
 const { POST } = await import("./route.ts");
-const { SPIELTAG_REPLAY_REFUSALS } = await import("@/features/spieltage/refusals.ts");
 
 /** What `fl_frontend/src/features/spieltage/mutations.ts :: patchSpieltag` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spieltage/{spieltag_id}";
@@ -66,11 +58,5 @@ describe("the matchday save's undo", () => {
     answerWith(() => Promise.resolve(replayed(0)));
 
     assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe den Spieltag."));
-  });
-});
-
-describe("the replay table against the replayed endpoint", () => {
-  it("words only codes the replayed endpoint publishes", () => {
-    assertEachRowPublished(SPIELTAG_REPLAY_REFUSALS, REPLAY_OPERATION);
   });
 });

@@ -7,6 +7,7 @@ import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { outcomeUnknown, toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
@@ -75,7 +76,7 @@ const answerWith = (next: () => Promise<unknown>): void =>
 /** The label the backend runs on the application form, off the registry it generated. */
 const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
 // The running label's read answered at its module, so the writes below are the client's whole record:
-// `kontaktSitz.test.ts` drives the read itself.
+// `fl_frontend/src/core/einwilligung.test.ts` drives the read itself.
 doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
 const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const { answerWith: clubsWith } = doubleActions({
@@ -254,16 +255,7 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: {
-        umfang: "kontaktdaten",
-        erfasst_von: "person",
-        text_version: FORM_LABEL,
-        datum: "2026-09-01",
-        bestaetigt_am: null,
-        medien: false,
-        eingetragen_von: null,
-        nachweis: { umfang: null, medien: null },
-      },
+      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer_ist_zugleich: null,

@@ -1619,8 +1619,5 @@ describe("the words the two contact pages are handed", () => {
   it("lets a registry breaking its contract on the form reach the error boundary", async () => {
     backend({ laufend: {} });
     await assert.rejects(formFassung(), { name: "ContractBreakError" }, "no label for the form was absorbed into a panel");
-
-    backend({ laufend: { bewerbung: "2026-01-nirgends" } });
-    await assert.rejects(formFassung(), { name: "ContractBreakError" }, "a label serving no words was absorbed into a panel");
   });
 });

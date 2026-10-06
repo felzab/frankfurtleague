@@ -11,6 +11,7 @@ import { serverActionModules } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import {
   actionReachOf,
   CONDITIONALLY_STEPPED_UP,
@@ -527,17 +528,7 @@ const NEW_SAISON = {
   id: "2027",
   start_date: "2027-03-01",
   end_date: "2027-07-01",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
+  rules: saisonRules(),
   bewerbung: null,
   registrierung: null,
 };

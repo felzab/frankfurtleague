@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { FLBewerbungSchema } from "../../schemas.ts";
@@ -41,16 +42,7 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
       // Spaced the way a school types one, which is the whole of what the two hrefs differ over.
       telefon: "069 12 34 56",
       geburtsdatum: "1990-01-01",
-      einwilligung: {
-        umfang: "kontaktdaten",
-        erfasst_von: "person",
-        text_version: "2026-08",
-        datum: "2026-08-01",
-        bestaetigt_am: null,
-        medien: false,
-        eingetragen_von: null,
-        nachweis: { umfang: null, medien: null },
-      },
+      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer: null,

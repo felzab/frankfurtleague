@@ -10,7 +10,6 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleSubjectLookup } from "@/shared/testing/actionDoubles.ts";
@@ -44,6 +43,7 @@ const { KONTO_HREF } = await import("@/core/kontoHref.ts");
 const { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } = await import("@/features/funktionen/constants.ts");
 const { KADER_LEER, NUMMER_DOPPELT, ausgetragenSeit } = await import("@/features/spieler/constants.ts");
 const { Angabe } = await import("@/shared/components/ui/Angabe.tsx");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 const TEAM_A = SITZ.team_id;
 const TEAM_B = "6890a1b2c3d4e5f607250012";
@@ -328,19 +328,6 @@ const KADER = {
 const KADER_ENDPOINT = `/spieler/kader/${TEAM_A}/2526`;
 const KADER_HREF = `/bereich/team/${TEAM_A}/2526/kader`;
 
-/** The backend's answer to a read naming a seat it does not find held. */
-const seatLost = (endpoint: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: `http://backend/api/v0${endpoint}`,
-    statusCode: 403,
-    serverErrorCode: "REQ-FUNKTION-001",
-    endpoint: endpoint,
-    method: "GET",
-    readOnly: true,
-    traceId: "0",
-  });
-
 /** The squad read answered with `kader`, every other read with the emptiest body. */
 const answeringKader = (kader: unknown) =>
   answerReadsWith((endpoint, schema, params) => (endpoint === KADER_ENDPOINT ? kader : EMPTIEST_ANSWER(endpoint, schema, params)));
@@ -468,7 +455,7 @@ describe("the team's squad, as a seat holder reads it", () => {
     it(`renders the forbidden panel where the seat went between the check and the read, on the ${spielerId === undefined ? "squad" : "row's"} page`, async () => {
       setSubject(person({ sitze: [sitz()] }));
       answerReadsWith((endpoint, schema, params) => {
-        if (endpoint === KADER_ENDPOINT) throw seatLost(endpoint);
+        if (endpoint === KADER_ENDPOINT) throw refusedOn("GET /spieler/kader/{team_id}/{saison_id}", "REQ-FUNKTION-001");
         return EMPTIEST_ANSWER(endpoint, schema, params);
       });
       try {
@@ -598,7 +585,7 @@ describe("the landing's seat lines", () => {
   it("renders the forbidden panel where the seat went between the check and the read", async () => {
     setSubject(person({ sitze: [sitz()] }));
     answerReadsWith((endpoint, schema, params) => {
-      if (endpoint === SITZE_ENDPOINT) throw seatLost(endpoint);
+      if (endpoint === SITZE_ENDPOINT) throw refusedOn("GET /teams/{team_id}/saisons/{saison_id}/person/sitze", "REQ-FUNKTION-001");
       return EMPTIEST_ANSWER(endpoint, schema, params);
     });
     try {

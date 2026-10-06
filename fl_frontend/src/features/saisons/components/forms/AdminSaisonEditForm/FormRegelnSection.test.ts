@@ -15,6 +15,7 @@ import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus.ts";
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
@@ -39,17 +40,7 @@ const STATUS = declaredStatus<SaisonFieldPath>([
   "rules.erlaubte_stufen",
 ]);
 
-const RULES: FLSaisonRules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const RULES: FLSaisonRules = saisonRules();
 
 /** A season neither freeze reaches, holding no club, which every case moves one fact away from. */
 const PANEL: RegelnProps = {

@@ -12,6 +12,7 @@ import { exportingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { hasDirective } from "@/core/treeWalk.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import type { ReactElement, ReactNode } from "react";
 
@@ -125,17 +126,7 @@ export function saisonFields(id: string, status: "past" | "active" | "future"): 
   return {
     id: id,
     status: status,
-    rules: {
-      win_points: 3,
-      draw_points: 1,
-      qualifiers_per_group: 2,
-      number_of_groups: 2,
-      teams_per_group: 4,
-      max_kadergroesse: 18,
-      tiebreak_order: "tordifferenz",
-      forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-      erlaubte_stufen: ["E1", "Q1"],
-    },
+    rules: saisonRules(),
   };
 }
 

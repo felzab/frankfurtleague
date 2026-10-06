@@ -21,6 +21,7 @@ import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { startingRedraw } from "./spielplanShape.ts";
@@ -46,17 +47,7 @@ type SpielplanProps = Omit<Parameters<typeof FormSpielplanSection>[0], "redraw" 
 const UNDRAWN: SpielplanProps = {
   saisonId: "2026-27",
   saisonStatus: "future",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
+  rules: saisonRules(),
   startDate: "2026-08-01",
   endDate: "2027-06-30",
   spielplan: null,
