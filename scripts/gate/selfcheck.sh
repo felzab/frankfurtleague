@@ -946,6 +946,8 @@ process.stdout.write(JSON.stringify(input));
   expect_let_through implementer PowerShell "uv run --frozen pytest ${suite_tick}"$'\n'"  tests/api/test_spiele.py"
   expect_let_through implementer Bash 'uv run --frozen pytest --collect-only -q'
   expect_let_through implementer Bash 'uv run --frozen pytest --co'
+  expect_let_through implementer Bash 'uv run --frozen pytest --version'
+  expect_let_through implementer Bash 'uv run --frozen pytest -h'
   expect_let_through implementer Bash 'git log -- scripts/gate/verify.sh'
   expect_let_through implementer Bash "git commit -F - <<'EOF'"$'\n''pnpm test'$'\n''EOF'
   expect_let_through implementer Bash 'true # ; pnpm test'
