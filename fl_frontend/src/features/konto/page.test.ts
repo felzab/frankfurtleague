@@ -627,8 +627,13 @@ describe("the account page's consent section", () => {
     const text = await sectionText();
     assert.ok(text.includes("Als Trainerin oder Trainer, bestätigt am 20.08.2026"), text);
     assert.ok(text.includes("Als Ansprechperson, bestätigt am 01.09.2026"), text);
-    assert.ok(text.includes("mindestens 16 Jahre") && text.includes("mindestens 18 Jahre"), "a block names the other's floor");
     assert.equal(await disclosures(), 1, "the row's confirmations stand under more than one disclosure");
+    // Each block from its heading to the next: its words fill `{rolle}` and `{minAlter}` with its own.
+    const [, trainer = "", ansprechperson = ""] = text.split(/Als (?:Trainerin oder Trainer|Ansprechperson), bestätigt am /);
+    assert.ok(trainer.includes("mindestens 16 Jahre") && !trainer.includes("mindestens 18 Jahre"), trainer);
+    assert.ok(trainer.includes("Trainerin oder Trainer") && !trainer.includes("Ansprechperson"), trainer);
+    assert.ok(ansprechperson.includes("mindestens 18 Jahre") && !ansprechperson.includes("mindestens 16 Jahre"), ansprechperson);
+    assert.ok(ansprechperson.includes("Ansprechperson") && !ansprechperson.includes("Trainer"), ansprechperson);
   });
 
   /* A pending registration takes a withdrawal alone until its team admits it, and says so; its press is
