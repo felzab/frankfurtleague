@@ -38,7 +38,7 @@ const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayl
 const { mapBewerbungSubmitRefusal } = await import("@/features/bewerbungen/utils.ts");
 const route = await import("./route.ts");
 const { buildBewerbungEingangOffenEmail } = await import("@/core/bewerbungEmail.ts");
-const { bestaetigungsLink } = await import("@/features/bewerbungen/bestaetigungLink.ts");
+const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { rollenText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 const { TURNSTILE_HEADER } = await import("@/core/turnstileToken.ts");
@@ -261,7 +261,7 @@ const receiptOwed = (ausstehend: { vorname: string; rolleText: string }[]): stri
     rollenText: rollenText(["ansprechperson"]),
     ausstehend: ausstehend,
     fristText: formatSpielDatum(GESCHRIEBEN.bestaetigungsfrist),
-    link: bestaetigungsLink(ORIGIN, GESCHRIEBEN.bestaetigungen.ansprechperson),
+    link: kontaktBestaetigungsLink(ORIGIN, GESCHRIEBEN.bestaetigungen.ansprechperson),
   }).text;
 
 describe("who the submission's messages are addressed to", () => {
@@ -291,8 +291,8 @@ describe("who the submission's messages are addressed to", () => {
     assert.deepEqual(
       sentFor("eingang").map((mail) => [
         mail.to,
-        mail.text.includes(bestaetigungsLink(ORIGIN, "s-frisch")),
-        mail.text.includes(bestaetigungsLink(ORIGIN, "t-frisch")),
+        mail.text.includes(kontaktBestaetigungsLink(ORIGIN, "s-frisch")),
+        mail.text.includes(kontaktBestaetigungsLink(ORIGIN, "t-frisch")),
       ]),
       [
         ["bernd@schule.example", true, false],
@@ -322,7 +322,7 @@ describe("who the submission's messages are addressed to", () => {
 
     assert.deepEqual(
       [...new Set(links)].toSorted(),
-      minted.map((token) => bestaetigungsLink(ORIGIN, token)).toSorted(),
+      minted.map((token) => kontaktBestaetigungsLink(ORIGIN, token)).toSorted(),
       "a message carries a link the helper did not spell, or misses one",
     );
     assert.deepEqual(

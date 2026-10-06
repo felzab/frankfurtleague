@@ -14,6 +14,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
@@ -36,7 +37,6 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
-import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { ABLEHNEN_LABEL, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 
 import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten.ts";
@@ -606,7 +606,7 @@ describe("how the workflow's links are spelled", () => {
   /* The token rides in a parameter spelled `token`, which is what the edge's redaction maps strip.
      One module spells it, so a rename cannot leave a second spelling the maps do not cover. */
   it("spells every link the one way the edge redacts", () => {
-    const parameter = /\?(\w+)=/.exec(bestaetigungsLink("http://localhost:3000", "kein-echtes-token"))?.[1];
+    const parameter = /\?(\w+)=/.exec(kontaktBestaetigungsLink("http://localhost:3000", "kein-echtes-token"))?.[1];
 
     assert.equal(parameter, "token", "the shared helper names a parameter the edge's maps do not strip");
   });

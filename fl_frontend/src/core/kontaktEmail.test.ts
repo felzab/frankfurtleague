@@ -54,7 +54,7 @@ describe("the seat link this message spells", () => {
   });
 
   it("escapes a token whose characters would otherwise end the query", () => {
-    assert.equal(kontaktBestaetigungsLink(ORIGIN, "a b&c=d"), `${ORIGIN}${KONTAKT_BESTAETIGUNG_PATH}?token=a%20b%26c%3Dd`);
+    assert.equal(kontaktBestaetigungsLink(ORIGIN, "a b&c=d?e/f#g"), `${ORIGIN}${KONTAKT_BESTAETIGUNG_PATH}?token=a%20b%26c%3Dd%3Fe%2Ff%23g`);
   });
 
   /* The application's seat page answers this token too: a path of its own would be a page nobody serves. */

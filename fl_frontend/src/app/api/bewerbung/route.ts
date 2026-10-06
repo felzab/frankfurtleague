@@ -1,9 +1,9 @@
 import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
-import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
 import {
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         Object.fromEntries(
           BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => [
             seat.value,
-            bestaetigungsLink(origin, seats[seat.value]),
+            kontaktBestaetigungsLink(origin, seats[seat.value]),
           ]),
         ),
       );
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
             rollenText: rollenText,
             ausstehend: ausstehend,
             fristText: fristText,
-            link: bestaetigungsLink(origin, seats.ansprechperson),
+            link: kontaktBestaetigungsLink(origin, seats.ansprechperson),
           }),
       });
 
