@@ -666,23 +666,11 @@ class TestThePersonAnAdmissionNames:
         assert admitted == stored_id
         assert len(stored) == 1 and stored[0]["geburtsdatum"] == GEBURTSDATUM
 
-    def test_the_consent_record_is_the_registrations_fresh_one(self, mongo_replica_set_url: str):
-        """The confirmation page promises renewal: a narrowed answer left under the older record would be ignored."""
-
-        stored_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id))
-            await admit(database, client, await seed(database, registrierung_document()))
-
-            return (await persons(database))[0]["einwilligung"]
-
-        einwilligung = on_a_league(mongo_replica_set_url, body)
-
-        assert (einwilligung["umfang"], einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("intern", "2026-03-31", "2026-09")
-
     def test_a_returning_persons_record_is_renewed_with_the_registrations_evidence(self, mongo_replica_set_url: str):
-        """The registration's confirmation is the person's own act, so its evidence is what the renewed record proves."""
+        """The confirmation page promises renewal, a narrowed answer left under the older record being ignored.
+
+        The registration's confirmation is the person's own act, so its evidence is what the renewed record proves.
+        """
 
         stored_id = ObjectId()
 
