@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { nullAfterLoggingContractBreak } from "@/core/contractBreak";
 import { istFassungBekannt } from "@/core/einwilligung";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
@@ -62,8 +63,11 @@ async function AdminSpielerEditContent({
   const nachnominierung = membership === null ? await getSpielerNachnominierung(selectedSaison.id) : null;
 
   // Resolved through the words read rather than a copy here: the registry is the backend's.
-  // `null` where the registry's read failed, so the editor stands and says the label went unchecked.
-  const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(spieler.einwilligung?.text_version ?? null)).catch(() => null);
+  // `null` where the registry's read failed or broke its contract, so the editor stands and says the
+  // label went unchecked.
+  const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(spieler.einwilligung?.text_version ?? null)).catch(
+    nullAfterLoggingContractBreak,
+  );
 
   const saison: SpielerSaisonMembership = {
     saisonId: selectedSaison.id,

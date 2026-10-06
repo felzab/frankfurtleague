@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
 import { einwilligungAnswer, publishedFassung, publishedLaufendeFassung, readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
-import { APIBadStatusError } from "@/core/errors.ts";
+import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 
 import {
@@ -25,10 +25,13 @@ let answering: Answer = registry;
 
 /** Every endpoint the client was asked for in this case, in order. */
 const calls: string[] = [];
+/** Every lifetime a cached read declared in this case, in order. */
+const lifetimes: unknown[] = [];
 
 beforeEach(() => {
   answering = registry;
   calls.length = 0;
+  lifetimes.length = 0;
 });
 
 const inert = (): undefined => undefined;
@@ -44,7 +47,7 @@ registerDoubles({
       },
     },
   },
-  specifiers: { "next/cache": { cacheLife: inert, cacheTag: inert } },
+  specifiers: { "next/cache": { cacheLife: (profile: unknown) => void lifetimes.push(profile), cacheTag: inert } },
 });
 
 const api = { calls: calls, answerWith: (next: Answer) => void (answering = next) };
@@ -113,6 +116,31 @@ describe("the words read", () => {
     assert.equal(await istFassungBekannt("liga-2019-01-erfunden"), false);
     assert.equal(await istFassungBekannt(null), true);
     assert.deepEqual(api.calls, ["/einwilligung/fassungen/2026-09-bestaetigung-3", "/einwilligung/fassungen/liga-2019-01-erfunden"]);
+  });
+
+  it("keeps a label's words, and a label the registry does not hold, at the longest life", async () => {
+    await getEinwilligungFassung("2026-09-spielerseite-2");
+    await getEinwilligungFassung("2026-07");
+
+    assert.deepEqual(lifetimes, ["max", "max"]);
+  });
+
+  /* Answered inside the cached scope and thrown outside it: a production build redacts a cached
+     function's throw to a digest, which every page would read as a failed read. */
+  it("throws words off their schema as a contract break, kept only briefly", async () => {
+    const malformed = new APIMalformedDataError({
+      message: "API returned malformed data.",
+      url: "http://backend/api/v0/einwilligung/fassungen/x",
+      statusCode: 200,
+      endpoint: "/einwilligung/fassungen/x",
+      method: "GET",
+      readOnly: true,
+      traceId: "0",
+    });
+    api.answerWith(() => Promise.reject(malformed));
+
+    await assert.rejects(getEinwilligungFassung("2026-09-spielerseite-3"), { name: "ContractBreakError", message: /2026-09-spielerseite-3/ });
+    assert.deepEqual(lifetimes, ["seconds"], "a malformed answer is kept as long as words are, or declared twice");
   });
 
   // Only the record-missing code is an unknown label: a 404 carrying none is a route nothing served.

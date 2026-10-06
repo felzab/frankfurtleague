@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { nullAfterLoggingContractBreak } from "@/core/contractBreak";
 import { istFassungBekannt } from "@/core/einwilligung";
 import { AdminSchiedsrichterEditView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
@@ -36,9 +37,10 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   const { schiedsrichter } = schiedsrichterRes;
 
   // Resolved through the words read rather than a copy here: the registry is the backend's.
-  // `null` where the registry's read failed, so the editor stands and says the label went unchecked.
+  // `null` where the registry's read failed or broke its contract, so the editor stands and says the
+  // label went unchecked.
   const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(schiedsrichter.einwilligung?.text_version ?? null)).catch(
-    () => null,
+    nullAfterLoggingContractBreak,
   );
 
   return (

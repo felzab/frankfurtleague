@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getEinwilligungFassung } from "@/core/einwilligung";
+import { getGenannteFassung } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -53,9 +54,8 @@ async function BestaetigungContent(props: NextPageProps) {
       if (gelesen.zustand !== "gueltig") return gelesen;
 
       // After the link's read, never beside it: the view names the label by how the seat was filled.
-      // Any failure of the read is caught, a production build redacting what the cached read throws
-      // (`docs/frontend/spec.md` §1.2).
-      const fassung = await runWithIncomingTrace(() => getEinwilligungFassung(gelesen.ansicht.laufende_fassung)).catch(() => null);
+      // A failed read is the panel below; a label the registry does not hold reaches the error boundary.
+      const fassung = await runWithIncomingTrace(() => getGenannteFassung(gelesen.ansicht.laufende_fassung)).catch(nullUnlessContractBreak);
 
       // A page with no words to show is a page that cannot be answered, which the failed read's panel says.
       if (fassung === null) return { zustand: "unlesbar" };
