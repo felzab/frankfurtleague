@@ -12,7 +12,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
-import { doubleActionRequest, doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleActions, doubleToasts, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -230,10 +230,11 @@ const RECORD = {
 
 /** The record the editor page's read answers with, as the backend holds it at that moment. */
 let stored: Record<string, unknown> = { ...RECORD, inactive_since: null };
-/** The registry's read failing, where a case asks it to. */
-let registerFehlt = false;
+/** The registry's read failing, where a case asks it to: with a failure, or with words off their schema. */
+let registerFehlt: boolean | "vertragsbruch" = false;
 answerReadsWith((endpoint, schema, params) => {
-  if (registerFehlt && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error("backend unreachable");
+  if (registerFehlt === true && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error("backend unreachable");
+  if (registerFehlt === "vertragsbruch" && endpoint.startsWith("/einwilligung/fassungen/")) return { acknowledged: 1 };
   return endpoint === `/schiedsrichter/${RECORD.id}`
     ? answer(schema, endpoint, { schiedsrichter: stored })
     : EMPTIEST_ANSWER(endpoint, schema, params);
@@ -498,6 +499,41 @@ describe("the erasure on the referee's editor", () => {
         (body.props as { istFassungBekannt: unknown }).istFassungBekannt,
         null,
         "a failed registry read reached the editor as a verdict",
+      );
+    } finally {
+      registerFehlt = false;
+      stored = { ...RECORD, inactive_since: null };
+    }
+  });
+
+  /* The editor is the operator's tool for repairing the record, so a broken contract leaves it
+     standing too; logged under the error boundary's own code, so the broken deploy is still seen. */
+  it("hands the editor an unchecked label where the registry broke its contract, and logs it", async () => {
+    const props = { params: Promise.resolve({ schiedsrichter_id: RECORD.id }), searchParams: Promise.resolve({}) };
+    stored = {
+      ...RECORD,
+      inactive_since: null,
+      einwilligung: {
+        umfang: "intern",
+        erteilt_von: "volljaehrig",
+        datum: "2026-09-22",
+        bestaetigt_am: "2026-09-22",
+        text_version: "2026-09-schiedsrichterseite",
+        medien: false,
+        nachweis: { umfang: null, medien: null },
+      },
+    };
+    registerFehlt = "vertragsbruch";
+
+    try {
+      const body = await pageBody(AdminSchiedsrichterEditPage, props);
+      assert.equal((body.props as { istFassungBekannt: unknown }).istFassungBekannt, null, "a contract break took the editor down");
+      assert.deepEqual(
+        loggedLines
+          .filter(({ level }) => level === "error")
+          .map(({ message, meta }) => [message, (meta as { error_code?: string }).error_code]),
+        [["Contract break absorbed by an admin readout", "FE-RSC-001"]],
+        "the contract break went unlogged",
       );
     } finally {
       registerFehlt = false;
