@@ -9,6 +9,7 @@ nothing to refuse.
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import subprocess
 import sys
@@ -24,13 +25,10 @@ merge_rows, reg, ledger, land = import_scripts("merge_rows", "reg", "ledger", "l
 
 
 def _run(
-    tool: str, *args: str, cwd: Path | None = None, stdin: bytes | None = None, encoding: str | None = None
+    tool: str, *args: str, cwd: Path | None = None, stdin: bytes | None = None, env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
-    """One tool run as the coordinator runs it, by this interpreter, its streams decoded as utf-8.
-
-    `encoding` stands the child's streams on another codec, as a Windows pipe stands them on the console's codepage.
-    """
-    env = {**os.environ, "PYTHONIOENCODING": encoding} if encoding else None
+    """One tool run as the coordinator runs it, by this interpreter, its streams decoded as utf-8; `env` adds to the child's environment."""
+    env = {**os.environ, **env} if env else None
     done = subprocess.run((sys.executable, str(TOOLS / f"{tool}.py"), *args), cwd=cwd, input=stdin, capture_output=True, check=False, env=env)
     return subprocess.CompletedProcess(done.args, done.returncode, done.stdout.decode("utf-8"), done.stderr.decode("utf-8"))
 
@@ -298,7 +296,8 @@ def test_a_character_the_pipes_codepage_lacks_prints_rather_than_failing_after_t
     report = tmp_path / "A-report.md"
     report.write_bytes("F1 a count − one\n".encode())
     args = ("bank", str(register), str(report)) if tool == "ledger" else ("append", str(register), "a count − one")
-    done = _run(tool, *args, encoding="cp1252")
+    # A Windows pipe stands a child's streams on the console's codepage; cp1252 has no minus sign.
+    done = _run(tool, *args, env={"PYTHONIOENCODING": "cp1252"})
     assert done.returncode == 0, done.stderr
     assert "a count − one" in done.stdout
 
@@ -309,6 +308,94 @@ def test_a_skipped_number_is_named(tmp_path: Path) -> None:
     report.write_bytes(b"F1 one\n\nF3 three\n")
     done = _run("ledger", "bank", str(register), str(report))
     assert done.returncode == 0 and "skips F2" in done.stderr
+
+
+def _banked(tmp_path: Path, *reports: tuple[str, str]) -> Path:
+    register = _register(tmp_path)
+    for name, text in reports:
+        (tmp_path / name).write_bytes(text.encode("utf-8"))
+        ledger.bank(register, tmp_path / name)
+    return register
+
+
+def _status(register: Path, row: str) -> list[str]:
+    line = next(line for line in register.read_bytes().decode("utf-8").splitlines() if line.startswith(f"| {row} |"))
+    return [cell.strip() for cell in line.split("|")[4:6]]
+
+
+def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
+    """Two fixers given one finding built opposite designs; the second route is refused and writes nothing."""
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    assert _run("ledger", "route", str(register), "FIXER-1", "A-F1", "A-F2").returncode == 0
+    assert _status(register, "A-F1") == ["ROUTED", "FIXER-1"]
+    before = register.read_bytes()
+    second = _run("ledger", "route", str(register), "FIXER-2", "A-F2")
+    assert second.returncode == 2 and "routed to FIXER-1 already" in second.stderr
+    assert register.read_bytes() == before
+    assert _run("ledger", "route", str(register), "FIXER-2", "A-F2", "--reroute").returncode == 0
+    assert _status(register, "A-F2") == ["ROUTED", "FIXER-2"]
+
+
+@pytest.mark.parametrize(("row", "said"), [("A-F9", "is no ledger row"), ("A-F1", "is closed")], ids=["no such row", "a closed row"])
+def test_a_route_naming_a_row_it_cannot_take_moves_none(tmp_path: Path, row: str, said: str) -> None:
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    register.write_bytes(register.read_bytes().replace(b"| A-F1 | A-report.md | one | OPEN |", b"| A-F1 | A-report.md | one | MOOT |"))
+    before = register.read_bytes()
+    done = _run("ledger", "route", str(register), "FIXER-1", "A-F2", row)
+    assert done.returncode == 2 and said in done.stderr
+    assert register.read_bytes() == before
+
+
+def test_a_finding_several_lenses_reported_is_named_at_its_banking(tmp_path: Path) -> None:
+    """The round's lenses each banked the comment orphaned above `Leer`, as rows nobody tied together."""
+    register = _banked(tmp_path, ("L1-report.md", "F5 (for L8). `9cf8a0663` put two constants between `Leer()` and its comment\n"))
+    report = tmp_path / "L4-report.md"
+    report.write_bytes(b"F10 (for L8). In `BewerbungAngabenPanel.tsx`, `9cf8a0663` split `Leer` from its comment\n\nF11 `other` and `spans`\n")
+    done = _run("ledger", "bank", str(register), str(report))
+    assert done.returncode == 0, done.stderr
+    assert "L4-F10 may repeat L1-F5" in done.stderr and "`9cf8a0663`, `Leer`" in done.stderr
+    assert "L4-F11" not in done.stderr
+
+
+def _transcript(home: Path, agent: str, *messages: tuple[str, list[str]]) -> None:
+    """An agent's transcript as the harness writes it: one line per content block, a message's blocks sharing its id."""
+    folder = home / ".claude" / "projects" / "proj" / "session" / "subagents"
+    folder.mkdir(parents=True)
+    lines = [json.dumps({"message": {"role": "user", "content": "the brief"}})]
+    for message_id, texts in messages:
+        lines.append(json.dumps({"message": {"id": message_id, "role": "assistant", "content": [{"type": "thinking", "thinking": ""}]}}))
+        lines += [
+            json.dumps({"message": {"id": message_id, "role": "assistant", "content": [{"type": "text", "text": text}]}}) for text in texts
+        ]
+    (folder / f"agent-{agent}.jsonl").write_bytes("\n".join(lines).encode("utf-8"))
+
+
+def test_bank_from_an_agent_saves_its_final_message_and_never_over_a_saved_report(tmp_path: Path) -> None:
+    """Banked findings whose report was never saved left fixers nothing to read; a resumed agent's short reply overwrote a report."""
+    home = tmp_path / "home"
+    _transcript(home, "a1b2", ("m1", ["an interim note"]), ("m2", ["## Report\n\n", "F1 the − finding\n"]))
+    register, report = _register(tmp_path), tmp_path / "AGENT-report.md"
+    env = {"HOME": str(home), "USERPROFILE": str(home)}
+    done = _run("ledger", "bank", str(register), str(report), "--from", "a1b2", env=env)
+    assert done.returncode == 0, done.stderr
+    assert report.read_bytes().decode("utf-8") == "## Report\n\nF1 the − finding\n"
+    assert "| AGENT-F1 |" in done.stdout
+    again = _run("ledger", "bank", str(register), str(report), "--from", "a1b2", "--as", "AGENT-r2", env=env)
+    assert again.returncode == 2 and "already exists" in again.stderr
+    assert report.read_bytes().decode("utf-8") == "## Report\n\nF1 the − finding\n"
+
+
+@pytest.mark.parametrize(
+    ("args", "said"), [(("--from", "nobody"), "0 transcripts"), ((), "X-report.md")], ids=["no transcript", "no report file"]
+)
+def test_bank_with_no_report_to_read_is_refused(tmp_path: Path, args: tuple[str, ...], said: str) -> None:
+    home = tmp_path / "home"
+    (home / ".claude" / "projects").mkdir(parents=True)
+    register = _register(tmp_path)
+    before = register.read_bytes()
+    done = _run("ledger", "bank", str(register), str(tmp_path / "X-report.md"), *args, env={"HOME": str(home), "USERPROFILE": str(home)})
+    assert done.returncode == 2 and said in done.stderr and "Traceback" not in done.stderr
+    assert register.read_bytes() == before
 
 
 # --- land -----------------------------------------------------------------------------------------
