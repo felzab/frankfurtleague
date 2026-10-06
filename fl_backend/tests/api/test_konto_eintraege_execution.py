@@ -32,7 +32,7 @@ from tests.documents import (
     bewerbung_document,
     eigene_einwilligung_document,
     kontakte_document,
-    kontaktsitz_document,
+    kontaktperson_document,
     neue_schule_document,
     registrierung_bestaetigt,
     registrierung_document,
@@ -115,13 +115,13 @@ def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03") -> dict[str, Any]:
-    return kontaktsitz_document(
-        email,
-        vorname="Wiltrudis",
-        text_version="2026-09-bestaetigungsseite-6",
+    return kontaktperson_document(
+        "Wiltrudis",
         bestaetigt_am=bestaetigt_am,
+        email=email,
+        telefon="+49 69 5550101",
         geburtsdatum="2000-05-09",
-        medien=True,
+        einwilligung={"erfasst_von": "person", "text_version": "2026-09-bestaetigungsseite-6", "datum": "2026-09-01", "medien": True},
     )
 
 
