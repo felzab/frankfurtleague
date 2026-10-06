@@ -14,6 +14,7 @@ import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { laufendeKontaktSaisonFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
+import { assertOwnPanel } from "@/shared/testing/resultPanels.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import { ABLEHNEN_LABEL, VERTRETUNG_MIN_ALTER } from "../../constants.ts";
@@ -110,6 +111,7 @@ describe("the confirmation page for a seat on a team's season row", () => {
 
       const text = (container.textContent ?? "").replace(/\s+/g, " ");
       assert.match(text, satz);
+      assertOwnPanel(container.innerHTML, satz, "erfolg");
       assert.doesNotMatch(text, /für die Schule/);
       unmount();
     });

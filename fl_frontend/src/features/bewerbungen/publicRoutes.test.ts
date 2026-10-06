@@ -30,6 +30,7 @@ import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, pageBody, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
+import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
@@ -88,7 +89,7 @@ const { BestaetigungFormPanel } = await import("./components/views/BestaetigungF
 
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, MedienHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
-const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben } = await import("./components/views/BestaetigungPanels.tsx");
+const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben, LinkUnlesbar } = await import("./components/views/BestaetigungPanels.tsx");
 const { Wert } = await import("./components/ui/Gefuellt.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
@@ -1403,23 +1404,24 @@ describe("what a decline may carry", () => {
   });
 });
 
-describe("what a link to a barred address opens on", () => {
-  const OFFEN = {
-    acknowledged: 1,
-    zustand: "gueltig",
-    quelle: "bewerbung",
-    zeile: null,
-    saison_id: "2026",
-    schule: "Lessing-Kolleg",
-    rolle: "ansprechperson",
-    zugleich_rolle: null,
-    vorname: "Mira",
-    text_version: KONTAKT_LABEL,
-    laufende_fassung: KONTAKT_LABEL,
-    mindestalter: BEWERBUNG_MIN_ALTER,
-    medien_mindestalter: MEDIEN_MIN_ALTER,
-  } as const;
+/** A live link's answer, as the read that opened it serves one. */
+const OFFEN = {
+  acknowledged: 1,
+  zustand: "gueltig",
+  quelle: "bewerbung",
+  zeile: null,
+  saison_id: "2026",
+  schule: "Lessing-Kolleg",
+  rolle: "ansprechperson",
+  zugleich_rolle: null,
+  vorname: "Mira",
+  text_version: KONTAKT_LABEL,
+  laufende_fassung: KONTAKT_LABEL,
+  mindestalter: BEWERBUNG_MIN_ALTER,
+  medien_mindestalter: MEDIEN_MIN_ALTER,
+} as const;
 
+describe("what a link to a barred address opens on", () => {
   it("is the shared barred page and nothing beside it", () => {
     assert.equal(
       renderMarkup(BestaetigungView, { start: { zustand: "gesperrt" } }),
@@ -1452,6 +1454,28 @@ describe("what a link to a barred address opens on", () => {
     assert.ok(shown, "the page kept the form the press cannot use again");
     assert.equal(buttons, 0, "a press — a Widerspruch among them — stands beside the barred sentence");
     assert.equal(toasts, 0, "the ban was raised as a toast over the form");
+  });
+});
+
+/* Each state answers with one panel: a second beside it tells the contact two outcomes. */
+describe("the result panel each state of the contact's confirmation page shows", () => {
+  it("shows the page's own panel for each state the link opens on and no other", () => {
+    const [unlesbar = ""] = resultPanels(renderMarkup(LinkUnlesbar, {}));
+    assert.match(unlesbar, /gerade nicht prüfen/, "the shared panel no longer says the link went unchecked");
+    const dead = "Dieser Link ist ungültig oder abgelaufen.";
+
+    for (const [start, eigenes] of [
+      [{ zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token", fassung: KONTAKT }, null],
+      [{ zustand: "saison_vorbei", ansicht: OFFEN, token: "kein-echtes-token" }, null],
+      [{ zustand: "bestaetigt" }, "Dieser Eintrag ist schon bestätigt."],
+      [{ zustand: "abgelehnt" }, "Über diesen Link wurde dem Eintrag schon widersprochen."],
+      [{ zustand: "abgelaufen" }, dead],
+      [{ zustand: "ungueltig" }, dead],
+      [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
+      [{ zustand: "unlesbar" }, unlesbar],
+    ] satisfies [BestaetigungStart, string | null][]) {
+      assertOwnPanel(renderMarkup(BestaetigungView, { start }), eigenes, start.zustand);
+    }
   });
 });
 

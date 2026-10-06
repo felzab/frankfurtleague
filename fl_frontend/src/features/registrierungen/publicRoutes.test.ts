@@ -19,6 +19,7 @@ import { laufendeSpielerFassung, laufendeSpielerWiederkehrendFassung } from "@/s
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
@@ -98,6 +99,9 @@ const REGISTRIERUNG_STATES = [
 ].map((eintrag) => ({ ...eintrag, html: renderMarkup(RegistrierungView, { siteKey: TEST_SITE_KEY, start: eintrag.start }) }));
 
 const seite = (stand: string): string => REGISTRIERUNG_STATES.find((eintrag) => eintrag.stand === stand)?.html ?? "";
+
+/** The thanks a confirmed registration's panel opens with. */
+const ERFOLG = /Deine Registrierung für .+ ist bestätigt\./;
 
 /**
  * The words the page stamps, read off the registry the backend generated rather than retyped.
@@ -363,6 +367,7 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
 
     const panel = await screen.findByRole("status");
     const worte = panel.textContent;
+    assertOwnPanel(document.body.innerHTML, /registriere Dich einfach erneut/, "eingegangen");
 
     assert.match(worte, new RegExp(String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)), "the answer page states no deadline, or one of its own");
     assert.match(worte, /registriere Dich einfach erneut/, "the answer page offers no way back from a mistyped address");
@@ -869,6 +874,7 @@ describe("the media switch, offered from the media age alone", () => {
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
     await act(fetchMock.answered);
     await screen.findByRole("heading", { name: "Registrierung bestätigt" });
+    assertOwnPanel(document.body.innerHTML, ERFOLG, "erfolg");
 
     return fetchMock.mock.calls.slice(bisher).map((call) => {
       const body = call.arguments[1]?.body;
@@ -932,6 +938,7 @@ describe("the returning pupil's confirmation page", () => {
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
     await act(fetchMock.answered);
     await screen.findByRole("heading", { name: "Registrierung bestätigt" });
+    assertOwnPanel(document.body.innerHTML, ERFOLG, "erfolg");
     const panel = textOf(document.querySelector('section[role="status"]')?.innerHTML ?? "", " ");
     unmount();
 
@@ -1036,21 +1043,40 @@ describe("what a link to a barred address opens on", () => {
   });
 });
 
-/* A link the backend could not check may still be live, so its page says it does not know and asks
-   for a reload, never that the link is dead. */
-describe("what a link that could not be checked opens on", () => {
-  const unlesbar = renderMarkup(LinkUnlesbar, {});
+/* Each state answers with one panel: a second beside it tells the pupil two outcomes, and a link the
+   backend could not check may still be live, so its panel says only that it does not know. */
+describe("the result panel each state of the two pupil pages shows", () => {
+  const [unlesbar = ""] = resultPanels(renderMarkup(LinkUnlesbar, {}));
 
-  it("is the shared unchecked-link panel on the registration page", () => {
-    assert.match(textOf(unlesbar), /gerade nicht prüfen/, "the shared panel no longer says the link went unchecked");
-    assert.ok(seite("unlesbar").includes(unlesbar), "the registration page drops the unchecked-link panel");
+  it("shows the registration page's own panel for each state and no other", () => {
+    assert.match(unlesbar, /gerade nicht prüfen/, "the shared panel no longer says the link went unchecked");
+    const eigenes: Record<string, string | null> = {
+      gueltig: null,
+      "kader-voll": "Der Kader dieses Teams ist für diese Saison voll",
+      "team-fehlt": "Dieses Team spielt in dieser Saison nicht mit",
+      geschlossen: "Für diese Saison ist die Registrierung geschlossen.",
+      ungueltig: "Dieser Link gilt nicht mehr.",
+      unlesbar: unlesbar,
+    };
+
+    for (const { stand, html } of REGISTRIERUNG_STATES) {
+      assert.ok(Object.hasOwn(eigenes, stand), `no panel named for ${stand}`);
+      assertOwnPanel(html, eigenes[stand] ?? null, stand);
+    }
   });
 
-  it("is the shared unchecked-link panel on the pupil's confirmation page", () => {
-    assert.ok(
-      renderMarkup(SpielerBestaetigungView, { start: { zustand: "unlesbar" }, fassung: FASSUNG }).includes(unlesbar),
-      "the confirmation page drops the unchecked-link panel",
-    );
+  it("shows the confirmation page's own panel for each state the link opens on and no other", () => {
+    const dead = "Dieser Link ist ungültig oder abgelaufen";
+    for (const [start, eigenes] of [
+      [{ zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, null],
+      [{ zustand: "bestaetigt" }, "Diese Registrierung ist schon bestätigt."],
+      [{ zustand: "abgelaufen" }, dead],
+      [{ zustand: "ungueltig" }, dead],
+      [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
+      [{ zustand: "unlesbar" }, unlesbar],
+    ] as const) {
+      assertOwnPanel(renderMarkup(SpielerBestaetigungView, { start, fassung: FASSUNG }), eigenes, start.zustand);
+    }
   });
 });
 

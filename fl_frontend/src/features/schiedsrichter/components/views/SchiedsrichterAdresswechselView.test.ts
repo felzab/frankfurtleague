@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SchiedsrichterAdresswechselStart } from "./SchiedsrichterAdresswechselView.tsx";
@@ -22,6 +23,7 @@ const fetchMock = doubleFetch();
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE, SchiedsrichterAdresswechselView, startOf } =
   await import("./SchiedsrichterAdresswechselView.tsx");
+const { LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 
 const OFFEN: SchiedsrichterAdresswechselStart = { zustand: "gueltig", vorname: "Anna", frist: "2026-10-15", token: "abc123" };
 
@@ -105,6 +107,7 @@ describe("the referee's address page", () => {
     await user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
     await act(fetchMock.answered);
     await waitFor(() => assert.match(document.body.textContent, /kann nicht mehr bestätigt werden/));
+    assertOwnPanel(document.body.innerHTML, "kann nicht mehr bestätigt werden.", "nicht_bestaetigbar");
 
     await user.click(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }));
     await act(fetchMock.answered);
@@ -134,6 +137,23 @@ describe("the referee's address page", () => {
     assert.match(words({ zustand: "unlesbar" }), /gerade nicht prüfen/);
   });
 
+  // A second panel beside a state's own tells the reader two outcomes, which each case above misses.
+  it("shows each state's own panel and no other", () => {
+    const [unlesbar = ""] = resultPanels(renderTree(h(LinkUnlesbar, {})));
+    assert.match(unlesbar, /gerade nicht prüfen/, "the shared panel no longer says the link went unchecked");
+
+    for (const [start, eigenes] of [
+      [OFFEN, null],
+      [{ zustand: "abgelaufen", token: "abc123" }, "Dieser Link ist abgelaufen."],
+      [{ zustand: "nicht_bestaetigbar", token: "abc123" }, "kann nicht mehr bestätigt werden."],
+      [{ zustand: "ungueltig" }, "Dieser Link ist ungültig:"],
+      [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
+      [{ zustand: "unlesbar" }, unlesbar],
+    ] satisfies [SchiedsrichterAdresswechselStart, string | null][]) {
+      assertOwnPanel(renderTree(h(SchiedsrichterAdresswechselView, { start })), eigenes, start.zustand);
+    }
+  });
+
   for (const [gedrueckt, antwort, ergebnis] of [
     [JA_MEINE_ADRESSE, "bestaetigt", /Deine neue E-Mail-Adresse gilt jetzt.*gilt er für die neue nicht/s],
     [NICHT_MEINE_ADRESSE, "abgelehnt", /Wir haben die Adresse wieder entfernt/],
@@ -146,6 +166,7 @@ describe("the referee's address page", () => {
       await act(fetchMock.answered);
 
       await waitFor(() => assert.match(document.body.textContent, ergebnis));
+      assertOwnPanel(document.body.innerHTML, ergebnis, antwort);
       assert.deepEqual(sent, [{ token: "abc123", antwort: antwort }]);
     });
   }
@@ -159,6 +180,7 @@ describe("the referee's address page", () => {
     await act(fetchMock.answered);
 
     await waitFor(() => assert.match(document.body.textContent, /Dieser Link ist abgelaufen/));
+    assertOwnPanel(document.body.innerHTML, "Dieser Link ist abgelaufen.", "abgelaufen");
     assert.equal(screen.queryAllByRole("button", { name: JA_MEINE_ADRESSE }).length, 0);
     assert.deepEqual(toasts, []);
   });
