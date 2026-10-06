@@ -138,9 +138,9 @@ describe("where the landing takes a person", () => {
     assert.ok(!markup.includes("Noch nicht bestätigt"), "a person with nothing pending is told a link is waiting");
   });
 
-  /* Records matched and none is confirmed, so what is missing is the person's own link: the panel
+  /* Records matched and none is confirmed, so what is missing is the person's own link: the notice
      says so, above the way to the account page, which holds the sign-in's own controls. */
-  it("stands the pending panel above the account page's card where a record waits on the person's link", async () => {
+  it("stands the pending notice above the account page's card where a record waits on the person's link", async () => {
     setSubject(person({ unbestaetigt: true }));
     const { markup, reads } = await renderedAlone(PersoenlichStartPage);
 
@@ -148,7 +148,7 @@ describe("where the landing takes a person", () => {
     assert.ok(markup.includes("Noch nicht bestätigt"), "the pending page is not what renders");
     assert.ok(markup.includes("kontakt@frankfurtleague.de"), "the pending page names nobody to write to");
     assert.deepEqual(await switchHrefs(), ["/bereich/konto"]);
-    assert.ok(markup.indexOf("Noch nicht bestätigt") < markup.indexOf('href="/bereich/konto"'), "the pending panel stands below the card");
+    assert.ok(markup.indexOf("Noch nicht bestätigt") < markup.indexOf('href="/bereich/konto"'), "the pending notice stands below the card");
     // The approved wording, whole: it names neither the record nor its team, which a mailbox typed by mistake would hand a stranger.
     assert.ok(
       textOf(markup, " ")
