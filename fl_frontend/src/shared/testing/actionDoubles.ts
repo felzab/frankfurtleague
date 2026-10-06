@@ -464,8 +464,8 @@ export function doubleToasts(): { raised: RaisedToast[] } {
     };
   // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
   // in every suite rather than under the raising site's title.
-  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">): string =>
-    raise("danger")(failureToastTitle(title, failure?.outcome), {
+  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unklarTitle?: string): string =>
+    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle), {
       description: failure?.unplacedError ?? failure?.error,
       outcome: failure?.outcome,
     });

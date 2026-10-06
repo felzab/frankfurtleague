@@ -295,7 +295,7 @@ describe("the control that sends the link", () => {
       await waitFor(() =>
         assert.deepEqual(
           toasts.map((raised) => [raised.title, raised.description, raised.options?.outcome]),
-          [["Unklar, ob es gespeichert wurde", repair, "unknown"]],
+          [["Unklar, ob der Link verschickt wurde", repair, "unknown"]],
         ),
       );
     });

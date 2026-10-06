@@ -180,7 +180,9 @@ hands the caller as the error's message, so `:: unansweredAction` and `:: reject
 was saved and to wait, reading nothing again. A form taking `useActionState` takes it through
 `fl_frontend/src/shared/hooks/useAnsweredActionState.ts :: useAnsweredActionState`, which makes that refusal
 the send's own state; React hands any action's rejection there to the error boundary, which reads nothing
-of it. **A press writing what the admin typed into a subtree the page keys
+of it, so a send whose page that boundary would replace whole answers every rejection itself, as the
+account page's code send does (`fl_frontend/src/features/konto/components/ui/CodeConfirmation.tsx`). A send's
+unknown outcome is titled by what is unknown of it, a link's or a code's, never a save's. **A press writing what the admin typed into a subtree the page keys
 by its record reads nothing on a rejection, and says the outcome is unknown**: every page-owned
 editor's save, and a panel's own typed box on such a page, the decline's reason, the confirmation
 strip's correction and reseat, and a redraw's shape among them. A record moved under the unwritten

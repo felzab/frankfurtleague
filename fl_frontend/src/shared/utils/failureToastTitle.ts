@@ -13,7 +13,9 @@ const OUTCOME_TITLES: Readonly<Record<NonNullable<ActionFailure["outcome"]>, str
 /**
  * The title a failure's toast carries: a marked outcome's own, the raising site's otherwise. Apart from
  * `fl_frontend/src/shared/utils/appToast.ts`, which suites double, so a double titles a failure as it does.
+ * `unklarTitle` is a site's own for an unknown outcome where nothing is saved, a send among them.
  */
-export function failureToastTitle(siteTitle: string, outcome: ActionFailure["outcome"]): string {
+export function failureToastTitle(siteTitle: string, outcome: ActionFailure["outcome"], unklarTitle?: string): string {
+  if (outcome === "unknown" && unklarTitle !== undefined) return unklarTitle;
   return outcome === undefined ? siteTitle : OUTCOME_TITLES[outcome];
 }

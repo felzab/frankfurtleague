@@ -97,9 +97,8 @@ describe("the step-up's send", () => {
         raised.map(({ title, description }) => ({ title, description })),
         [
           {
-            title: "Code nicht gesendet",
-            description:
-              "Wir wissen nicht, ob der Code verschickt wurde. Prüfe die Verbindung und fordere ihn erneut an; ein neuer Code ersetzt einen früheren.",
+            title: "Unklar, ob der Code verschickt wurde",
+            description: "Prüfe die Verbindung und fordere den Code erneut an. Ein neuer Code ersetzt einen, der schon rausging.",
           },
         ],
       ),

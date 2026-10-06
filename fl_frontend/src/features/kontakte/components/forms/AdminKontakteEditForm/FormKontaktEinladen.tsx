@@ -12,7 +12,7 @@ import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
@@ -63,7 +63,7 @@ export function FormKontaktEinladen({
     setSendet(false);
 
     if (!res.success) {
-      appToast.failure("Bestätigungslink nicht gesendet", res);
+      appToast.failure("Bestätigungslink nicht gesendet", res, LINK_UNKLAR);
       return;
     }
 
