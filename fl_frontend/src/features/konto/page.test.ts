@@ -8,7 +8,7 @@ import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionD
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
-import { schiedsrichterSelbst, spielerSelbst } from "@/shared/testing/selbstFixtures.ts";
+import { schiedsrichterKonto, spielerKonto } from "@/shared/testing/selbstFixtures.ts";
 
 import type { SubjectSession } from "@/core/subject.ts";
 import type { EinwilligungEintrag } from "./components/forms/EinwilligungForm/EinwilligungPanel.tsx";
@@ -352,9 +352,9 @@ const BEWERBUNG_SITZ = {
   ],
 };
 
-const SPIELER = spielerSelbst();
+const SPIELER = spielerKonto();
 
-const SCHIEDSRICHTER = schiedsrichterSelbst();
+const SCHIEDSRICHTER = schiedsrichterKonto();
 
 /** A pupil's pending registration, confirmed with both choices on the new pupil's page. */
 const REGISTRIERUNG = {

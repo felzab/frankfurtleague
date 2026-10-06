@@ -367,7 +367,10 @@ export const FLSchiedsrichterKontextSchema = z.object({
 });
 export type FLSchiedsrichterKontext = z.infer<typeof FLSchiedsrichterKontextSchema>;
 
-/** Mirrors `FLSchiedsrichterSelbst`, the person tier's own read: no link bookkeeping, which is the administration's. */
+/**
+ * Mirrors `FLSchiedsrichterSelbst`, the person tier's own read of the stored data: no link bookkeeping,
+ * which is the administration's, and no consent, which is the account page's entry's.
+ */
 export const FLSchiedsrichterSelbstSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
   name: z.string(),
@@ -376,19 +379,6 @@ export const FLSchiedsrichterSelbstSchema = z.object({
   // `default_payment`, served because the referee's confirmation page lists the fee among what is stored.
   honorar: z.number().int(),
   geburtsdatum: CustomDateStringSchema.nullable(),
-  inactive_since: CustomDateStringSchema.nullable(),
-  // Never null here, for the reason the pupil's own read gives (`FLSpielerSelbstSchema`).
-  einwilligung: FLEinwilligungSchema,
-  // The words shown beside the account page's control, for the reason `FLSpielerSelbstSchema` gives.
-  bestaetigt_text_version: z.string().nullable(),
-  // The consent press's precondition, for the reason `FLSpielerSelbstSchema` gives.
-  nachweis_stand: FLEinwilligungStandSchema,
-  kontext: FLSchiedsrichterKontextSchema,
-  erteilbar: z.boolean(),
-  medien_angeboten: z.boolean(),
-  // For `FLSpielerSelbstSchema`'s reason, both.
-  mindestalter: z.number().int(),
-  medien_mindestalter: z.number().int(),
 });
 export type FLSchiedsrichterSelbst = z.infer<typeof FLSchiedsrichterSelbstSchema>;
 
