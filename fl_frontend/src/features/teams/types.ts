@@ -8,6 +8,7 @@ import type {
   FLKontaktperson,
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
+  FLSaisonTeamBestaetigungen,
   FLSaisonTeamKontakte,
   FLTrikotFarbe,
 } from "./schemas";
@@ -115,6 +116,8 @@ export type TeamSaisonMembership = {
     austritt: FLAustritt | null;
     trikot_farbe: FLTrikotFarbe | null;
     kontakte: FLSaisonTeamKontakte | null;
+    /** Each seat's link, read beside the block for the contacts editor. */
+    bestaetigungen: FLSaisonTeamBestaetigungen | null;
     /** The token `PATCH .../kontakte` judges a save against, carried from the read (`REQ-KONTAKT-001`). */
     kontakte_stand: string;
   } | null;

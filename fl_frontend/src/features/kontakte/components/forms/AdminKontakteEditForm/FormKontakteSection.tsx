@@ -8,6 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
+import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
@@ -39,7 +40,7 @@ import { FormKontaktErasure } from "./FormKontaktErasure";
 
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLSaisonTeamKontakte, FLTrainerZugleich } from "@/features/teams/schemas";
+import type { FLSaisonTeamBestaetigung, FLSaisonTeamBestaetigungen, FLSaisonTeamKontakte, FLTrainerZugleich } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -90,6 +91,7 @@ export function FormKontakteSection({
   laufendesLabel,
   value,
   stored,
+  bestaetigungen,
   teamId,
   saisonId,
   nimmtLinks,
@@ -106,6 +108,8 @@ export function FormKontakteSection({
   value: SaisonTeamKontakteDraft | null;
   /** The block as the row holds it: a link goes to the person stored on a seat, never to one only typed. */
   stored: FLSaisonTeamKontakte | null;
+  /** Each seat's link as the row stores it, read beside the block, as the referee editor reads its own. */
+  bestaetigungen: FLSaisonTeamBestaetigungen | null;
   teamId: string;
   saisonId: string;
   /** The row still takes confirmation links: its season is not over and its team has not left it. */
@@ -210,6 +214,7 @@ export function FormKontakteSection({
             label={label}
             person={basis[rolle]}
             istGespeichert={stored?.[rolle] != null}
+            link={bestaetigungen?.[rolle] ?? null}
             kannLeerOeffnen={laufendesLabel !== null}
             isMirrored={isMirrored(rolle)}
             /* The question belongs to the Trainer seat: it asks who the Trainer IS, and the answer is
@@ -284,6 +289,7 @@ function KontaktpersonFields({
   label,
   person,
   istGespeichert,
+  link,
   kannLeerOeffnen,
   isMirrored,
   zugleich,
@@ -299,6 +305,8 @@ function KontaktpersonFields({
   person: KontaktpersonDraft | null;
   /** The row stores a person on this seat, so a record naming no one who seated them predates the field. */
   istGespeichert: boolean;
+  /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
+  link: FLSaisonTeamBestaetigung | null;
   /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
   kannLeerOeffnen: boolean;
   /** This seat IS another seat's person, so its boxes read out rather than take input. */
@@ -360,6 +368,17 @@ function KontaktpersonFields({
             onChange={onChange}
             onFieldLeft={onFieldLeft}
           />
+        )}
+
+        {link !== null && (
+          <dl className={FIELD_PAIR_CLASSES}>
+            <LinkStandAngaben
+              verschicktAm={link.verschickt_am}
+              frist={link.frist}
+              istAbgelaufen={false}
+              zustellung={link.zustellung}
+            />
+          </dl>
         )}
 
         {einladen}

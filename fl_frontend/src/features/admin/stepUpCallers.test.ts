@@ -248,6 +248,7 @@ const kontakteEditor = () =>
           austritt: null,
           trikot_farbe: null,
           kontakte: { ansprechperson: seat("Anna", "anna@schule.example"), stellvertretung: null, trainer: null, trainer_ist_zugleich: null },
+          bestaetigungen: null,
           kontakte_stand: "9f2c",
         },
       },

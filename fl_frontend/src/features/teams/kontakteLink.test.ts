@@ -42,6 +42,7 @@ const MEMBERSHIP: FLTeamMembership = {
   austritt: null,
   trikot_farbe: null,
   kontakte: null,
+  bestaetigungen: null,
   kontakte_stand: "",
 };
 

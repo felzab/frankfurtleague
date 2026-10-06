@@ -238,7 +238,8 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
     saison: {
       saisonId: "2026",
       saisonStatus: "future" as const,
-      membership: gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+      membership:
+        gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
     },
     today: "2026-09-14",
     gruppeLocked: locked,
@@ -457,7 +458,7 @@ const kontakteEditor = (kontakte: Kontakte | null) =>
       saison: {
         saisonId: "2026",
         saisonStatus: "active",
-        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" },
+        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" },
       },
     }),
   });

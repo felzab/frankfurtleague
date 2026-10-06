@@ -210,7 +210,9 @@ const teamProps = (over: { inactiveSince?: string; isMember?: boolean; locked?: 
     saisonId: "2026",
     saisonStatus: "future" as const,
     membership:
-      over.isMember === false ? null : { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+      over.isMember === false
+        ? null
+        : { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
   },
   today: "2026-09-14",
   gruppeLocked: over.locked ?? false,
@@ -361,6 +363,7 @@ const EDITORS: Record<string, Editor> = {
                 trainer: PERSON("Ada", "ada@example.org", "069 333"),
                 trainer_ist_zugleich: null,
               },
+              bestaetigungen: null,
               kontakte_stand: "stand",
             },
           },
