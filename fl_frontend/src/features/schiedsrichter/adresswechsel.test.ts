@@ -38,7 +38,6 @@ const { describeAdresswechselMail } = await import("./notifications.ts");
 const { mapSchiedsrichterAdresswechselRefusal } = await import("./queries.ts");
 const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, SCHIEDSRICHTER_ADRESSWECHSEL_PATH } =
   await import("@/core/schiedsrichterEmail.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
 const { SPERRLISTE_ADRESSE_GESPERRT } = await import("@/features/sperrliste/constants.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
@@ -47,17 +46,9 @@ const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 const BISHER = "anna@alt.example";
 const NEU = "anna@neu.example";
 
-const aRefusal = (serverErrorCode: string, statusCode = 409) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/schiedsrichter",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/schiedsrichter",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+const ANSWER_OPERATION = "POST /schiedsrichter/adresswechsel";
+const RESEND_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen";
+const DISCARD_OPERATION = "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel";
 
 const PENDING = { email: NEU, verschickt_am: "2026-10-01", frist: "2026-10-15", zustellung: null };
 
@@ -165,7 +156,7 @@ describe("the pending address change's two controls", () => {
   });
 
   it("answers a barred pending address in the ban list's words and mails nothing", async () => {
-    resend = () => aRefusal("REQ-SCHIEDSRICHTER-007");
+    resend = () => refusedOn(RESEND_OPERATION, "REQ-SCHIEDSRICHTER-007");
 
     const res = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
 
@@ -174,8 +165,8 @@ describe("the pending address change's two controls", () => {
   });
 
   it("answers a change gone since the page loaded with the reload, on either control", async () => {
-    resend = () => aRefusal("DB-COMMON-001", 404);
-    discard = () => aRefusal("DB-COMMON-001", 404);
+    resend = () => refusedOn(RESEND_OPERATION, "DB-COMMON-001");
+    discard = () => refusedOn(DISCARD_OPERATION, "DB-COMMON-001");
 
     for (const res of [
       await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID }),
@@ -256,19 +247,19 @@ describe("what one refused answer asks the address page to show", () => {
     ["REQ-SCHIEDSRICHTER-010", "nicht_bestaetigbar"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel, at any status`, () => {
-      assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(aRefusal(code)), { zustand: zustand });
-      assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(refusedOn("POST /schiedsrichter/adresswechsel", code)), { zustand: zustand });
+      assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(refusedOn(ANSWER_OPERATION, code, 409)), { zustand: zustand });
+      assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(refusedOn(ANSWER_OPERATION, code)), { zustand: zustand });
     });
   }
 
   it("sends a body the API could not read back to the mail's link", () => {
-    assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(refusedOn("POST /schiedsrichter/adresswechsel", "REQ-VAL-002")), {
+    assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(refusedOn(ANSWER_OPERATION, "REQ-VAL-002")), {
       error: ANTWORT_NEU_OEFFNEN,
     });
   });
 
   it("answers nothing for a code it does not word", () => {
-    assert.equal(mapSchiedsrichterAdresswechselRefusal(aRefusal("REQ-SCHIEDSRICHTER-004")), null);
+    assert.equal(mapSchiedsrichterAdresswechselRefusal(refusedOn(ANSWER_OPERATION, "REQ-SCHIEDSRICHTER-004", 409)), null);
     assert.equal(mapSchiedsrichterAdresswechselRefusal(new Error("network")), null);
   });
 });

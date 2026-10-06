@@ -16,7 +16,7 @@ const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint)
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING } });
 
 const { POST } = await import("./route.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
 /** The label the backend runs on this page, off the registry it generated. */
@@ -41,18 +41,8 @@ const ANSICHT = {
 
 const GESCHRIEBEN = { acknowledged: 1, ergebnis: "bestaetigt" as const, geburtsdatum: "2008-09-01", umfang: "intern" as const, medien: false };
 
-/** One refused answer as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (statusCode: number, serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/registrierungen/bestaetigung",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/registrierungen/bestaetigung",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** The answer the handler writes. */
+const WRITE_OPERATION = "POST /registrierungen/bestaetigung";
 
 /** The body a browser sends, naming the label the page rendered. */
 const gueltigerKoerper = {
@@ -103,7 +93,7 @@ describe("the pupil's confirmation handler", () => {
   /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
      it posts words other than those the backend runs, and only the mail's link reopens the page on them. */
   it("answers the backend's refusal of the label with the sentence that reopens the link", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-EINWILLIGUNG-001");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-EINWILLIGUNG-001");
 
     const answer = await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
 
@@ -147,7 +137,7 @@ describe("the pupil's confirmation handler", () => {
   /* No page of ours sends choices its page does not ask, the label check refusing a mismatched page
      first, so only a drifted client meets this, and the mail's link reopens the page. */
   it("answers the refusal of choices the page does not ask with the sentence that reopens the link", async () => {
-    schreibAntwort = () => aRefusal(422, "REQ-REGISTRIERUNG-017");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-017");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -164,7 +154,7 @@ describe("the pupil's confirmation handler", () => {
       ["REQ-REGISTRIERUNG-006", "bestaetigt"],
     ] as const) {
       calls.length = 0;
-      schreibAntwort = () => aRefusal(409, code);
+      schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
 
       const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -175,7 +165,7 @@ describe("the pupil's confirmation handler", () => {
 
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live. */
   it("puts the age refusal on the date the person typed, at the floor the link answered", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-007");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-007");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const body = answer.body as { success: boolean; fieldErrors?: Record<string, string>; zustand?: string };
@@ -189,7 +179,7 @@ describe("the pupil's confirmation handler", () => {
   /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
      form behind. */
   it("answers a barred address with the barred panel, in place of the form", async () => {
-    schreibAntwort = () => aRefusal(403, "REQ-REGISTRIERUNG-012");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-012");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -200,7 +190,7 @@ describe("the pupil's confirmation handler", () => {
   /* A sentence naming a floor this link was not minted under sends the person to correct a date
      that was right, so an unreadable view leaves the refusal unworded. */
   it("words nothing where the link's own view could not be read", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-007");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-007");
     ansichtAntwort = () => new Error("the backend did not answer");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));

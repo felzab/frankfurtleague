@@ -239,15 +239,24 @@ describe("the key file", () => {
     });
   });
 
-  /* The backend allows EdDSA alone, so a key of another curve would mint tokens every request is refused. */
+  /* The backend allows EdDSA alone, so a key of another curve would mint tokens every request is refused.
+     X25519 beside P-256: the one curve sharing Ed25519's JWK key type, which a check of the type passes. */
   it("refuses a private key that is not Ed25519", async () => {
-    const file = path.join(DIRECTORY, "p256.pem");
-    writeFileSync(file, generateKeyPairSync("ec", { namedCurve: "P-256" }).privateKey.export({ type: "pkcs8", format: "pem" }));
+    const keys = {
+      "p256.pem": generateKeyPairSync("ec", { namedCurve: "P-256" }).privateKey,
+      "x25519.pem": generateKeyPairSync("x25519").privateKey,
+    };
 
-    await assert.rejects(
-      loadSigningKey(file),
-      (error: unknown) => error instanceof ActorSigningKeyError && error.reason === "holds a key that is not Ed25519",
-    );
+    for (const [name, key] of Object.entries(keys)) {
+      const file = path.join(DIRECTORY, name);
+      writeFileSync(file, key.export({ type: "pkcs8", format: "pem" }));
+
+      await assert.rejects(
+        loadSigningKey(file),
+        (error: unknown) => error instanceof ActorSigningKeyError && error.reason === "holds a key that is not Ed25519",
+        `${name} was taken for a signing key`,
+      );
+    }
   });
 });
 

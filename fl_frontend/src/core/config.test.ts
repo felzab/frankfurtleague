@@ -292,6 +292,13 @@ describe("the key a deployment the provider sends its events to must hold", () =
   it("refuses a key without the provider's prefix wherever one is held", async () => {
     assert.equal(await refusedFiles({ resend_webhook_secret: "probe" }, { APP_ENV: "local" }), "resend_webhook_secret");
   });
+
+  /* A file holding nothing is a key nobody wrote, never a file left out: refused on either deployment. */
+  it("refuses a blank key file wherever one is held, and names its file", async () => {
+    for (const APP_ENV of ["production", "local"]) {
+      assert.equal(await refusedFiles({ resend_webhook_secret: " \n" }, { APP_ENV }), "resend_webhook_secret", `accepted under ${APP_ENV}`);
+    }
+  });
 });
 
 describe("the bot check's two keys", () => {
@@ -346,6 +353,12 @@ describe("the names the preflight demands a host's file carry", () => {
     });
 
     assert.deepEqual(refused, [...REQUIRED_ENVIRONMENT_NAMES]);
+  });
+
+  /* Named, where the case above reads both of its listings off the schema: a required variable made
+     optional moves both together, and only a case naming it refuses the change. */
+  it("refuses a boot handed no backend address, naming the variable", async () => {
+    assert.equal(await refusedNames({ API_URL: undefined }), "API_URL");
   });
 
   /* The deploy asks production for its own files and for no variable beyond the set above, so a
