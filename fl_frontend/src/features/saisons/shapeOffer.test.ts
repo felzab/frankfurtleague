@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { FLPostSaisonPayloadSchema, MAX_QUALIFIERS } from "@/features/saisons/schemas";
 import { GRUPPEN_OPTIONS } from "@/features/teams/constants";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import {
   drawGroupCountOptions,
@@ -24,17 +25,7 @@ import {
 import type { FLSpielplanShape } from "@/features/saisons/schemas";
 import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 
-const RULES = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  tiebreak_order: "tordifferenz",
-  max_kadergroesse: 50,
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1"],
-};
+const RULES = saisonRules({ max_kadergroesse: 50, erlaubte_stufen: ["E1"] });
 
 /**
  * The PAYLOAD rather than a field schema: `REQ-RULES-001` and `REQ-RULES-007` read two of the three

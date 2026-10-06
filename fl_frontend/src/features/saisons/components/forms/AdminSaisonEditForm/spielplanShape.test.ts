@@ -1,21 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
+
 import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape.ts";
 
 import type { FLSaisonRules, FLSpielplanShape } from "@/features/saisons/schemas";
 
-const STORED: FLSaisonRules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 6,
-  tiebreak_order: "tordifferenz",
-  max_kadergroesse: 12,
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1"],
-};
+const STORED: FLSaisonRules = saisonRules({ teams_per_group: 6, max_kadergroesse: 12, erlaubte_stufen: ["E1"] });
 
 const shape = (overrides: Partial<FLSpielplanShape> = {}): FLSpielplanShape => ({ ...readShape(STORED), ...overrides });
 

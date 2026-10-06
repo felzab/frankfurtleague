@@ -18,6 +18,7 @@ import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import type { ReactNode } from "react";
@@ -146,17 +147,7 @@ const OFFER = [
   { gruppe: "A" as const, occupied: 1, capacity: 4 },
   { gruppe: "B" as const, occupied: 0, capacity: 4 },
 ];
-const SAISON_RULES = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const SAISON_RULES = saisonRules();
 const LEVEL_KNOCKOUT = spielFields({
   id: "6890a1b2c3d4e5f607182901",
   saison_id: "2026",

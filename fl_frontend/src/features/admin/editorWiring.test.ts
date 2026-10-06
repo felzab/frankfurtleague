@@ -18,6 +18,7 @@ import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
@@ -248,17 +249,7 @@ const saisonProps = (over: { drawn?: boolean } = {}) => ({
     status: "future" as const,
     start_date: "2026-08-01",
     end_date: "2027-06-30",
-    rules: {
-      win_points: 3,
-      draw_points: 1,
-      qualifiers_per_group: 2,
-      number_of_groups: 2,
-      teams_per_group: 4,
-      max_kadergroesse: 18,
-      tiebreak_order: "tordifferenz" as const,
-      forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-      erlaubte_stufen: ["E1" as const, "Q1" as const],
-    },
+    rules: saisonRules(),
     bewerbung: null,
     registrierung: null,
   },
