@@ -20,7 +20,7 @@ export function doubleSiteverify(): {
   judges: (success: boolean) => void;
   /** Cloudflare answering no check at all. */
   unreachable: () => void;
-  /** The body of each check asked so far, parsed. */
+  /** The secret and token of each check asked so far; the idempotency key is a fresh UUID per check. */
   asked: () => Record<string, unknown>[];
 } {
   const fetches = doubleFetch();
@@ -39,6 +39,10 @@ export function doubleSiteverify(): {
         throw new TypeError("fetch failed");
       });
     },
-    asked: () => fetches.mock.calls.map((call) => JSON.parse(String(call.arguments[1]?.body)) as Record<string, unknown>),
+    asked: () =>
+      fetches.mock.calls.map((call) => {
+        const { secret, response } = JSON.parse(String(call.arguments[1]?.body)) as Record<string, unknown>;
+        return { secret, response };
+      }),
   };
 }

@@ -47,6 +47,7 @@ const ANSICHT = {
   acknowledged: 1,
   zustand: "gueltig" as const,
   quelle: "bewerbung",
+  zeile: null,
   saison_id: "2026",
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",

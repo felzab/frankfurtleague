@@ -10,7 +10,6 @@ import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage, saisonFields } from "@/shared/testing/pageHarness.ts";
-import { answerShown, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
@@ -128,8 +127,6 @@ answerReadsWith((endpoint, schema, params) => {
 /** The list page resolved whole, its table and every row in it. */
 const LIST_MARKUP = await renderPage(listPage());
 
-const ERASURE_OPERATION = "POST /kontakte/erasure";
-
 /** One response, spelled once so a report case names only the figures it is about. */
 function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>): FLKontaktErasureResponse {
   return {
@@ -141,20 +138,6 @@ function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>
     ...counts,
   };
 }
-
-describe("the erasure's refusals", () => {
-  /* The endpoint refuses on no rule: a person may want their details gone while the club they were
-     reached for still plays. A rule published against it later fails here until a mapper words it. */
-  it("maps no refusal of its own", () => {
-    for (const code of publishedRefusals(ERASURE_OPERATION)) {
-      assert.notEqual(
-        answerShown(ERASURE_OPERATION, code, () => null),
-        null,
-        `${code} is published on the erasure and reaches the admin unmapped`,
-      );
-    }
-  });
-});
 
 describe("the report the toast carries", () => {
   /* An address naming nobody is an ordinary outcome rather than a failure: it is what the admin

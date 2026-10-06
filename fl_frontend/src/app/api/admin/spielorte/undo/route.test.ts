@@ -3,7 +3,14 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import {
+  assertEachRefusalCloses,
+  assertEachRowPublished,
+  doubleRouteRequest,
+  revalidatedTags,
+  unacknowledged,
+  undo,
+} from "@/shared/testing/undoRoutes.ts";
 
 /** The pre-save venue the press replays, as the editor builds it. */
 const BODY = {
@@ -24,6 +31,7 @@ const replayed = (acknowledged: 0 | 1) => ({
 doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
 const { POST } = await import("./route.ts");
+const { SPIELORT_REPLAY_REFUSALS } = await import("@/features/spielorte/refusals.ts");
 
 /** What `fl_frontend/src/features/spielorte/mutations.ts :: patchSpielort` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spielorte/{spielort_id}";
@@ -35,6 +43,8 @@ describe("the venue save's undo", () => {
     assert.equal(answer.success, true, String(answer.error));
     const { id, ...fields } = BODY;
     assert.deepEqual(requestsOf(calls), [{ endpoint: `/spielorte/${id}`, method: "PATCH", body: fields }]);
+    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
+    assert.deepEqual(revalidatedTags(), [["spiele", { expire: 0 }]]);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
@@ -50,5 +60,11 @@ describe("the venue save's undo", () => {
     answerWith(() => Promise.resolve(replayed(0)));
 
     assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten."));
+  });
+});
+
+describe("the replay table against the replayed endpoint", () => {
+  it("words only codes the replayed endpoint publishes", () => {
+    assertEachRowPublished(SPIELORT_REPLAY_REFUSALS, REPLAY_OPERATION);
   });
 });

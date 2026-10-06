@@ -217,10 +217,10 @@ describe("the shared confirm control", () => {
   /* A list of closed controls with one label each is told apart only by the row's name, and closed the
      overlay is the one stop a screen reader meets, so the row's name has to reach it. */
   it("lays the refusal over a row's closed control under the row's name", () => {
-    const refused = pressButton({ reason: "Diese Saison hat noch keinen Spielplan.", restingName: "Den Spielplan löschen" });
+    const refused = pressButton({ reason: "Diese Saison hat noch keinen Spielplan.", restingName: "Spielplan löschen: Saison 2526" });
 
     assert.deepEqual(refusalWrappers(refused), [
-      { name: "Den Spielplan löschen", label: "Den Spielplan löschen", reason: "Diese Saison hat noch keinen Spielplan." },
+      { name: "Spielplan löschen: Saison 2526", label: "Spielplan löschen: Saison 2526", reason: "Diese Saison hat noch keinen Spielplan." },
     ]);
   });
 

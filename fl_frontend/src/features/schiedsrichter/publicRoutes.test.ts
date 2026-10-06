@@ -23,10 +23,18 @@ const GEOEFFNET = {
   frist: "2026-10-05",
 } as const;
 
-/** The page's start as the backend's reads answer it, `laufend` being what it runs on this page and `scheitert` failing the words read. */
-async function start({ laufend, scheitert = false }: { laufend?: string; scheitert?: boolean } = {}): Promise<SchiedsrichterBestaetigungStart> {
+/**
+ * The page's start as the backend's reads answer it, `laufend` being what it runs on this page, `seiten`
+ * the registry's whole answer and `scheitert` failing the words read.
+ */
+async function start({
+  laufend,
+  seiten,
+  scheitert = false,
+}: { laufend?: string; seiten?: unknown; scheitert?: boolean } = {}): Promise<SchiedsrichterBestaetigungStart> {
   answerReadsWith((endpoint, schema, params) => {
     if (scheitert && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error(`the backend failed ${endpoint}`);
+    if (endpoint === "/einwilligung/seiten" && seiten !== undefined) return seiten;
     if (endpoint === "/einwilligung/seiten" && laufend !== undefined) {
       return { acknowledged: 1, laufende_fassungen: { bestaetigung_schiedsrichter: laufend } };
     }
@@ -61,5 +69,17 @@ describe("the words the referee's confirmation page is handed", () => {
   /* The read failing is a state of its own, which a reload may clear. */
   it("opens a link on the failed read's panel where the words read fails", async () => {
     assert.deepEqual(await start({ scheitert: true }), { zustand: "unlesbar" });
+  });
+
+  /* A registry answering against what this page was built for is no failed read: only a deploy repairs
+     it, so it reaches the error boundary, which logs it, never the panel asking for a reload. */
+  it("lets a registry breaking its contract reach the error boundary", async () => {
+    await assert.rejects(
+      start({ seiten: { acknowledged: 1, laufende_fassungen: {} } }),
+      { name: "ContractBreakError" },
+      "no label for the page",
+    );
+    await assert.rejects(start({ laufend: "2026-01-nirgends" }), { name: "ContractBreakError" }, "a label serving no words");
+    await assert.rejects(start({ seiten: { acknowledged: 1 } }), { name: "APIMalformedDataError" }, "an answer off its schema");
   });
 });

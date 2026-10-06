@@ -1,11 +1,11 @@
 import { getLaufendesLabel } from "@/core/einwilligung";
 import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { patchSaisonTeamKontakte } from "@/features/kontakte/mutations";
-import { describeKontaktVersand, leseKontaktZeile, mailKontaktLink } from "@/features/kontakte/notifications";
+import { describeKontaktVersand, mailKontaktLink } from "@/features/kontakte/notifications";
+import { KONTAKTE_REPLAY_REFUSALS } from "@/features/kontakte/refusals";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
 import { mitLaufenderFassung } from "@/features/kontakte/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { handleUndoRequest, refusedReplay, replayRefusal } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
@@ -18,18 +18,6 @@ const STALE_BLOCK_REFUSAL: Record<string, string> = {
   "REQ-KONTAKT-001":
     "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde. " +
     "Die Rücknahme wurde nicht ausgeführt, damit sie die neueren Angaben nicht überschreibt.",
-};
-
-const REPLAY_REFUSALS: Record<string, string> = {
-  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
-  // Only a deploy between the label's read and the write leaves the replay naming a label the backend
-  // has moved past (`docs/backend/spec.md :: I866`).
-  "REQ-EINWILLIGUNG-001":
-    "Die Rücknahme würde eine Kontaktperson unter einer Fassung der Hinweise eintragen, die nicht mehr gilt. " +
-    "Sie wurde nicht ausgeführt. Lade die Seite neu und trage die Kontakte dort erneut ein.",
-  // The replay seats an earlier person anew, which the backend refuses for an address barred since.
-  "REQ-KONTAKT-003":
-    "Die Rücknahme würde eine Kontaktperson eintragen, deren E-Mail-Adresse inzwischen auf der Sperrliste steht. Sie wurde nicht ausgeführt.",
 };
 
 export async function POST(request: NextRequest) {
@@ -48,14 +36,13 @@ export async function POST(request: NextRequest) {
         operation = await patchSaisonTeamKontakte({ ...payload, kontakte });
       } catch (error) {
         const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);
-        return stale === undefined ? refusedReplay(error, REPLAY_REFUSALS) : { refusal: stale };
+        return stale === undefined ? refusedReplay(error, KONTAKTE_REPLAY_REFUSALS) : { refusal: stale };
       }
 
       if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten." };
 
       // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
       // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
-      const zeile = operation.bestaetigungen.length === 0 ? "offen" : await leseKontaktZeile(payload);
       const versendet = await Promise.all(
         operation.bestaetigungen.map(async (mint) => ({
           email: mint.email,
@@ -65,7 +52,6 @@ export async function POST(request: NextRequest) {
             saisonId: operation.saison_id,
             mint: mint,
             anlass: "erneut",
-            zeile: zeile,
           }),
         })),
       );
@@ -78,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Nothing to clear, for the reason `fl_frontend/src/features/kontakte/actions.ts :: patchSaisonTeamKontakteAction`
     // states at the save this replays: no cached read holds a contact person. The screen is refreshed
     // by the caller instead.
-    invalidate: () => undefined,
+    tags: () => [],
     // The replay is a save, judged as the save's own action judges one (`docs/frontend/spec.md :: I432`):
     // undoing a first entry clears the block, and putting an earlier person back mints a link and voids one.
     stepUp: async ({ team_id, saison_id, kontakte }) => {

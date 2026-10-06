@@ -7,8 +7,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.schemas import FLBewerbungZustellungAngenommenPayload, FLBewerbungZustellungEreignisPayload
-from app.api.bewerbungen.services import KONTAKT_SEATS, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
@@ -68,7 +69,7 @@ def application(**overrides: Any) -> dict[str, Any]:
         "wunschgegner": None,
         "entscheidung": None,
         "bestaetigungsfrist": "2026-04-12",
-        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"first-{seat}") for seat in KONTAKT_SEATS}, today=MAILED_ON),
+        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"first-{seat}") for seat in KONTAKT_ROLLEN}, today=MAILED_ON),
         **overrides,
     }
 

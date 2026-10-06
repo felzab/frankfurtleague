@@ -43,6 +43,7 @@ const { default: KaderZeilePage } = await import("@/app/bereich/team/[team_id]/[
 const { KONTO_HREF } = await import("@/core/kontoHref.ts");
 const { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } = await import("@/features/funktionen/constants.ts");
 const { KADER_LEER, NUMMER_DOPPELT, ausgetragenSeit } = await import("@/features/spieler/constants.ts");
+const { Angabe } = await import("@/shared/components/ui/Angabe.tsx");
 
 const TEAM_A = SITZ.team_id;
 const TEAM_B = "6890a1b2c3d4e5f607250012";
@@ -400,13 +401,32 @@ describe("the team's squad, as a seat holder reads it", () => {
     answeringKader({ ...KADER, kader: [] });
     try {
       const { markup, text } = await renderedKader();
+      document.body.innerHTML = markup;
+      // The panel the empty sentence stands in, so a link beside it rather than in it fails.
+      const panel = [...document.querySelectorAll("p")].find((p) => p.textContent === KADER_LEER)?.parentElement;
 
       assert.ok(text.includes(KADER_LEER), text);
       assert.deepEqual(
-        linksIn(markup).filter((link) => link.href === `/bereich/team/${TEAM_A}/2526/registrierungen`),
-        [{ href: `/bereich/team/${TEAM_A}/2526/registrierungen`, text: "Registrierungen" }],
-        "the empty squad links nowhere a pupil comes from",
+        [...(panel?.querySelectorAll("a") ?? [])].map((link) => [link.getAttribute("href"), link.textContent]),
+        [[`/bereich/team/${TEAM_A}/2526/registrierungen`, "Zu den Registrierungen"]],
+        "the empty squad's panel links nowhere a pupil comes from",
       );
+      document.body.innerHTML = "";
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+
+  /* As text in the chip and never an `aria-label`, which a screen reader ignores on a span with no role:
+     in the words the pupil's own page uses for the same absence. */
+  it("names a row with no number as the pupil's own page does, in text", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answeringKader({ ...KADER, kader: [zeile(MIA, "Mia", "Schmidt", { nummer: null, nummer_doppelt: false })] });
+    try {
+      const { markup, text } = await renderedKader();
+
+      assert.ok(text.includes("Ohne Nummer"), text);
+      assert.ok(!/aria-label="[^"]*Nummer/.test(markup), "the chip names its absence where no screen reader reads it");
     } finally {
       answerReadsWith(EMPTIEST_ANSWER);
     }
@@ -458,6 +478,16 @@ describe("one squad row, as a seat holder opens it", () => {
       assert.ok(text.includes(ausgetragenSeit(AUSGETRAGEN_AM)), text);
       assert.ok(!markup.includes('name="nummer"'), "an ausgetragen row renders its editor");
       assert.ok(!text.includes("austragen"), "an ausgetragen row offers the austragen again");
+
+      // Each fact in the one stored-fact pair every other page renders, read off a rendered `Angabe`.
+      const angabe = await renderPage(h("dl", null, h(Angabe, { label: "Nummer", children: "9" })));
+      const dtOf = (html: string) => [...html.matchAll(/<dt class="([^"]*)">([^<]*)<\/dt>/g)].map(([, classes, label]) => [label, classes]);
+      const [[, angabeClasses] = []] = dtOf(angabe);
+      assert.deepEqual(
+        dtOf(markup),
+        ["Nummer", "Position", "Stufe", "Rolle"].map((label) => [label, angabeClasses]),
+        "the ausgetragen row's facts are not the shared stored-fact pair",
+      );
     } finally {
       answerReadsWith(EMPTIEST_ANSWER);
     }

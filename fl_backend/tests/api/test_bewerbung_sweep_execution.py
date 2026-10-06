@@ -25,7 +25,6 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_UNKNOWN,
-    KONTAKT_SEATS,
     SWEEP_PAGE,
     build_erinnerung_filter,
     compose_bestaetigungen,
@@ -42,6 +41,7 @@ from app.api.bewerbungen.sweep_router import (
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
@@ -89,7 +89,7 @@ SCHOOL_NAME = "Zorbanax"
 
 
 def first_hashes(prefix: str) -> dict[str, str]:
-    return {seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_SEATS}
+    return {seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}
 
 
 # Sought by the leak search over the candidates, so a surname reaching one is caught.
@@ -320,7 +320,7 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
         db_filter={"_id": bewerbung_id},
         update=compose_confirmation_update(
             kontakte=stored["kontakte"],
-            seats=KONTAKT_SEATS,
+            seats=KONTAKT_ROLLEN,
             geburtsdatum=CONFIRMED_GEBURTSDATUM,
             today=MAILED_ON_THE_MARK,
             text_version="v3",

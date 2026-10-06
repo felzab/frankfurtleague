@@ -7,23 +7,16 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligungResponse
 from app.api.identitaet.services import eigene_sitze
-from app.api.kontakte.services import KONTAKT_SLOTS
-from app.api.konto.services import (
-    KONTO_SEITE_KONTAKT,
-    SITZ_WAHLEN,
-    compose_selbst_einwilligung_move,
-    find_eigener_eintrag_refusal,
-    find_konto_fassung_refusal,
-    find_nachweis_stand_refusal,
-)
+from app.api.konto.crud import press_widerruf
+from app.api.konto.services import KONTO_SEITE_KONTAKT, compose_sitz_move, find_eigener_eintrag_refusal
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The person lane's binder, as `app/api/teams/person_router.py` declares it and for its reason.
@@ -32,76 +25,85 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
 
-Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
-
 
 # `/person/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
 @router.patch(
     "/{bewerbung_id:objectid}/person/einwilligung",
     response_model=FLBewerbungPersonEinwilligungResponse,
-    summary="Withdraw a seat holder's own media consent on a pending Bewerbung",
-    responses={409: DUPLICATE_KEY_RESPONSE},
+    summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )
 async def patch_einwilligung(
     bewerbung_id: CustomRouteObjectId,
     einwilligung_data: Annotated[FLBewerbungPersonEinwilligungPayload, Body()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungPersonEinwilligungResponse:
     """
-    Withdraw the signed-in person's media consent on every seat they hold on this pending application, and nothing else.
+    Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
 
-    WITHDRAW-ONLY: the payload's `medien` is `false`, a grant being the confirmation page's alone; the account page
-    offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for every seat the
-    person holds there; no other seat, field or document is written, and a withdrawal finding every seat off writes
-    nothing.
+    WITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the
+    account page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for
+    every seat the person holds there; no other seat, field or document is written, and a press moving no seat
+    writes nothing. Nothing is counted against the person's ceiling.
 
     Refuses, in this order: an application that is decided or holds no confirmed seat of the address
-    (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, their media evidence having moved since
-    the page was served (`REQ-EINWILLIGUNG-003`); and a `text_version` naming no version of the account page's seat
-    control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.
+    (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the
+    page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-FUNKTION-001`); and a `text_version`
+    naming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.
     """
+
+    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
 
     async def write(session: AsyncClientSession) -> FLBewerbungPersonEinwilligungResponse:
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
         bewerbung = await bewerbungen_collection.find_one(
             {"_id": bewerbung_id, "status": "eingereicht"},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "einwilligung")},
+            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung")},
             session=session,
         )
         rollen = [] if bewerbung is None else eigene_sitze(bewerbung, identifier)
         refuse(find_eigener_eintrag_refusal(gehalten=bool(rollen)))
         assert bewerbung is not None
-        bloecke = [bewerbung["kontakte"][slot]["einwilligung"] for slot in rollen]
+        sitze = {slot: bewerbung["kontakte"][slot] for slot in rollen}
 
-        refuse(find_nachweis_stand_refusal(erwartet=einwilligung_data.nachweis_stand.model_dump(), bloecke=bloecke, wahlen=SITZ_WAHLEN))
-        refuse(find_konto_fassung_refusal(seite=KONTO_SEITE_KONTAKT, text_version=einwilligung_data.text_version, erteilt=False))
+        # Withdraw-only: nothing on an application grants a panel to answer a grant against.
+        await press_widerruf(
+            bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
+            wahlen=WAHLEN,
+            gewaehlt=gewaehlt,
+            nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
+            text_version=einwilligung_data.text_version,
+            seite=KONTO_SEITE_KONTAKT,
+        )
 
-        update = compose_selbst_einwilligung_move(
-            bloecke=tuple((f"kontakte.{slot}.einwilligung", block) for slot, block in zip(rollen, bloecke, strict=True)),
-            umfang=None,
-            medien=einwilligung_data.medien,
+        update = compose_sitz_move(
+            sitze={slot: sitz["einwilligung"] for slot, sitz in sitze.items()},
+            gewaehlt=gewaehlt,
             am=log_stamp(germany_now),
             text_version=einwilligung_data.text_version,
         )
-        if update is not None:
-            updated = await patch_one_in_db(
+        updated = (
+            None
+            if update is None
+            else await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": bewerbung["_id"]},
                 update=update,
                 session=session,
                 return_document=ReturnDocument.AFTER,
             )
-            bloecke = [updated["kontakte"][slot]["einwilligung"] for slot in rollen]
+        )
+        kontakte = bewerbung["kontakte"] if updated is None else updated["kontakte"]
 
         return FLBewerbungPersonEinwilligungResponse.model_validate(
             {
                 "bewerbung_id": bewerbung_id,
                 "rollen": rollen,
+                "umfang": einwilligung_data.umfang,
                 "medien": einwilligung_data.medien,
-                "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=SITZ_WAHLEN),
+                "nachweis_stand": nachweis_stand_of(bloecke=[kontakte[slot]["einwilligung"] for slot in rollen], wahlen=WAHLEN),
             }
         )
 

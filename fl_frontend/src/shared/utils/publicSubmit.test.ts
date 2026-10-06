@@ -19,7 +19,9 @@ import {
   laufendeSpielerFassung,
 } from "@/shared/testing/einwilligungAnswers.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
+import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "./publicSubmit.ts";
@@ -28,6 +30,8 @@ import type { ReactNode } from "react";
 
 /* The real module hands its raising to HeroUI's queue rather than back to the form that raised. */
 const { raised } = doubleToasts();
+/* Cloudflare's script, which jsdom never loads: without it the two forms holding the bot check wait for a token and post nothing. */
+doubleTurnstile();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
@@ -67,10 +71,10 @@ afterEach(() => {
 });
 
 describe("what a public form is told when the answer was not this application's", () => {
-  /* nginx generates the limit before any route handler runs, so the body is its own HTML and the
+  /* nginx generates the limit before any route handler runs, so the body is its own sentence and the
      status is the whole of what arrived. The wait is a repair, which is why it is said out loud. */
   it("names the wait on the edge's rate limit", async () => {
-    antwortet("<html>429</html>", { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/html" } });
+    antwortet(EDGE_REFUSAL_BODY, { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/plain" } });
 
     const answered = await postPublicForm("/api/bewerbung", {});
 
@@ -129,7 +133,7 @@ describe("what a public form is told when the answer was not this application's"
     for (const [name, arrange, wroteNothing] of [
       [
         "the rate limit",
-        () => antwortet("<html>429</html>", { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/html" } }),
+        () => antwortet(EDGE_REFUSAL_BODY, { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/plain" } }),
         true,
       ],
       ["the challenge", () => antwortet("<html>challenge</html>", { status: 403, headers: { "cf-mitigated": "challenge" } }), false],
@@ -353,7 +357,7 @@ const FORMS: Record<string, PublicForm> = {
             schule: "Lessing-Kolleg Oberstufengymnasium",
             saison_id: "2026",
             vorname: "Mira",
-            text_version: SPIELER.textVersion,
+            seite: SPIELER.seite,
             mindestalter: 16,
             medien_mindestalter: 18,
             geburtsdatum: null,
@@ -374,7 +378,7 @@ const FORMS: Record<string, PublicForm> = {
 };
 
 describe("where each public form's write is transported", () => {
-  /* Only `postPublicForm` reads the edge's rate limit, answered in nginx's own HTML, as a refusal
+  /* Only `postPublicForm` reads the edge's rate limit, answered in nginx's own sentence, as a refusal
      that ruled the write out: a form writing on its own tells the visitor something else. */
   for (const [name, form] of Object.entries(FORMS)) {
     it(`${name} posts once to its own route, and passes on the shared helper's reading of the edge's refusal`, async () => {
@@ -383,7 +387,7 @@ describe("where each public form's write is transported", () => {
         if (init.method !== "POST") return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
 
         posted.push(url);
-        return Promise.resolve(new Response("<html>429</html>", { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/html" } }));
+        return Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/plain" } }));
       });
       raised.length = 0;
 

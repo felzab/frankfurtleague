@@ -29,6 +29,7 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_RETIRED,
     SCHIEDSRICHTER_TOKEN_EXPIRED,
     SCHIEDSRICHTER_TOKEN_UNKNOWN,
+    KorrekturLink,
     bestaetigung_frist_from,
     build_token_filter,
     compose_bestaetigung,
@@ -435,7 +436,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert minted is False
+        assert minted is None
         assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
 
     def test_a_retired_referees_unmoved_address_keeps_its_link_in_whichever_spelling_it_was_stored(self):
@@ -446,7 +447,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email=LOWER_CASE_SAVED, token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert (update, minted) == ({"$set": payload}, False)
+        assert (update, minted) == ({"$set": payload}, None)
 
     def test_a_live_referees_new_address_is_minted_for(self):
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": None}
@@ -456,7 +457,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert minted is True
+        assert minted == "bestaetigung"
         assert update == {"$set": {**payload, BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}}
 
 
@@ -517,7 +518,7 @@ class TestAnAddressOnTheBanList:
         assert refusal.error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
 
 
-def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], bool]:
+def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], KorrekturLink | None]:
     """The save's update over an empty payload, so all it `$set`s is what the save minted."""
 
     return compose_korrektur_update(
@@ -543,7 +544,7 @@ class TestACorrectedAddressReMints:
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == (
             {"$set": {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}},
-            True,
+            "bestaetigung",
         )
 
     @pytest.mark.parametrize(
@@ -551,29 +552,35 @@ class TestACorrectedAddressReMints:
         [
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: None}, "same@example.com"),
             ({"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None}, LOWER_CASE_SAVED),
-            ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "new@example.com"),
+            ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "same@example.com"),
         ],
-        ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed"],
+        ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed-and-unmoved"],
     )
     def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
-        assert korrektur(stored, payload_email) == ({"$set": {}}, False)
+        assert korrektur(stored, payload_email) == ({"$set": {}}, None)
 
-    def test_a_confirmed_referees_corrected_address_is_stopped_here_and_by_no_refusal(self):
-        """The already-answered half of the save's mint is this early return, which the two refusals beside it never reach.
+    def test_a_confirmed_referees_corrected_address_mints_no_consent_link_and_meets_no_refusal(self):
+        """The already-answered half of the save is the address link, which the two refusals beside it never reach.
 
-        Named because the invariant over every mint reads as though a refusal carried every half.
+        Named because the invariant over every consent mint reads as though a refusal carried every half.
         """
 
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": None}
+        payload = {"kontakt": {"telefon": None, "email": "new@example.com"}}
 
-        assert korrektur(stored, "new@example.com") == ({"$set": {}}, False)
+        update, minted = compose_korrektur_update(
+            stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
+        )
+
+        assert minted == "adresswechsel"
+        assert BESTAETIGUNG_FELD not in update["$set"]
         assert find_already_confirmed_refusal(einwilligung=stored[EINWILLIGUNG_FELD]) is not None
         assert find_retired_refusal(inactive_since=stored["inactive_since"]) is None
 
     def test_the_fresh_block_restarts_the_deadline(self):
         update, minted = korrektur({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com", today=TOMORROW)
 
-        assert minted is True
+        assert minted == "bestaetigung"
         assert update["$set"][BESTAETIGUNG_FELD]["frist"] == bestaetigung_frist_from(today=TOMORROW)
 
 

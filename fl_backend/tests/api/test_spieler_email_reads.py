@@ -165,6 +165,7 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         records=record_collections(database),
         db=client,
         today=TODAY,
@@ -213,23 +214,23 @@ def names_an_address(entry: Mapping[str, Any]) -> bool:
     return any(isinstance(term := matched.get("email"), (str, Mapping)) and term is not None for matched in filters)
 
 
-def plans_reading_addresses(url: str, reader: Reader) -> list[str]:
-    """The plan of every `spieler` operation the reader matched on an address, as the server's profiler reports it."""
+def plans_reading_addresses(url: str, reader: Reader) -> tuple[Any, ObjectId, list[str]]:
+    """The reader's answer, the seeded registration's id, and the plan of every `spieler` operation the reader matched on an address."""
 
-    async def _run() -> list[str]:
+    async def _run() -> tuple[Any, ObjectId, list[str]]:
         # `mutates_schema`: the profiler writes `system.profile`, a namespace the next case's clear must not meet.
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=True) as (client, database):
             invalidate_saison_cache()
             registrierung_id = await seed(database)
             await database.command("profile", 2)
             try:
-                await reader(database, client, registrierung_id)
+                answer = await reader(database, client, registrierung_id)
             finally:
                 await database.command("profile", 0)
             profiled = await database["system.profile"].find({"ns": f"{DATABASE_NAME}.{Collection.SPIELER}"}).to_list(length=None)
             await database.drop_collection("system.profile")
 
-            return [str(entry.get("planSummary")) for entry in profiled if names_an_address(entry)]
+            return answer, registrierung_id, [str(entry.get("planSummary")) for entry in profiled if names_an_address(entry)]
 
     return on_the_seed_loop(_run())
 
@@ -256,7 +257,13 @@ class TestEveryAddressReadUsesTheIndex:
         ids=lambda reader: reader.__name__,
     )
     def test_the_plan_walks_the_unique_index(self, mongo_replica_set_url: str, reader: Reader):
-        plans = plans_reading_addresses(mongo_replica_set_url, reader)
+        answer, registrierung_id, plans = plans_reading_addresses(mongo_replica_set_url, reader)
+
+        # The pending read asks `spieler` only for a confirmed row it served, so an empty profile there is
+        # either a read that served nothing or a profiler that missed it; this names which.
+        if reader is the_pending_read:
+            served = [row.registrierung_id for row in answer.registrierungen if row.aufnehmbar]
+            assert served == [registrierung_id], f"the pending read served {served}, not the seeded confirmed row"
 
         # The premise: a reader the profiler never saw matching an address would pass the next line vacuously.
         assert plans

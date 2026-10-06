@@ -225,7 +225,7 @@ describe("what the security section tells its reader", () => {
   });
 
   /* A screen reader meets „Abmelden“, „Löschen“ and „Umbenennen“ once per row, so each is named by its
-     row, the visible label inside the name (WCAG 2.4.6, 2.5.3), from the facts a row holds. */
+     row after the visible label the name opens with (WCAG 2.4.6, 2.5.3), from the facts a row holds. */
   it("names each row's controls by the row they act on", () => {
     const andere: Anmeldung = {
       id: "andere",
@@ -247,11 +247,11 @@ describe("what the security section tells its reader", () => {
     );
 
     for (const name of [
-      "Anmeldung per Code vom 25. September 2026, 10:00 abmelden",
-      "Passkey vom 1. September 2026 löschen",
-      "Passkey vom 1. September 2026 umbenennen",
-      "Passkey „Mein iPhone“ löschen",
-      "Passkey „Mein iPhone“ umbenennen",
+      "Abmelden: Anmeldung per Code vom 25. September 2026, 10:00",
+      "Löschen: Passkey vom 1. September 2026",
+      "Umbenennen: Passkey vom 1. September 2026",
+      "Löschen: Passkey „Mein iPhone“",
+      "Umbenennen: Passkey „Mein iPhone“",
     ]) {
       assert.ok(html.includes(`aria-label="${name}"`), `no control is named „${name}“`);
     }
@@ -290,6 +290,7 @@ describe("what the security section tells its reader", () => {
 
 const { answerReadsWith, EMPTIEST_ANSWER, renderPage } = await import("@/shared/testing/pageHarness.ts");
 const { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
+const { FESTE_WERTE } = await import("@/features/bewerbungen/components/ui/Gefuellt.tsx");
 const { bestaetigteWorte, NUR_WIDERRUF_BIS_ZUSAGE, sitzMindestalter } = await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
@@ -411,7 +412,7 @@ describe("the account page's consent section", () => {
       ["Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
     ],
     ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
-    ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", "Konto löschen"]],
+    ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", FESTE_WERTE.loeschung, FESTE_WERTE.kontakt]],
   ] as const) {
     it(`fills every slot of ${art}'s confirmed words from the record`, async () => {
       setSubject(OHNE_FUNKTION);

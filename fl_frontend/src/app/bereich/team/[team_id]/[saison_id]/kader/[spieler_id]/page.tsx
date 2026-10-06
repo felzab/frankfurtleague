@@ -1,15 +1,12 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { funktionenOf } from "@/core/funktionen";
-import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
-import { requireSubjectSession, requireTeamSeats } from "@/features/funktionen/resolvers";
+import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { teamHref } from "@/features/funktionen/teamSeats";
 import { KaderZeileAusgetragen } from "@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen";
 import { KaderZeileEditForm } from "@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm";
 import { kaderName, orderStufen } from "@/features/spieler/constants";
 import { getKader } from "@/features/spieler/queries";
-import { isFunktionLost } from "@/shared/utils/actionError";
 
 import type { FLSpielerRolle } from "@/features/spieler/schemas";
 import type { NextPageProps } from "@/shared/types/types";
@@ -24,14 +21,9 @@ export default async function KaderZeilePage({ params }: NextPageProps<{ team_id
   if (seats === null) return null;
 
   const { team_id, saison_id, spieler_id } = await params;
-  let kader;
-  try {
-    kader = await getKader(team_id, saison_id);
-  } catch (error) {
-    // The squad page's answer, for its reason.
-    if (!isFunktionLost(error)) throw error;
-    return <TeamForbiddenPanel funktionen={funktionenOf(await requireSubjectSession()).funktionen} />;
-  }
+  const read = await readAsSeatHolder(() => getKader(team_id, saison_id));
+  if ("forbidden" in read) return read.forbidden;
+  const kader = read.data;
 
   const zeile = kader.kader.find((candidate) => candidate.spieler_id === spieler_id);
   if (zeile === undefined) notFound();

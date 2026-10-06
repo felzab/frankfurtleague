@@ -13,8 +13,8 @@ import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import { austrittKuerzel, austrittZustand } from "../../constants";
 import { computePlatzByTeamId, computeQualifyingTeamIds } from "../../utils";
+import { AustrittKuerzel } from "../ui/AustrittKuerzel";
 import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 import { Tordifferenz } from "../ui/Tordifferenz";
 
@@ -182,9 +182,11 @@ export function SaisontabelleView({
                             <Badge
                               size="sm"
                               placement="top-right"
-                              aria-label={austrittZustand(teamData.austritt_type)}
                               className={`fluid-xxs! ${PILL_SOLID_CLASSES.danger} translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6`}>
-                              {austrittKuerzel(teamData.austritt_type)}
+                              {/* `Badge.Label` by hand: a string child gets it from HeroUI, an element does not. */}
+                              <Badge.Label>
+                                <AustrittKuerzel type={teamData.austritt_type} />
+                              </Badge.Label>
                             </Badge>
                           )}
                         </TeamPopoverMenu>

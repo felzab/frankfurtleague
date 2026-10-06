@@ -21,7 +21,7 @@ from httpx2 import AsyncClient
 from pymongo import MongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_saison_spieler_collection, get_spielorte_collection
@@ -227,7 +227,7 @@ def person_seeded(url: str) -> str:
     try:
         database = a_clean_database_sync(client, url, DATABASE_NAME)
         database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active", start_date="2025-08-01", end_date="2026-06-30"))
-        kontakte = {**{slot: None for slot in KONTAKT_SLOTS}, "ansprechperson": seat(SEAT), "trainer_ist_zugleich": None}
+        kontakte = {**{slot: None for slot in KONTAKT_ROLLEN}, "ansprechperson": seat(SEAT), "trainer_ist_zugleich": None}
         database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "AD", kontakte=kontakte))
         database[Collection.SPIELER].insert_one(spieler_document(PUPIL_ID, "Karla", "Weber"))
         database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(PUPIL_ID, SAISON_ID, TEAM_ID, nummer="7"))

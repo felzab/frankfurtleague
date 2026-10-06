@@ -4,6 +4,7 @@ import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
+  art21Satz,
   ASIDE_TEXT,
   BRAND_NAME,
   brandPhrase,
@@ -102,11 +103,6 @@ function linkBloecke(url: string, fristTage: number): readonly string[] {
   ];
 }
 
-// A paragraph and a line group of its own: Art. 21(4) DSGVO asks the objection to reach a person at
-// the first contact, apart from every other piece of information.
-const art21Satz = (adresse: string): string =>
-  `Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
-
 const bestaetigungSaetze = ({ vorname, teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
   `Hallo ${vorname}, Du hast Dich für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} registriert.`,
   "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf. Erst danach kann Dein Team Dich in den Kader aufnehmen.",
@@ -141,7 +137,7 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
         paragraph(escapeHtml(worum ?? "")),
         paragraph(escapeHtml(frist ?? "")),
         // The address as a marked link: one a reader has to select and paste is not a route.
-        paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
+        paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL), { zweck: "für den Spielbetrieb" })),
         ...linkBloecke(url, data.fristTage),
       ],
       aktionen: aktionen(url),
@@ -161,7 +157,7 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
           "",
           frist ?? "",
           "",
-          art21Satz(KONTAKT_EMAIL),
+          art21Satz(KONTAKT_EMAIL, { zweck: "für den Spielbetrieb" }),
           "",
           ignorierSatz(data.fristTage, KONTAKT_EMAIL),
         ].join("\n"),
@@ -296,7 +292,7 @@ export function buildRegistrierungAbsageEmail(data: RegistrierungAbsageEmailData
   const [anrede, weiter, loeschung] = absageSaetze(data);
 
   return {
-    subject: `Deine Registrierung bei ${data.teamName}`,
+    subject: `Deine Registrierung für ${data.teamName}`,
     html: renderKarte({
       titel: `${BRAND_NAME}: Registrierung nicht angenommen`,
       ueberschrift: escapeHtml("Registrierung nicht angenommen"),

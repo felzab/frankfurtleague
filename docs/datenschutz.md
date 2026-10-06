@@ -59,7 +59,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(f) rather than an
   Einwilligung, and the only consents their block holds are the optional WhatsApp scope and the media
-  answer
+  answer, both of which that person takes back on the account page
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-vocabularies-a-persons-own-consent-and-what-a-contact-seat-was-told)).
   **No such flow exists for organisers or
   administrators:** an organiser is listed on their own word to me
@@ -133,8 +133,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
     the contact person it was mailed to, which [section 11](#11-open-and-owed-a-decision) puts to the
     Datenschutzexperte.
   - **Reasonable expectations:** a pupil registers themselves, a referee is entered to officiate
-    and confirms it, and a contact person is named by their own school and told at once by mail;
-    each expects the league to hold what running the competition takes.
+    and confirms it, and a contact person is named by their own school or entered by the league's
+    administration, on their team's season row or in an application's seat somebody stepped out of,
+    and is told at once by mail through a link of their own that also takes their Widerspruch;
+    each expects the league to hold what running the competition takes, a person the
+    administration entered reading on their own confirmation page who entered them
+    (`docs/backend/spec.md :: I861`).
   - **Safeguards, weighed against most participants being sixteen or seventeen**, which Art.
     6(1)(f) weighs heavier: nothing of a pupil is published on this basis, a pupil's name appearing
     only on their own consent ([section 4](#4-what-is-published-and-on-what-basis)); a referee's
@@ -152,7 +156,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   notice discloses these rather than argue that none of them is a decision under Art. 22, and that
   it offers a human review of each; it does both
   (`DatenschutzView.tsx :: Von dem, was Du auf dieser Website eintragen kannst`,
-  `:: Beide Zurückweisungen prüft auf Deinen Wunsch`). Each is judged before anything is written:
+  `:: Beide Zurückweisungen`). Each is judged before anything is written:
   - a birthdate outside the span a role allows — below its floor, or past the ceiling that catches a
     mistyped century — on the person's own confirmation page, for a pupil
     (`REQ-REGISTRIERUNG-007`), a referee (`REQ-SCHIEDSRICHTER-005`) and a contact person
@@ -169,19 +173,19 @@ Every ruling below is the sign-up flow as it stands for the next season.
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
     tells a person whose address holds an account that the sign-in is barred.
 
-  **Two more refusals are taken by the code alone, and the notice does not yet name either as
-  one:**
+  **Two more refusals are taken by the code alone, and the notice names both with the way through
+  each leaves** (`DatenschutzView.tsx :: Zwei weitere Grenzen setzt die Website`):
   - Cloudflare's bot check on the sign-in code request, the application form and the pupil's
     registration form, which refuses a submission carrying no token or one Cloudflare judged against, before
     anything is written or mailed, and asks the person to confirm they are human
-    (`fl_frontend/src/core/turnstile.ts :: passesTurnstile`, `:: MENSCH_BESTAETIGEN`), a check
-    Cloudflare cannot answer letting the submission through
-    (`docs/frontend/spec.md :: I822`);
+    (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check Cloudflare cannot answer
+    letting the submission through (`docs/frontend/spec.md :: I822`);
   - the daily write ceiling, which refuses a signed-in person's counted writes past their
     Funktion's bound until German midnight (`REQ-DROSSELUNG-001`, `docs/backend/spec.md :: I831`)
     and never refuses a withdrawal (`:: I833`).
 
-  Whether the review the notice offers reaches either is not yet ruled.
+  The notice offers a person's review of both on request by mail, as the ruling above has it for
+  every refusal the code takes alone; whether that ruling reaches these two is not yet confirmed.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
@@ -266,6 +270,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 3](#3-the-current-pupil-records-are-reset-once)); no link is ever minted to a
   placeholder, the mint refusing it as no address
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
+- **A confirmed referee's address changes only once the new mailbox confirms it**, because the
+  address is what their sign-in and their account page are keyed on: moved at once, it would hand
+  their record to whoever holds a mistyped address. Ruled 2026-10-04. The administrator's save keeps
+  the address on file in force and holds the new one beside it with a link of its own, which
+  confirms the mailbox and asks no consent again, and tells the address on file that a change was
+  asked without naming the new one; until its holder answers, the new address reaches
+  nothing of the referee's (`docs/backend/spec.md :: I_NEW_KREF_2`). A referee who has not yet
+  confirmed holds no record an address could reach, so theirs is still replaced at once and the
+  fresh consent link goes to it (`fl_backend/app/api/schiedsrichter/services.py :: save_moves_the_link`).
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
   because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning
   above. Ruled 2026-10-03. The save mints one for each person it newly seats
@@ -385,6 +398,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`REQ-RETIRE-004`) has nothing left to refuse. A fixture played or called off keeps its booking
   and its own `payment` under the ghost: that is the league's record of the match, not of the
   person. A person who officiates again is entered as a new referee.
+- **A referee's pending new address goes with that referee's erasure, and its own holder's request
+  is answered by removing it alone.** Until it confirms, that mailbox owns nothing of the row, so
+  its holder is not the person the referee's erasure is about: the link's own decline or
+  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address and nothing else. `POST /kontakte/erasure` reaches no referee row, a pending address included.
 - **An erasure keyed on an email address names what it reaches.** Every seat the address holds is
   its one person's (the entry below), and each is listed for confirmation before the write — by name
   and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather than inferred on
@@ -408,10 +425,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   registration form and the application's contact seats — and in the published notice
   (`DatenschutzView.tsx :: Deine E-Mail-Adresse steht bei uns für Dich allein`). A mailbox shared
   anyway is one account: whoever reads it signs in, sees and changes every record under it, and an
-  erasure keyed on it takes them all. The registration confirmation still shows a stored birthdate
-  back only where the name matches as well
-  (`fl_backend/app/api/registrierungen/services.py :: persons_named`), the one place a shared
-  mailbox would otherwise show one pupil another's. Ruled 2026-09-27.
+  erasure keyed on it takes them all. The registration confirmation still opens the returning
+  pupil's page — the stored birthdate and consent shown back, no choice asked again — only where the
+  name matches as well and that person confirmed their record
+  (`fl_backend/app/api/registrierungen/services.py :: seite_of` over `:: persons_named`), the one
+  place a shared mailbox would otherwise show one pupil another's answers and leave their own
+  consent unasked. Ruled 2026-09-27.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
@@ -489,7 +508,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   for the reason administrators give, so a person's actor carries none: the binder every router of
   `fl_backend/app/main.py :: PERSON_ROUTERS` declares
   (`fl_backend/app/core/security.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
-  of the folded address as the ban list takes one, and the Funktion the write was authorised under,
+  of the folded address as the ban list takes one, and the kind of person the write was made as,
   and the log refuses a person's row carrying an address (`docs/backend/spec.md :: I384`). Ruled
   2026-09-21. **No erasure reaches the pseudonym yet**: an erasure empties the images of the rows
   naming the documents it removes (`docs/backend/spec.md :: I42`), while every row the person wrote
@@ -594,11 +613,18 @@ Every ruling below is the sign-up flow as it stands for the next season.
     the pupil answered (`:: undecided_erasure_is_due`), and a pupil who confirmed is told afterwards
     that it happened and why — never before it, a notice being unable to prolong a row nobody
     decided.
-  - **Declined, it goes one calendar month after the decision** (`:: decline_erasure_is_due`).
+  - **Declined, it goes one calendar month after the decision** (`:: decline_erasure_is_due`), and
+    the decision it keeps until then names the seat holder who declined it by their address
+    (`entscheidung.von`, written by `:: compose_ablehnung_update`), which every administrator is
+    served beside the date and the reason while the ban list does not hold it
+    (`:: mit_vorenthaltener_entscheidung`, `docs/backend/spec.md :: I452`).
   - **Admitted, it is deleted at once**, in the admission's own transaction, its values in the log
     redacted with it: its name, birthdate and consent record became the person and its squad
-    details the squad row, and only its submission key moves on, onto that squad row, so a replay is
-    still answered as one (`docs/backend/spec.md :: I349`).
+    details the squad row, and only its submission key and the digest taken over what was
+    submitted, its address included, move on, onto that squad row, so a replay is still answered
+    as one (`docs/backend/spec.md :: I349`,
+    `fl_backend/app/api/registrierungen/services.py :: compose_kader_fields`); both go with the squad row,
+    which the person's erasure removes.
 - **An application still awaiting a decision when the season it applied for has ended is deleted,
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
@@ -636,6 +662,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE`), and each
   new one replaces the whole block, the delivery state of the message the old link went out in
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
+- **A confirmed referee's pending new address has no clock**: it stands beside the referee's row
+  until its holder confirms or declines it, an administrator replaces or discards it, or the
+  referee is erased with it (`fl_backend/app/core/domain.py :: FIELD_POLICIES`). Its link lasts the
+  confirmation link's fourteen days and a re-send restarts them
+  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`); a lapsed change is
+  marked as lapsed to the administrator rather than removed, a sweep being machinery for a row this
+  rare. Ruled 2026-10-04.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.
@@ -669,8 +702,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   sent about and goes with that record: an application's is erased with the application, a
   registration's with the registration at whichever of its clocks takes it, a referee's with
   their row on request or with the link a re-send replaces, and a season contact person's with
-  their seat's link, which a re-send replaces and the seat's emptying, the row's clearing or
-  replacement and the season-and-one clock below each remove; an invite's stays on the invite entry,
+  their seat's link, which a re-send replaces and an erasure, the row's clearing or replacement and
+  the season-and-one clock below each remove. **A Widerspruch empties the seat and keeps its link
+  entry, the delivery state of the message included**, on an application until the application goes
+  and on a team's season row until a save fills that seat again or the row is cleared or replaced
+  (`fl_backend/app/api/teams/services.py :: compose_bestaetigungen_nach`), because that entry is what lets
+  the page answer a second press as already declined
+  (`fl_backend/app/api/bewerbungen/services.py :: compose_decline_update`,
+  `:: compose_saison_decline_update`); it names no address, and nothing reaches it on the person's
+  erasure, their slot holding nobody by then. An invite's stays on the invite entry,
   which nothing deletes (above), past the erasure of the contact person it was mailed to
   ([section 11](#11-open-and-owed-a-decision))
   (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
@@ -844,9 +884,9 @@ the `Entry` column carries a token only where one still resolves in that file.
   published notice does not name it, for the Datenschutzexperte.** Every box that stores an address
   refuses one ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), so a person whose only
   mailbox is spelled that way cannot register, apply or be entered under it, and the box asks them
-  for another address, while the notice names only two refusals, a birthdate outside its span and a
-  barred address, and a full squad beside them as a limit rather than a decision
-  ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
+  for another address, while the notice names two refusals, a birthdate outside its span and a
+  barred address, and beside them the full squad as a limit of the squad, and the bot check and the
+  daily write ceiling as limits it offers a person's review of ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
   refusal is a limit of what the league can take, as the full squad is, or a judgement about the
   person; and so whether the notice names it beside the full squad or among the refusals it offers
   a review of.
@@ -916,15 +956,19 @@ the `Entry` column carries a token only where one still resolves in that file.
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen),
   `fl_backend/app/api/einladungen/services.py :: compose_einladung`); the delivery state of the
   message that carried its link stays on it too, past the erasure of the contact person it was mailed
-  to — the provider's message id and its outcome, and no address. The questions to put: whether
-  either may be kept without a bound, and whether a delivery record the provider can join back to an
-  address is still that contact person's data.
+  to — the provider's message id and its outcome, and no address. A seat's link entry after a
+  Widerspruch is the same kind of record: on an application and on a team's season row it keeps the
+  delivery state of the message the person answered, past their leaving the seat, until its
+  application or row goes ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The
+  questions to put: whether the invite's address and delivery state may be kept without a bound, and
+  whether a delivery record the provider can join back to an address, on an invite or on a declined
+  seat's entry, is still that person's data.
 - **One act per choice as the proof of a consent, for the Datenschutzexperte.** What demonstrates a
   consent under Art. 7 (1) is the stored record: each of its choices, the publication scope and the
   media consent, keeps when its person last set it and under which wording, and a withdrawal keeps
-  the grant it ended, for as long as the record stands. Only the person's own write grants a choice
-  or stamps its evidence, on their confirmation page or their account page
-  (`docs/backend/spec.md :: I869`). An act before
+  the grant it ended, for as long as the record stands. Only the person's own answer grants a choice
+  or stamps its evidence: their own write, on their confirmation page or their account page, or an
+  admission carrying their own registration's answer (`docs/backend/spec.md :: I869`). An act before
   those survives only in the log row its write left, whose image an erasure empties and which
   expires twelve months after the write ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
   The question to put: whether the latest act and the grant a withdrawal ended are proof enough,

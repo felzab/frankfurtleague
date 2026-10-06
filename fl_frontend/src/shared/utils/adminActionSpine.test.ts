@@ -3,8 +3,9 @@ import path from "node:path";
 import { describe, it, mock } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { PERSON_ACTION_MODULES, srcPathOf } from "@/shared/testing/actionLanes.ts";
 
 const { setRefusal } = doubleActionRequest({ session: null });
 
@@ -26,16 +27,16 @@ const ACCOUNT_ACTIONS: ReadonlySet<string> = new Set([
   "konto :: endAndereAnmeldungenAction",
   "konto :: endAnmeldungAction",
   "konto :: pruefeInhaberAction",
+  "konto :: sendeBestaetigungscodeAction",
   "passkeys :: readPasskeyStandAction",
   "passkeys :: removePasskeyAction",
   "passkeys :: renamePasskeyAction",
 ]);
 
-const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
-
 /**
- * Every action of every slice called with no payload, by `<slice> :: <export>`, and what each answered;
- * the actions authorizing nobody are left uncalled, and returned as met.
+ * Every action of every server action module but a person's called with no payload, by
+ * `<slice> :: <export>`, and what each answered; the actions authorizing nobody are left uncalled, and
+ * returned as met.
  */
 async function answerOfEveryAction(): Promise<{ answers: Map<string, unknown>; exempted: Set<string> }> {
   const answers = new Map<string, unknown>();
@@ -43,7 +44,7 @@ async function answerOfEveryAction(): Promise<{ answers: Map<string, unknown>; e
   const fetched = mock.method(globalThis, "fetch", () => Promise.reject(new Error("an admin action reached the network for nobody")));
 
   try {
-    for (const file of filesUnder(SLICES, (name) => name === "actions.ts", 10).sort()) {
+    for (const file of serverActionModules(20).filter((module) => !PERSON_ACTION_MODULES.has(srcPathOf(module)))) {
       const slice = path.basename(path.dirname(file));
       const actions = Object.entries((await import(pathToFileURL(file).href)) as Record<string, unknown>);
       assert.ok(actions.length > 0, `${slice}'s actions module exports nothing, so nothing here holds it`);

@@ -1,4 +1,4 @@
-import type { GekeyteFassung, SpielerAbsatzSchluessel } from "@/core/einwilligungSeiten";
+import type { GekeyteFassung, SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
 
@@ -45,11 +45,14 @@ export type SpielerBestaetigungAnsicht = { zustand: "gueltig"; ansicht: SpielerB
 export type SpielerBestaetigungStart =
   { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
 
-/** The confirmation's three answers mid-entry, the date a string because `""` is the empty picker. */
-export type SpielerBestaetigungDraft = {
+/**
+ * What a confirmed pupil's answer panel states: the date they sent, and the two choices that stand —
+ * the ones they gave on the new pupil's page, or the stored ones the returning pupil's page showed.
+ */
+export type SpielerBestaetigungGespeichert = {
   geburtsdatum: string;
-  umfang: FLEinwilligungUmfang;
-  medien: boolean;
+  umfang: FLEinwilligungUmfang | null;
+  medien: boolean | null;
 };
 
 /**
@@ -59,4 +62,10 @@ export type SpielerBestaetigungDraft = {
  */
 // TOTAL over the enum, so a scope the label has no words for fails at the page that reads it rather
 // than rendering as a chip with no text and a readout with an empty row.
-export type SpielerFassung = GekeyteFassung<SpielerAbsatzSchluessel, FLEinwilligungUmfang>;
+export type SpielerFassung = GekeyteFassung<SpielerAbsatzSchluessel, FLEinwilligungUmfang> & { readonly seite: "bestaetigung_spieler" };
+
+export type SpielerWiederkehrendFassung = GekeyteFassung<SpielerWiederkehrendAbsatzSchluessel, FLEinwilligungUmfang> & {
+  readonly seite: "bestaetigung_spieler_wiederkehrend";
+};
+
+export type SpielerSeitenFassung = SpielerFassung | SpielerWiederkehrendFassung;

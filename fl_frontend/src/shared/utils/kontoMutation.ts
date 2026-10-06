@@ -42,6 +42,17 @@ export function confirmedUntil(served: KontoSession): ConfirmedUntil {
 }
 
 /**
+ * The account page's guard without the step-up window, for the one press that renews it: the code a
+ * holder confirms with must be sendable from a session already past the window.
+ */
+export async function runKontoStepUp<T extends { success: boolean }>(
+  mutationName: string,
+  fn: (served: KontoSession) => Promise<T>,
+): Promise<T | ActionFailure> {
+  return runGuardedMutation(mutationName, { lane: "Account", resolve: getKontoSession, forbidden: KONTO_FORBIDDEN }, fn);
+}
+
+/**
  * The account page's spine: every change there is refused past the step-up window, whichever lane the
  * holder signs in by (`docs/frontend/spec.md :: I422`).
  */

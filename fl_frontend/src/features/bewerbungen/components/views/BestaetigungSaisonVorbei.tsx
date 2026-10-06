@@ -11,7 +11,8 @@ import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
-import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
@@ -68,23 +69,29 @@ export function BestaetigungSaisonVorbei({
         onAbschluss({ zustand: "widersprochen-neu" });
         return;
       }
-      if (antwort.outcome === "unknown") {
-        appToast.danger(UNKLAR_TITEL, { description: ANTWORT_UNKLAR });
-        return;
-      }
-      if (antwort.zustand !== undefined) {
-        onAbschluss({ zustand: antwort.zustand });
-        return;
-      }
-      appToast.danger("Widerspruch nicht gespeichert", { description: antwort.error ?? antwort.unplacedError ?? NICHT_GESPEICHERT });
+      reportRefusedConfirmation(antwort, {
+        onZustand: (zustand) => onAbschluss({ zustand }),
+        onRefusal: () =>
+          appToast.danger("Widerspruch nicht gespeichert", { description: antwort.error ?? antwort.unplacedError ?? NICHT_GESPEICHERT }),
+      });
     });
   };
 
   return (
     <BestaetigungAbschnitt titel="Deine Antwort">
+      {/* The one cause the view names, as the mail names it. Only a withdrawal reads apart: an ended
+          season outranks it, so every other state this page opens on is an ended season. */}
       <p className={ABSATZ_CLASSES}>
-        Hallo <Wert>{ansicht.vorname}</Wert>. Die Saison <Wert>{ansicht.saison_id}</Wert> ist für das Team <Wert>{ansicht.schule}</Wert> vorbei,
-        oder das Team spielt in ihr nicht mehr mit. Deinen Eintrag kannst Du deshalb nicht mehr bestätigen.
+        {ansicht.zeile === "ausgetreten" ? (
+          <>
+            Das Team <Wert>{ansicht.schule}</Wert> spielt in der Saison <Wert>{ansicht.saison_id}</Wert> nicht mehr mit.
+          </>
+        ) : (
+          <>
+            Die Saison <Wert>{ansicht.saison_id}</Wert> ist für das Team <Wert>{ansicht.schule}</Wert> vorbei.
+          </>
+        )}{" "}
+        Deinen Eintrag kannst Du deshalb nicht mehr bestätigen.
       </p>
       <p className={ABSATZ_CLASSES}>
         Möchtest Du dort nicht eingetragen bleiben, kannst Du widersprechen. Dann entfernen wir Deine Angaben aus dem Eintrag.

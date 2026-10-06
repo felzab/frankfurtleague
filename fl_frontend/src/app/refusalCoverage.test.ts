@@ -64,11 +64,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email": bewerbungen.mapKontaktEmailRefusal,
   "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}": bewerbungen.mapKontaktSitzRefusal,
   "POST /teams/{team_id}/saisons/{saison_id}/einladung": einladungen.mapEinladungRefusal,
-  "DELETE /teams/{team_id}/saisons/{saison_id}/einladung": SHARED_READER,
   "POST /saisons/{saison_id}/einladungen/versand": einladungen.mapEinladungRefusal,
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapKontakteRefusal,
   "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
-  "POST /kontakte/erasure": SHARED_READER,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
   "POST /registrierungen/bestaetigung": (error) => registrierungen.mapBestaetigungRefusal(error, async () => REGISTRIERUNG_MIN_ALTER),
   "POST /registrierungen/einladung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
@@ -92,6 +90,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/bestaetigung": (error) =>
     schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => SCHIEDSRICHTER_MIN_ALTER),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
+  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
+  "POST /schiedsrichter/adresswechsel": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
+  "POST /schiedsrichter/adresswechsel/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   "POST /sperrliste": sperrliste.mapAdresseRefusal,
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   // Written by the undo route's replay alone.

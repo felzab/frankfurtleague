@@ -12,11 +12,13 @@ import { userEvent } from "@testing-library/user-event";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 
 import type { FLEinladungAnsichtResponse } from "./schemas.ts";
 
 // The browser's own `fetch`, so the key is read off the request the panel actually makes.
 const fetchMock = doubleFetch();
+doubleTurnstile();
 
 const { raised } = doubleToasts();
 

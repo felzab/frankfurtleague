@@ -23,6 +23,7 @@ from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import refuse
 from app.core.domain import OPERATION_SEPARATOR, RULES
+from app.core.drosselung import DROSSELUNG_ERREICHT
 from app.core.exception_handlers import (
     BODY_UNREADABLE,
     DATABASE_FAILED,
@@ -31,6 +32,8 @@ from app.core.exception_handlers import (
     NO_DATA_TEXT,
     NO_ROUTE,
     PAYLOAD_REFUSED,
+    RETRY_AFTER,
+    RETRY_AFTER_STATUSES,
     ROUTING_CODES,
     STORED_DATA_INVALID,
     UNHANDLED_CRASH,
@@ -41,7 +44,14 @@ from app.core.exception_handlers import (
     refused_codes,
     register_exception_handlers,
 )
-from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, BaseAPIException, RequestAuthorizationException, WriteRefusal
+from app.core.exceptions import (
+    DUPLICATE_KEY,
+    NO_DATABASE_CLIENT,
+    BaseAPIException,
+    DrosselungException,
+    RequestAuthorizationException,
+    WriteRefusal,
+)
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
 from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
@@ -572,6 +582,31 @@ class TestThePublishedFailureBodies:
         body = client().get("/api/v0/spiele").json()
 
         assert FLFailureBody.model_validate(body).model_dump() == body
+
+
+class TestTheRetryAfterHeader:
+    """A refusal naming when to come back publishes the header it is sent with, at its status and at no other."""
+
+    def test_every_published_response_declares_it_exactly_at_the_statuses_sending_it(self):
+        responses = build_document()["components"]["responses"]
+        sending = {str(int(status)) for status in RETRY_AFTER_STATUSES}
+        declared = {name for name, response in responses.items() if RETRY_AFTER in response.get("headers", {})}
+        retrying = {name for name in responses if name.split(".", 1)[0] in sending}
+
+        assert sending == {"429", "503"}
+        assert {name.split(".", 1)[0] for name in retrying} == sending, "a status sending it publishes no response"
+        assert declared == retrying
+        assert all(responses[name]["headers"][RETRY_AFTER]["schema"] == {"type": "integer"} for name in retrying)
+
+    def test_each_status_s_refusal_is_sent_with_the_header_as_whole_seconds(self):
+        """Read off what the classes raising each send, the 503 over a served request."""
+
+        unavailable = client().get("/api/v0/spiele", headers=BASE_AUTH)
+        ceiling = DrosselungException(error_code=DROSSELUNG_ERREICHT, retry_after_s=43200)
+
+        assert (unavailable.status_code, unavailable.headers[RETRY_AFTER].isdigit()) == (503, True)
+        assert ceiling.headers is not None
+        assert (ceiling.status_code, ceiling.headers[RETRY_AFTER].isdigit()) == (429, True)
 
 
 # OpenAPI 3.1.0's pattern for a key under `components`.

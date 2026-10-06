@@ -85,7 +85,7 @@ describe("the team's invite panel", () => {
 
     assert.ok(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
     assert.ok(screen.queryByRole("button", { name: "Link zurückziehen" }) === null, "a team with no link is offered a withdrawal");
-    assert.ok(screen.queryByRole("textbox", { name: "Registrierungslink" }) === null, "a link nobody has minted is on the page");
+    assert.ok(screen.queryByRole("textbox", { name: "Der Link" }) === null, "a link nobody has minted is on the page");
   });
 
   /* The mint shows the link for copying, and a second press is what mails it. Both controls
@@ -101,7 +101,7 @@ describe("the team's invite panel", () => {
     // Found rather than got: the first mint's update commits when `startMinting`'s transition ends,
     // after the click has resolved.
     await act(answered);
-    const feld = await screen.findByRole("textbox", { name: "Registrierungslink" });
+    const feld = await screen.findByRole("textbox", { name: "Der Link" });
     // The property and not the attribute: React writes a textarea's value as neither markup nor an
     // attribute, so an attribute read here would compare the empty string against the link forever.
     assert.equal((feld as HTMLTextAreaElement).value, LINK);
@@ -117,12 +117,12 @@ describe("the team's invite panel", () => {
     answerWith(mintAntwort);
     const held = (scope: string, subtree: string) =>
       underNext(h(EinladungLinkHolder, { scope: scope, children: h("div", { key: subtree }, h(FormEinladungSection, BASE)) }));
-    const wert = () => (screen.queryByRole("textbox", { name: "Registrierungslink" }) as HTMLTextAreaElement | null)?.value ?? null;
+    const wert = () => (screen.queryByRole("textbox", { name: "Der Link" }) as HTMLTextAreaElement | null)?.value ?? null;
 
     const { rerender } = render(held(`${TEAM_ID}:${SAISON_ID}`, "vor dem Speichern"));
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
     await act(answered);
-    await screen.findByRole("textbox", { name: "Registrierungslink" });
+    await screen.findByRole("textbox", { name: "Der Link" });
     assert.equal(wert(), LINK, "the mint never put the value on the page, so the two reads below prove nothing");
 
     // The key the editor wears is the stored state a save moves, so any other panel's save remounts
@@ -201,7 +201,7 @@ describe("the team's invite panel", () => {
     assert.ok(isInTheFlow("01.09.2026"), "the day the standing link was minted is not stated");
     assert.ok(isInTheFlow("vorstand@beispiel.de"), "the administrator who minted it is not named");
     assert.ok(isInTheFlow("Noch nicht gesendet"), "an unmailed link reads as a delivery that failed");
-    assert.ok(screen.queryByRole("textbox", { name: "Registrierungslink" }) === null, "a reloaded page shows a value the store does not hold");
+    assert.ok(screen.queryByRole("textbox", { name: "Der Link" }) === null, "a reloaded page shows a value the store does not hold");
     assert.equal(document.body.textContent.includes(TOKEN), false, "the link value survived the reload the store cannot serve it back from");
     assert.ok(
       screen.queryByRole("button", { name: "Link per E-Mail senden" }) === null,

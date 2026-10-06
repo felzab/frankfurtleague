@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { postClientError } from "@/shared/utils/clientError";
+
 /**
  * The seam is a hook: Next gives each segment its own boundary and they render no component in
  * common, so a boundary that forgets to report is silent in exactly the case reporting exists for
@@ -13,14 +15,6 @@ export function useReportClientCrash(error: Error & { digest?: string }): void {
   useEffect(() => {
     if (error.digest) return;
 
-    fetch("/api/client-error", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: String(error.message ?? "Unknown client error").slice(0, 500),
-        path: window.location.pathname.slice(0, 300),
-        stack: typeof error.stack === "string" ? error.stack.slice(0, 4000) : undefined,
-      }),
-    }).catch(() => {});
+    postClientError(String(error.message ?? "Unknown client error"), typeof error.stack === "string" ? error.stack : undefined);
   }, [error]);
 }

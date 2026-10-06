@@ -1,7 +1,6 @@
 import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -233,8 +232,6 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
       return { error: FASSUNG_NEU_OEFFNEN };
-    // With the record missing, the application the link names is gone, which is a link nothing places.
-    case "DB-COMMON-001":
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
     // A decided application, or a deadline passed that only a re-sent link restarts: one panel names
@@ -277,9 +274,6 @@ export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | nul
   // than offering a reload that cannot succeed. `docs/frontend/spec.md` §4 accepts that the two
   // tiers bound its length apart.
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
-
-  // The record the link names gone, which the confirmation answers alike.
-  if (isRecordMissing(error)) return "ungueltig";
 
   // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
   // token nothing could place, and a code nobody planned reads the same way.

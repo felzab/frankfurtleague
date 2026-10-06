@@ -21,7 +21,6 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_UNKNOWN,
     EINWILLIGUNG_ANSICHT_FIELDS,
     EINWILLIGUNG_ANTWORT_FIELDS,
-    KONTAKT_SEATS,
     SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
     WITHOUT_TOKEN_HASHES,
@@ -49,7 +48,7 @@ from app.api.bewerbungen.services import (
     seat_named,
     zustand_of,
 )
-from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.constraints import _BEWERBUNG_BESTAETIGUNG, _BEWERBUNG_BESTAETIGUNGEN
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -65,7 +64,7 @@ TOMORROW = "2026-04-02"
 
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
 # needed here, only what the database would hold.
-HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_SEATS}
+HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_ROLLEN}
 BESTAETIGUNGEN: Mapping[str, Any] = compose_bestaetigungen(hashes=HASHES, today=TODAY)
 
 
@@ -98,11 +97,11 @@ class TestTheSeatSpellings:
     """Three spellings of one set, held equal: the wire's `Literal`, the erasure's derivation and the composer's tuple."""
 
     def test_the_literal_the_derivation_and_the_tuple_agree(self):
-        assert get_args(FLKontaktRolle) == KONTAKT_SLOTS == KONTAKT_SEATS
+        assert get_args(FLKontaktRolle) == KONTAKT_ROLLEN == KONTAKT_ROLLEN
 
-    @pytest.mark.parametrize("value", [*KONTAKT_SEATS, "trainer_ist_zugleich", "", None, 7])
+    @pytest.mark.parametrize("value", [*KONTAKT_ROLLEN, "trainer_ist_zugleich", "", None, 7])
     def test_only_a_seat_is_named(self, value: Any):
-        assert seat_named(value) == (value if value in KONTAKT_SEATS else None)
+        assert seat_named(value) == (value if value in KONTAKT_ROLLEN else None)
 
 
 class TestTheTokenAndItsHash:
@@ -128,7 +127,7 @@ class TestTheTokenAndItsHash:
 
         db_filter = build_token_filter(token_hash="abc")
 
-        assert db_filter == {"$or": [{f"bestaetigungen.{seat}.{field}": "abc"} for seat in KONTAKT_SEATS for field in TOKEN_HASH_FIELDS]}
+        assert db_filter == {"$or": [{f"bestaetigungen.{seat}.{field}": "abc"} for seat in KONTAKT_ROLLEN for field in TOKEN_HASH_FIELDS]}
 
     def test_the_projection_names_every_seats_hash_and_excludes_it(self):
         """Read off the validator rather than off `TOKEN_HASH_FIELDS` alone.
@@ -140,7 +139,7 @@ class TestTheTokenAndItsHash:
         declared = sorted(field for field in _BEWERBUNG_BESTAETIGUNG["properties"] if field.startswith("token_hash"))
 
         assert declared == sorted(TOKEN_HASH_FIELDS)
-        assert WITHOUT_TOKEN_HASHES == {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_SEATS for field in declared}
+        assert WITHOUT_TOKEN_HASHES == {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_ROLLEN for field in declared}
 
 
 PROJECTIONS = [
@@ -152,7 +151,7 @@ PROJECTIONS = [
 def per_seat_paths(projection: Mapping[str, int]) -> list[tuple[str, str, str]]:
     """Each `<block>.<seat>.<leaf>` key parted in three.
 
-    Selected by the key's SHAPE, never by `KONTAKT_SEATS`: a fourth seat drawn from that tuple would
+    Selected by the key's SHAPE, never by `KONTAKT_ROLLEN`: a fourth seat drawn from that tuple would
     otherwise drop out of this population and pass.
     """
 
@@ -195,15 +194,15 @@ class TestTheDeadline:
     def test_the_block_carries_every_seat_with_its_four_keys(self):
         block = compose_bestaetigungen(hashes=HASHES, today=TODAY)
 
-        assert set(block) == set(KONTAKT_SEATS)
-        for seat in KONTAKT_SEATS:
+        assert set(block) == set(KONTAKT_ROLLEN)
+        for seat in KONTAKT_ROLLEN:
             assert block[seat] == {"token_hash": HASHES[seat], "verschickt_am": TODAY, "erinnert_am": None, "abgelehnt_am": None}
 
 
 class TestATokenNoSeatHolds:
     """`REQ-BEWERBUNG-009`: the one answer for unknown, replaced and deleted, because nothing tells them from a guess."""
 
-    @pytest.mark.parametrize("seat", KONTAKT_SEATS)
+    @pytest.mark.parametrize("seat", KONTAKT_ROLLEN)
     def test_a_hash_a_seat_holds_names_that_seat(self, seat: str):
         assert seat_holding(bewerbung_raw=application(), token_hash=HASHES[seat]) == seat
         assert find_unknown_token_refusal(seat=seat_named(seat)) is None
@@ -335,7 +334,7 @@ class TestWhichFloorAPersonClears:
     def test_every_seat_declares_a_floor_and_no_other_key_does(self):
         """A seat added to the set with no row here is a `KeyError` at the confirmation rather than a silent 16."""
 
-        assert set(SEAT_MIN_AGE_YEARS) == set(KONTAKT_SEATS)
+        assert set(SEAT_MIN_AGE_YEARS) == set(KONTAKT_ROLLEN)
 
     # The NUMBERS rather than the constants that hold them: read through the constants, every case
     # here passes with both of them set to one value, which is the state this slice exists to end.
@@ -458,7 +457,7 @@ class TestWhatAReopenedLinkShows:
 
 class TestTheSeatsStillOpen:
     def test_every_seat_is_open_at_submission(self):
-        assert ausstehende_seats(kontakte=kontakte()) == list(KONTAKT_SEATS)
+        assert ausstehende_seats(kontakte=kontakte()) == list(KONTAKT_ROLLEN)
 
     def test_a_confirmed_seat_leaves_the_list_and_the_order_stands(self):
         assert ausstehende_seats(kontakte=kontakte(ansprechperson=kontaktperson_document("Ansgar", bestaetigt_am=TODAY))) == [
@@ -481,7 +480,7 @@ class TestAnEmptyStampConfirmsNothing:
     """Every reader of a seat's stamp agrees with the other packages: the seat stays open."""
 
     def test_the_seat_is_still_outstanding(self):
-        assert ausstehende_seats(kontakte=EMPTY_STAMP) == list(KONTAKT_SEATS)
+        assert ausstehende_seats(kontakte=EMPTY_STAMP) == list(KONTAKT_ROLLEN)
 
     def test_its_link_still_takes_the_answer(self):
         assert find_already_answered_refusal(kontakte=EMPTY_STAMP, bestaetigungen=BESTAETIGUNGEN, seat="trainer") is None
@@ -535,7 +534,7 @@ AM = "2026-04-01T08:00:00+00:00"
 
 
 def confirmation(*, seats: tuple[str, ...] = ("trainer",), whatsapp: bool = False, medien: bool = True) -> Mapping[str, Any]:
-    stored = {seat: {"einwilligung": dict(STORED_RECORD)} for seat in KONTAKT_SEATS}
+    stored = {seat: {"einwilligung": dict(STORED_RECORD)} for seat in KONTAKT_ROLLEN}
 
     return compose_confirmation_update(
         kontakte=stored, seats=seats, geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=whatsapp, medien=medien, am=AM

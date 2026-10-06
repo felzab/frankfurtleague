@@ -1,4 +1,4 @@
-import { isRefusal } from "@/shared/utils/actionError";
+import { isRefusal, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -141,3 +141,15 @@ export function mapReplacementRefusal(error: unknown): string | null {
   }
   return null;
 }
+
+/**
+ * The refusals the junction half of a replay can meet, in German written for the undo — the save's
+ * own words send an admin to the group picker, which this toast has not got.
+ */
+export const TEAM_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  "REQ-ENTER-002": "Die ursprüngliche Gruppe gibt es in dieser Saison nicht mehr.",
+  "REQ-ENTER-003": "Die ursprüngliche Gruppe ist inzwischen voll.",
+  "REQ-ENTER-004": "Für dieses Team sind in dieser Saison inzwischen Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln.",
+  // The club half's one refusal too, which that half replays against this table.
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
+};

@@ -372,7 +372,7 @@ class TransactionalCallback:
 
 @functools.cache
 def _callbacks() -> tuple[tuple[Path, str, tuple[Declaration, ...], Declaration], ...]:
-    """One finder for both sweeps below, so neither can quietly stop seeing a callback the other still reads."""
+    """One finder for every sweep reading a transaction's callbacks, so none can quietly stop seeing a callback another still reads."""
 
     found: list[tuple[Path, str, tuple[Declaration, ...], Declaration]] = []
     for path in sorted(APP_ROOT.rglob("*.py")):
@@ -400,6 +400,13 @@ def _callbacks() -> tuple[tuple[Path, str, tuple[Declaration, ...], Declaration]
             found.append((path, module, outer, found_names[0]))
 
     return tuple(found)
+
+
+@functools.cache
+def handed_callbacks() -> tuple[tuple[Declaration | None, Declaration], ...]:
+    """Each callback `_callbacks` finds beside the function handing it over, `None` at module level, both nodes of `parsed`'s trees."""
+
+    return tuple((outer[-1] if outer else None, callback) for _, _, outer, callback in _callbacks())
 
 
 @functools.cache

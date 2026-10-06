@@ -92,6 +92,8 @@ const STAMPED_CLOCK: Readonly<Record<EinwilligungSeite, number | null>> = {
   // A season row's link runs the application's clock too: `BestaetigungView` states it for that link.
   bestaetigung_kontakt_saison: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
   bestaetigung_spieler: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+  // The returning pupil's link is a registration's link all the same.
+  bestaetigung_spieler_wiederkehrend: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
   bestaetigung_schiedsrichter: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
   konto_spieler: null,
   konto_schiedsrichter: null,

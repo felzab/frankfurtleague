@@ -10,7 +10,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, KONTAKT_SEATS, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, compose_bestaetigungen, hash_token
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -32,7 +33,7 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607960001")
 
 SCHOOL_NAME = "Zorbanax"
 
-RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_SEATS}
+RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_ROLLEN}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -148,7 +149,7 @@ class TestAPairedDecline:
         assert document["bestaetigungen"]["ansprechperson"]["abgelehnt_am"] == TODAY
         # The third seat keeps its person, and no seat carries a stamp, so all three stay outstanding.
         assert document["kontakte"]["stellvertretung"] is not None
-        assert (response.ergebnis, response.ausstehend) == ("abgelehnt", list(KONTAKT_SEATS))
+        assert (response.ergebnis, response.ausstehend) == ("abgelehnt", list(KONTAKT_ROLLEN))
         assert len(rows) == 1
         assert (rows[0]["before"], rows[0]["redacted_at"]) == (None, "2026-04-01T10:30:00+00:00")
 

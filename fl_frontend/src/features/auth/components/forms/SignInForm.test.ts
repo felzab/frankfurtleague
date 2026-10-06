@@ -9,11 +9,15 @@ import { act, createElement as h } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { MENSCH_BESTAETIGEN, TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
+import { EDGE_REFUSAL_BODY, ZU_VIELE_VERSUCHE } from "@/shared/utils/actionError.ts";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -31,9 +35,18 @@ const CLIENT_DOUBLE = { authClient: { signIn: { passkey: async () => ({ error: n
 registerDoubles({ modules: { "shared/utils/documentNavigation.ts": NAVIGATION_DOUBLE, "core/authClient.ts": CLIENT_DOUBLE } });
 
 /** The send, replaced at the module boundary: the real one needs a session store and a mail provider. */
-const { calls, answerWith, answered: codeSent } = doubleActions({ modules: ["/src/features/auth/actions.ts"] });
+const {
+  calls,
+  answerWith,
+  answered: codeSent,
+} = doubleActions({
+  modules: ["/src/features/auth/actions.ts"],
+  // The form posted, which `useActionState` hands the action after its previous state.
+  payloadOf: (args) => args.at(-1),
+});
 const { raised } = doubleToasts();
 const fetchMock = doubleFetch();
+const turnstile = doubleTurnstile();
 
 const { SignInForm } = await import("./SignInForm.tsx");
 const { CodeStep } = await import("./CodeStep.tsx");
@@ -109,6 +122,26 @@ describe("the sign-in card's address step", () => {
     });
 
     assert.equal(calls.length - before, 1, "a second Enter during the send sent a second code");
+  });
+
+  /* As Next's action client raises the edge's own 429: the body becomes the rejection's message. Read as
+     any other rejection, it would replace the card with the boundary's "not reachable". */
+  it("says the edge refused the send and when to try again, and keeps the address step", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error(EDGE_REFUSAL_BODY)));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
+
+    await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+    await act(codeSent);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ title, description }) => ({ title, description })),
+        [{ title: "Code nicht gesendet", description: ZU_VIELE_VERSUCHE }],
+      ),
+    );
+    assert.equal(screen.queryAllByRole("textbox", { name: "E-Mail-Adresse" }).length, 1, "the refused send took the address step down");
+    assert.equal(screen.queryAllByText("Die Website ist gerade nicht erreichbar.").length, 0, "the edge's refusal reached the boundary");
   });
 });
 
@@ -203,7 +236,9 @@ describe("the sign-in card's code step", () => {
   it("raises a toast for an answer the edge gave instead, and leaves nothing behind at the field", async () => {
     const user = userEvent.setup();
     const field = await atTheCodeStep(user);
-    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } })),
+    );
 
     await user.type(field, "048213");
     await act(fetchMock.answered);
@@ -241,7 +276,9 @@ describe("the sign-in card's code step", () => {
   it("hands the code field the focus once a pressed check is refused", async () => {
     const user = userEvent.setup();
     const field = await atTheCodeStep(user);
-    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } })),
+    );
     await user.type(field, "048213");
     await act(fetchMock.answered);
     await waitFor(() => assert.equal(raised.at(-1)?.title, "Nicht angemeldet"));
@@ -300,6 +337,93 @@ describe("the sign-in card's code step", () => {
     assert.equal(calls.length - before, 2, "the open resend sent nothing");
   });
 });
+
+describe("the sign-in card's bot check", () => {
+  /** The bot check's token each send so far carried. */
+  const tokensSent = (from: number): unknown[] => calls.slice(from).map(({ payload }) => (payload as FormData).get(TURNSTILE_FIELD));
+
+  it("sends the token its widget minted, and the resend the next one", async () => {
+    const before = calls.length;
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
+      const first = turnstile.lastMinted();
+      fireEvent.change(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), { target: { value: ADDRESS } });
+      await act(async () => {
+        fireEvent.submit(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).closest("form") as HTMLFormElement);
+      });
+      await act(codeSent);
+      await act(async () => {
+        mock.timers.tick(30_000);
+      });
+
+      const second = turnstile.lastMinted();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Code erneut senden" }));
+      });
+      await act(codeSent);
+
+      assert.deepEqual(tokensSent(before), [first, second]);
+      assert.notEqual(first, second, "the resend spent the first send's token again");
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("sends nothing while its check has not loaded, and says so with the passkey and the league's address as the ways in", async () => {
+    fetchMock.mock.mockImplementation(async () => new Response(null, { status: 204 }));
+    turnstile.mintsAtOnce(false);
+    const before = calls.length;
+    const user = userEvent.setup();
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
+    act(() => void turnstile.fire("error-callback", "110200"));
+
+    await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+
+    assert.equal(calls.length - before, 0, "a send left without a token");
+    assert.ok(screen.getByText(NICHT_GELADEN_HIER), "the card does not say its check did not load");
+    assert.deepEqual(
+      raised.map(({ title, description }) => ({ title, description })),
+      [{ title: "Code nicht gesendet", description: NICHT_GELADEN_HIER }],
+    );
+  });
+
+  /* The code the first send mailed stays good, so a refused resend says why and leaves its step standing. */
+  it("keeps the code step through a refused resend, and says why", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
+      fireEvent.change(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), { target: { value: ADDRESS } });
+      await act(async () => {
+        fireEvent.submit(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).closest("form") as HTMLFormElement);
+      });
+      await act(codeSent);
+      await act(async () => {
+        mock.timers.tick(30_000);
+      });
+
+      answerWith(() => Promise.resolve({ success: false, error: MENSCH_BESTAETIGEN, submittedEmail: ADDRESS }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Code erneut senden" }));
+      });
+      await act(codeSent);
+    } finally {
+      mock.timers.reset();
+    }
+
+    assert.ok(screen.queryByLabelText("Code aus der E-Mail"), "the refused resend took the code step down");
+    assert.ok(screen.getByText(ADDRESS), "the step no longer names where the standing code went");
+    assert.deepEqual(
+      raised.map(({ title, description }) => ({ title, description })),
+      [{ title: "Code nicht gesendet", description: MENSCH_BESTAETIGEN }],
+    );
+  });
+});
+
+/** The card's own sentence for a check that did not load. */
+const NICHT_GELADEN_HIER =
+  "Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker " +
+  `und lade die Seite neu, melde Dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`;
 
 /* The step on its own, as a page confirming a signed-in person mounts it: the caller decides what a
    finished sign-in does, and an address that may not change is offered no way to change it. */

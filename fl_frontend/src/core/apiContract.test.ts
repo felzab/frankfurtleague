@@ -41,6 +41,7 @@ const BACKEND_ONLY: Record<string, string> = {
   FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
   FLRegistrierung: "the row of that read, which no page consumes",
   FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
+  FLRegistrierungEinwilligung: "that row's consent block, which no page consumes",
   FLRegistrierungEntscheidungZeile: "that row's decision block, which no page consumes",
 };
 
@@ -77,6 +78,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLTrikotFarbe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLKontaktZeile: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLZustellungZiel: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLEinwilligungUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -122,6 +124,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterEinladenPayload: "the referee's re-send POST takes its id from the path and has no request body",
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
+  FLSchiedsrichterAdresswechselEinladenPayload: "the address link's re-send POST takes its id from the path and has no request body",
+  FLSchiedsrichterAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -343,7 +347,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 293;
+const EXPECTED_PAIRS = 301;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

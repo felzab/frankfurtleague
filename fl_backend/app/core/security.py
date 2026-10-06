@@ -295,7 +295,7 @@ def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]
     """The step-up of a write stepped up on some calls alone (`docs/backend/spec.md :: I524`).
 
     A dependency rather than a raise in the handler, so the document derives the refusal from the
-    operations running it (`app/main.py :: HANDLER_JUDGED_REFUSALS`).
+    operations running it (`app/main.py :: DEPENDENCY_REFUSALS`).
     """
 
     def refuse_unconfirmed() -> None:
@@ -442,6 +442,12 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
 PERSON_ACTOR_BINDERS: Final[Mapping[AktorFunktion, Callable[..., AsyncIterator[str]]]] = {
     funktion: person_actor_binder(funktion) for funktion in get_args(AktorFunktion)
 }
+
+# A handler's folded address, from the binder its router declares, which FastAPI then runs once a
+# request; another Funktion's alias runs a second binder, recording the writes under that Funktion.
+KontaktIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
+SpielerIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["spieler"])]
+SchiedsrichterIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])]
 
 
 async def bind_public_actor(request: Request) -> AsyncIterator[None]:

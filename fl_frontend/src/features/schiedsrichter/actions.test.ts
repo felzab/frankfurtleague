@@ -83,10 +83,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
      does; left unmapped it reaches the admin as the shared fallback, which names no rule. */
   it("words every refusal the reactivation publishes", () => {
-    assert.deepEqual(
-      publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SCHIEDSRICHTER-007"],
-    );
+    assert.deepEqual(publishedRefusals(REACTIVATE_OPERATION), ["REQ-SCHIEDSRICHTER-007"]);
     for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
       assert.notEqual(
         answerShown(REACTIVATE_OPERATION, code, mapReactivateRefusal),
@@ -126,10 +123,12 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   /* Every refusal the re-send publishes, worded at the panel: nothing there is a form, so each is a
      sentence rather than a field error. */
   it("words every refusal the re-send publishes", () => {
-    assert.deepEqual(
-      publishedRefusals(EINLADEN_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-004", "REQ-SCHIEDSRICHTER-006", "REQ-SCHIEDSRICHTER-007"],
-    );
+    assert.deepEqual(publishedRefusals(EINLADEN_OPERATION), [
+      "REQ-SCHIEDSRICHTER-001",
+      "REQ-SCHIEDSRICHTER-004",
+      "REQ-SCHIEDSRICHTER-006",
+      "REQ-SCHIEDSRICHTER-007",
+    ]);
     for (const code of publishedRefusals(EINLADEN_OPERATION)) {
       assert.notEqual(answerShown(EINLADEN_OPERATION, code, mapEinladenRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -156,10 +155,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   });
 
   it("leaves the retirement's own refusal on the retirement", () => {
-    assert.deepEqual(
-      publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-RETIRE-004"],
-    );
+    assert.deepEqual(publishedRefusals(RETIRE_OPERATION), ["REQ-RETIRE-004"]);
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -229,6 +225,7 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 /** The record the editor page's read answers with, as the backend holds it at that moment. */

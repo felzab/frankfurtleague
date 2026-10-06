@@ -16,7 +16,7 @@ from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungP
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.einwilligung_nachweis import NACHWEIS
+from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, nachweis_stand_of
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
@@ -97,8 +97,6 @@ EARLIER_EVIDENCE = {
     "umfang": {"am": "2026-09-20T17:30:00+00:00", "text_version": "2026-10-konto-spieler"},
     "medien": {"am": "2026-09-02T08:00:00+00:00", "text_version": "2026-09-spielerseite-3"},
 }
-# What a page served that record echoes.
-EARLIER_STAND = {wahl: beleg["am"] for wahl, beleg in EARLIER_EVIDENCE.items()}
 # Seventeen on `NOW`, eighteen a day later: the floor is judged on the day, not the year.
 SEVENTEEN_BIRTHDATE = "2008-10-04"
 
@@ -113,6 +111,10 @@ def _einwilligung(**fields: Any) -> dict[str, Any]:
         "medien": False,
         **fields,
     }
+
+
+# What a page served that record echoes.
+EARLIER_STAND = nachweis_stand_of(bloecke=[{**_einwilligung(), NACHWEIS: EARLIER_EVIDENCE}], wahlen=WAHLEN)
 
 
 def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
@@ -481,14 +483,35 @@ class TestAStalePage:
             await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.nachweis": EARLIER_EVIDENCE}})
             served_stand = (await http.get(PATH, headers=_person(IDENTIFIER))).json()["spieler"]["nachweis_stand"]
             response = await http.patch(PATCH_PATH, json=_payload(umfang="intern", stand=served_stand), headers=_person(IDENTIFIER))
-            return served_stand, response
+            return served_stand, response, await _records(database)
 
-        served_stand, response = served(mongo_replica_set_url, steps)
+        served_stand, response, after = served(mongo_replica_set_url, steps)
 
         assert served_stand == EARLIER_STAND
         assert response.status_code == 200, response.text
-        # The answer's own stand is what a next press from the same page echoes.
-        assert response.json()["nachweis_stand"] == {"umfang": NOW_UTC, "medien": EARLIER_STAND["medien"]}
+        # The answer's own stand is what a next press from the same page echoes: the moved choice's alone moved.
+        assert response.json()["nachweis_stand"] == nachweis_stand_of(bloecke=[after[PUPIL_OID]["einwilligung"]], wahlen=WAHLEN)
+        assert response.json()["nachweis_stand"]["medien"] == EARLIER_STAND["medien"]
+        assert response.json()["nachweis_stand"]["umfang"] != EARLIER_STAND["umfang"]
+
+    def test_two_acts_in_one_second_leave_no_stand_a_stale_press_can_echo(self, mongo_replica_set_url: str):
+        """The clock is frozen, so both acts stamp one instant: a tab served between them undoes the second unseen, but for content."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            withdrawn = await http.patch(PATCH_PATH, json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
+            between = (await http.get(PATH, headers=_person(IDENTIFIER))).json()["spieler"]["nachweis_stand"]
+            granted = await http.patch(
+                PATCH_PATH, json=_payload(umfang="kader_oeffentlich", stand=withdrawn.json()["nachweis_stand"]), headers=_person(IDENTIFIER)
+            )
+            before = await _records(database)
+            stale = await http.patch(PATCH_PATH, json=_payload(umfang="intern", stand=between), headers=_person(IDENTIFIER))
+            return withdrawn, granted, stale, before, await _records(database)
+
+        withdrawn, granted, stale, before, after = served(mongo_replica_set_url, steps)
+
+        assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
+        assert (stale.status_code, stale.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert after == before
 
 
 @pytest.mark.db

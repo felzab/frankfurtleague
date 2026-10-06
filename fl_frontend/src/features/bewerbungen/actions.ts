@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { trikotFarbeLabel } from "@/features/teams/constants";
@@ -14,7 +15,6 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { bestaetigungsLink } from "./bestaetigungLink";
 import { gepaarteSitze } from "./bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "./constants";
 import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
@@ -335,7 +335,7 @@ async function sendeBestaetigungErneut({
         schule: benanntesTeam,
         // One link whatever it answers for: a person holding two seats reads one control, and the
         // role text beside it is what tells them the answer covers both.
-        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: bestaetigungsLink(origin, token) }],
+        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: kontaktBestaetigungsLink(origin, token) }],
         fristText: fristText,
       }),
   });

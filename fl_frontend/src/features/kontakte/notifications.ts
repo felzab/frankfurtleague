@@ -1,20 +1,14 @@
 import "server-only";
 
 import { frontend_config } from "@/core/config";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 import { buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
-import { logger } from "@/core/logging";
 import { rollenText } from "@/features/bewerbungen/notifications";
-import { kontaktZeile } from "@/features/kontakte/utils";
-import { getAdminSaisons } from "@/features/saisons/queries";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
-import { getTeamMemberships } from "@/features/teams/queries";
-import { sendZielMail } from "@/features/zustellung/notifications";
+import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { KontaktZeile } from "@/core/kontaktEmail";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { LinkVersand } from "@/features/schiedsrichter/notifications";
+import type { LinkVersand } from "@/features/zustellung/notifications";
 import type { FLKontaktMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: the
@@ -29,7 +23,6 @@ export async function mailKontaktLink({
   saisonId,
   mint,
   anlass,
-  zeile,
 }: {
   operation: string;
   /** The season row the message is about, which its delivery record is kept against. */
@@ -37,14 +30,12 @@ export async function mailKontaktLink({
   saisonId: string;
   mint: FLKontaktMint;
   anlass: ZustellAnlass;
-  /** The row's state the mint was made in, which fixes the page its link opens (`leseKontaktZeile`). */
-  zeile: KontaktZeile;
 }): Promise<LinkVersand> {
   const [erste, ...weitere] = mint.rollen;
   // A mint naming no seat has nothing to record its delivery against, and the endpoint refuses that record.
   if (erste === undefined) return "fehlgeschlagen";
 
-  const { delivered, withheld, gesperrt } = await sendZielMail({
+  return sendZielMail({
     operation: operation,
     // No `idempotenzTag`: the body carries a freshly minted token, and a key reused over a changed
     // body is refused rather than ignored.
@@ -63,40 +54,9 @@ export async function mailKontaktLink({
         saisonId: saisonId,
         token: mint.token,
         fristText: formatSpielDatum(mint.frist),
-        zeile: zeile,
+        zeile: mint.zeile,
       }),
-  });
-
-  if (delivered.length > 0) return "gesendet";
-  if (gesperrt > 0) return "gesperrt";
-
-  return withheld.length > 0 ? "zurueckgehalten" : "fehlgeschlagen";
-}
-
-/**
- * The state of the row a write minted on, which the mint does not answer. Read after the write and only
- * where it minted, so a write minting nothing reads nothing. Never thrown from.
- */
-export async function leseKontaktZeile({ team_id, saison_id }: { team_id: string; saison_id: string }): Promise<KontaktZeile> {
-  try {
-    const [{ teams }, { saisons }] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
-    const saison = saisons.find(({ id }) => id === saison_id);
-    const membership = teams.find(({ id }) => id === team_id)?.memberships.find((candidate) => candidate.saison_id === saison_id);
-
-    return saison === undefined || membership === undefined ? "offen" : kontaktZeile(saison.status, membership.austritt);
-  } catch (error) {
-    // The link is minted by now, and a thrown read would report a mint that happened as one that did
-    // not. The open row's wording instead: on a closed row its page says itself that it takes no confirmation.
-    logger.error("kontakt.zeile_ungelesen", undefined, {
-      error_code:
-        error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError
-          ? error.code
-          : "FE-ACT-001",
-      name: error instanceof Error ? error.name : undefined,
-    });
-
-    return "offen";
-  }
+  }).then(linkVersandOf);
 }
 
 /** One mint's message and how it ended. */

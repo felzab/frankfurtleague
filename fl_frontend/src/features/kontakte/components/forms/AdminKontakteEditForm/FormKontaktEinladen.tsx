@@ -14,6 +14,7 @@ import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { benannt } from "@/shared/utils/benannt";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
@@ -42,7 +43,7 @@ export function FormKontaktEinladen({
   const [sendet, setSendet] = useState(false);
   const stepUp = useStepUp();
   // Not „erneut“: a seat stored before links existed never had one, and the page cannot tell which.
-  const sendeLabel = `Bestätigungslink senden an ${label}`;
+  const sendeLabel = benannt("Bestätigungslink senden", label);
 
   const sende = async () => {
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;

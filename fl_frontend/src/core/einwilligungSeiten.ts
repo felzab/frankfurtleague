@@ -11,6 +11,7 @@ export const EINWILLIGUNG_SEITEN = [
   "bestaetigung_kontakt_verwaltung",
   "bestaetigung_kontakt_saison",
   "bestaetigung_spieler",
+  "bestaetigung_spieler_wiederkehrend",
   "bestaetigung_schiedsrichter",
   "konto_spieler",
   "konto_schiedsrichter",
@@ -18,12 +19,6 @@ export const EINWILLIGUNG_SEITEN = [
 ] as const;
 
 export type EinwilligungSeite = (typeof EINWILLIGUNG_SEITEN)[number];
-
-/**
- * What an admin editor says where the consent registry's read failed: the one control needing a label
- * closes with it, and the rest of the page stands.
- */
-export const FASSUNG_UNLESBAR = "Die laufende Fassung der Hinweise ließ sich nicht lesen. Lade die Seite neu und versuche es erneut.";
 
 // Each list is its page's whole set: a served map missing or adding a key fails `gekeyteFassung`
 // rather than rendering a gap or dropping a paragraph. The contact pages share one set, placing
@@ -71,6 +66,23 @@ export const SPIELER_ABSATZ_SCHLUESSEL = [
   "klickHinweise",
 ] as const;
 
+// The pupil page's keys less the choices' paragraphs and their point, `einwilligungen` in their place:
+// this page asks no choice, saying that the stored ones stand.
+export const SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL = [
+  "worum",
+  "gespeichert",
+  "geburtsdatum",
+  "wer",
+  "einwilligungen",
+  "rechtsgrundlage",
+  "frist",
+  "widerruf",
+  "art21",
+  "klickIdentitaet",
+  "klickAlter",
+  "klickHinweise",
+] as const;
+
 export const SCHIEDSRICHTER_ABSATZ_SCHLUESSEL = [
   "worum",
   "gespeichert",
@@ -92,6 +104,7 @@ export const SCHIEDSRICHTER_ABSATZ_SCHLUESSEL = [
 export type KontaktAbsatzSchluessel = (typeof KONTAKT_ABSATZ_SCHLUESSEL)[number];
 export type KontaktBedienSchluessel = (typeof KONTAKT_BEDIEN_SCHLUESSEL)[number];
 export type SpielerAbsatzSchluessel = (typeof SPIELER_ABSATZ_SCHLUESSEL)[number];
+export type SpielerWiederkehrendAbsatzSchluessel = (typeof SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL)[number];
 export type SchiedsrichterAbsatzSchluessel = (typeof SCHIEDSRICHTER_ABSATZ_SCHLUESSEL)[number];
 
 /**

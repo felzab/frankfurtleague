@@ -4,7 +4,7 @@ import { cache } from "react";
 import { cacheLife } from "next/cache";
 
 import { apiClient } from "./api";
-import { isRecordMissing } from "./errors";
+import { ContractBreakError, isRecordMissing } from "./errors";
 import { FLEinwilligungFassungResponseSchema, FLEinwilligungSeitenResponseSchema } from "./schemas";
 
 import type { EinwilligungSeite } from "./einwilligungSeiten";
@@ -54,7 +54,7 @@ const getLaufendeFassungen = cache(async (): Promise<Readonly<Record<string, str
 export async function getLaufendesLabel(seite: EinwilligungSeite): Promise<string> {
   const laufend = await getLaufendeFassungen();
   const textVersion = Object.hasOwn(laufend, seite) ? laufend[seite] : undefined;
-  if (textVersion === undefined) throw new Error(`the backend runs no label for the page ${seite}`);
+  if (textVersion === undefined) throw new ContractBreakError(`the backend runs no label for the page ${seite}`);
 
   return textVersion;
 }
@@ -63,7 +63,7 @@ export async function getLaufendesLabel(seite: EinwilligungSeite): Promise<strin
 export async function getLaufendeFassung(seite: EinwilligungSeite): Promise<FLEinwilligungFassung> {
   const textVersion = await getLaufendesLabel(seite);
   const fassung = await getEinwilligungFassung(textVersion);
-  if (fassung === null) throw new Error(`the backend runs ${textVersion} on ${seite} and serves no words for it`);
+  if (fassung === null) throw new ContractBreakError(`the backend runs ${textVersion} on ${seite} and serves no words for it`);
 
   return fassung;
 }

@@ -453,7 +453,7 @@ class FLSpielerSelbstResponse(BaseAPIResponse):
 
 
 class SelbstEinwilligungPayload(BaseModel):
-    """One declaration under two published names, the pupil's and the referee's, so the two endpoints cannot drift apart."""
+    """One declaration under each own record's published name, the pupil's, the referee's and a registration's, so no two drift apart."""
 
     model_config = ConfigDict(extra="forbid")
 

@@ -70,6 +70,14 @@ export const EINWILLIGUNG_MEDIEN_LABELS = {
   nicht_erteilt: "Nicht zugesagt",
 } as const;
 
+// One wording for the one consent and the one stored label on every admin readout, the pupil's, the
+// referee's and a contact seat's: three wordings read as three different answers.
+/** What every admin readout labels the media consent with; its two values are `EINWILLIGUNG_MEDIEN_LABELS`. */
+export const EINWILLIGUNG_MEDIEN_FRAGE = "Medien";
+
+/** What every admin readout labels a consent record's stored wording with. */
+export const EINWILLIGUNG_FASSUNG_FRAGE = "Fassung";
+
 /**
  * The input carries the bound so the browser refuses a further keystroke; the sentence a value
  * getting past it earns is `NUMMER_MUST_BE_DIGITS`, which builds its figure from this one.

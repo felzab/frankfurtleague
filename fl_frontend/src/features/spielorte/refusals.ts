@@ -1,4 +1,4 @@
-import { isRefusal } from "@/shared/utils/actionError";
+import { isRefusal, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -29,3 +29,7 @@ export function mapRetireRefusal(error: unknown): string | null {
   }
   return null;
 }
+
+export const SPIELORT_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
+};

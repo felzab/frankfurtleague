@@ -3,7 +3,14 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import {
+  assertEachRefusalCloses,
+  assertEachRowPublished,
+  doubleRouteRequest,
+  revalidatedTags,
+  unacknowledged,
+  undo,
+} from "@/shared/testing/undoRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -11,6 +18,7 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers((call) => Promise.resolve(replayed(call, 1)));
 const { POST } = await import("./route.ts");
+const { SQUAD_REPLAY_REFUSALS } = await import("@/features/spieler/refusals.ts");
 
 /**
  * What `fl_frontend/src/features/spieler/mutations.ts :: patchSaisonSpieler` sends, as the backend's own routes spell
@@ -58,6 +66,8 @@ describe("the player save's undo", () => {
       { endpoint: `/spieler/${id}`, method: "PATCH", body: person },
       { endpoint: `/spieler/${spieler_id}/saisons/${saison_id}`, method: "PATCH", body: squad },
     ]);
+    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
+    assert.deepEqual(revalidatedTags(), [["spieler", { expire: 0 }]]);
   });
 
   it("words every refusal the squad half publishes, closing on the change standing once", async () => {
@@ -101,5 +111,11 @@ describe("the player save's undo", () => {
       await undo(POST, { person: PERSON, saison: SAISON }),
       unacknowledged("Nur die Personendaten wurden zurückgesetzt. Prüfe den Kadereintrag."),
     );
+  });
+});
+
+describe("the replay table against the replayed endpoint", () => {
+  it("words only codes the replayed endpoint publishes", () => {
+    assertEachRowPublished(SQUAD_REPLAY_REFUSALS, SQUAD_OPERATION);
   });
 });

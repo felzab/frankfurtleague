@@ -10,7 +10,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { kontakteMayMoveLinks } from "./linkMint";
 import { einladeKontakt, eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
-import { describeKontaktVersand, leseKontaktZeile, mailKontaktLink } from "./notifications";
+import { describeKontaktVersand, mailKontaktLink } from "./notifications";
 import { mapEinladenRefusal, mapKontakteRefusal } from "./refusals";
 import { FLKontaktEinladenPayloadSchema, FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang, mitLaufenderFassung } from "./utils";
@@ -119,9 +119,6 @@ export async function patchSaisonTeamKontakteAction(
 
     // No tag moves, for the erasure's reason above, and its list is uncached for the same reason.
 
-    // Read at the press, never off the page: a season can end or a team leave while the editor is open.
-    const zeile = saisonTeam.bestaetigungen.length === 0 ? "offen" : await leseKontaktZeile(validated.data);
-
     // One message per person this save newly seated: unmailed, a minted link sits in the database
     // alone and the seat never confirms. Together, each settling its own send and never throwing.
     const versendet: KontaktVersand[] = await Promise.all(
@@ -133,7 +130,6 @@ export async function patchSaisonTeamKontakteAction(
           saisonId: saisonTeam.saison_id,
           mint: mint,
           anlass: "empfang",
-          zeile: zeile,
         }),
       })),
     );
@@ -191,8 +187,6 @@ export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload)
       saisonId: mintOperation.saison_id,
       mint: mint,
       anlass: "erneut",
-      // The backend sends no fresh link on a closed row (`REQ-KONTAKT-005`), so a mint here is an open row's.
-      zeile: "offen",
     });
 
     return {

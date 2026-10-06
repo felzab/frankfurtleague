@@ -9,11 +9,14 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { formWiring } from "@/shared/testing/formWiring.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
+import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError.ts";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FLPostBewerbungPayloadSchema } from "./schemas.ts";
@@ -25,6 +28,7 @@ type User = ReturnType<typeof userEvent.setup>;
 // The browser's own `fetch` rather than the transport's module: the form reaches both routes through it,
 // so a request is observed at the edge the paths are limited at.
 const fetchMock = doubleFetch();
+const turnstile = doubleTurnstile();
 
 const { raised } = doubleToasts();
 
@@ -285,6 +289,22 @@ describe("the public application form", () => {
     await settle();
   });
 
+  it("carries the token its bot check minted for the press", async () => {
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true, message: "" }))));
+    const { user, container } = renderApplicationPage();
+    await fillIn(user, container, COMPLETE_DRAFT);
+    const minted = turnstile.lastMinted();
+
+    await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    await settle();
+
+    assert.ok(minted !== undefined, "the form's widget minted nothing");
+    assert.deepEqual(
+      fetchMock.mock.calls.map(({ arguments: [, init] }) => (init?.headers as Record<string, string>)[TURNSTILE_HEADER]),
+      [minted],
+    );
+  });
+
   /* A commit whose answer was lost: the route's sentence is an administrator's reload-and-check, and
      the key makes the press it asks for a replay rather than a second application. */
   it("titles an application of unknown outcome as unclear, and asks for the same press again", async () => {
@@ -350,11 +370,13 @@ describe("the public application form", () => {
     await waitFor(() => assert.deepEqual(toastsOf("danger"), [["Bewerbung schon angekommen", SCHON_DA]]));
   });
 
-  /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's HTML and
+  /* A `limit_req` 429 is generated before either route handler runs, so it carries nginx's sentence and
      none of the always-200 envelope. Read as a transport failure it tells an applicant nothing about
      the one remedy it has, which is to wait. */
   it("answers the edge's rate limit in its own words on the availability check", async () => {
-    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response("<html>429</html>", { status: 429 })));
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } })),
+    );
     const { user, kuerzel } = await renderNewSchool();
 
     await typeInto(user, kuerzel, "GG", { leaveBox: true });

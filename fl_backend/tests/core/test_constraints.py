@@ -37,6 +37,7 @@ from app.api.einladungen.schemas import FLEinladung, FLEinladungVersand
 from app.api.registrierungen.schemas import (
     FLRegistrierung,
     FLRegistrierungBestaetigung,
+    FLRegistrierungEinwilligung,
     FLRegistrierungEntscheidung,
     FLRegistrierungStatus,
 )
@@ -49,7 +50,7 @@ from app.api.saisons.schemas import (
     FLSaisonSpielplan,
     FLSaisonStatus,
 )
-from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterBestaetigung
+from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterAdresswechsel, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
 from app.api.spiele.schemas import (
     FLSaisonPhase,
@@ -186,6 +187,8 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # The delivery state at the register's other home: one shared sub-schema in Python, and the
     # drift walk reaching each path separately (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.SCHIEDSRICHTER, ("adresswechsel",), FLSchiedsrichterAdresswechsel, frozenset()),
+    (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `gruppe` and `austritt` join from `saison_teams`, `statistik` derives from `spiele`.
     (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "austritt", "statistik"})),
     # Twice on purpose: `FLTeam` is the read shape; `FLTeamRecord` is the write echo and must match exactly.
@@ -246,9 +249,9 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.EINLADUNGEN, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `bestaetigt` is composed by the read from the consent record's own stamp and stored nowhere.
     (Collection.REGISTRIERUNGEN, (), FLRegistrierung, frozenset({"bestaetigt"})),
-    # The pupil's consent record on a third collection: widening `_EINWILLIGUNG` for any of them
-    # widens it for all three, and this row is where that shows.
-    (Collection.REGISTRIERUNGEN, ("einwilligung",), FLEinwilligung, frozenset()),
+    # The pupil's consent record on a third collection, its choices optional where a returning
+    # pupil's page asked none: a key added to `_EINWILLIGUNG` reaches it, and this row is where that shows.
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), FLRegistrierungEinwilligung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung",), FLRegistrierungBestaetigung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("entscheidung",), FLRegistrierungEntscheidung, frozenset()),
@@ -437,6 +440,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # The same Literal at the register's other home: one shared sub-schema in Python, and the drift
     # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
@@ -444,7 +448,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     # The consent vocabulary at its third home: one sub-schema in Python, and the drift walk still
     # reaches each collection's path on its own.
-    (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), True),
     (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligungQuelle), True),
     (Collection.REGISTRIERUNGEN, (), "status", get_args(FLRegistrierungStatus), False),
     # Closed on the stored row as well as the wire: the Playground writes a grant by hand.
@@ -567,6 +571,8 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # The raw token's hash is the whole credential and no model declares it, so the link cannot be
     # recovered from the editor's read of the block beside it.
     (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),
+    # The address link's hash, for the confirmation link's reason.
+    (Collection.SCHIEDSRICHTER, ("adresswechsel",)): frozenset({"token_hash"}),
     # Served on a read, every live link of the season would be recoverable from an admin page. The
     # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
     # that operation revoked the row it imaged.
@@ -955,14 +961,25 @@ def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
     assert declared.get("bsonType") == "date", f"{ttl.name} expires on {ttl.key!r}, declared as {declared.get('bsonType')!r}"
 
 
-@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
-def test_no_ttl_index_key_is_required_of_a_row(ttl):
-    """Required, the key invalidates every row the collection already held, and strict validation validates an UPDATE of one too.
+# The TTL indexes built over a collection already holding rows without the key, each by name. Its
+# rows stand unexpired (`fl_backend/tests/core/test_aktionen_validator_execution.py ::
+# test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+RETROFITTED_TTL_INDEXES = frozenset({"aktionen_retention"})
 
-    What the retention costs instead is that those rows are never expired
-    (`fl_backend/tests/core/test_aktionen_validator_execution.py :: test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+
+@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
+def test_a_ttl_key_is_required_exactly_where_no_row_predates_it(ttl):
+    """Retrofitted, a required key invalidates every row standing, strict validation refusing an UPDATE of one.
+
+    Anywhere else, an unrequired key admits a row never expired.
     """
-    assert ttl.key not in required_at(ttl.collection, ())
+    assert (ttl.key in required_at(ttl.collection, ())) is (ttl.name not in RETROFITTED_TTL_INDEXES)
+
+
+def test_every_retrofitted_ttl_index_is_one_declared():
+    """A stale name would excuse nothing while reading as a decision."""
+
+    assert RETROFITTED_TTL_INDEXES <= {ttl.name for ttl in TTL_INDEXES}
 
 
 @pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)

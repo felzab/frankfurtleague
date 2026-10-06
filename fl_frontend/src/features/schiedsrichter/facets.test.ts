@@ -21,6 +21,7 @@ function referee(id: string, held: Partial<FLSchiedsrichter> = {}): FLSchiedsric
     geburtsdatum: null,
     einwilligung: null,
     bestaetigung: null,
+    adresswechsel: null,
     ...held,
   };
 }

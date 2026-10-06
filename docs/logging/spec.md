@@ -201,7 +201,10 @@ A client component cannot reach the server-only logger, so a browser-side crash 
 nowhere. Every error boundary posts crashes **without a digest**, through
 `fl_frontend/src/shared/hooks/useReportClientCrash.ts`, to
 `POST /api/client-error`, which validates a strictly bounded payload and writes the one
-`FE-CLIENT-001` line (`fl_frontend/src/app/api/client-error/route.ts`). The route is public and
+`FE-CLIENT-001` line (`fl_frontend/src/app/api/client-error/route.ts`). **The bot check's widget
+reports through it too** (`fl_frontend/src/shared/hooks/useTurnstile.tsx :: fail`), once per form,
+because a visitor whose browser blocks Cloudflare otherwise shows only as a submission that never
+arrives. The route is public and
 unauthenticated by design, which is why nginx gives it a pair of `limit_req` zones of its own
 (`nginx/shared/http.conf :: zone=clienterr`, `:: zone=clienterr48`; [`docs/ops/spec.md`](../ops/spec.md)
 §1.3 argues the pairing) and why every field is length-capped. Its log line carries the ingest

@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -13,7 +14,6 @@ import { formatSpielDatum } from "@/shared/utils/format.ts";
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
-import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
@@ -139,10 +139,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   it("answers every code the decline publishes through the triage's mapper", async () => {
     const published = publishedRefusals(ABLEHNEN_OPERATION);
 
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-BEWERBUNG-001"],
-    );
+    assert.deepEqual(published, ["REQ-BEWERBUNG-001"]);
     for (const code of published) {
       assert.notEqual(
         answerShown(ABLEHNEN_OPERATION, code, declineMapped),
@@ -1006,7 +1003,7 @@ describe("the re-sent confirmation link", () => {
     answerWith(() => Promise.resolve(erneutGeschrieben({ token })));
     results.push(await einwilligungErneutSendenAction(ERNEUT));
     assert.ok(
-      mailed.some(({ text }) => text.includes(bestaetigungsLink(ORIGIN, token))),
+      mailed.some(({ text }) => text.includes(kontaktBestaetigungsLink(ORIGIN, token))),
       "the landed send mailed no link, so the token is judged on nothing",
     );
 

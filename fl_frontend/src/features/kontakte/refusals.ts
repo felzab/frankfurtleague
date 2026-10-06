@@ -11,10 +11,11 @@ export function mapEinladenRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // The application page's re-send words its twin refusal so (`fl_frontend/src/features/bewerbungen/refusals.ts`).
     case "REQ-KONTAKT-002":
       return buildRefusal({
-        reason: "Dieser Sitz ist inzwischen leer oder schon bestätigt",
-        repair: "Lade die Seite neu, um den aktuellen Stand zu sehen",
+        reason: "Für diese Rolle steht keine Bestätigung mehr aus",
+        repair: "Lade die Seite neu",
       });
     case "REQ-KONTAKT-003":
       return SPERRLISTE_ADRESSE_GESPERRT;
@@ -58,3 +59,14 @@ export function mapKontakteRefusal(error: unknown): string | null {
       return null;
   }
 }
+
+export const KONTAKTE_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  // Only a deploy between the label's read and the write leaves the replay naming a label the backend
+  // has moved past (`docs/backend/spec.md :: I866`).
+  "REQ-EINWILLIGUNG-001":
+    "Die Rücknahme würde eine Kontaktperson unter einer Fassung der Hinweise eintragen, die nicht mehr gilt. " +
+    "Sie wurde nicht ausgeführt. Lade die Seite neu und trage die Kontakte dort erneut ein.",
+  // The replay seats an earlier person anew, which the backend refuses for an address barred since.
+  "REQ-KONTAKT-003":
+    "Die Rücknahme würde eine Kontaktperson eintragen, deren E-Mail-Adresse inzwischen auf der Sperrliste steht. Sie wurde nicht ausgeführt.",
+};

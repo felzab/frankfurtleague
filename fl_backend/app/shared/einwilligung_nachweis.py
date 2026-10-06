@@ -13,6 +13,8 @@ Invariants:
 See: docs/glossary.md
 """
 
+import hashlib
+import json
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time
 from typing import Any, Final, Literal
@@ -26,6 +28,13 @@ ERTEILT_ZUVOR: Final = "erteilt_zuvor"
 # Who answered, on a person's record and on a seat: stored records carry them, and no write sets
 # either any longer. Who seated a seat's person is `eingetragen_von`, and the evidence names no speaker.
 SPRECHER: Final[tuple[str, ...]] = ("erteilt_von", "erfasst_von")
+
+
+def ohne_sprecher(block: Mapping[str, Any]) -> dict[str, Any]:
+    """A consent block as a write carries it onto another document: every field but a stored speaker."""
+
+    return {field: value for field, value in block.items() if field not in SPRECHER}
+
 
 FLEinwilligungWahl = Literal["umfang", "medien"]
 WAHLEN: Final[tuple[FLEinwilligungWahl, ...]] = ("umfang", "medien")
@@ -90,6 +99,13 @@ def compose_wahlen(
     return gesetzt_set
 
 
+def _nachweis_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> Mapping[str, Any] | None:
+    nachweise = block.get(NACHWEIS)
+    beleg = nachweise.get(wahl) if isinstance(nachweise, Mapping) else None
+
+    return beleg if isinstance(beleg, Mapping) else None
+
+
 def _am_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> datetime | None:
     nachweise = block.get(NACHWEIS)
     beleg = nachweise.get(wahl) if isinstance(nachweise, Mapping) else None
@@ -98,20 +114,21 @@ def _am_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> datetime | Non
 
 
 def nachweis_stand_of(*, bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligungWahl]) -> dict[str, str | None]:
-    """Per choice, the latest instant these blocks' evidence carries, as stored: what a consent PATCH echoes back.
+    """Per choice, a digest of each block's value and evidence; null where none carries evidence.
 
-    The latest over several blocks, because one press moves every block it is given and stamps them one instant.
+    Never the evidence's instant, stamped to the second: a page served between two acts in one second
+    would re-grant what the second withdrew.
     """
 
     stand: dict[str, str | None] = {}
     for wahl in wahlen:
-        latest: tuple[datetime, str] | None = None
-        for block in bloecke:
-            am = _am_of(block, wahl) if isinstance(block, Mapping) else None
-            if am is not None and (latest is None or am > latest[0]):
-                # Served as stored, so the echo compares equal to the very string the read found.
-                latest = (am, block[NACHWEIS][wahl]["am"])
-        stand[wahl] = None if latest is None else latest[1]
+        gesetzt = [[block.get(wahl), _nachweis_of(block, wahl)] for block in bloecke if isinstance(block, Mapping)]
+        if all(beleg is None for _, beleg in gesetzt):
+            stand[wahl] = None
+            continue
+        # Sorted keys and `sha256`, as `app/api/teams/schemas.py :: kontakte_stand_of` digests a block.
+        canonical = json.dumps(gesetzt, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+        stand[wahl] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     return stand
 
@@ -143,7 +160,13 @@ def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Map
     A choice moves only where it was set there later (`docs/backend/spec.md :: I867`), and only with evidence to carry.
     """
 
-    gesetzt: dict[str, Any] = {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS, *SPRECHER)}
+    # The day and the label, `datum` with them, only from a confirmation no older than the stored one:
+    # an older registration admitted after a newer one would date and name the record backwards.
+    neu_am, alt_am = erneuert.get("bestaetigt_am"), gespeichert.get("bestaetigt_am")
+    juenger = not (isinstance(alt_am, str) and alt_am) or (isinstance(neu_am, str) and neu_am >= alt_am)
+    gesetzt: dict[str, Any] = (
+        {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS, *SPRECHER)} if juenger else {}
+    )
     for wahl in WAHLEN:
         neu, alt = beleg_of(erneuert, wahl, stamp=stamp), beleg_of(gespeichert, wahl, stamp=stamp)
         if wahl not in erneuert or neu is None or neu[1] is None or (alt is not None and neu[0] <= alt[0]):

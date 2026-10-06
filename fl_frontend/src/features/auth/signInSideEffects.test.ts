@@ -78,7 +78,7 @@ const NEXT_SERVER_DOUBLE = overridingModule(import.meta.resolve("next/server"), 
 const { sent } = registerAuthDoubles({
   // Passed at its module: this file's subject is what the gate does past the bot check, which
   // `fl_frontend/src/features/auth/actions.test.ts` drives at the network edge.
-  core: { turnstile: { passesTurnstile: () => Promise.resolve(true), MENSCH_BESTAETIGEN: "" } },
+  core: { turnstile: { turnstileRefusal: () => Promise.resolve(null) } },
   specifiers: {
     // Both spellings: the application imports the bare one, and `nextCookies()` reaches for the
     // extension itself -- so a double on one alone leaves the cookie writer on the real module.

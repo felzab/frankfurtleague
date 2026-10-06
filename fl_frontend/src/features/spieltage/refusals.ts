@@ -31,3 +31,11 @@ export function mapSpieltagRefusal(error: unknown): { error?: string; fieldError
   }
   return null;
 }
+
+/** The refusals a replay can meet, in German — none of them has a field to land on from a toast. */
+export const SPIELTAG_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  "REQ-DATE-002": "Der ursprüngliche Zeitraum liegt nicht mehr im Zeitraum der Saison.",
+  "REQ-DATE-003": "Mindestens ein Spiel dieses Spieltags liegt außerhalb des ursprünglichen Zeitraums.",
+  "REQ-DATE-008":
+    "Der ursprüngliche Beginn dieses Spieltags passt nicht mehr in die Reihenfolge der Spieltage seiner Phase, die schon einen Zeitraum haben.",
+};

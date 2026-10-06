@@ -414,10 +414,7 @@ describe("the junction edit's refusals", () => {
   /* `PATCH /teams/{team_id}` is a prefix of it, and the club patch refuses on no rule: its one refusal,
      the duplicate shorthand, the undo route words with the junction's table. */
   it("reads the junction patch's own rules, and none on the club patch", () => {
-    assert.deepEqual(
-      publishedRefusals(JUNCTION_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"],
-    );
+    assert.deepEqual(publishedRefusals(JUNCTION_OPERATION), ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"]);
     assert.deepEqual(
       publishedRefusals(EDIT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       [],

@@ -17,7 +17,7 @@ doubleActionRequest({ subject: person({ sitze: [sitz()] }) });
 
 const { NextRequest } = await import("next/server");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
-const { GESPERRT_KEINE_AENDERUNG, ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
+const { GESPERRT_KEINE_AENDERUNG, HEUTE_GENUG_GEAENDERT, ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { runPersonMutation, runPersonRecordMutation } = await import("@/shared/utils/personMutation.ts");
 const { handlePublicRequest } = await import("@/shared/utils/publicRoute.ts");
@@ -30,7 +30,7 @@ const EINZELNE_ANGABEN_ABGELEHNT = "Einzelne Angaben wurden nicht übernommen. L
  * The classes whose codes `fl_frontend/src/core/errors.ts :: isRefusalCode` hands no slice mapper. Never `REQ-ROUTE-`:
  * the router answers it where no operation matched, so no operation publishes it.
  */
-const SPINE_CLASSES = /^REQ-(?:AUTH|VAL)-/;
+const SPINE_CLASSES = /^REQ-(?:AUTH|VAL|DROSSELUNG)-/;
 
 /** A code of the same class the backend declares nowhere, answered as a code no reader names is. */
 const unclaimedBeside = (code: string): string => code.replace(/\d{3}$/, "000");
@@ -97,6 +97,11 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
     words: EINZELNE_ANGABEN_ABGELEHNT,
     because: "a retry resends the unreadable body unchanged, and only a reload replaces the page that built it",
   },
+  "REQ-DROSSELUNG-001": {
+    kind: "worded",
+    words: HEUTE_GENUG_GEAENDERT,
+    because: "the count starts again at German midnight, so a retry and a sign-in meet the same refusal before then",
+  },
 };
 
 /** One such code as the document publishes it: on which operation, at which status, under which key. */
@@ -159,7 +164,7 @@ async function shownBySpines(
       mutationName: "protocolCoverage",
       schema: z.object({}),
       restore: () => Promise.reject(refusal),
-      invalidate: () => undefined,
+      tags: () => [],
     });
 
     return {
@@ -180,7 +185,7 @@ async function shownBySpines(
   throw new Error(`no write spine sends a ${String(tier)}-tier call; say who answers ${refusal.serverErrorCode ?? ""} there`);
 }
 
-describe("every published credential and request-validation code against the answer a person meets", () => {
+describe("every published credential, request-validation and day-ceiling code against the answer a person meets", () => {
   /* Two listings reached by different routes, the document's and this table's, required to agree. */
   it("names an answer for exactly the codes of those classes the document publishes", () => {
     const published = [...new Set(PUBLISHED.map(({ code }) => code))];

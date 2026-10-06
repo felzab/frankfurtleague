@@ -1,5 +1,5 @@
-import { KONTAKT_EMAIL } from "@/core/brand";
 import { getEinwilligungFassung, getLaufendeFassung } from "@/core/einwilligung";
+import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ABLEHNEN_LABEL, rollenLangform } from "@/features/bewerbungen/constants";
 import { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } from "@/features/kontakte/personActions";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER, SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
@@ -24,7 +24,7 @@ import type { EinwilligungEintrag } from "../forms/EinwilligungForm/Einwilligung
 import type { Fuellung } from "../forms/EinwilligungForm/kontoWorte";
 
 /** The values every confirmation page names alike: the league's address and the erasure control's own name. */
-const KONSTANTEN: Fuellung = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen", medienMinAlter: String(MEDIEN_MIN_ALTER) };
+const KONSTANTEN: Fuellung = { ...FESTE_WERTE, medienMinAlter: String(MEDIEN_MIN_ALTER) };
 
 /** The words a record's person confirmed, or `null` where the record names no label the registry holds. */
 async function bestaetigt(textVersion: string | null, fuellung: Fuellung) {

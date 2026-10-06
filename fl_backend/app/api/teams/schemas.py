@@ -40,7 +40,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLMedienStand, FLMedienStandPayload
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -94,9 +94,17 @@ FLTrikotFarbe = Literal[
 # seat: the two are alternatives, and nothing can mean holding both.
 FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
 
-# The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
-# derives the same three from the model, and a test holds the two spellings equal.
+# The three seats as a closed set, for the wire, in the order `FLSaisonTeamKontakte` declares them;
+# `tests/api/test_kontakt_erasure_execution.py :: test_every_slot_the_model_declares_is_covered` holds
+# the two equal, order included.
 FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+
+# The one spelling of the seat set every module iterates, so a fourth seat is added in one place.
+KONTAKT_ROLLEN: tuple[FLKontaktRolle, ...] = get_args(FLKontaktRolle)
+
+# A season row as a link minted on it sees it: open, or closed by its season ending, which outranks
+# its team having left it.
+FLKontaktZeile = Literal["offen", "saison_vorbei", "ausgetreten"]
 
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
@@ -623,19 +631,24 @@ class FLPatchSaisonTeamKontaktePayload(BaseModel):
     kontakte_stand: str
 
 
-class FLSaisonTeamPersonEinwilligungPayload(BaseModel):
-    """A seat holder's own media answer for every seat they hold on one team's season row.
+class SitzEinwilligungPayload(BaseModel):
+    """A seat holder's own two choices for every seat they hold on one row, under the name each seat control publishes.
 
-    No `umfang`: a seat's scope is its contact scope, which this write leaves alone.
+    Both choices on every press: a page that sent one alone would leave the other judged by nothing.
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     # The label of the account page's seat control the press was given under, recorded on its evidence.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
     # The row's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I995`).
-    nachweis_stand: FLMedienStandPayload
+    nachweis_stand: FLEinwilligungStandPayload
+
+
+class FLSaisonTeamPersonEinwilligungPayload(SitzEinwilligungPayload):
+    pass
 
 
 class FLReplaceSaisonTeamPayload(BaseModel):
@@ -776,6 +789,9 @@ class FLKontaktMint(BaseModel):
     # seated, and the club under the name it carries in that season, the link's own page saying the same.
     vorname: str
     schule: str
+    # The row's state in the same transaction, so the mail asks what the link's page takes: a closed
+    # row's link takes the Widerspruch alone (`docs/backend/spec.md :: I935`).
+    zeile: FLKontaktZeile
 
 
 class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
@@ -853,7 +869,7 @@ class FLTeamSitz(BaseModel):
 
 
 class FLTeamSitzeResponse(BaseAPIResponse):
-    """A team's three seats in one season, in the order `app/api/kontakte/services.py :: KONTAKT_SLOTS` reads them."""
+    """A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them."""
 
     team_id: CustomObjectId
     saison_id: str
@@ -861,14 +877,15 @@ class FLTeamSitzeResponse(BaseAPIResponse):
 
 
 class FLSaisonTeamPersonEinwilligungResponse(BaseAPIResponse):
-    """Which of the row's seats the press reached, and the media answer they now all hold."""
+    """Which of the row's seats the press reached, and the two answers they now all hold."""
 
     team_id: CustomObjectId
     saison_id: str
     rollen: list[FLKontaktRolle]
+    umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     # The precondition a next press on this row echoes.
-    nachweis_stand: FLMedienStand
+    nachweis_stand: FLEinwilligungStand
 
 
 FLTeamsResponse = Annotated[

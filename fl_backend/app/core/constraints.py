@@ -173,8 +173,8 @@ _NACHWEIS = _object(required=(), properties={"umfang": _NACHWEIS_WAHL, "medien":
 
 
 # Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
-# the consent is UNCONFIRMED rather than absent. Read by `spieler`, `schiedsrichter` and
-# `registrierungen` alike, so widening `umfang` for one widens it for all three.
+# the consent is UNCONFIRMED rather than absent. Spread into the registration's own below, so
+# widening `umfang` here widens it on all three collections.
 _EINWILLIGUNG = _object(
     required=("umfang", "datum", "bestaetigt_am"),
     properties={
@@ -189,6 +189,19 @@ _EINWILLIGUNG = _object(
         "text_version": {"bsonType": _STRING_OR_NULL},
         "medien": {"bsonType": "bool"},
         "nachweis": _NACHWEIS,
+    },
+)
+
+# A pending registration's: `bestaetigt_am` alone required and both choices nullable, a returning
+# pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would then
+# pass without a scope.
+_REGISTRIERUNG_EINWILLIGUNG = _object(
+    nullable=True,
+    required=("bestaetigt_am",),
+    properties={
+        **_EINWILLIGUNG["properties"],
+        "umfang": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_UMFANG, None]},
+        "medien": {"bsonType": ["bool", "null"]},
     },
 )
 
@@ -321,6 +334,22 @@ _SCHIEDSRICHTER_BESTAETIGUNG = _object(
         "frist": {"bsonType": "string"},
         # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason: a mint knows nothing yet about
         # the message its link goes out in.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
+# A confirmed referee's address waiting on its own mailbox. Never `_SCHIEDSRICHTER_BESTAETIGUNG`:
+# nothing reminds about this link, and the address it proves is the block's own.
+_SCHIEDSRICHTER_ADRESSWECHSEL = _object(
+    nullable=True,
+    required=("email", "token_hash", "verschickt_am", "frist"),
+    properties={
+        "email": {"bsonType": "string"},
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
+        "frist": {"bsonType": "string"},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
         "zustellung": _ZUSTELLUNG,
     },
 )
@@ -820,6 +849,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # a row never minted a link carry none, and correcting a retired referee's address
                 # removes it (`app/api/schiedsrichter/services.py :: compose_korrektur_update`).
                 "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
+                # A delivery carrier too. Out of `required`: only a confirmed referee whose address
+                # an administrator moved carries one, until its mailbox answers.
+                "adresswechsel": _SCHIEDSRICHTER_ADRESSWECHSEL,
                 # Out of `required` for the first two of `bestaetigung`'s reasons, and nullable
                 # besides: only the person's own confirmation writes it, so a live row awaiting one
                 # carries null.
@@ -1007,7 +1039,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Required as KEYS and null until the pupil's own confirmation writes both in one
                 # `$set` (`docs/backend/spec.md :: I285`).
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
-                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
+                "einwilligung": _REGISTRIERUNG_EINWILLIGUNG,
                 # Out of `required` as the other two carriers are (`app/api/zustellung/services.py
                 # :: ZIEL_PFADE`): the accepted send skips a row holding no carrier at all, and a
                 # row seeded without one still stores. Every submission composes it.
@@ -1093,7 +1125,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.DROSSELUNG: {
         "$jsonSchema": _object(
-            required=("_id", "n"),
+            # `ablauf` too: the collection held no row before its TTL index, and a row without it is never expired.
+            required=("_id", "n", "ablauf"),
             properties={
                 # `<Funktion>:<pseudonym>:<YYYY-MM-DD>`, so a new German day is a new row and no reset is written.
                 "_id": {"bsonType": "string"},
@@ -1291,6 +1324,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "schiedsrichter_bestaetigung_token_hash",
         (("bestaetigung.token_hash", ASCENDING),),
         "the referee confirmation page's lookup, driven by strangers",
+    ),
+    # PLAIN for the index above's reason.
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_adresswechsel_token_hash",
+        (("adresswechsel.token_hash", ASCENDING),),
+        "the referee address page's lookup, driven by strangers",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
     # key holds as many rows as the team has been reissued links.

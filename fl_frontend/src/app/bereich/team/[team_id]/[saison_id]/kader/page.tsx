@@ -1,12 +1,9 @@
 import { connection } from "next/server";
 
-import { funktionenOf } from "@/core/funktionen";
-import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
-import { requireSubjectSession, requireTeamSeats } from "@/features/funktionen/resolvers";
+import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { teamHref } from "@/features/funktionen/teamSeats";
 import { KaderView } from "@/features/spieler/components/views/KaderView";
 import { getKader } from "@/features/spieler/queries";
-import { isFunktionLost } from "@/shared/utils/actionError";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -17,19 +14,12 @@ export default async function KaderPage({ params }: NextPageProps<{ team_id: str
   if (seats === null) return null;
 
   const { team_id, saison_id } = await params;
-  let kader;
-  try {
-    kader = await getKader(team_id, saison_id);
-  } catch (error) {
-    // The seat went between the page's own check and the backend's: the page answers as the shell does
-    // for a seat not held, and every other failure is the area's boundary's.
-    if (!isFunktionLost(error)) throw error;
-    return <TeamForbiddenPanel funktionen={funktionenOf(await requireSubjectSession()).funktionen} />;
-  }
+  const read = await readAsSeatHolder(() => getKader(team_id, saison_id));
+  if ("forbidden" in read) return read.forbidden;
 
   return (
     <KaderView
-      kader={kader.kader}
+      kader={read.data.kader}
       kaderHref={`${teamHref(team_id, saison_id)}/kader`}
       registrierungenHref={`${teamHref(team_id, saison_id)}/registrierungen`}
     />

@@ -627,12 +627,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     }
   });
 
-  /* The record missing is an application the link named and nothing holds now: the dead-link panel,
-     never the admin's „nicht gefunden“ with a reload. */
-  it("answers the link's record gone as the link void", () => {
-    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "DB-COMMON-001"), VERTRETUNG_MIN_ALTER), { zustand: "ungueltig" });
-  });
-
   /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
      refusal is a token nothing could place. */
   it("calls the link void on every refusal its read publishes", () => {
@@ -742,11 +736,6 @@ describe("mapEinwilligungAnsichtRefusal", () => {
      is answered by the dead-link panel rather than by the state inviting a reload that cannot work. */
   it("reads a token the backend will not parse as a link nothing matches", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen")), "ungueltig");
-  });
-
-  /* The record the link names gone is as dead a link, as the confirmation answers it. */
-  it("calls the link void where the record it names is gone", () => {
-    assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "DB-COMMON-001")), "ungueltig");
   });
 
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link

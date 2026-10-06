@@ -13,7 +13,7 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { ABSATZ_CLASSES, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AdresseGesperrt,
@@ -51,7 +51,8 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { GekeyteFassung, SchiedsrichterAbsatzSchluessel } from "@/core/einwilligungSeiten";
@@ -105,9 +106,6 @@ const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
  * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
  */
 const EIGENE_SLOTS = new Set(["vorname"]);
-
-/** The words every reader's copy fills alike; the rest come off the record the page was opened with. */
-const KONSTANTEN = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen" } as const;
 
 /** A stamped sentence, filled as `:: Gefuellt` fills one. */
 function Absatz({ text, werte }: { text: string; werte: Slots }) {
@@ -278,7 +276,7 @@ function SchiedsrichterFormPanel({
   const panel = formPanel();
   const klickPunkteId = useId();
 
-  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter), vorname: vorname };
+  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter), vorname: vorname };
 
   // Built from the floor the link answered, never a module constant: a schema on a floor of its own
   // would let the press through at a number the endpoint refuses.
@@ -321,25 +319,21 @@ function SchiedsrichterFormPanel({
     // so bare it commits before the pending state lifts.
     startSending(() => {
       if (!antwort.success) {
-        // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
-        // sentence is an administrator's repair, and a reload of this page has lost its token.
-        if (antwort.outcome === "unknown") {
-          appToast.danger(UNKLAR_TITEL, { description: ANTWORT_UNKLAR });
-          return;
-        }
-
-        // The link died between the open and the press: the answer is the panel, never a toast.
-        if (antwort.zustand !== undefined) {
-          onAbschluss({ zustand: antwort.zustand });
-          return;
-        }
-
-        // The hook owns the press's one toast: none where a field shows the refusal.
-        reportSubmitFailure(
-          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-          { bestaetigung: payload },
-          { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
-        );
+        reportRefusedConfirmation(antwort, {
+          onZustand: (zustand) => onAbschluss({ zustand }),
+          // The hook owns the press's one toast: none where a field shows the refusal.
+          onRefusal: () =>
+            reportSubmitFailure(
+              {
+                success: false,
+                error: antwort.error ?? NICHT_GESPEICHERT,
+                fieldErrors: antwort.fieldErrors,
+                unplacedError: antwort.unplacedError,
+              },
+              { bestaetigung: payload },
+              { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
+            ),
+        });
         return;
       }
 

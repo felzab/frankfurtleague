@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachRefusalCloses, assertEachRowPublished, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /** The stored block the press replays, and the token the save left, as the editor builds them. */
 const BODY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "9f2c" };
@@ -41,6 +41,7 @@ const MINT = {
   vorname: "Ada",
   schule: "Lessing-Kolleg",
   frist: "2026-10-17",
+  zeile: "offen",
 };
 
 /** The replay's answer as the backend sends it: the row's block, and the token the replay left. */
@@ -61,63 +62,12 @@ const mail = doubleSendMail();
 registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
 /** The stored rows a stale replay is judged against: none, so only a replay seating somebody moves a link. */
 const NO_CLUB = { acknowledged: 1, teams: [] };
-/** The club holding the replayed season's row, its block empty: the row a closed season's state is read off. */
-const ROW_HELD = {
-  acknowledged: 1,
-  teams: [
-    {
-      id: BODY.team_id,
-      name: "Lessing-Kolleg",
-      shorthand: "LK",
-      full_name: "Lessing-Kolleg Frankfurt",
-      description: "",
-      website_url: null,
-      schulform: null,
-      inactive_since: null,
-      address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [{ saison_id: BODY.saison_id, gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "9f2c" }],
-    },
-  ],
-};
 type Answer = NonNullable<Parameters<typeof doubleApiAnswers>[0]>;
-/** The status the season list gives the replayed row's season; only the status is read. */
-let saisonStatus: "past" | "active" = "active";
-const saisonListe = () => ({
-  acknowledged: 1,
-  format: "list",
-  saisons: [
-    {
-      id: BODY.saison_id,
-      start_date: "2026-03-01",
-      end_date: "2026-07-01",
-      status: saisonStatus,
-      rules: {
-        win_points: 3,
-        draw_points: 1,
-        qualifiers_per_group: 2,
-        number_of_groups: 2,
-        teams_per_group: 4,
-        max_kadergroesse: 18,
-        tiebreak_order: "tordifferenz",
-        forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-        erlaubte_stufen: ["E1", "Q1"],
-      },
-      schedule: [],
-      spielplan: null,
-      bewerbung: null,
-      registrierung: null,
-    },
-  ],
-});
-/** `answer`, with the running labels and the season list a replay seating somebody reads first. */
+/** `answer`, with the running labels read off the registry, which a replay seating somebody reads first. */
 const mitSeiten =
   (answer: Answer): Answer =>
   (call) =>
-    call.endpoint === "/einwilligung/seiten"
-      ? Promise.resolve(einwilligungAnswer(call.endpoint))
-      : call.endpoint === "/saisons/list/admin"
-        ? Promise.resolve(saisonListe())
-        : answer(call);
+    call.endpoint === "/einwilligung/seiten" ? Promise.resolve(einwilligungAnswer(call.endpoint)) : answer(call);
 const doubled = doubleApiAnswers(
   mitSeiten(({ endpoint }) =>
     Promise.resolve(
@@ -128,6 +78,7 @@ const doubled = doubleApiAnswers(
 const { calls } = doubled;
 const answerWith = (answer: Answer) => doubled.answerWith(mitSeiten(answer));
 const { POST } = await import("./route.ts");
+const { KONTAKTE_REPLAY_REFUSALS } = await import("@/features/kontakte/refusals.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 
 /** What `fl_frontend/src/features/kontakte/mutations.ts :: patchSaisonTeamKontakte` sends, as the backend's own routes spell it. */
@@ -144,10 +95,6 @@ const saveOf = ({ team_id, saison_id, ...block }: { team_id: string; saison_id: 
 const STALE_BLOCK = "REQ-KONTAKT-001";
 
 describe("the contacts save's undo", () => {
-  beforeEach(() => {
-    saisonStatus = "active";
-  });
-
   it("replays the save's own payload through the save's own write", async () => {
     const answer = await undo(POST, BODY);
 
@@ -207,7 +154,7 @@ describe("the contacts save's undo", () => {
   /* No cached read holds a contact person, so an invalidation here would clear what the replay never moved. */
   it("clears no cached read, whether the replay lands or is refused", async () => {
     await undo(POST, BODY);
-    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, DUPLICATE_KEY)));
+    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-KONTAKT-003")));
     await undo(POST, BODY);
 
     assert.deepEqual(cacheCalls, []);
@@ -271,14 +218,13 @@ describe("the contacts save's undo", () => {
   /* A replay seating somebody on a season that is over mints a link taking the Widerspruch alone, so
      its message asks for no confirmation, as the save's own does. */
   it("mails a person a replay put back on a season that is over the Widerspruch alone", async () => {
-    saisonStatus = "past";
     answerWith(({ endpoint }) =>
       Promise.resolve(
         endpoint.startsWith("/zustellung/")
           ? { acknowledged: 1, angewendet: true }
           : endpoint === "/teams/memberships"
-            ? ROW_HELD
-            : replayed(1, [MINT]),
+            ? NO_CLUB
+            : replayed(1, [{ ...MINT, zeile: "saison_vorbei" }]),
       ),
     );
 
@@ -308,5 +254,11 @@ describe("the contacts save's undo", () => {
     answerWith(() => Promise.resolve(replayed(0)));
 
     assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten."));
+  });
+});
+
+describe("the replay table against the replayed endpoint", () => {
+  it("words only codes the replayed endpoint publishes", () => {
+    assertEachRowPublished(KONTAKTE_REPLAY_REFUSALS, REPLAY_OPERATION);
   });
 });

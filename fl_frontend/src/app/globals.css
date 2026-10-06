@@ -2,8 +2,8 @@
    does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`;
    which stylesheet a component belongs in is `docs/frontend/spec.md` §1.11. */
 
-/* Three entries back no direct import: `disclosure` reaches `Accordion` through `accordion__heading`
-   alone, `spinner` is `Button`'s loading state, and `empty-state` is `ListBox`'s `renderEmptyState`. */
+/* Two entries back no direct import: `spinner` is `Button`'s loading state, and `empty-state` is
+   `ListBox`'s `renderEmptyState`. `disclosure` serves both `Accordion`'s heading and `Disclosure` itself. */
 @layer theme, base, components, utilities;
 
 @import "tailwindcss";

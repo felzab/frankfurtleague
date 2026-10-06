@@ -13,6 +13,7 @@ import {
   KONTAKT_BEDIEN_SCHLUESSEL,
   SCHIEDSRICHTER_ABSATZ_SCHLUESSEL,
   SPIELER_ABSATZ_SCHLUESSEL,
+  SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL,
 } from "./einwilligungSeiten.ts";
 
 import type { FLEinwilligungFassung } from "./schemas.ts";
@@ -61,6 +62,8 @@ const KONTAKT_SAISON = publishedLaufendeFassung("bestaetigung_kontakt_saison", D
 /** Every contact page's running label, which the link's view picks among. */
 const KONTAKTSEITEN = [KONTAKT, KONTAKT_VERWALTUNG, KONTAKT_SAISON];
 const SPIELER = publishedLaufendeFassung("bestaetigung_spieler", DOCUMENT);
+/** The pupil page a returning pupil's link opens, which asks no choice. */
+const SPIELER_WIEDERKEHREND = publishedLaufendeFassung("bestaetigung_spieler_wiederkehrend", DOCUMENT);
 const SCHIEDSRICHTER = publishedLaufendeFassung("bestaetigung_schiedsrichter", DOCUMENT);
 const UMFANG = ["kader_oeffentlich", "intern"] as const;
 
@@ -148,6 +151,7 @@ describe("the running label", () => {
       ["bestaetigung_kontakt_verwaltung", KONTAKT_VERWALTUNG],
       ["bestaetigung_kontakt_saison", KONTAKT_SAISON],
       ["bestaetigung_spieler", SPIELER],
+      ["bestaetigung_spieler_wiederkehrend", SPIELER_WIEDERKEHREND],
       ["bestaetigung_schiedsrichter", SCHIEDSRICHTER],
     ] as const) {
       assert.equal(await getLaufendesLabel(seite), DOCUMENT.laufende_fassungen[seite]);
@@ -159,7 +163,22 @@ describe("the running label", () => {
     beginRenderPass();
     api.answerWith(() => Promise.resolve({ acknowledged: 1, laufende_fassungen: { bewerbung: BEWERBUNG.text_version } }));
 
-    await assert.rejects(getLaufendesLabel("bestaetigung_kontakt"), /runs no label for the page bestaetigung_kontakt/);
+    await assert.rejects(getLaufendesLabel("bestaetigung_kontakt"), {
+      name: "ContractBreakError",
+      message: /runs no label for the page bestaetigung_kontakt/,
+    });
+  });
+
+  /* Thrown as a contract break, which every page's degraded catch hands to the error boundary. */
+  it("throws for a running label the backend serves no words for", async () => {
+    beginRenderPass();
+    api.answerWith((endpoint) =>
+      endpoint === "/einwilligung/seiten"
+        ? Promise.resolve({ acknowledged: 1, laufende_fassungen: { bewerbung: "2026-01-nirgends" } })
+        : Promise.resolve(einwilligungAnswer(endpoint)),
+    );
+
+    await assert.rejects(getLaufendeFassung("bewerbung"), { name: "ContractBreakError", message: /runs 2026-01-nirgends on bewerbung/ });
   });
 });
 
@@ -170,6 +189,7 @@ describe("a page's keyed words", () => {
     for (const [fassung, schluessel, bedien] of [
       ...KONTAKTSEITEN.map((kontakt) => [kontakt, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL] as const),
       [SPIELER, SPIELER_ABSATZ_SCHLUESSEL, UMFANG] as const,
+      [SPIELER_WIEDERKEHREND, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL, UMFANG] as const,
       [SCHIEDSRICHTER, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG] as const,
     ]) {
       const { absaetze } = gekeyteFassung(fassung, schluessel, bedien);
@@ -235,8 +255,10 @@ describe("the wording the backend runs", () => {
 
   /* Its own case rather than a third entry in the array above: a registration's deadline is seven
      days from the mail with no re-send, so that case's two sentences are false of this page. */
-  it("points the live pupil label at a wording naming the seven days a registration has", () => {
-    assert.ok(SPIELER.absaetze.join(" ").includes("sieben Tagen"), `${SPIELER.text_version} states no deadline a pupil can count`);
+  it("points both live pupil labels at a wording naming the seven days a registration has", () => {
+    for (const { text_version, absaetze } of [SPIELER, SPIELER_WIEDERKEHREND]) {
+      assert.ok(absaetze.join(" ").includes("sieben Tagen"), `${text_version} states no deadline a pupil can count`);
+    }
   });
 
   /* The three other periods read as exhausting the outcomes, so a reader whose own confirmation

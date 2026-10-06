@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { judging } from "@/core/verdicts.ts";
+import { srcPathOf } from "@/shared/testing/actionLanes.ts";
 import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
@@ -31,11 +33,14 @@ const WRITE_MODULE = /\/(?:mutations|notifications)\.ts$|\/core\/mail\.ts$/;
 export function doubleActions({
   modules,
   answer = () => Promise.resolve({ success: true, message: "Gespeichert." }),
+  payloadOf = (args) => args[0],
 }: {
   /** Each module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. */
   modules: readonly (string | RegExp)[];
   /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
   answer?: () => Promise<unknown>;
+  /** The argument recorded as a call's payload: a form action under `useActionState` is handed the previous state first. */
+  payloadOf?: (args: readonly unknown[]) => unknown;
 }): {
   calls: ActionCall[];
   answerWith: (next: () => Promise<unknown>) => void;
@@ -80,8 +85,8 @@ export function doubleActions({
   };
   const act =
     (action: string) =>
-    async (payload: unknown): Promise<unknown> => {
-      calls.push({ action, payload });
+    async (...args: unknown[]): Promise<unknown> => {
+      calls.push({ action, payload: payloadOf(args) });
       return answerOf(action);
     };
 
@@ -121,12 +126,11 @@ export function doubleActions({
 }
 
 /**
- * Every slice's actions module, for a suite in which no case saves: a real write module loads the
+ * Every server action module, for a suite in which no case saves: a real write module loads the
  * sign-in store and its database driver into the render, which is most of such a suite's time.
  */
 export function doubleEveryAction(): ReturnType<typeof doubleActions> {
-  // Both lanes' modules: a person's actions load the same sign-in store an administrator's do.
-  return doubleActions({ modules: [/\/src\/features\/\w+\/(?:actions|personActions)\.ts$/] });
+  return doubleActions({ modules: serverActionModules(20).map((file) => `/src/${srcPathOf(file)}`) });
 }
 
 /** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */

@@ -8,6 +8,7 @@ from app.api.einwilligung.schemas import FLEinwilligungFassung
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite
+from app.shared.einwilligung_nachweis import ist_erteilt
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # What the code refuses is `fl_backend/app/core/domain.py :: RULES`. One code for every write that
@@ -78,14 +79,15 @@ def medien_angeboten(*, geburtsdatum: Any, today: str) -> bool:
         return False
 
 
-def find_selbst_medien_refusal(*, geburtsdatum: Any, medien_erteilt: bool, today: str) -> WriteRefusal | None:
+def find_selbst_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: Any, today: str) -> WriteRefusal | None:
     """Why a media consent moving to `true` is refused, judged on the birthdate the write leaves.
 
-    Only a move is judged: a stored `true` resent beside the other switch grants nothing, and refusing
-    it would block that switch.
+    Only a move off the stored block is judged, so a resent `true` never blocks the other switch; a
+    confirmation passes `None`.
     """
 
-    if not medien_erteilt or medien_angeboten(geburtsdatum=geburtsdatum, today=today):
+    stand_erteilt = isinstance(gespeichert, Mapping) and ist_erteilt("medien", gespeichert.get("medien"))
+    if not medien or stand_erteilt or medien_angeboten(geburtsdatum=geburtsdatum, today=today):
         return None
 
     return WriteRefusal(

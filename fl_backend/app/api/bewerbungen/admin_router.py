@@ -285,7 +285,7 @@ async def ablehnen_bewerbung(
     f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/erneut",
     response_model=FLBewerbungEinwilligungErneutResponse,
     summary="Re-send one seat's confirmation link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def erneut_einwilligung(
@@ -379,9 +379,9 @@ async def erneut_einwilligung(
     try:
         matched = await mint_on(seats)
     except DocumentNotFoundException:
-        # Judged again rather than answered as a miss, as the decline answers its race
-        # (`app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung`), so a link is refused for the
-        # reason it is refused.
+        # The judgement above was read outside the write's transaction, so a decision or an answer
+        # landing between them leaves the filter matching nothing. Judged again rather than answered as
+        # a miss, so the refusal names what moved.
         reread = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
         seats = seats_judged_on(reread)
         # A re-read that passes is a row that moved back between the two, a decline and then a reseat:
@@ -397,7 +397,7 @@ async def erneut_einwilligung(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}/email",
     response_model=FLBewerbungKontaktEmailResponse,
     summary="Correct one contact person's email address and re-send their link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def korrigiere_kontakt_email(
@@ -486,7 +486,7 @@ async def korrigiere_kontakt_email(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
     response_model=FLBewerbungKontaktSitzResponse,
     summary="Seat another person where a contact person stepped out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def besetze_kontakt_sitz(

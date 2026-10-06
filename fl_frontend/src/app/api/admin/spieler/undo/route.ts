@@ -1,10 +1,8 @@
-import { revalidateTag } from "next/cache";
-
 import { z } from "zod";
 
 import { patchSaisonSpieler, patchSpieler } from "@/features/spieler/mutations";
+import { SQUAD_REPLAY_REFUSALS } from "@/features/spieler/refusals";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
-import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
@@ -17,17 +15,6 @@ const UndoRequestSchema = z
   .refine((body) => body.person !== undefined || body.saison !== undefined, {
     error: "Nothing to restore",
   });
-
-/**
- * The refusals the squad half of a replay can meet, in German written for the undo — the save's own
- * words send an admin to the team picker, which this toast has not got.
- */
-const REPLAY_REFUSALS: Record<string, string> = {
-  "REQ-SQUAD-001": "Das ursprüngliche Team dieses Kadereintrags nimmt nicht mehr an dieser Saison teil.",
-  "REQ-SQUAD-003": "Der Kader des ursprünglichen Teams ist für diese Saison inzwischen voll.",
-  "REQ-SQUAD-004": "Die ursprüngliche Rolle ist in diesem Team inzwischen an einen anderen Spieler vergeben.",
-  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
-};
 
 /** What closes a refusal where the person half went back first, which the change standing would deny. */
 const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";
@@ -50,7 +37,9 @@ export async function POST(request: NextRequest) {
         try {
           operation = await patchSaisonSpieler(saison);
         } catch (error) {
-          return person === undefined ? refusedReplay(error, REPLAY_REFUSALS) : refusedReplay(error, REPLAY_REFUSALS, PERSON_HALF_RESTORED);
+          return person === undefined
+            ? refusedReplay(error, SQUAD_REPLAY_REFUSALS)
+            : refusedReplay(error, SQUAD_REPLAY_REFUSALS, PERSON_HALF_RESTORED);
         }
 
         if (!operation.acknowledged) {
@@ -66,8 +55,6 @@ export async function POST(request: NextRequest) {
 
       return {};
     },
-    invalidate: () => {
-      revalidateTag("spieler", { expire: 0 });
-    },
+    tags: () => ["spieler"],
   });
 }

@@ -13,6 +13,11 @@ export type SchiedsrichterAnsichtGeoeffnet = FLSchiedsrichterBestaetigungAnsicht
 
 export type SchiedsrichterAnsicht = { zustand: "gueltig"; ansicht: SchiedsrichterAnsichtGeoeffnet } | { zustand: SchiedsrichterLinkZustand };
 
+/** Every state an address link can be in but open. No `bestaetigt`: an answer removes what the link opens. */
+export type AdresswechselLinkZustand = "abgelaufen" | "ungueltig" | "gesperrt";
+
+export type AdresswechselAnsicht = { zustand: "gueltig"; vorname: string; frist: string } | { zustand: AdresswechselLinkZustand };
+
 // The three admin-only blocks are out: a fixture's held referee and a just-created one are each
 // composed at the call site, where a required block would be written as a null claiming the referee
 // has no link.

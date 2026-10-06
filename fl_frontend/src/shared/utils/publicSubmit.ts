@@ -3,6 +3,8 @@ import "client-only";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
 
+import { ZU_VIELE_VERSUCHE } from "./actionError";
+
 import type { FieldErrors } from "./validation";
 
 /**
@@ -51,13 +53,10 @@ export type PublicAnswer<T> =
     };
 
 /**
- * The edge's rate limit, generated before any route handler runs: the body is nginx's own HTML
+ * The edge's rate limit, generated before any route handler runs: the body is nginx's own sentence
  * rather than the envelope, so the status is the whole of what arrived.
  */
 export const EDGE_RATE_LIMIT_STATUS = 429;
-
-/** The one cause the visitor can act on, which is why it keeps a sentence of its own. */
-const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
 
 /** The request reached no judgement, so nothing of what was typed may be named here. */
 const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";

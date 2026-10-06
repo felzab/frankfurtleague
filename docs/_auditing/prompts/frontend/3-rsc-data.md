@@ -21,8 +21,8 @@ A1. **Mutation → invalidation map.** The required table, one row per exported 
 the module list from a `"use server"` grep — never a hardcoded list): action | resource mutated |
 tags invalidated | tags used by the queries reading that resource | GAP. Derive the read side from
 every `use cache` function's `cacheTag` calls, and verify the ratified invariants hold: every
-granular tag has a matching `updateTag` in the same slice, and the base tags are invalidated
-unconditionally.
+granular tag is declared with `invalidatesOnWrite` by every action writing its resource
+(`docs/frontend/spec.md :: I1`), and the base tags are invalidated unconditionally.
 
 A2. **`use cache` correctness.** Per cached function: `cacheTag` / `cacheLife` declared or silently
 defaulted; request-scoped reads (cookies, headers, searchParams, `Date.now()`, random) that would

@@ -259,6 +259,11 @@ describe("what one refused confirmation shows", () => {
     assert.deepEqual(mapped, await mapBestaetigungRefusal(refusal("REQ-VAL-001", 422), floorOf(16).lesen));
   });
 
+  /* Choices the link's page does not ask come from a page older than the backend's answer, as the media yes does. */
+  it("answers choices the link's page does not ask with the mail's link", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-017", 422), floorOf(16).lesen), { error: ANTWORT_NEU_OEFFNEN });
+  });
+
   /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
   it("answers a body the API could not read with the mail's link", async () => {
     assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "REQ-VAL-002"), floorOf(16).lesen), {
@@ -288,16 +293,14 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-007",
       "REQ-REGISTRIERUNG-010",
       "REQ-REGISTRIERUNG-012",
+      "REQ-REGISTRIERUNG-017",
     ];
 
     for (const code of new Set([...published, ...mapped])) {
       const own = await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", code), floorOf(16).lesen);
       assert.notEqual(own ?? answerShown("POST /registrierungen/bestaetigung", code, () => null), null, `${code} maps to nothing`);
     }
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      [...mapped].sort(),
-    );
+    assert.deepEqual(published, [...mapped].sort());
   });
 });
 
@@ -328,10 +331,9 @@ describe("what a refused READ says about a link", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-VAL-001", 422)), "ungueltig");
   });
 
-  /* The season, club or registration a link names gone is as dead a link, as both writes answer it. */
-  it("calls the link void where the record it names is gone, on either read", () => {
+  /* The season or club an invitation names gone is as dead a link, as the sign-up answers it. */
+  it("calls the link void where the record the invitation names is gone", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/einladung/ansicht", "DB-COMMON-001")), "ungueltig");
-    assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/bestaetigung/ansicht", "DB-COMMON-001")), "ungueltig");
   });
 
   it("leaves a failed read to the page's own state", () => {
@@ -364,6 +366,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
       "REQ-REGISTRIERUNG-013",
       "REQ-REGISTRIERUNG-014",
       "REQ-REGISTRIERUNG-015",
+      "REQ-REGISTRIERUNG-018",
       "REQ-SQUAD-003",
     ];
 

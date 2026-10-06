@@ -59,10 +59,11 @@ const {
   buildRegistrierungErinnerungEmail,
   buildRegistrierungSaisonendeEmail,
 } = await import("./registrierungEmail.ts");
-const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
+const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, buildSchiedsrichterBestaetigungEmail } =
+  await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
-const { escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
-const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
+const { art21Satz, escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
+const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -230,6 +231,9 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildSchiedsrichterBestaetigungEmail: (origin) =>
     buildSchiedsrichterBestaetigungEmail({ origin: origin, vorname: "Anna", token: "beispiel-fuenf", fristText: "05.10.2026" }),
+  buildSchiedsrichterAdresswechselEmail: (origin) =>
+    buildSchiedsrichterAdresswechselEmail({ origin: origin, vorname: "Anna", token: "beispiel-sechs", fristText: "05.10.2026" }),
+  buildSchiedsrichterAdresswechselHinweisEmail: (origin) => buildSchiedsrichterAdresswechselHinweisEmail({ origin: origin, vorname: "Anna" }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
 };
@@ -573,9 +577,33 @@ describe("the shared email shell", () => {
       "buildEinladungEmail",
       "buildKontaktBestaetigungEmail",
       "buildRegistrierungBestaetigungEmail",
+      "buildSchiedsrichterAdresswechselEmail",
       "buildSchiedsrichterBestaetigungEmail",
     ]) {
       assert.ok(gedruckt.has(name), `${name} carries no token link on a control, so this case no longer reads it`);
+    }
+  });
+
+  /* Legally required wording, held to the shell's one spelling and to the variant each message owes its
+     reader: a builder writing its own copy, or dropping the purpose clause, would drift with nothing to say so. */
+  it("states the Art. 21 objection in the shell's words, in the variant each message owes", () => {
+    const geschuldet: Record<string, Parameters<typeof art21Satz>[1]> = {
+      // One seat in its fixture, so the singular.
+      buildBewerbungBestaetigungEmail: {},
+      buildKontaktBestaetigungEmail: {},
+      buildRegistrierungBestaetigungEmail: { zweck: "für den Spielbetrieb" },
+      buildSchiedsrichterBestaetigungEmail: { zweck: "für den Spielbetrieb" },
+    };
+    // The general objection, by its grounds clause: the ban notice objects to the ban's own storage, a different processing.
+    const tragen = MESSAGES.filter(({ mail }) => mail.text.includes("besonderen Situation")).map(({ name }) => name);
+
+    assert.deepEqual(
+      tragen.sort(),
+      Object.keys(geschuldet).sort(),
+      "a message states the objection that owes none, or one owing it states none",
+    );
+    for (const { name, mail } of MESSAGES.filter((message) => message.name in geschuldet)) {
+      assert.ok(mail.text.includes(art21Satz(KONTAKT_EMAIL, geschuldet[name])), `${name} states the objection in other words`);
     }
   });
 

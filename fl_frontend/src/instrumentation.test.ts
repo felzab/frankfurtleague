@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, beforeEach, describe, it } from "node:test";
@@ -201,7 +203,7 @@ describe("the boot reading the actor's signing key", () => {
     const { thrown, written, exited } = await refusedBoot(t, missing);
 
     assert.ok(thrown instanceof Error && thrown.message.includes(missing), "the boot went on, or its error named no path");
-    assert.equal(exited, 1, "the process was left serving rather than ended non-zero");
+    assert.equal(exited, 3, "the process was left serving, or ended on a fault's code rather than a refusal's");
     assert.match(written, /CRITICAL/);
     assert.match(written, /FE-BOOT-003/);
     assert.ok(written.includes(missing), "the line named no path");
@@ -217,7 +219,7 @@ describe("the boot reading the actor's signing key", () => {
     const { thrown, written, exited } = await refusedBoot(t, file);
 
     assert.ok(thrown instanceof Error, "the boot went on over a file holding no key");
-    assert.equal(exited, 1, "the process was left serving rather than ended non-zero");
+    assert.equal(exited, 3, "the process was left serving, or ended on a fault's code rather than a refusal's");
     assert.match(written, /FE-BOOT-003/);
     assert.ok(!written.includes(mark) && !String(thrown.stack).includes(mark), "the refusal quoted the file");
   });
@@ -228,5 +230,191 @@ describe("the boot reading the actor's signing key", () => {
     assert.equal(thrown, undefined);
     assert.equal(written, "");
     assert.equal(exited, undefined);
+  });
+});
+
+/* The real modules in a process of their own, as `scripts/lib/_lib.sh :: check_frontend_boot_config` runs
+   the image: the exit code is the whole of what the deploy reads, and only a process that ends has one. */
+describe("the boot the deploy's preflight runs, and the code it ends on", () => {
+  const FRONTEND_DIR = path.join(import.meta.dirname, "..");
+
+  // `package.json :: scripts`' own way of running a server module outside Next: `server-only` resolves
+  // to the module that throws without the condition, and Node reads no `@/` alias without the hook.
+  const NODE_FLAGS = [
+    "--conditions=react-server",
+    "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+    "--import",
+    "./scripts/tsconfig-alias-hook.mjs",
+  ];
+
+  // Next catches the hook's rejection and serves on, so this does too: the code read is the boot's own.
+  // A hook that returns is one Next goes on to serve behind, which the last line says.
+  const BOOT = [
+    'const { register } = await import("./src/instrumentation.ts");',
+    "await register().catch(() => undefined);",
+    'process.stdout.write("serving\\n");',
+  ].join("\n");
+
+  /** A production host's settings, of values nobody could mistake for real ones. */
+  const SETTINGS: Readonly<Record<string, string>> = {
+    APP_ENV: "production",
+    API_URL: "http://backend:8000",
+    API_VERSION: "0",
+    AUTH_URL: "https://frankfurtleague.de",
+    LOG_FORMAT: "json",
+    TURNSTILE_SITE_KEY: "fabricated-site-key",
+  };
+
+  // Production's whole set, each value one the schema takes, so a case changes exactly the file it is about.
+  const SIGN_IN_SECRET = "fabricated-not-a-credential-xxxx";
+  const FILES: Readonly<Record<string, string>> = {
+    frontend_mongodb_uri: "mongodb://mongo:27017/?directConnection=true",
+    auth_secret: SIGN_IN_SECRET,
+    auth_resend_key: "resend-probe",
+    resend_webhook_secret: "whsec_probe",
+    internal_api_key_base: "b".repeat(64),
+    internal_api_key_system: "s".repeat(64),
+    internal_api_key_admin: "a".repeat(64),
+    turnstile_secret_key: "fabricated-turnstile-secret",
+  };
+
+  /** A file's place taken by a directory. */
+  const A_DIRECTORY = Symbol("a directory");
+
+  type Case = {
+    settings?: Record<string, string | undefined>;
+    files?: Record<string, string | typeof A_DIRECTORY | undefined>;
+    checkedAs?: string;
+    keyFile?: string;
+  };
+
+  /** One boot in a process of its own: its exit code, and everything it wrote. */
+  function boot({ settings = {}, files = {}, checkedAs = "production", keyFile = ACTOR_KEY_FILE }: Case): {
+    code: number | null;
+    said: string;
+  } {
+    const secrets = mkdtempSync(path.join(KEY_DIRECTORY, "secrets-"));
+    for (const [name, content] of Object.entries({ ...FILES, ...files })) {
+      if (content === A_DIRECTORY) mkdirSync(path.join(secrets, name));
+      else if (content !== undefined) writeFileSync(path.join(secrets, name), content);
+    }
+
+    // Built rather than inherited, so no variable of the runner's own, `SKIP_ENV_VALIDATION` above all,
+    // decides a case. Not production, under which a hook left returning would arm the sweeps and never end.
+    const environment: NodeJS.ProcessEnv = { NODE_ENV: "test", SECRETS_DIR: secrets, ACTOR_SIGNING_KEY_FILE: keyFile };
+    for (const name of ["PATH", "Path", "SystemRoot"]) {
+      const value = process.env[name];
+      if (value !== undefined) environment[name] = value;
+    }
+    for (const [name, value] of Object.entries({ ...SETTINGS, ...settings })) if (value !== undefined) environment[name] = value;
+    if (checkedAs !== "") environment.BOOT_CHECK = checkedAs;
+
+    const done = spawnSync(process.execPath, [...NODE_FLAGS, "--input-type=module", "-e", BOOT], {
+      cwd: FRONTEND_DIR,
+      env: environment,
+      encoding: "utf8",
+    });
+
+    return { code: done.status, said: `${done.stdout}${done.stderr}` };
+  }
+
+  /** The one refusal a boot wrote: the code it ended on, and its CRITICAL documents' codes and names. */
+  function refused(setup: Case): { code: number | null; lines: string[] } {
+    const { code, said } = boot(setup);
+    const lines = said
+      .split("\n")
+      .filter((line) => line.startsWith("{"))
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .filter((document) => document.level === "CRITICAL")
+      .map((document) => `${String(document.error_code)} ${String(document.variables ?? document.files ?? document.path)}`);
+
+    return { code, lines };
+  }
+
+  it("ends on 0 having written nothing, where every gate passes", () => {
+    assert.deepEqual(boot({}), { code: 0, said: "" });
+  });
+
+  // The local stack holds none of production's own files, and its preflight names its own deployment.
+  it("ends on 0 for the local stack's deployment, which production's files are not demanded of", () => {
+    const local = boot({
+      settings: { APP_ENV: "local" },
+      files: { auth_resend_key: undefined, resend_webhook_secret: undefined, turnstile_secret_key: undefined },
+      checkedAs: "local",
+    });
+
+    assert.deepEqual(local, { code: 0, said: "" });
+  });
+
+  it("refuses with 3 a Cloudflare test site key under production, naming the variable and never the key", () => {
+    const key = "1x00000000000000000000AA";
+    const { code, said } = boot({ settings: { TURNSTILE_SITE_KEY: key } });
+
+    assert.equal(code, 3);
+    assert.match(said, /"error_code":"FE-BOOT-001"/);
+    assert.match(said, /"variables":"TURNSTILE_SITE_KEY"/);
+    assert.ok(!said.includes(key), "the refusal quoted the key");
+  });
+
+  it("refuses with 3 a sign-in secret a character short of its library's floor, naming its file and never the value", () => {
+    const short = SIGN_IN_SECRET.slice(0, 31);
+    const { code, said } = boot({ files: { auth_secret: short } });
+
+    assert.equal(code, 3);
+    assert.match(said, /"error_code":"FE-BOOT-004"/);
+    assert.match(said, /"files":"auth_secret"/);
+    assert.ok(!said.includes(short), "the refusal quoted the secret");
+  });
+
+  // No other check reads the files before the recreate, so every way one fails is a case: missing,
+  // missing under production alone, blank, and not a file.
+  it("refuses with 3 a secret file missing, blank or not a file, naming the file", () => {
+    const cases: [Case["files"], RegExp][] = [
+      [{ internal_api_key_admin: undefined }, /^FE-BOOT-004 internal_api_key_admin$/],
+      [{ turnstile_secret_key: undefined }, /^FE-BOOT-004 turnstile_secret_key$/],
+      [{ resend_webhook_secret: "" }, /^FE-BOOT-004 resend_webhook_secret$/],
+      [{ frontend_mongodb_uri: A_DIRECTORY }, /^FE-BOOT-004 .*frontend_mongodb_uri \(EISDIR\)$/],
+    ];
+    for (const [files, line] of cases) {
+      const { code, lines } = refused({ files });
+
+      assert.equal(code, 3, String(line));
+      assert.equal(lines.length, 1, lines.join("; "));
+      assert.match(lines[0] ?? "", line);
+    }
+  });
+
+  // A line the file leaves out and a bare `NAME` compose holds no value for reach the container alike.
+  it("refuses with 3 a required variable the container was not handed", () => {
+    assert.deepEqual(refused({ settings: { API_URL: undefined } }), { code: 3, lines: ["FE-BOOT-001 API_URL"] });
+  });
+
+  /* The schema demands production's files on `APP_ENV`'s word alone, so a production host whose file says
+     `local` would pass with none of them and its bot check on the published test secret. */
+  it("refuses with 3 a deployment its APP_ENV does not name, judging the files that deployment is held to", () => {
+    const production = { files: { turnstile_secret_key: undefined }, settings: { APP_ENV: "local" } };
+
+    assert.deepEqual(refused(production), { code: 3, lines: ["FE-BOOT-001 APP_ENV"] });
+    assert.deepEqual(refused({ ...production, checkedAs: "local" }), { code: 0, lines: [] });
+  });
+
+  it("refuses with 3 a signing key the frontend cannot read, or one that is not Ed25519", () => {
+    const notSigning = path.join(KEY_DIRECTORY, "x25519.pem");
+    writeFileSync(notSigning, generateKeyPairSync("x25519").privateKey.export({ type: "pkcs8", format: "pem" }));
+
+    for (const keyFile of [path.join(KEY_DIRECTORY, "absent.pem"), notSigning]) {
+      assert.deepEqual(refused({ keyFile }), { code: 3, lines: [`FE-BOOT-003 ${keyFile}`] });
+    }
+  });
+
+  /* The process's environment carries names of the platform's own beside the file's, so no boot can tell a
+     typo from them: `fl_frontend/scripts/check-environment-names.mjs` reads the file itself for that. */
+  it("boots past a name nothing declares", () => {
+    assert.deepEqual(boot({ settings: { TURNSTILE_SITEKEY: "a typo of a declared name" } }), { code: 0, said: "" });
+  });
+
+  // A refusal is one code wherever the boot runs, so a restarting container reads alike under either.
+  it("ends a serving boot's refusal on 3 too", () => {
+    assert.equal(boot({ files: { auth_secret: undefined }, checkedAs: "" }).code, 3);
   });
 });

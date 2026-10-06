@@ -3,12 +3,20 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import {
+  assertEachRefusalCloses,
+  assertEachRowPublished,
+  doubleRouteRequest,
+  revalidatedTags,
+  unacknowledged,
+  undo,
+} from "@/shared/testing/undoRoutes.ts";
 
 /* The real route and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers(({ endpoint }) => Promise.resolve(replayed(endpoint, 1)));
 const { POST } = await import("./route.ts");
+const { TEAM_REPLAY_REFUSALS } = await import("@/features/teams/refusals.ts");
 
 /** What `fl_frontend/src/features/teams/mutations.ts :: patchTeam` sends, as the backend's own routes spell it. */
 const CLUB_OPERATION = "PATCH /teams/{team_id}";
@@ -53,6 +61,11 @@ describe("the team save's undo", () => {
       { endpoint: `/teams/${id}`, method: "PATCH", body: club },
       { endpoint: `/teams/${team_id}/saisons/${saison_id}`, method: "PATCH", body: junction },
     ]);
+    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
+    assert.deepEqual(
+      revalidatedTags(),
+      ["teams", "spiele", `teams:saison_id:${saison_id}`, `spiele:saison_id:${saison_id}`].map((tag) => [tag, { expire: 0 }]),
+    );
   });
 
   it("words every refusal the club half publishes, closing on the change standing once", async () => {
@@ -101,5 +114,11 @@ describe("the team save's undo", () => {
       await undo(POST, { club: CLUB, saison: SAISON }),
       unacknowledged("Nur die Stammdaten wurden zurückgesetzt. Prüfe die Saison-Zugehörigkeit."),
     );
+  });
+});
+
+describe("the replay table against the replayed endpoint", () => {
+  it("words only codes the replayed endpoint publishes", () => {
+    assertEachRowPublished(TEAM_REPLAY_REFUSALS, CLUB_OPERATION, JUNCTION_OPERATION);
   });
 });
