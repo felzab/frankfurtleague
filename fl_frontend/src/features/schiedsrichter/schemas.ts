@@ -340,7 +340,7 @@ export type FLSchiedsrichterAdresswechselAnsichtPayload = z.infer<typeof FLSchie
  */
 export const FLSchiedsrichterAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // No `bestaetigt`: an answer removes what the link opens, so a reopened link is an unknown token.
-  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt"]),
+  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]),
   vorname: z.string().nullable(),
   frist: CustomDateStringSchema,
 });

@@ -561,8 +561,9 @@ async def delete_adresswechsel(
     Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.
 
     **The address goes from the action log too** (`docs/backend/spec.md :: I_NEW_KREF_4`): every image the log holds of this
-    referee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one carrying an address nobody proved. Nothing is
-    mailed. 404 where the referee holds no pending change, and for an id no referee holds, the ghost's included.
+    referee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one
+    carrying an address nobody proved. Nothing is mailed. 404 where the referee holds no pending change, and for an id no
+    referee holds, the ghost's included.
     """
 
     async def discard_the_change(session: AsyncClientSession) -> Mapping[str, Any]:

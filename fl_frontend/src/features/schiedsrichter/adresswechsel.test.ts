@@ -253,6 +253,7 @@ describe("what one refused answer asks the address page to show", () => {
     ["REQ-SCHIEDSRICHTER-002", "ungueltig"],
     ["REQ-SCHIEDSRICHTER-003", "abgelaufen"],
     ["REQ-SCHIEDSRICHTER-009", "gesperrt"],
+    ["REQ-SCHIEDSRICHTER-010", "nicht_bestaetigbar"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel, at any status`, () => {
       assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(aRefusal(code)), { zustand: zustand });

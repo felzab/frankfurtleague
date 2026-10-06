@@ -2027,6 +2027,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
     ),
     Rule(
+        code="REQ-SCHIEDSRICHTER-010",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /schiedsrichter/adresswechsel",
+        aggregate="Schiedsrichter",
+        summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
+        implemented_by="app.api.schiedsrichter.services.find_ersetzte_adresse_gesperrt_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestAChangeReplacingABarredAddress",
+    ),
+    Rule(
         code="REQ-SQUAD-001",
         status=HTTPStatus.CONFLICT,
         operation=(

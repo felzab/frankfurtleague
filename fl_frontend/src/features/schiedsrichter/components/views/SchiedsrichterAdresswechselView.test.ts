@@ -73,6 +73,31 @@ describe("the referee's address page", () => {
     assert.doesNotMatch(shown, /Anna/);
   });
 
+  /* The replaced address is barred, which the holder of the new mailbox may know nothing of (`REQ-SCHIEDSRICHTER-010`). */
+  it("offers the decline alone on a change it can no longer confirm, naming neither the ban nor another address", () => {
+    const shown = words({ zustand: "nicht_bestaetigbar", token: "abc123" });
+
+    assert.match(shown, /kann nicht mehr bestätigt werden/);
+    assert.ok(shown.includes(NICHT_MEINE_ADRESSE), "the decline is missing");
+    assert.ok(!shown.includes(JA_MEINE_ADRESSE), "an unconfirmable change offers the confirmation");
+    assert.doesNotMatch(shown, /gesperrt|Sperre|bisherige|Anna/);
+  });
+
+  it("turns a confirmation refused for the replaced address into that panel, the decline still reaching the change", async () => {
+    const { sent } = answerEveryFetch({ success: false, zustand: "nicht_bestaetigbar" });
+
+    render(h(SchiedsrichterAdresswechselView, { start: OFFEN }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
+    await act(fetchMock.answered);
+    await waitFor(() => assert.match(document.body.textContent, /kann nicht mehr bestätigt werden/));
+
+    await user.click(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }));
+    await act(fetchMock.answered);
+
+    assert.deepEqual(sent.at(-1), { token: "abc123", antwort: "abgelehnt" });
+  });
+
   it("sends the decline from a lapsed link with its token and shows its result", async () => {
     const { sent } = answerEveryFetch({ success: true, antwort: "abgelehnt" });
 
@@ -145,6 +170,7 @@ describe("the referee's address page", () => {
   /* The page's own reading of the read: only a state the backend still takes the decline in keeps the URL's token. */
   it("opens a lapsed read with the token and a void one without", () => {
     assert.deepEqual(startOf({ zustand: "abgelaufen" }, "abc123"), { zustand: "abgelaufen", token: "abc123" });
+    assert.deepEqual(startOf({ zustand: "nicht_bestaetigbar" }, "abc123"), { zustand: "nicht_bestaetigbar", token: "abc123" });
     assert.deepEqual(startOf({ zustand: "ungueltig" }, "abc123"), { zustand: "ungueltig" });
     assert.deepEqual(startOf({ zustand: "gesperrt" }, "abc123"), { zustand: "gesperrt" });
   });

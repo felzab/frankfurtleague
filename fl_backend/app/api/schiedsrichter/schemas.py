@@ -34,8 +34,9 @@ FLSchiedsrichterUmfang = Literal["kader_oeffentlich", "intern"]
 FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
 # What an address link shows. No `bestaetigt`: an answer removes the block the link opens, so a
-# reopened link is a token no referee holds.
-FLSchiedsrichterAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt"]
+# reopened link is a token no referee holds. `nicht_bestaetigbar` is a change whose REPLACED address
+# the ban list holds, named apart from `gesperrt` so the new mailbox learns nothing of the ban.
+FLSchiedsrichterAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]
 
 FLSchiedsrichterAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 

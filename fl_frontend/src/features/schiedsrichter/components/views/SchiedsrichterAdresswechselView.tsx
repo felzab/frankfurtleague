@@ -37,7 +37,7 @@ export type SchiedsrichterAdresswechselStart =
   | { zustand: AdresswechselNurAblehnbar; token: string }
   | { zustand: Exclude<AdresswechselLinkZustand, AdresswechselNurAblehnbar> | "unlesbar" };
 
-const NUR_ABLEHNBAR: readonly AdresswechselLinkZustand[] = ["abgelaufen"] satisfies readonly AdresswechselNurAblehnbar[];
+const NUR_ABLEHNBAR: readonly AdresswechselLinkZustand[] = ["abgelaufen", "nicht_bestaetigbar"] satisfies readonly AdresswechselNurAblehnbar[];
 
 const istNurAblehnbar = (zustand: AdresswechselLinkZustand): zustand is AdresswechselNurAblehnbar => NUR_ABLEHNBAR.includes(zustand);
 
@@ -61,6 +61,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   bestaetigt: "Adresse bestätigt",
   abgelehnt: "Adresse entfernt",
   abgelaufen: "Link abgelaufen",
+  nicht_bestaetigbar: "Änderung nicht mehr möglich",
   ungueltig: "Link ungültig",
   unlesbar: "Link nicht geprüft",
 };
@@ -177,8 +178,8 @@ function AntwortPanel({
 }
 
 /**
- * A link past its deadline: the confirmation is closed, and the decline stays open, since the backend
- * removes an address nobody proved however late the press (`docs/frontend/spec.md :: I_NEW_KREF_6`).
+ * A link whose confirmation is closed: the decline stays open, since the backend removes an address
+ * nobody proved however late the press and whatever the ban list holds (`docs/frontend/spec.md :: I_NEW_KREF_6`).
  */
 function NurAblehnen({ token, onAbschluss }: { token: string; onAbschluss: (stand: Stand) => void }) {
   const antwort = useAntwort(token, onAbschluss);
@@ -247,6 +248,24 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
             <p className={ABSATZ_CLASSES}>
               Dieser Link ist abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage; einen neuen schickt Dir die
               Verwaltung, wenn Du an {KONTAKT_EMAIL} schreibst. Bis dahin gilt die bisherige Adresse.
+            </p>
+          </BestaetigungErgebnis>
+          <NurAblehnen
+            token={stand.token}
+            onAbschluss={onAbschluss}
+          />
+        </>
+      )}
+
+      {/* Naming neither the ban nor the address it holds: the holder of this mailbox may be a stranger to
+          both (`REQ-SCHIEDSRICHTER-010`). */}
+      {stand.zustand === "nicht_bestaetigbar" && (
+        <>
+          <BestaetigungErgebnis
+            panelRef={ergebnisRef}
+            tone="hinweis">
+            <p className={ABSATZ_CLASSES}>
+              Diese Änderung der E-Mail-Adresse kann nicht mehr bestätigt werden. Fragen jederzeit per E-Mail an {KONTAKT_EMAIL}.
             </p>
           </BestaetigungErgebnis>
           <NurAblehnen
