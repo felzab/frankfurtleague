@@ -661,7 +661,7 @@ export function DatenschutzView() {
             Zwei weitere Grenzen setzt die Website ebenso ohne einen Menschen. Einen Anmeldecode über die Anmeldeseite verschickt sie, eine
             Bewerbung und eine Registrierung nimmt sie erst an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt, oder wenn
             Cloudflare nicht antwortet (Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. Lässt Dich die Prüfung nicht durch,
-            schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an. Und wer angemeldet ist, kann in jeder Funktion an
+            schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an. Und wer angemeldet ist, kann je Personengruppe an
             einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach weist die Website weitere Änderungen bis Mitternacht zurück. Das
             Zurückziehen einer Einwilligung weist sie dabei nie zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an{" "}
             <MailLink /> schreibst. Profiling findet nicht statt.

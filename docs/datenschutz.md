@@ -180,8 +180,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
     anything is written or mailed, and asks the person to confirm they are human
     (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check Cloudflare cannot answer
     letting the submission through (`docs/frontend/spec.md :: I822`);
-  - the daily write ceiling, which refuses a signed-in person's counted writes past their
-    Funktion's bound until German midnight (`REQ-DROSSELUNG-001`, `docs/backend/spec.md :: I831`)
+  - the daily write ceiling, which refuses a signed-in person's counted writes past the bound of
+    their kind of person until German midnight (`REQ-DROSSELUNG-001`, `docs/backend/spec.md :: I831`)
     and never refuses a withdrawal (`:: I833`).
 
   The notice offers a person's review of both on request by mail, as the ruling above has it for

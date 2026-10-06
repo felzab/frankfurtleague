@@ -126,10 +126,10 @@ where the row carries the stamp the expiry reads (I119).\
 
 ### `Drosselung` — a signed-in person's daily write ceiling, and the count it reads
 
-**Is:** the throttle on how much one signed-in person writes in one German calendar day, and a row of the `drosselung` collection counting those writes: one per kind of person the write was made as, person and day, keyed by the action log's pseudonym. Past that kind's ceiling a write is refused `REQ-DROSSELUNG-001` until German midnight. An administrator has none.\
+**Is:** the throttle on how much one signed-in person writes in one German calendar day, and a row of the `drosselung` collection counting those writes: one per kind of person the write was made as, person and day, keyed by the action log's pseudonym. A kind is what the privacy notice calls a „Personengruppe“, and no `Funktion`: one person's two seats are two Funktionen and one count. Past that kind's ceiling a write is refused `REQ-DROSSELUNG-001` until German midnight. An administrator has none.\
 **In code:** `fl_backend/app/core/drosselung.py`, whose `:: gedrosselt` a route declares where every call counts and whose `:: Drossel` a handler takes where it judges which calls count; the ceilings are `fl_backend/app/shared/schemas/bounds.py`'s, read through `fl_backend/app/core/drosselung.py :: TAGESBUDGETS`; the frontend words the refusal in `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` for every person route, and a refused consent grant first in `fl_frontend/src/features/konto/einwilligung.ts :: ZUSTIMMEN_MORGEN`.\
 **Trap:** it counts per kind of person, never per mailbox: a seat holder who is also a pupil holds two counts, each against its own ceiling. A consent grant counts and its withdrawal never does, so a mixed press granting anything counts as a grant. The count is spent by a write refused after it was counted too, being raised outside its transaction, where every route counting each call counts before its handler refuses anything, though a write whose transaction is retried spends one unit and no more, and a row is no domain record: nothing logs it, and no erasure reaches it, though its key carries the person's pseudonym, so it outlives an erasure at most until the German midnight ending its day plus the TTL monitor's lag, when the TTL index removes it (backend spec I837).\
-**See:** backend spec I831–I835 and I837, and the `Funktion` entry for the kinds a ceiling is kept per.
+**See:** backend spec I831–I835 and I837.
 
 ---
 
