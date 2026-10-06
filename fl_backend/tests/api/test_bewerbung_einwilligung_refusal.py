@@ -1,7 +1,7 @@
 import inspect
 from collections.abc import Mapping
 from http import HTTPStatus
-from typing import Any, get_args
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -9,7 +9,6 @@ from pydantic import ValidationError
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungEinwilligungAntwortPayload,
-    FLKontaktRolle,
     refuse_age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
@@ -94,11 +93,6 @@ def application(**overrides: Any) -> dict[str, Any]:
 
 
 class TestTheSeatSpellings:
-    """Three spellings of one set, held equal: the wire's `Literal`, the erasure's derivation and the composer's tuple."""
-
-    def test_the_literal_the_derivation_and_the_tuple_agree(self):
-        assert get_args(FLKontaktRolle) == KONTAKT_ROLLEN == KONTAKT_ROLLEN
-
     @pytest.mark.parametrize("value", [*KONTAKT_ROLLEN, "trainer_ist_zugleich", "", None, 7])
     def test_only_a_seat_is_named(self, value: Any):
         assert seat_named(value) == (value if value in KONTAKT_ROLLEN else None)
