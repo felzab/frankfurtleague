@@ -1007,6 +1007,8 @@ def test_a_multi_line_quoted_value_every_reader_takes_alike_is_clean() -> None:
     [
         pytest.param('NOTE="first\nsecond $base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="dollar-inside"),
         pytest.param('NOTE="first\nsecond\n', "line 1: NOTE's quoted value never closes", id="unclosed"),
+        # The credential check reads the colon form's quote as opening a value too, so both read line 2 as data.
+        pytest.param('NOTE: "first\nBASE=$base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="opened-by-a-colon-line"),
     ],
 )
 def test_a_multi_line_quoted_value_the_readers_disagree_on_refuses(text: str, said: str) -> None:
