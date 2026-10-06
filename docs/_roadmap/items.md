@@ -1086,6 +1086,125 @@ still carries them:
 **Done when** the brief exists and each of its questions carries the Datenschutzexperte's answer or
 a ruling of mine.
 
+### `u6v9-zgt3` · Of two administrators editing one record, the later save wins and neither is told
+
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
+
+**Every admin editor but the contacts editor saves its whole field set over whatever the record
+holds now.** Its PATCH sets the payload wholesale, and nothing compares what the editor was served
+with what the row holds when the save lands: of two administrators with one record open, the earlier
+save is lost and the later one reports success. The population is every `@router.patch` in
+`fl_backend/app/api/*/admin_router.py`, no admin router declaring a PUT:
+
+| Endpoint                                                                    | Editor                                                                                                                                 | Guarded against a stale copy today                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `fl_backend/app/api/spielorte/admin_router.py :: patch_spielort`            | `fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx`                                  | Nothing                                                   |
+| `fl_backend/app/api/teams/admin_router.py :: patch_team`                    | `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx`                                              | Nothing                                                   |
+| `fl_backend/app/api/teams/admin_router.py :: patch_saison_team`             | The same form, the club's season row                                                                                                   | Nothing                                                   |
+| `fl_backend/app/api/teams/admin_router.py :: patch_saison_team_kontakte`    | `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx`                                   | `kontakte_stand`, refused `REQ-KONTAKT-001`               |
+| `fl_backend/app/api/saisons/admin_router.py :: patch_saison`                | `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx`                                        | Nothing                                                   |
+| `fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter` | `fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx`                 | Nothing; the address is judged against the row, below     |
+| `fl_backend/app/api/spieler/admin_router.py :: patch_spieler`               | `fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx`                                      | Nothing                                                   |
+| `fl_backend/app/api/spieler/admin_router.py :: patch_saison_spieler`        | The same form, the player's squad row                                                                                                  | Nothing                                                   |
+| `fl_backend/app/api/spieltage/admin_router.py :: patch_spieltag`            | `fl_frontend/src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx`                                  | Nothing                                                   |
+| `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`             | `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx`, its save and its dry-run preview | Nothing                                                   |
+| `fl_backend/app/api/spiele/admin_router.py :: patch_spiele_paarungen`       | That editor's undo, `fl_frontend/src/app/api/admin/spiele/undo/route.ts`                                                               | Fields beyond the Paarung merged; the Paarung overwritten |
+| `fl_backend/app/api/berechtigungen/admin_router.py :: patch_berechtigung`   | `fl_frontend/src/features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx`                                             | Outside the population, below                             |
+
+**The referee's address is judged against the stored record, which is no guard against a stale
+copy.** A confirmed referee's typed address becomes a pending change their new mailbox confirms, and
+an unconfirmed referee's corrected address retires their link and mints another, each behind the
+step-up confirmation (`fl_backend/app/api/schiedsrichter/services.py :: compose_korrektur_update`).
+Both compare the payload with the row, so an editor still showing an address a rival has since
+corrected reads as a change back to it — a link minted to that mailbox again, or a pending change
+opened for it — and every other field of that save lands whole.
+
+**Every editor's undo is a second stale write.** Each undo under `fl_frontend/src/app/api/admin/`
+replays the save's earlier image through a PATCH, so an undo pressed after a rival's save
+reverts the rival's too. The contacts undo sends the token of the image its save left and is refused
+where a rival has moved the block since (`fl_frontend/src/app/api/admin/kontakte/undo/route.ts`).
+The fixture undo reads every field its save left standing off the document
+(`fl_backend/app/api/spiele/schemas.py :: FLPatchSpielPaarungPayload`), and still writes the
+Paarung back, so a result a rival entered on one of its fixtures meanwhile is reverted.
+
+**The tier change is outside the population.** `verwaltung` holds one of two values, the panel
+offers only the one the row does not show, and naming the tier a grant already holds writes nothing,
+so a stale page can repeat a change and never revert one.
+
+**Two stands already refuse a stale copy, and both answer 409.** The contacts save carries
+`fl_backend/app/api/teams/schemas.py :: kontakte_stand_of`, a digest of the block derived on every
+read and stored nowhere, and judges it inside the save's transaction
+(`fl_backend/app/api/teams/services.py :: find_kontakte_precondition_refusal`). A person's consent
+press on their account page carries `nachweis_stand`, refused `REQ-EINWILLIGUNG-003` under one code
+across every consent PATCH (`fl_backend/app/api/konto/services.py :: find_nachweis_stand_refusal`).
+Those presses are a person's own and not an editor of this entry's.
+
+**The standard is the conditional write, and these sources state it, each read on 2026-10-06 and
+each moving without us:**
+
+- RFC 9110, https://www.rfc-editor.org/rfc/rfc9110.html — §13.1.1 puts `If-Match` on state-changing
+  methods "to prevent the 'lost update' problem", and §15.5.13 answers 412 Precondition Failed where a
+  condition in the request header fields is false.
+- RFC 6585 §3, https://www.rfc-editor.org/rfc/rfc6585.html — 428 Precondition Required, whose
+  "typical use is to avoid the 'lost update' problem".
+- MDN, https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Match — `If-Match`
+  checks that an upload "will not override another change", answering 412 where it does not match.
+- MongoDB, "Atomicity and Transactions",
+  https://www.mongodb.com/docs/manual/core/write-operations-atomicity/ — "include the expected current
+  value in the update filter".
+
+Ordered on 2026-10-06; the design below is the one I was shown.
+
+**Done when** every editor in the table but the tier change is served a stand on its read, sends it
+back on its save, on its undo and on the fixture editor's preview, and is refused where the record
+has moved, judged inside the save's transaction; each editor words that refusal as someone else
+having changed this record since it was opened, to be reloaded, and keeps the typed input on screen;
+and one digest and one comparison serve them all, the contacts editor's included.
+
+**What the design holds, each a constraint on whoever builds it:**
+
+- **A stand digests exactly the fields its payload carries, in the payload's own shape, and is
+  stored nowhere**, as `kontakte_stand_of` is. A version stored on the record has to be moved by
+  every writer of it and costs a migration; a digest of the whole document lets a fan-out — a club,
+  venue or referee rename writing its name into season rows and fixtures — refuse an editor whose
+  payload never carries that name. So the season row keeps two stands, its own save's and the
+  contacts save's.
+- **The comparison reads the record in the save's own session.** Read outside it, a rival committing
+  between the judgement and the write lands unrefused; read inside it, the rival conflicts on the
+  document and `with_transaction`'s retry judges again on what the winner left, as
+  `patch_saison_team_kontakte` does. A derived digest cannot sit in MongoDB's update filter, so this
+  read is what stands in for it; `patch_spielort`, `patch_team` and `patch_spieler` read nothing in
+  the session today.
+- **The stand travels in the read's body whatever carries it back.** An editor is drawn from a read
+  that is not the resource its save names — the contacts editor from the club's memberships read
+  (`fl_frontend/src/app/bereich/admin/teams/[team_id]/page.tsx`) — so a response `ETag` could carry
+  no stand per row.
+- **An undo replays with the stand of the image its save left**, as the contacts undo does, so an
+  undo after a rival's save is refused rather than reverting it.
+
+**Open, each settled by the building session and put to me:**
+
+- **The carrier and the status are one choice.** A body field is this repository's precedent, and a
+  precondition in the body is a 409, RFC 9110 defining 412 for conditions in the header fields. The
+  `If-Match` header is HTTP's own carrier, answering 412, and 428 where a save omits it; a body field
+  is required with no default and its omission is the payload's 422, as `kontakte_stand`'s is.
+- **The refusal code's family**: one code across every editor, as `REQ-EINWILLIGUNG-003` spans the
+  consent presses, or one per area as `REQ-KONTAKT-001` is — and, with one shared code, whether
+  `REQ-KONTAKT-001` retires into it. Whichever it is, each is a rule
+  `fl_backend/app/core/domain.py :: RULES` declares, as both stands' codes are.
+- **Whether a seat holder's squad edit takes the stand.**
+  `fl_backend/app/api/spieler/person_router.py :: patch_kader_zeile` rewrites `nummer`, `position`,
+  `stufe` and `rolle` on the row `patch_saison_spieler` writes, so the admin save's stand refuses a copy a seat holder has moved,
+  while the seat holder's own save still overwrites an administrator's.
+
+**Cost, estimated and not measured:** one programme session with a backend lane and a frontend lane.
+Per endpoint, a computed field on the read model, a payload field, the in-session comparison, and
+tests for the refusal and for a rival committing mid-save; per editor, the schema field, the refusal
+sentence, and the stand on its undo. The fixture editor costs most, its save, preview and undo
+sharing one endpoint. Nothing on this page waits on this entry.
+
 ### `v9tn-3hce` · The log answers what broke and hardly what happened
 
 | Status | Depends on |
