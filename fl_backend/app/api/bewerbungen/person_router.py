@@ -14,7 +14,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -24,8 +24,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
-
-Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
 
 
 # `/person/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
@@ -37,7 +35,7 @@ Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
 async def patch_einwilligung(
     bewerbung_id: CustomRouteObjectId,
     einwilligung_data: Annotated[FLBewerbungPersonEinwilligungPayload, Body()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),

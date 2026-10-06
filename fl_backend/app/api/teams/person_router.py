@@ -28,7 +28,7 @@ from app.core.dependencies import (
 )
 from app.core.drosselung import Drossel
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -38,8 +38,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
-
-Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
 
 
 def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
@@ -62,7 +60,7 @@ def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
 async def get_team_sitze(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,
     db: DBClient,
@@ -98,7 +96,7 @@ async def patch_einwilligung(
     team_id: CustomRouteObjectId,
     saison_id: str,
     einwilligung_data: Annotated[FLSaisonTeamPersonEinwilligungPayload, Body()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,
     db: DBClient,

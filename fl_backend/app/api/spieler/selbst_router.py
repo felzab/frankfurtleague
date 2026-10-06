@@ -34,7 +34,7 @@ from app.core.dependencies import (
 )
 from app.core.drosselung import Drossel
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
 
@@ -46,13 +46,10 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["spieler"])],
 )
 
-# The router's own binder, answered from its run: the folded address the token names.
-Identifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["spieler"])]
-
 
 @router.get("", response_model=FLSpielerSelbstResponse, summary="A signed-in pupil's own record")
 async def get_selbst(
-    identifier: Identifier,
+    identifier: SpielerIdentifier,
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
     teams_collection: TeamsCollection,
@@ -100,7 +97,7 @@ async def get_selbst(
 )
 async def patch_einwilligung(
     einwilligung_data: Annotated[FLSpielerSelbstEinwilligungPayload, Body()],
-    identifier: Identifier,
+    identifier: SpielerIdentifier,
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
     db: DBClient,

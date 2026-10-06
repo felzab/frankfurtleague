@@ -1,5 +1,3 @@
-from typing import Annotated
-
 from fastapi import APIRouter, Depends
 
 from app.api.identitaet.crud import funktionen_of
@@ -30,7 +28,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 
 # Every person binder fixes a Funktion and this page is none's: `kontakt` is bound, its seat control
 # having no page of its own. Nothing here writes, so no record carries it; a write belongs on its
@@ -40,12 +38,10 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
 
-Identifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
-
 
 @router.get("/einwilligungen", response_model=FLKontoEinwilligungenResponse, summary="A signed-in person's own consent records")
 async def get_einwilligungen(
-    identifier: Identifier,
+    identifier: KontaktIdentifier,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     saison_teams_collection: SaisonTeamsCollection,

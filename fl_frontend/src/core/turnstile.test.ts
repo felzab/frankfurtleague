@@ -100,6 +100,21 @@ describe("a request of ours Cloudflare refuses", () => {
       assert.ok(!logs[0]?.meta.includes(TEST_TOKEN), "the line carried the token");
     });
   }
+
+  /* A 4xx is Cloudflare answering that our request is wrong, which no retry and no visitor repairs. */
+  for (const status of [400, 403]) {
+    it(`refuses the submission on a ${String(status)}, with that sentence and one line naming the status`, async () => {
+      answers = [() => json({}, status)];
+
+      assert.equal(await turnstileRefusal(TEST_TOKEN), PRUEFUNG_GESTOERT);
+      assert.equal(asked.length, 1, "a request Cloudflare refused was asked again");
+      assert.deepEqual(
+        logs.map(({ message }) => message),
+        ["turnstile.request_refused"],
+      );
+      assert.match(logs[0]?.meta ?? "", new RegExp(`"error_code":"FE-TURNSTILE-002","status":${String(status)}`));
+    });
+  }
 });
 
 describe("Cloudflare's own failure", () => {
@@ -143,7 +158,8 @@ describe("a check Cloudflare could not answer", () => {
         throw new TypeError("fetch failed");
       },
     ],
-    ["a status other than 2xx", () => json({}, 503)],
+    ["a server error", () => json({}, 503)],
+    ["too many requests", () => json({}, 429)],
     ["a body that is no JSON", () => new Response("<html>", { status: 200 })],
     ["a body of another shape", () => json({ ok: true })],
   ];

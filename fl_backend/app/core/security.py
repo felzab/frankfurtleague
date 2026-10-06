@@ -443,6 +443,12 @@ PERSON_ACTOR_BINDERS: Final[Mapping[AktorFunktion, Callable[..., AsyncIterator[s
     funktion: person_actor_binder(funktion) for funktion in get_args(AktorFunktion)
 }
 
+# A handler's folded address, from the binder its router declares, which FastAPI then runs once a
+# request; another Funktion's alias runs a second binder, recording the writes under that Funktion.
+KontaktIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
+SpielerIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["spieler"])]
+SchiedsrichterIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])]
+
 
 async def bind_public_actor(request: Request) -> AsyncIterator[None]:
     """Attribute a write nobody signed in for to the public, and name the route it came through.

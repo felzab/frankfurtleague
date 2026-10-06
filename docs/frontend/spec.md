@@ -48,7 +48,7 @@
 | `registrierungen` |   ✅    |    ✅     |    —    |   ✅    | A pupil's registration and own confirmation, two unauthenticated writes; a seat holder's admission and decline (`personActions.ts`); no admin action                                               |
 | `aktionen`        |   ✅    |     —     |    —    |   ✅    | Read-only: the backend writes the log on every recorded write, never this slice, and facets it by the actor's origin                                                                               |
 | `system`          |   ✅    |     —     |    —    |   ✅    | Read-only                                                                                                                                                                                          |
-| `admin`           |   ✅    |     —     |    —    |    —    | Aggregator                                                                                                                                                                                         |
+| `admin`           |   ✅    |     —     |   ✅    |    —    | Aggregator                                                                                                                                                                                         |
 | `kontakte`        |    —    |    ✅     |   ✅    |   ✅    | Three contact seats on a season's junction row; an erasure keyed on an address rather than on a row                                                                                                |
 | `sperrliste`      |   ✅    |    ✅     |   ✅    |   ✅    | A create and a removal, never an edit: a ban holds no address to correct, and its removal is a hard delete                                                                                         |
 | `berechtigungen`  |   ✅    |    ✅     |   ✅    |   ✅    | A grant, an owner's revoke and an owner's tier change, never an address's edit, and the pass mailing every change to who administers                                                               |
@@ -298,8 +298,9 @@ The answer carries that sentence beside the map as `unplacedError`: an admin act
 editor holding unsaved changes the browser first asks whether to leave, and staying keeps the draft
 (§4).
 
-**The `auth` slice's two actions are in the table and are not admin mutations, which is the one
-exception to every sentence above and below about a row.** `handleSignIn` is the only server action
+**The `auth` slice's two actions are in the table and run under no guard, the only rows a request
+without a session reaches**; every other row that is no admin mutation runs under a person's or the
+account page's guard (the notes under the table). `handleSignIn` is the only server action
 in this application reachable without a session, so it can no more run behind `runAdminMutation`'s
 guard than the public route handlers below can, and it answers a neutral sentence rather than a `FormState`
 carrying a verdict — a distinguishable refusal there is a membership oracle. **Everything else the
@@ -426,9 +427,10 @@ still being minted is waited for ten seconds, and past them, during Cloudflare's
 check that did not load the form answers in a sentence and posts nothing. A check that did not load
 says so at the widget, and its first failure is reported as `FE-CLIENT-001`. A refusal answers one sentence whatever the
 address, so the check is no membership oracle. **No edge rule stands in for it**: a challenge
-answers a `fetch()` with markup (I177), and no rule checks the POST behind a challenged page. **Only
+answers a `fetch()` with markup ([`docs/ops/spec.md`](../ops/spec.md) I177), and no rule checks the POST behind a challenged page. **Only
 a check Cloudflare cannot answer lets the submission through** (I822), Cloudflare fronting the
-whole site anyway; a secret or request of ours it refuses is refused in a sentence of its own, so a
+whole site anyway; a secret or request of ours it refuses, by an error code or by a 4xx status other
+than 429, is refused in a sentence of its own, so a
 wrong key shows at the first submission rather than switching the check off. Better Auth's captcha plugin is not the check: it guards the
 library's HTTP endpoints, and the code mail leaves through an in-process call no request reaches.
 The passkey ceremony and the typed code's check mail nothing and carry no check. **No anonymous
