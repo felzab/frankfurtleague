@@ -18,8 +18,8 @@ export function SignInActionFallback() {
       className="flex flex-col items-center gap-y-4 py-6 text-center">
       <h2 className="fluid-lg font-extrabold tracking-tight text-pretty text-foreground">Die Website ist gerade nicht erreichbar.</h2>
 
-      {/* A reload and never the boundary's reset, which sends the same action again: one from a build
-          other than the server's fails again, and a challenged POST stays uncleared until a page load. */}
+      {/* A reload and never the boundary's reset: a reset sends nothing, and the press after it would send
+          the same stale action id, where a new document carries the running build's (`docs/frontend/spec.md` §1.3). */}
       <Button
         type="button"
         variant="secondary"

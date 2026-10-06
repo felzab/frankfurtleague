@@ -59,7 +59,7 @@ const SPIELER = laufendeSpielerFassung();
 // holds is the wording, and a test reading the module's own constant would agree with any rewording.
 const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
 const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte einen Moment und versuche es dann erneut.";
-const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
+const KEINE_VERBINDUNG = "Prüfe die Verbindung und versuche es erneut.";
 
 const ENVELOPE = { "content-type": "application/json" };
 
