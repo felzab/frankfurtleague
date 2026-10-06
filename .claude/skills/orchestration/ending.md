@@ -6,8 +6,11 @@ Run once, in this order, when what remains is the last wave plus this list.
    whole round the ending still holds.
 2. Re-run the start's enumeration and tick every slice to a landed commit. Close every findings-ledger
    row (`ledger.py open` prints nothing) and every expected-red row. Renumber every `I_NEW_*`
-   invariant row once: agents number a new spec-sheet invariant `I_NEW_<agent name>_<n>` so that
-   parallel allocations cannot collide, and each takes its real number here.
+   invariant placeholder once, as one rename across the tree: agents number a new spec-sheet
+   invariant `I_NEW_<agent name>_<n>` so that parallel allocations cannot collide, and code comments,
+   tests and generated documents cite it too. Each takes its real number everywhere
+   `git grep -n I_NEW_` lists it, a generated document regenerated rather than edited, until that
+   command prints nothing and `scripts/checks/check_docs.py` exits 0.
 3. Run `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. The branch is
    stable only once the last fix is committed, the gate is green, no live agent can still return a
    finding, and every worktree row is closed.

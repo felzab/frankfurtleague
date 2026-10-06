@@ -226,6 +226,7 @@ const RECORD = {
   einwilligung: null,
   bestaetigung: null,
   adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
 /** The record the editor page's read answers with, as the backend holds it at that moment. */

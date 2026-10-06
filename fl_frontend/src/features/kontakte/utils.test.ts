@@ -380,6 +380,7 @@ describe("resolveTeamSaisonMembership", () => {
     austritt: null,
     trikot_farbe: null,
     kontakte: { trainer: stored, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
+    bestaetigungen: null,
     kontakte_stand: TOKEN,
   });
 

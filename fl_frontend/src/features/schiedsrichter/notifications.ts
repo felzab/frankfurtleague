@@ -9,8 +9,9 @@ import {
   buildSchiedsrichterAdresswechselHinweisEmail,
   buildSchiedsrichterBestaetigungEmail,
 } from "@/core/schiedsrichterEmail";
+import { versandAusfallOf } from "@/core/versandAusfall";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
-import { linkVersandOf, sendZielMail, versandAusfallOf } from "@/features/zustellung/notifications";
+import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { schiedsrichterVorname } from "./constants";

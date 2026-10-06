@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.identitaet.crud import funktionen_of
+from app.api.identitaet.crud import funktionen_aus
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.konto.schemas import FLKontoEinwilligungenResponse
@@ -12,9 +12,9 @@ from app.api.konto.services import (
     build_selbst_seat_pipeline,
     compose_bewerbungssitze_selbst,
     compose_registrierungen_selbst,
-    compose_schiedsrichter_selbst,
+    compose_schiedsrichter_konto,
     compose_sitze_selbst,
-    compose_spieler_selbst,
+    compose_spieler_konto,
     kontext_zeile,
 )
 from app.api.schiedsrichter.services import build_selbst_referee_pipeline
@@ -87,7 +87,15 @@ async def get_einwilligungen(
         registrierung_rows = await aggregate_many_from_db(
             collection=registrierungen_collection, pipeline=build_selbst_registrierung_pipeline(identifier), session=session
         )
-        subjekt = await funktionen_of(identifier, records, session=session)
+        # From the rows read above, which the subject's own selections choose: a second read would answer the same.
+        subjekt = await funktionen_aus(
+            identifier,
+            seat_rows=seat_rows,
+            referee_rows=referees,
+            pupil_rows=pupils,
+            saisons_collection=records.saisons_collection,
+            session=session,
+        )
 
         pupil = next((row for row in pupils if ist_eigener_spieler(row)), None)
         zeile = None if pupil is None else kontext_zeile(pupil)
@@ -117,14 +125,14 @@ async def get_einwilligungen(
             {
                 "spieler": None
                 if pupil is None
-                else compose_spieler_selbst(
+                else compose_spieler_konto(
                     pupil,
                     erteilbar=may_grant_on_spieler(subjekt, pupil["_id"]),
                     today=today,
                     team=None if zeile is None else teams.get(zeile["team_id"]),
                 ),
                 "schiedsrichter": [
-                    compose_schiedsrichter_selbst(row, erteilbar=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
+                    compose_schiedsrichter_konto(row, erteilbar=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
                     for row in referees
                     if ist_eigener_schiedsrichter(row, identifier)
                 ],

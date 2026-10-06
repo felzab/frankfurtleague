@@ -2,9 +2,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-# The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
-# names, so the referee's carrier declares the application's model rather than a twin of it.
-from app.api.bewerbungen.schemas import FLBewerbungZustellung
 from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
@@ -22,6 +19,10 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
+
+# The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
+# names, so the referee's carrier declares the application's model rather than a twin of it.
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # A SECOND spelling of `app/api/spieler/schemas.py :: FLEinwilligung`'s own, which is inline and so
 # cannot be imported. Widened alone it would take a scope mongod refuses, and the press would 500:
@@ -303,6 +304,10 @@ class FLSchiedsrichterWriteResponse(BaseAPIResponse):
 
 class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     schiedsrichter: FLSchiedsrichter
+    # Whether each link's deadline has passed today, judged by the rule its press refuses on, so the
+    # editor reads no day of its own; false where the row holds no such link.
+    bestaetigung_abgelaufen: bool
+    adresswechsel_abgelaufen: bool
 
 
 class FLSchiedsrichterKontext(BaseModel):
@@ -312,7 +317,10 @@ class FLSchiedsrichterKontext(BaseModel):
 
 
 class FLSchiedsrichterSelbst(BaseModel):
-    """One referee record as its own person reads it: their contact details, fee and consent, never the link's bookkeeping."""
+    """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+
+    For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.
+    """
 
     schiedsrichter_id: CustomObjectId
     name: CustomNonEmptyString
@@ -321,21 +329,6 @@ class FLSchiedsrichterSelbst(BaseModel):
     # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
     honorar: int
     geburtsdatum: CustomOptionalDateString = None
-    inactive_since: CustomOptionalDateString
-    # Required: only a confirmed record is served.
-    einwilligung: FLEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    bestaetigt_text_version: str | None
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    nachweis_stand: FLEinwilligungStand
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    erteilbar: bool
-    medien_angeboten: bool
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    mindestalter: int
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    medien_mindestalter: int
-    kontext: FLSchiedsrichterKontext
 
 
 class FLSchiedsrichterSelbstResponse(BaseAPIResponse):

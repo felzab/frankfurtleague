@@ -4,7 +4,7 @@ import pytest
 from bson import ObjectId
 from pydantic import ValidationError
 
-from app.api.bewerbungen.schemas import FLBewerbungZustellstand, FLKontaktRolle
+from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, compose_zustellung_update, zustellung_event_applies, zustellung_send_applies
 from app.api.zustellung.schemas import (
     ZIELE_JE_SITZ,
@@ -23,6 +23,7 @@ from app.api.zustellung.services import (
     zustellung_projektion,
 )
 from app.core.collections import Collection
+from app.shared.schemas.zustellung import FLBewerbungZustellstand
 
 ZIEL_OID = "6890a1b2c3d4e5f607970001"
 

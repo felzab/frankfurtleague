@@ -9,11 +9,13 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { spielerSelbst } from "@/shared/testing/selbstFixtures.ts";
 
 import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielerSelbstView } = await import("./SpielerSelbstView.tsx");
+const { FLSpielerSelbstSchema } = await import("../../schemas.ts");
 
 const LAUFEND: FLSpielerSelbstKaderZeile = {
   team_id: "6890a1b2c3d4e5f607390041",
@@ -40,28 +42,12 @@ const AUSGETRAGEN: FLSpielerSelbstKaderZeile = {
   inactive_since: "2026-03-14",
 };
 
-const SPIELERIN: FLSpielerSelbst = {
-  spieler_id: "6890a1b2c3d4e5f607390031",
-  vorname: "Alina",
+// A hyphenated surname, so a page showing the public initial would show a different name.
+const SPIELERIN: FLSpielerSelbst = FLSpielerSelbstSchema.parse({
+  ...spielerSelbst(),
   nachname: "Fischer-Okafor",
-  geburtsdatum: "2008-05-02",
-  inactive_since: null,
-  einwilligung: {
-    umfang: "kader_oeffentlich",
-    erteilt_von: "volljaehrig",
-    datum: "2026-09-01",
-    bestaetigt_am: "2026-09-01",
-    text_version: "2026-09-spielerseite-3",
-    medien: false,
-    nachweis: { umfang: null, medien: null },
-  },
-  bestaetigt_text_version: "2026-09-spielerseite-3",
-  nachweis_stand: { umfang: null, medien: null },
-  kontext: { vorname: "Alina", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2026" },
-  erteilbar: true,
-  medien_angeboten: true,
   kader: [LAUFEND, AUSGETRAGEN],
-};
+});
 
 const renderView = (spieler: FLSpielerSelbst = SPIELERIN) => render(underNext(h(SpielerSelbstView, { spieler })));
 

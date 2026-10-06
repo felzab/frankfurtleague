@@ -1,7 +1,8 @@
 """SCRIPTS · the orchestration skill's tools, driven over fixture repositories and registers.
 
 Each tool replaces a step a coordinator can get wrong in silence: a merge taking in work nobody
-committed, a clock time typed ahead of the clock, a finding banked with no ledger row. Every
+committed, a clock time typed ahead of the clock, a finding banked with no ledger row, a CI red read
+as expected. Every
 refusal arm is driven as well as the pass, since a tool failing open reads exactly like one with
 nothing to refuse.
 """
@@ -9,6 +10,8 @@ nothing to refuse.
 from __future__ import annotations
 
 import datetime
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,9 +25,12 @@ TOOLS: Final = REPO_ROOT / ".claude" / "skills" / "orchestration" / "tools"
 merge_rows, reg, ledger, land = import_scripts("merge_rows", "reg", "ledger", "land", directories=("../.claude/skills/orchestration/tools",))
 
 
-def _run(tool: str, *args: str, cwd: Path | None = None, stdin: bytes | None = None) -> subprocess.CompletedProcess[str]:
-    """One tool run as the coordinator runs it, by this interpreter, its streams decoded as utf-8."""
-    done = subprocess.run((sys.executable, str(TOOLS / f"{tool}.py"), *args), cwd=cwd, input=stdin, capture_output=True, check=False)
+def _run(
+    tool: str, *args: str, cwd: Path | None = None, stdin: bytes | None = None, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """One tool run as the coordinator runs it, by this interpreter, its streams decoded as utf-8; `env` adds to the child's environment."""
+    env = {**os.environ, **env} if env else None
+    done = subprocess.run((sys.executable, str(TOOLS / f"{tool}.py"), *args), cwd=cwd, input=stdin, capture_output=True, check=False, env=env)
     return subprocess.CompletedProcess(done.args, done.returncode, done.stdout.decode("utf-8"), done.stderr.decode("utf-8"))
 
 
@@ -80,13 +86,47 @@ ENDPOINTS: Final = "| Method | Path |\n| --- | --- |\n| GET | `/spiele` |\n| POS
 @pytest.mark.parametrize(
     ("ours", "theirs"),
     [("| POST | `/teams` |\n", "| POST | `/spieler` |\n"), ("| GET | `/teams` |\n", "| GET | `/spieler` |\n")],
-    ids=["both add a POST row", "both add a GET row the table already keys"],
+    ids=["both add a POST row", "both add a GET row the table already holds"],
 )
-def test_a_key_naming_more_than_one_row_stops_the_merge(ours: str, theirs: str) -> None:
+def test_a_table_whose_first_cell_repeats_is_keyed_by_the_column_naming_one_row(ours: str, theirs: str) -> None:
     conflicted = f"{ENDPOINTS}<<<<<<< HEAD\n{ours}=======\n{theirs}>>>>>>> agent\n"
     merge = merge_rows.merge_text(conflicted, ENDPOINTS, ENDPOINTS + theirs)
+    assert merge.text is not None, merge.conflicts
+    assert ours.strip() in merge.text and theirs.strip() in merge.text
+    assert merge.done == [f"ADD {theirs.split('|')[2].strip()} after {ours.split('|')[2].strip()}"]
+
+
+# The backend spec's two refusal tables both open on `Code`; the agent's longer placeholder re-pads
+# the second whole, header and separator included, so the conflict spans every row of it.
+TWO_CODE_TABLES: Final = (
+    "| Code | Refuses |\n| ---- | ------- |\n| `REQ-A` | a |\n\nprose\n\n| Code | Not served |\n| ---- | ---------- |\n| `READ-A` | a |\n"
+)
+
+
+def test_a_re_padded_table_beside_another_with_the_same_first_header_merges() -> None:
+    padded = "| Code           | Not served |\n| -------------- | ---------- |\n"
+    padded += "| `READ-A`       | a          |\n| `I_NEW_LONG_1` | b          |\n"
+    session = "| Code | Not served |\n| ---- | ---------- |\n| `READ-A` | a |\n| `READ-B` | c |\n"
+    above = TWO_CODE_TABLES.split("| Code | Not served |")[0]
+    conflicted = f"{above}<<<<<<< HEAD\n{session}=======\n{padded}>>>>>>> agent\n"
+    merge = merge_rows.merge_text(conflicted, TWO_CODE_TABLES, above + padded)
+    assert merge.text is not None, merge.conflicts
+    assert merge.done == ["ADD `I_NEW_LONG_1` after `READ-A`"]
+    assert merge.text.endswith("| `READ-A` | a |\n| `I_NEW_LONG_1` | b          |\n| `READ-B` | c |\n")
+
+
+@pytest.mark.parametrize(
+    ("base", "ours", "theirs", "said"),
+    [
+        ("| K | V |\n| - | - |\n| a | 1 |\n| a | 1 |\n", "| b | 2 |\n", "| c | 3 |\n", "no column of the table"),
+        ("| K | V |\n| - | - |\n| a | 1 |\n\n| K | V |\n| - | - |\n| z | 9 |\n", "| b | 2 |\n", "| c | 3 |\n", "2 tables in"),
+    ],
+    ids=["no column names one row", "two tables open with one header"],
+)
+def test_a_table_no_column_keys_stops_the_merge(base: str, ours: str, theirs: str, said: str) -> None:
+    merge = merge_rows.merge_text(f"{base}<<<<<<< HEAD\n{ours}=======\n{theirs}>>>>>>> agent\n", base, base + theirs)
     assert merge.text is None
-    assert any("names no one row" in conflict for conflict in merge.conflicts), merge.conflicts
+    assert any(said in conflict for conflict in merge.conflicts), merge.conflicts
 
 
 # The admin-write table's continuation rows, whose empty first cell names nothing to place them by.
@@ -250,12 +290,265 @@ def test_open_exits_one_while_a_row_is_open_and_zero_once_every_row_is_closed(tm
     assert closed.returncode == 0 and closed.stdout == ""
 
 
+@pytest.mark.parametrize("tool", ["ledger", "reg"])
+def test_a_character_the_pipes_codepage_lacks_prints_rather_than_failing_after_the_write(tmp_path: Path, tool: str) -> None:
+    """A minus sign failed the print after the row was written, and the encode error read as a refusal."""
+    register = _register(tmp_path)
+    report = tmp_path / "A-report.md"
+    report.write_bytes("F1 a count − one\n".encode())
+    args = ("bank", str(register), str(report)) if tool == "ledger" else ("append", str(register), "a count − one")
+    # A Windows pipe stands a child's streams on the console's codepage; cp1252 has no minus sign.
+    done = _run(tool, *args, env={"PYTHONIOENCODING": "cp1252"})
+    assert done.returncode == 0, done.stderr
+    assert "a count − one" in done.stdout
+
+
 def test_a_skipped_number_is_named(tmp_path: Path) -> None:
     register = _register(tmp_path)
     report = tmp_path / "B-report.md"
     report.write_bytes(b"F1 one\n\nF3 three\n")
     done = _run("ledger", "bank", str(register), str(report))
     assert done.returncode == 0 and "skips F2" in done.stderr
+
+
+def _banked(tmp_path: Path, *reports: tuple[str, str]) -> Path:
+    register = _register(tmp_path)
+    for name, text in reports:
+        (tmp_path / name).write_bytes(text.encode("utf-8"))
+        ledger.bank(register, tmp_path / name)
+    return register
+
+
+def _status(register: Path, row: str) -> list[str]:
+    line = next(line for line in register.read_bytes().decode("utf-8").splitlines() if line.startswith(f"| {row} |"))
+    return [cell.strip() for cell in line.split("|")[4:6]]
+
+
+def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
+    """Two fixers given one finding built opposite designs; the second route is refused and writes nothing."""
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    assert _run("ledger", "route", str(register), "FIXER-1", "A-F1", "A-F2").returncode == 0
+    assert _status(register, "A-F1") == ["ROUTED", "FIXER-1"]
+    before = register.read_bytes()
+    second = _run("ledger", "route", str(register), "FIXER-2", "A-F2")
+    assert second.returncode == 2 and "routed to FIXER-1 already" in second.stderr
+    assert register.read_bytes() == before
+    assert _run("ledger", "route", str(register), "FIXER-2", "A-F2", "--reroute").returncode == 0
+    assert _status(register, "A-F2") == ["ROUTED", "FIXER-2"]
+
+
+@pytest.mark.parametrize(("row", "said"), [("A-F9", "is no ledger row"), ("A-F1", "is closed")], ids=["no such row", "a closed row"])
+def test_a_route_naming_a_row_it_cannot_take_moves_none(tmp_path: Path, row: str, said: str) -> None:
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    register.write_bytes(register.read_bytes().replace(b"| A-F1 | A-report.md | one | OPEN |", b"| A-F1 | A-report.md | one | MOOT |"))
+    before = register.read_bytes()
+    done = _run("ledger", "route", str(register), "FIXER-1", "A-F2", row)
+    assert done.returncode == 2 and said in done.stderr
+    assert register.read_bytes() == before
+
+
+def test_a_finding_several_lenses_reported_is_named_at_its_banking(tmp_path: Path) -> None:
+    """The round's lenses each banked the comment orphaned above `Leer`, as rows nobody tied together."""
+    register = _banked(tmp_path, ("L1-report.md", "F5 (for L8). `9cf8a0663` put two constants between `Leer()` and its comment\n"))
+    report = tmp_path / "L4-report.md"
+    report.write_bytes(b"F10 (for L8). In `BewerbungAngabenPanel.tsx`, `9cf8a0663` split `Leer` from its comment\n\nF11 `other` and `spans`\n")
+    done = _run("ledger", "bank", str(register), str(report))
+    assert done.returncode == 0, done.stderr
+    assert "L4-F10 may repeat L1-F5" in done.stderr and "`9cf8a0663`, `Leer`" in done.stderr
+    assert "L4-F11" not in done.stderr
+
+
+def _transcript(home: Path, agent: str, *messages: tuple[str, list[str]]) -> None:
+    """An agent's transcript as the harness writes it: one line per content block, a message's blocks sharing its id."""
+    folder = home / ".claude" / "projects" / "proj" / "session" / "subagents"
+    folder.mkdir(parents=True)
+    lines = [json.dumps({"message": {"role": "user", "content": "the brief"}})]
+    for message_id, texts in messages:
+        lines.append(json.dumps({"message": {"id": message_id, "role": "assistant", "content": [{"type": "thinking", "thinking": ""}]}}))
+        lines += [
+            json.dumps({"message": {"id": message_id, "role": "assistant", "content": [{"type": "text", "text": text}]}}) for text in texts
+        ]
+    (folder / f"agent-{agent}.jsonl").write_bytes("\n".join(lines).encode("utf-8"))
+
+
+def test_bank_from_an_agent_saves_its_final_message_and_never_over_a_saved_report(tmp_path: Path) -> None:
+    """Banked findings whose report was never saved left fixers nothing to read; a resumed agent's short reply overwrote a report."""
+    home = tmp_path / "home"
+    _transcript(home, "a1b2", ("m1", ["an interim note"]), ("m2", ["## Report\n\n", "F1 the − finding\n"]))
+    register, report = _register(tmp_path), tmp_path / "AGENT-report.md"
+    env = {"HOME": str(home), "USERPROFILE": str(home)}
+    done = _run("ledger", "bank", str(register), str(report), "--from", "a1b2", env=env)
+    assert done.returncode == 0, done.stderr
+    assert report.read_bytes().decode("utf-8") == "## Report\n\nF1 the − finding\n"
+    assert "| AGENT-F1 |" in done.stdout
+    again = _run("ledger", "bank", str(register), str(report), "--from", "a1b2", "--as", "AGENT-r2", env=env)
+    assert again.returncode == 2 and "already exists" in again.stderr
+    assert report.read_bytes().decode("utf-8") == "## Report\n\nF1 the − finding\n"
+
+
+@pytest.mark.parametrize(
+    ("args", "said"), [(("--from", "nobody"), "0 transcripts"), ((), "X-report.md")], ids=["no transcript", "no report file"]
+)
+def test_bank_with_no_report_to_read_is_refused(tmp_path: Path, args: tuple[str, ...], said: str) -> None:
+    home = tmp_path / "home"
+    (home / ".claude" / "projects").mkdir(parents=True)
+    register = _register(tmp_path)
+    before = register.read_bytes()
+    done = _run("ledger", "bank", str(register), str(tmp_path / "X-report.md"), *args, env={"HOME": str(home), "USERPROFILE": str(home)})
+    assert done.returncode == 2 and said in done.stderr and "Traceback" not in done.stderr
+    assert register.read_bytes() == before
+
+
+# --- reg message ----------------------------------------------------------------------------------
+
+LIVE: Final = (
+    "## Live agents\n\n| Agent name, then the id in backticks | Question | Status |\n| --- | --- | --- |\n"
+    "| WORKER `a1b2c3` (implementer) | the work | RUNNING |\n| OTHER `d4e5f6` | more | RUNNING |\n\n"
+)
+
+
+def _fleet(tmp_path: Path, messages_file: bool = True) -> tuple[Path, Path, Path]:
+    """A plans directory holding the sending session's register, its briefs folder and one agent's messages file."""
+    briefs = tmp_path / "plans" / "prog" / "scratch" / "briefs"
+    briefs.mkdir(parents=True)
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    head = f"# Agent register\n\nCoordinator session id: sess-1\nBriefs: {briefs}\n\n{LIVE}"
+    placed = tmp_path / "plans" / "prog" / "REGISTER-s.md"
+    placed.write_bytes(head.encode("utf-8") + register.read_bytes().split(b"\n", 1)[1])
+    messages = briefs / "WORKER-messages.md"
+    if messages_file:
+        messages.write_bytes(b"# WORKER -- messages after the brief\n")
+    return tmp_path / "plans", placed, messages
+
+
+def _sent(to: str, text: str, **extra: object) -> dict[str, object]:
+    return {"session_id": "sess-1", "tool_name": "SendMessage", "tool_input": {"to": to, "message": text}, **extra}
+
+
+@pytest.mark.parametrize("to", ["WORKER", "a1b2c3"], ids=["by name", "by id"])
+def test_a_sent_message_is_written_to_its_agents_file_and_routes_its_rows(tmp_path: Path, to: str) -> None:
+    """An order appended by hand, its send forgotten, never reached the agent: the record follows the send."""
+    plans, register, messages = _fleet(tmp_path)
+    now = datetime.datetime(2026, 10, 6, 19, 5, tzinfo=datetime.UTC)
+    said = reg.record(_sent(to, "Fix both.\r\nRows: A-F1, A-F2\nPath C:\\Users\\x stays as typed."), plans, now)
+    assert said is None
+    assert messages.read_bytes().decode("utf-8") == (
+        "# WORKER -- messages after the brief\n\n## 2026-10-06 19:05 coordinator\n\n"
+        "Fix both.\nRows: A-F1, A-F2\nPath C:\\Users\\x stays as typed.\n"
+    )
+    assert _status(register, "A-F1") == ["ROUTED", "WORKER"] and _status(register, "A-F2") == ["ROUTED", "WORKER"]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _sent("a1b2c3", "x", agent_id="a9"),
+        {**_sent("a1b2c3", "x"), "session_id": "another"},
+        _sent("PEER", "x"),
+        _sent("main", "x"),
+        {**_sent("a1b2c3", "x"), "tool_name": "Read"},
+    ],
+    ids=["a subagent's send", "another session", "no live agent", "the main session", "another tool"],
+)
+def test_a_send_that_is_no_coordinators_order_writes_nothing(tmp_path: Path, payload: dict[str, object]) -> None:
+    plans, register, messages = _fleet(tmp_path)
+    before = (messages.read_bytes(), register.read_bytes())
+    assert reg.record(payload, plans) is None
+    assert (messages.read_bytes(), register.read_bytes()) == before
+
+
+def test_a_message_with_no_file_to_take_it_is_told_rather_than_written_elsewhere(tmp_path: Path) -> None:
+    plans, _, messages = _fleet(tmp_path, messages_file=False)
+    said = reg.record(_sent("WORKER", "x"), plans)
+    assert said is not None and "is in no messages file" in said and "WORKER-messages.md" in said
+    assert not messages.exists()
+
+
+def test_rows_routed_elsewhere_are_told_and_the_message_still_recorded(tmp_path: Path) -> None:
+    plans, register, messages = _fleet(tmp_path)
+    ledger.route(register, "OTHER", ["A-F1"])
+    said = reg.record(_sent("WORKER", "Fix it.\nRows: A-F1"), plans)
+    assert said is not None and "routed to OTHER already" in said
+    assert "Fix it." in messages.read_bytes().decode("utf-8") and _status(register, "A-F1") == ["ROUTED", "OTHER"]
+
+
+def test_the_hook_command_answers_a_notice_as_hook_json(tmp_path: Path) -> None:
+    plans, _, _ = _fleet(tmp_path, messages_file=False)
+    done = _run("reg", "message", str(plans), stdin=json.dumps(_sent("WORKER", "x")).encode("utf-8"))
+    assert done.returncode == 0, done.stderr
+    said = json.loads(done.stdout)["hookSpecificOutput"]
+    assert said["hookEventName"] == "PostToolUse" and "is in no messages file" in said["additionalContext"]
+    assert _run("reg", "message", str(plans), stdin=b"not json").returncode == 0
+
+
+# --- ci -------------------------------------------------------------------------------------------
+
+
+def _log(*lines: tuple[str, str]) -> bytes:
+    """`gh run view --log-failed` as it prints: job, step and stamp before each line, the escape spelled `^[`."""
+    stamped = [f"{job}\tRun the scope\t2026-10-06T14:54:53.1340914Z {text}" for job, text in lines]
+    return ("﻿" + "\n".join(stamped) + "\n").encode("utf-8")
+
+
+FAILED_RUN: Final = _log(
+    ("docs", "##[error]a row in `## 2. Invariants` is neither an invariant nor a header: '| I_NEW_A_1 | x' (OUT-4)"),
+    ("docs", "##[error]a tracked file holds U+FEFF: scripts/tests/test_x.py (invisible)"),
+    ("docs", "^[[31m   ✗^[[0m  The documentation gate failed. Each finding above opens with what it judged"),
+    ("docs", "##[error]Process completed with exit code 1."),
+    ("frontend-units (1)", "      ✖ a suite holding the failure (5.1ms)"),
+    ("frontend-units (1)", "      ✖ failing tests:"),
+    ("frontend-units (1)", "      test at src/core/apiContract.test.ts:366:3"),
+    ("frontend-units (1)", "      ✖ pairs every published component with a Zod mirror (2.629853ms)"),
+    ("frontend-units (1)", "^[[31m   ✗^[[0m  frontend unit tests failed.   ^[[2m108s^[[0m"),
+    ("backend", "FAILED tests/api/test_konto.py::test_a_read - AssertionError: 2 != 3"),
+    ("frontend", "src/features/funktionen/team.test.ts(189,27): error TS2304: Cannot find name 'APIBadStatusError'."),
+    ("ops", "^[[31m   ✗^[[0m  the compose model drifted."),
+    ("images", "##[error]Process completed with exit code 1."),
+    ("verify", "##[error]A scope job failed -- its own log has the findings."),
+    ("verify", "##[error]`db` took 155 s against a budget of 135 s"),
+)
+EXPECTED_RED: Final = (
+    "## Expected red\n\n| Matches | Why it is red | Cleared by | Since | Status |\n| --- | --- | --- | --- | --- |\n"
+    "| `is neither an invariant nor a header` | placeholders | the ending | start | RED |\n"
+    "| `took 155 s` | the budget | a measurement | x | RED |\n"
+    "| `apiContract.test.ts :: pairs` | mirrors | a lane | y | CLEARED z |\n"
+    "| `refusalCoverage` | mapper | a lane | y | RED |\n\n## Next\n"
+)
+
+
+def test_ci_names_every_finding_of_every_failed_job_expected_or_new(tmp_path: Path) -> None:
+    """A job holding an expected red was read as wholly expected while a second, unlisted finding sat in it."""
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    done = _run("ci", str(register), stdin=FAILED_RUN, env={"PYTHONIOENCODING": "cp1252"})
+    assert done.returncode == 1, done.stderr
+    new = [line.split("NEW", 1)[1].strip() for line in done.stdout.splitlines() if line.startswith("  NEW")]
+    assert new == [
+        "a tracked file holds U+FEFF: scripts/tests/test_x.py (invisible)",
+        "src/core/apiContract.test.ts :: pairs every published component with a Zod mirror",
+        "FAILED tests/api/test_konto.py::test_a_read - AssertionError: 2 != 3",
+        "src/features/funktionen/team.test.ts(189,27): error TS2304: Cannot find name 'APIBadStatusError'.",
+        "the compose model drifted.",
+        "images: no finding line recognised; read its log",
+    ]
+    assert "  expected  is neither an invariant nor a header  (1 line(s))" in done.stdout
+    assert "  expected  took 155 s  (1 line(s))" in done.stdout
+    assert "RED row no line matched: refusalCoverage" in done.stdout
+
+
+def test_ci_passes_a_run_whose_every_finding_is_listed(tmp_path: Path) -> None:
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    done = _run("ci", str(register), stdin=_log(("verify", "##[error]`db` took 155 s against a budget of 135 s")))
+    assert done.returncode == 0, done.stdout
+
+
+@pytest.mark.parametrize(("log", "table"), [(b"", True), (FAILED_RUN, False)], ids=["an empty log", "no expected-red table"])
+def test_ci_refuses_what_it_cannot_read(tmp_path: Path, log: bytes, table: bool) -> None:
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes((EXPECTED_RED if table else "# Agent register\n").encode("utf-8"))
+    done = _run("ci", str(register), stdin=log)
+    assert done.returncode == 2 and done.stderr and "Traceback" not in done.stderr
 
 
 # --- land -----------------------------------------------------------------------------------------
@@ -332,9 +625,17 @@ def _hooked(root: Path) -> list[str]:
     return log.read_bytes().decode("utf-8").splitlines() if log.exists() else []
 
 
+def _land(root: Path, branch: str = "agent") -> subprocess.CompletedProcess[str]:
+    """The landing run from the session's checkout against the register beside it, written the first time."""
+    register = root.parent / "REGISTER-s.md"
+    if not register.exists():
+        _register(root.parent)
+    return _run("land", str(register), branch, cwd=root)
+
+
 def _stopped_clean(root: Path, head: str, code: int, branch: str = "agent") -> str:
     """A landing that stopped with `code`, leaving no merge in progress, no change and the session branch where it was."""
-    done = _run("land", branch, cwd=root)
+    done = _land(root, branch)
     assert done.returncode == code, (done.returncode, done.stderr)
     assert "Traceback" not in done.stderr
     assert git(root, "status", "--porcelain") == "" and not (root / ".git" / "MERGE_HEAD").exists()
@@ -348,7 +649,7 @@ def test_a_finished_branch_lands_whole_as_one_merge_through_the_hooks(tmp_path: 
     _agent_commit(root, "Docs: A note", NOTE)
     tip = _agent_commit(root, "Docs: Another file", {"other.txt": "new\n"})
     hooked = len(_hooked(root))
-    done = _run("land", "agent", cwd=root)
+    done = _land(root)
     assert done.returncode == 0, done.stderr
     assert done.stdout.startswith("landed agent as")
     assert git(root, "log", "-1", "--format=%P").split() == [start, tip]
@@ -356,12 +657,26 @@ def test_a_finished_branch_lands_whole_as_one_merge_through_the_hooks(tmp_path: 
     assert _hooked(root)[hooked:] == ["Merge branch 'agent'"]
 
 
+def test_a_landing_closes_the_routed_rows_its_commits_name(tmp_path: Path) -> None:
+    """Routes went out by message and fixers closed items, and the ledger fell hundreds of rows behind."""
+    root = _repo(tmp_path)
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n\nF3 three\n\nF11 eleven\n"))
+    ledger.route(register, "FIXER", ["A-F1", "A-F2", "A-F11"])
+    _agent_commit(root, "Docs: A note\n\nFixes A-F11 and A-F3.", NOTE)
+    done = _land(root)
+    assert done.returncode == 0, done.stderr
+    merge = git(root, "rev-parse", "--short", "HEAD")
+    assert f"FIXED A-F11 by {merge}" in done.stdout and "not ROUTED, so left as they stand: A-F3" in done.stdout
+    assert _status(register, "A-F11") == [f"FIXED ({merge})", "was FIXER"]
+    assert _status(register, "A-F1") == ["ROUTED", "FIXER"] and _status(register, "A-F3")[0] == "OPEN"
+
+
 def test_a_branch_the_session_already_holds_is_nothing_to_land(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", NOTE)
-    assert _run("land", "agent", cwd=root).returncode == 0
+    assert _land(root).returncode == 0
     head = git(root, "rev-parse", "HEAD")
-    again = _run("land", "agent", cwd=root)
+    again = _land(root)
     assert again.returncode == 0 and "nothing to land" in again.stdout
     assert git(root, "rev-parse", "HEAD") == head
 
@@ -369,9 +684,9 @@ def test_a_branch_the_session_already_holds_is_nothing_to_land(tmp_path: Path) -
 def test_a_merge_touching_the_backend_regenerates_a_stale_document(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2'})
-    done = _run("land", "agent", cwd=root)
+    done = _land(root)
     assert done.returncode == 0, done.stderr
-    assert "(regenerated openapi.json)" in done.stdout
+    assert "(regenerated openapi.json; type-checked fl_backend)" in done.stdout
     assert git(root, "show", "HEAD:fl_backend/openapi.json") == '{"a": 2, "b": 1}'
 
 
@@ -380,7 +695,7 @@ def test_a_generated_document_conflict_is_answered_by_regenerating_it(tmp_path: 
     root = _repo(tmp_path)
     _agent_commit(root, "Backend: The extra grows", {"fl_backend/app/extra.txt": '"b": 2', "fl_backend/openapi.json": '{"a": 1, "b": 2}\n'})
     _session_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2', "fl_backend/openapi.json": '{"a": 2, "b": 1}\n'})
-    done = _run("land", "agent", cwd=root)
+    done = _land(root)
     assert done.returncode == 0, done.stderr
     assert git(root, "show", "HEAD:fl_backend/openapi.json") == '{"a": 2, "b": 2}'
 
@@ -389,7 +704,7 @@ def test_a_spec_table_conflict_lands_merged_by_row_key(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A row", {"docs/spec.md": TABLE_HEAD + "| I1 | one |\n| I3 | three |\n"})
     _session_commit(root, "Docs: The session's row", {"docs/spec.md": TABLE_HEAD + "| I1 | one |\n| I2 | two |\n"})
-    done = _run("land", "agent", cwd=root)
+    done = _land(root)
     assert done.returncode == 0, done.stderr
     assert "merged by row key: docs/spec.md: ADD I3 after I2" in done.stdout
     landed = git(root, "show", "HEAD:docs/spec.md")
@@ -407,10 +722,10 @@ def test_a_conflict_outside_a_table_aborts_the_merge(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("ours", "theirs", "base", "reason"),
     [
-        ("| POST | `/teams` |\n", "| POST | `/spieler` |\n", ENDPOINTS, "names no one row"),
+        ("| a | 2 |\n", "| a | 3 |\n", "| K | V |\n| - | - |\n| a | 1 |\n| a | 1 |\n", "no column of the table"),
         ("| A | session |\n", "| A | agent |\n", None, "is missing from the merge-base"),
     ],
-    ids=["a method-keyed table", "a file both sides added"],
+    ids=["a table no column keys", "a file both sides added"],
 )
 def test_a_markdown_conflict_the_row_merge_cannot_settle_aborts_the_merge(
     tmp_path: Path, ours: str, theirs: str, base: str | None, reason: str
@@ -446,6 +761,15 @@ def test_a_failing_regeneration_aborts_the_merge(tmp_path: Path) -> None:
     assert "tests.openapi_document --write exited 3" in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 4)
 
 
+def test_a_merge_failing_a_touched_packages_type_check_aborts_the_merge(tmp_path: Path) -> None:
+    """Each side type-checks alone; together the agent's new caller passes the session's narrowed parameter a string."""
+    root = _repo(tmp_path)
+    _agent_commit(root, "Backend: A caller", {"fl_backend/app/caller.py": "from app.callee import f\n\nf('one')\n"})
+    _session_commit(root, "Backend: A callee", {"fl_backend/app/callee.py": "def f(x: int) -> int:\n    return x\n"})
+    said = _stopped_clean(root, git(root, "rev-parse", "HEAD"), 5)
+    assert "the merged tree fails `" in said and "caller.py" in said
+
+
 def test_a_merge_commit_the_hooks_refuse_aborts_the_merge(tmp_path: Path) -> None:
     root = _repo(tmp_path, branch="agent-REFUSE")
     _agent_commit(root, "Docs: A note", NOTE, branch="agent-REFUSE")
@@ -455,7 +779,7 @@ def test_a_merge_commit_the_hooks_refuse_aborts_the_merge(tmp_path: Path) -> Non
 
 def _refused(root: Path, branch: str = "agent") -> str:
     head = git(root, "rev-parse", "HEAD")
-    done = _run("land", branch, cwd=root)
+    done = _land(root, branch)
     assert done.returncode == 2, (done.returncode, done.stderr)
     assert git(root, "rev-parse", "HEAD") == head, "a refused landing committed something"
     return done.stderr
@@ -493,6 +817,17 @@ def test_a_stash_entry_on_the_branch_is_refused(tmp_path: Path, named: tuple[str
     assert "a stash entry is on agent" in _refused(root)
 
 
+def test_a_branch_carrying_a_patch_the_session_already_holds_is_refused(tmp_path: Path) -> None:
+    """A cherry-picked commit's twin on the agent's branch merges clean and can double a hunk a later edit touches."""
+    root = _repo(tmp_path)
+    picked = _agent_commit(root, "Docs: A note", NOTE)
+    _agent_commit(root, "Docs: Another file", {"other.txt": "new\n"})
+    git(root, "cherry-pick", picked)
+    said = _refused(root)
+    assert "1 commit(s) whose patch the session branch already holds" in said and "Docs: A note" in said
+    assert "Docs: Another file" not in said
+
+
 def test_git_failing_during_the_merge_is_its_own_exit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -509,7 +844,7 @@ def test_git_failing_during_the_merge_is_its_own_exit(
 
     monkeypatch.setattr(land, "git", add_fails)
     monkeypatch.chdir(root)
-    code = land.main(["agent"])
+    code = land.main([str(_register(tmp_path)), "agent"])
     said = capsys.readouterr().err
     assert code == 7, said
     assert "planted" in said and git(root, "rev-parse", "HEAD") == head

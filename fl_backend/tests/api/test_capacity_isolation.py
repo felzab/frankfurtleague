@@ -119,23 +119,17 @@ def bewerbung_document(index: int) -> dict[str, Any]:
     reaches the capacity rule rather than `REQ-BEWERBUNG-013`.
     """
 
-    return {
-        "_id": oid(5000 + index),
-        "saison_id": SAISON,
-        "eingereicht_am": "2026-02-01",
-        "status": "eingereicht",
-        "team_id": oid(index),
-        "schule": None,
-        "kontakte": {
-            "trainer": kontaktperson("Wraxlington"),
-            "ansprechperson": kontaktperson("Quillhilde"),
-            "stellvertretung": kontaktperson("Bramblewick"),
-            "trainer_ist_zugleich": None,
-        },
-        "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "entscheidung": None,
-    }
+    return documents.bewerbung_document(
+        oid(5000 + index),
+        SAISON,
+        "eingereicht",
+        kontakte=documents.kontakte_document(
+            trainer=kontaktperson("Wraxlington"), ansprechperson=kontaktperson("Quillhilde"), stellvertretung=kontaktperson("Bramblewick")
+        ),
+        eingereicht_am="2026-02-01",
+        team_id=oid(index),
+        trikot={"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+    )
 
 
 class SeasonsRunningAHookBeforeTheAnchor(InterleavedCollection):

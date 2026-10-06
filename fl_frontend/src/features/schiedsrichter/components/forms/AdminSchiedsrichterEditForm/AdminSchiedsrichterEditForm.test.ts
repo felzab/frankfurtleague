@@ -64,6 +64,7 @@ const RECORD = {
   einwilligung: null,
   bestaetigung: null,
   adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
 const editor = (email: string | null) =>

@@ -434,7 +434,8 @@ describe("a write whose answer never arrives", () => {
       assert.equal(seen.refresh, readAgain[arm], "a rejection left the row as it was, or an answer read it twice");
       assert.deepEqual(unknowns(), [
         [
-          "Unklar, ob es gespeichert wurde",
+          // A send saves nothing, so its title says what is unknown of it.
+          "Unklar, ob der Link verschickt wurde",
           repairOn(arm, "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging."),
         ],
       ]);

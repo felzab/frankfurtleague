@@ -768,6 +768,12 @@ def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:
     return entry.get("frist") if isinstance(entry, Mapping) else None
 
 
+def saison_link_is_over(*, frist: Any, today: str) -> bool:
+    """Whether a season row's seat link is past its own deadline: what its press refuses (`REQ-KONTAKT-004`) and the editor shows."""
+
+    return _deadline_passed(bestaetigungsfrist=frist, today=today)
+
+
 def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
     """Whether a season row's seat still asks its person to confirm it: not once its season ended or its team left it.
 
@@ -781,7 +787,7 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt
     """What a reopened season-row link shows, its own deadline ending it, a closed row stopping its consent."""
 
     bestaetigungen = row.get("bestaetigungen")
-    over = _deadline_passed(bestaetigungsfrist=saison_frist_of(bestaetigungen=bestaetigungen, seat=seat), today=today)
+    over = saison_link_is_over(frist=saison_frist_of(bestaetigungen=bestaetigungen, seat=seat), today=today)
     zustand = _zustand(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat, over=over, gesperrt=gesperrt)
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
@@ -803,7 +809,7 @@ def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
     (`docs/backend/spec.md` §1.4).
     """
 
-    if not _deadline_passed(bestaetigungsfrist=frist, today=today):
+    if not saison_link_is_over(frist=frist, today=today):
         return None
 
     return WriteRefusal(

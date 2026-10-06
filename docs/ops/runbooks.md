@@ -639,10 +639,16 @@ as them.
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
   Their consent link is not re-minted — the record is already given. **Once the change confirms,
   the old address's sign-in account stays behind**, the confirmation touching no sign-in row, and
-  the referee's passkeys stay on it until its rows are deleted. Where the sign-in gate answers that
-  the old address holds nothing — no record of its own, none awaiting confirmation and no grant
-  (`docs/glossary.md :: Konto`) — delete its sign-in rows by the erasure's hand step above, run on
-  the old address.
+  the referee's passkeys stay on it until its rows are deleted. Delete its sign-in rows by the
+  erasure's hand step above, run on the old address, once nothing else holds it, each read by the
+  address: no referee, searching `/bereich/admin/schiedsrichter`; no contact seat, searching
+  `/bereich/admin/kontakte` and `/bereich/admin/bewerbungen`; no grant, searching
+  `/bereich/admin/administratoren`; and no pupil or registration, which no page searches by address,
+  so a Playground count of `spieler` rows whose `email` is the address as
+  `fl_backend/app/shared/folding.py :: sign_in_identifier` folds it, as the pupil's correction
+  above reads it, and of `registrierungen` rows whose `email` matches it in any case, a
+  registration storing it unfolded (`docs/glossary.md :: Registrierung`). Those are the records
+  the sign-in gate admits an address for (`docs/glossary.md :: Konto`).
 - **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
   read keys on that address, by design (`docs/backend/spec.md :: I_NEW_KREF_2`), so no search finds
   the referee from it: open the editor of the referee whose „Neue E-Mail-Adresse“ panel shows it and
@@ -678,8 +684,9 @@ address that record holds:
   `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
   either.
 - **A pending registration's publication scope and media consent:**
-  `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which withdraws them and never
-  grants either until the team admits the registration.
+  `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which withdraws them and grants
+  neither. The admission deletes the registration, and its choices then move on the pupil's own
+  control above.
 - **A pupil's:** the paragraph below.
 
 **Taking a contact person off their seat is an erasure, unless the seat's own link still takes

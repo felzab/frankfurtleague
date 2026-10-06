@@ -62,6 +62,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
+from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.bans import ban_list
@@ -163,19 +164,18 @@ def bewerbung_document(
     before the confirmation flow, which acceptance is not held to.
     """
 
-    return {
-        "_id": bewerbung_id,
-        "saison_id": SAISON_ID,
-        "eingereicht_am": "2026-02-01",
-        "status": "eingereicht",
-        "team_id": team_id,
-        "schule": schule,
-        "kontakte": {slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()},
-        "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "entscheidung": None,
-        **overrides,
-    }
+    stored = documents.bewerbung_document(
+        bewerbung_id,
+        SAISON_ID,
+        "eingereicht",
+        kontakte={slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()},
+        eingereicht_am="2026-02-01",
+        team_id=team_id,
+        schule=schule,
+        trikot={"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+    )
+
+    return {**stored, **overrides}
 
 
 def junction_document(team_id: ObjectId, name: str, shorthand: str, gruppe: str) -> dict[str, Any]:

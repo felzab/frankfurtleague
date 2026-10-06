@@ -7,6 +7,7 @@ import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -128,7 +129,7 @@ const holding = (kontakte: unknown) => () => ({
       schulform: null,
       inactive_since: null,
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [{ saison_id: "2627", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: kontakte, kontakte_stand: "9f2c" }],
+      memberships: [membershipAnswer({ saison_id: "2627", kontakte: kontakte, kontakte_stand: "9f2c" })],
     },
   ],
 });

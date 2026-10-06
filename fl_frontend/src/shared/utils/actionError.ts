@@ -239,6 +239,9 @@ export function rejectedWrite(router: { refresh: () => void }, repair?: string):
  */
 export const LINK_ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
 
+/** The toast title of a link send whose outcome is unknown: a send saves nothing, so the title saves nothing either. */
+export const LINK_UNKLAR = "Unklar, ob der Link verschickt wurde";
+
 /**
  * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is
  * (`docs/frontend/spec.md` §1.3), never `unansweredAction`'s unclear save. One sentence for every read.

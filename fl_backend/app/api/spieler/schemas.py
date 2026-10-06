@@ -426,29 +426,14 @@ class FLSpielerKontext(BaseModel):
 
 
 class FLSpielerSelbst(_SpielerPerson):
-    """One pupil record as its own person reads it: the whole surname, the birthdate and the consent record, never masked."""
+    """One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
+
+    Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLKontoSpielerEinwilligung`).
+    """
 
     spieler_id: CustomObjectId
     geburtsdatum: CustomOptionalDateString = None
-    inactive_since: CustomOptionalDateString
-    # Required: only a confirmed record is served, so the block is always there.
-    einwilligung: FLEinwilligung
-    # The block's `text_version` under the name the account page reads it by: the words shown read-only
-    # beside the control are the ones confirmed, never an account-page press's.
-    bestaetigt_text_version: str | None
-    # What the consent PATCH echoes back, computed by the function its precondition compares with.
-    nachweis_stand: FLEinwilligungStand
-    # Served rather than derived on the page, which would judge a grant with a second copy of the
-    # rule the PATCH refuses by.
-    erteilbar: bool
-    medien_angeboten: bool
-    # The floor the record's confirmation page named, so the page fills `{minAlter}` from the rule rather
-    # than from a copy of it, as every seat entry does.
-    mindestalter: int
-    # The media floor the record's words name, served as the participation floor is.
-    medien_mindestalter: int
     kader: list[FLSpielerSelbstKaderZeile]
-    kontext: FLSpielerKontext
 
 
 class FLSpielerSelbstResponse(BaseAPIResponse):

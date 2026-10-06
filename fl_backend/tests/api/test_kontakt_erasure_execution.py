@@ -183,26 +183,25 @@ def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) ->
 
 
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
-BESTAETIGUNGEN = compose_bestaetigungen(hashes={slot: hash_token(f"link-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
+# Minted as the shared application builder mints them, from this prefix on the submission's day.
+LINK_PREFIX = "link"
+BESTAETIGUNGEN = compose_bestaetigungen(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
 
 
 def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
     """The same, for `Collection.BEWERBUNGEN`, whose `kontakte` is a REQUIRED, non-nullable block."""
 
-    return {
-        "_id": row_id,
-        "saison_id": LATER_SAISON,
-        "eingereicht_am": "2026-01-05",
-        "status": "eingereicht",
-        "team_id": team_id,
-        "schule": None,
-        "kontakte": FORMER_BLOCKS[row_id],
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 12, "gute_spieler": 3},
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-01-19",
-        "bestaetigungen": {slot: dict(entry) for slot, entry in BESTAETIGUNGEN.items()},
-    }
+    return documents.bewerbung_document(
+        row_id,
+        LATER_SAISON,
+        "eingereicht",
+        kontakte=FORMER_BLOCKS[row_id],
+        eingereicht_am="2026-01-05",
+        bestaetigungsfrist="2026-01-19",
+        team_id=team_id,
+        link_prefix=LINK_PREFIX,
+        kader={"voraussichtliche_groesse": 12, "gute_spieler": 3},
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

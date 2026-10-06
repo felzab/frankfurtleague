@@ -207,7 +207,9 @@ async def annehmen_bewerbung(
         updated_raw = await patch_one_in_db(
             collection=bewerbungen_collection,
             # By `_id` alone: a decision landing after the read above conflicts with this write, and the
-            # retry's read refuses it (`TestADeclineLandingInsideAnAcceptance`), so no status term is reached.
+            # retry's read refuses it, so no status term is reached. Held by
+            # `TestADeclineLandingInsideAnAcceptance` and, the read being in-session,
+            # `TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction`.
             db_filter={"_id": bewerbung_id},
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:

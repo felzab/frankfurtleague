@@ -8,11 +8,9 @@ import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { Button } from "@heroui/react/button";
 
-import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { einladeAdresswechselAction, verwirfAdresswechselAction } from "@/features/schiedsrichter/actions";
-import { KeinTag } from "@/features/spieler/components/ui/Nachweis";
 import { Angabe } from "@/shared/components/ui/Angabe";
-import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -21,15 +19,11 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_ERNEUT_OHNE_ANTWORT } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
-import { getGermanTodayStr } from "@/shared/utils/date";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
-
-import { LinkAbgelaufen } from "./FormBestaetigungSection";
 
 import type { FLSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/schemas";
 
@@ -51,10 +45,13 @@ const VERWERFEN_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Wa
 export function FormAdresswechselSection({
   schiedsrichterId,
   adresswechsel,
+  istAbgelaufen,
   isDirty,
 }: {
   schiedsrichterId: string;
   adresswechsel: FLSchiedsrichterAdresswechsel;
+  /** The read's judgement of the deadline: a lapsed change stands until it is removed, so the date alone reads as running. */
+  istAbgelaufen: boolean;
   /** The editor's unsaved typing, which either write re-keys the editor over. */
   isDirty: boolean;
 }) {
@@ -62,10 +59,6 @@ export function FormAdresswechselSection({
   const [laeuft, setLaeuft] = useState<"senden" | "verwerfen" | null>(null);
   const stepUp = useStepUp();
   const panel = formPanel();
-
-  const zustellung = adresswechsel.zustellung === null ? null : ZUSTELLUNG_CHIP[adresswechsel.zustellung.stand];
-  // No clock removes a lapsed change, so the date alone would read as a deadline still running.
-  const istAbgelaufen = adresswechsel.frist < getGermanTodayStr();
 
   // Both writes mint or void a link to an address.
   const schreibe = async (art: "senden" | "verwerfen") => {
@@ -81,7 +74,8 @@ export function FormAdresswechselSection({
     if (res === null) return;
 
     if (!res.success) {
-      appToast.failure(art === "senden" ? "Link nicht gesendet" : "Änderung nicht verworfen", res);
+      if (art === "senden") appToast.failure("Link nicht gesendet", res, LINK_UNKLAR);
+      else appToast.failure("Änderung nicht verworfen", res);
       return;
     }
 
@@ -113,18 +107,12 @@ export function FormAdresswechselSection({
 
         <dl className={FIELD_PAIR_CLASSES}>
           <Angabe label="Neue Adresse">{adresswechsel.email}</Angabe>
-          <Angabe label="Link gesendet am">{formatSpielDatum(adresswechsel.verschickt_am)}</Angabe>
-          <Angabe label="Gültig bis">
-            {formatSpielDatum(adresswechsel.frist)}
-            {istAbgelaufen && <LinkAbgelaufen />}
-          </Angabe>
-          <Angabe label="Zustellung">
-            {zustellung === null ? (
-              <KeinTag>Nichts zu melden</KeinTag>
-            ) : (
-              <span className={`${labelBadge(zustellung.tone)} h-7 shrink-0`}>{zustellung.label}</span>
-            )}
-          </Angabe>
+          <LinkStandAngaben
+            verschicktAm={adresswechsel.verschickt_am}
+            frist={adresswechsel.frist}
+            istAbgelaufen={istAbgelaufen}
+            zustellung={adresswechsel.zustellung}
+          />
         </dl>
 
         <div className="flex w-full flex-wrap items-start gap-2">

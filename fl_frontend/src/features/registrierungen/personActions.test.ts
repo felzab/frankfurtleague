@@ -6,7 +6,7 @@ import { doubleSendMail } from "@/core/mailDouble.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapAblehnungRefusal, mapAufnahmeRefusal } from "./utils.ts";
 
@@ -31,8 +31,7 @@ const { calls } = client;
 const answerWith = (next: () => Promise<unknown>): void => client.answerWith((call) => (reportsDelivery(call) ? deliveryApplied() : next()));
 
 const { ablehnenRegistrierungAction, aufnehmenRegistrierungAction, patchRegistrierungEinwilligungAction } = await import("./personActions.ts");
-const { mapRegistrierungEinwilligungRefusal, REGISTRIERUNG_NICHT_MEHR_OFFEN, SEITE_VERALTET, WAHL_GESPEICHERT } =
-  await import("@/features/konto/einwilligung.ts");
+const { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
 
 const AUFNEHMEN_OPERATION = "POST /registrierungen/{registrierung_id}/aufnehmen";
 const ABLEHNEN_OPERATION = "POST /registrierungen/{registrierung_id}/ablehnen";
@@ -229,24 +228,6 @@ describe("a pupil's withdrawal on their pending registration", () => {
     assert.equal((await patchRegistrierungEinwilligungAction("kein-id", WIDERRUF)).success, false);
     assert.deepEqual(calls, [], "a malformed registration reached the backend");
   });
-
-  /* The page offers no grant here, so the backend's lost record is a registration decided or deleted,
-     which its own sentence names rather than the shared one about a team. */
-  for (const [code, words] of [
-    ["REQ-FUNKTION-001", REGISTRIERUNG_NICHT_MEHR_OFFEN],
-    ["REQ-EINWILLIGUNG-003", SEITE_VERALTET],
-  ] as const) {
-    it(`answers ${code} in the account page's words`, async () => {
-      setSubject(person());
-      answerWith(() => Promise.reject(refusedOn(EINWILLIGUNG_OPERATION, code)));
-
-      assert.deepEqual(await patchRegistrierungEinwilligungAction(REGISTRIERUNG_ID, WIDERRUF), {
-        success: false,
-        error: words,
-        fieldErrors: undefined,
-      });
-    });
-  }
 
   it("answers every published refusal of the withdrawal through the registration's consent mapper", async () => {
     setSubject(person());

@@ -23,7 +23,7 @@ import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
 import { KONTO_HREF } from "./kontoHref";
 import { logger } from "./logging";
-import { MailBarredError, MailWithheldError, sendMail } from "./mail";
+import { sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
@@ -39,6 +39,7 @@ import {
 } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { lookUpAnmeldung, lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
+import { versandAusfallOf } from "./versandAusfall";
 import { madeSince, verwaltungOf } from "./verwaltung";
 
 import type { Passkey } from "@better-auth/passkey";
@@ -703,7 +704,8 @@ async function notify(message: PasskeyEmail, email: string): Promise<void> {
   } catch (failed) {
     // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
     // mailer's own line (`docs/frontend/spec.md :: I542`).
-    if (failed instanceof MailWithheldError || failed instanceof MailBarredError) return;
+    const ausfall = versandAusfallOf(failed);
+    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
 
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
@@ -1094,7 +1096,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
           } catch (failed) {
             // Filed by a deployment that mails nothing, or kept from an address barred since the gate
             // above read it, each recorded by the mailer's own line (`docs/frontend/spec.md :: I542`).
-            if (failed instanceof MailWithheldError || failed instanceof MailBarredError) return;
+            const ausfall = versandAusfallOf(failed);
+            if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
 
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.

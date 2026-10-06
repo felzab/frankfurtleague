@@ -47,41 +47,22 @@ router = APIRouter(
 
 @router.get("", response_model=FLSchiedsrichterSelbstResponse, summary="A signed-in referee's own records")
 async def get_selbst(
-    identifier: SchiedsrichterIdentifier,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    records: SubjektLookup,
-    db: DBClient,
-    today: str = Depends(get_german_date_str),
+    identifier: SchiedsrichterIdentifier, schiedsrichter_collection: SchiedsrichterCollection
 ) -> FLSchiedsrichterSelbstResponse:
     """
-    Answer every confirmed referee record the signed-in address holds, with its contact details and consent record.
+    Answer every confirmed referee record the signed-in address holds, with its stored contact details.
 
     PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
-    record is served too, its consent being the person's to withdraw; `erteilbar` says whether a grant is admitted on
-    it, and `medien_angeboten` whether the media consent may be switched on.
+    record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
 
     Refuses an address holding no confirmed referee record (`REQ-FUNKTION-001`).
     """
 
-    # A snapshot, so every record is answered as of one moment; never a transaction, which a read
-    # writing nothing has no conflict to retry for.
-    async with db.start_session(snapshot=True) as session:
-        rows = await aggregate_many_from_db(
-            collection=schiedsrichter_collection, pipeline=build_selbst_referee_pipeline(identifier), session=session
-        )
-        eigene = [row for row in rows if ist_eigener_schiedsrichter(row, identifier)]
-        refuse(find_eigener_eintrag_refusal(gehalten=bool(eigene)))
+    rows = await aggregate_many_from_db(collection=schiedsrichter_collection, pipeline=build_selbst_referee_pipeline(identifier))
+    eigene = [row for row in rows if ist_eigener_schiedsrichter(row, identifier)]
+    refuse(find_eigener_eintrag_refusal(gehalten=bool(eigene)))
 
-        subjekt = await funktionen_of(identifier, records, session=session)
-
-        return FLSchiedsrichterSelbstResponse.model_validate(
-            {
-                "schiedsrichter": [
-                    compose_schiedsrichter_selbst(row, erteilbar=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
-                    for row in eigene
-                ]
-            }
-        )
+    return FLSchiedsrichterSelbstResponse.model_validate({"schiedsrichter": [compose_schiedsrichter_selbst(row) for row in eigene]})
 
 
 @router.patch(

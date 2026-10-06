@@ -89,6 +89,8 @@ export function AdminSchiedsrichterEditForm({
     einwilligung: FLEinwilligung | null;
     bestaetigung: FLSchiedsrichterBestaetigung | null;
     adresswechsel: FLSchiedsrichterAdresswechsel | null;
+    /** Whether each link's deadline has passed, as the read judged it rather than this browser's day. */
+    abgelaufen: { bestaetigung: boolean; adresswechsel: boolean };
   };
   /** Whether the registry holds the stored label, which no record of the row says. */
   istFassungBekannt: boolean | null;
@@ -296,6 +298,7 @@ export function AdminSchiedsrichterEditForm({
               <FormAdresswechselSection
                 schiedsrichterId={schiedsrichter.id}
                 adresswechsel={schiedsrichter.adresswechsel}
+                istAbgelaufen={schiedsrichter.abgelaufen.adresswechsel}
                 isDirty={isDirty}
               />
             )}
@@ -315,6 +318,7 @@ export function AdminSchiedsrichterEditForm({
             hatAdresse={gespeicherteAdresseGilt}
             isRetired={isRetired}
             bestaetigung={schiedsrichter.bestaetigung}
+            istAbgelaufen={schiedsrichter.abgelaufen.bestaetigung}
             einwilligung={schiedsrichter.einwilligung}
             istFassungBekannt={istFassungBekannt}
             geburtsdatum={schiedsrichter.geburtsdatum}

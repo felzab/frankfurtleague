@@ -265,6 +265,12 @@ def link_is_over(*, frist: Any, today: str) -> bool:
     return not isinstance(frist, str) or frist < today
 
 
+def frist_abgelaufen(block: Any, *, today: str) -> bool:
+    """Whether a link block a row holds has passed its deadline: `link_is_over` over a block that exists."""
+
+    return isinstance(block, Mapping) and link_is_over(frist=block.get("frist"), today=today)
+
+
 def frist_of(bestaetigung: Any) -> Any:
     return bestaetigung.get("frist") if isinstance(bestaetigung, Mapping) else None
 
@@ -561,8 +567,7 @@ def build_pending_adresswechsel_filter(schiedsrichter_id: Any) -> Mapping[str, A
 def save_drops_a_pending_address(*, stored: Mapping[str, Any], payload_email: str) -> bool:
     """Whether this save replaces a pending address with another mailbox's, dropping an address nobody proved.
 
-    A save keeping the address on file leaves the change standing, and one typing the pending address
-    again re-mints it for the same mailbox: neither drops it.
+    Keeping the address on file, or typing the pending one again, drops nothing.
     """
 
     pending = (stored.get(ADRESSWECHSEL_FELD) or {}).get("email")

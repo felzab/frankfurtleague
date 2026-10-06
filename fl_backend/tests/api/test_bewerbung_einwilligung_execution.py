@@ -22,7 +22,6 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_UNKNOWN,
     SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
-    compose_bestaetigungen,
     hash_token,
 )
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
@@ -33,9 +32,10 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, ban_document, kontaktperson_document, saison_document, team_document
+from tests.documents import ban_document, kontaktperson_document, saison_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -58,7 +58,8 @@ CLUB_NAME = "Adler"
 SCHOOL_NAME = "Zorbanax"
 
 # The raw tokens the seeded links carry, and what the database holds for each.
-RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_ROLLEN}
+RAW_PREFIX = "raw-token-for"
+RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_ROLLEN}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 # What each of the two contact pages stamps today; an answer names the one its view answered.
@@ -119,29 +120,18 @@ def kontakte(*, trainer_ist_zugleich: str | None = None) -> dict[str, Any]:
 def bewerbung_document(bewerbung_id: ObjectId = BEWERBUNG_OID, **overrides: Any) -> dict[str, Any]:
     """One submitted application with its three live links, inside its deadline, that each case moves one thing of."""
 
-    return {
-        "_id": bewerbung_id,
-        "saison_id": SAISON_ID,
-        "eingereicht_am": "2026-03-20",
-        "status": "eingereicht",
-        "team_id": None,
-        "schule": {
-            "team_name": SCHOOL_NAME,
-            "full_name": f"{SCHOOL_NAME}-Gesamtschule",
-            "shorthand": "ZX",
-            "schulform": "gesamtschule",
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": kontakte(),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-04-03",
-        "bestaetigungen": compose_bestaetigungen(hashes=HASHES, today="2026-03-20"),
-        **overrides,
-    }
+    stored = documents.bewerbung_document(
+        bewerbung_id,
+        SAISON_ID,
+        "eingereicht",
+        kontakte=kontakte(),
+        eingereicht_am="2026-03-20",
+        bestaetigungsfrist="2026-04-03",
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        link_prefix=RAW_PREFIX,
+    )
+
+    return {**stored, **overrides}
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

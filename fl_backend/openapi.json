@@ -2214,7 +2214,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "get": {
         "summary": "One Schiedsrichter",
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).",
+        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether each link's deadline has passed today, by the rule its own press refuses on, so the\neditor marks a lapsed link without reading a day of its own.",
         "operationId": "get_schiedsrichter_by_id_api_v0_schiedsrichter__schiedsrichter_id__get",
         "security": [
           {
@@ -9020,7 +9020,7 @@
     "/api/v0/spieler/selbst": {
       "get": {
         "summary": "A signed-in pupil's own record",
-        "description": "Answer the signed-in address's own pupil record with every squad row it holds.\n\nPERSON TIER: the whole surname, the birthdate and the consent record, never masked, and never the sign-in address\nitself. A retired record is served too, its consent being the person's to withdraw; `erteilbar` says whether a\ngrant is admitted on it, and `medien_angeboten` whether the media consent may be switched on.\n\nRefuses an address holding no confirmed pupil record (`REQ-FUNKTION-001`).",
+        "description": "Answer the signed-in address's own pupil record's stored data with every squad row it holds.\n\nPERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired\nrecord is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed pupil record (`REQ-FUNKTION-001`).",
         "operationId": "get_selbst_api_v0_spieler_selbst_get",
         "responses": {
           "200": {
@@ -9187,7 +9187,7 @@
     "/api/v0/schiedsrichter/selbst": {
       "get": {
         "summary": "A signed-in referee's own records",
-        "description": "Answer every confirmed referee record the signed-in address holds, with its contact details and consent record.\n\nPERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired\nrecord is served too, its consent being the person's to withdraw; `erteilbar` says whether a grant is admitted on\nit, and `medien_angeboten` whether the media consent may be switched on.\n\nRefuses an address holding no confirmed referee record (`REQ-FUNKTION-001`).",
+        "description": "Answer every confirmed referee record the signed-in address holds, with its stored contact details.\n\nPERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired\nrecord is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed referee record (`REQ-FUNKTION-001`).",
         "operationId": "get_selbst_api_v0_schiedsrichter_selbst_get",
         "responses": {
           "200": {
@@ -15192,7 +15192,7 @@
           "spieler": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielerSelbst"
+                "$ref": "#/components/schemas/FLKontoSpielerEinwilligung"
               },
               {
                 "type": "null"
@@ -15201,7 +15201,7 @@
           },
           "schiedsrichter": {
             "items": {
-              "$ref": "#/components/schemas/FLSchiedsrichterSelbst"
+              "$ref": "#/components/schemas/FLKontoSchiedsrichterEinwilligung"
             },
             "type": "array",
             "title": "Schiedsrichter"
@@ -15406,6 +15406,116 @@
         "title": "FLKontoRegistrierungEinwilligung",
         "description": "One pending registration its pupil confirmed: its choices to withdraw, and what it stores."
       },
+      "FLKontoSchiedsrichterEinwilligung": {
+        "properties": {
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "schule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schule"
+          },
+          "kontakt": {
+            "$ref": "#/components/schemas/FLKontakt"
+          },
+          "honorar": {
+            "type": "integer",
+            "title": "Honorar"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          },
+          "bestaetigt_text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Text Version"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStand"
+          },
+          "erteilbar": {
+            "type": "boolean",
+            "title": "Erteilbar"
+          },
+          "medien_angeboten": {
+            "type": "boolean",
+            "title": "Medien Angeboten"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
+          "kontext": {
+            "$ref": "#/components/schemas/FLSchiedsrichterKontext"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id",
+          "name",
+          "schule",
+          "kontakt",
+          "honorar",
+          "inactive_since",
+          "einwilligung",
+          "bestaetigt_text_version",
+          "nachweis_stand",
+          "erteilbar",
+          "medien_angeboten",
+          "mindestalter",
+          "medien_mindestalter",
+          "kontext"
+        ],
+        "title": "FLKontoSchiedsrichterEinwilligung",
+        "description": "One referee record on the account page, for `FLKontoSpielerEinwilligung`'s reasons."
+      },
       "FLKontoSitzEinwilligung": {
         "properties": {
           "team_id": {
@@ -15485,6 +15595,115 @@
         ],
         "title": "FLKontoSitzEinwilligung",
         "description": "One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both."
+      },
+      "FLKontoSpielerEinwilligung": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "geburtsdatum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geburtsdatum"
+          },
+          "kader": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielerSelbstKaderZeile"
+            },
+            "type": "array",
+            "title": "Kader"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "einwilligung": {
+            "$ref": "#/components/schemas/FLEinwilligung"
+          },
+          "bestaetigt_text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Text Version"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStand"
+          },
+          "erteilbar": {
+            "type": "boolean",
+            "title": "Erteilbar"
+          },
+          "medien_angeboten": {
+            "type": "boolean",
+            "title": "Medien Angeboten"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
+          "kontext": {
+            "$ref": "#/components/schemas/FLSpielerKontext"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname",
+          "spieler_id",
+          "kader",
+          "inactive_since",
+          "einwilligung",
+          "bestaetigt_text_version",
+          "nachweis_stand",
+          "erteilbar",
+          "medien_angeboten",
+          "mindestalter",
+          "medien_mindestalter",
+          "kontext"
+        ],
+        "title": "FLKontoSpielerEinwilligung",
+        "description": "The pupil's record on the account page: its stored data and the consent the page moves."
       },
       "FLOffeneRegistrierung": {
         "properties": {
@@ -19288,6 +19507,96 @@
         "title": "FLSaisonSpielplan",
         "description": "What the generator left behind on the season it wrote.\n\nCounts rather than a hash: these are the two numbers an admin can compare against the page in\nfront of them, and a hash answers no question anyone standing there is asking."
       },
+      "FLSaisonTeamBestaetigungAnsicht": {
+        "properties": {
+          "verschickt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "abgelehnt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abgelehnt Am"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "abgelaufen": {
+            "type": "boolean",
+            "title": "Abgelaufen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verschickt_am",
+          "frist",
+          "abgelehnt_am",
+          "abgelaufen"
+        ],
+        "title": "FLSaisonTeamBestaetigungAnsicht",
+        "description": "One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."
+      },
+      "FLSaisonTeamBestaetigungenAnsicht": {
+        "properties": {
+          "trainer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamBestaetigungAnsicht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ansprechperson": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamBestaetigungAnsicht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stellvertretung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamBestaetigungAnsicht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "title": "FLSaisonTeamBestaetigungenAnsicht"
+      },
       "FLSaisonTeamEinwilligungAntwortResponse": {
         "properties": {
           "acknowledged": {
@@ -20433,54 +20742,6 @@
               }
             ],
             "title": "Geburtsdatum"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
-          },
-          "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Text Version"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "erteilbar": {
-            "type": "boolean",
-            "title": "Erteilbar"
-          },
-          "medien_angeboten": {
-            "type": "boolean",
-            "title": "Medien Angeboten"
-          },
-          "mindestalter": {
-            "type": "integer",
-            "title": "Mindestalter"
-          },
-          "medien_mindestalter": {
-            "type": "integer",
-            "title": "Medien Mindestalter"
-          },
-          "kontext": {
-            "$ref": "#/components/schemas/FLSchiedsrichterKontext"
           }
         },
         "type": "object",
@@ -20489,19 +20750,10 @@
           "name",
           "schule",
           "kontakt",
-          "honorar",
-          "inactive_since",
-          "einwilligung",
-          "bestaetigt_text_version",
-          "nachweis_stand",
-          "erteilbar",
-          "medien_angeboten",
-          "mindestalter",
-          "medien_mindestalter",
-          "kontext"
+          "honorar"
         ],
         "title": "FLSchiedsrichterSelbst",
-        "description": "One referee record as its own person reads it: their contact details, fee and consent, never the link's bookkeeping."
+        "description": "One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.\n\nFor `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it."
       },
       "FLSchiedsrichterSelbstEinwilligungPayload": {
         "properties": {
@@ -20607,11 +20859,21 @@
           },
           "schiedsrichter": {
             "$ref": "#/components/schemas/FLSchiedsrichter"
+          },
+          "bestaetigung_abgelaufen": {
+            "type": "boolean",
+            "title": "Bestaetigung Abgelaufen"
+          },
+          "adresswechsel_abgelaufen": {
+            "type": "boolean",
+            "title": "Adresswechsel Abgelaufen"
           }
         },
         "type": "object",
         "required": [
-          "schiedsrichter"
+          "schiedsrichter",
+          "bestaetigung_abgelaufen",
+          "adresswechsel_abgelaufen"
         ],
         "title": "FLSchiedsrichterSingleResponse"
       },
@@ -22609,60 +22871,12 @@
             ],
             "title": "Geburtsdatum"
           },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLEinwilligung"
-          },
-          "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Text Version"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStand"
-          },
-          "erteilbar": {
-            "type": "boolean",
-            "title": "Erteilbar"
-          },
-          "medien_angeboten": {
-            "type": "boolean",
-            "title": "Medien Angeboten"
-          },
-          "mindestalter": {
-            "type": "integer",
-            "title": "Mindestalter"
-          },
-          "medien_mindestalter": {
-            "type": "integer",
-            "title": "Medien Mindestalter"
-          },
           "kader": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerSelbstKaderZeile"
             },
             "type": "array",
             "title": "Kader"
-          },
-          "kontext": {
-            "$ref": "#/components/schemas/FLSpielerKontext"
           }
         },
         "type": "object",
@@ -22670,19 +22884,10 @@
           "vorname",
           "nachname",
           "spieler_id",
-          "inactive_since",
-          "einwilligung",
-          "bestaetigt_text_version",
-          "nachweis_stand",
-          "erteilbar",
-          "medien_angeboten",
-          "mindestalter",
-          "medien_mindestalter",
-          "kader",
-          "kontext"
+          "kader"
         ],
         "title": "FLSpielerSelbst",
-        "description": "One pupil record as its own person reads it: the whole surname, the birthdate and the consent record, never masked."
+        "description": "One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.\n\nIts consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLKontoSpielerEinwilligung`)."
       },
       "FLSpielerSelbstEinwilligungPayload": {
         "properties": {
@@ -23783,6 +23988,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLSaisonTeamKontakte"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bestaetigungen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamBestaetigungenAnsicht"
               },
               {
                 "type": "null"

@@ -93,10 +93,11 @@ describe("the panel a triage decision is taken from", () => {
 
   /* The person may withdraw either choice on the account page while the application is pending, so the
      administrator deciding it reads both as they stand, each with the act it stands on. */
-  it("reads out a seat's WhatsApp scope and media consent, each with its act", () => {
+  it("reads out a pending seat's WhatsApp scope and media consent, each with its act", () => {
     const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
     assert.ok(ansprechperson !== null);
     const html = markup({
+      status: "eingereicht",
       kontakte: {
         ...BEWERBUNG.kontakte,
         ansprechperson: {
@@ -115,6 +116,15 @@ describe("the panel a triage decision is taken from", () => {
     assert.match(textOf(factLine(html, "WhatsApp")), /^erlaubt/);
     assert.match(textOf(factLine(html, "Medien")), /^Fotos, Videos und Interviews zugesagt/);
     assert.notEqual(textOf(factLine(html, "WhatsApp")), "erlaubt", "the WhatsApp scope stands on no act");
+  });
+
+  /* A decided application's copy is frozen: the seats' choices move on the team's row from then on, so
+     the copy read out in the present tense would contradict them for as long as it is kept. */
+  it("reads out no choice on a decided application", () => {
+    const html = markup({ status: "angenommen" });
+
+    assert.equal(factLine(html, "WhatsApp"), "", "a decided application reads out a frozen WhatsApp scope");
+    assert.equal(factLine(html, "Medien"), "", "a decided application reads out a frozen media consent");
   });
 
   /* An acceptance writes the created club's id back onto the application, so a decided new-school

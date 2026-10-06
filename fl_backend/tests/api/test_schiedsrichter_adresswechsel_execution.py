@@ -28,6 +28,7 @@ from app.api.schiedsrichter.admin_router import (
 )
 from app.api.schiedsrichter.adresswechsel_router import get_adresswechsel_ansicht, post_adresswechsel
 from app.api.schiedsrichter.bestaetigung_router import post_bestaetigung
+from app.api.schiedsrichter.router import get_schiedsrichter_by_id
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLSchiedsrichterAdresswechselAnsichtPayload,
@@ -250,11 +251,15 @@ async def refused_code(call: Awaitable[Any]) -> str:
 class TestTheSaveOnAConfirmedReferee:
     def test_it_holds_the_new_address_apart_and_answers_its_link_with_both_addresses(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await save(database, client, email=NEW_EMAIL), await stored(database)
+            before = await stored(database)
 
-        saved, row = on_a_league(mongo_replica_set_url, body)
+            return before, await save(database, client, email=NEW_EMAIL), await stored(database)
+
+        before, saved, row = on_a_league(mongo_replica_set_url, body)
 
         assert saved.bestaetigung is None
+        # The answered consent link's block stands: the new address is proved by a link of its own.
+        assert row[BESTAETIGUNG_FELD] == before[BESTAETIGUNG_FELD]
         assert saved.adresswechsel is not None
         assert (saved.adresswechsel.email, saved.adresswechsel.bisherige_email) == (NEW_EMAIL, EMAIL)
         assert saved.adresswechsel.frist == bestaetigung_frist_from(today=TODAY)
@@ -583,6 +588,31 @@ class TestTheView:
             return await view(database, saved.adresswechsel.token)
 
         assert on_a_league(mongo_replica_set_url, body).zustand == "gesperrt"
+
+
+class TestTheEditorsRead:
+    """The editor marks a lapsed link by the backend's own rule, never by a day the browser reads."""
+
+    @pytest.mark.parametrize(("today", "abgelaufen"), [(TODAY, False), (AFTER_THE_DEADLINE, True)], ids=["running", "lapsed"])
+    def test_it_answers_whether_each_link_has_lapsed(self, mongo_replica_set_url: str, today: str, abgelaufen: bool):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
+
+            return await get_schiedsrichter_by_id(
+                schiedsrichter_id=SCHIEDSRICHTER_OID, schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], today=today
+            )
+
+        read = on_a_league(mongo_replica_set_url, body)
+
+        assert (read.bestaetigung_abgelaufen, read.adresswechsel_abgelaufen) == (abgelaufen, abgelaufen)
+
+    def test_a_row_holding_no_change_answers_it_as_not_lapsed(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await get_schiedsrichter_by_id(
+                schiedsrichter_id=SCHIEDSRICHTER_OID, schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], today=AFTER_THE_DEADLINE
+            )
+
+        assert on_a_league(mongo_replica_set_url, body).adresswechsel_abgelaufen is False
 
 
 class TestTheReSend:

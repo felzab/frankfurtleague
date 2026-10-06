@@ -21,8 +21,9 @@ from tests.core.app_source import APP_ROOT, BACKEND_ROOT, parsed
 # A guardian filing for a pupil: one provenance value stored records carry and no route collects.
 GUARDIAN: Final = "erziehungsberechtigt"
 
-# Every speaker a stored record carries: each was written until no write named who answered any
-# longer, so each has to go on validating however the vocabularies change.
+# Every speaker a stored record carries, each to go on validating however the vocabularies change:
+# a route wrote each until no write named who answered, but `bestandsuebernahme`, which only the
+# backfill of carried-over records wrote.
 STORED_ERTEILT_VON: Final = frozenset({GUARDIAN, "volljaehrig", "bestandsuebernahme"})
 STORED_ERFASST_VON: Final = frozenset({"person", "administrativ"})
 

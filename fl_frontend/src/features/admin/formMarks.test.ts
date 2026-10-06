@@ -21,6 +21,7 @@ import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
+import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ReactNode } from "react";
 
 /* Nothing here is saved: every write is held unanswered, and every read of the page stands still. */
@@ -227,6 +228,7 @@ const FORMS: Record<string, FormCase> = {
             einwilligung: null,
             bestaetigung: null,
             adresswechsel: null,
+            abgelaufen: { bestaetigung: false, adresswechsel: false },
           },
           isRetired: false,
           pageHeader: { title: REFEREE.name },
@@ -320,7 +322,7 @@ const FORMS: Record<string, FormCase> = {
           saison: {
             saisonId: "2026",
             saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
           },
           today: "2026-09-14",
           gruppeLocked: false,
@@ -328,7 +330,7 @@ const FORMS: Record<string, FormCase> = {
           swap: { teams: [], playedKnockoutSpiele: 0 },
           einladung: null,
           pageHeader: { title: TEAM_A.name },
-        } as never),
+        }),
       );
     },
     expected: [
@@ -348,17 +350,17 @@ const FORMS: Record<string, FormCase> = {
     marks: async () => {
       const { AdminKontakteEditForm } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx");
       const { publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
-      const editor = (kontakte: unknown) =>
+      const editor = (kontakte: FLSaisonTeamKontakte | null) =>
         h(AdminKontakteEditForm, {
           laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",
             saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "stand" },
+            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "stand" },
           },
           pageHeader: { title: TEAM_A.name },
-        } as never);
+        });
       const seated = await marksOf(
         editor({
           ansprechperson: PERSON("Grace", "grace@example.org"),

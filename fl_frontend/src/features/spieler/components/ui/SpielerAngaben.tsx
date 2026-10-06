@@ -7,7 +7,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { ausgetragenSeit, rolleLabel } from "../../constants";
+import { ausgetragenSeit, kaderName, rolleLabel } from "../../constants";
 
 import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas";
 
@@ -49,22 +49,28 @@ function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {
 }
 
 /**
+ * Each rung's look, as its neighbours take it: an h3 the section heading's, an h5 the account page's h4
+ * rung's, so a record's squad list never reads as the next record.
+ */
+const KADER_TITEL_CLASSES = { h3: FORM_SECTION_HEADING_CLASSES, h5: "fluid-sm font-bold text-foreground" } as const;
+
+/**
  * What the league stores on a pupil's record, read-only: the pupil's own page and the account page
  * show the same facts. `kaderEbene` is the squad list's heading rung, one below whatever heads the facts.
  */
-export function SpielerAngaben({ spieler, kaderEbene }: { spieler: FLSpielerSelbst; kaderEbene: "h3" | "h5" }) {
+export function SpielerAngaben({ spieler, kaderEbene }: { spieler: FLSpielerSelbst; kaderEbene: keyof typeof KADER_TITEL_CLASSES }) {
   const KaderTitel = kaderEbene;
 
   return (
     <>
       <dl className={FIELD_PAIR_CLASSES}>
-        <Angabe label="Name">{spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`}</Angabe>
+        <Angabe label="Name">{kaderName(spieler)}</Angabe>
         <Angabe label="Geburtsdatum">{formatSpielDatum(spieler.geburtsdatum, NICHT_HINTERLEGT)}</Angabe>
       </dl>
 
       {spieler.kader.length > 0 && (
         <section className="flex flex-col gap-y-3">
-          <KaderTitel className={FORM_SECTION_HEADING_CLASSES}>Kader</KaderTitel>
+          <KaderTitel className={KADER_TITEL_CLASSES[kaderEbene]}>Kader</KaderTitel>
           <ul className="flex flex-col gap-y-4">
             {spieler.kader.map((zeile) => (
               <KaderEintrag

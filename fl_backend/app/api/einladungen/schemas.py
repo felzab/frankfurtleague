@@ -4,9 +4,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # The application's slice declares the delivery state, and one shape is stored at every home the
 # register names (`app/api/zustellung/services.py :: ZIEL_PFADE`).
-from app.api.bewerbungen.schemas import FLBewerbungZustellung, FLKontaktRolle
+from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 
 class FLEinladungVersand(BaseModel):

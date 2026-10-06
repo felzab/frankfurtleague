@@ -2,7 +2,6 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
-import { FLBewerbungZustellungSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import {
   FLEinwilligungSchema,
@@ -14,6 +13,7 @@ import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
+  FLBewerbungZustellungSchema,
   FLKontaktPayloadSchema,
   FLKontaktSchema,
   isPlaceholderAddress,
@@ -166,6 +166,9 @@ export type FLSchiedsrichterListResponse = z.infer<typeof FLSchiedsrichterListRe
 
 export const FLSchiedsrichterSingleResponseSchema = BaseAPIResponseSchema.extend({
   schiedsrichter: FLSchiedsrichterSchema,
+  // The backend's judgement of each link's deadline today, so the editor reads no day of its own.
+  bestaetigung_abgelaufen: z.boolean(),
+  adresswechsel_abgelaufen: z.boolean(),
 });
 export type FLSchiedsrichterSingleResponse = z.infer<typeof FLSchiedsrichterSingleResponseSchema>;
 
@@ -364,7 +367,10 @@ export const FLSchiedsrichterKontextSchema = z.object({
 });
 export type FLSchiedsrichterKontext = z.infer<typeof FLSchiedsrichterKontextSchema>;
 
-/** Mirrors `FLSchiedsrichterSelbst`, the person tier's own read: no link bookkeeping, which is the administration's. */
+/**
+ * Mirrors `FLSchiedsrichterSelbst`, the person tier's own read of the stored data: no link bookkeeping,
+ * which is the administration's, and no consent, which is the account page's entry's.
+ */
 export const FLSchiedsrichterSelbstSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
   name: z.string(),
@@ -373,16 +379,6 @@ export const FLSchiedsrichterSelbstSchema = z.object({
   // `default_payment`, served because the referee's confirmation page lists the fee among what is stored.
   honorar: z.number().int(),
   geburtsdatum: CustomDateStringSchema.nullable(),
-  inactive_since: CustomDateStringSchema.nullable(),
-  // Never null here, for the reason the pupil's own read gives (`FLSpielerSelbstSchema`).
-  einwilligung: FLEinwilligungSchema,
-  // The words shown beside the account page's control, for the reason `FLSpielerSelbstSchema` gives.
-  bestaetigt_text_version: z.string().nullable(),
-  // The consent press's precondition, for the reason `FLSpielerSelbstSchema` gives.
-  nachweis_stand: FLEinwilligungStandSchema,
-  kontext: FLSchiedsrichterKontextSchema,
-  erteilbar: z.boolean(),
-  medien_angeboten: z.boolean(),
 });
 export type FLSchiedsrichterSelbst = z.infer<typeof FLSchiedsrichterSelbstSchema>;
 

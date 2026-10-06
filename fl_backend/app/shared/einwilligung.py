@@ -271,8 +271,9 @@ _BESTAETIGUNGSSEITE_SAISON: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
-# The media switch, worded as the account page's own for a seat.
-_KONTAKT_MEDIEN_SCHALTER: Final = "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen."
+# The media switch, worded alike on every page offering it. Each label's digest freezes it, so a
+# rewording is a new constant under a new label, never an edit here.
+_MEDIEN_SCHALTER: Final = "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen."
 
 _SCHIEDSRICHTERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
     {
@@ -1103,7 +1104,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             absaetze=tuple(_BESTAETIGUNGSSEITE_7.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_7,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
-            bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
+            bedienelemente=MappingProxyType({"medien": _MEDIEN_SCHALTER}),
         ),
         "2026-10-bestaetigungsseite-verwaltung": Fassung(
             seite="bestaetigung_kontakt_verwaltung",
@@ -1111,7 +1112,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
-            bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
+            bedienelemente=MappingProxyType({"medien": _MEDIEN_SCHALTER}),
         ),
         "2026-10-bestaetigungsseite-saison": Fassung(
             seite="bestaetigung_kontakt_saison",
@@ -1119,7 +1120,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             absaetze=tuple(_BESTAETIGUNGSSEITE_SAISON.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_SAISON,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
-            bedienelemente=MappingProxyType({"medien": _KONTAKT_MEDIEN_SCHALTER}),
+            bedienelemente=MappingProxyType({"medien": _MEDIEN_SCHALTER}),
         ),
         "2026-09-schiedsrichterseite": Fassung(
             seite="bestaetigung_schiedsrichter",
@@ -1186,7 +1187,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 ),
                 "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
             ),
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
@@ -1265,7 +1266,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 ),
                 "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
             ),
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
@@ -1278,7 +1279,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             gilt_ab=date(2026, 10, 3),
             absaetze=tuple(_SCHIEDSRICHTERSEITE_3.values()),
             absaetze_nach_schluessel=_SCHIEDSRICHTERSEITE_3,
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
@@ -1355,7 +1356,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 ),
                 "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
             ),
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
@@ -1439,7 +1440,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 ),
                 "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
             ),
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
@@ -1452,7 +1453,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             gilt_ab=date(2026, 10, 3),
             absaetze=tuple(_SPIELERSEITE_3.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_3,
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
@@ -1465,7 +1466,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             gilt_ab=date(2026, 10, 3),
             absaetze=tuple(_SPIELERSEITE_4.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_4,
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
@@ -1479,7 +1480,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND,
             # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
@@ -1492,7 +1493,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             gilt_ab=date(2026, 10, 3),
             absaetze=tuple(_KONTO_SPIELER.values()),
             absaetze_nach_schluessel=_KONTO_SPIELER,
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
@@ -1505,7 +1506,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             gilt_ab=date(2026, 10, 3),
             absaetze=tuple(_KONTO_SCHIEDSRICHTER.values()),
             absaetze_nach_schluessel=_KONTO_SCHIEDSRICHTER,
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
                     "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
@@ -1518,7 +1519,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             gilt_ab=date(2026, 10, 3),
             absaetze=tuple(_KONTO_KONTAKT.values()),
             absaetze_nach_schluessel=_KONTO_KONTAKT,
-            schalter="Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+            schalter=_MEDIEN_SCHALTER,
             # A switch's words, keyed by the scope it writes when on: off writes `kontaktdaten`, which has none.
             bedienelemente=MappingProxyType({"kontaktdaten_whatsapp": "Die Liga darf mich auch über WhatsApp erreichen."}),
         ),

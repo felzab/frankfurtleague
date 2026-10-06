@@ -6,6 +6,7 @@ payload shape; this file holds what differs on a referee row: the address stored
 ghost, and a record the confirmation has not yet written.
 """
 
+import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -13,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pydantic import BaseModel, ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
@@ -27,6 +29,7 @@ from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
@@ -216,11 +219,25 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
+@functools.cache
+def _app() -> FastAPI:
+    """Built once for the module: a build per case would be about half of what a case here costs."""
+
+    return create_app(CONFIG)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _built_before_any_case() -> None:
+    """Never inside a case, for the reason `tests/api/test_drosselung_execution.py :: _built_before_any_case` gives."""
+
+    _app()
+
+
 def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]], *, now: datetime = NOW) -> T:
     async def _run() -> T:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
             await _seed(database)
-            async with app_client(url, config=CONFIG, now=now) as http:
+            async with app_client(url, app=_app(), now=now) as http:
                 return await steps(http, database)
 
     return on_the_seed_loop(_run())
@@ -246,9 +263,11 @@ def test_a_seat_entry_names_at_least_one_role_and_publishes_the_floor(model: typ
 class TestTheOwnRecords:
     def test_the_address_is_answered_its_own_record_whatever_case_it_was_stored_in(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(PATH, headers=_person(IDENTIFIER.upper()))
+            selbst = await http.get(PATH, headers=_person(IDENTIFIER.upper()))
+            konto = await http.get(KONTO_PATH, headers=_person(IDENTIFIER.upper()))
+            return selbst, konto
 
-        response = served(mongo_replica_set_url, steps)
+        response, konto = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
         [record] = response.json()["schiedsrichter"]
@@ -257,13 +276,20 @@ class TestTheOwnRecords:
             "Ortrud Zwiebelmayer",
             REFEREE_STORED,
         )
-        assert (record["erteilbar"], record["medien_angeboten"]) == (True, True)
-        # The fee is the referee's own, served under the screen's word; the link's bookkeeping never is.
-        assert (record["honorar"], "default_payment" in record, "bestaetigung" in record) == (20, False, False)
+        # The fee is the referee's own, served under the screen's word; the link's bookkeeping never is, nor the
+        # consent, which is the account page's.
+        assert (record["honorar"], "default_payment" in record, "bestaetigung" in record, "einwilligung" in record) == (
+            20,
+            False,
+            False,
+            False,
+        )
+        [eintrag] = konto.json()["schiedsrichter"]
+        assert (eintrag["schiedsrichter_id"], eintrag["erteilbar"], eintrag["medien_angeboten"]) == (str(REFEREE_OID), True, True)
 
     def test_a_retired_record_is_served_for_its_withdrawal_alone(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(PATH, headers=_person(RETIRED))
+            return await http.get(KONTO_PATH, headers=_person(RETIRED))
 
         [record] = served(mongo_replica_set_url, steps).json()["schiedsrichter"]
 

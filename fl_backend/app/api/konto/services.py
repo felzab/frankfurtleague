@@ -177,19 +177,25 @@ def build_kontext_teams_pipeline(team_ids: Collection[Any]) -> list[Mapping[str,
     return [{"$match": {"_id": {"$in": sorted(set(team_ids))}}}, {"$project": {"name": 1, "full_name": 1}}]
 
 
-def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
-    """One pupil row, as `app/api/spieler/services.py :: build_selbst_pupil_pipeline` reads it, in the shape both reads serve.
-
-    `team` is the club document of `kontext_zeile`'s row, as it stands today.
-    """
-
-    zeile = kontext_zeile(row)
+def compose_spieler_selbst(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One pupil row's stored data, as `app/api/spieler/services.py :: build_selbst_pupil_pipeline` reads it."""
 
     return {
         "spieler_id": row["_id"],
         "vorname": row["vorname"],
         "nachname": row.get("nachname"),
         "geburtsdatum": row.get("geburtsdatum"),
+        "kader": row["kader"],
+    }
+
+
+def compose_spieler_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The pupil's account entry: its stored data and its consent. `team` is `kontext_zeile`'s club, as it stands today."""
+
+    zeile = kontext_zeile(row)
+
+    return {
+        **compose_spieler_selbst(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
@@ -198,7 +204,6 @@ def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: st
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
         "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
-        "kader": row["kader"],
         "kontext": {
             "vorname": row["vorname"],
             "team": None if team is None else team.get("name"),
@@ -208,8 +213,8 @@ def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: st
     }
 
 
-def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: str) -> dict[str, Any]:
-    """One referee row, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects it, in the shape both reads serve."""
+def compose_schiedsrichter_selbst(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One referee row's stored data, as `app/api/schiedsrichter/services.py :: SELBST_FIELDS` projects it."""
 
     return {
         "schiedsrichter_id": row["_id"],
@@ -218,6 +223,14 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
         "honorar": row["default_payment"],
         "kontakt": row["kontakt"],
         "geburtsdatum": row.get("geburtsdatum"),
+    }
+
+
+def compose_schiedsrichter_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str) -> dict[str, Any]:
+    """One referee row's account entry: its stored data and its consent."""
+
+    return {
+        **compose_schiedsrichter_selbst(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
@@ -244,6 +257,8 @@ def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
+                # Read by the Funktionen the page judges a grant by, which come from these rows.
+                "austritt": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
                 **{f"bestaetigungen.{slot}.verschickt_am": 1 for slot in KONTAKT_ROLLEN},
             }
