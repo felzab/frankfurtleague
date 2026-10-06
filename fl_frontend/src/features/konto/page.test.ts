@@ -301,6 +301,9 @@ const reason = (seite: "konto_spieler" | "konto_schiedsrichter" | "konto_kontakt
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
 
+/** The contact page's running label, which names the media floor. */
+const SITZ_LAUFEND = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+
 /**
  * A Trainer who is also the Stellvertretung, confirmed on the contact page. The floor is the read's, 18
  * over both seats, where a floor taken from the Trainer's seat alone would say 16.
@@ -510,13 +513,22 @@ describe("the account page's consent section", () => {
   }
 
   /* One media floor per entry, served: the control's paragraph and every confirmation's words name it,
-     a floor of the page's own in either reading as a second rule. 21 is no floor served today. */
+     a floor of the page's own in either reading as a second rule. 21 is no floor served today. A seat
+     confirmed under the running label, whose words name the media floor where the fixture's older
+     label names none. */
   for (const [art, konto] of [
     ["a pupil", { spieler: { ...SPIELER, medien_mindestalter: 21 } }],
     ["a referee", { schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 21 }] }],
     ["a pending registration", { registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 21 }] }],
-    ["a seat", { sitze: [{ ...SITZ, medien_mindestalter: 21 }] }],
-    ["a pending application's seat", { bewerbungen: [{ ...BEWERBUNG_SITZ, medien_mindestalter: 21 }] }],
+    ["a seat", { sitze: [{ ...SITZ, medien_mindestalter: 21, bestaetigt: [{ ...SITZ.bestaetigt[0], text_version: SITZ_LAUFEND }] }] }],
+    [
+      "a pending application's seat",
+      {
+        bewerbungen: [
+          { ...BEWERBUNG_SITZ, medien_mindestalter: 21, bestaetigt: [{ ...BEWERBUNG_SITZ.bestaetigt[0], text_version: SITZ_LAUFEND }] },
+        ],
+      },
+    ],
   ] as const) {
     it(`names the media floor the read serves for ${art} in its control's words and its confirmed words`, async () => {
       setSubject(OHNE_FUNKTION);
