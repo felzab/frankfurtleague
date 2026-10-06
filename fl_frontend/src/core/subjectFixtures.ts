@@ -30,9 +30,8 @@ export const NO_RECORDS: SubjectSession["subjekt"] = deepFrozen({
 });
 
 /**
- * What a suite's backend holds for one address: the subject's records, and `konto` as the gate answers
- * it. Stated by every fixture and never worked out from the lists: which records count is the backend's
- * rule, and a double deriving it hands each case the answer its own copy of that rule gives.
+ * What a suite's backend holds for one address. `konto` is stated, never worked out from the lists:
+ * which records count is the backend's rule, and a double deriving it hands each case its own copy's answer.
  */
 export type LookupFixture = Partial<SubjectSession["subjekt"]> & { readonly acknowledged?: 0 | 1; readonly konto: boolean };
 
