@@ -121,6 +121,17 @@ describe("the save moving a confirmed referee's address", () => {
     assert.doesNotMatch(res.success ? (res.versandSatz ?? "") : "", /Hinweis an die bisherige Adresse/);
   });
 
+  /* The undo tells its route whether this save left a change waiting, which no read after the replay
+     can tell from a save that moved only the fee: the answer's mint is the one witness. */
+  it("reports a change left waiting only where the save's answer minted one", async () => {
+    const minted = await patchSchiedsrichterAction(ENTWURF);
+    save = () => ({ acknowledged: 1, updated_document: stored(), fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null });
+    const feeOnly = await patchSchiedsrichterAction({ ...ENTWURF, default_payment: 25, kontakt: { email: BISHER, telefon: null } });
+
+    assert.equal(minted.success && minted.adresswechselGespeichert, true, "a save that minted a change reports none waiting");
+    assert.equal(feeOnly.success && feeOnly.adresswechselGespeichert, false, "a fee-only save reports a change waiting");
+  });
+
   it("files the link's delivery under the address change and never under the consent link", async () => {
     await patchSchiedsrichterAction(ENTWURF);
 

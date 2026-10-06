@@ -51,7 +51,7 @@ const failureToasts = () =>
 const { RegistrierungView } = await import("./components/views/RegistrierungView.tsx");
 const { RegistrierungFormPanel } = await import("./components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("./components/views/SpielerBestaetigungView.tsx");
-const { AdresseGesperrt } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
+const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { NUMMER_MAX_LENGTH, STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
 
 const { default: SpielerBestaetigungPage } = await import("@/app/(public)/bestaetigung/spieler/page.tsx");
@@ -1033,6 +1033,24 @@ describe("what a link to a barred address opens on", () => {
     assert.ok(shown, "the page kept the form the press cannot use again");
     assert.equal(buttons, 0, "a press stands beside the barred sentence");
     assert.equal(toasts, 0, "the ban was raised as a toast over the form");
+  });
+});
+
+/* A link the backend could not check may still be live, so its page says it does not know and asks
+   for a reload, never that the link is dead. */
+describe("what a link that could not be checked opens on", () => {
+  const unlesbar = renderMarkup(LinkUnlesbar, {});
+
+  it("is the shared unchecked-link panel on the registration page", () => {
+    assert.match(textOf(unlesbar), /gerade nicht prüfen/, "the shared panel no longer says the link went unchecked");
+    assert.ok(seite("unlesbar").includes(unlesbar), "the registration page drops the unchecked-link panel");
+  });
+
+  it("is the shared unchecked-link panel on the pupil's confirmation page", () => {
+    assert.ok(
+      renderMarkup(SpielerBestaetigungView, { start: { zustand: "unlesbar" }, fassung: FASSUNG }).includes(unlesbar),
+      "the confirmation page drops the unchecked-link panel",
+    );
   });
 });
 
