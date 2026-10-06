@@ -7,7 +7,7 @@ import PaperPlane from "@gravity-ui/icons/PaperPlane";
 
 import { Button } from "@heroui/react/button";
 
-import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { einladeSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import {
   SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS,
@@ -19,7 +19,6 @@ import {
 import { Beleg, Fassung, KeinTag } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
-import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -36,16 +35,6 @@ import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { PillTone } from "@/shared/components/ui/badges";
-
-/** Beside the deadline rather than in the right-hand cluster, which is about the delivery. */
-const LINK_ABGELAUFEN_LABEL = "abgelaufen";
-const LINK_ABGELAUFEN_TINT: PillTone = "warning";
-
-/** A lapsed link's mark beside its deadline, in this panel and the address change's, so one state is one word in both. */
-export function LinkAbgelaufen() {
-  return <span className={`${labelBadge(LINK_ABGELAUFEN_TINT)} ms-2 h-7 shrink-0`}>{LINK_ABGELAUFEN_LABEL}</span>;
-}
 
 /**
  * The re-send's accessible name, its link named for this panel as the address change's panel names its
@@ -58,29 +47,21 @@ const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.
 
 /** What the last link reached, where one has gone out at all. */
 function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLSchiedsrichterBestaetigung; offenUndAbgelaufen: boolean }) {
-  const zustellung = bestaetigung.zustellung === null ? null : ZUSTELLUNG_CHIP[bestaetigung.zustellung.stand];
-
   return (
     <dl className={FIELD_PAIR_CLASSES}>
-      <Angabe label="Link gesendet am">{formatSpielDatum(bestaetigung.verschickt_am)}</Angabe>
-      <Angabe label="Gültig bis">
-        {formatSpielDatum(bestaetigung.frist)}
-        {offenUndAbgelaufen && <LinkAbgelaufen />}
-      </Angabe>
-      {/* A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
-          rather than a day that went missing. */}
-      <Angabe label="Erinnert am">
-        {bestaetigung.erinnert_am === null ? <KeinTag>Keine Erinnerung</KeinTag> : formatSpielDatum(bestaetigung.erinnert_am)}
-      </Angabe>
-      <Angabe label="Zustellung">
-        {/* `null` covers accepted and delivered alike: the chip exists for what an administrator can
-            act on, and the delivery register spells the one word for a blocked address. */}
-        {zustellung === null ? (
-          <KeinTag>Nichts zu melden</KeinTag>
-        ) : (
-          <span className={`${labelBadge(zustellung.tone)} h-7 shrink-0`}>{zustellung.label}</span>
-        )}
-      </Angabe>
+      <LinkStandAngaben
+        verschicktAm={bestaetigung.verschickt_am}
+        frist={bestaetigung.frist}
+        istAbgelaufen={offenUndAbgelaufen}
+        zustellung={bestaetigung.zustellung}
+        vorZustellung={
+          // A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
+          // rather than a day that went missing.
+          <Angabe label="Erinnert am">
+            {bestaetigung.erinnert_am === null ? <KeinTag>Keine Erinnerung</KeinTag> : formatSpielDatum(bestaetigung.erinnert_am)}
+          </Angabe>
+        }
+      />
     </dl>
   );
 }

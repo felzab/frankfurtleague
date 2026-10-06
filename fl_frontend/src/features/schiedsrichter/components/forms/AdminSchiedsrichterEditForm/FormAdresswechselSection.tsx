@@ -8,11 +8,9 @@ import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { Button } from "@heroui/react/button";
 
-import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { einladeAdresswechselAction, verwirfAdresswechselAction } from "@/features/schiedsrichter/actions";
-import { KeinTag } from "@/features/spieler/components/ui/Nachweis";
 import { Angabe } from "@/shared/components/ui/Angabe";
-import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -24,10 +22,7 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
-
-import { LinkAbgelaufen } from "./FormBestaetigungSection";
 
 import type { FLSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/schemas";
 
@@ -60,8 +55,6 @@ export function FormAdresswechselSection({
   const [laeuft, setLaeuft] = useState<"senden" | "verwerfen" | null>(null);
   const stepUp = useStepUp();
   const panel = formPanel();
-
-  const zustellung = adresswechsel.zustellung === null ? null : ZUSTELLUNG_CHIP[adresswechsel.zustellung.stand];
 
   // Both writes mint or void a link to an address.
   const schreibe = async (art: "senden" | "verwerfen") => {
@@ -108,18 +101,12 @@ export function FormAdresswechselSection({
 
         <dl className={FIELD_PAIR_CLASSES}>
           <Angabe label="Neue Adresse">{adresswechsel.email}</Angabe>
-          <Angabe label="Link gesendet am">{formatSpielDatum(adresswechsel.verschickt_am)}</Angabe>
-          <Angabe label="Gültig bis">
-            {formatSpielDatum(adresswechsel.frist)}
-            {istAbgelaufen && <LinkAbgelaufen />}
-          </Angabe>
-          <Angabe label="Zustellung">
-            {zustellung === null ? (
-              <KeinTag>Nichts zu melden</KeinTag>
-            ) : (
-              <span className={`${labelBadge(zustellung.tone)} h-7 shrink-0`}>{zustellung.label}</span>
-            )}
-          </Angabe>
+          <LinkStandAngaben
+            verschicktAm={adresswechsel.verschickt_am}
+            frist={adresswechsel.frist}
+            istAbgelaufen={istAbgelaufen}
+            zustellung={adresswechsel.zustellung}
+          />
         </dl>
 
         <div className="flex w-full flex-wrap items-start gap-2">
