@@ -190,6 +190,14 @@ describe("the state the registration page renders", () => {
     assert.equal(new Set(titel).size, titel.length, "two closed states give the reader the same answer");
   });
 
+  /* „erneut“ is a retry's word: a link opened again is „noch einmal“, as every reopening sentence says it. */
+  it("tells a pupil whose team's squad is full to open the link again once a place frees up", () => {
+    assert.ok(
+      textOf(seite("kader-voll")).includes("Wird im Kader wieder ein Platz frei, kannst Du den Link noch einmal öffnen."),
+      "the full-squad page names no way back, or names it in a retry's words",
+    );
+  });
+
   it("names the team the invite opened and no other club of the season", () => {
     const html = seite("gueltig");
 
