@@ -7,7 +7,7 @@ import type { ActionFailure } from "@/shared/types/types";
 /**
  * A press minting or voiding a bearer link beside an editor's draft, so stepped up
  * (`docs/frontend/spec.md :: I432`); `null` where it stopped before the write. `repair` is the
- * caller's: a re-send and a discard owe an unanswered press different next steps.
+ * caller's: a re-send and a discard owe different next steps.
  */
 export async function pressLinkWrite<T extends { success: boolean }>({
   isDirty,

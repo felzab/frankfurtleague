@@ -1494,8 +1494,8 @@ describe("the words the two contact pages are handed", () => {
 
   /**
    * Every read answered as the backend would: `laufend` overriding what it runs on each page,
-   * `ansichtNennt` and `zustand` the label and state the link's view answers, `scheitert` failing
-   * one endpoint, `worte` answering every words read, and `seiten` the registry's answer whole.
+   * `ansichtNennt` and `zustand` the link view's label and state, `scheitert` failing one endpoint,
+   * `worte` every words read, and `seiten` the registry whole.
    */
   function backend({
     laufend,
