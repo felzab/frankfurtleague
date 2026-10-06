@@ -86,6 +86,7 @@ function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME)
       h(AdminBewerbungView, {
         neubesetzung: laufendeNeubesetzung(),
         bewerbung,
+        fristAbgelaufen: false,
         teamName,
         saisonStatus: "future",
         gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],

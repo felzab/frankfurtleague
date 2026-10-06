@@ -13,6 +13,7 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import (
     WITHOUT_TOKEN_HASHES,
+    bestaetigungsfrist_passed,
     build_bewerbungen_saison_term,
     build_bewerbungen_saisonbezug_terms,
     build_bewerbungen_sort,
@@ -26,7 +27,7 @@ from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesper
 from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import BewerbungenCollection
+from app.core.dependencies import BewerbungenCollection, get_german_date_str
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
@@ -143,10 +144,17 @@ async def get_bewerbung_by_id(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
     sperrliste: SperrlisteLookup,
+    today: str = Depends(get_german_date_str),
 ) -> FLBewerbungSingleResponse:
-    """One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it."""
+    """One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.
+
+    Answers whether its confirmation deadline has passed today, so the editor words the deletion without reading a day of its own.
+    """
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
     [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste)
 
-    return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**served))
+    return FLBewerbungSingleResponse(
+        bewerbung=FLBewerbung(**served),
+        bestaetigungsfrist_abgelaufen=bestaetigungsfrist_passed(bestaetigungsfrist=bewerbung_raw.get("bestaetigungsfrist"), today=today),
+    )

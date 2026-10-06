@@ -822,9 +822,7 @@ class TestNoHashReachesAnAdminRead:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             one = await get_bewerbung_by_id(
-                bewerbung_id=BEWERBUNG_OID,
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=ban_list(database),
+                bewerbung_id=BEWERBUNG_OID, bewerbungen_collection=database[Collection.BEWERBUNGEN], sperrliste=ban_list(database), today=TODAY
             )
             many = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
@@ -843,6 +841,21 @@ class TestNoHashReachesAnAdminRead:
             assert not any(token_hash in rendered for token_hash in (*HASHES.values(), erinnert_hash))
             # The rest of the block still reaches the triage, which renders the per-seat facts off it.
             assert "verschickt_am" in rendered
+
+
+class TestTheEditorsRead:
+    """The application editor words the deletion by the server's judgement of the deadline, never by a day the browser reads."""
+
+    @pytest.mark.parametrize(("frist", "abgelaufen"), [(TODAY, False), (YESTERDAY, True)], ids=["due-today", "due-yesterday"])
+    def test_it_answers_whether_the_confirmation_deadline_has_passed(self, mongo_replica_set_url: str, frist: str, abgelaufen: bool):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            return await get_bewerbung_by_id(
+                bewerbung_id=BEWERBUNG_OID, bewerbungen_collection=database[Collection.BEWERBUNGEN], sperrliste=ban_list(database), today=TODAY
+            )
+
+        read = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document(bestaetigungsfrist=frist)])
+
+        assert read.bestaetigungsfrist_abgelaufen is abgelaufen
 
 
 class TestAResend:

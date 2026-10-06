@@ -44,7 +44,6 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
-import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
@@ -124,6 +123,7 @@ export function BewerbungBestaetigungStrip({
   neubesetzung,
   staende,
   frist,
+  fristAbgelaufen,
   isOpen,
   isDirty,
   onGetipptChange,
@@ -134,6 +134,8 @@ export function BewerbungBestaetigungStrip({
   staende: readonly SitzBestaetigung[];
   /** The day an incomplete application is deleted after, or `null` where none is recorded. */
   frist: string | null;
+  /** The read's judgement of the deadline on the server's day, never this browser's. */
+  fristAbgelaufen: boolean;
   /** Whether the application is still `eingereicht` — the one state a re-sent link can be answered in. */
   isOpen: boolean;
   /** Whether the decline holds a typed reason, which every write here re-keys the page over. */
@@ -162,7 +164,7 @@ export function BewerbungBestaetigungStrip({
   const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
   const angebot = linkAngebot(staende);
   const neubesetzbar = sitzAngebot(staende);
-  const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, heute: getGermanTodayStr() });
+  const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, istAbgelaufen: fristAbgelaufen });
 
   const sendeErneut = async (rolle: KontaktRolle) => {
     // The page re-keys on the sent link's record, drawing this seat's control anew.

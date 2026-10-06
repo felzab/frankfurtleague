@@ -74,8 +74,9 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
     // Keyed by the record the decision is taken against, so the write's refresh remounts the view
     // onto the decided application rather than leaving the pickers standing over it.
     <AdminBewerbungView
-      key={JSON.stringify(bewerbung)}
+      key={JSON.stringify([bewerbung, bewerbungRes.bestaetigungsfrist_abgelaufen])}
       bewerbung={bewerbung}
+      fristAbgelaufen={bewerbungRes.bestaetigungsfrist_abgelaufen}
       teamName={bewerbungTeamName(bewerbung, teamsRes.teams)}
       saisonStatus={saison?.status ?? null}
       neubesetzung={neubesetzung}

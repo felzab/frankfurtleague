@@ -26,12 +26,15 @@ import type { Neubesetzung } from "./BewerbungBestaetigungStrip";
  */
 export function AdminBewerbungView({
   bewerbung,
+  fristAbgelaufen,
   teamName,
   saisonStatus,
   gruppeOffer,
   neubesetzung,
 }: {
   bewerbung: FLBewerbung;
+  /** Whether its confirmation deadline has passed, as the read judged it on the server's day. */
+  fristAbgelaufen: boolean;
   /** The club the application names, resolved by the page — `null` where it names none. */
   teamName: string | null;
   /** The state of the season this application is for, or `null` where no season carries its id. */
@@ -80,6 +83,7 @@ export function AdminBewerbungView({
               neubesetzung={neubesetzung}
               staende={staende}
               frist={bewerbung.bestaetigungsfrist}
+              fristAbgelaufen={fristAbgelaufen}
               isOpen={isOpen}
               isDirty={grundGetippt}
               onGetipptChange={setBoxGetippt}

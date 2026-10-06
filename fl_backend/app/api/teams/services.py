@@ -4,7 +4,7 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
-from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over
+from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over, seat_is_answered
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
@@ -877,21 +877,25 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
 
 
 def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> list[dict[str, Any]]:
-    """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`)."""
+    """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`).
 
-    def judged(bestaetigungen: Any) -> Any:
+    Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect.
+    """
+
+    def judged(row: Mapping[str, Any]) -> Any:
+        bestaetigungen = row.get("bestaetigungen")
         if not isinstance(bestaetigungen, Mapping):
             return bestaetigungen
 
+        def abgelaufen(seat: str, link: Mapping[str, Any]) -> bool:
+            offen = not seat_is_answered(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat)
+            return offen and saison_link_is_over(frist=link.get("frist"), today=today)
+
         return {
-            seat: {**link, "abgelaufen": saison_link_is_over(frist=link.get("frist"), today=today)} if isinstance(link, Mapping) else link
-            for seat, link in bestaetigungen.items()
+            seat: {**link, "abgelaufen": abgelaufen(seat, link)} if isinstance(link, Mapping) else link for seat, link in bestaetigungen.items()
         }
 
-    return [
-        {**team, "memberships": [{**row, "bestaetigungen": judged(row.get("bestaetigungen"))} for row in team.get("memberships", [])]}
-        for team in teams_raw
-    ]
+    return [{**team, "memberships": [{**row, "bestaetigungen": judged(row)} for row in team.get("memberships", [])]} for team in teams_raw]
 
 
 def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:

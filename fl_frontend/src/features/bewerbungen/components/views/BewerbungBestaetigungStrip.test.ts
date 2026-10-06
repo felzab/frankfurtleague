@@ -104,9 +104,16 @@ const claraStieAus = { kontakte: { trainer: null }, bestaetigungen: { trainer: W
 function renderStrip({
   stands = standsOf(),
   frist = "2099-12-31",
+  fristAbgelaufen = false,
   isOpen = true,
   neubesetzung = laufendeNeubesetzung(),
-}: { stands?: SitzBestaetigung[]; frist?: string; isOpen?: boolean; neubesetzung?: ReturnType<typeof laufendeNeubesetzung> | null } = {}) {
+}: {
+  stands?: SitzBestaetigung[];
+  frist?: string;
+  fristAbgelaufen?: boolean;
+  isOpen?: boolean;
+  neubesetzung?: ReturnType<typeof laufendeNeubesetzung> | null;
+} = {}) {
   return render(
     underNext(
       h(BewerbungBestaetigungStrip, {
@@ -114,6 +121,7 @@ function renderStrip({
         neubesetzung,
         staende: stands,
         frist,
+        fristAbgelaufen,
         isOpen,
         isDirty: false,
         onGetipptChange: () => undefined,
@@ -225,13 +233,31 @@ describe("the deadline sentence", () => {
   /* The sweep's clock reads `eingereicht` alone: a promise of deletion over a decided application is one
      nothing will keep, and a deadline behind today worded as ahead promises a deletion already owed. */
   it("says a passed deadline has passed while the application is open, and nothing once it is decided", () => {
-    const { unmount } = renderStrip({ frist: "2020-01-01" });
+    const { unmount } = renderStrip({ frist: "2020-01-01", fristAbgelaufen: true });
 
     assert.ok(screen.queryByText(/^Die Frist für die Bestätigungen ist am 01\.01\.2020 abgelaufen\./), "a passed deadline is worded as ahead");
     unmount();
 
     renderStrip({ stands: standsOf({ status: "abgelehnt" }), isOpen: false });
     assert.ok(screen.queryByText(/gelöscht|Frist/) === null, "a decided application is promised a deletion");
+  });
+});
+
+/* The read judges the deadline on the server's day, so this browser's date decides nothing about the sentence. */
+describe("the deadline sentence against the read's judgement", () => {
+  it("follows the read, never the date it shows", () => {
+    const { unmount } = renderStrip({ frist: "2020-01-01", fristAbgelaufen: false });
+    assert.ok(
+      screen.queryByText(/^Bleibt eine Bestätigung bis zum 01\.01\.2020 aus/),
+      "a deadline the read judges running is worded as passed",
+    );
+    unmount();
+
+    renderStrip({ frist: "2099-12-31", fristAbgelaufen: true });
+    assert.ok(
+      screen.queryByText(/^Die Frist für die Bestätigungen ist am 31\.12\.2099 abgelaufen\./),
+      "a deadline the read judges passed is worded as ahead",
+    );
   });
 });
 

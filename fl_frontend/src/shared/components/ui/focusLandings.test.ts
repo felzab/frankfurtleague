@@ -405,6 +405,7 @@ const bewerbungPage = (bewerbung: Bewerbung) =>
   h(AdminBewerbungView, {
     neubesetzung: laufendeNeubesetzung(),
     bewerbung,
+    fristAbgelaufen: false,
     teamName: "SG Alpha",
     saisonStatus: "future",
     gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],
