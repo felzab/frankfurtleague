@@ -134,6 +134,8 @@ describe("the referee's confirmation handler", () => {
     assert.equal((answer.body as { success: boolean }).success, false);
     assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
     assert.deepEqual(calls, []);
+    // The tag is declared before the body is read, so only the spine's "no write sent" keeps this clean.
+    assert.deepEqual(tags, []);
   });
 
   it("files the answer under the label this server renders", async () => {
@@ -251,6 +253,8 @@ describe("the referee's confirmation handler", () => {
     // sends such a body, and only the mail's link reopens this one.
     assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
     assert.deepEqual(calls, []);
+    // The tag is declared before the body is read, so only the spine's "no write sent" keeps this clean.
+    assert.deepEqual(tags, []);
   });
 
   /* A GET would let a mail scanner's pre-fetch confirm for the reader, and the same-origin guard
