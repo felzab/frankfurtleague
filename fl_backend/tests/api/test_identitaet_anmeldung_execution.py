@@ -229,16 +229,15 @@ async def _seed(database: AsyncDatabase) -> None:
             _registrierung(REGISTRIERUNG_OFFEN_OID, REGISTRIERT_OFFEN, confirmed=False),
         ]
     )
-    # A confirmation carrying no choice, which a returning pupil's confirmation is to store: today's
-    # validator requires the choices, so this row alone skips it.
     await database[Collection.REGISTRIERUNGEN].insert_one(
         _registrierung(
             REGISTRIERUNG_OHNE_WAHL_OID,
             REGISTRIERT_OHNE_WAHL,
-            geburtsdatum="2009-05-04",
-            einwilligung={"bestaetigt_am": "2026-01-03", "text_version": "2026-09"},
-        ),
-        bypass_document_validation=True,
+            confirmed=False,
+            **compose_confirmation_update(
+                geburtsdatum="2009-05-04", umfang=None, medien=None, text_version="2026-09", today="2026-01-03", am="2026-01-03T08:00:00+00:00"
+            )["$set"],
+        )
     )
     await database[Collection.SPERRLISTE].insert_one(ban_document(GESPERRT, bis=ACTIVE_SAISON))
     granted = datetime(2026, 1, 1, tzinfo=UTC)
@@ -254,7 +253,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The REAL validators, so every seeded row but the one skipping them is one the shipped schema admits."""
+    """The REAL validators, so every seeded row is one the shipped schema admits."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
