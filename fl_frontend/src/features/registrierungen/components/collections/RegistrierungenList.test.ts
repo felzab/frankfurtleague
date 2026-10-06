@@ -94,6 +94,21 @@ const keysOf = (value: unknown): string[] =>
 /** What a seat holder must never be handed about a pupil: a way to reach them, their birthdate, their consent. */
 const PRIVATE_KEY = /mail|telefon|phone|geburtsdatum|einwilligung/i;
 
+describe("a pending row without a number", () => {
+  /* An `aria-label` on a span with no role is one a screen reader may skip, so the empty chip says it in text. */
+  it("says so in text a screen reader reads, and nowhere in an aria-label", async () => {
+    answeringOffen({ ...OFFEN, registrierungen: [zeile(LENA, "Lena", "Meier", { nummer: null })] });
+    try {
+      const { markup } = await renderedPage();
+
+      assert.ok(markup.includes('<span class="sr-only">Keine Nummer</span>'), "the empty chip says nothing a screen reader reads");
+      assert.doesNotMatch(markup, /aria-label="Keine Nummer"/, "the empty chip is named by an aria-label again");
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+});
+
 describe("the registrations page, as a seat holder reads it", () => {
   /* A Trainer-only seat, the narrowest there is: whatever an Ansprechperson reads, it reads too. */
   it("lists every pending row with its marker, the unconfirmed one closed to admission, and whom to ask for a fresh link", async () => {

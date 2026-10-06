@@ -9,8 +9,8 @@ import { Chip } from "@heroui/react/chip";
 
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
+import { AustrittKuerzel } from "@/features/teams/components/ui/AustrittKuerzel";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
-import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { getTeams } from "@/features/teams/queries";
 import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";
 import { BrandHero } from "@/shared/components/ui/BrandHero";
@@ -181,11 +181,10 @@ async function ParticipatingTeamsDisplay() {
             {/* The Kürzel beside the tone, as `SaisontabelleView`'s badge does: the red tint is
                 otherwise the only thing saying a school has left. */}
             {teamData.austritt !== null && (
-              <span
-                aria-label={austrittZustand(teamData.austritt.type)}
-                className="ml-1.5">
-                {austrittKuerzel(teamData.austritt.type)}
-              </span>
+              <AustrittKuerzel
+                type={teamData.austritt.type}
+                className="ml-1.5"
+              />
             )}
           </Chip>
         </TeamPopoverMenu>
