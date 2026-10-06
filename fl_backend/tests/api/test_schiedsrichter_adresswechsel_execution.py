@@ -606,6 +606,18 @@ class TestTheEditorsRead:
 
         assert (read.bestaetigung_abgelaufen, read.adresswechsel_abgelaufen) == (abgelaufen, abgelaufen)
 
+    def test_an_unconfirmed_referees_lapsed_consent_link_is_answered_apart_from_the_absent_change(self, mongo_replica_set_url: str):
+        """The consent flag reads the consent block alone: here only that link exists, and it has lapsed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            read = await get_schiedsrichter_by_id(
+                schiedsrichter_id=SCHIEDSRICHTER_OID, schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], today=AFTER_THE_DEADLINE
+            )
+
+            return read.bestaetigung_abgelaufen, read.adresswechsel_abgelaufen
+
+        assert on_a_league(mongo_replica_set_url, body, confirmed=False) == (True, False)
+
     def test_a_row_holding_no_change_answers_it_as_not_lapsed(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await get_schiedsrichter_by_id(
