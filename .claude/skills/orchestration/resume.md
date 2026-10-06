@@ -53,8 +53,9 @@ Resume this session. Do not continue any work until you have finished this proto
    unattended stretch is exactly as the register describes it: uncommitted, its backup on disk, its
    restore command correct.
 
-6. VERIFY. Check that the commit the register's `Last gate run` names is still the tip. Run the gate
-   only where the next action is the ending's.
+6. VERIFY. Check that the commit the register's `Last gate run` names is still the tip, and that
+   the Docker engine the database tier needs answers (`docker info` exits 0) before any agent
+   resumes: after a restart it may not. Run the gate only where the next action is the ending's.
 
 7. RESUME POINT. State the single next action and why, and write it into the register in the same
    edit as the action. Where this session's id differs from the register's, rewrite the
