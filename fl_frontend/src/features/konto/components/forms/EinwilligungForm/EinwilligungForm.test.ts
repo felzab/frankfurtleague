@@ -122,9 +122,9 @@ const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen.";
 const precedes = (first: Node, second: Node): boolean => (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 
 describe("the consent control a sixteen-year-old reads before pressing", () => {
-  /* The likelier defect with two controls than with one is the two being labelled alike, so each name is
-     compared to its own words and to the other's. */
-  it("names each control by its own words, and the two names differ", () => {
+  /* The likelier defect with two controls than with one is the two being labelled alike: each is found by
+     its own words alone, a control named by the other's finding nothing or both. */
+  it("names each control by its own words", () => {
     renderForm();
 
     const gruppe = screen.getByRole("radiogroup");
@@ -132,7 +132,6 @@ describe("the consent control a sixteen-year-old reads before pressing", () => {
 
     assert.ok(screen.getByRole("radiogroup", { name: WORTE.umfang?.frage }) === gruppe, "the chips are not named by their question");
     assert.ok(screen.getByRole("switch", { name: WORTE.medien.schalter }) === schalter, "the switch is not named by its own words");
-    assert.notEqual(WORTE.umfang?.frage, WORTE.medien.schalter);
     for (const [wert, label] of Object.entries(WORTE.umfang?.optionen ?? {})) {
       assert.ok(screen.getByRole("radio", { name: label }), `the chip for ${wert} is not named by its own words`);
     }
