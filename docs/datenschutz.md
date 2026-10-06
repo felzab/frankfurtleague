@@ -156,7 +156,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   notice discloses these rather than argue that none of them is a decision under Art. 22, and that
   it offers a human review of each; it does both
   (`DatenschutzView.tsx :: Von dem, was Du auf dieser Website eintragen kannst`,
-  `:: Beide Zurückweisungen prüft auf Deinen Wunsch`). Each is judged before anything is written:
+  `:: Beide Zurückweisungen`). Each is judged before anything is written:
   - a birthdate outside the span a role allows — below its floor, or past the ceiling that catches a
     mistyped century — on the person's own confirmation page, for a pupil
     (`REQ-REGISTRIERUNG-007`), a referee (`REQ-SCHIEDSRICHTER-005`) and a contact person

@@ -9,6 +9,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { Separator } from "@heroui/react/separator";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { Form } from "@/shared/components/ui/Form";
@@ -38,9 +39,8 @@ const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 
 const ANMELDEN = { rest: "Anmelden", pending: "Meldet an..." };
 
-/** A check that did not load, naming the passkey, which signs in without it. */
-const PRUEFUNG_NICHT_GELADEN =
-  "Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, oder melde Dich mit einem Passkey an.";
+/** A check that did not load, naming the passkey, which signs in without it, beside the league's address. */
+const PRUEFUNG_NICHT_GELADEN = `Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, melde Dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`;
 
 /**
  * Next's own boundary rather than a hand-written class: a class catches every throw, a framework
