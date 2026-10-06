@@ -45,8 +45,12 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   message it lets through, so report the commit's exit code and any notice. The hook judges a
   `Closes:` trailer against the staged diff: write one exactly when your commit retires a roadmap
   entry. To reword a commit that closes one, `git reset --soft HEAD~1` and commit again, never
-  `--amend`, which the hook reads as the amend's delta alone. The coordinator merges your branch
-  into the session branch whole, your commits as you made them.
+  `--amend`, which the hook reads as the amend's delta alone. To fold commits, `git reset --soft`
+  onto a hash `git merge-base HEAD <session branch>` printed, never onto the branch's name: it moves
+  as I land, and a reset onto a newer tip commits the reversal of everything landed since. A body
+  names a findings-ledger row by its exact id only where that commit fixes it: the landing closes
+  every routed row a merged body names. The coordinator merges your branch into the session branch
+  whole, your commits as you made them.
 - **Commit everything before you report**: the landing merges your branch's commits and nothing
   else, and refuses a worktree holding uncommitted work. `git status --porcelain` prints nothing
   when your report lands.
@@ -59,7 +63,11 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   in use -- the `@/` alias, a relative path, a dotted Python module -- and the tests naming any
   registry gaining a member, run as `pnpm run test:base <files>` and
   `uv run --frozen pytest <paths>`; `npx tsc --noEmit -p .` and eslint over the side you touched in
-  `fl_frontend`, pyright over the backend where you touched it; and every plant your items need. CI
+  `fl_frontend`, pyright over the backend where you touched it; every `scripts/checks/` checker
+  whose population you add to, from the root as `uv run --project fl_backend --frozen python
+scripts/checks/<name>.py` -- `check_tracked_text.py` always, `check_public_routes.py` for a route
+  handler, a page or `nginx/shared/site.conf`, `check_test_estate.py` for a backend test or fixture;
+  and every plant your items need. CI
   runs every scope over the combined head once a wave lands, and the gate runs once, in the
   coordinator's checkout, over the finished branch, so never a whole suite, a whole test tree,
   `./scripts/gate/verify.sh` or `./scripts/ops/local.sh`. `.claude/hooks/implementer-whole-suite.sh`
@@ -83,8 +91,9 @@ other in it, and a scratch file in your worktree is one `git add` from your comm
 worktree is yours, so you may plant in any file of it; no other agent's run can see it.
 
 - Commit before you plant, and restore with `git restore --source=HEAD --staged --worktree -- <path>`:
-  without `--source`, `git restore` reads the INDEX, which holds a plant you staged. A plant never
-  reaches a commit: `git status --porcelain` shows nothing you did not mean to commit before each one.
+  without `--source`, `git restore` reads the INDEX, which holds a plant you staged. `git status
+--porcelain` prints nothing before each plant: the restore takes the file back to `HEAD`, and an
+  uncommitted edit in it goes with the plant.
 - Plant at the call site, not only in a helper: a fix pinned only through its helper passes with its
   call site reverted.
 - Record the exit code at each step: plant, red, restore, green.
@@ -154,7 +163,9 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
 
 10 TELL ME. Two things stop your work and come back in your report. Mid-task, `SendMessage` to
 `main` reaches the coordinator: use it to ask for a file outside your list, to report a premise that
-breaks the work, or to ask what you cannot verify, then wait for the answer or stop.
+breaks the work, or to ask what you cannot verify. The answer arrives at your next tool call, so go
+on with what it does not block; where everything left waits on it, end with your report naming the
+question open, and the answer resumes you.
 
 - BEFORE you change a shared manifest, a guard or a hook registration, stop and report it instead of
   making the change, unless your brief names that change as yours. Once landed, such a change alters
@@ -176,15 +187,16 @@ Where a whole exceeds the arithmetic of its parts, say so: that gap is a finding
 13 CLAIMS. A claim about what the tooling, the harness or a guard permits is established by
 ATTEMPTING the thing -- never by reading a definition, never by reasoning from one. A claim you
 cannot test is written as "not established", with the command that would settle it. If a change of yours leaves one file contradicting its siblings, the siblings are evidence
-the change is wrong, not leftovers to tidy.
+the change is wrong, not leftovers to tidy. A commit hash you write in a message or a report is
+copied from a git command's output in that step, never recalled.
 
 14 REPORT. Your report is your FINAL MESSAGE and there is no second copy of it anywhere, so everything
 you have not said dies with you. Close checklist items in order and leave each one's acceptance
 evidence where it can be found. No length limit; no narration of your own process and no restatement
 of the brief. Every finding -- a wrong premise, something you could not verify, a defect outside your
-scope, a cheaper shape that shipped -- opens with its label `F<n>`, numbered once through the
-report: the coordinator's ledger tool writes one row per label and sees nothing else. Exactly, in
-this order:
+scope, a cheaper shape that shipped, a check your commits leave red until another lane lands --
+opens with its label `F<n>`, numbered once through the report: the coordinator's ledger tool writes
+one row per label and sees nothing else. Exactly, in this order:
 
 - (a) the commits this report covers, `git log --format='%h %s' <session branch>..HEAD`, which is
   what the landing merges, the files each changed, and the tip itself;
