@@ -650,11 +650,13 @@ as them.
   registration storing it unfolded (`docs/glossary.md :: Registrierung`). Those are the records
   the sign-in gate admits an address for (`docs/glossary.md :: Konto`).
 - **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
-  read keys on that address, by design (`docs/backend/spec.md :: I_NEW_KREF_2`), so no search finds
-  the referee from it: open the editor of the referee whose „Neue E-Mail-Adresse“ panel shows it and
-  press „Änderung verwerfen“ (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`), which
-  removes the address and the log's images of it (`docs/backend/spec.md :: I_NEW_KREF_4`). The
-  link's own „Das ist nicht meine Adresse“ does the same, past its deadline too.
+  read keys on that address, by design (`docs/backend/spec.md :: I_NEW_KREF_2`), so no page search
+  finds the referee from it: find the row with a read-only Playground query on `schiedsrichter` for
+  `adresswechsel.email` equal to the address, matched in any case and projecting `_id` and `name`
+  alone, then open that referee's editor and press „Änderung verwerfen“
+  (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`), which removes the address and the
+  log's images of it (`docs/backend/spec.md :: I_NEW_KREF_4`). The link's own „Das ist nicht meine
+  Adresse“ does the same, past its deadline too.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
