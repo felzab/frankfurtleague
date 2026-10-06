@@ -5,9 +5,9 @@ import type { StepUpGate } from "@/shared/hooks/useStepUp";
 import type { ActionFailure } from "@/shared/types/types";
 
 /**
- * One press of a control beside an editor's draft that mints or voids a bearer link, so it steps up
- * (`docs/frontend/spec.md :: I432`). `null` where the press stopped before the write: an unsaved draft,
- * or a refused prompt. `pending` brackets the prompt and the write alike.
+ * A press minting or voiding a bearer link beside an editor's draft, so stepped up
+ * (`docs/frontend/spec.md :: I432`). `null` where it stopped before the write: an unsaved draft or a
+ * refused prompt. `pending` brackets prompt and write.
  */
 export async function pressLinkWrite<T extends { success: boolean }>({
   isDirty,

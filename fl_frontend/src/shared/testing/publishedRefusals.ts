@@ -51,10 +51,9 @@ function publishedStatuses(operation: string, code: string): number[] {
 }
 
 /**
- * The refusal the API client raises when `operation` answers `serverErrorCode`, at the status the
- * document publishes it under unless a case moves it to another, so a mapper is asked rather than
- * read. Throws for a code the operation publishes under no status: a moved status moves the code,
- * never stands in for its being published.
+ * The refusal the API client raises when `operation` answers `serverErrorCode`, at its published status
+ * unless a case moves it. Throws for a code the operation publishes nowhere: a moved status moves a
+ * published code, never stands in for one.
  */
 export function refusedOn(operation: string, serverErrorCode: string, statusCode?: number): APIBadStatusError {
   const statuses = publishedStatuses(operation, serverErrorCode);
@@ -69,9 +68,8 @@ export function refusedOn(operation: string, serverErrorCode: string, statusCode
 }
 
 /**
- * What the API client raises for a code `operation` does not publish: an invented one, another flow's,
- * a routing refusal or a server failure, which a case hands a mapper to see it answer nothing. Throws
- * once the operation publishes the code, where the case's premise no longer holds.
+ * What the API client raises for a code `operation` does not publish, which a case hands a mapper to see
+ * it answer nothing. Throws for a code the operation publishes, where the case's premise fails.
  */
 export function unpublishedOn(operation: string, serverErrorCode: string, statusCode: number): APIBadStatusError {
   if (publishedStatuses(operation, serverErrorCode).length > 0) {
