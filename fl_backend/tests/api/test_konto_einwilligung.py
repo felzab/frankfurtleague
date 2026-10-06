@@ -121,6 +121,12 @@ def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
 # `NOW` in UTC, as evidence spells its instant.
 AM = "2026-10-03T10:00:00+00:00"
 
+# The clock of every case reading the day's count back, a century ahead: a count expires at the midnight
+# ending its day and the TTL monitor deletes it at its next sweep, so under `NOW` a count read back may be
+# gone, and a case asserting none was spent passes whatever was spent.
+COUNTED_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+COUNTED_AM = "2126-10-03T10:00:00+00:00"
+
 
 def _running_label() -> str:
     return LAUFENDE_FASSUNGEN[KONTO_SEITE_SCHIEDSRICHTER]
@@ -205,11 +211,11 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
-def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]]) -> T:
+def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]], *, now: datetime = NOW) -> T:
     async def _run() -> T:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
             await _seed(database)
-            async with app_client(url, config=CONFIG, now=NOW) as http:
+            async with app_client(url, config=CONFIG, now=now) as http:
                 return await steps(http, database)
 
     return on_the_seed_loop(_run())
@@ -770,7 +776,7 @@ class TestTheSeatsWhatsAppChoice:
             )
             return granted, counted_after_withdrawal, [row async for row in database[Collection.DROSSELUNG].find({})], await _rows(database)
 
-        granted, counted_after_withdrawal, counted, after = served(mongo_replica_set_url, steps)
+        granted, counted_after_withdrawal, counted, after = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert granted.status_code == 200, granted.text
         assert after[(TEAM_B_OID, ACTIVE_SAISON)]["stellvertretung"]["einwilligung"]["umfang"] == "kontaktdaten_whatsapp"
@@ -1040,7 +1046,7 @@ class TestAPendingApplicationsSeats:
             response = await http.patch(_application_path(PENDING_OID), json=body, headers=_person(IDENTIFIER))
             return response, before, await _application_docs(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        response, before, after, counted = served(mongo_replica_set_url, steps)
+        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
         assert (after, counted) == (before, 0)
@@ -1055,7 +1061,7 @@ class TestAPendingApplicationsSeats:
             response = await http.patch(_application_path(PENDING_OID), json=_withdrawal(medien=True), headers=_person(IDENTIFIER))
             return response, await _application_docs(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        response, after, counted = served(mongo_replica_set_url, steps)
+        response, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert response.status_code == 200, response.text
         for slot in ("trainer", "ansprechperson"):
@@ -1063,7 +1069,7 @@ class TestAPendingApplicationsSeats:
             assert (einwilligung["umfang"], einwilligung["medien"], einwilligung[NACHWEIS]) == (
                 "kontaktdaten",
                 True,
-                {"umfang": SEAT_WITHDRAWAL},
+                {"umfang": {**SEAT_WITHDRAWAL, "am": COUNTED_AM}},
             )
         assert counted == 0
 
@@ -1163,7 +1169,7 @@ class TestAPendingRegistration:
             response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        response, before, after, counted = served(mongo_replica_set_url, steps)
+        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert response.status_code == 200, response.text
         einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
@@ -1176,7 +1182,7 @@ class TestAPendingRegistration:
         }
         assert (einwilligung["umfang"], einwilligung[NACHWEIS]["umfang"]) == (
             "intern",
-            {"am": AM, "text_version": LAUFENDE_FASSUNGEN["konto_spieler"], "erteilt_zuvor": REGISTRIERUNG_GRANT},
+            {"am": COUNTED_AM, "text_version": LAUFENDE_FASSUNGEN["konto_spieler"], "erteilt_zuvor": REGISTRIERUNG_GRANT},
         )
         stood = before[REGISTRIERUNG_OWN]["einwilligung"]
         # The other choice, its evidence, the days and the label the pupil confirmed all stand.
@@ -1200,7 +1206,7 @@ class TestAPendingRegistration:
             response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        response, before, after, counted = served(mongo_replica_set_url, steps)
+        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
         assert (after, counted) == (before, 0)
@@ -1341,7 +1347,7 @@ class TestSeatsAnsweredApart:
             response = await http.patch(_seat_path(TEAM_B_OID, ACTIVE_SAISON), json=body, headers=_person(IDENTIFIER))
             return body, response, await _rows(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        body, response, after, counted = served(mongo_replica_set_url, steps)
+        body, response, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert body["umfang"] == "kontaktdaten_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
         assert response.status_code == 200, response.text
