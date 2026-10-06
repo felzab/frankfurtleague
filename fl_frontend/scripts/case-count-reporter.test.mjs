@@ -1,15 +1,18 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { refusalOf, REFUSED } from "./case-count-reporter.mjs";
+
 const FRONTEND = path.join(import.meta.dirname, "..");
 // A URL rather than a path: the runner imports a reporter, and a Windows drive letter reads as a scheme.
 const REPORTER = pathToFileURL(path.join(import.meta.dirname, "case-count-reporter.mjs")).href;
-const TEST_BASE = JSON.parse(readFileSync(path.join(FRONTEND, "package.json"), "utf8")).scripts["test:base"];
+const SCRIPTS = JSON.parse(readFileSync(path.join(FRONTEND, "package.json"), "utf8")).scripts;
+const TEST_BASE = SCRIPTS["test:base"];
 
 const SCRATCH = mkdtempSync(path.join(tmpdir(), "fl-case-count-"));
 after(() => rmSync(SCRATCH, { recursive: true, force: true }));
@@ -37,6 +40,12 @@ for (const [name, source] of Object.entries(FILES)) writeFileSync(path.join(SCRA
 const ROUTE_FOLDER = path.join("(public)", "[saison_id]");
 mkdirSync(path.join(SCRATCH, ROUTE_FOLDER), { recursive: true });
 writeFileSync(path.join(SCRATCH, ROUTE_FOLDER, "page.test.mjs"), FILES["cases.test.mjs"]);
+// Written by the one fixture that leaves a mark, so a refused run is seen to have started no file.
+const RAN = path.join(SCRATCH, "ran.txt");
+writeFileSync(
+  path.join(SCRATCH, "marks.test.mjs"),
+  `import { writeFileSync } from "node:fs";\nimport { it } from "node:test";\nit("marks", () => writeFileSync(${JSON.stringify(RAN)}, "ran"));\n`,
+);
 
 /** A run of `node --test` over `files` under this reporter alone, as `test:base` adds it. */
 function run(files, flags = []) {
@@ -51,6 +60,20 @@ function run(files, flags = []) {
   });
 
   return { status: ran.status, said: ran.stdout };
+}
+
+/** A run over `files` as `run` makes it, with what it wrote to stderr and whether a file started. */
+function refusedRun(files) {
+  rmSync(RAN, { force: true });
+  const { NODE_TEST_CONTEXT: _context, NODE_OPTIONS: _options, ...env } = process.env;
+  const ran = spawnSync(process.execPath, ["--test", `--test-reporter=${REPORTER}`, "--test-reporter-destination=stdout", ...files], {
+    cwd: SCRATCH,
+    env,
+    encoding: "utf8",
+    timeout: 60_000,
+  });
+
+  return { status: ran.status, said: ran.stderr, started: existsSync(RAN) };
 }
 
 describe("the case-count reporter", () => {
@@ -117,19 +140,40 @@ describe("the case-count reporter", () => {
     assert.match(said, /bare-skipped-case\.test\.mjs ran no case/);
   });
 
-  /* The runner drops a named path it finds nothing at whenever another argument matched, so a run
-     naming a moved file passed over the rest and claimed them. */
-  it("fails a run naming a path that matches no file, naming that path alone", () => {
-    const { status, said } = run(["cases.test.mjs", "moved.test.mjs"]);
+  /* Named nothing, the runner takes its whole default set, the database tier among it: a caller's empty
+     list ran every file, against what its command meant. */
+  it("refuses a run naming no path before any file starts", () => {
+    const { status, said, started } = refusedRun([]);
 
-    assert.equal(status, 1);
-    assert.match(said, /^\u2716 moved\.test\.mjs matched no file/m);
-    assert.doesNotMatch(said, /cases\.test\.mjs/);
+    assert.equal(status, REFUSED);
+    assert.match(said, /was named no path/);
+    assert.equal(started, false, "a file started under a run naming none");
   });
 
-  /* The suite's own patterns hold wildcards some of which match nothing in a tree, by design. */
-  it("leaves a wildcard matching nothing, and a named path in a route folder's spelling, passing", () => {
+  /* The runner drops a named path it finds nothing at whenever another argument matched, so a run
+     naming a moved file passed over the rest and claimed them. */
+  it("refuses a run naming a path that matches no file before any file starts, naming that path alone", () => {
+    const { status, said, started } = refusedRun(["marks.test.mjs", "moved.test.mjs"]);
+
+    assert.equal(status, REFUSED);
+    assert.match(said, /^\u2716 moved\.test\.mjs matched no file/m);
+    assert.doesNotMatch(said, /marks\.test\.mjs/);
+    assert.equal(started, false, "the named file that exists started under a refused run");
+  });
+
+  it("runs a named path, a route folder's spelling among them, beside a wildcard matching nothing", () => {
     assert.deepEqual(run(["cases.test.mjs", "*.nothing.mjs"]), { status: 0, said: "" });
     assert.deepEqual(run([path.join(ROUTE_FOLDER, "page.test.mjs")]), { status: 0, said: "" });
+  });
+
+  /* The bare suite and the database tier hand test:base their own patterns, some matching nothing in a
+     tree by design. */
+  it("leaves the test and test:db scripts' own patterns free", () => {
+    for (const script of ["test", "test:db"]) {
+      const patterns = [...SCRIPTS[script].matchAll(/"([^"]+)"/g)].map(([, pattern]) => pattern);
+
+      assert.ok(patterns.length > 0, `${script} hands test:base no pattern this case can read`);
+      assert.equal(refusalOf(patterns), null, `${script}'s own patterns are refused`);
+    }
   });
 });
