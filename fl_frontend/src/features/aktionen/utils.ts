@@ -12,7 +12,7 @@ export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
 }
 
 /**
- * How a signed-in person's row names them: the Funktion the write was authorised under and their pseudonym,
+ * How a signed-in person's row names them: the kind of person the write was made as and their pseudonym,
  * which the read serves already cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLAktorPerson`).
  */
 export function personAkteurLabel(actor: FLAktorPerson): string {
