@@ -60,6 +60,7 @@ const { RegistrierungenView } = await import("@/features/registrierungen/compone
 const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
+const { patchRegistrierungEinwilligungAction } = await import("@/features/registrierungen/personActions.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -598,17 +599,23 @@ const KONTO_TITEL = "Als Ansprechperson: Bewerbung für Goethe-Gymnasium, Saison
  * A pending application's seat on the account page, as the read serves it: withdraw-only, so a
  * withdrawal closes the switch it was pressed on once the page is read again.
  */
-const kontoBewerbung = (medien: boolean) =>
+const kontoBewerbung = (medien: boolean, whatsapp = false) =>
   h(EinwilligungPanel, {
     eintraege: [
       {
         id: `bewerbung-${BEWERBUNG_ID}`,
         titel: KONTO_TITEL,
         bestaetigt: null,
-        control: h(EinwilligungForm, {
+        // Instantiated at the seat's scope: `h` infers no component's type parameter.
+        control: h(EinwilligungForm<Parameters<typeof patchBewerbungEinwilligungAction>[1]["umfang"]>, {
           worte: {
             textVersion: "konto-test-1",
-            whatsapp: { schalter: "Die Liga darf mich auch über WhatsApp erreichen.", absatz: "WhatsApp nur mit Deiner Erlaubnis." },
+            whatsapp: {
+              schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+              an: "kontaktdaten_whatsapp",
+              aus: "kontaktdaten",
+              absatz: "WhatsApp nur mit Deiner Erlaubnis.",
+            },
             medien: {
               schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
               absatz: "Fotos nur mit Deiner Erlaubnis.",
@@ -616,13 +623,49 @@ const kontoBewerbung = (medien: boolean) =>
             nurWiderruf: "Hier kannst Du nur zurücknehmen.",
             widerruf: "Jede Änderung gilt ab dem Speichern.",
           },
-          gespeichert: { umfang: "kontaktdaten" as const, medien: medien },
+          gespeichert: { umfang: whatsapp ? ("kontaktdaten_whatsapp" as const) : ("kontaktdaten" as const), medien: medien },
           nachweisStand: { umfang: null, medien: null },
           medienAngeboten: false,
           erteilbar: false,
-          // Through the doubled export, typed as the panel's slot takes every record's control.
-          speichereAction: (antwort: Parameters<Parameters<typeof EinwilligungForm>[0]["speichereAction"]>[0]) =>
-            patchBewerbungEinwilligungAction(BEWERBUNG_ID, antwort as Parameters<typeof patchBewerbungEinwilligungAction>[1]),
+          // Through the doubled export, bound as the page binds it.
+          speichereAction: patchBewerbungEinwilligungAction.bind(null, BEWERBUNG_ID),
+        }),
+      },
+    ],
+  });
+
+const REGISTRIERUNG_ID = "68c1f0a2b3c4d5e6f7a8b952";
+const REGISTRIERUNG_TITEL = "Registrierung: SG Alpha, Saison 2026";
+
+/** A pending registration on the account page: withdraw-only, its scope chips beside its media switch. */
+const kontoRegistrierung = (medien: boolean) =>
+  h(EinwilligungPanel, {
+    eintraege: [
+      {
+        id: `registrierung-${REGISTRIERUNG_ID}`,
+        titel: REGISTRIERUNG_TITEL,
+        bestaetigt: null,
+        // For `kontoBewerbung`'s reason, at the registration's scope.
+        control: h(EinwilligungForm<Parameters<typeof patchRegistrierungEinwilligungAction>[1]["umfang"]>, {
+          worte: {
+            textVersion: "konto-test-1",
+            umfang: {
+              frage: "Was darf von Deinem Namen auf der Website stehen?",
+              optionen: { kader_oeffentlich: "Vorname und Initiale", intern: "Nur Nummer und Position" },
+              absatz: "Was auf der Website steht.",
+            },
+            medien: {
+              schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+              absatz: "Fotos nur mit Deiner Erlaubnis.",
+            },
+            nurWiderruf: "Hier kannst Du nur zurücknehmen.",
+            widerruf: "Jede Änderung gilt ab dem Speichern.",
+          },
+          gespeichert: { umfang: "intern" as const, medien: medien },
+          nachweisStand: { umfang: null, medien: null },
+          medienAngeboten: false,
+          erteilbar: false,
+          speichereAction: patchRegistrierungEinwilligungAction.bind(null, REGISTRIERUNG_ID),
         }),
       },
     ],
@@ -1170,6 +1213,28 @@ const LANDINGS: Record<string, Landing> = {
     press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen." })),
     after: () => kontoBewerbung(false),
     lands: () => heading(KONTO_TITEL),
+  },
+  "an application seat's WhatsApp withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchBewerbungEinwilligungAction: { success: true, message: "Gespeichert.", nachweis_stand: { umfang: "x".repeat(64), medien: null } },
+    },
+    before: () => kontoBewerbung(false, true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf mich auch über WhatsApp erreichen." })),
+    after: () => kontoBewerbung(false, false),
+    lands: () => heading(KONTO_TITEL),
+  },
+  "a pending registration's media withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchRegistrierungEinwilligungAction: {
+        success: true,
+        message: "Gespeichert.",
+        nachweis_stand: { umfang: null, medien: "x".repeat(64) },
+      },
+    },
+    before: () => kontoRegistrierung(true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen." })),
+    after: () => kontoRegistrierung(false),
+    lands: () => heading(REGISTRIERUNG_TITEL),
   },
   "a registration's decline, the last row, on the queue's heading": {
     before: () => registrierungen([REG_LENA]),

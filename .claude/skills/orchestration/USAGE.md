@@ -39,6 +39,10 @@ Addressed to the owner: every step below is yours to perform. The coordinator ne
    register on its own.
 3. Send no work instruction until the reply names the single next action.
 
+A resumed agent's entry in the app can keep showing its transcript up to the pause while it works,
+so a live lane looks hung there; its commits on its own branch, which the coordinator reads for you
+on asking, are where its work shows.
+
 The fallback: `/orchestration` as one message, then the block in `resume.md` verbatim as the next.
 Neither carries a register path.
 

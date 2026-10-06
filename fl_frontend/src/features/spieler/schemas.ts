@@ -383,6 +383,11 @@ export const FLSpielerSelbstSchema = z.object({
   // offer a press the write refuses.
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),
+  // The floor the record's confirmation page named, served as every seat entry's is, so the two tiers
+  // cannot name different ages.
+  mindestalter: z.number().int(),
+  // The media floor its words name, served as the participation floor is.
+  medien_mindestalter: z.number().int(),
   kader: z.array(FLSpielerSelbstKaderZeileSchema),
 });
 export type FLSpielerSelbst = z.infer<typeof FLSpielerSelbstSchema>;
@@ -396,9 +401,11 @@ export type FLSpielerSelbstResponse = z.infer<typeof FLSpielerSelbstResponseSche
  * Mirrors `FLSpielerSelbstEinwilligungPayload`, and the referee's payload is this same schema: the two
  * writes are one shape, so the one consent control cannot send either a member the other lacks.
  */
+/** A consent press's scope no control offers: a drifted page, which a reload repairs. */
+export const WAHL_UNBEKANNT = "Diese Wahl kennen wir nicht. Lade die Seite neu.";
+
 export const FLSpielerSelbstEinwilligungPayloadSchema = z.object({
-  // No control offers another value, so one is a drifted page, which a reload repairs.
-  umfang: z.enum(FLEinwilligungSchema.shape.umfang.options, { error: "Diese Wahl kennen wir nicht. Lade die Seite neu." }),
+  umfang: z.enum(FLEinwilligungSchema.shape.umfang.options, { error: WAHL_UNBEKANNT }),
   medien: z.boolean(),
   // The account page's own label, never the one the record was confirmed under: the backend judges it
   // against the page that took the press.

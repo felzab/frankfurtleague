@@ -27,6 +27,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
+import { LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
@@ -176,7 +177,7 @@ export function FormBestaetigungSection({
     // A rejection, which no answer came back from, carries this control's repair naming the connection; an
     // answer, an unknown outcome among them, carries its own sentence.
     if (!res.success) {
-      appToast.failure("Bestätigungslink nicht gesendet", res);
+      appToast.failure("Bestätigungslink nicht gesendet", res, LINK_UNKLAR);
       return;
     }
 

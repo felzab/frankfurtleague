@@ -41,7 +41,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { LINK_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -182,7 +182,7 @@ export function BewerbungBestaetigungStrip({
     // A rejection, which no answer came back from, carries this control's repair naming the connection; an
     // answer, an unknown outcome among them, carries its own sentence.
     if (!res.success) {
-      appToast.failure("Link nicht erneut gesendet", res);
+      appToast.failure("Link nicht erneut gesendet", res, LINK_UNKLAR);
       return;
     }
 

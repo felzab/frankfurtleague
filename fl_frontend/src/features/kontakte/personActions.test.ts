@@ -12,16 +12,8 @@ const { setSubject } = doubleActionRequest({ session: null, subject: person({ si
 const { answerWith, calls } = doubleApiAnswers();
 
 const { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } = await import("./personActions.ts");
-const {
-  BEWERBUNG_NICHT_MEHR_OFFEN,
-  EINTRAG_GEAENDERT,
-  mapBewerbungEinwilligungRefusal,
-  mapEigeneEinwilligungRefusal,
-  MEDIEN_ZU_JUNG,
-  SEITE_VERALTET,
-  WAHL_GESPEICHERT,
-  ZUSTIMMEN_MORGEN,
-} = await import("@/features/konto/einwilligung.ts");
+const { mapBewerbungEinwilligungRefusal, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
+  await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung";
 // Both choices on every press, the scope unchanged beside the media grant.
@@ -82,22 +74,6 @@ describe("a seat holder's own consent write", () => {
     assert.equal(answer.success, false);
     assert.deepEqual(calls, [], "a malformed address reached the backend");
   });
-
-  for (const [code, status, words] of [
-    ["REQ-FUNKTION-001", 403, EINTRAG_GEAENDERT],
-    ["REQ-EINWILLIGUNG-001", 409, SEITE_VERALTET],
-    ["REQ-EINWILLIGUNG-002", 422, MEDIEN_ZU_JUNG],
-  ] as const) {
-    it(`answers ${code} in the account page's words and refreshes nothing`, async () => {
-      setSubject(person({ sitze: [sitz()] }));
-      answerWith(() => Promise.reject(refusedOn(OPERATION, code, status)));
-
-      const answer = await patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, WAHL);
-
-      assert.deepEqual(answer, { success: false, error: words, fieldErrors: undefined });
-      assert.deepEqual(invalidations(), [], "a refused write refreshed the page");
-    });
-  }
 });
 
 const BEWERBUNG_ID = "6890a1b2c3d4e5f607181001";
@@ -150,22 +126,6 @@ describe("a seat holder's withdrawal on a pending application", () => {
     assert.equal(malformed.success, false);
     assert.deepEqual(calls, [], "a refused press reached the backend");
   });
-
-  for (const [code, status, words] of [
-    ["REQ-FUNKTION-001", 403, BEWERBUNG_NICHT_MEHR_OFFEN],
-    ["REQ-EINWILLIGUNG-001", 409, SEITE_VERALTET],
-    ["REQ-EINWILLIGUNG-003", 409, SEITE_VERALTET],
-  ] as const) {
-    it(`answers ${code} in the account page's words and refreshes nothing`, async () => {
-      setSubject(person());
-      answerWith(() => Promise.reject(refusedOn(BEWERBUNG_OPERATION, code, status)));
-
-      const answer = await patchBewerbungEinwilligungAction(BEWERBUNG_ID, WIDERRUF);
-
-      assert.deepEqual(answer, { success: false, error: words, fieldErrors: undefined });
-      assert.deepEqual(invalidations(), [], "a refused write refreshed the page");
-    });
-  }
 });
 
 /* Every code the document publishes, through the consent writes' one mapper: an action consulting it

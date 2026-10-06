@@ -3,24 +3,28 @@
 `git merge --no-ff` brings the branch in whole: the agent's commits keep the hooks they ran in its
 worktree, and the merge commit takes git's own message, which `commit-msg` leaves to git. A conflict
 in a generated document is answered by regenerating it from the merged code, one inside a markdown
-table by row key where every key names one row, and any other aborts the merge and goes back to the
+table by row key where a column names one row, and any other aborts the merge and goes back to the
 agent. A merge touching `fl_backend/` regenerates both documents either way: two branches each
-carrying a current document can merge cleanly into one that is not.
+carrying a current document can merge cleanly into one that is not. Each findings-ledger row the
+merged commits name that is ROUTED closes as FIXED by the merge.
 
-    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <branch>
+    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <register> <branch>
 
 `EXITS` gives each exit; every stop past the refusals leaves the merge aborted and the tree clean.
 """
 
 from __future__ import annotations
 
+import io
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Final
 
 # Run as a script, python seeds this file's own directory on the path.
+import ledger
 from merge_rows import merge_file
 
 # Each document beside the module that writes it, run from `fl_backend` by the interpreter running
@@ -30,11 +34,19 @@ GENERATED: Final = (
     ("tests.einwilligung_document", "fl_backend/einwilligung.json"),
 )
 REGENERATED_FROM: Final = "fl_backend/"
+# Run where the merge touches the package: two branches can merge clean as text and still fail
+# together, one cutting an import the other's new case uses. The frontend's runs `next typegen` first.
+TYPE_CHECKS: Final = (
+    (("fl_frontend/",), ("pnpm", "typecheck"), "fl_frontend"),
+    (("fl_backend/",), (sys.executable, "-m", "pyright"), "fl_backend"),
+    (("scripts/", ".claude/skills/orchestration/tools/"), (sys.executable, "-m", "pyright"), "scripts"),
+)
 EXITS: Final = {
     0: "merged, or nothing to merge",
     2: "refused before the merge",
     3: "a conflict the tool cannot settle; the merge is aborted, for the agent to rebase",
     4: "a regeneration failed; the merge is aborted",
+    5: "the merged tree fails a touched package's type check, or the check could not run; the merge is aborted",
     6: "a hook refused the merge commit; the merge is aborted",
     7: "git failed during the merge; read `git status`",
 }
@@ -74,6 +86,16 @@ def preflight(branch: str) -> None:
     # git names a stash "On <branch>:" when given a message and "WIP on <branch>:" when not.
     if re.search(rf"(?:^|: )(?:WIP on|On) {re.escape(branch)}:", git("stash", "list"), re.MULTILINE):
         raise Stop(2, f"a stash entry is on {branch}, and a stashed edit lands nowhere: the agent commits or drops it first")
+    # A patch landed twice merges clean as text, and a later edit to one copy doubled a hunk unseen;
+    # a rebase drops the copy, a merge of the session branch keeps it.
+    twins = [line[2:] for line in git("cherry", "-v", "HEAD", branch).splitlines() if line.startswith("- ")]
+    if twins:
+        raise Stop(
+            2,
+            f"{branch} carries {len(twins)} commit(s) whose patch the session branch already holds under another hash:",
+            *twins,
+            "the agent rebases onto the session branch, which drops them",
+        )
 
 
 def resolve(conflicted: list[str], written: list[str]) -> list[str]:
@@ -112,8 +134,32 @@ def regenerate(root: Path, written: list[str]) -> list[str]:
     return [document for _, document in GENERATED if git("ls-files", "--stage", "--", document) != before[document]]
 
 
-def land(branch: str) -> int:
+def type_check(root: Path, touched: list[str]) -> list[str]:
+    """Each touched package's type checker run over the merged tree; the packages checked."""
+    checked: list[str] = []
+    for prefixes, command, where in TYPE_CHECKS:
+        if not any(path.startswith(prefixes) for path in touched):
+            continue
+        program = shutil.which(command[0])
+        if program is None:
+            raise Stop(5, f"{command[0]} is not on PATH, so the merged {where} could not be type-checked")
+        done = subprocess.run((program, *command[1:]), cwd=root / where, capture_output=True, check=False)
+        if done.returncode != 0:
+            said = (done.stdout + done.stderr).decode("utf-8", "replace").strip().splitlines()[-15:]
+            raise Stop(5, f"the merged tree fails `{' '.join(command)}` in {where} (exit {done.returncode}):", *said)
+        checked.append(where)
+    # A checker writing a tracked file would leave it out of the merge commit and the tree dirty.
+    if wrote := git("diff", "--name-only").split():
+        raise Stop(5, f"a type check wrote tracked files: {', '.join(wrote)}")
+    return checked
+
+
+def land(register: Path, branch: str) -> int:
     root = Path(git("rev-parse", "--show-toplevel").strip())
+    try:
+        rows = ledger.row_ids(register)
+    except (ValueError, OSError) as unreadable:
+        raise Stop(2, f"the register's findings ledger cannot be read: {unreadable}") from None
     preflight(branch)
     if _ok("merge-base", "--is-ancestor", branch, "HEAD"):
         print(f"nothing to land: the session branch already holds {branch}")
@@ -130,6 +176,7 @@ def land(branch: str) -> int:
         moved = regenerate(root, written) if any(path.startswith(REGENERATED_FROM) for path in touched) else []
         if git("diff", "--name-only", "--diff-filter=U").split():
             raise Stop(3, "a conflict is still unresolved after the regeneration")
+        checked = type_check(root, touched)
         done = subprocess.run(("git", "commit", "-q", "--no-edit"), capture_output=True, check=False)
         if done.returncode != 0:
             raise Stop(
@@ -152,17 +199,27 @@ def land(branch: str) -> int:
         raise
     notes = [f"regenerated {', '.join(Path(document).name for document in moved)}"] if moved else []
     notes += [f"merged by row key: {'; '.join(merged)}"] if merged else []
-    print(f"landed {branch} as {git('rev-parse', '--short', 'HEAD').strip()}" + (f" ({'; '.join(notes)})" if notes else ""))
+    notes += [f"type-checked {', '.join(checked)}"] if checked else []
+    merge = git("rev-parse", "--short", "HEAD").strip()
+    print(f"landed {branch} as {merge}" + (f" ({'; '.join(notes)})" if notes else ""))
+    # By exact id, and only a ROUTED row: an OPEN row nobody was given stays for the coordinator to judge.
+    bodies = git("log", "--format=%B", "HEAD^1..HEAD^2")
+    named = sorted(row for row in rows if re.search(rf"(?<![\w-]){re.escape(row)}(?![\w-])", bodies))
+    closed = ledger.close(register, named, merge)
+    for row in closed:
+        print(f"FIXED {row} by {merge}")
+    if unclosed := sorted(set(named) - set(closed)):
+        print(f"named by the merged commits and not ROUTED, so left as they stand: {', '.join(unclosed)}")
     return 0
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 1:
+    if len(argv) != 2:
         print(__doc__, file=sys.stderr)
         print("\n".join(f"  exit {code}: {meaning}" for code, meaning in EXITS.items()), file=sys.stderr)
         return 2
     try:
-        return land(argv[0])
+        return land(Path(argv[0]), argv[1])
     except Stop as stop:
         for line in stop.lines:
             print(line, file=sys.stderr)
@@ -170,4 +227,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    # A Windows pipe takes the console's codepage, which cannot encode every character git prints.
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     sys.exit(main(sys.argv[1:]))

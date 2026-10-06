@@ -80,7 +80,6 @@ describe("the step-up's send", () => {
     answerWith(() => Promise.resolve(SENT));
   });
 
-  /* The code the first send mailed stays good, so a refused resend says why and leaves its step standing. */
   /* A dropped connection or a deployment's unknown action rejects the send with no answer. Read by no
      catch, it would replace the account page with its route's error boundary, the passkeys and sign-ins with it. */
   it("answers a send that drew no answer on the page, offering the send again", async () => {
@@ -97,9 +96,8 @@ describe("the step-up's send", () => {
         raised.map(({ title, description }) => ({ title, description })),
         [
           {
-            title: "Code nicht gesendet",
-            description:
-              "Wir wissen nicht, ob der Code verschickt wurde. Prüfe die Verbindung und fordere ihn erneut an; ein neuer Code ersetzt einen früheren.",
+            title: "Unklar, ob der Code verschickt wurde",
+            description: "Prüfe die Verbindung und fordere den Code erneut an. Ein neuer Code ersetzt einen, der schon rausging.",
           },
         ],
       ),
@@ -109,6 +107,7 @@ describe("the step-up's send", () => {
     answerWith(() => Promise.resolve(SENT));
   });
 
+  /* The code the first send mailed stays good, so a refused resend says why and leaves its step standing. */
   it("keeps the code step through a refused resend, and says why", async () => {
     mock.timers.enable({ apis: ["setTimeout"] });
     try {
