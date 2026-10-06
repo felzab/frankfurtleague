@@ -2,9 +2,13 @@ import { getEinwilligungFassung, getLaufendeFassung } from "@/core/einwilligung"
 import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ABLEHNEN_LABEL, rollenLangform } from "@/features/bewerbungen/constants";
 import { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } from "@/features/kontakte/personActions";
+import { RegistrierungAngaben } from "@/features/registrierungen/components/ui/RegistrierungAngaben";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER, SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
+import { patchRegistrierungEinwilligungAction } from "@/features/registrierungen/personActions";
+import { SchiedsrichterAngaben } from "@/features/schiedsrichter/components/ui/SchiedsrichterAngaben";
 import { SCHIEDSRICHTER_MIN_ALTER, SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants";
 import { patchSchiedsrichterEinwilligungAction } from "@/features/schiedsrichter/personActions";
+import { SpielerAngaben } from "@/features/spieler/components/ui/SpielerAngaben";
 import { patchSpielerEinwilligungAction } from "@/features/spieler/personActions";
 
 import { getKontoEinwilligungen } from "../../queries";
@@ -14,10 +18,13 @@ import {
   bestaetigteWorte,
   bewerbungTitel,
   bewerbungWorte,
+  NUR_WIDERRUF_BIS_AUFNAHME,
   personWorte,
-  sitzMindestalter,
+  registrierungTitel,
+  schiedsrichterTitel,
   sitzTitel,
   sitzWorte,
+  SPIELER_TITEL,
 } from "../forms/EinwilligungForm/kontoWorte";
 
 import type { EinwilligungEintrag } from "../forms/EinwilligungForm/EinwilligungPanel";
@@ -36,16 +43,23 @@ async function bestaetigt(textVersion: string | null, fuellung: Fuellung) {
 
 /**
  * The account page's consent section, read on the server, the person's every confirmed record a control
- * of its own. Nothing for a person holding none, who is most of the page's readers.
+ * of its own, each record's stored data beside it. Nothing for a person holding none, who is most of the
+ * page's readers.
  */
 export async function EinwilligungSection() {
-  const { spieler, schiedsrichter, sitze, bewerbungen } = await getKontoEinwilligungen();
+  const { spieler, schiedsrichter, sitze, bewerbungen, registrierungen } = await getKontoEinwilligungen();
   const eintraege: EinwilligungEintrag[] = [];
 
   if (spieler !== null) {
     eintraege.push({
       id: `spieler-${spieler.spieler_id}`,
-      titel: "Als Spieler",
+      titel: SPIELER_TITEL,
+      angaben: (
+        <SpielerAngaben
+          spieler={spieler}
+          kaderEbene="h5"
+        />
+      ),
       bestaetigt: await bestaetigt(spieler.bestaetigt_text_version, {
         ...KONSTANTEN,
         ...spieler.kontext,
@@ -69,7 +83,8 @@ export async function EinwilligungSection() {
     for (const eintrag of schiedsrichter) {
       eintraege.push({
         id: `schiedsrichter-${eintrag.schiedsrichter_id}`,
-        titel: "Als Schiedsrichter",
+        titel: schiedsrichterTitel(eintrag),
+        angaben: <SchiedsrichterAngaben eintrag={eintrag} />,
         bestaetigt: await bestaetigt(eintrag.bestaetigt_text_version, {
           ...KONSTANTEN,
           ...eintrag.kontext,
@@ -90,6 +105,33 @@ export async function EinwilligungSection() {
     }
   }
 
+  if (registrierungen.length > 0) {
+    const fassung = await getLaufendeFassung("konto_spieler");
+    for (const registrierung of registrierungen) {
+      eintraege.push({
+        id: `registrierung-${registrierung.registrierung_id}`,
+        titel: registrierungTitel(registrierung),
+        angaben: <RegistrierungAngaben registrierung={registrierung} />,
+        bestaetigt: await bestaetigt(registrierung.bestaetigt_text_version, {
+          ...KONSTANTEN,
+          ...registrierung.kontext,
+          minAlter: String(REGISTRIERUNG_MIN_ALTER),
+        }),
+        control: (
+          <EinwilligungForm
+            worte={{ ...personWorte(fassung, SPIELER_UMFANG_FRAGE), nurWiderruf: NUR_WIDERRUF_BIS_AUFNAHME }}
+            gespeichert={{ umfang: registrierung.umfang, medien: registrierung.medien }}
+            nachweisStand={registrierung.nachweis_stand}
+            // Withdraw-only: a grant on a pending registration waits on its team's admission.
+            medienAngeboten={false}
+            erteilbar={false}
+            speichereAction={patchRegistrierungEinwilligungAction.bind(null, registrierung.registrierung_id)}
+          />
+        ),
+      });
+    }
+  }
+
   if (sitze.length > 0) {
     const fassung = await getLaufendeFassung("konto_kontakt");
     for (const sitz of sitze) {
@@ -101,13 +143,13 @@ export async function EinwilligungSection() {
           ...sitz.kontext,
           // Every seat held on the row, as the contact page named them and judged the age.
           rolle: rollenLangform(sitz.rollen),
-          minAlter: String(sitzMindestalter(sitz.rollen)),
+          minAlter: String(sitz.mindestalter),
           ablehnen: ABLEHNEN_LABEL,
         }),
         control: (
           <EinwilligungForm
             worte={sitzWorte(fassung, sitz)}
-            gespeichert={{ medien: sitz.medien }}
+            gespeichert={{ umfang: sitz.umfang, medien: sitz.medien }}
             nachweisStand={sitz.nachweis_stand}
             medienAngeboten={sitz.medien_angeboten}
             erteilbar={sitz.erteilbar}
@@ -128,13 +170,13 @@ export async function EinwilligungSection() {
           ...KONSTANTEN,
           ...bewerbung.kontext,
           rolle: rollenLangform(bewerbung.rollen),
-          minAlter: String(sitzMindestalter(bewerbung.rollen)),
+          minAlter: String(bewerbung.mindestalter),
           ablehnen: ABLEHNEN_LABEL,
         }),
         control: (
           <EinwilligungForm
             worte={bewerbungWorte(fassung, bewerbung)}
-            gespeichert={{ medien: bewerbung.medien }}
+            gespeichert={{ umfang: bewerbung.umfang, medien: bewerbung.medien }}
             nachweisStand={bewerbung.nachweis_stand}
             // Withdraw-only: a grant on a pending application is its confirmation page's alone.
             medienAngeboten={false}

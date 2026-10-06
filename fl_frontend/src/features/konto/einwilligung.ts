@@ -13,17 +13,29 @@ export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu 
 // the account page's reads serve it (`fl_frontend/src/features/registrierungen/constants.ts :: MEDIEN_MIN_ALTER`).
 export const MEDIEN_ZU_JUNG = `Fotos, Videos und Interviews kannst Du erst ab ${String(MEDIEN_MIN_ALTER)} Jahren erlauben.`;
 
-// The shared answer to a lost Funktion names a team, which a pupil's or a referee's own record has none of.
-export const EINTRAG_WEG = "Diese Angaben sind nicht mehr bei Dir eingetragen. Lade die Seite neu.";
+// `REQ-FUNKTION-001` answers two causes alike on a record admitting a grant: the record is not the
+// person's, or it refuses the grant pressed. The page offers a grant only where one is admitted, so
+// either is a stale page.
+export const EINTRAG_GEAENDERT =
+  "Diese Angaben haben sich inzwischen geändert: Entweder sind sie nicht mehr bei Dir eingetragen, oder Du kannst hier nur noch etwas zurücknehmen. Lade die Seite neu.";
+
+// The same code on a withdraw-only record, whose page offers no grant: the application is decided, or
+// the person holds no seat on it.
+export const BEWERBUNG_NICHT_MEHR_OFFEN =
+  "Diese Bewerbung ist nicht mehr offen, oder Du bist in ihr nicht mehr eingetragen. Lade die Seite neu.";
+
+// The same, on a pending registration: the team admitted or declined it, or it was deleted unadmitted.
+export const REGISTRIERUNG_NICHT_MEHR_OFFEN =
+  "Diese Registrierung ist nicht mehr offen. Lade die Seite neu, dort steht, was jetzt für Dich gilt.";
 
 // A grant past the person's ceiling for the day (`REQ-DROSSELUNG-001`): the count starts again at
 // German midnight, and a withdrawal is never counted, so the page says both.
 export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du morgen wieder. Widerrufen geht jederzeit.";
 
 /**
- * The one mapper the four consent writes share: one code set behind one control, so a refusal reads
- * the same whichever record it refused. A lost seat and a barred address are the person spine's to
- * word, never this mapper's.
+ * The one mapper every consent write shares: one code set behind one control, so a refusal reads the
+ * same whichever record it refused. A lost seat and a barred address are the person spine's to word,
+ * never this mapper's.
  */
 export function mapEinwilligungWahlRefusal(error: unknown): { error: string } | null {
   if (!isRefusal(error)) return null;
@@ -44,10 +56,22 @@ export function mapEinwilligungWahlRefusal(error: unknown): { error: string } | 
 }
 
 /**
- * The consent writes', each claiming the person's own record rather than a seat: a lost record is
- * worded here, ahead of the shared reader.
+ * The consent writes on a record admitting a grant, a pupil's, a referee's or a season's seats: their
+ * `REQ-FUNKTION-001` is worded here, ahead of the shared reader, whose sentence names a team.
  */
 export function mapEigeneEinwilligungRefusal(error: unknown): { error: string } | null {
-  if (isFunktionLost(error)) return { error: EINTRAG_WEG };
+  if (isFunktionLost(error)) return { error: EINTRAG_GEAENDERT };
+  return mapEinwilligungWahlRefusal(error);
+}
+
+/** A pending application's seats, which take a withdrawal alone: `mapEigeneEinwilligungRefusal` with that record's own cause. */
+export function mapBewerbungEinwilligungRefusal(error: unknown): { error: string } | null {
+  if (isFunktionLost(error)) return { error: BEWERBUNG_NICHT_MEHR_OFFEN };
+  return mapEinwilligungWahlRefusal(error);
+}
+
+/** A pending registration, which takes a withdrawal alone, for `mapBewerbungEinwilligungRefusal`'s reason. */
+export function mapRegistrierungEinwilligungRefusal(error: unknown): { error: string } | null {
+  if (isFunktionLost(error)) return { error: REGISTRIERUNG_NICHT_MEHR_OFFEN };
   return mapEinwilligungWahlRefusal(error);
 }

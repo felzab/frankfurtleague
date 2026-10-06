@@ -4,16 +4,22 @@ import z from "zod";
 
 import { frontend_config } from "@/core/config";
 import { buildRegistrierungAbsageEmail } from "@/core/registrierungEmail";
+import { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
-import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
-import { runPersonMutation } from "@/shared/utils/personMutation";
+import { invalidatesOnWrite, refusalResult } from "@/shared/utils/adminMutation";
+import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { postRegistrierungAblehnen, postRegistrierungAufnehmen } from "./mutations";
-import { FLRegistrierungAblehnenPayloadSchema, FLRegistrierungAufnehmenPayloadSchema } from "./schemas";
+import { patchRegistrierungEinwilligung, postRegistrierungAblehnen, postRegistrierungAufnehmen } from "./mutations";
+import {
+  FLRegistrierungAblehnenPayloadSchema,
+  FLRegistrierungAufnehmenPayloadSchema,
+  FLRegistrierungSelbstEinwilligungPayloadSchema,
+} from "./schemas";
 import { mapAblehnungRefusal, mapAufnahmeRefusal } from "./utils";
 
+import type { FLEinwilligungStand } from "@/features/spieler/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { FLRegistrierungAblehnenPayload, FLRegistrierungAblehnungResponse, FLRegistrierungAufnehmenPayload } from "./schemas";
 
@@ -101,5 +107,35 @@ async function mailAbsage(ablehnung: FLRegistrierungAblehnungResponse): Promise<
         origin: frontend_config.AUTH_URL,
         grund: ablehnung.grund,
       }),
+  });
+}
+
+/**
+ * A pupil's withdrawal on their own pending registration, which the page binds. It claims the pupil's
+ * record, a registration granting no Funktion, and the backend judges the registration theirs.
+ */
+export async function patchRegistrierungEinwilligungAction(
+  registrierungId: string,
+  rawPayload: z.input<typeof FLRegistrierungSelbstEinwilligungPayloadSchema>,
+): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
+  return runPersonRecordMutation("patchRegistrierungEinwilligungAction", async () => {
+    const id = CustomObjectIdStringSchema.safeParse(registrierungId);
+    const validated = FLRegistrierungSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
+
+    if (!id.success || !validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
+    }
+
+    let antwort;
+    try {
+      antwort = await patchRegistrierungEinwilligung(id.data, validated.data);
+    } catch (error) {
+      const refusal = mapRegistrierungEinwilligungRefusal(error);
+      if (refusal !== null) return refusalResult(refusal);
+      throw error;
+    }
+
+    // No public read serves a pending registration: the spine's refresh is the page's whole re-read.
+    return { success: true, message: WAHL_GESPEICHERT, nachweis_stand: antwort.nachweis_stand };
   });
 }

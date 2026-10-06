@@ -13,22 +13,33 @@ import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { Switch } from "@/shared/components/ui/Switch";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite, focusSlot } from "@/shared/utils/focusAfterWrite";
 
 import { WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
 
 import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas";
 import type { ActionFailure } from "@/shared/types/types";
 import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
-type Umfang = FLEinwilligung["umfang"];
+type PersonUmfang = FLEinwilligung["umfang"];
+type SitzUmfang = FLKontaktKenntnisnahme["umfang"];
 
 /** The chips in the order a reader meets them: the wider publication first, as the confirmation pages ask it. */
-const UMFANG_REIHENFOLGE: readonly Umfang[] = ["kader_oeffentlich", "intern"];
+const UMFANG_REIHENFOLGE: readonly PersonUmfang[] = ["kader_oeffentlich", "intern"];
 
-/** The two choices one record holds; a contact seat's record holds no publication choice, so `umfang` is absent there. */
-export type EinwilligungWahl = { readonly umfang?: Umfang; readonly medien: boolean };
+/** The seat's scope a switch turned on writes, and the one it writes turned off. */
+const MIT_WHATSAPP: SitzUmfang = "kontaktdaten_whatsapp";
+const OHNE_WHATSAPP: SitzUmfang = "kontaktdaten";
 
+/**
+ * The two choices one record holds: a pupil's or a referee's publication scope beside the media
+ * consent, or a contact seat's contact scope, WhatsApp or not, beside it.
+ */
+export type EinwilligungWahl = { readonly umfang: PersonUmfang | SitzUmfang; readonly medien: boolean };
+
+// A record carries `umfang`'s chips or `whatsapp`'s switch, as its scope is a person's or a seat's.
 /**
  * The words one control shows, every slot already filled. A name is a string because it is the
  * control's accessible name; a paragraph is a node because it may carry the privacy link.
@@ -36,19 +47,20 @@ export type EinwilligungWahl = { readonly umfang?: Umfang; readonly medien: bool
 export type EinwilligungWorte = {
   /** The label the words below belong to, posted back with every press so the record names what was on screen. */
   readonly textVersion: string;
-  readonly umfang?: { readonly frage: string; readonly optionen: Readonly<Record<Umfang, string>>; readonly absatz: ReactNode };
+  readonly umfang?: { readonly frage: string; readonly optionen: Readonly<Record<PersonUmfang, string>>; readonly absatz: ReactNode };
+  readonly whatsapp?: { readonly schalter: string; readonly absatz: ReactNode };
   readonly medien: { readonly schalter: string; readonly absatz: ReactNode };
-  /** Why a record offers a withdrawal alone where its person would look for a grant too, read with the switch. */
+  /** Why a record offers a withdrawal alone where its person would look for a grant too, read with each switch. */
   readonly nurWiderruf?: string;
   /** What a change takes effect from, and that a record granting no panel takes a withdrawal alone. */
   readonly widerruf: ReactNode;
 };
 
 /**
- * Each choice's evidence instant as the backend last served it, echoed unchanged: a press from a page
- * another press has moved since is refused rather than undoing that press. A seat holds no `umfang`.
+ * Each choice's stand as the backend last served it, echoed unchanged: a press from a page another
+ * press has moved since is refused rather than undoing that press.
  */
-export type EinwilligungStand = { readonly medien: string | null; readonly umfang?: string | null };
+export type EinwilligungStand = { readonly umfang: string | null; readonly medien: string | null };
 
 /** What a press sends: the whole record's choices, so moving one never resets the other. */
 export type EinwilligungAntwort<W extends EinwilligungWahl = EinwilligungWahl, S extends EinwilligungStand = EinwilligungStand> = W & {
@@ -60,9 +72,47 @@ export type EinwilligungAntwort<W extends EinwilligungWahl = EinwilligungWahl, S
 type Gespeichert<S> = { readonly success: true; readonly nachweis_stand: S };
 
 /**
+ * One grant switch, closed where the record admits no grant and never left out, as its paragraph names it
+ * (`docs/frontend/spec.md :: I_NEW_KFE_2`). Keyed by that state: a withdrawal closing it draws a new one,
+ * which the focus lands past.
+ */
+function GrantSchalter({
+  name,
+  an,
+  geschlossen,
+  beschreibung,
+  onChange,
+}: {
+  name: string;
+  an: boolean;
+  geschlossen: boolean;
+  beschreibung: string;
+  onChange: (an: boolean) => void;
+}) {
+  const panel = formPanel();
+
+  return (
+    <Switch
+      key={geschlossen ? "geschlossen" : "offen"}
+      className="flex w-full flex-col gap-y-1"
+      aria-describedby={beschreibung}
+      isDisabled={geschlossen}
+      isSelected={an}
+      onChange={onChange}>
+      <Switch.Content className={panel.switchContent()}>
+        {name}
+        <Switch.Control className={panel.switchControl()}>
+          <Switch.Thumb />
+        </Switch.Control>
+      </Switch.Content>
+    </Switch>
+  );
+}
+
+/**
  * One consent record's controls, each saved by its own press. Every record a person holds renders
- * through this one component, so the pupil's, the referee's and a seat's cannot drift apart in wording
- * or behaviour (`docs/frontend/spec.md :: I891`).
+ * through this one component, so the pupil's, the referee's, a seat's and a registration's cannot drift
+ * apart in wording or behaviour (`docs/frontend/spec.md :: I891`).
  */
 export function EinwilligungForm<W extends EinwilligungWahl, S extends EinwilligungStand>({
   worte,
@@ -85,9 +135,9 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
   speichereAction: (antwort: EinwilligungAntwort<W, S>) => Promise<Gespeichert<S> | ActionFailure>;
 }) {
   const router = useRouter();
-  const panel = formPanel();
   const frageId = useId();
   const umfangAbsatzId = useId();
+  const whatsappAbsatzId = useId();
   const medienAbsatzId = useId();
   const nurWiderrufId = useId();
   const widerrufId = useId();
@@ -106,6 +156,8 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
   // One press at a time, each the held record plus its own change: built from the screen, a press after
   // a refused grant would carry the grant along, and one sent unanswered a stand that press moves.
   const waehle = (aenderung: Partial<EinwilligungWahl>): void => {
+    // Read at the press: a withdrawal can close the switch it was pressed on (`docs/frontend/spec.md :: I536`).
+    const landung = focusAfterWrite();
     startTransition(async () => {
       setWahl((gezeigt) => ({ ...gezeigt, ...aenderung }));
       const press = vorige.current.then(async () => {
@@ -121,12 +173,24 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
       vorige.current = press;
       const result = await press;
 
-      if (result.success) appToast.success(WAHL_GESPEICHERT);
-      else appToast.failure(WAHL_NICHT_GESPEICHERT, result);
+      if (result.success) {
+        appToast.success(WAHL_GESPEICHERT);
+        landung.landed();
+      } else appToast.failure(WAHL_NICHT_GESPEICHERT, result);
     });
   };
 
-  const { umfang } = worte;
+  // What a closed grant is described by beyond its own paragraph: the record's reason for taking a
+  // withdrawal alone, or the closing paragraph saying which records do.
+  const grundIds = (absatzId: string, geschlossen: boolean): string =>
+    [absatzId, ...(worte.nurWiderruf === undefined ? (geschlossen && !erteilbar ? [widerrufId] : []) : [nurWiderrufId])].join(" ");
+
+  // The stored record, never the pressed value, decides whether a grant is closed: a switch just turned
+  // off stays open until the page is read again (`docs/frontend/spec.md :: I892`).
+  const whatsappGeschlossen = !erteilbar && gespeichert.umfang !== MIT_WHATSAPP;
+  const medienGeschlossen = !(erteilbar && medienAngeboten) && !gespeichert.medien;
+
+  const { umfang, whatsapp } = worte;
 
   return (
     <div className="flex w-full flex-col gap-y-6">
@@ -145,7 +209,7 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
             selectionMode="single"
             // A stored record always holds an answer, so no press may empty it.
             disallowEmptySelection
-            selectedKeys={wahl.umfang === undefined ? [] : [wahl.umfang]}
+            selectedKeys={[wahl.umfang]}
             onSelectionChange={(keys: Set<Key>) => {
               const [picked] = [...keys].map(String);
               const gewaehlt = UMFANG_REIHENFOLGE.find((option) => option === picked);
@@ -162,7 +226,7 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
                   key={option}
                   id={option}
                   isDisabled={geschlossen}
-                  aria-describedby={geschlossen ? widerrufId : undefined}
+                  aria-describedby={geschlossen ? (worte.nurWiderruf === undefined ? widerrufId : nurWiderrufId) : undefined}
                   className={OPTION_CHIP_CLASSES}>
                   {umfang.optionen[option]}
                 </ToggleButton>
@@ -177,24 +241,35 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
         </div>
       )}
 
-      <div className="flex w-full flex-col gap-y-3">
-        {/* Offered while the stored record holds it on, whatever may be granted (`docs/frontend/spec.md ::
-            I892`). The stored record, never the pressed value, so a switch just turned off keeps the focus
-            until the page is read again. */}
-        {((erteilbar && medienAngeboten) || gespeichert.medien) && (
-          <Switch
-            className="flex w-full flex-col gap-y-1"
-            aria-describedby={worte.nurWiderruf === undefined ? medienAbsatzId : `${medienAbsatzId} ${nurWiderrufId}`}
-            isSelected={wahl.medien}
-            onChange={(medien) => waehle({ medien: medien })}>
-            <Switch.Content className={panel.switchContent()}>
-              {worte.medien.schalter}
-              <Switch.Control className={panel.switchControl()}>
-                <Switch.Thumb />
-              </Switch.Control>
-            </Switch.Content>
-          </Switch>
-        )}
+      {whatsapp !== undefined && (
+        <div
+          {...focusSlot("whatsapp")}
+          className="flex w-full flex-col gap-y-3">
+          <GrantSchalter
+            name={whatsapp.schalter}
+            an={wahl.umfang === MIT_WHATSAPP}
+            geschlossen={whatsappGeschlossen}
+            beschreibung={grundIds(whatsappAbsatzId, whatsappGeschlossen)}
+            onChange={(an) => waehle({ umfang: an ? MIT_WHATSAPP : OHNE_WHATSAPP })}
+          />
+          <p
+            id={whatsappAbsatzId}
+            className={ABSATZ_CLASSES}>
+            {whatsapp.absatz}
+          </p>
+        </div>
+      )}
+
+      <div
+        {...focusSlot("medien")}
+        className="flex w-full flex-col gap-y-3">
+        <GrantSchalter
+          name={worte.medien.schalter}
+          an={wahl.medien}
+          geschlossen={medienGeschlossen}
+          beschreibung={grundIds(medienAbsatzId, medienGeschlossen)}
+          onChange={(medien) => waehle({ medien: medien })}
+        />
         <p
           id={medienAbsatzId}
           className={ABSATZ_CLASSES}>

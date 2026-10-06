@@ -1,20 +1,13 @@
 import Link from "next/link";
 
 import { KONTO_HREF } from "@/core/kontoHref";
-import { Angabe } from "@/shared/components/ui/Angabe";
-import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
-import { isPlaceholderAddress } from "@/shared/schemas";
-import { formatSpielDatum } from "@/shared/utils/format";
+
+import { SchiedsrichterAngaben } from "../ui/SchiedsrichterAngaben";
 
 import type { FLSchiedsrichterSelbst } from "../../schemas";
-
-const NICHT_HINTERLEGT = "Nicht hinterlegt";
-
-// A row with no address of its own holds the `.invalid` placeholder, which is no address to show.
-const adresseVon = (email: string | null): string => (email === null || email === "" || isPlaceholderAddress(email) ? NICHT_HINTERLEGT : email);
 
 /**
  * A referee's own data, read-only, one panel per referee row the address holds: whether the name stands
@@ -38,13 +31,7 @@ export function SchiedsrichterSelbstView({ schiedsrichter }: { schiedsrichter: r
               />
             </div>
             <div className={panel.body()}>
-              <dl className={FIELD_PAIR_CLASSES}>
-                <Angabe label="Name">{eintrag.name}</Angabe>
-                <Angabe label="Schule">{eintrag.schule ?? NICHT_HINTERLEGT}</Angabe>
-                <Angabe label="E-Mail-Adresse">{adresseVon(eintrag.kontakt.email)}</Angabe>
-                <Angabe label="Telefon">{eintrag.kontakt.telefon ?? NICHT_HINTERLEGT}</Angabe>
-                <Angabe label="Geburtsdatum">{formatSpielDatum(eintrag.geburtsdatum, NICHT_HINTERLEGT)}</Angabe>
-              </dl>
+              <SchiedsrichterAngaben eintrag={eintrag} />
 
               <p className="fluid-sm font-medium text-foreground">
                 Was von Dir im Spielplan und auf der Website stehen darf, änderst Du unter{" "}

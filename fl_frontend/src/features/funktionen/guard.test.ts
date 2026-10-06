@@ -283,6 +283,7 @@ const SCHIEDSRICHTER_SELBST = {
   name: "Mara Okafor",
   schule: null,
   kontakt: { telefon: null, email: "mara@example.org" },
+  honorar: 25,
   geburtsdatum: "2007-03-01",
   inactive_since: null,
   einwilligung: {

@@ -37,8 +37,19 @@ const WORTE: EinwilligungWorte = {
   widerruf: "Bist Du nicht mehr dabei, kannst Du hier nur zurücknehmen.",
 };
 
-/** A contact seat's record: a media choice and no publication choice. */
-const SITZ_WORTE: EinwilligungWorte = { textVersion: WORTE.textVersion, medien: WORTE.medien, widerruf: WORTE.widerruf };
+/** A contact seat's record: its contact scope a WhatsApp switch beside the media switch, and no publication choice. */
+const SITZ_WORTE: EinwilligungWorte = {
+  textVersion: WORTE.textVersion,
+  whatsapp: {
+    schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+    absatz: "Über WhatsApp erreichen wir Dich nur, wenn Du es erlaubst.",
+  },
+  medien: WORTE.medien,
+  widerruf: WORTE.widerruf,
+};
+
+/** A seat holding the narrower contact scope and no media consent. */
+const SITZ_GESPEICHERT: EinwilligungWahl = { umfang: "kontaktdaten", medien: false };
 
 const GESPEICHERT: EinwilligungWahl = { umfang: "kader_oeffentlich", medien: false };
 
@@ -181,9 +192,9 @@ describe("what a press sends", () => {
     assert.deepEqual(sent, [{ umfang: "intern", medien: true, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
   });
 
-  /* The backend refuses a press whose stand another press has moved since, so a second press sent
-     before the first is answered would be refused as a stale page on the person's own quick change. */
-  it("sends a second press after the first is answered, with the stand that answer left", async () => {
+  /* Sent before the first is answered, the second would carry a stand the first moves and be refused as
+     a stale page; built from the record as read, it would send the first's landed media grant back off. */
+  it("sends a second press after the first is answered, with the stand and the choice that answer left", async () => {
     let release: () => void = () => undefined;
     held = new Promise((resolve) => {
       release = resolve;
@@ -198,10 +209,10 @@ describe("what a press sends", () => {
     release();
     await act(answered);
 
-    assert.deepEqual(
-      sent.map(({ nachweis_stand }) => nachweis_stand),
-      [STAND, NEUER_STAND],
-    );
+    assert.deepEqual(sent, [
+      { umfang: "intern", medien: true, text_version: WORTE.textVersion, nachweis_stand: STAND },
+      { umfang: "kader_oeffentlich", medien: true, text_version: WORTE.textVersion, nachweis_stand: NEUER_STAND },
+    ]);
   });
 
   /* A grant refused at the day's ceiling must not ride along on the press after it: the second press
@@ -252,23 +263,40 @@ describe("what a press sends", () => {
     assert.equal(screen.getByRole("radio", { name: "Vorname und Initiale" }).getAttribute("aria-checked"), "true");
   });
 
-  it("sends a contact seat's media choice with no publication choice at all", async () => {
-    const { user } = renderForm({ worte: SITZ_WORTE, gespeichert: { medien: false } });
+  /* A seat's scope is no publication choice: its WhatsApp switch moves the scope, and each press carries
+     the other choice as it stood. */
+  it("moves a contact seat's media choice and sends its contact scope as it stood, offering no publication choice", async () => {
+    const { user } = renderForm({ worte: SITZ_WORTE, gespeichert: SITZ_GESPEICHERT });
 
     assert.equal(screen.queryAllByRole("radiogroup").length, 0, "a contact seat is offered a publication choice it does not hold");
     await user.click(screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter }));
     await act(answered);
 
-    assert.deepEqual(sent, [{ medien: true, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
+    assert.deepEqual(sent, [{ umfang: "kontaktdaten", medien: true, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
+  });
+
+  it("moves a contact seat's WhatsApp scope and sends its media choice as it stood", async () => {
+    const { user } = renderForm({ worte: SITZ_WORTE, gespeichert: { umfang: "kontaktdaten", medien: true } });
+
+    await user.click(screen.getByRole("switch", { name: SITZ_WORTE.whatsapp?.schalter }));
+    await act(answered);
+
+    assert.deepEqual(sent, [{ umfang: "kontaktdaten_whatsapp", medien: true, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
   });
 });
 
+/** Whether a control takes no press: React Aria marks a disabled switch's input either way. */
+const geschlossen = (control: Element): boolean => control.hasAttribute("disabled") || control.getAttribute("aria-disabled") === "true";
+
 describe("when the media switch is offered", () => {
-  it("leaves the switch out below the age the backend names, and keeps the paragraph", () => {
+  /* The paragraph beside it says the switch is off and cannot be turned on below the age, so the switch
+     stands there, closed, rather than being left out from under its own words. */
+  it("shows the switch closed below the age the backend names, described by its paragraph", () => {
     renderForm({ medienAngeboten: false });
 
-    assert.equal(screen.queryAllByRole("switch").length, 0, "a media consent is offered below the age the backend names");
-    assert.ok(screen.getByText(WORTE.medien.absatz as string));
+    const schalter = screen.getByRole("switch", { name: WORTE.medien.schalter });
+    assert.ok(geschlossen(schalter), "a media consent is offered below the age the backend names");
+    assert.equal(describedBy(schalter).textContent, WORTE.medien.absatz);
   });
 
   /* A withdrawal stands open on every record holding a consent, whatever the age verdict: a consent the
@@ -309,16 +337,26 @@ describe("on a record that takes a withdrawal alone", () => {
   /* Where a person would look for a grant and finds none, the switch they can press says why. */
   it("reads the reason a record takes a withdrawal alone with the switch, after its paragraph", () => {
     const nurWiderruf = "Hier kannst Du nur widerrufen.";
-    renderForm({ worte: { ...SITZ_WORTE, nurWiderruf }, gespeichert: { medien: true }, erteilbar: false, medienAngeboten: false });
+    renderForm({
+      worte: { ...SITZ_WORTE, nurWiderruf },
+      gespeichert: { umfang: "kontaktdaten", medien: true },
+      erteilbar: false,
+      medienAngeboten: false,
+    });
 
     const schalter = screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter });
     const beschrieben = (schalter.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
     assert.deepEqual(beschrieben, [SITZ_WORTE.medien.absatz, nurWiderruf]);
   });
 
-  it("leaves an off media switch out whatever the age allows, and keeps an on one withdrawable", async () => {
+  it("closes an off media switch whatever the age allows, saying why, and keeps an on one withdrawable", async () => {
     const aus = renderForm({ gespeichert: { umfang: "intern", medien: false }, erteilbar: false });
-    assert.equal(screen.queryAllByRole("switch").length, 0, "a grant is offered on a record granting no panel");
+    const zu = screen.getByRole("switch", { name: WORTE.medien.schalter });
+    assert.ok(geschlossen(zu), "a grant is offered on a record granting no panel");
+    assert.deepEqual(
+      (zu.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent),
+      [WORTE.medien.absatz, WORTE.widerruf],
+    );
     aus.unmount();
 
     const { user } = renderForm({ gespeichert: { umfang: "intern", medien: true }, erteilbar: false });
@@ -326,5 +364,38 @@ describe("on a record that takes a withdrawal alone", () => {
     await act(answered);
 
     assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
+  });
+});
+
+/* A seat's WhatsApp scope is a grant like the media consent: closed where the seat admits none unless
+   the seat holds it, and then withdrawable. The two switches are told apart by their own names. */
+describe("a contact seat's WhatsApp switch", () => {
+  it("names the two switches by their own words, and the two names differ", () => {
+    renderForm({ worte: SITZ_WORTE, gespeichert: SITZ_GESPEICHERT });
+
+    const whatsapp = screen.getByRole("switch", { name: SITZ_WORTE.whatsapp?.schalter });
+    const medien = screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter });
+    assert.ok(whatsapp !== medien, "one switch carries both names");
+    assert.notEqual(SITZ_WORTE.whatsapp?.schalter, SITZ_WORTE.medien.schalter);
+    assert.equal(describedBy(whatsapp).textContent, SITZ_WORTE.whatsapp?.absatz);
+  });
+
+  it("closes the WhatsApp grant on a seat admitting none, and keeps a held one withdrawable", async () => {
+    const aus = renderForm({
+      worte: { ...SITZ_WORTE, nurWiderruf: "Hier kannst Du nur zurücknehmen." },
+      gespeichert: SITZ_GESPEICHERT,
+      erteilbar: false,
+    });
+    assert.ok(
+      geschlossen(screen.getByRole("switch", { name: SITZ_WORTE.whatsapp?.schalter })),
+      "a WhatsApp grant is offered where none is admitted",
+    );
+    aus.unmount();
+
+    const { user } = renderForm({ worte: SITZ_WORTE, gespeichert: { umfang: "kontaktdaten_whatsapp", medien: false }, erteilbar: false });
+    await user.click(screen.getByRole("switch", { name: SITZ_WORTE.whatsapp?.schalter }));
+    await act(answered);
+
+    assert.deepEqual(sent, [{ umfang: "kontaktdaten", medien: false, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
   });
 });

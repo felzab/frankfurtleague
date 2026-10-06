@@ -8,6 +8,7 @@ import {
   FLRegistrierungAufnahmeResponseSchema,
   FLRegistrierungBestaetigungAnsichtResponseSchema,
   FLRegistrierungBestaetigungResponseSchema,
+  FLRegistrierungSelbstEinwilligungResponseSchema,
   FLRegistrierungSweepResponseSchema,
 } from "./schemas";
 
@@ -24,6 +25,8 @@ import type {
   FLRegistrierungBestaetigungAnsichtResponse,
   FLRegistrierungBestaetigungPayload,
   FLRegistrierungBestaetigungResponse,
+  FLRegistrierungSelbstEinwilligungPayload,
+  FLRegistrierungSelbstEinwilligungResponse,
   FLRegistrierungSweepResponse,
 } from "./schemas";
 
@@ -114,4 +117,17 @@ export async function postRegistrierungSweep(saisonId: string): Promise<FLRegist
     // is what `fl_backend/app/core/recording.py :: SYSTEM_ACTOR` exists to avoid.
     authType: "system",
   });
+}
+
+// A pupil's own withdrawal on their pending registration, under the person lane's actor: the backend
+// judges the registration theirs and takes a withdrawal alone until the team admits it.
+export async function patchRegistrierungEinwilligung(
+  registrierungId: string,
+  payload: FLRegistrierungSelbstEinwilligungPayload,
+): Promise<FLRegistrierungSelbstEinwilligungResponse> {
+  return apiClient<FLRegistrierungSelbstEinwilligungResponse>(
+    `/registrierungen/selbst/${encodeURIComponent(registrierungId)}/einwilligung`,
+    FLRegistrierungSelbstEinwilligungResponseSchema,
+    { method: "PATCH", authType: "admin", body: JSON.stringify(payload) },
+  );
 }
