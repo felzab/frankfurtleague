@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { registerDoubles } from "./exportingModule.ts";
-import { readable } from "./mailText.ts";
+import { flat, readable } from "./mailText.ts";
 import { schemeTokens } from "./schemeReader.ts";
 
 import type {
@@ -33,9 +33,6 @@ const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.t
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
-
-/** The text branch on the same terms, so a comparison between the two is not a comparison of line wrapping. */
-const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 /** The site's brand ink, read off the season scheme: a colour checked against the shell's own constant moves with it. */
 const BRAND_COLOR =

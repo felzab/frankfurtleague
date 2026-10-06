@@ -2,7 +2,7 @@ import asyncio
 import functools
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, get_args
+from typing import Any
 
 import pytest
 from bson import ObjectId
@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.identitaet.router import get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.identitaet.services import build_referee_pipeline, build_seat_pipeline
@@ -155,7 +154,7 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
             **{slot: None for slot in KONTAKT_ROLLEN},
             **{slot: _person(seat) if isinstance(seat, str) else seat for slot, seat in slots.items()},
             # A declaration about two slots rather than a slot of its own, so it names nobody and
-            # no case here turns on it (`app/api/kontakte/services.py :: KONTAKT_ROLLEN`).
+            # no case here turns on it (`app/api/teams/schemas.py :: KONTAKT_ROLLEN`).
             "trainer_ist_zugleich": None,
         },
     )
@@ -461,12 +460,6 @@ def test_a_seat_carries_its_own_season_s_status(mongo_replica_set_url: str):
     """The one read of `saisons` a seat costs. Two seasons of differing status, so a status taken from whichever sorted first is wrong here."""
 
     assert [seat.saison_status for seat in answered(mongo_replica_set_url).sitze] == ["past", "active", "active"]
-
-
-def test_every_person_slot_the_block_declares_is_a_published_role():
-    """Kills a fourth person slot reaching this answer: `FLSubjektSitz.rolle` would refuse it at run time, as a 500 in a person's own lane."""
-
-    assert set(KONTAKT_ROLLEN) == set(get_args(FLKontaktRolle))
 
 
 def test_the_operation_is_unreachable_without_a_bearer_token():

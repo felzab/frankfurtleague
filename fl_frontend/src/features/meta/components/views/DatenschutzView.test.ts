@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "4. Oktober 2026", digest: "a6b5d7c0c2508ca64b54b68c669fd97fe4da5b9360ec968126b36413d96d7fb5" } as const;
+const FASSUNG = { stand: "6. Oktober 2026", digest: "afde28f7b72523df7159e6baff8bd910a8d140c846eb1a15fa1918164f5ac532" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -194,6 +194,28 @@ describe("the privacy notice's retention table", () => {
       "Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt " +
         `${inWorten(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem ` +
         "Eintrag gelöscht",
+    );
+  });
+
+  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed. */
+  it("gives a referee's unconfirmed new address its retention and the removal once its link has lapsed", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
+          "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+      ),
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag " +
+        "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
+        " löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
+    );
+  });
+
+  /* Two addresses are in play, so the sentence names the one the notice of the change goes to rather than a „sie“ fitting both. */
+  it("says the address on file stays in force and is the one told of a confirmed referee's address change", () => {
+    rendert(
+      "Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den " +
+        "Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen " +
+        "Hinweis auf die Änderung.",
     );
   });
 
@@ -385,7 +407,7 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   // Self-service withdrawal on the account page stands beside the e-mail route.
   {
     weg: "Du kannst diese Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, formlos an",
-    statt: "die Erlaubnis für Fotos, Videos und Interviews nimmst Du außerdem selbst in Deinem Konto zurück",
+    statt: "beide nimmst Du außerdem selbst in Deinem Konto zurück",
   },
   {
     weg: "Das ist die einzige Einwilligung, die wir an dieser Stelle einholen",
@@ -426,7 +448,7 @@ describe("the privacy notice's account of the site's own protection", () => {
   it("gives a person's daily count its clock, and says it holds no address", () => {
     const frist = ANGABEN.get("Tageszähler einer angemeldeten Person, je Funktion") ?? "";
 
-    // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I837`), and per Funktion, never per mailbox.
+    // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I837`), and per kind of person a write is made as, never per mailbox.
     assert.ok(frist.startsWith("Bis kurz nach Mitternacht des Tages, den er zählt."), frist);
     assert.ok(
       frist.includes(
@@ -619,6 +641,18 @@ describe("the privacy notice's publication and retention rows keep their ruled b
 
   /* Only the admission enforces it (`docs/datenschutz.md :: "One address is one person"`); every other
      writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
+  /* The account page lists every consent stored under the address it signs in with, so the notice says
+     where to sign in to take one back (Art. 7(3): withdrawing is as easy as giving). */
+  it("names the account as the place to take back any consent, signed in with the address it was given under", () => {
+    assert.equal(
+      vorkommen(
+        "Eine Einwilligung kannst Du außerdem selbst in Deinem Konto zurücknehmen: Melde Dich mit der E-Mail-Adresse an, unter der Du " +
+          "sie gegeben hast; dort steht jede Einwilligung, die bei uns unter dieser Adresse gespeichert ist.",
+      ),
+      1,
+    );
+  });
+
   it("tells a person that their address stands for them alone and everything under it is their account's", () => {
     rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
   });
@@ -628,7 +662,8 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   it("names the team's three seats as who sees a registration, and what stays with the administrators", () => {
     rendert(
       "Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und " +
-        "Stufe; mit der Bestätigung kommen Dein Geburtsdatum und Deine Antworten zu Veröffentlichung und Medien dazu. Über die " +
+        "Stufe; mit der Bestätigung kommt Dein Geburtsdatum dazu, wenn wir es noch nicht kennen, und, bist Du neu in der Liga, " +
+        "Deine Antworten zu Veröffentlichung und Medien. Über die " +
         "Aufnahme in den Kader entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen " +
         "Deinen Namen, Deine Rückennummer, Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst. Deine " +
         "E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und " +

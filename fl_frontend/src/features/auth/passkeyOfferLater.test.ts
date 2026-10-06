@@ -36,7 +36,7 @@ registerAuthDoubles({
 // The two backend reads on this path, the sign-in gate's and the landing's, each answering a live seat.
 answerReadsWith((endpoint, schema, params) =>
   endpoint === "/identitaet/subjekt" || endpoint === GATE_ENDPOINT
-    ? answerAt(endpoint, { ...HOLDS_NOTHING, sitze: [SITZ] })
+    ? answerAt(endpoint, { ...HOLDS_NOTHING, sitze: [SITZ], konto: true })
     : EMPTIEST_ANSWER(endpoint, schema, params),
 );
 

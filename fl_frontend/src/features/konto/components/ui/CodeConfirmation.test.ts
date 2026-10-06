@@ -81,6 +81,34 @@ describe("the step-up's send", () => {
   });
 
   /* The code the first send mailed stays good, so a refused resend says why and leaves its step standing. */
+  /* A dropped connection or a deployment's unknown action rejects the send with no answer. Read by no
+     catch, it would replace the account page with its route's error boundary, the passkeys and sign-ins with it. */
+  it("answers a send that drew no answer on the page, offering the send again", async () => {
+    const user = userEvent.setup();
+    raised.length = 0;
+    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
+    render(h(CodeConfirmation, { address: ADDRESS, istInhaber: () => Promise.resolve(true), onConfirmed: () => undefined }));
+
+    await user.click(screen.getByRole("button", { name: "Code per E-Mail senden" }));
+    await act(answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ title, description }) => ({ title, description })),
+        [
+          {
+            title: "Code nicht gesendet",
+            description:
+              "Wir wissen nicht, ob der Code verschickt wurde. Prüfe die Verbindung und fordere ihn erneut an; ein neuer Code ersetzt einen früheren.",
+          },
+        ],
+      ),
+    );
+    assert.equal(screen.queryAllByRole("button", { name: "Code per E-Mail senden" }).length, 1, "the unanswered send took its control down");
+    raised.length = 0;
+    answerWith(() => Promise.resolve(SENT));
+  });
+
   it("keeps the code step through a refused resend, and says why", async () => {
     mock.timers.enable({ apis: ["setTimeout"] });
     try {

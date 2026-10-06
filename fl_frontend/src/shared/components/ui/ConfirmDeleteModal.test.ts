@@ -13,7 +13,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
-import { unansweredAction } from "@/shared/utils/actionError.ts";
+import { outcomeUnknown } from "@/shared/utils/actionError.ts";
 
 import type { ActionResult } from "@/shared/types/types.ts";
 
@@ -57,7 +57,7 @@ describe("the retirement dialog", () => {
     // Found rather than got: the press lets go, disarmed as every two-press control is, once the rejection has been answered.
     await screen.findByRole("button", { name: "Stilllegen" });
 
-    const { error, outcome } = unansweredAction();
+    const { error, outcome } = outcomeUnknown();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
       [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],

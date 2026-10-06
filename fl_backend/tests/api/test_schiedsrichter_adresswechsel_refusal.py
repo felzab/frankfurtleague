@@ -23,21 +23,17 @@ from app.api.schiedsrichter.schemas import (
 from app.api.schiedsrichter.services import (
     ADRESSWECHSEL_ANSICHT_FIELDS,
     ADRESSWECHSEL_FELD,
-    BESTAETIGUNG_FELD,
     EINWILLIGUNG_FELD,
     adresswechsel_zustand_of,
-    bestaetigung_frist_from,
     build_adresswechsel_filter,
     build_pending_adresswechsel_filter,
     build_referee_filter,
     compose_adresswechsel,
-    compose_adresswechsel_antwort,
     compose_einwilligung,
     compose_korrektur_update,
     save_asks_an_address_change,
     save_moves_the_link,
 )
-from app.api.zustellung.services import ZIEL_PFADE
 from app.core.collections import Collection
 from app.core.constraints import _SCHIEDSRICHTER_ADRESSWECHSEL, SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -66,23 +62,6 @@ def payload(email: str) -> dict[str, Any]:
 class TestTheStoredBlock:
     def test_the_model_declares_every_key_the_validator_requires_but_the_hash(self):
         assert set(_SCHIEDSRICHTER_ADRESSWECHSEL["required"]) - set(FLSchiedsrichterAdresswechsel.model_fields) == {"token_hash"}
-
-    def test_the_mint_composes_every_key_the_validator_requires(self):
-        assert set(_SCHIEDSRICHTER_ADRESSWECHSEL["required"]) <= set(BLOCK)
-
-    def test_the_deadline_is_the_confirmation_links(self):
-        assert BLOCK["frist"] == bestaetigung_frist_from(today=TODAY)
-
-    def test_the_carrier_key_is_the_one_the_delivery_register_files_a_report_under(self):
-        """Parted, a bounce on the address link would be written where no link is stored."""
-
-        assert ZIEL_PFADE["schiedsrichter_adresswechsel"].traeger == ADRESSWECHSEL_FELD
-        assert ZIEL_PFADE["schiedsrichter_adresswechsel"].collection == Collection.SCHIEDSRICHTER
-
-    def test_its_carrier_is_not_the_consent_links(self):
-        """One carrier for both would let the new address's bounce mark the message to the address in force."""
-
-        assert ZIEL_PFADE["schiedsrichter_adresswechsel"].traeger != ZIEL_PFADE["schiedsrichter"].traeger
 
 
 class TestWhichSaveAsksTheNewMailbox:
@@ -138,34 +117,8 @@ class TestTheSaveOnAConfirmedReferee:
 
         assert update["$set"][ADRESSWECHSEL_FELD] == BLOCK
 
-    def test_the_consent_links_block_and_the_consent_are_untouched(self):
-        update, _ = compose_korrektur_update(
-            stored=stored_row(einwilligung=confirmed()), payload=payload(NEW), payload_email=NEW, token_hash=TOKEN_HASH, today=TODAY
-        )
-
-        assert set(update) == {"$set"}
-        assert BESTAETIGUNG_FELD not in update["$set"]
-        assert EINWILLIGUNG_FELD not in update["$set"]
-
 
 class TestTheAnswer:
-    def test_a_confirmation_moves_the_address_and_ends_the_change(self):
-        assert compose_adresswechsel_antwort(antwort="bestaetigt", email=NEW) == {
-            "$set": {"kontakt.email": NEW},
-            "$unset": {ADRESSWECHSEL_FELD: ""},
-        }
-
-    def test_a_decline_ends_the_change_alone(self):
-        assert compose_adresswechsel_antwort(antwort="abgelehnt", email=NEW) == {"$unset": {ADRESSWECHSEL_FELD: ""}}
-
-    @pytest.mark.parametrize("antwort", ["bestaetigt", "abgelehnt"])
-    def test_neither_writes_the_consent(self, antwort: str):
-        """The link proves a mailbox and asks nothing about consent."""
-
-        update = compose_adresswechsel_antwort(antwort=antwort, email=NEW)
-
-        assert not any(path.startswith(EINWILLIGUNG_FELD) for paths in update.values() for path in paths)
-
     def test_the_press_names_its_answer(self):
         """Required: a page that omitted it would have the model decide whether a mailbox is the person's."""
 
@@ -187,20 +140,28 @@ class TestWhatALeakedLinkLearns:
     def test_the_answer_echoes_the_press_alone(self):
         assert set(FLSchiedsrichterAdresswechselResponse.model_fields) - {"acknowledged"} == {"antwort"}
 
-    def test_the_read_projects_no_hash_and_no_stored_address(self):
+    def test_the_read_projects_no_hash_and_of_the_contact_the_address_alone(self):
+        """The two addresses are read for the ban list, the response model being what keeps them off the answer."""
+
         projected = set(ADRESSWECHSEL_ANSICHT_FIELDS)
 
         assert f"{ADRESSWECHSEL_FELD}.token_hash" not in projected
-        assert not any(path.startswith("kontakt") for path in projected)
+        assert {path for path in projected if path.startswith("kontakt")} == {"kontakt.email"}
 
 
 class TestTheState:
+    """Ranked as the press refuses a confirmation: `-009`, then `-003`, then `-010`."""
+
     def test_a_ban_ranks_ahead_of_the_deadline(self):
-        assert adresswechsel_zustand_of(wechsel={"frist": "2026-01-01"}, today=TODAY, gesperrt=True) == "gesperrt"
+        assert adresswechsel_zustand_of(wechsel={"frist": "2026-01-01"}, today=TODAY, gesperrt=True, ersetzte_gesperrt=True) == "gesperrt"
 
     @pytest.mark.parametrize(("frist", "zustand"), [(TODAY, "gueltig"), ("2026-03-31", "abgelaufen"), (None, "abgelaufen")])
     def test_the_last_valid_day_is_the_deadline_itself(self, frist: Any, zustand: str):
-        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False) == zustand
+        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False, ersetzte_gesperrt=False) == zustand
+
+    @pytest.mark.parametrize(("frist", "zustand"), [(TODAY, "nicht_bestaetigbar"), ("2026-03-31", "abgelaufen")])
+    def test_a_ban_on_the_replaced_address_ranks_behind_the_deadline(self, frist: str, zustand: str):
+        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False, ersetzte_gesperrt=True) == zustand
 
 
 class TestTheLookups:

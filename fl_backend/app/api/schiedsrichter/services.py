@@ -176,6 +176,9 @@ SCHIEDSRICHTER_KEINE_ADRESSE = "REQ-SCHIEDSRICHTER-006"
 SCHIEDSRICHTER_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-007"
 SCHIEDSRICHTER_MEDIEN_ALTER = "REQ-SCHIEDSRICHTER-008"
 SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = "REQ-SCHIEDSRICHTER-009"
+# Its own code and never `-009`'s: that one tells its caller their own mailbox is barred, which here
+# would tell a stranger holding a mistyped address that somebody else's is.
+SCHIEDSRICHTER_ERSETZTE_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-010"
 
 # The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
 # A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
@@ -338,6 +341,20 @@ def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None
         error_code=SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
         message="the email address this link was sent to is on the ban list, so it confirms nothing",
+    )
+
+
+def find_ersetzte_adresse_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-SCHIEDSRICHTER-010`: the ban list holds the address this change would replace, so moving it would carry the ban's person off it."""
+
+    if not gesperrt:
+        return None
+
+    # 409 where `-009` is 403: the caller is the new mailbox, which the ban need not be about.
+    return WriteRefusal(
+        error_code=SCHIEDSRICHTER_ERSETZTE_ADRESSE_GESPERRT,
+        status=HTTPStatus.CONFLICT,
+        message="this address change can no longer be confirmed; the address on file stays",
     )
 
 
@@ -548,26 +565,48 @@ def compose_adresswechsel_antwort(*, antwort: str, email: Any) -> Mapping[str, A
     """
 
     if antwort == "bestaetigt":
-        return {"$set": {"kontakt.email": email}, "$unset": {ADRESSWECHSEL_FELD: ""}}
+        # The consent link's delivery state described the replaced address, so it goes, as a correction
+        # replacing that block takes it: no bounce stands beside the new one (`docs/backend/spec.md :: I_NEW_KREF_3`).
+        return {"$set": {"kontakt.email": email}, "$unset": {ADRESSWECHSEL_FELD: "", f"{BESTAETIGUNG_FELD}.zustellung": ""}}
 
     return {"$unset": {ADRESSWECHSEL_FELD: ""}}
 
 
-def adresswechsel_zustand_of(*, wechsel: Mapping[str, Any], today: str, gesperrt: bool) -> FLSchiedsrichterAdresswechselZustand:
-    """What the link shows: the ban first, as the consent link's `zustand_of` ranks it, then the deadline.
+def adresswechsel_zustand_of(
+    *, wechsel: Mapping[str, Any], today: str, gesperrt: bool, ersetzte_gesperrt: bool
+) -> FLSchiedsrichterAdresswechselZustand:
+    """What the link shows, ranked as the press refuses a confirmation.
 
-    An answered change has no state, its block being gone.
+    A ban on the link's own address first, as `zustand_of` ranks it, then the deadline, then a ban on
+    the replaced address. An answered change has no state.
     """
 
     if gesperrt:
         return "gesperrt"
 
-    return "abgelaufen" if link_is_over(frist=wechsel.get("frist"), today=today) else "gueltig"
+    if link_is_over(frist=wechsel.get("frist"), today=today):
+        return "abgelaufen"
+
+    return "nicht_bestaetigbar" if ersetzte_gesperrt else "gueltig"
 
 
-# An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason. The pending address is read for the ban
-# list alone, and no answer carries it.
-ADRESSWECHSEL_ANSICHT_FIELDS: Mapping[str, int] = {"name": 1, f"{ADRESSWECHSEL_FELD}.email": 1, f"{ADRESSWECHSEL_FELD}.frist": 1}
+# An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason. Both addresses are read for the ban list
+# alone, and no answer carries either.
+ADRESSWECHSEL_ANSICHT_FIELDS: Mapping[str, int] = {
+    "name": 1,
+    "kontakt.email": 1,
+    f"{ADRESSWECHSEL_FELD}.email": 1,
+    f"{ADRESSWECHSEL_FELD}.frist": 1,
+}
+
+
+def adresswechsel_adressen(raw: Mapping[str, Any]) -> tuple[str, str]:
+    """The address the link was mailed to and the one it would replace, as the ban list is asked about them."""
+
+    wechsel = raw.get(ADRESSWECHSEL_FELD) or {}
+
+    return str(wechsel.get("email") or ""), str((raw.get("kontakt") or {}).get("email") or "")
+
 
 # What the re-send judges and answers: both addresses, the stored one for the notice that a change
 # was asked.

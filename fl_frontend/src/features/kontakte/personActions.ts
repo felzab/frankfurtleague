@@ -3,7 +3,7 @@
 import z from "zod";
 
 import { FLBewerbungPersonEinwilligungPayloadSchema } from "@/features/bewerbungen/schemas";
-import { mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
+import { mapBewerbungEinwilligungRefusal, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { refusalResult } from "@/shared/utils/adminMutation";
@@ -13,21 +13,21 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { patchBewerbungEinwilligung, patchSitzEinwilligung } from "./mutations";
 import { FLSaisonTeamPersonEinwilligungPayloadSchema } from "./schemas";
 
-import type { FLMedienStand } from "@/features/spieler/schemas";
+import type { FLEinwilligungStand } from "@/features/spieler/schemas";
 import type { ActionResult } from "@/shared/types/types";
 
 /** The team season the page binds, never a value the reader typed. */
 const SitzAdresseSchema = z.object({ team_id: CustomObjectIdStringSchema, saison_id: z.string().length(SAISON_ID_LENGTH) });
 
 /**
- * A seat holder's own media consent for one team season. It claims the person's record on that row,
+ * A seat holder's own two choices for one team season. It claims the person's record on that row,
  * never a seat panel, so a past season's seat holder can still withdraw (`docs/frontend/spec.md :: I893`).
  */
 export async function patchSitzEinwilligungAction(
   teamId: string,
   saisonId: string,
   rawPayload: z.input<typeof FLSaisonTeamPersonEinwilligungPayloadSchema>,
-): Promise<ActionResult<{ nachweis_stand: FLMedienStand }>> {
+): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchSitzEinwilligungAction", async () => {
     const adresse = SitzAdresseSchema.safeParse({ team_id: teamId, saison_id: saisonId });
     const validated = FLSaisonTeamPersonEinwilligungPayloadSchema.safeParse(rawPayload);
@@ -50,14 +50,13 @@ export async function patchSitzEinwilligungAction(
 }
 
 /**
- * A seat holder's withdrawal of their media consent on a pending application, which the page binds. It
- * claims the person's record, the application granting no Funktion, and the backend judges the seat.
+ * A seat holder's withdrawal on a pending application, which the page binds. It claims the person's
+ * record, the application granting no Funktion, and the backend judges the seat and refuses a grant.
  */
 export async function patchBewerbungEinwilligungAction(
   bewerbungId: string,
-  // `medien` widened to the switch's boolean: a grant is the payload's own refusal, in its own words.
-  rawPayload: Omit<z.input<typeof FLBewerbungPersonEinwilligungPayloadSchema>, "medien"> & { medien: boolean },
-): Promise<ActionResult<{ nachweis_stand: FLMedienStand }>> {
+  rawPayload: z.input<typeof FLBewerbungPersonEinwilligungPayloadSchema>,
+): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchBewerbungEinwilligungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(bewerbungId);
     const validated = FLBewerbungPersonEinwilligungPayloadSchema.safeParse(rawPayload);
@@ -70,7 +69,7 @@ export async function patchBewerbungEinwilligungAction(
     try {
       antwort = await patchBewerbungEinwilligung(id.data, validated.data);
     } catch (error) {
-      const refusal = mapEigeneEinwilligungRefusal(error);
+      const refusal = mapBewerbungEinwilligungRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+
 import { kontakteMayMoveLinks } from "./linkMint.ts";
 
 import type { FLKontaktperson, FLKontaktpersonPayload } from "@/features/teams/schemas";
@@ -11,16 +13,7 @@ const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
   email,
   telefon: "069 501",
   geburtsdatum: null,
-  einwilligung: {
-    umfang: "kontaktdaten",
-    erfasst_von: "administrativ",
-    text_version: "1",
-    datum: "2026-10-03",
-    bestaetigt_am: null,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "1", datum: "2026-10-03", bestaetigt_am: null }),
 });
 const gesendet = (vorname: string, email: string, telefon = "069 501"): FLKontaktpersonPayload => ({
   vorname,

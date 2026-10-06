@@ -68,14 +68,14 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..");
  * By Next's own rule, `"use server"` in the directive prologue, whatever the file is named. One reader,
  * so no sweep of actions takes a narrower set than Next serves; each sorts the population by its own tables.
  */
-export function serverActionModules(floor: number): string[] {
+export function serverActionModules(floor: number, root: string = SRC_DIR): string[] {
   // Read here, against `walk`'s name-only rule: the directive is the population, never the property a
   // sweep over it asserts (`docs/_standard/standard.md` PRE-4).
-  const found = walk(SRC_DIR, (name) => /\.tsx?$/.test(name) && !isTestFile(name))
+  const found = walk(root, (name) => /\.tsx?$/.test(name) && !isTestFile(name))
     .filter((file) => hasDirective(readFileSync(file, "utf8"), "use server"))
     .sort();
   if (found.length < floor) {
-    throw new Error(`${SRC_DIR} yielded ${String(found.length)} server action modules, under this sweep's floor of ${String(floor)}`);
+    throw new Error(`${root} yielded ${String(found.length)} server action modules, under this sweep's floor of ${String(floor)}`);
   }
 
   return found;

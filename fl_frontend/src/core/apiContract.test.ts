@@ -41,7 +41,6 @@ const BACKEND_ONLY: Record<string, string> = {
   FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
   FLRegistrierung: "the row of that read, which no page consumes",
   FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
-  FLRegistrierungEinwilligung: "that row's consent block, which no page consumes",
   FLRegistrierungEntscheidungZeile: "that row's decision block, which no page consumes",
 };
 
@@ -65,6 +64,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   OptionalExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
   PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
   KontaktEmail: "a shared validator applied per field; the backend spells it as the `CustomEmail` alias",
+  LinkAntwortTextVersion: "a shared validator applied per field; the backend spells it as each link confirmation's `text_version` bounds",
 
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonPhase: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -347,7 +347,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 301;
+const EXPECTED_PAIRS = 303;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

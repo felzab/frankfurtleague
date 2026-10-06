@@ -119,21 +119,14 @@ describe("the bot check on a code request", () => {
     return { answer: answer, sent: signIns > before };
   }
 
+  /* Beside `fl_frontend/src/app/botCheckCoverage.test.ts`, which holds the check asked first, this is the
+     one case reading the address the refusal echoes back. */
   it("refuses a press carrying no token, sends nothing and asks Cloudflare nothing", async () => {
     const { answer, sent } = await pressed(aPress(null));
 
     assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
     assert.equal(sent, false, "a code was asked for past a refused check");
     assert.deepEqual(siteverify.asked(), []);
-  });
-
-  it("refuses a press whose token Cloudflare judged, and sends nothing", async () => {
-    siteverify.judges(false);
-
-    const { answer, sent } = await pressed(aPress(TEST_TOKEN));
-
-    assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
-    assert.equal(sent, false);
   });
 
   it("sends past the test key's token, asked of Cloudflare with the test secret", async () => {
@@ -151,15 +144,6 @@ describe("the bot check on a code request", () => {
     const other = await pressed(aPress(null, "niemand@example.org"));
 
     assert.deepEqual({ ...one.answer, submittedEmail: null }, { ...other.answer, submittedEmail: null });
-  });
-
-  /* The account page's step-up has an action of its own: a press with no token is refused whoever
-     sends it, the sign-in reading no session at all. */
-  it("refuses a press with no token from a session holding the address too", async () => {
-    const { answer, sent } = await pressed(aPress(null, ADDRESS));
-
-    assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
-    assert.equal(sent, false);
   });
 });
 

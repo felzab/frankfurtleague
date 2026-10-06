@@ -13,8 +13,10 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { UserEvent } from "@testing-library/user-event";
@@ -55,6 +57,9 @@ const { FormGruppenSwapSection } = await import("@/features/saisons/components/f
 const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
 const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
 const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
+const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
+const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
+const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -284,17 +289,7 @@ const SCHEDULE = [
 const SPIELPLAN_UNDRAWN = {
   saisonId: "2026",
   saisonStatus: "future",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
+  rules: saisonRules(),
   startDate: "2026-08-01",
   endDate: "2027-06-30",
   spielplan: null,
@@ -363,16 +358,12 @@ const kontaktperson = (vorname: string, email: string | null, bestaetigtAm: stri
   email: email ?? `${vorname.toLowerCase()}@schule.example`,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  }),
 });
 const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 const OFFENE_BESTAETIGUNGEN = { ansprechperson: SITZ, stellvertretung: SITZ, trainer: { ...SITZ, abgelehnt_am: "2026-09-03" } };
@@ -597,6 +588,43 @@ const REG_MIA = registrierung("68c1f0a2b3c4d5e6f7a8b942", "Mia", "Schmidt");
 /** Team A's registrations page holding `rows`, whatever the refresh after a decision left. */
 const registrierungen = (rows: readonly ReturnType<typeof registrierung>[]) =>
   h(RegistrierungenView, { registrierungen: rows, adresse: { team_id: TEAM_A, saison_id: "2026" }, unvollstaendig: null });
+
+const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b951";
+const KONTO_TITEL = "Als Ansprechperson: Bewerbung für Goethe-Gymnasium, Saison 2026";
+
+/**
+ * A pending application's seat on the account page, as the read serves it: withdraw-only, so a
+ * withdrawal closes the switch it was pressed on once the page is read again.
+ */
+const kontoBewerbung = (medien: boolean) =>
+  h(EinwilligungPanel, {
+    eintraege: [
+      {
+        id: `bewerbung-${BEWERBUNG_ID}`,
+        titel: KONTO_TITEL,
+        bestaetigt: null,
+        control: h(EinwilligungForm, {
+          worte: {
+            textVersion: "konto-test-1",
+            whatsapp: { schalter: "Die Liga darf mich auch über WhatsApp erreichen.", absatz: "WhatsApp nur mit Deiner Erlaubnis." },
+            medien: {
+              schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+              absatz: "Fotos nur mit Deiner Erlaubnis.",
+            },
+            nurWiderruf: "Hier kannst Du nur zurücknehmen.",
+            widerruf: "Jede Änderung gilt ab dem Speichern.",
+          },
+          gespeichert: { umfang: "kontaktdaten" as const, medien: medien },
+          nachweisStand: { umfang: null, medien: null },
+          medienAngeboten: false,
+          erteilbar: false,
+          // Through the doubled export, typed as the panel's slot takes every record's control.
+          speichereAction: (antwort: Parameters<Parameters<typeof EinwilligungForm>[0]["speichereAction"]>[0]) =>
+            patchBewerbungEinwilligungAction(BEWERBUNG_ID, antwort as Parameters<typeof patchBewerbungEinwilligungAction>[1]),
+        }),
+      },
+    ],
+  });
 
 const LANDINGS: Record<string, Landing> = {
   "a venue row's reactivation, on the retirement replacing it": {
@@ -1103,6 +1131,22 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => screen.getByRole("button", { name: "Link erneut senden" }),
   },
+  /* The discard takes its own panel away, so the focus lands on the contact panel beside it, which stays. */
+  "a referee's waiting address discarded, on the contact panel's heading": {
+    before: () =>
+      h(AdminSchiedsrichterEditView, {
+        istFassungBekannt: true,
+        schiedsrichter: {
+          ...SR_RECORD,
+          adresswechsel: { email: "pia@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null },
+        },
+        inactiveSince: null,
+      }),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
+    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
+    remount: true,
+    lands: () => heading(/^Kontakt/),
+  },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
@@ -1115,6 +1159,15 @@ const LANDINGS: Record<string, Landing> = {
     press: (user) => pressTwice(user, { resting: "Aufnehmen: Lena Meier", armed: "Ja, aufnehmen" }),
     after: () => registrierungen([REG_MIA]),
     lands: () => screen.getByRole("button", { name: "Aufnehmen: Mia Schmidt" }),
+  },
+  "an application seat's media withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchBewerbungEinwilligungAction: { success: true, message: "Gespeichert.", nachweis_stand: { umfang: null, medien: "x".repeat(64) } },
+    },
+    before: () => kontoBewerbung(true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen." })),
+    after: () => kontoBewerbung(false),
+    lands: () => heading(KONTO_TITEL),
   },
   "a registration's decline, the last row, on the queue's heading": {
     before: () => registrierungen([REG_LENA]),

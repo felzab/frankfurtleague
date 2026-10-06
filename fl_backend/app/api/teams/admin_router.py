@@ -646,15 +646,16 @@ async def patch_saison_team_kontakte(
         # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
         # Widerspruch alone (`docs/backend/spec.md :: I935`).
         owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
-        # In the transaction, so the ban is answered as it stands at the write; one landing after is the
-        # press's (`docs/backend/spec.md :: I505`). Refused, never stored unmailed: that person would
-        # learn nothing of the entry.
+        # A ban committing after this read conflicts with the save on the saver's own grant row, which
+        # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
         barred = await adressen_gesperrt(
             sperrliste,
             {adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)},
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
+        # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
+        # after the save is the press's (`docs/backend/spec.md :: I505`).
         refuse(find_kontakt_sitz_gesperrt_refusal(gesperrt=bool(barred)))
 
         # Read only where a link is minted, and in session as the address is. Unanchored: a rollover

@@ -19,11 +19,15 @@ import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt, Wert } from "@/features/bewerbun
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AdresseGesperrt,
+  ANTWORT_NICHT_GESPEICHERT,
+  ANTWORT_NICHT_GESPEICHERT_SATZ,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
   GespeicherteAngaben,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
@@ -52,7 +56,6 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { EINWILLIGUNG_UMFANG_OPTIONS, SPIELER_UMFANG_FRAGE } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
@@ -92,13 +95,11 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   bestaetigt: "Schon erledigt",
   abgelaufen: "Link ungültig",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
-
-const NICHT_GESPEICHERT = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
  * The slots a record fills from the person who opened the link
@@ -127,7 +128,7 @@ type HinweisSchluessel = SpielerAbsatzSchluessel & SpielerWiederkehrendAbsatzSch
 function wahlZeilen(fassung: SpielerSeitenFassung, umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
   return [
     ...(umfang === null ? [] : [{ label: "Auf der Website", wert: fassung.bedienelemente[umfang] }]),
-    ...(medien === null ? [] : [{ label: "Fotos und Videos", wert: medien ? "erlaubt" : "nicht erlaubt" }]),
+    ...(medien === null ? [] : [{ label: "Fotos, Videos und Interviews", wert: medien ? "erlaubt" : "nicht erlaubt" }]),
   ];
 }
 
@@ -306,16 +307,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "unlesbar" && (
-        <BestaetigungErgebnis
-          panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
     </section>
   );
 }
@@ -358,7 +350,7 @@ function SpielerBestaetigungForm({
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
     useDraftFieldErrors({
       schemas: { bestaetigung: bestaetigungSchema },
-      failureTitle: "Antwort nicht gespeichert",
+      failureTitle: ANTWORT_NICHT_GESPEICHERT,
     });
 
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
@@ -410,7 +402,7 @@ function SpielerBestaetigungForm({
       const gesendet = await postPublicForm<Antwort>("/api/bestaetigung/spieler", body);
 
       if (!gesendet.answered) {
-        appToast.danger(gesendet.wroteNothing ? "Antwort nicht gespeichert" : UNKLAR_TITEL, {
+        appToast.danger(gesendet.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, {
           description: gesendet.error,
         });
         return;
@@ -429,12 +421,12 @@ function SpielerBestaetigungForm({
               reportSubmitFailure(
                 {
                   success: false,
-                  error: antwort.error ?? NICHT_GESPEICHERT,
+                  error: antwort.error ?? ANTWORT_NICHT_GESPEICHERT_SATZ,
                   fieldErrors: antwort.fieldErrors,
                   unplacedError: antwort.unplacedError,
                 },
                 { bestaetigung: body },
-                { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+                { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
               ),
           });
           return;
@@ -513,15 +505,14 @@ function SpielerBestaetigungForm({
               />
             </p>
             <GespeicherteAngaben zeilen={wahlZeilen(fassung, ansicht.umfang, ansicht.medien)} />
+            {/* The way there alone: the stamped paragraph above already says what the account page changes. */}
             <p className={ABSATZ_CLASSES}>
-              Was von Dir veröffentlicht werden darf, änderst Du unter{" "}
               <Link
                 href={KONTO_HREF}
                 prefetch={false}
                 className={textLink()}>
-                Konto
+                Zum Konto
               </Link>
-              .
             </p>
           </section>
         )}

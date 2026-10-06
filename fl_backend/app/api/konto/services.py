@@ -313,8 +313,6 @@ def geaenderte_sitz_wahlen(
 
 
 def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """A seat entry's two choices and their stand, over every slot the person holds on the row."""
-
     bloecke = [seat["einwilligung"] for seat in held]
 
     return {**sitz_wahlen_der_zeile(bloecke), "nachweis_stand": nachweis_stand_of(bloecke=bloecke)}

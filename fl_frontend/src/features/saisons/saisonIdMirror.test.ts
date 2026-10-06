@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
 
 import { FIRST_SAISON_YEAR, FLPostSaisonPayloadSchema, SAISON_ID_PATTERN } from "./schemas.ts";
@@ -20,17 +21,7 @@ const PAYLOAD_SOURCE = sliceBetween(SCHEMAS, "class FLPostSaisonPayload(", "\ncl
 const BACKEND_FIRST_YEAR = /^FIRST_SAISON_YEAR: Final = (\d+)$/m.exec(SCHEMAS)?.[1];
 const BACKEND_PATTERN = /pattern=r"([^"]+)"/.exec(PAYLOAD_SOURCE)?.[1];
 
-const rules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 4,
-  teams_per_group: 4,
-  tiebreak_order: "tordifferenz",
-  max_kadergroesse: 50,
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "E2", "Q1", "Q2"],
-};
+const rules = saisonRules({ number_of_groups: 4, max_kadergroesse: 50, erlaubte_stufen: ["E1", "E2", "Q1", "Q2"] });
 
 /** Every field but the id already legal, so each case below is refused for its id or for nothing. */
 const create = (id: string) => ({

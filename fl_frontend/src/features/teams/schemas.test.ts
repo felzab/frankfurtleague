@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { FLMedienStandSchema } from "@/features/spieler/schemas";
+import { FLEinwilligungStandSchema } from "@/features/spieler/schemas";
 
 import {
   FLAustrittSchema,
@@ -402,9 +402,9 @@ describe("a contact seat's record whose evidence is filled, as a read serves it"
     assert.deepEqual(FLKontaktKenntnisnahmeSchema.parse(SERVED_KENNTNISNAHME), SERVED_KENNTNISNAHME);
   });
 
-  it("keeps the media instant a read serves as the press's precondition", () => {
-    const stand = { medien: "2026-10-02T18:03:57+00:00" };
+  it("keeps both choices' stand a read serves as the press's precondition", () => {
+    const stand = { umfang: null, medien: "9f2c1e7a4b5d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071" };
 
-    assert.deepEqual(FLMedienStandSchema.parse(stand), stand);
+    assert.deepEqual(FLEinwilligungStandSchema.parse(stand), stand);
   });
 });

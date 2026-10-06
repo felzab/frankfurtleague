@@ -225,6 +225,21 @@ describe("the two messages an address change sends", () => {
     assert.ok(mailNeu.text.includes("15.10.2026") && mailNeu.html.includes("15.10.2026"), "the deadline is missing from a part");
   });
 
+  /* Ignoring the mail leaves the address stored, so the mail offers the decline, which outlives the deadline, and nothing else. */
+  it("tells the holder of a mistyped address the decline stays open past the deadline, and never to ignore the mail", () => {
+    const mailNeu = buildSchiedsrichterAdresswechselEmail({
+      origin: "https://fl.example",
+      vorname: "Anna",
+      token: "t-1",
+      fristText: "15.10.2026",
+    });
+
+    for (const teil of [mailNeu.text, mailNeu.html]) {
+      assert.match(teil, /auch wenn der Link schon abgelaufen ist/);
+      assert.doesNotMatch(teil, /ignorier/);
+    }
+  });
+
   it("gives the notice no control, the stored mailbox having nothing to press", () => {
     const hinweis = buildSchiedsrichterAdresswechselHinweisEmail({ origin: "https://fl.example", vorname: "Anna" });
 
@@ -238,6 +253,7 @@ describe("what one refused answer asks the address page to show", () => {
     ["REQ-SCHIEDSRICHTER-002", "ungueltig"],
     ["REQ-SCHIEDSRICHTER-003", "abgelaufen"],
     ["REQ-SCHIEDSRICHTER-009", "gesperrt"],
+    ["REQ-SCHIEDSRICHTER-010", "nicht_bestaetigbar"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel, at any status`, () => {
       assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(aRefusal(code)), { zustand: zustand });

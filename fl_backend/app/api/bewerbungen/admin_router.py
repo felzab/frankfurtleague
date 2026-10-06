@@ -206,10 +206,9 @@ async def annehmen_bewerbung(
 
         updated_raw = await patch_one_in_db(
             collection=bewerbungen_collection,
-            # The status is in the FILTER. The 404 a miss answers -- not the decline's 409 -- is unreachable
-            # while this patch is the last write here, and wrong the moment it is not; the repair then is a
-            # re-read off no session, which sees `eingereicht` anyway.
-            db_filter={"_id": bewerbung_id, "status": "eingereicht"},
+            # By `_id` alone: a decision landing after the read above conflicts with this write, and the
+            # retry's read refuses it (`TestADeclineLandingInsideAnAcceptance`), so no status term is reached.
+            db_filter={"_id": bewerbung_id},
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
             # only the season row's copy moves after.
@@ -266,11 +265,11 @@ async def ablehnen_bewerbung(
         )
         refuse(find_triage_refusal(status=str(stored_raw["status"])))
 
-        # A decision landing after the read conflicts with this write and the retry's read refuses it;
-        # the status in the filter is the second lock, so no path overwrites a decision.
+        # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
+        # read refuses it (`TestTwoDeclinesAtOnce`), so no status term is reached.
         return await patch_one_in_db(
             collection=bewerbungen_collection,
-            db_filter={"_id": bewerbung_id, "status": "eingereicht"},
+            db_filter={"_id": bewerbung_id},
             update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
             session=session,
             return_document=ReturnDocument.AFTER,

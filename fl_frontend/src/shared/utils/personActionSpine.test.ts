@@ -17,20 +17,8 @@ const { runPersonRead } = await import("./personRead.ts");
 const { KONTO_FORBIDDEN } = await import("./kontoMutation.ts");
 const { SITZ_WEG } = await import("./actionError.ts");
 const { getRequestActor, markOutcomeUnknown, recordWriteSent } = await import("@/core/requestScope.ts");
-const { APIBadStatusError, PersonReadWithoutSubjectError } = await import("@/core/errors.ts");
-
-/** The backend's refusal of a write naming a Funktion the person does not hold. */
-const refusedFunktion = () =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://backend/api/v0/probe",
-    statusCode: 403,
-    serverErrorCode: "REQ-FUNKTION-001",
-    endpoint: "/probe",
-    method: "PATCH",
-    readOnly: false,
-    traceId: "0",
-  });
+const { PersonReadWithoutSubjectError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 const ACTION_MODULES = serverActionModules(20);
 /** The person lane's modules, read off Next's own population by the lane table both spines share. */
@@ -62,6 +50,7 @@ function countingBody() {
 const CLAIMS_A_RECORD: ReadonlySet<string> = new Set<string>([
   "kontakte :: patchBewerbungEinwilligungAction",
   "kontakte :: patchSitzEinwilligungAction",
+  "registrierungen :: patchRegistrierungEinwilligungAction",
   "schiedsrichter :: patchSchiedsrichterEinwilligungAction",
   "spieler :: patchSpielerEinwilligungAction",
 ]);
@@ -212,7 +201,9 @@ describe("the person spine's record entry", () => {
   it("answers the backend's refusal of the record in the shared reader's words", async () => {
     setSubject(person());
 
-    const answer = await runPersonRecordMutation("probeAction", () => Promise.reject(refusedFunktion()));
+    const answer = await runPersonRecordMutation("probeAction", () =>
+      Promise.reject(refusedOn("PATCH /spieler/selbst/einwilligung", "REQ-FUNKTION-001")),
+    );
 
     assert.deepEqual(answer, { success: false, error: SITZ_WEG });
   });

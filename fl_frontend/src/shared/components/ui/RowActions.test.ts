@@ -131,8 +131,8 @@ describe("a row action's name", () => {
   const SUBJECT = "Team Lessing-Kolleg";
   const ICON = h("svg", { "aria-hidden": "true" });
 
-  /* Every one of them, the menu's trigger with its fixed tooltip included: a family member a call site names by
-     hand is where a verb-last name comes back. */
+  /* Every one `ACTIONS` leaves out, the menu's trigger with its fixed tooltip included: a family member a call site
+     names by hand is where a verb-last name comes back. */
   const RENDERED: [action: string, html: string, named: string][] = [
     [
       "the link",
@@ -143,16 +143,6 @@ describe("a row action's name", () => {
       "the copy",
       renderMarkup(RowActionCopy, { label: "Adresse kopieren", subject: SUBJECT, onPress: ignore }),
       "Adresse kopieren: Team Lessing-Kolleg",
-    ],
-    [
-      "the restore",
-      renderMarkup(RowActionRestore, { label: "Reaktivieren", subject: SUBJECT, onPress: ignore }),
-      "Reaktivieren: Team Lessing-Kolleg",
-    ],
-    [
-      "the delete",
-      renderMarkup(RowActionDelete, { label: "Stilllegen", subject: SUBJECT, onPress: ignore }),
-      "Stilllegen: Team Lessing-Kolleg",
     ],
     ["the menu", renderMarkup(RowActionMenu, { subject: SUBJECT, children: null }), "Weitere Aktionen: Team Lessing-Kolleg"],
   ];

@@ -144,8 +144,8 @@ describe("the pupil's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "2008-09-01", umfang: null, medien: null });
   });
 
-  /* Each page sends its own pair, so only a page older than the backend's answer sends choices the
-     link's page does not ask, and the mail's link reopens it on the right one. */
+  /* No page of ours sends choices its page does not ask, the label check refusing a mismatched page
+     first, so only a drifted client meets this, and the mail's link reopens the page. */
   it("answers the refusal of choices the page does not ask with the sentence that reopens the link", async () => {
     schreibAntwort = () => aRefusal(422, "REQ-REGISTRIERUNG-017");
 

@@ -8,6 +8,7 @@ import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage, saisonFields } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest";
@@ -40,16 +41,7 @@ const person = (vorname: string, nachname: string, email: string): FLKontaktpers
   email,
   telefon: TELEFON[vorname] ?? "069 444",
   geburtsdatum: "1990-12-10",
-  einwilligung: {
-    umfang: "kontaktdaten",
-    erfasst_von: "person",
-    text_version: "1",
-    datum: "2026-03-12",
-    bestaetigt_am: "2026-03-14",
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 
 /** Three seats, each holding a different person, so an offer on the wrong one names the wrong name. */

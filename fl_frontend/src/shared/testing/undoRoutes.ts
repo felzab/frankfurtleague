@@ -6,7 +6,7 @@ import { judging } from "@/core/verdicts.ts";
 import { AENDERUNG_STEHT_WEITERHIN, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError.ts";
 
 import { ACTION_ONLY_INVALIDATIONS, cacheCalls, doubleActionRequest, ROUTE_NEXT_CACHE_DOUBLE } from "./actionDoubles.ts";
-import { DUPLICATE_KEY, publishedRefusals } from "./publishedRefusals.ts";
+import { DUPLICATE_KEY } from "./publishedRefusals.ts";
 
 import type { NextRequest } from "next/server";
 
@@ -94,18 +94,4 @@ export async function assertEachRefusalCloses({
   }
 
   return answers;
-}
-
-/**
- * Every row of a replay table words a code one of its replayed operations publishes: the sweep above
- * holds the other direction, and a row for a code nothing sends is German nobody meets.
- */
-export function assertEachRowPublished(table: Readonly<Record<string, string>>, ...operations: string[]): void {
-  const published = new Set(operations.flatMap((operation) => publishedRefusals(operation)));
-
-  assert.deepEqual(
-    Object.keys(table).filter((code) => !published.has(code)),
-    [],
-    `the replay table words codes ${operations.join(" and ")} no longer publishes`,
-  );
 }

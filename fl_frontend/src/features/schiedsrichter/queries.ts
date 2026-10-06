@@ -199,6 +199,9 @@ export function mapSchiedsrichterAdresswechselRefusal(error: unknown): Schiedsri
       return { zustand: "abgelaufen" };
     case "REQ-SCHIEDSRICHTER-009":
       return { zustand: "gesperrt" };
+    // A ban entered on the replaced address after the page opened: the panel the view opens on then.
+    case "REQ-SCHIEDSRICHTER-010":
+      return { zustand: "nicht_bestaetigbar" };
     default:
       return null;
   }

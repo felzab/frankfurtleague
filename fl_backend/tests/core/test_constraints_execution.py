@@ -5,6 +5,7 @@ from typing import Any, Final, get_args
 
 import pytest
 from bson import ObjectId
+from pydantic import SecretStr
 from pymongo import ASCENDING
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -14,6 +15,7 @@ from app.api.aktionen.services import build_aktionen_sort
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
 from app.api.registrierungen.services import compose_confirmation_update
 from app.api.teams.schemas import FLGruppenNames
+from app.core import constraints
 from app.core.collections import Collection
 from app.core.constraints import (
     ABSENT_COLLECTION_NAME,
@@ -27,6 +29,7 @@ from app.core.constraints import (
     report_relations,
     report_violations,
 )
+from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -724,6 +727,14 @@ def test_applying_twice_changes_nothing(mongo_url: str):
     assert on_the_shipped_schema(mongo_url, body) == (len(COLLECTION_VALIDATORS), len(UNIQUE_INDEXES))
 
 
+def _raised(failure: RuntimeError, named: str) -> str:
+    """The refusal names what it was building and carries the driver's, which `app/core/constraints.py :: _run` diagnoses."""
+
+    if named not in str(failure):
+        return f"raised the wrong thing: {failure}"
+    return "raised" if isinstance(failure.__cause__, OperationFailure) else f"raised without its cause: {failure}"
+
+
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: str):
     """The tempting fix — catch it, log it, carry on — leaves a database that looks constrained and is not."""
 
@@ -732,10 +743,33 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: 
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
-            return "raised" if "uniq_shorthand" in str(failure) else f"raised the wrong thing: {failure}"
+            return _raised(failure, "uniq_shorthand")
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
+
+
+def test_the_apply_command_diagnoses_a_seeded_duplicate_rather_than_tracing_it(
+    mongo_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """`python -m app.core.constraints --apply` over the real refusal, so a wrap losing its cause fails here and not at an operator."""
+
+    monkeypatch.setattr(
+        constraints,
+        "get_config",
+        lambda: build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_url), "db_base_name": DATABASE_NAME}),
+    )
+
+    async def body(database: AsyncDatabase) -> int:
+        await database.teams.insert_many([valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")])
+        return await constraints._run(check=False)
+
+    exit_code = on_a_database(mongo_url, body)
+    printed = capsys.readouterr().out
+
+    assert exit_code == 2
+    assert "Could not build unique index 'teams.uniq_shorthand'" in printed
+    assert "The database refused the command (DuplicateKey)" in printed
 
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_validator(mongo_url: str):
@@ -748,7 +782,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_validator(mongo_u
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
-            return "raised" if "the validator for 'teams'" in str(failure) else f"raised the wrong thing: {failure}"
+            return _raised(failure, "the validator for 'teams'")
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
@@ -779,7 +813,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
-            return "raised" if CONFLICTING_SUPPORT_INDEX in str(failure) else f"raised the wrong thing: {failure}"
+            return _raised(failure, CONFLICTING_SUPPORT_INDEX)
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
@@ -793,7 +827,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
-            return "raised" if CONFLICTING_TTL_INDEX in str(failure) else f"raised the wrong thing: {failure}"
+            return _raised(failure, CONFLICTING_TTL_INDEX)
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
@@ -1171,7 +1205,7 @@ def test_an_apply_refuses_a_retention_bound_already_built_at_another_number(mong
             await apply_constraints(database)
             outcome = "carried on"
         except RuntimeError as failure:
-            outcome = f"raised: {failure}"
+            outcome = f"raised: {failure}" if isinstance(failure.__cause__, OperationFailure) else f"raised without its cause: {failure}"
 
         built = {index["name"]: index async for index in await database[ttl.collection].list_indexes()}
         return outcome, built[ttl.name].get("expireAfterSeconds")

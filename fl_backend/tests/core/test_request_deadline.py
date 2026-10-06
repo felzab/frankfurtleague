@@ -256,7 +256,10 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
         async with fresh as (client, database):
             written = database[Collection.AKTIONEN]
 
+            sessions: list[Mapping[str, Any]] = []
+
             async def write_then_wait(session: AsyncClientSession) -> None:
+                sessions.append(session.session_id)
                 # Through the helper every route writes through, which is what marks the request as having sent one.
                 await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
                 if cut is not _Cut.NOWHERE:
@@ -264,11 +267,8 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
                 if cut is _Cut.INSIDE_THE_CALLBACK:
                     await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
 
-            sessions: list[Mapping[str, Any]] = []
-
             async def transacting() -> None:
                 async with transaction_session(client) as session:
-                    sessions.append(session.session_id)
                     await session.with_transaction(write_then_wait)
 
             served = create_app(build_test_config())

@@ -119,9 +119,8 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
 
 /**
  * Mirrors `FLKontaktKenntnisnahme` — which wording a contact person was shown, and on whose word the
- * record is held.
- * The wider `umfang` is written by the person's own confirmation alone, so the payload below keeps
- * the one-member literal.
+ * record is held. The wider `umfang` is its person's alone to write, so the administrator's payload
+ * below keeps the one-member literal.
  */
 export const FLKontaktKenntnisnahmeSchema = z.object({
   umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),

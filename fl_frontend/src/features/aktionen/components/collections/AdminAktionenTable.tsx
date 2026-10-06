@@ -88,8 +88,8 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     const { actor } = aktion;
     const herkunft = herkunftOfAktor(actor);
 
-    // The one origin naming somebody: an administrator by address, a signed-in person, who has none, by
-    // Funktion and pseudonym. Every other carries a sentinel -- printing `PUBLIC` would read as a person
+    // The one origin naming somebody: an administrator by address, a signed-in person by pseudonym and the
+    // kind of person the write was made as. Others show a sentinel: `PUBLIC` printed would read as a person
     // nobody can write to.
     if (herkunft === "person") {
       return (

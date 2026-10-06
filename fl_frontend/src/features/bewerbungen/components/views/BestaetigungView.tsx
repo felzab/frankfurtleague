@@ -17,6 +17,8 @@ import {
   FaktenBanner,
   FrageStellen,
   GespeicherteAngaben,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
   useLinkSeite,
   ZurLiga,
 } from "./BestaetigungPanels";
@@ -50,7 +52,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   abgelehnt: "Schon erledigt",
   abgelaufen: "Link ungültig",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 /** Every seat one answer on this link writes, so the page names the reader what the mail that brought them here named them. */
@@ -252,18 +254,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         </BestaetigungErgebnis>
       )}
 
-      {/* Says that it does not know, and nothing else: folded into the dead-link panel, this arm
-          would call a live link void on a day the backend was merely unreachable. */}
-      {stand.zustand === "unlesbar" && (
-        <BestaetigungErgebnis
-          panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
     </section>
   );
 }

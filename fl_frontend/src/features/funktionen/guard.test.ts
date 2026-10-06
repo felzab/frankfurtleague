@@ -7,7 +7,6 @@ import { pathToFileURL } from "node:url";
 import { createElement as h } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
-import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction, loggedLines } from "@/shared/testing/actionDoubles.ts";
@@ -43,6 +42,7 @@ const { default: PersoenlichStartPage } = await import("@/app/bereich/(persoenli
 const { default: PersoenlichSchiedsrichterPage } = await import("@/app/bereich/(persoenlich)/schiedsrichter/page.tsx");
 const { default: PersoenlichSpielerPage } = await import("@/app/bereich/(persoenlich)/spieler/page.tsx");
 const { default: TeamLayout } = await import("@/app/bereich/team/[team_id]/[saison_id]/layout.tsx");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 /** Every redirect the build loads, which Next answers before any route is matched. */
 const { default: nextConfig } = await import("../../../next.config.ts");
 
@@ -283,6 +283,7 @@ const SCHIEDSRICHTER_SELBST = {
   name: "Mara Okafor",
   schule: null,
   kontakt: { telefon: null, email: "mara@example.org" },
+  honorar: 25,
   geburtsdatum: "2007-03-01",
   inactive_since: null,
   einwilligung: {
@@ -320,17 +321,8 @@ describe("the referee's page", () => {
   /* The row went between the page's check and the backend's: the page's own turn-away, reached late. */
   it("sends a referee the backend finds no confirmed row for to the landing", async () => {
     setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
-    answerReadsWith((endpoint) => {
-      throw new APIBadStatusError({
-        message: "refused",
-        url: `http://backend/api/v0${endpoint}`,
-        statusCode: 403,
-        serverErrorCode: "REQ-FUNKTION-001",
-        endpoint: endpoint,
-        method: "GET",
-        readOnly: true,
-        traceId: "0",
-      });
+    answerReadsWith(() => {
+      throw refusedOn("GET /schiedsrichter/selbst", "REQ-FUNKTION-001");
     });
 
     assert.deepEqual(await redirectsOf(PersoenlichSchiedsrichterPage), ["/bereich"]);
@@ -360,17 +352,8 @@ describe("the player's page", () => {
   /* The row went between the page's check and the backend's: the page's own turn-away, reached late. */
   it("sends a player the backend finds no confirmed row for to the landing", async () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
-    answerReadsWith((endpoint) => {
-      throw new APIBadStatusError({
-        message: "refused",
-        url: `http://backend/api/v0${endpoint}`,
-        statusCode: 403,
-        serverErrorCode: "REQ-FUNKTION-001",
-        endpoint: endpoint,
-        method: "GET",
-        readOnly: true,
-        traceId: "0",
-      });
+    answerReadsWith(() => {
+      throw refusedOn("GET /spieler/selbst", "REQ-FUNKTION-001");
     });
 
     assert.deepEqual(await redirectsOf(PersoenlichSpielerPage), ["/bereich"]);

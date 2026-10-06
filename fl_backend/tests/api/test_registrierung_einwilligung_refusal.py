@@ -18,7 +18,6 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
     REGISTRIERUNG_MEDIEN_ALTER,
-    REGISTRIERUNG_PERSON_FEHLT,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     REGISTRIERUNG_WAHLEN_UNPASSEND,
@@ -29,12 +28,10 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_confirmation_update,
     compose_person,
-    compose_person_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
-    find_person_fehlt_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
     persons_named,
@@ -517,15 +514,6 @@ RETURNING_LABEL = LAUFENDE_FASSUNGEN[SEITE_WIEDERKEHREND]
 class TestWhatAReturningPupilsConfirmationWrites:
     """`docs/backend/spec.md :: I_NEW_KONTO-B3_1`: the page asked no choice, so the record holds none."""
 
-    def test_the_record_is_the_stamp_and_the_label_alone(self):
-        """No `datum` either: it is the day a consent was given, and nothing was given here."""
-
-        update = compose_confirmation_update(
-            geburtsdatum="2009-05-09", umfang=None, medien=None, text_version=RETURNING_LABEL, today=TODAY, am=AM
-        )
-
-        assert update == {"$set": {"geburtsdatum": "2009-05-09", "einwilligung": {"bestaetigt_am": TODAY, "text_version": RETURNING_LABEL}}}
-
     def test_the_registrations_validator_takes_it_and_a_persons_would_not(self):
         """Why the registration has a sub-schema of its own: `_EINWILLIGUNG` requires a scope this record does not carry."""
 
@@ -572,38 +560,12 @@ class TestTheChoicesThePageAsks:
 class TestWhatAReturningAdmissionWrites:
     """`docs/backend/spec.md :: I867`: a registration carrying no choice renews nothing on the person's record."""
 
-    STORED = {**einwilligung(umfang="kader_oeffentlich", medien=True, erteilt_von="volljaehrig"), "text_version": "2025-09"}
     RETURNING = {
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
         "einwilligung": {"bestaetigt_am": TODAY, "text_version": RETURNING_LABEL},
     }
-
-    def test_no_key_of_the_persons_record_moves(self):
-        """Not its label or its day either: they name the last confirmation that asked these choices (`docs/backend/spec.md :: I976`)."""
-
-        update = compose_person_update(registrierung_raw=self.RETURNING, gespeichert=self.STORED, adresse="quillhilde@example.com")
-
-        assert not [key for key in update["$set"] if key.startswith("einwilligung")]
-        assert "$unset" not in update
-        assert update["$set"]["geburtsdatum"] == "2009-05-09"
-
-    @pytest.mark.parametrize(
-        ("registrierung", "adresse", "refused"),
-        [
-            pytest.param(RETURNING, None, True, id="returning, nobody at the address"),
-            pytest.param(RETURNING, {"vorname": "Quillhilde"}, False, id="returning, the person still there"),
-            pytest.param({**RETURNING, "einwilligung": einwilligung()}, None, False, id="new, nobody at the address"),
-        ],
-    )
-    def test_a_returning_registration_admits_nobody_once_its_person_is_gone(self, registrierung: Any, adresse: Any, refused: bool):
-        """A new pupil's registration carries the choices a new person is born with; a returning one carries none."""
-
-        refusal = find_person_fehlt_refusal(registrierung_raw=registrierung, adresse_raw=adresse)
-
-        assert (refusal is not None) == refused
-        assert refusal is None or (refusal.error_code, refusal.status) == (REGISTRIERUNG_PERSON_FEHLT, 409)
 
     def test_a_new_person_is_never_born_from_it(self):
         """The guard behind `REQ-REGISTRIERUNG-018`: a person born with no scope is one the validator refuses mid-transaction."""

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { registerDoubles } from "./exportingModule.ts";
-import { readable } from "./mailText.ts";
+import { flat, readable } from "./mailText.ts";
 
 registerDoubles();
 
@@ -13,8 +13,6 @@ const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.t
 const ORIGIN = "http://localhost:3000";
 
 const URL_ = `${ORIGIN}/registrierung?token=abc123`;
-
-const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 const daten = { teamName: "Goethe-Gymnasium", saisonId: "2026", origin: ORIGIN, link: URL_ };
 

@@ -23,7 +23,6 @@ from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import refuse
 from app.core.domain import OPERATION_SEPARATOR, RULES
-from app.core.drosselung import DROSSELUNG_ERREICHT
 from app.core.exception_handlers import (
     BODY_UNREADABLE,
     DATABASE_FAILED,
@@ -48,7 +47,6 @@ from app.core.exceptions import (
     DUPLICATE_KEY,
     NO_DATABASE_CLIENT,
     BaseAPIException,
-    DrosselungException,
     RequestAuthorizationException,
     WriteRefusal,
 )
@@ -598,15 +596,15 @@ class TestTheRetryAfterHeader:
         assert declared == retrying
         assert all(responses[name]["headers"][RETRY_AFTER]["schema"] == {"type": "integer"} for name in retrying)
 
-    def test_each_status_s_refusal_is_sent_with_the_header_as_whole_seconds(self):
-        """Read off what the classes raising each send, the 503 over a served request."""
+    def test_the_503_is_sent_with_the_header_as_whole_seconds(self):
+        """Over a served request.
+
+        The 429's is held to the second over HTTP by `tests/api/test_drosselung_execution.py :: refused_until_midnight`.
+        """
 
         unavailable = client().get("/api/v0/spiele", headers=BASE_AUTH)
-        ceiling = DrosselungException(error_code=DROSSELUNG_ERREICHT, retry_after_s=43200)
 
         assert (unavailable.status_code, unavailable.headers[RETRY_AFTER].isdigit()) == (503, True)
-        assert ceiling.headers is not None
-        assert (ceiling.status_code, ceiling.headers[RETRY_AFTER].isdigit()) == (429, True)
 
 
 # OpenAPI 3.1.0's pattern for a key under `components`.

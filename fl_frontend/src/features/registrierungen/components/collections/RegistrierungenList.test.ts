@@ -8,7 +8,6 @@ import { act, createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleSubjectLookup, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -27,6 +26,7 @@ const { raised } = doubleToasts();
 const { default: RegistrierungenPage } = await import("@/app/bereich/team/[team_id]/[saison_id]/registrierungen/page.tsx");
 const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
 const { ANGABEN_WEICHEN_AB, NOCH_NICHT_BESTAETIGT, REGISTRIERUNGEN_LEER } = await import("@/features/registrierungen/utils.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 const TEAM_A = SITZ.team_id;
 const ADRESSE = { team_id: TEAM_A, saison_id: SITZ.saison_id };
@@ -181,16 +181,7 @@ describe("the registrations page, as a seat holder reads it", () => {
   it("renders the forbidden panel where the seat went between the check and the read", async () => {
     answerReadsWith((endpoint, schema, params) => {
       if (endpoint !== OFFEN_ENDPOINT) return EMPTIEST_ANSWER(endpoint, schema, params);
-      throw new APIBadStatusError({
-        message: "refused",
-        url: `http://backend/api/v0${endpoint}`,
-        statusCode: 403,
-        serverErrorCode: "REQ-FUNKTION-001",
-        endpoint: endpoint,
-        method: "GET",
-        readOnly: true,
-        traceId: "0",
-      });
+      throw refusedOn("GET /registrierungen/kader/{team_id}/{saison_id}", "REQ-FUNKTION-001");
     });
     try {
       const { text } = await renderedPage();
