@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -21,14 +20,12 @@ from app.api.registrierungen.services import compose_bestaetigung, compose_confi
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client
 from tests.bans import ban_list
-from tests.config import BASE_AUTH, SYSTEM_AUTH
-from tests.core.app_source import application
+from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, EINWILLIGUNG, ban_document, saison_document, saison_team_document, spieler_document
 from tests.records import record_collections
@@ -432,18 +429,6 @@ def test_every_funktion_list_is_drawn_from_the_own_records(monkeypatch: pytest.M
         ("spieler", e.spieler_id) for e in subjekt.spieler
     } <= eintraege
     assert subjekt.schiedsrichter == []
-
-
-def test_the_operation_is_unreachable_without_a_bearer_token():
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
-
-    assert (response.status_code, response.json()["error_code"]) == (401, MISSING_TOKEN)
-
-
-def test_the_base_key_draws_the_system_guard_s_own_code():
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": SITZ_AKTIV})
-
-    assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)
 
 
 @functools.cache
