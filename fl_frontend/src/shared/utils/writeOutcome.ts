@@ -1,7 +1,7 @@
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
 import { requestOutcomeUnknown, requestWriteSent } from "@/core/requestScope";
 
-import { toActionErrorResult, unansweredAction } from "./actionError";
+import { outcomeUnknown, toActionErrorResult } from "./actionError";
 
 import type { ActionFailure } from "@/shared/types/types";
 
@@ -13,7 +13,7 @@ export function answerThrow(error: unknown): ActionFailure {
   const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
   const writesOwn = error instanceof RolledBackError || (typed && mayHaveWritten(error));
 
-  return requestWriteSent() && !writesOwn ? unansweredAction() : toActionErrorResult(error);
+  return requestWriteSent() && !writesOwn ? outcomeUnknown() : toActionErrorResult(error);
 }
 
 /**

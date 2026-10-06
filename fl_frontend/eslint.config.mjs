@@ -538,14 +538,20 @@ const PASSKEY_DELETION = {
 };
 
 /**
- * React's `useActionState` hands an action's rejection to the nearest error boundary, which reads nothing
- * of it, the edge's own 429 included. The hook the codebase takes it through answers that one.
+ * React's `useActionState`, and react-dom's `useFormState` it renamed, hand an action's rejection to the nearest
+ * error boundary, which reads nothing of it, the edge's own 429 included. The hook the codebase takes it through
+ * answers that one.
  */
+const ACTION_STATE_HOOKS = "/^(?:useActionState|useFormState)$/";
 const ACTION_STATE_BAN = {
-  selector:
-    'ImportSpecifier[imported.name="useActionState"], MemberExpression[property.name="useActionState"], Literal[value="useActionState"]',
+  selector: [
+    `ImportSpecifier[imported.name=${ACTION_STATE_HOOKS}]`,
+    `MemberExpression[property.name=${ACTION_STATE_HOOKS}]`,
+    `Literal[value=${ACTION_STATE_HOOKS}]`,
+    `TemplateElement[value.cooked=${ACTION_STATE_HOOKS}]`,
+  ].join(", "),
   message:
-    "Take `useActionState` through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I838).",
+    "Take `useActionState`, or react-dom's `useFormState`, through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I838).",
   exempt: ["src/shared/hooks/useAnsweredActionState.ts"],
 };
 

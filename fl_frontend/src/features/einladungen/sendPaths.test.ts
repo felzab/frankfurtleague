@@ -64,7 +64,7 @@ registerDoubles({
 
 const { mailEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 const { ZURUECKGEHALTEN } = await import("./meldungen.ts");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 
 const SAISON_ID = "2627";
 const EINLADUNG_ID = "b".repeat(24);
@@ -213,7 +213,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   /* The spine leaves a refusal standing, and a refused address is still written to the delivery record

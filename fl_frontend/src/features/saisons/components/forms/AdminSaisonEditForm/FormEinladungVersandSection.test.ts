@@ -29,7 +29,7 @@ const { raised } = doubleToasts();
 
 const { FormEinladungVersandSection } = await import("./FormEinladungVersandSection.tsx");
 const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { NAME_WRAP_CLASSES } = await import("@/shared/components/ui/nameWrap.ts");
 
 /** Four characters, the width every schema in the tree holds a season id to. */
@@ -184,7 +184,7 @@ describe("the season's bulk invite send", () => {
     await act(answered);
     await screen.findByRole("button", { name: RESTING });
 
-    const { error, outcome } = unansweredAction();
+    const { error, outcome } = outcomeUnknown();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
       [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
