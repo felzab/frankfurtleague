@@ -41,7 +41,7 @@ describe("the contact seat's link control", () => {
     answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
     render(control());
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Bestätigungslink senden an Ansprechperson" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Bestätigungslink senden: Ansprechperson" }));
     await act(answered);
 
     await waitFor(() =>

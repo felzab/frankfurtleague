@@ -193,8 +193,8 @@ describe("the shared refusal reader over this overlay's own markup", () => {
         h(Hint, {
           mode: "refusal",
           reason: "Trage zuerst eine Adresse ein.",
-          label: "Link erneut senden an Trainer",
-          children: h(Button, { isDisabled: true, "aria-label": "Link erneut senden an Trainer" }, "Link erneut senden"),
+          label: "Link erneut senden: Trainer",
+          children: h(Button, { isDisabled: true, "aria-label": "Link erneut senden: Trainer" }, "Link erneut senden"),
         }),
         refusedLink("Erst eine gültige Adresse eingeben", "Website in neuem Tab öffnen"),
         refused(null, "Abbrechen"),
@@ -205,7 +205,7 @@ describe("the shared refusal reader over this overlay's own markup", () => {
       { name: LABEL, label: LABEL, reason: REASON },
       { name: "Gruppen tauschen", label: "Gruppen tauschen", reason: "Wähle zuerst ein Team." },
       // The control's own name where it says more than its words, which the overlay then carries whole.
-      { name: "Link erneut senden an Trainer", label: "Link erneut senden an Trainer", reason: "Trage zuerst eine Adresse ein." },
+      { name: "Link erneut senden: Trainer", label: "Link erneut senden: Trainer", reason: "Trage zuerst eine Adresse ein." },
       { name: "Website in neuem Tab öffnen", label: "Website in neuem Tab öffnen", reason: "Erst eine gültige Adresse eingeben" },
     ]);
   });

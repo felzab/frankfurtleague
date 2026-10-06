@@ -69,7 +69,7 @@ describe("when the switcher shows", () => {
   it("shows for a person whose Funktionen lead to two places", () => {
     switcherAt(GOETHE.href);
 
-    assert.ok(screen.getByRole("button", { name: "Goethe-Gymnasium, Funktion wechseln" }));
+    assert.ok(screen.getByRole("button", { name: "Goethe-Gymnasium: Funktion wechseln" }));
   });
 });
 
@@ -78,14 +78,14 @@ describe("what the switcher's trigger names", () => {
   it("names the place the address stands in, below its own page too", () => {
     switcherAt(`${GOETHE.href}/kader`, { orte: [GOETHE, SPIELER, VERWALTUNG] });
 
-    assert.ok(screen.getByRole("button", { name: "Goethe-Gymnasium, Funktion wechseln" }));
+    assert.ok(screen.getByRole("button", { name: "Goethe-Gymnasium: Funktion wechseln" }));
   });
 
   /* A place is a whole segment: `/bereich/spielerin` stands in no place `/bereich/spieler` names. */
   it("names the shell's own words where the address is none of the places", () => {
     switcherAt("/bereich/spielerin");
 
-    assert.ok(screen.getByRole("button", { name: "Dein Bereich, Funktion wechseln" }));
+    assert.ok(screen.getByRole("button", { name: "Dein Bereich: Funktion wechseln" }));
   });
 
   /* Two clubs sharing a long name's opening words are told apart only by the rest, which a truncated
@@ -94,8 +94,8 @@ describe("what the switcher's trigger names", () => {
     const titel = "Städtisches Gymnasium Nord mit bilingualem Zweig";
     const lang: FunktionOrt = { ...GOETHE, titel: titel, name: titel };
     switcherAt(GOETHE.href, { orte: [lang, SPIELER] });
-    const trigger = screen.getByRole("button", { name: `${lang.titel}, Funktion wechseln` });
-    const [item] = await openMenu(`${lang.titel}, Funktion wechseln`);
+    const trigger = screen.getByRole("button", { name: `${lang.titel}: Funktion wechseln` });
+    const [item] = await openMenu(`${lang.titel}: Funktion wechseln`);
 
     for (const [where, holder] of [
       ["trigger", trigger],
@@ -122,7 +122,7 @@ describe("what the switcher's trigger names", () => {
 describe("what the switcher lists", () => {
   it("lists the places as links in their order, then the way to the person's own area", async () => {
     switcherAt(GOETHE.href);
-    const items = await openMenu("Goethe-Gymnasium, Funktion wechseln");
+    const items = await openMenu("Goethe-Gymnasium: Funktion wechseln");
 
     assert.deepEqual(
       items.map((item) => [item.getAttribute("href"), item.textContent]),
@@ -137,7 +137,7 @@ describe("what the switcher lists", () => {
   /* The person shell's own landing is `/bereich`, which its sidemenu already lists. */
   it("leaves the way to the person's own area out where the shell's landing is that address", async () => {
     switcherAt(SPIELER.href, { mitBereich: false });
-    const items = await openMenu("Spieler, Funktion wechseln");
+    const items = await openMenu("Spieler: Funktion wechseln");
 
     assert.deepEqual(
       items.map((item) => item.getAttribute("href")),
@@ -148,7 +148,7 @@ describe("what the switcher lists", () => {
   /* The trigger names the current place, and the list marks it: selection and a link on one item. */
   it("marks the place the address stands in, and no other", async () => {
     switcherAt(`${SPIELER.href}/konto`);
-    const items = await openMenu("Spieler, Funktion wechseln");
+    const items = await openMenu("Spieler: Funktion wechseln");
 
     assert.deepEqual(
       items.map((item) => [item.getAttribute("href"), item.getAttribute("aria-checked")]),
@@ -164,7 +164,7 @@ describe("what the switcher lists", () => {
      no radio option and sits in no group to announce its own name a second time. */
   it("offers the way to the person's own area as a plain item outside the places", async () => {
     switcherAt(GOETHE.href);
-    await openMenu("Goethe-Gymnasium, Funktion wechseln");
+    await openMenu("Goethe-Gymnasium: Funktion wechseln");
     const menu = screen.getByRole("menu");
     const bereich = within(menu).getByRole("menuitem", { name: "Zu Deinem Bereich" });
 
@@ -176,7 +176,7 @@ describe("what the switcher lists", () => {
   /* The roles are the detail, read after the name rather than run on into it. */
   it("names each place by its name and describes it by its detail", async () => {
     switcherAt(GOETHE.href);
-    await openMenu("Goethe-Gymnasium, Funktion wechseln");
+    await openMenu("Goethe-Gymnasium: Funktion wechseln");
 
     for (const ort of [GOETHE, SPIELER]) {
       assert.ok(screen.getByRole("menuitemradio", { name: ort.name, description: ort.detail }), `${ort.titel} is not named by its name alone`);
@@ -188,7 +188,7 @@ describe("what the switcher lists", () => {
     const zuvor = { ...GOETHE, name: "Goethe-Gymnasium, Saison 2526" };
     const jetzt = { ...GOETHE, href: "/bereich/team/t1/2627", detail: "Saison 2627 · Trainer", name: "Goethe-Gymnasium, Saison 2627" };
     switcherAt(SPIELER.href, { orte: [zuvor, jetzt, SPIELER] });
-    await openMenu("Spieler, Funktion wechseln");
+    await openMenu("Spieler: Funktion wechseln");
 
     for (const ort of [zuvor, jetzt]) {
       assert.equal(screen.getByRole("menuitemradio", { name: ort.name }).getAttribute("href"), ort.href, `${ort.name} names no item`);
@@ -201,20 +201,20 @@ describe("what the switcher lists", () => {
     const jetzt = { ...GOETHE, href: "/bereich/team/t1/2627", detail: "Saison 2627 · Trainer", name: "Goethe-Gymnasium, Saison 2627" };
     switcherAt(`${jetzt.href}/kader`, { orte: [zuvor, jetzt, SPIELER] });
 
-    assert.ok(screen.getByRole("button", { name: "Goethe-Gymnasium, Saison 2627, Funktion wechseln" }));
+    assert.ok(screen.getByRole("button", { name: "Goethe-Gymnasium, Saison 2627: Funktion wechseln" }));
   });
 
   /* Each press leaves the shell, and the router hides the departing tree rather than unmounting it. */
   it("closes the drawer on every press", async () => {
     const { closes } = switcherAt(GOETHE.href);
-    const offered = (await openMenu("Goethe-Gymnasium, Funktion wechseln")).length;
+    const offered = (await openMenu("Goethe-Gymnasium: Funktion wechseln")).length;
 
     // Each press closes the menu, so it is opened again for the next item, the way to `/bereich` among them.
     for (let index = 0; index < offered; index += 1) {
       const items =
         index === 0
           ? [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]')]
-          : await openMenu("Goethe-Gymnasium, Funktion wechseln");
+          : await openMenu("Goethe-Gymnasium: Funktion wechseln");
       await userEvent.setup().click(items[index]!);
     }
 

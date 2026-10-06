@@ -91,7 +91,7 @@ export function SpielCard({
           <IconTooltip label="Spielinfo">
             <Button
               isIconOnly
-              aria-label={`Spielinfo Spiel Nr. ${spielData.spiel_nr}`}
+              aria-label={benannt("Spielinfo", `Spiel Nr. ${spielData.spiel_nr}`)}
               onPress={onOpenInfoModal}
               size="md"
               variant="tertiary"

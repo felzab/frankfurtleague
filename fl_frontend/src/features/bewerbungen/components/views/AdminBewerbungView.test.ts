@@ -239,12 +239,12 @@ const PAGE_PRESSES: Record<string, PagePress> = {
   },
   "the re-send, beside a typed reason": {
     other: typeReason,
-    press: "Link erneut senden an Stellvertretung",
+    press: "Link erneut senden: Stellvertretung",
     write: "einwilligungErneutSendenAction",
   },
   "the re-send, beside another seat's box holding typing": {
     other: typeReseat,
-    press: "Link erneut senden an Stellvertretung",
+    press: "Link erneut senden: Stellvertretung",
     write: "einwilligungErneutSendenAction",
   },
   "the correction, beside a typed reason": {

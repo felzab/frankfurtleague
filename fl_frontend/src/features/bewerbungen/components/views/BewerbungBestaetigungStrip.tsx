@@ -295,7 +295,7 @@ function SitzZeile({
 }) {
   const Glyph = STAND_ICON[sitz.stand.art];
   const zustellung = sitz.zustellung === null ? null : ZUSTELLUNG_CHIP[sitz.zustellung.stand];
-  const erneutLabel = `Link erneut senden an ${sitz.label}`;
+  const erneutLabel = benannt("Link erneut senden", sitz.label);
   const besetzenLabel = benannt("Neu besetzen", sitz.label);
 
   return (

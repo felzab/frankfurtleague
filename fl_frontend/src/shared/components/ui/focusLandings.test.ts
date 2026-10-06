@@ -900,14 +900,14 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a seat's re-sent link, on the seat's re-send drawn anew": {
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
-    press: (user) => user.click(screen.getByRole("button", { name: "Link erneut senden an Stellvertretung" })),
+    press: (user) => user.click(screen.getByRole("button", { name: "Link erneut senden: Stellvertretung" })),
     after: () =>
       bewerbungPage({
         ...MIT_OFFENEN_SITZEN,
         bestaetigungen: { ...OFFENE_BESTAETIGUNGEN, stellvertretung: { ...SITZ, erinnert_am: "2026-09-05" } },
       }),
     remount: true,
-    lands: () => screen.getByRole("button", { name: "Link erneut senden an Stellvertretung" }),
+    lands: () => screen.getByRole("button", { name: "Link erneut senden: Stellvertretung" }),
   },
   "a seat's corrected address, on the pencil that opened the box": {
     answers: { kontaktEmailKorrigierenAction: { success: true, verschickt: true, message: "Korrigiert." } },
