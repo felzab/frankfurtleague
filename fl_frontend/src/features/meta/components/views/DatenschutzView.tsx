@@ -535,13 +535,14 @@ export function DatenschutzView() {
           </p>
           <p className={ABSATZ_CLASSES}>
             Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und Stufe;
-            mit der Bestätigung kommt Dein Geburtsdatum dazu, wenn wir es noch nicht kennen, und, bist Du neu in der Liga, Deine Antworten zu
-            Veröffentlichung und Medien. Über die Aufnahme in den Kader entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und
-            Stellvertretung des Teams sehen Deinen Namen, Deine Rückennummer, Deine Position und Deine Stufe; sie sehen auch, ob Du die
-            Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst. Deine E-Mail-Adresse, Dein Geburtsdatum und
-            Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und Administratoren der Liga. Lehnt Dein Team eine bestätigte
-            Registrierung ab, schreiben wir Dir das per E-Mail. Zur Ablehnung halten wir das Datum, den Grund und die E-Mail-Adresse der Person
-            aus dem Team fest, die abgelehnt hat; diese Angaben sehen die Administratorinnen und Administratoren der Liga.
+            mit der Bestätigung kommt Dein Geburtsdatum dazu, wenn wir es noch nicht kennen, und, haben wir unter dieser Adresse und diesem
+            Namen noch keine Antworten von Dir, Deine Antworten zu Veröffentlichung und Medien. Über die Aufnahme in den Kader entscheidet Dein
+            Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen Deinen Namen, Deine Rückennummer, Deine Position
+            und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst.
+            Deine E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und
+            Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail. Zur Ablehnung halten
+            wir das Datum, den Grund und die E-Mail-Adresse der Person aus dem Team fest, die abgelehnt hat; diese Angaben sehen die
+            Administratorinnen und Administratoren der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
             Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person
@@ -718,10 +719,11 @@ export function DatenschutzView() {
             </li>
           </ul>
           <p className={ABSATZ_CLASSES}>
-            Wie Du sie ausübst: eine formlose E-Mail an <MailLink />. Eine Einwilligung kannst Du außerdem selbst in Deinem Konto zurücknehmen:
-            Melde Dich mit der E-Mail-Adresse an, unter der Du sie gegeben hast; dort steht jede Einwilligung, die bei uns unter dieser Adresse
-            gespeichert ist. Begründen musst Du nur einen Widerspruch, mit Deiner besonderen Situation. Wir antworten so schnell wir können und
-            in jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
+            Wie Du sie ausübst: eine formlose E-Mail an <MailLink />. Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du
+            außerdem selbst in Deinem Konto zurücknehmen: Melde Dich mit der Adresse an, unter der wir Dich heute erreichen; dort steht jede
+            solche Einwilligung. Eine abgelehnte Bewerbung oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der
+            Entscheidung. Begründen musst Du nur einen Widerspruch, mit Deiner besonderen Situation. Wir antworten so schnell wir können und in
+            jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
           </p>
           <p className={ABSATZ_CLASSES}>
             Was eine Löschung erreicht und was nicht: Aus der laufenden Datenbank sind Deine Daten sofort verschwunden. In den Sicherungskopien

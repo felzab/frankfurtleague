@@ -9,7 +9,7 @@ import { sendeBestaetigungscodeAction } from "@/features/konto/actions";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useAnsweredActionState } from "@/shared/hooks/useAnsweredActionState";
-import { edgeRefusedSend } from "@/shared/utils/actionError";
+import { edgeRefusedSend, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { ActionResult } from "@/shared/types/types";
@@ -20,13 +20,12 @@ const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 /** What a right code does here: it confirms the reader, who is already signed in. */
 const BESTAETIGEN = { rest: "Bestätigen", pending: "Bestätigt..." };
 
-// A plain failure, never `unansweredAction`'s, whose toast asks whether something was saved.
 /**
  * A send whose answer never arrived: whether a code left is unknown, and a second send is safe either
- * way, a new code replacing the one before.
+ * way, a new code replacing the one before. The title says what is unknown, a send saving nothing.
  */
-const CODE_OHNE_ANTWORT =
-  "Wir wissen nicht, ob der Code verschickt wurde. Prüfe die Verbindung und fordere ihn erneut an; ein neuer Code ersetzt einen früheren.";
+const CODE_ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und fordere den Code erneut an. Ein neuer Code ersetzt einen, der schon rausging.";
+const CODE_UNKLAR = "Unklar, ob der Code verschickt wurde";
 
 /** The code half's own refusal: a code that signed in an account other than the page's. */
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
@@ -50,7 +49,7 @@ export function CodeConfirmation({
   const [state, formAction, isSending] = useAnsweredActionState(
     async (): Promise<ActionResult | undefined> =>
       sendeBestaetigungscodeAction().catch(
-        (rejection: unknown) => edgeRefusedSend(rejection) ?? { success: false as const, error: CODE_OHNE_ANTWORT },
+        (rejection: unknown) => edgeRefusedSend(rejection) ?? unansweredAction(rejection, CODE_ERNEUT_OHNE_ANTWORT),
       ),
     undefined,
   );
@@ -65,7 +64,7 @@ export function CodeConfirmation({
 
   useEffect(() => {
     if (!state || state.success) return;
-    appToast.failure("Code nicht gesendet", state);
+    appToast.failure("Code nicht gesendet", state, CODE_UNKLAR);
   }, [state]);
 
   // The refusal unmounts the code step from under its focused field, so focus would fall to `<body>`;

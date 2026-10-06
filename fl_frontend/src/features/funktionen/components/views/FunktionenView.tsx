@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { KONTO_HREF } from "@/core/kontoHref";
+import { Callout } from "@/shared/components/ui/Callout";
 import { card } from "@/shared/components/ui/card";
-import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 
 import { zeilenOf } from "../../utils";
@@ -45,10 +45,11 @@ export function FunktionenView(props: FunktionenZustand) {
         {/* Names neither the record nor its team: on a mailbox somebody else typed by mistake, either
             would tell a stranger which club entered them. */}
         {props.zustand === "konto" && props.unbestaetigt && (
-          <EmptyState
-            title="Noch nicht bestätigt"
-            hint={`Du bist angemeldet, aber Deine Eintragung ist noch nicht bestätigt. Bestätige sie über den Link aus unserer E-Mail. Hast Du keinen bekommen, schreib uns an ${KONTAKT_EMAIL}.`}
-          />
+          <Callout
+            severity="info"
+            title="Noch nicht bestätigt">
+            {`Du bist angemeldet, aber Deine Eintragung ist noch nicht bestätigt. Bestätige sie über den Link aus unserer E-Mail. Hast Du keinen bekommen, schreib uns an ${KONTAKT_EMAIL}.`}
+          </Callout>
         )}
 
         {props.zustand === "konto" && (

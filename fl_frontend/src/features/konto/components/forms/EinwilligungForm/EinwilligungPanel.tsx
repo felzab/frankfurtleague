@@ -7,22 +7,30 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { ComponentProps, ReactElement, ReactNode } from "react";
-import type { EinwilligungForm } from "./EinwilligungForm";
+import type { ReactElement, ReactNode } from "react";
+import type { EinwilligungFormProps, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
 
 /**
- * One consent record on the account page: its stored data, its control, and the words its person
- * confirmed. The control comes rendered, each record typing its own choices and its own write.
+ * One record on the account page: its stored data, its control, and the words its person confirmed. The
+ * control comes rendered, each record typing its own choices and its own write.
  */
 export type EinwilligungEintrag = {
   readonly id: string;
   /** Names the record, so a person holding several reads which one each control moves. */
   readonly titel: string;
-  /** The record's stored data, read-only; absent on a seat, whose data its team's page shows. */
+  /**
+   * The record's stored data, read-only, which its confirmed wording promises the person sees here. Absent
+   * on every seat, a pending application's included: a seat's data is its team's record, and no contact
+   * wording promises it.
+   */
   readonly angaben?: ReactNode;
   /** The confirmed wording, read-only; `null` where the record names none the registry holds. */
   readonly bestaetigt: ReactNode;
-  readonly control: ReactElement<ComponentProps<typeof EinwilligungForm>>;
+  /**
+   * Absent on a record holding no choice of its own, a returning pupil's registration: its data stands alone.
+   * A person's or a seat's, each at its own scope, never one taking both.
+   */
+  readonly control?: ReactElement<EinwilligungFormProps<PersonUmfang>> | ReactElement<EinwilligungFormProps<SitzUmfang>>;
 };
 
 /** The words a person agreed to, apart from the control's own: a press changes the choice, never what was agreed. */

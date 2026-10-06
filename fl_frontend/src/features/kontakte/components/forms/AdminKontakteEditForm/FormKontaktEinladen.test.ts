@@ -49,7 +49,7 @@ describe("the contact seat's link control", () => {
         toasts.map((raised) => [raised.title, raised.description, raised.options?.outcome]),
         [
           [
-            "Unklar, ob es gespeichert wurde",
+            "Unklar, ob der Link verschickt wurde",
             "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
             "unknown",
           ],

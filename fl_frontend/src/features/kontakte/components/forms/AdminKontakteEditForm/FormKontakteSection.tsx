@@ -13,7 +13,14 @@ import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/featu
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
-import { eingetragenVonLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
+import {
+  eingetragenVonLabel,
+  KONTAKT_NAME_MAX_LENGTH,
+  KONTAKT_ROLLEN,
+  KONTAKT_WHATSAPP_FRAGE,
+  KONTAKT_WHATSAPP_LABELS,
+  TRAINER_ZUGLEICH_FRAGE,
+} from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -51,9 +58,6 @@ import type { KontakteBanner } from "./banners";
  */
 const NOCH_OFFEN = "Noch offen";
 
-/** The two words the contact confirmation's receipt answers a choice with, so both surfaces say it alike. */
-const ERLAUBT = "erlaubt";
-const NICHT_ERLAUBT = "nicht erlaubt";
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 
 /**
@@ -534,9 +538,9 @@ function KontaktpersonInputs({
           <div className="flex flex-col gap-y-1">
             <TextField
               isReadOnly
-              value={person.einwilligung.umfang === "kontaktdaten_whatsapp" ? ERLAUBT : NICHT_ERLAUBT}
+              value={KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
               onChange={() => undefined}>
-              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>WhatsApp</FieldLabel>
+              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{KONTAKT_WHATSAPP_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
             <Beleg

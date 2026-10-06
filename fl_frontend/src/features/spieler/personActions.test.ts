@@ -93,8 +93,7 @@ describe("what each squad write answers a refusal with", () => {
 });
 
 const { patchSpielerEinwilligungAction } = await import("./personActions.ts");
-const { EINTRAG_GEAENDERT, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
-  await import("@/features/konto/einwilligung.ts");
+const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } = await import("@/features/konto/einwilligung.ts");
 
 const EINWILLIGUNG_OPERATION = "PATCH /spieler/selbst/einwilligung";
 const WAHL = {
@@ -176,7 +175,7 @@ describe("a pupil's own consent write", () => {
 
     const answer = await patchSpielerEinwilligungAction(WAHL);
 
-    assert.deepEqual(answer, { success: false, error: EINTRAG_GEAENDERT, fieldErrors: undefined });
+    assert.deepEqual(answer, { success: false, error: EINTRAG_WEG, fieldErrors: undefined });
     assert.deepEqual(invalidations(), [], "a refused write dropped a cache or refreshed the page");
   });
 });

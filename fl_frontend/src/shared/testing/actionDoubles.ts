@@ -129,8 +129,10 @@ export function doubleActions({
  * Every server action module, for a suite in which no case saves: a real write module loads the
  * sign-in store and its database driver into the render, which is most of such a suite's time.
  */
-export function doubleEveryAction(): ReturnType<typeof doubleActions> {
-  return doubleActions({ modules: serverActionModules(20).map((file) => `/src/${srcPathOf(file)}`) });
+export function doubleEveryAction({ payloadOf }: Pick<Parameters<typeof doubleActions>[0], "payloadOf"> = {}): ReturnType<
+  typeof doubleActions
+> {
+  return doubleActions({ modules: serverActionModules(20).map((file) => `/src/${srcPathOf(file)}`), payloadOf: payloadOf });
 }
 
 /** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */
@@ -464,8 +466,8 @@ export function doubleToasts(): { raised: RaisedToast[] } {
     };
   // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
   // in every suite rather than under the raising site's title.
-  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">): string =>
-    raise("danger")(failureToastTitle(title, failure?.outcome), {
+  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unklarTitle?: string): string =>
+    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle), {
       description: failure?.unplacedError ?? failure?.error,
       outcome: failure?.outcome,
     });

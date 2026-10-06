@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
+import type { PersonUmfang } from "./EinwilligungForm.tsx";
 import type { EinwilligungEintrag } from "./EinwilligungPanel.tsx";
 
 doubleToasts();
@@ -32,7 +33,7 @@ const eintrag = (
   titel: titel,
   ...(angaben === undefined ? {} : { angaben: angaben }),
   bestaetigt: bestaetigt,
-  control: h(EinwilligungForm, {
+  control: h(EinwilligungForm<PersonUmfang>, {
     worte: {
       textVersion: "konto-test-1",
       medien: { schalter: `Fotos von mir (${titel})`, absatz: "Fotos kannst Du hier zurücknehmen." },

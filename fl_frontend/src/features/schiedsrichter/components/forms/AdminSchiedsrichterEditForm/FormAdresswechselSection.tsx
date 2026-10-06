@@ -21,6 +21,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
+import { LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -76,7 +77,8 @@ export function FormAdresswechselSection({
     if (res === null) return;
 
     if (!res.success) {
-      appToast.failure(art === "senden" ? "Link nicht gesendet" : "Änderung nicht verworfen", res);
+      if (art === "senden") appToast.failure("Link nicht gesendet", res, LINK_UNKLAR);
+      else appToast.failure("Änderung nicht verworfen", res);
       return;
     }
 

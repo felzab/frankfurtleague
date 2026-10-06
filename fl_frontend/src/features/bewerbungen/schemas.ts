@@ -4,10 +4,10 @@ import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
-  FLEinwilligungStandPayloadSchema,
   FLEinwilligungStandSchema,
   FLSpielerSelbstEinwilligungPayloadSchema,
   LinkAntwortTextVersionSchema,
+  WAHL_UNBEKANNT,
 } from "@/features/spieler/schemas";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -790,12 +790,9 @@ export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEi
  * `FLSaisonTeamPersonEinwilligungPayload`: a seat holder's two choices from the account page. A pending
  * application's seats take a withdrawal alone, which the backend judges; the page offers no grant there.
  */
-export const FLBewerbungPersonEinwilligungPayloadSchema = z.object({
+export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema.extend({
   // Both choices on every press, so moving one never leaves the other judged by nothing.
-  umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: "Diese Wahl kennen wir nicht. Lade die Seite neu." }),
-  medien: z.boolean(),
-  text_version: FLSpielerSelbstEinwilligungPayloadSchema.shape.text_version,
-  nachweis_stand: FLEinwilligungStandPayloadSchema,
+  umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: WAHL_UNBEKANNT }),
 });
 export type FLBewerbungPersonEinwilligungPayload = z.infer<typeof FLBewerbungPersonEinwilligungPayloadSchema>;
 

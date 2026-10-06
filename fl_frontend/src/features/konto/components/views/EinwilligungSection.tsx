@@ -3,10 +3,10 @@ import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ABLEHNEN_LABEL, rollenLangform } from "@/features/bewerbungen/constants";
 import { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } from "@/features/kontakte/personActions";
 import { RegistrierungAngaben } from "@/features/registrierungen/components/ui/RegistrierungAngaben";
-import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER, SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
+import { SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
 import { patchRegistrierungEinwilligungAction } from "@/features/registrierungen/personActions";
 import { SchiedsrichterAngaben } from "@/features/schiedsrichter/components/ui/SchiedsrichterAngaben";
-import { SCHIEDSRICHTER_MIN_ALTER, SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants";
+import { SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants";
 import { patchSchiedsrichterEinwilligungAction } from "@/features/schiedsrichter/personActions";
 import { SpielerAngaben } from "@/features/spieler/components/ui/SpielerAngaben";
 import { patchSpielerEinwilligungAction } from "@/features/spieler/personActions";
@@ -17,21 +17,22 @@ import { EinwilligungPanel } from "../forms/EinwilligungForm/EinwilligungPanel";
 import {
   bestaetigteWorte,
   bewerbungTitel,
-  bewerbungWorte,
-  NUR_WIDERRUF_BIS_AUFNAHME,
-  personWorte,
   registrierungTitel,
   schiedsrichterTitel,
+  schiedsrichterWorte,
+  sitzBestaetigungZeile,
   sitzTitel,
   sitzWorte,
   SPIELER_TITEL,
+  spielerWorte,
 } from "../forms/EinwilligungForm/kontoWorte";
 
+import type { FLSitzBestaetigt } from "../../schemas";
 import type { EinwilligungEintrag } from "../forms/EinwilligungForm/EinwilligungPanel";
 import type { Fuellung } from "../forms/EinwilligungForm/kontoWorte";
 
 /** The values every confirmation page names alike: the league's address and the erasure control's own name. */
-const KONSTANTEN: Fuellung = { ...FESTE_WERTE, medienMinAlter: String(MEDIEN_MIN_ALTER) };
+const KONSTANTEN: Fuellung = FESTE_WERTE;
 
 /** The words a record's person confirmed, or `null` where the record names no label the registry holds. */
 async function bestaetigt(textVersion: string | null, fuellung: Fuellung) {
@@ -39,6 +40,41 @@ async function bestaetigt(textVersion: string | null, fuellung: Fuellung) {
   const fassung = await getEinwilligungFassung(textVersion);
 
   return fassung === null ? null : bestaetigteWorte(fassung, fuellung);
+}
+
+/**
+ * A row's seats' confirmed words, one block per confirmation, each filled with its own roles and floor
+ * and headed by them: a Trainer who took a second seat later confirmed each under its own words.
+ */
+async function sitzBestaetigt(bestaetigungen: readonly FLSitzBestaetigt[], medienMindestalter: number) {
+  const bloecke = await Promise.all(
+    bestaetigungen.map(async (bestaetigung) => ({
+      bestaetigung: bestaetigung,
+      worte: await bestaetigt(bestaetigung.text_version, {
+        ...KONSTANTEN,
+        ...bestaetigung.kontext,
+        rolle: rollenLangform(bestaetigung.rollen),
+        minAlter: String(bestaetigung.mindestalter),
+        medienMinAlter: String(medienMindestalter),
+        ablehnen: ABLEHNEN_LABEL,
+      }),
+    })),
+  );
+  const gezeigt = bloecke.filter(({ worte }) => worte !== null);
+  if (gezeigt.length === 0) return null;
+
+  return (
+    <>
+      {gezeigt.map(({ bestaetigung, worte }) => (
+        <div
+          key={`${bestaetigung.rollen.join("-")}-${bestaetigung.text_version ?? ""}`}
+          className="flex flex-col gap-y-3">
+          <p className="fluid-sm font-bold text-foreground">{sitzBestaetigungZeile(bestaetigung)}</p>
+          {worte}
+        </div>
+      ))}
+    </>
+  );
 }
 
 /**
@@ -63,11 +99,18 @@ export async function EinwilligungSection() {
       bestaetigt: await bestaetigt(spieler.bestaetigt_text_version, {
         ...KONSTANTEN,
         ...spieler.kontext,
-        minAlter: String(REGISTRIERUNG_MIN_ALTER),
+        minAlter: String(spieler.mindestalter),
+        medienMinAlter: String(spieler.medien_mindestalter),
       }),
       control: (
         <EinwilligungForm
-          worte={personWorte(await getLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE)}
+          // Withdraw-only where the pupil is not active, with the reason their label gives for it.
+          worte={spielerWorte(
+            await getLaufendeFassung("konto_spieler"),
+            SPIELER_UMFANG_FRAGE,
+            spieler,
+            spieler.erteilbar ? undefined : "nichtAktiv",
+          )}
           gespeichert={{ umfang: spieler.einwilligung.umfang, medien: spieler.einwilligung.medien }}
           nachweisStand={spieler.nachweis_stand}
           medienAngeboten={spieler.medien_angeboten}
@@ -88,11 +131,12 @@ export async function EinwilligungSection() {
         bestaetigt: await bestaetigt(eintrag.bestaetigt_text_version, {
           ...KONSTANTEN,
           ...eintrag.kontext,
-          minAlter: String(SCHIEDSRICHTER_MIN_ALTER),
+          minAlter: String(eintrag.mindestalter),
+          medienMinAlter: String(eintrag.medien_mindestalter),
         }),
         control: (
           <EinwilligungForm
-            worte={personWorte(fassung, SCHIEDSRICHTER_UMFANG_FRAGE)}
+            worte={schiedsrichterWorte(fassung, SCHIEDSRICHTER_UMFANG_FRAGE, eintrag, !eintrag.erteilbar)}
             gespeichert={{ umfang: eintrag.einwilligung.umfang, medien: eintrag.einwilligung.medien }}
             nachweisStand={eintrag.nachweis_stand}
             medienAngeboten={eintrag.medien_angeboten}
@@ -115,19 +159,25 @@ export async function EinwilligungSection() {
         bestaetigt: await bestaetigt(registrierung.bestaetigt_text_version, {
           ...KONSTANTEN,
           ...registrierung.kontext,
-          minAlter: String(REGISTRIERUNG_MIN_ALTER),
+          minAlter: String(registrierung.mindestalter),
+          medienMinAlter: String(registrierung.medien_mindestalter),
         }),
-        control: (
-          <EinwilligungForm
-            worte={{ ...personWorte(fassung, SPIELER_UMFANG_FRAGE), nurWiderruf: NUR_WIDERRUF_BIS_AUFNAHME }}
-            gespeichert={{ umfang: registrierung.umfang, medien: registrierung.medien }}
-            nachweisStand={registrierung.nachweis_stand}
-            // Withdraw-only: a grant on a pending registration waits on its team's admission.
-            medienAngeboten={false}
-            erteilbar={false}
-            speichereAction={patchRegistrierungEinwilligungAction.bind(null, registrierung.registrierung_id)}
-          />
-        ),
+        // A returning pupil's registration asks no choice: its data stands alone, their record holding the choices.
+        ...(registrierung.umfang === null || registrierung.medien === null
+          ? {}
+          : {
+              control: (
+                <EinwilligungForm
+                  worte={spielerWorte(fassung, SPIELER_UMFANG_FRAGE, registrierung, "bisAufnahme")}
+                  gespeichert={{ umfang: registrierung.umfang, medien: registrierung.medien }}
+                  nachweisStand={registrierung.nachweis_stand}
+                  // Withdraw-only: a grant on a pending registration waits on its team's admission.
+                  medienAngeboten={false}
+                  erteilbar={false}
+                  speichereAction={patchRegistrierungEinwilligungAction.bind(null, registrierung.registrierung_id)}
+                />
+              ),
+            }),
       });
     }
   }
@@ -138,17 +188,11 @@ export async function EinwilligungSection() {
       eintraege.push({
         id: `sitz-${sitz.team_id}-${sitz.saison_id}`,
         titel: sitzTitel(sitz),
-        bestaetigt: await bestaetigt(sitz.bestaetigt_text_version, {
-          ...KONSTANTEN,
-          ...sitz.kontext,
-          // Every seat held on the row, as the contact page named them and judged the age.
-          rolle: rollenLangform(sitz.rollen),
-          minAlter: String(sitz.mindestalter),
-          ablehnen: ABLEHNEN_LABEL,
-        }),
+        bestaetigt: await sitzBestaetigt(sitz.bestaetigt, sitz.medien_mindestalter),
         control: (
           <EinwilligungForm
-            worte={sitzWorte(fassung, sitz)}
+            // Withdraw-only on a past season or a withdrawn team, with the reason the label gives for it.
+            worte={sitzWorte(fassung, sitz, sitz.erteilbar ? undefined : "vorbei")}
             gespeichert={{ umfang: sitz.umfang, medien: sitz.medien }}
             nachweisStand={sitz.nachweis_stand}
             medienAngeboten={sitz.medien_angeboten}
@@ -166,16 +210,14 @@ export async function EinwilligungSection() {
       eintraege.push({
         id: `bewerbung-${bewerbung.bewerbung_id}`,
         titel: bewerbungTitel(bewerbung),
-        bestaetigt: await bestaetigt(bewerbung.bestaetigt_text_version, {
-          ...KONSTANTEN,
-          ...bewerbung.kontext,
-          rolle: rollenLangform(bewerbung.rollen),
-          minAlter: String(bewerbung.mindestalter),
-          ablehnen: ABLEHNEN_LABEL,
-        }),
+        bestaetigt: await sitzBestaetigt(bewerbung.bestaetigt, bewerbung.medien_mindestalter),
         control: (
           <EinwilligungForm
-            worte={bewerbungWorte(fassung, bewerbung)}
+            worte={sitzWorte(
+              fassung,
+              { team_name: bewerbung.schule, saison_id: bewerbung.saison_id, medien_mindestalter: bewerbung.medien_mindestalter },
+              "bisZusage",
+            )}
             gespeichert={{ umfang: bewerbung.umfang, medien: bewerbung.medien }}
             nachweisStand={bewerbung.nachweis_stand}
             // Withdraw-only: a grant on a pending application is its confirmation page's alone.
