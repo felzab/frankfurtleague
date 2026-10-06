@@ -13,7 +13,7 @@ const fassung = (textVersion: string | null, istBekannt: boolean | null): string
 /* One component for the pupil's, the referee's and a contact seat's readout: a drift here moves all three. */
 describe("the stored label a consent readout shows", () => {
   it("says a record cites no label in words, never as an empty cell", () => {
-    assert.equal(fassung(null, true).trim(), "Nicht erfasst");
+    assert.equal(fassung(null, true).trim(), "Nicht hinterlegt");
   });
 
   it("shows a known label as its key alone", () => {

@@ -75,7 +75,7 @@ describe("the panel a triage decision is taken from", () => {
   for (const [von, label] of [
     ["bewerbung", "Mit der Bewerbung eingetragen"],
     ["liga", "Von der Liga eingetragen"],
-    [null, "Herkunft nicht erfasst"],
+    [null, "Herkunft nicht hinterlegt"],
   ] as const) {
     it(`names a seat stored as ${String(von)} by who seated it, „${label}“`, () => {
       const ansprechperson = BEWERBUNG.kontakte.ansprechperson;

@@ -181,7 +181,7 @@ export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
  * stored before the field, which says so instead.
  */
 export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von"]): string {
-  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? "Herkunft nicht erfasst";
+  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? "Herkunft nicht hinterlegt";
 }
 
 /**
