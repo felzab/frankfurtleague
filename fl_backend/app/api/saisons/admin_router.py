@@ -1361,9 +1361,6 @@ async def post_einladungen_versand(
     # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
     gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
-    # A revoke mid-loop refuses the next team's transaction: each team before it lost its old link
-    # and holds one nobody was sent, which pressing again mints anew (`docs/backend/spec.md :: I450`).
-
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
     zeilen = [
