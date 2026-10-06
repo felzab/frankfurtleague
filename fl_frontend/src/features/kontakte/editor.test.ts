@@ -333,14 +333,17 @@ const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchPara
 
 /** The block the page's memberships read answers with, as the backend holds it at that moment. */
 let storedBlock: FLSaisonTeamKontakte = BLOCK;
-/** The registry's running-label read failing, where a case asks it to. */
-let seitenFehlen = false;
+/** The registry's answer where a case names one, an `Error` failing its read. */
+let seitenAntwort: unknown = undefined;
 
 /** The season the address names. */
 const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
 
 answerReadsWith((endpoint, schema, params) => {
-  if (seitenFehlen && endpoint === "/einwilligung/seiten") throw new Error("backend unreachable");
+  if (seitenAntwort !== undefined && endpoint === "/einwilligung/seiten") {
+    if (seitenAntwort instanceof Error) throw seitenAntwort;
+    return seitenAntwort;
+  }
   const einwilligung = einwilligungAnswer(endpoint);
   if (einwilligung !== undefined) return einwilligung;
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
@@ -435,12 +438,26 @@ describe("the editor's shape", () => {
   /* A blank seat stamps the running label, and only that needs it: its failed read hands the editor
      none, and the page stands. */
   it("hands the editor no label, and renders, where the running label could not be read", async () => {
-    seitenFehlen = true;
+    seitenAntwort = new Error("backend unreachable");
     try {
       const body = await pageBody(AdminKontakteEditPage, PAGE_PROPS);
       assert.equal((body.props as { laufendesLabel: unknown }).laufendesLabel, null, "a failed read reached the editor as a label");
     } finally {
-      seitenFehlen = false;
+      seitenAntwort = undefined;
+    }
+  });
+
+  /* A registry answering against what this page was built for: only a deploy repairs it, so it reaches
+     the error boundary, which logs it, never an editor closing blank seats in silence. */
+  it("lets a registry breaking its contract reach the error boundary", async () => {
+    try {
+      seitenAntwort = { acknowledged: 1, laufende_fassungen: {} };
+      await assert.rejects(pageBody(AdminKontakteEditPage, PAGE_PROPS), { name: "ContractBreakError" }, "no label for the form");
+
+      seitenAntwort = { acknowledged: 1 };
+      await assert.rejects(pageBody(AdminKontakteEditPage, PAGE_PROPS), { name: "APIMalformedDataError" }, "an answer off its schema");
+    } finally {
+      seitenAntwort = undefined;
     }
   });
 

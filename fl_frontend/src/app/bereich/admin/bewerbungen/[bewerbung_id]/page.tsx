@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { getLaufendeFassung, getLaufendesLabel } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { AdminBewerbungView } from "@/features/bewerbungen/components/views/AdminBewerbungView";
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { resolveBewerbungId } from "@/features/bewerbungen/resolvers";
@@ -49,8 +50,8 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
   const [saisonsRes, teamsRes, neubesetzung] = await Promise.all([
     getAdminSaisons(),
     getTeamMemberships(),
-    // `null` where either registry read failed or its words cannot be keyed: the reseat alone needs
-    // them, so it closes and the decision above it stands.
+    // `null` where either registry read failed: the reseat alone needs them, so it closes and the
+    // decision above it stands. Words it cannot key reach the error boundary (`docs/frontend/spec.md :: I982`).
     Promise.all([
       // Per request, as every stamper reads the running label: a deploy moves it.
       runWithIncomingTrace(() => getLaufendesLabel("bewerbung")),
@@ -61,7 +62,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
         textVersion: formLabel,
         absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL).absaetze,
       }),
-      () => null,
+      nullUnlessContractBreak,
     ),
   ]);
 

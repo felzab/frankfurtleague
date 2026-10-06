@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { getLaufendeFassung } from "@/core/einwilligung";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
 import { parseSaisonIdParam, resolveSaisonIdParam } from "@/features/saisons/resolvers";
@@ -90,12 +91,12 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
       : [];
 
   // Per request and only for a running window: a deploy moves the label the submission is judged
-  // against. A failure is the page's own state rather than a form stamping nothing.
+  // against. A failed read is the page's own state rather than a form stamping nothing.
   const fassung =
     fenster.fenster?.laeuft === true
       ? await runWithIncomingTrace(() => getLaufendeFassung("bewerbung")).then(
           (gelesen) => ({ textVersion: gelesen.text_version, absaetze: gelesen.absaetze, schalter: gelesen.schalter }),
-          () => null,
+          nullUnlessContractBreak,
         )
       : null;
 

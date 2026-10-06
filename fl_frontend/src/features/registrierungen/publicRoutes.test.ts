@@ -568,17 +568,29 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
   /**
    * The page's body for an open link the backend resolved to `seite`, `laufend` being what it runs on
-   * that page and `scheitert` failing the words read.
+   * that page, `seiten` the registry's whole answer and `scheitert` failing the words read.
    */
   async function handedFassung({
     seite = FASSUNG.seite,
     laufend,
+    seiten,
     scheitert = false,
-  }: { seite?: SpielerSeitenFassung["seite"]; laufend?: string; scheitert?: boolean } = {}): Promise<SpielerSeitenFassung | null> {
+  }: {
+    seite?: SpielerSeitenFassung["seite"];
+    laufend?: string;
+    seiten?: unknown;
+    scheitert?: boolean;
+  } = {}): Promise<SpielerSeitenFassung | null> {
     answerReadsWith((endpoint, schema, params) => {
       if (scheitert && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error(`the backend failed ${endpoint}`);
       if (endpoint === "/registrierungen/bestaetigung/ansicht") return { ...GEOEFFNET, seite: seite };
-      if (endpoint === "/einwilligung/seiten" && laufend !== undefined) return { acknowledged: 1, laufende_fassungen: { [seite]: laufend } };
+      if (endpoint === "/einwilligung/seiten" && seiten !== undefined) return seiten;
+      // Over the registry's other labels: the page reads both pupil pages' words, whichever the link names.
+      if (endpoint === "/einwilligung/seiten" && laufend !== undefined) {
+        const registry = einwilligungAnswer(endpoint) as { laufende_fassungen: Record<string, string> };
+
+        return { acknowledged: 1, laufende_fassungen: { ...registry.laufende_fassungen, [seite]: laufend } };
+      }
       return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
     });
     const body = (await pageBody(SpielerBestaetigungPage, {
@@ -614,6 +626,20 @@ describe("which of the confirmation page's words its stamped version covers", ()
       { name: "ZodError" },
       "the returning page absorbed words asking choices it does not ask",
     );
+  });
+
+  /* A registry answering against what this page was built for is no failed read: only a deploy repairs
+     it, so it reaches the error boundary, which logs it, never the panel asking for a reload. */
+  it("lets a registry breaking its contract reach the error boundary", async () => {
+    const registry = einwilligungAnswer("/einwilligung/seiten") as { laufende_fassungen: Record<string, string> };
+    const ohneWiederkehrend = Object.fromEntries(
+      Object.entries(registry.laufende_fassungen).filter(([seite]) => seite !== WIEDERKEHREND.seite),
+    );
+
+    // The returning pupil's page missing fails a new pupil's link too: one registry serves both pages.
+    await assert.rejects(handedFassung({ seiten: { acknowledged: 1, laufende_fassungen: ohneWiederkehrend } }), { name: "ContractBreakError" });
+    await assert.rejects(handedFassung({ laufend: "2026-01-nirgends" }), { name: "ContractBreakError" }, "a label serving no words");
+    await assert.rejects(handedFassung({ seiten: { acknowledged: 1 } }), { name: "APIMalformedDataError" }, "an answer off its schema");
   });
 
   /* The read failing is a state of its own, which a reload may clear. */
