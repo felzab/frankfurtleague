@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { redactedParameterNames } from "./edgeRedaction.ts";
 import { registerDoubles } from "./exportingModule.ts";
+import { readable } from "./mailText.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -15,28 +16,6 @@ const { KONTAKT_EMAIL } = await import("./brand.ts");
 
 const TOKEN = "abc123";
 const FRIST = "05.10.2026";
-
-/** The markup branch reduced to the facts a reader ends up with, so a fact is checked as a fact in both branches. */
-function readable(html: string): string {
-  let stripped = html;
-
-  // To a FIXPOINT: a pattern leaving a tag standing hands the caller markup to read as text
-  // (`fl_frontend/src/shared/testing/renderTest.ts :: textOf`).
-  for (let previous = ""; stripped !== previous;) {
-    previous = stripped;
-    stripped = stripped.replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]*>/g, " ");
-  }
-
-  return stripped
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&amp;", "&")
-    .replace(/\s+/g, " ")
-    .replace(/\s+([,.;:!?])/g, "$1")
-    .trim();
-}
 
 const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
