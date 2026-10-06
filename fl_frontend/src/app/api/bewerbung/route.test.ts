@@ -352,15 +352,18 @@ describe("what the submission's messages say about themselves", () => {
 });
 
 describe("the application handler's bot check", () => {
-  /* The check's verdicts are `fl_frontend/src/core/turnstile.test.ts`'s, and this handler asking it before
-     anything else is `fl_frontend/src/app/botCheckCoverage.test.ts`'s: this case holds the header the
-     token is read from. */
-  it("writes past the test key's token, asked of Cloudflare with the test secret", async () => {
+  /* The check's verdicts, and the secret it sends under the real config, are `fl_frontend/src/core/turnstile.test.ts`'s;
+     this handler asking it first is `fl_frontend/src/app/botCheckCoverage.test.ts`'s. Here: the header
+     the token is read from. */
+  it("writes past the test key's token, read from the header the form sends it in", async () => {
     const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }));
 
     assert.equal((answer.body as { success: boolean }).success, true);
     assert.equal(writes().length, 1);
-    assert.deepEqual(siteverify.asked(), [{ secret: TEST_SECRET, response: TEST_TOKEN }]);
+    assert.deepEqual(
+      siteverify.asked().map(({ response }) => response),
+      [TEST_TOKEN],
+    );
   });
 });
 

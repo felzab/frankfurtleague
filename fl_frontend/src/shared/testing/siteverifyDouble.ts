@@ -13,7 +13,7 @@ export const TEST_SECRET = "1x0000000000000000000000000000000AA";
 
 /**
  * Cloudflare's check at the network edge every suite fakes, judging every token a pass from each case's
- * start. The helper and the config behind it stay real, so a case reads the secret a check was asked with.
+ * start. Nothing behind the edge is faked here, so a case reads the token and secret each check was asked with.
  */
 export function doubleSiteverify(): {
   /** Cloudflare's verdict on every check the case asks for from here on. */
