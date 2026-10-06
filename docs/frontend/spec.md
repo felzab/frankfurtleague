@@ -433,8 +433,8 @@ says so at the widget, and its first failure is reported as `FE-CLIENT-001`. A r
 address, so the check is no membership oracle. **No edge rule stands in for it**: a challenge
 answers a `fetch()` with markup ([`docs/ops/spec.md`](../ops/spec.md) I177), and no rule checks the POST behind a challenged page. **Only
 a check Cloudflare cannot answer lets the submission through** (I822), Cloudflare fronting the
-whole site anyway; a secret or request of ours it refuses, by an error code or by a 4xx status other
-than 429, is refused in a sentence of its own, so a
+whole site anyway; a secret or request of ours it refuses, at a 4xx other than 429 whose codes the
+refusal's line names, is refused in a sentence of its own, so a
 wrong key shows at the first submission rather than switching the check off. Better Auth's captcha plugin is not the check: it guards the
 library's HTTP endpoints, and the code mail leaves through an in-process call no request reaches.
 The passkey ceremony and the typed code's check mail nothing and carry no check. **No anonymous
