@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -39,7 +39,6 @@ const answerWith = (next: () => Promise<unknown>): void =>
   client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(REPORTED) : next()));
 
 const { POST } = await import("./route.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -54,18 +53,6 @@ const BODY = {
 
 /** The referee as the replay stored it, which every answer below echoes. */
 const STORED = { ...BODY, inactive_since: null, geburtsdatum: null, einwilligung: null, bestaetigung: null, adresswechsel: null };
-
-const aRefusal = (serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/schiedsrichter",
-    statusCode: 409,
-    serverErrorCode,
-    endpoint: "/schiedsrichter",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
 
 function aRequest(body: unknown, headers: Record<string, string> = {}) {
   return { headers: new Headers(headers), json: async () => body } as unknown as Parameters<typeof POST>[0];
@@ -160,7 +147,7 @@ describe("the referee save's undo", () => {
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
     const answers = await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
-      refuse: (code) => answerWith(() => Promise.reject(aRefusal(code))),
+      refuse: (code) => answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code))),
       press: () => bodyOf(aRequest(BODY)),
     });
 

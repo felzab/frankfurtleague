@@ -3,7 +3,6 @@ import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { APIBadStatusError } from "@/core/errors";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -29,6 +28,7 @@ beforeEach(beginRenderPass);
 
 const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen, getOffenesBewerbungFenster } =
   await import("./queries.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /**
  * Runs `read` against a client that throws, and leaves `calls` as it found it: the cases below
@@ -96,19 +96,8 @@ describe("the four base-tier public reads", () => {
   /* A season the visitor may not read is a state rather than a failure: the page renders „noch nicht
      offen“ or „abgelaufen“ off it, and a throw here would answer the error page instead. */
   it("reads a 404 on either window as no window rather than as a failure", async () => {
-    const notFound = new APIBadStatusError({
-      message: "not found",
-      url: "http://backend/api/v0/bewerbungen/fenster",
-      statusCode: 404,
-      serverErrorCode: "DB-COMMON-001",
-      endpoint: "/bewerbungen/fenster",
-      method: "GET",
-      readOnly: false,
-      traceId: "0123456789abcdef",
-    });
-
-    assert.equal(await failing(notFound, () => getOffenesBewerbungFenster()), null);
-    assert.equal(await failing(notFound, () => getBewerbungFenster("2627")), null);
+    assert.equal(await failing(refusedOn("GET /bewerbungen/fenster", "DB-COMMON-001"), () => getOffenesBewerbungFenster()), null);
+    assert.equal(await failing(refusedOn("GET /bewerbungen/fenster/{saison_id}", "DB-COMMON-001"), () => getBewerbungFenster("2627")), null);
   });
 });
 

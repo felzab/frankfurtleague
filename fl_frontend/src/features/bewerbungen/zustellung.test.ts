@@ -75,6 +75,7 @@ const {
   zustellungTags,
 } = await import("./zustellung.ts");
 const { APIBadStatusError, APINetworkError, ApiUnsentError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { POST } = await import("@/app/api/mail/zustellung/route.ts");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
@@ -678,16 +679,7 @@ describe("POST /api/mail/zustellung", () => {
      Retrying those spends the endpoint's standing with the provider on a record that is gone. */
   it("answers 200 where the application no longer exists", async () => {
     zustellungAnswer = () => {
-      throw new APIBadStatusError({
-        message: "API returned a bad status.",
-        url: "http://backend:8000",
-        statusCode: 404,
-        serverErrorCode: "DB-COMMON-001",
-        endpoint: "/bewerbungen/zustellung",
-        method: "POST",
-        readOnly: false,
-        traceId: "t".repeat(32),
-      });
+      throw refusedOn("POST /bewerbungen/zustellung", "DB-COMMON-001");
     };
 
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
