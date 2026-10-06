@@ -6,7 +6,14 @@ import Link from "next/link";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
-import { BestaetigungErgebnis, FaktenBanner, FrageStellen, useLinkSeite } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import {
+  BestaetigungErgebnis,
+  FaktenBanner,
+  FrageStellen,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
+  useLinkSeite,
+} from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -32,7 +39,7 @@ const TITEL: Record<Stand, string> = {
   "team-fehlt": "Team nicht eingetragen",
   geschlossen: "Registrierung geschlossen",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 /** What the page knows about the team, or `null` where it may name nobody. */
@@ -173,16 +180,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
         </BestaetigungErgebnis>
       )}
 
-      {/* Says that it does not know, and nothing else: folded into the dead-link panel, this arm would
-          call a live link void on a day the backend was merely unreachable. */}
-      {stand === "unlesbar" && (
-        <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand === "unlesbar" && <LinkUnlesbar />}
     </section>
   );
 }

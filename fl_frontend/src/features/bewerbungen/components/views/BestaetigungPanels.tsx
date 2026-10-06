@@ -12,9 +12,19 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
 
 import type { ReactNode, RefObject } from "react";
+
+/** The heading of a page whose link could not be checked, on every page a token link opens. */
+export const LINK_UNLESBAR_TITEL = "Link nicht geprüft";
+
+/** The failure's title on every page a token link opens: „Änderung nicht gespeichert“ names a change nobody here made. */
+export const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
+
+/** What a press that wrote nothing and named no reason tells its person, on every page a token link opens. */
+export const ANTWORT_NICHT_GESPEICHERT_SATZ = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /** Shared by every page a token link opens, so none of them alone keeps its token in the address or drops the answer's focus. */
 export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
@@ -202,6 +212,21 @@ export function AdresseGesperrt({ panelRef }: { panelRef: RefObject<HTMLElement 
         <p className={ABSATZ_CLASSES}>{LINK_ADRESSE_GESPERRT}</p>
       </BestaetigungErgebnis>
     </section>
+  );
+}
+
+/**
+ * **The whole of what a page whose link could not be checked says**: that it does not know. Folded into
+ * the dead-link panel, it would call a live link void on a day the backend was merely unreachable.
+ */
+export function LinkUnlesbar({ panelRef }: { panelRef?: RefObject<HTMLElement | null> }) {
+  return (
+    <BestaetigungErgebnis
+      panelRef={panelRef}
+      tone="hinweis">
+      <p className={ABSATZ_CLASSES}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+      <FrageStellen />
+    </BestaetigungErgebnis>
   );
 }
 

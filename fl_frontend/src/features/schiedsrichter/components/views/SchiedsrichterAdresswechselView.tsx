@@ -11,9 +11,13 @@ import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefue
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AdresseGesperrt,
+  ANTWORT_NICHT_GESPEICHERT,
+  ANTWORT_NICHT_GESPEICHERT_SATZ,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
@@ -23,7 +27,6 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { AdresswechselAnsicht, AdresswechselLinkZustand, AdresswechselNurAblehnbar } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
@@ -62,12 +65,8 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   abgelaufen: "Link abgelaufen",
   nicht_bestaetigbar: "Änderung nicht mehr möglich",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
-
-/** This page's own word for the failure, for the consent page's reason. */
-const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
-const NICHT_GESPEICHERT = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 export const JA_MEINE_ADRESSE = "Ja, das ist meine Adresse";
 export const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
@@ -106,7 +105,7 @@ function useAntwort(token: string, onAbschluss: (stand: Stand) => void) {
           onAbschluss(totStand(body.zustand, token));
           return;
         }
-        appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: body.error ?? body.unplacedError ?? NICHT_GESPEICHERT });
+        appToast.danger(ANTWORT_NICHT_GESPEICHERT, { description: body.error ?? body.unplacedError ?? ANTWORT_NICHT_GESPEICHERT_SATZ });
       });
     });
   };
@@ -291,16 +290,7 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "unlesbar" && (
-        <BestaetigungErgebnis
-          panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
     </section>
   );
 }

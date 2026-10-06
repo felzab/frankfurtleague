@@ -14,7 +14,7 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { AdresseGesperrt, useLinkSeite } = await import("./BestaetigungPanels.tsx");
+const { AdresseGesperrt, LinkUnlesbar, useLinkSeite } = await import("./BestaetigungPanels.tsx");
 const { Gefuellt } = await import("../ui/Gefuellt.tsx");
 
 const PFAD = "/bestaetigung/kontakt";
@@ -138,5 +138,18 @@ describe("what a link to a barred address opens on", () => {
     const html = renderMarkup(AdresseGesperrt, { panelRef: createRef<HTMLElement>() });
 
     assert.ok(html.startsWith(`<section class="${SEITE_CLASSES}">`), "the barred page draws a column of its own");
+  });
+});
+
+/* Every page a token link opens shows this panel where its read failed, so its words are pinned here once. */
+describe("what a link nobody could check opens on", () => {
+  it("says it does not know and offers the mailbox, calling the link neither live nor void", () => {
+    const html = renderMarkup(LinkUnlesbar, {});
+
+    assert.equal(
+      textOf(html, " ").replace(/\s+/g, " ").trim(),
+      "Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns. Frage stellen",
+    );
+    assert.match(html, /href="mailto:kontakt@frankfurtleague\.de"/);
   });
 });
