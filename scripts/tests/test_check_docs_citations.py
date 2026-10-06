@@ -591,6 +591,38 @@ def test_a_name_a_script_module_only_imports_resolves_nowhere_while_a_re_export_
     _assert_corpus_restored()
 
 
+# A script module binding names by a destructured dynamic import and by an import-require.
+BINDING_MODULE: Final = "fl_frontend/src/binding.ts"
+
+
+def test_a_name_a_dynamic_import_or_an_import_require_binds_resolves_nowhere_while_a_declaration_does() -> None:
+    """Both bind another module's name without an import declaration; the destructuring is read across lines, as the tests write it."""
+    _reset()
+    write(
+        _gate().root,
+        BINDING_MODULE,
+        _page(
+            'const { DYNAMIC } = await import("./elsewhere");',
+            "const {",
+            "  SPREAD,",
+            "} = await import(`./elsewhere`);",
+            'import REQUIRED = require("./elsewhere");',
+            "export const DECLARED = 1;",
+        ),
+    )
+    cited = [BINDING_MODULE + " :: " + anchor for anchor in ("DYNAMIC", "SPREAD", "REQUIRED", "DECLARED")]
+    _append(NOTES, "The binding module's names: " + ", ".join(_tick(citation) for citation in cited) + ".")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 3, _shape(reported)
+    for anchor in ("DYNAMIC", "SPREAD", "REQUIRED"):
+        assert "anchor '" + anchor + "' is only imported into " + BINDING_MODULE in output, output
+    _assert_corpus_restored()
+
+
 # A script module whose comment still spells its constant's old name.
 RENAMED_MODULE: Final = "fl_frontend/src/renamed.ts"
 # A shell script whose function opens on a line ending in a comment.

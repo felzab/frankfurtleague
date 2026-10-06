@@ -1616,11 +1616,14 @@ def _anchor_names(anchor: str) -> tuple[str, ...] | None:
 
 
 SCRIPT_SUFFIXES: Final = tuple(suffix for suffix in CSTYLE_SUFFIXES if suffix != ".css")
-# Every import declaration form, its clause read across lines. An `export … from` opens with
-# `export`, so a shim's re-export keeps its names citable.
+# Every import declaration form, its clause read across lines, and the two bindings importing
+# without one: a destructured `await import(…)` and `import X = require(…)`. An `export … from`
+# opens with `export`, so a shim's re-export keeps its names citable.
 IMPORT_DECLARATION_RE: Final = re.compile(
     r"^[ \t]*import\s+(?:type\s+)?(?:[\w$]+\s*,?\s*)?(?:\{[^{}]*\}|\*\s*as\s+[\w$]+)?\s*from\s*([\"'])[^\"'\n]*\1"
-    r"|^[ \t]*import\s*([\"'])[^\"'\n]*\2",
+    r"|^[ \t]*import\s*([\"'])[^\"'\n]*\2"
+    r"|^[ \t]*(?:const|let|var)\s+\{[^{}]*\}\s*=\s*await\s+import\s*\(\s*(?:([\"'`])[^\"'`\n]*\3\s*\))?"
+    r"|^[ \t]*import\s+[\w$]+\s*=\s*require\s*\(\s*([\"'])[^\"'\n]*\4\s*\)",
     re.MULTILINE,
 )
 
