@@ -581,7 +581,7 @@ describe("the editor's shape", () => {
   it("offers the re-send on every unconfirmed person once, a half-confirmed pair included", () => {
     const offen = (person: FLKontaktperson): FLKontaktperson => ({ ...person, einwilligung: { ...person.einwilligung, bestaetigt_am: null } });
     const offers = (kontakte: FLSaisonTeamKontakte, nimmtLinks = true): string[] =>
-      [...sectionMarkup(kontakte, true, nimmtLinks).matchAll(/aria-label="[^"]*senden an ([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
+      [...sectionMarkup(kontakte, true, nimmtLinks).matchAll(/aria-label="[^"]*senden: ([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
     const grace = BLOCK.ansprechperson ?? assert.fail("the block seats no Ansprechperson");
     const ada = BLOCK.trainer ?? assert.fail("the block seats no Trainer");
 
@@ -606,7 +606,7 @@ describe("the editor's shape", () => {
       stellvertretung: { ...stellvertretung, einwilligung: { ...stellvertretung.einwilligung, bestaetigt_am: null } },
     };
     const offers = (row: Parameters<typeof viewElement>[3]): number =>
-      [...editorTree(viewElement(offen, true, "t1", row), offen).matchAll(/aria-label="[^"]*senden an /g)].length;
+      [...editorTree(viewElement(offen, true, "t1", row), offen).matchAll(/aria-label="[^"]*senden: /g)].length;
 
     assert.equal(offers({}), 1, "an open seat on a running row offers no re-send, so the absences below prove nothing");
     assert.equal(offers({ saisonStatus: "past" }), 0, "a past season's row offers a re-send");

@@ -11,6 +11,7 @@ import { Dropdown } from "@heroui/react/dropdown";
 import { Separator } from "@heroui/react/separator";
 
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
+import { benannt } from "@/shared/utils/benannt";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 import { NAME_WRAP_CLASSES } from "../../ui/nameWrap";
@@ -70,7 +71,7 @@ export function FunktionSwitcher({
         {/* The options row's own shape, so the rail's two menus read as one kind of control; expanded, its height
             is a floor, as a club's name wraps rather than hiding the words that tell two clubs apart. */}
         <Dropdown.Trigger
-          aria-label={isDesktopCollapsed ? "Funktion wechseln" : `${name}, Funktion wechseln`}
+          aria-label={isDesktopCollapsed ? "Funktion wechseln" : benannt(name, "Funktion wechseln")}
           className={`flex shrink-0 items-center rounded-md text-foreground transition-colors data-hovered:bg-hover data-[pressed=true]:transform-none ${
             isDesktopCollapsed
               ? `h-9 w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}`

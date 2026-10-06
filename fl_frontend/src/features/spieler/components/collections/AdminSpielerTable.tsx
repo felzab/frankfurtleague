@@ -176,13 +176,13 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
    */
   const renderNummer = (spieler: AdminSpielerRow) => (
     <span
-      aria-label={spieler.selected?.nummer ? undefined : "Keine Nummer"}
       // A fixed height rather than padding: `py-1.5` sizes the chip from its line box, and an empty
       // span has none, so the empty chip would collapse.
       className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
-      {spieler.selected?.nummer ?? ""}
+      {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
+      {spieler.selected?.nummer ?? <span className="sr-only">Keine Nummer</span>}
     </span>
   );
 

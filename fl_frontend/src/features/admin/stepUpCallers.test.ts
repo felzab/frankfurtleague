@@ -269,7 +269,7 @@ const retype = (label: string, value: string) => async (user: User) => {
 /** Every one-press caller of the registry, and a case of the conditional ones on a call that asks nothing. */
 const DRIVES: Record<string, Drive[]> = {
   "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: einwilligungErneutSendenAction": [
-    { render: () => strip(false), press: "Link erneut senden an Trainer", asks: true },
+    { render: () => strip(false), press: "Link erneut senden: Trainer", asks: true },
   ],
   "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: kontaktEmailKorrigierenAction": [
     {
@@ -362,7 +362,7 @@ const DRIVES: Record<string, Drive[]> = {
             router: nextRouter(),
           },
         ),
-      press: "Bestätigungslink senden an Ansprechperson",
+      press: "Bestätigungslink senden: Ansprechperson",
       asks: true,
     },
   ],

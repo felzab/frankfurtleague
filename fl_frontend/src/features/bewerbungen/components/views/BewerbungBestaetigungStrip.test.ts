@@ -125,7 +125,7 @@ function renderStrip({
 }
 
 const pencil = (name: string) => screen.queryByRole("button", { name: `Adresse korrigieren: ${name}` });
-const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden an ${rolle}` });
+const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden: ${rolle}` });
 const reseat = (rolle: string) => screen.queryByRole("button", { name: `Neu besetzen: ${rolle}` });
 const addressBox = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
 
@@ -202,7 +202,7 @@ describe("the re-send on a seat with no address", () => {
     renderStrip({ stands: standsOf({ kontakte: { trainer: person("Clara", "") } }) });
     const withoutAddress = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „Adresse korrigieren“ ein.";
 
-    closedControl("Link erneut senden an Trainer", withoutAddress);
+    closedControl("Link erneut senden: Trainer", withoutAddress);
     assert.equal(isInTheFlow(withoutAddress), false, "the reason stands in the flow, which this row takes away with its controls");
     assert.equal(pencil("Clara Meier")?.hasAttribute("disabled"), false, "the pencil that would give the seat an address is closed");
   });
