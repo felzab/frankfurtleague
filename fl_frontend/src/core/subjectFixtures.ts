@@ -30,27 +30,24 @@ export const NO_RECORDS: SubjectSession["subjekt"] = deepFrozen({
 });
 
 /**
- * What a suite's backend holds for one address: the subject's records, and `konto` where the address
- * holds a record of its own that no list names, a pending application's seat or a retired row.
+ * What a suite's backend holds for one address: the subject's records, and `konto` as the gate answers
+ * it. Stated by every fixture and never worked out from the lists: which records count is the backend's
+ * rule, and a double deriving it hands each case the answer its own copy of that rule gives.
  */
-export type LookupFixture = Partial<SubjectSession["subjekt"]> & { readonly acknowledged?: 0 | 1; readonly konto?: boolean };
+export type LookupFixture = Partial<SubjectSession["subjekt"]> & { readonly acknowledged?: 0 | 1; readonly konto: boolean };
 
 /** The path the sign-in gate reads, its own beside the subject read every guard takes. */
 export const GATE_ENDPOINT = "/identitaet/anmeldung";
 
-/**
- * One table of fixtures answering the subject read and the gate alike. Every listed record is the
- * address's own, so a list naming one sets `konto` unless the fixture says otherwise.
- */
+/** One table of fixtures answering the subject read and the gate alike, each in its read's shape. */
 export function answerAt(endpoint: string, held: LookupFixture): Record<string, unknown> {
   const { konto, ...subjekt } = held;
   if (!endpoint.endsWith(GATE_ENDPOINT)) return subjekt;
 
-  const listed = [subjekt.sitze, subjekt.spieler, subjekt.schiedsrichter].some((list) => (list?.length ?? 0) > 0);
   return {
     acknowledged: 1,
     unbestaetigt: subjekt.unbestaetigt ?? false,
-    konto: konto ?? listed,
+    konto: konto,
     gesperrt: subjekt.gesperrt ?? false,
     verwaltung: subjekt.verwaltung ?? null,
   };
