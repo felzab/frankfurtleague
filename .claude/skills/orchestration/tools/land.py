@@ -75,6 +75,16 @@ def preflight(branch: str) -> None:
     # git names a stash "On <branch>:" when given a message and "WIP on <branch>:" when not.
     if re.search(rf"(?:^|: )(?:WIP on|On) {re.escape(branch)}:", git("stash", "list"), re.MULTILINE):
         raise Stop(2, f"a stash entry is on {branch}, and a stashed edit lands nowhere: the agent commits or drops it first")
+    # A patch landed twice merges clean as text, and a later edit to one copy doubled a hunk unseen;
+    # a rebase drops the copy, a merge of the session branch keeps it.
+    twins = [line[2:] for line in git("cherry", "-v", "HEAD", branch).splitlines() if line.startswith("- ")]
+    if twins:
+        raise Stop(
+            2,
+            f"{branch} carries {len(twins)} commit(s) whose patch the session branch already holds under another hash:",
+            *twins,
+            "the agent rebases onto the session branch, which drops them",
+        )
 
 
 def resolve(conflicted: list[str], written: list[str]) -> list[str]:

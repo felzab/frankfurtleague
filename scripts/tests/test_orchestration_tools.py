@@ -546,6 +546,17 @@ def test_a_stash_entry_on_the_branch_is_refused(tmp_path: Path, named: tuple[str
     assert "a stash entry is on agent" in _refused(root)
 
 
+def test_a_branch_carrying_a_patch_the_session_already_holds_is_refused(tmp_path: Path) -> None:
+    """A cherry-picked commit's twin on the agent's branch merges clean and can double a hunk a later edit touches."""
+    root = _repo(tmp_path)
+    picked = _agent_commit(root, "Docs: A note", NOTE)
+    _agent_commit(root, "Docs: Another file", {"other.txt": "new\n"})
+    git(root, "cherry-pick", picked)
+    said = _refused(root)
+    assert "1 commit(s) whose patch the session branch already holds" in said and "Docs: A note" in said
+    assert "Docs: Another file" not in said
+
+
 def test_git_failing_during_the_merge_is_its_own_exit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
