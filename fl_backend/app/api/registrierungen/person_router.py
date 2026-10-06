@@ -64,7 +64,7 @@ from app.core.drosselung import gedrosselt
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -76,9 +76,6 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
 
-# The binder's own run, yielding the folded identifier the seat is judged against.
-Kontakt = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
-
 
 @router.get(
     "/kader/{team_id:objectid}/{saison_id}",
@@ -89,7 +86,7 @@ async def get_offene_registrierungen(
     team_id: CustomRouteObjectId,
     saison_id: str,
     params: Annotated[FLOffeneRegistrierungenParams, Query()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
@@ -184,7 +181,7 @@ async def get_offene_registrierungen(
 async def aufnehmen(
     registrierung_id: CustomRouteObjectId,
     aufnahme_data: Annotated[FLRegistrierungAufnehmenPayload, Body()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
@@ -367,7 +364,7 @@ async def aufnehmen(
 async def ablehnen(
     registrierung_id: CustomRouteObjectId,
     ablehnung_data: Annotated[FLRegistrierungAblehnenPayload, Body()],
-    identifier: Kontakt,
+    identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,

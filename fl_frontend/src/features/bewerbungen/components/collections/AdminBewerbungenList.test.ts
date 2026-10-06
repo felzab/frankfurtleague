@@ -153,7 +153,7 @@ describe("what the queue's card carries", () => {
     // Twice: the queue's standing wears it as a pill, and the date's own cell is headed with it.
     assert.equal(times(read, "Eingereicht"), 2, `the status pill and the date's eyebrow no longer both read „Eingereicht“: ${read}`);
 
-    assert.match(list([FULL]), /aria-label="Bewerbung von Goethe öffnen"/, "the card offers no way into the application");
+    assert.match(list([FULL]), /aria-label="Bewerbung öffnen: Goethe"/, "the card offers no way into the application");
   });
 
   /* A fixed heading names one seat for every row, so the row whose Ansprechperson was erased files

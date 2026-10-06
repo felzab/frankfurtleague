@@ -2,13 +2,12 @@
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { filesUnder, isTestFile, routeHandlerFiles } from "@/core/treeWalk.ts";
+import { routeHandlerFiles, serverActionModules } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..");
@@ -96,9 +95,7 @@ for (const file of routeHandlerFiles(15)) {
     }
   }
 }
-// Next's own marker for a module whose every export is an action: its first statement, and nowhere else.
-for (const file of filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)) {
-  if (!/^\s*["']use server["'];?/.test(readFileSync(file, "utf8"))) continue;
+for (const file of serverActionModules(20)) {
   for (const [name, action] of Object.entries((await import(pathToFileURL(file).href)) as Record<string, unknown>)) {
     assert.equal(typeof action, "function", `${relative(file)} :: ${name} is exported from a "use server" module and is no action`);
     SUBJECTS.push({

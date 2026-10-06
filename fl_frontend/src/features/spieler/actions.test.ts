@@ -600,8 +600,8 @@ const listed = (row: AdminSpielerRow, saisonTeams: SpielerTeamOption[]): string 
     ),
   );
 
-const ROW_RESTORE = "Kadereintrag von Lena Meier reaktivieren";
-const PERSON_RESTORE = "Spieler Lena Meier reaktivieren";
+const ROW_RESTORE = "Kadereintrag reaktivieren: Lena Meier";
+const PERSON_RESTORE = "Spieler reaktivieren: Lena Meier";
 
 describe("the reactivate's gate on the list", () => {
   /* The same endpoint is reached from a row, and the list holds what decides the refusal already: the

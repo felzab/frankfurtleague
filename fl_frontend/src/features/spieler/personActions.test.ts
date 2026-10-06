@@ -109,7 +109,7 @@ describe("what each squad write answers a refusal with", () => {
 });
 
 const { patchSpielerEinwilligungAction } = await import("./personActions.ts");
-const { EINTRAG_WEG, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
+const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } = await import("@/features/konto/einwilligung.ts");
 
 const EINWILLIGUNG_OPERATION = "PATCH /spieler/selbst/einwilligung";
 const WAHL = {
@@ -193,5 +193,28 @@ describe("a pupil's own consent write", () => {
 
     assert.deepEqual(answer, { success: false, error: EINTRAG_WEG, fieldErrors: undefined });
     assert.deepEqual(invalidations(), [], "a refused write dropped a cache or refreshed the page");
+  });
+});
+
+/* Every code the document publishes, through the consent writes' one mapper: an action consulting it
+   for the lost record alone would answer the rest in the shared fallback's words. */
+describe("what a pupil's own consent write answers a refusal with", () => {
+  it("answers every published refusal of the pupil's write through the consent mapper", async () => {
+    setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
+    await assertEachAnswered({
+      operation: EINWILLIGUNG_OPERATION,
+      refuseWith: answerWith,
+      act: () => patchSpielerEinwilligungAction(WAHL),
+      mapped: mapEigeneEinwilligungRefusal,
+    });
+  });
+
+  /* A grant past the day's ceiling is told that withdrawing still goes through, where the spine's own
+     sentence would not say so (`docs/frontend/spec.md :: I836`). */
+  it("answers a pupil's grant past the day's ceiling with the withdrawal still open", async () => {
+    setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
+    answerWith(() => Promise.reject(refusedOn(EINWILLIGUNG_OPERATION, "REQ-DROSSELUNG-001")));
+
+    assert.deepEqual(await (() => patchSpielerEinwilligungAction(WAHL))(), { success: false, error: ZUSTIMMEN_MORGEN, fieldErrors: undefined });
   });
 });

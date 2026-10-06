@@ -132,10 +132,12 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * The protocol's classes: a credential, a request the API cannot take, a route it does not serve, a person's
- * day ceiling. None is a rule refusing what was asked, and each class grows codes the backend adds to it.
+ * The protocol's code families: a credential, a request the API cannot take, a route it does not serve, a person's
+ * day ceiling. None is a rule refusing what was asked, and each family grows codes the backend adds to it.
  */
-const PROTOCOL_CLASS = /^REQ-(AUTH|VAL|ROUTE|DROSSELUNG)-/;
+export const PROTOCOL_FAMILIES: readonly string[] = ["AUTH", "VAL", "ROUTE", "DROSSELUNG"];
+
+const PROTOCOL_CLASS = new RegExp(`^REQ-(?:${PROTOCOL_FAMILIES.join("|")})-`);
 
 /**
  * Whether a code is one a slice's mapper words: a rule's, or the unique index's `DB-COMMON-002`. By the

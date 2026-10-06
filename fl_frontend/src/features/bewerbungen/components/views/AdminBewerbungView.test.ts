@@ -207,13 +207,13 @@ const MIT_OFFENEN_SITZEN: FLBewerbung = FLBewerbungSchema.parse({
 const typeReason = (user: UserEvent) => user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz.");
 
 const typeCorrection = async (user: UserEvent) => {
-  await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }));
+  await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }));
   await user.clear(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }));
   await user.type(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }), "bernd.meier@schule.example");
 };
 
 const typeReseat = async (user: UserEvent) => {
-  await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+  await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
   await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
   await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
   await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "doreen@schule.example");

@@ -25,18 +25,16 @@ from app.core.drosselung import gedrosselt
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 # The person lane's binder IN PLACE of `bind_actor` and the grants check, which a seat holder holding
 # no grant would fail; the binder refuses a barred person on every method, so no handler asks again.
-bind_kontakt = PERSON_ACTOR_BINDERS["kontakt"]
-
-router = APIRouter(prefix=f"/api/v{API_VERSION}/spieler/kader", dependencies=[Depends(verify_access_admin), Depends(bind_kontakt)])
-
-# Declared again on each handler to receive the folded identifier; FastAPI runs the binder once a request.
-SignedInIdentifier = Annotated[str, Depends(bind_kontakt)]
+router = APIRouter(
+    prefix=f"/api/v{API_VERSION}/spieler/kader",
+    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
+)
 
 SQUAD_PATH = f"{by_id('team_id')}/{{saison_id}}"
 ROW_PATH = f"{SQUAD_PATH}{by_id('spieler_id')}"
@@ -64,7 +62,11 @@ async def _read_the_squad(
 
 
 async def _erlaubte_stufen(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
+    # `find_one` rather than `pull_one_from_db`: every caller passed `refuse_without_a_seat` first on this
+    # session, which read this season for the seat, and no season is ever deleted, so a miss is a broken
+    # invariant rather than a 404.
+    saison_raw = await saisons_collection.find_one({"_id": saison_id}, projection={"rules": 1}, session=session)
+    assert saison_raw is not None
 
     # Through the model the rules are written under, as `refuse_a_full_squad` reads the cap: a list
     # that model refuses, an empty one included, fails here rather than reaching the page.
@@ -94,13 +96,11 @@ async def _the_row_as_written(
     return FLKaderZeileResponse.model_validate(zeile.model_dump())
 
 
-@router.get(
-    SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
-)
+@router.get(SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder")
 async def get_kader(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    identifier: SignedInIdentifier,
+    identifier: KontaktIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     records: SubjektLookup,
@@ -143,7 +143,7 @@ async def patch_kader_zeile(
     saison_id: str,
     spieler_id: CustomRouteObjectId,
     zeile_data: Annotated[FLPatchKaderZeilePayload, Body()],
-    identifier: SignedInIdentifier,
+    identifier: KontaktIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     records: SubjektLookup,
@@ -221,7 +221,7 @@ async def delete_kader_zeile(
     team_id: CustomRouteObjectId,
     saison_id: str,
     spieler_id: CustomRouteObjectId,
-    identifier: SignedInIdentifier,
+    identifier: KontaktIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     records: SubjektLookup,
     db: DBClient,

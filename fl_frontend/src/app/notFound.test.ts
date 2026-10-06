@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { createElement as h } from "react";
 
 import { registerRenderingNothing } from "@/core/exportingModule.ts";
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, routeHandlerFiles } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, callPage, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
@@ -264,7 +264,7 @@ const { isDynamicRoute } = await import("next/dist/shared/lib/router/utils/is-dy
 
 /** Every file Next serves an address from, by the route it serves: its pages and its route handlers. */
 const SERVED = new Map(
-  [...PAGES, ...filesUnder(APP_DIR, named("route.ts"), 8)].map((file) => [
+  [...PAGES, ...routeHandlerFiles(8)].map((file) => [
     normalizeAppPath(`/${path.relative(APP_DIR, file).split(path.sep).join("/")}`.replace(/\.tsx?$/, "")),
     file,
   ]),

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 
 import { Button } from "@heroui/react/button";
 
@@ -8,6 +8,7 @@ import { CodeStep } from "@/features/auth/components/forms/CodeStep";
 import { sendeBestaetigungscodeAction } from "@/features/konto/actions";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
+import { useAnsweredActionState } from "@/shared/hooks/useAnsweredActionState";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { ActionResult } from "@/shared/types/types";
@@ -36,7 +37,7 @@ export function CodeConfirmation({
   onConfirmed: () => void;
 }) {
   // Wrapped, the action taking no argument: the address is the session's, never one the page posts.
-  const [state, formAction, isSending] = useActionState(
+  const [state, formAction, isSending] = useAnsweredActionState(
     async (): Promise<ActionResult | undefined> => sendeBestaetigungscodeAction(),
     undefined,
   );

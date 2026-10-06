@@ -769,6 +769,18 @@ class TestTheCompositionDecidesFromItsArguments:
         assert composed["ansprechperson"]["einwilligung"] == unbestaetigt(entering["ansprechperson"]["einwilligung"])
         assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
+    def test_a_confirmed_application_seat_enters_without_the_speaker_its_application_stored(self):
+        """The season row is a new document and no write sets a speaker; the confirmation and the date move with the person."""
+
+        composed = compose_kontakte_at_entry(kontakte=PARTLY_CONFIRMED)
+        stored = PARTLY_CONFIRMED["trainer"]["einwilligung"]
+
+        # The premise: an application confirmed before the speaker was retired carries one.
+        assert stored["erfasst_von"] == "person"
+        assert composed["trainer"]["einwilligung"] == {field: value for field, value in stored.items() if field != "erfasst_von"}
+        assert composed["trainer"]["einwilligung"]["bestaetigt_am"] == CONFIRMED_ON
+        assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
+
     def test_a_null_slot_is_left_null(self):
         composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)
 

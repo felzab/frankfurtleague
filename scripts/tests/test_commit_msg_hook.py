@@ -1,7 +1,7 @@
 """SCRIPTS · the commit-msg hook, the only reader of a commit message, driven through real commits.
 
 The `Closes:` trailer is judged against the staged diff, which is the new commit's own diff for a
-plain commit, a `-C` commit after `cherry-pick -n` (the landing flow) and a `-F` commit after
+plain commit, a `-C` commit after `cherry-pick -n` and a `-F` commit after
 `reset --soft`, and is not under `--amend`. Each way of committing is driven here through the tree's
 own hook, so a regression in the hook, in the checker or in what git stages reads as a failure
 rather than as a pass.
@@ -87,8 +87,8 @@ def test_a_plain_commit_is_judged_against_its_own_diff() -> None:
     assert passed.returncode == 0, passed.stdout + passed.stderr
 
 
-def test_the_landing_flow_reads_the_landed_commit_s_diff_exactly() -> None:
-    """`cherry-pick -n` then `commit -C <sha>` is how a commit becomes permanent here, so this is the case that binds."""
+def test_a_picked_commit_is_judged_against_its_own_diff_exactly() -> None:
+    """`cherry-pick -n` then `commit -C <sha>` stages exactly the picked change, so the trailer is judged against that alone."""
     root = _repository()
     _retire(root)
     git(root, "commit", "-q", "--no-verify", "-F", str(_message_file(root, SILENT)))

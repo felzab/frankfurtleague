@@ -24,7 +24,8 @@ const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint)
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
 /** The label the backend runs on this page, off the registry it generated. */
@@ -151,12 +152,30 @@ describe("the referee's confirmation handler", () => {
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").medien, false);
   });
 
-  /* `{ expire: 0 }` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`):
-     without the profile the recommended one serves the withheld name once more. */
+  /* `{ expire: 0 }` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`), ahead
+     of the fixture read joining the referee's record. */
   it("drops the fixture cache with no staleness tolerated", async () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
     assert.equal((answer.body as { success: boolean }).success, true);
+    assert.deepEqual(tags, [["spiele", { expire: 0 }]]);
+  });
+
+  /* The confirmation may stand behind a lost answer, and a drop after the awaited write never runs. */
+  it("drops the fixture cache when the write's answer is lost", async () => {
+    schreibAntwort = () =>
+      new APINetworkError({
+        message: "Request failed.",
+        url: "http://localhost/schiedsrichter/bestaetigung",
+        method: "POST",
+        readOnly: false,
+        traceId: "0",
+        isTimeout: false,
+      });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, unansweredAction());
     assert.deepEqual(tags, [["spiele", { expire: 0 }]]);
   });
 

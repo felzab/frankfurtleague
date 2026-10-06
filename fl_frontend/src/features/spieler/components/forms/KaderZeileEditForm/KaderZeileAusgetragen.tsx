@@ -1,8 +1,10 @@
 "use client";
 
 import { ausgetragenSeit, KADER_AUSTRAGEN_FOLGE, kaderName, rolleLabel } from "@/features/spieler/constants";
+import { Angabe } from "@/shared/components/ui/Angabe";
 import { BackButton } from "@/shared/components/ui/BackButton";
 import { labelBadge } from "@/shared/components/ui/badges";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
@@ -46,14 +48,13 @@ export function KaderZeileAusgetragen({ zeile, kaderHref }: { zeile: FLKaderZeil
           </div>
 
           <div className={panel.body()}>
-            <dl className="grid w-full grid-cols-2 gap-4 sm:grid-cols-4">
+            <dl className={FIELD_PAIR_CLASSES}>
               {facts.map(({ term, value }) => (
-                <div
+                <Angabe
                   key={term}
-                  className="flex flex-col gap-y-1">
-                  <dt className="fluid-xs font-bold text-foreground">{term}</dt>
-                  <dd className={value === null ? "muted-hint" : "fluid-sm text-foreground"}>{value ?? PLACEHOLDER.entity}</dd>
-                </div>
+                  label={term}>
+                  {value ?? PLACEHOLDER.entity}
+                </Angabe>
               ))}
             </dl>
             <p className="muted-hint">{KADER_AUSTRAGEN_FOLGE}</p>

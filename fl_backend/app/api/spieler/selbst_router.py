@@ -36,9 +36,8 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import WAHLEN, nachweis_stand_of
@@ -51,13 +50,10 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["spieler"])],
 )
 
-# The router's own binder, answered from its run: the folded address the token names.
-Identifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["spieler"])]
-
 
 @router.get("", response_model=FLSpielerSelbstResponse, summary="A signed-in pupil's own record")
 async def get_selbst(
-    identifier: Identifier,
+    identifier: SpielerIdentifier,
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
     teams_collection: TeamsCollection,
@@ -101,11 +97,10 @@ async def get_selbst(
     "/einwilligung",
     response_model=FLSpielerSelbstEinwilligungResponse,
     summary="Change a signed-in pupil's own publication and media consent",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_einwilligung(
     einwilligung_data: Annotated[FLSpielerSelbstEinwilligungPayload, Body()],
-    identifier: Identifier,
+    identifier: SpielerIdentifier,
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
     db: DBClient,
@@ -116,10 +111,10 @@ async def patch_einwilligung(
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
 
-    Writes those two on this one record, and nothing else: the confirmation day, the day given, who gave it and the
-    wording they confirmed stand, and no other document is written. A PATCH moving neither choice writes
-    nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a
-    withdrawal on a retired one too.
+    Writes those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:
+    the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
+    PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is
+    taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an address holding no confirmed pupil record, or a grant on a retired one
     (`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since

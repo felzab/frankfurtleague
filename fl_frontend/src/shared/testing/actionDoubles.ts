@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { judging } from "@/core/verdicts.ts";
+import { srcPathOf } from "@/shared/testing/actionLanes.ts";
 import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
@@ -124,12 +126,11 @@ export function doubleActions({
 }
 
 /**
- * Every slice's actions module, for a suite in which no case saves: a real write module loads the
+ * Every server action module, for a suite in which no case saves: a real write module loads the
  * sign-in store and its database driver into the render, which is most of such a suite's time.
  */
 export function doubleEveryAction(): ReturnType<typeof doubleActions> {
-  // Both lanes' modules: a person's actions load the same sign-in store an administrator's do.
-  return doubleActions({ modules: [/\/src\/features\/\w+\/(?:actions|personActions)\.ts$/] });
+  return doubleActions({ modules: serverActionModules(20).map((file) => `/src/${srcPathOf(file)}`) });
 }
 
 /** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */

@@ -54,11 +54,11 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     # The account page's three, minted over the backend's words: no frontend copy of them ever existed.
     "2026-10-konto-spieler": "c1935b5a8d6cf4c2b3a2dd5ec82e8530460813206b68a306ad0944da1f3fa456",
     "2026-10-konto-schiedsrichter": "ce42b5fbac90d520a1aa204e169ecc3c211502287bf9e94b9022331e6bb72e21",
-    "2026-10-konto-kontakt": "bf42b63cfefde223e0e4a86fd83cae35839b13508cb8755c8322ba2e367082b0",
+    "2026-10-konto-kontakt": "286c69e7fefdcb73944cddb150121860265ca25fdb5b7ce3b8289da137f5a297",
     "2026-10-spielerseite-4": "0490d658a40af1a93a487338c2edaea205073bab924f15a060d236c04812fd5b",
-    "2026-10-bestaetigungsseite-7": "a1bf0c258ad2019700f90118ec528276c06acea380b6a35deb4760482995d492",
-    "2026-10-bestaetigungsseite-verwaltung": "68cea3976da34c093508553ea68c9b800ea46a78d90cf745ad5ecd5fa1d01323",
-    "2026-10-bestaetigungsseite-saison": "77c13af28768f27a1caa3a4c5b8a570965fc1d016a3d78fd053e3e33f8e720a2",
+    "2026-10-bestaetigungsseite-7": "c60d790129420fda529b1c7d790d6cf0dd3dead79ad7189cd7664e53f7641f01",
+    "2026-10-bestaetigungsseite-verwaltung": "783c9d3c23d444371ac861d1d30cf2ec9412f5c0f8f6a9f526ea8ad51710a709",
+    "2026-10-bestaetigungsseite-saison": "f336b66db9ad01b1636f0eda72d48a8f0e851960e8851a302e6c3a547cf460b5",
     "2026-10-spielerseite-wiederkehrend": "3f77c8bf080b11a7609697ffdab2712d1b4502a5229736b5d94950e6154952e8",
 }
 

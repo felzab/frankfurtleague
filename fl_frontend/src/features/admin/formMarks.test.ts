@@ -562,7 +562,7 @@ const FORMS: Record<string, FormCase> = {
           }),
         ),
         async (into) => {
-          await userEvent.setup().click(screen.getByRole("button", { name: "Passkey vom 1. September 2026 umbenennen" }));
+          await userEvent.setup().click(screen.getByRole("button", { name: "Umbenennen: Passkey vom 1. September 2026" }));
           await settle();
           marksOn(into);
         },
@@ -719,7 +719,7 @@ const FORMS: Record<string, FormCase> = {
         } as never),
         async (into) => {
           const user = userEvent.setup();
-          const reseat = screen.queryByRole("button", { name: "Trainer neu besetzen" });
+          const reseat = screen.queryByRole("button", { name: "Neu besetzen: Trainer" });
           assert.ok(reseat !== null, "the strip offers no reseat, so its form goes unread");
           await user.click(reseat);
           await settle();
