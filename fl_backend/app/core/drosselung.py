@@ -1,5 +1,5 @@
 """
-CORE · the daily ceiling on each signed-in person's writes, counted per Funktion and German day
+CORE · the daily ceiling on each signed-in person's writes, counted per kind of person and German day
 
 A person's write route opts in by one declaration: `Depends(gedrosselt)` where every call counts, or
 a `Drossel` parameter its handler calls on the calls that count, a consent grant and never its
@@ -33,8 +33,8 @@ from app.shared.schemas.bounds import (
 
 DROSSELUNG_ERREICHT = "REQ-DROSSELUNG-001"
 
-# Keyed by the Funktion the route's binder fixed, so one mailbox holding a seat and a pupil record
-# keeps a count for each.
+# Keyed by the kind of person the route's binder fixed (`app/core/recording.py :: AktorFunktion`), so one
+# mailbox holding a seat and a pupil record keeps a count for each.
 TAGESBUDGETS: Final[Mapping[AktorFunktion, int]] = {
     "kontakt": DROSSELUNG_KONTAKT_PRO_TAG,
     "spieler": DROSSELUNG_SPIELER_PRO_TAG,

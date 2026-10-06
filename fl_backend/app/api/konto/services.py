@@ -22,7 +22,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, FLEinwilligungWahl, compose_beleg, ist_erteilt, nachweis_stand_of
-from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
 KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
@@ -204,6 +204,7 @@ def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: st
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
+        "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
         "kader": row["kader"],
         "kontext": {
             "vorname": row["vorname"],
@@ -231,6 +232,7 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         "mindestalter": SCHIEDSRICHTER_MIN_AGE_YEARS,
+        "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
         # The one stored name, cut as the referee's confirmation page cut it.
         "kontext": {"vorname": vorname_of(row.get("name"))},
     }
@@ -379,6 +381,7 @@ def compose_sitze_selbst(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 **_sitz_wahlen_gehalten(held),
+                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
                 "medien_angeboten": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
                 "erteilbar": holds_a_seat(sitze_mit_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
                 "bestaetigt": [
@@ -437,6 +440,7 @@ def compose_bewerbungssitze_selbst(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 **_sitz_wahlen_gehalten(held),
+                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
                 # `{team}` is the school too: an application names no season row.
                 "bestaetigt": [
                     _bestaetigt(row["kontakte"], gruppe, team=schule, schule=schule, saison=row["saison_id"])
@@ -499,6 +503,7 @@ def compose_registrierungen_selbst(
                 "umfang": block.get("umfang"),
                 "medien": ist_erteilt("medien", block.get("medien")) if traegt_wahlen(block) else None,
                 "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
+                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 "kontext": {
                     "vorname": row["vorname"],

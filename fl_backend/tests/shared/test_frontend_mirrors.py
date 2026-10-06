@@ -107,8 +107,8 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
-    # These three mirror the notice's sentences, and the media floor the account page's words too; never a
-    # payload schema: each confirmation view and account entry states its participation floor as served.
+    # These three mirror the published notice's sentences and never a payload schema: each confirmation
+    # view and each account entry states its floors as it was served them.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
     Mirror("features/registrierungen/constants.ts", "MEDIEN_MIN_ALTER", "MEDIEN_MIN_AGE_YEARS"),

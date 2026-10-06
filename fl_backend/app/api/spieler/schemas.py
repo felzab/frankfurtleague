@@ -445,6 +445,8 @@ class FLSpielerSelbst(_SpielerPerson):
     # The floor the record's confirmation page named, so the page fills `{minAlter}` from the rule rather
     # than from a copy of it, as every seat entry does.
     mindestalter: int
+    # The media floor the record's words name, served as the participation floor is.
+    medien_mindestalter: int
     kader: list[FLSpielerSelbstKaderZeile]
     kontext: FLSpielerKontext
 

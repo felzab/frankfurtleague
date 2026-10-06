@@ -15154,6 +15154,10 @@
             "type": "array",
             "minItems": 1,
             "title": "Bestaetigt"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
           }
         },
         "type": "object",
@@ -15165,7 +15169,8 @@
           "umfang",
           "medien",
           "nachweis_stand",
-          "bestaetigt"
+          "bestaetigt",
+          "medien_mindestalter"
         ],
         "title": "FLKontoBewerbungSitzEinwilligung",
         "description": "One pending application on which the address holds a confirmed contact seat, with its two choices to withdraw.\n\nPending alone: an accepted application's seats are its season row's, listed under `sitze`."
@@ -15300,6 +15305,10 @@
             "type": "integer",
             "title": "Mindestalter"
           },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "kontext": {
             "$ref": "#/components/schemas/FLSpielerKontext"
           },
@@ -15382,6 +15391,7 @@
           "medien",
           "nachweis_stand",
           "mindestalter",
+          "medien_mindestalter",
           "kontext",
           "vorname",
           "nachname",
@@ -15450,6 +15460,10 @@
             "type": "array",
             "minItems": 1,
             "title": "Bestaetigt"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
           }
         },
         "type": "object",
@@ -15463,7 +15477,8 @@
           "nachweis_stand",
           "medien_angeboten",
           "erteilbar",
-          "bestaetigt"
+          "bestaetigt",
+          "medien_mindestalter"
         ],
         "title": "FLKontoSitzEinwilligung",
         "description": "One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both."
@@ -20456,6 +20471,10 @@
             "type": "integer",
             "title": "Mindestalter"
           },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "kontext": {
             "$ref": "#/components/schemas/FLSchiedsrichterKontext"
           }
@@ -20474,6 +20493,7 @@
           "erteilbar",
           "medien_angeboten",
           "mindestalter",
+          "medien_mindestalter",
           "kontext"
         ],
         "title": "FLSchiedsrichterSelbst",
@@ -22626,6 +22646,10 @@
             "type": "integer",
             "title": "Mindestalter"
           },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "kader": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerSelbstKaderZeile"
@@ -22649,6 +22673,7 @@
           "erteilbar",
           "medien_angeboten",
           "mindestalter",
+          "medien_mindestalter",
           "kader",
           "kontext"
         ],
