@@ -108,9 +108,9 @@ Stop once the bar is met.
    the same way. An answer reaches it at its next tool call, so one sent after its last is lost:
    re-send it once the report lands, which resumes the agent. A `researcher` or `cold-auditor`
    reaches you only through its report.
-9. Dispatch no writer, and have none merge the session branch, while `HEAD` holds a landing whose CI
-   has not concluded. Once what remains is one wave plus [ending.md](ending.md)'s list, start nothing
-   new.
+9. Dispatch no writer, and have none rebase onto or merge the session branch, while `HEAD` holds a
+   landing whose CI has not concluded. Once what remains is one wave plus [ending.md](ending.md)'s
+   list, start nothing new.
 
 ## Running the fleet
 
@@ -119,8 +119,7 @@ Stop once the bar is met.
   become true for the next agent on the critical path to go out, and check whether it already is.
   The gauge is a check that nothing on the critical path waits, never a target.
 - You are the fleet's one serial resource: bank every report, a fixer's included, with
-  `ledger.py bank <register> <report> --from <agent id>`, which saves it, and a one-line verdict;
-  send a fix batch as its `Rows:` line and one line.
+  `ledger.py bank --from`, which saves it, and a one-line verdict.
 - Verify every count, file list and exit code in a report against the agent's branch
   (`git log --stat <session branch>..<branch>`, `git show <branch>:<path>`). Check a finding about a
   file its reporter does not own at `HEAD` before routing it. Pass one agent's conclusion to another
@@ -138,11 +137,11 @@ Stop once the bar is met.
 
 ## Landing and CI
 
-- Land a finished branch in the turn its report is judged, with `land.py <register> <branch>`, and
-  dispatch its audit in the same action. Before the merge, read
-  `git diff --stat --summary HEAD...<branch>`, the diff and each commit body against it. A false
-  body, a stray file or a landing `land.py` stops goes back to the agent, which rebases onto the
-  session branch. A fix to landed work is a new commit naming the one it corrects.
+- Land a finished branch in the turn its report is judged, with `land.py`, and dispatch its audit in
+  the same action. Before the merge, read `git diff --stat --summary HEAD...<branch>`, the diff and
+  each commit body against it. A false body, a stray file or a landing `land.py` stops goes back to
+  the agent, which rebases onto the session branch; its exit 8 is the session branch's own red. A
+  fix to landed work is a new commit naming the one it corrects.
 - Check a claim you commit against that commit, and qualify every blanket negative to what you
   checked. Only the branch's final state passes the gate; never reorder or probe a commit to make
   it green alone.
@@ -156,8 +155,9 @@ Stop once the bar is met.
   it exits 0.
 - Run the suites in your checkout every few waves: CI is Linux. The bare gate is the ending's.
 - At a wave boundary `ledger.py open` prints nothing, your checkout is clean and every
-  `git worktree list` entry is a live agent's or merged; remove a merged one with `git worktree remove` and `git branch -d`. Where Windows stops a
-  removal at the path limit, `rm -rf <path>` in Git Bash, then `git worktree prune -v`.
+  `git worktree list` entry is a live agent's or merged; remove a merged one with
+  `git worktree remove` and `git branch -d`. Where Windows stops a removal at the path limit,
+  `rm -rf <path>` in Git Bash, then `git worktree prune -v`.
 
 ## The cycle
 
