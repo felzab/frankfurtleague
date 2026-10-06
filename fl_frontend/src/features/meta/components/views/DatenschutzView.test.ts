@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "6. Oktober 2026", digest: "12bde230de2e27b909d64f4b98ac1b8af25c5dd360b4125cc60b729c29148a62" } as const;
+const FASSUNG = { stand: "6. Oktober 2026", digest: "9a08b1afbfc54bf3a90e7d27368e084c0426770366588b9b308e7ce28db84541" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -624,8 +624,9 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   it("names the account as the place to take back any consent, signed in with the address it was given under", () => {
     assert.equal(
       vorkommen(
-        "Eine Einwilligung kannst Du außerdem selbst in Deinem Konto zurücknehmen: Melde Dich mit der E-Mail-Adresse an, unter der Du " +
-          "sie gegeben hast; dort steht jede Einwilligung, die bei uns unter dieser Adresse gespeichert ist.",
+        "Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du außerdem selbst in Deinem Konto zurücknehmen: Melde " +
+          "Dich mit der Adresse an, unter der wir Dich heute erreichen; dort steht jede solche Einwilligung. Eine abgelehnte Bewerbung " +
+          "oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der Entscheidung.",
       ),
       1,
     );
@@ -640,8 +641,8 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   it("names the team's three seats as who sees a registration, and what stays with the administrators", () => {
     rendert(
       "Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und " +
-        "Stufe; mit der Bestätigung kommt Dein Geburtsdatum dazu, wenn wir es noch nicht kennen, und, bist Du neu in der Liga, " +
-        "Deine Antworten zu Veröffentlichung und Medien. Über die " +
+        "Stufe; mit der Bestätigung kommt Dein Geburtsdatum dazu, wenn wir es noch nicht kennen, und, haben wir unter dieser " +
+        "Adresse und diesem Namen noch keine Antworten von Dir, Deine Antworten zu Veröffentlichung und Medien. Über die " +
         "Aufnahme in den Kader entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen " +
         "Deinen Namen, Deine Rückennummer, Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst. Deine " +
         "E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und " +
