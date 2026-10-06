@@ -31,7 +31,7 @@ const ERNEUT_STARTEN = "Brich ab und starte das Löschen erneut.";
 /**
  * The block with every seat naming `textVersion`, the form's running label: a handed seat is a new
  * acceptance only that label may stamp, and a kept seat's stored record stands whatever is sent
- * (`docs/backend/spec.md :: I866`).
+ * (`docs/backend/spec.md :: I610`).
  */
 export function mitLaufenderFassung(kontakte: FLSaisonTeamKontaktePayload, textVersion: string): FLSaisonTeamKontaktePayload {
   const gestempelt = (sitz: FLKontaktpersonPayload | null) =>

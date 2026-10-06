@@ -375,7 +375,7 @@ describe("ending every other sign-in", () => {
 
 describe("the step-up's code", () => {
   /* The address is the session's, so a press carries none and the bot check, which guards a typed one,
-     has nothing to guard here (`docs/frontend/spec.md :: I823`). */
+     has nothing to guard here (`docs/frontend/spec.md :: I624`). */
   it("mails the holder's own address, from a session past the step-up window too", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     row.createdAt = new Date(Date.now() - 3 * HOUR_MS);

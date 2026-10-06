@@ -7,7 +7,7 @@ withdrawal. The count is operational state rather than a domain write, so it rea
 here, outside `app/core/crud.py`, the action log and the write's own transaction.
 
 Invariants:
-- No administrator's route declares either (`docs/backend/spec.md :: I832`).
+- No administrator's route declares either (`docs/backend/spec.md :: I615`).
 """
 
 import math
@@ -61,7 +61,7 @@ def get_drossel(
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     germany_now: Annotated[datetime, Depends(get_germany_now)],
 ) -> Drosseln:
-    """The count of one write against the bound person's ceiling, called where a write counts (`docs/backend/spec.md :: I831`)."""
+    """The count of one write against the bound person's ceiling, called where a write counts (`docs/backend/spec.md :: I614`)."""
 
     # Set once this request's write is admitted: `with_transaction` reruns a callback calling the count
     # after a transient error, and one write spends one unit however often its attempt is retried.

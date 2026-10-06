@@ -109,7 +109,7 @@ describe("what a referee's own consent write answers a refusal with", () => {
   });
 
   /* A grant past the day's ceiling is told that withdrawing still goes through, where the spine's own
-     sentence would not say so (`docs/frontend/spec.md :: I836`). */
+     sentence would not say so (`docs/frontend/spec.md :: I655`). */
   it("answers a referee's grant past the day's ceiling with the withdrawal still open", async () => {
     setSubject(person({ schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER_ID }] }));
     answerWith(() => Promise.reject(refusedOn(OPERATION, "REQ-DROSSELUNG-001")));

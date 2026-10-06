@@ -219,7 +219,7 @@ def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id
 
 
 # The grant predicates, one per kind of own record: each consent PATCH grants by its record's, and each
-# read's `erteilbar` is that same predicate (`docs/backend/spec.md :: I973`).
+# read's `erteilbar` is that same predicate (`docs/backend/spec.md :: I597`).
 
 
 def may_grant_on_spieler(subjekt: FLSubjekt, spieler_id: ObjectId) -> bool:

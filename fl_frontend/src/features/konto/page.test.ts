@@ -731,7 +731,7 @@ describe("the account page's consent section", () => {
   });
 
   /* Read off the mirror rather than listed here: a list the read gains with no renderer would otherwise
-     be served and silently dropped (`docs/frontend/spec.md :: I_NEW_KFE_1`). */
+     be served and silently dropped (`docs/frontend/spec.md :: I645`). */
   it("renders every served list, one labelled group per record", async () => {
     setSubject(OHNE_FUNKTION);
     const FIXTURES: Record<string, unknown> = {

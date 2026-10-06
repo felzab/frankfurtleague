@@ -294,7 +294,7 @@ question that could move Mantine's rank.
 the admission creates whole; onto a person the league already holds, it renews the record, and each
 choice only where the registration set it later, so a choice the person moved since stands
 (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`,
-`docs/backend/spec.md :: I867`). The publication gate reads this field
+`docs/backend/spec.md :: I611`). The publication gate reads this field
 (`docs/backend/spec.md :: READ-PUPIL-003`).
 
 **What is left is a value no route writes.** The rows carrying `erteilt_von` as `erziehungsberechtigt`
@@ -379,7 +379,7 @@ and the season and nobody in them. A registration a pupil submits through it and
 own link then waits in `registrierungen` as `eingereicht` until a seat holder of the team admits or
 declines it (`fl_backend/app/api/registrierungen/person_router.py`). The admission writes the pupil
 into the person their address resolves to, or the one addressless namesake the team confirms, rather
-than a second one ([`docs/backend/spec.md`](../backend/spec.md) I951, I952). The team's pending read
+than a second one ([`docs/backend/spec.md`](../backend/spec.md) I580, I581). The team's pending read
 marks a squad number the live squad already wears, and the admission stores it all the same. **The wait is bounded**: an
 unconfirmed registration is erased the day after its link's deadline, and one still `eingereicht` when
 its season turns `past` is erased whatever the pupil answered

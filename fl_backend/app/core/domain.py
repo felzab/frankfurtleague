@@ -310,7 +310,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "attempt none more. Its key names the "
             "day, so a new day is a new row rather than a reset, and nothing but the TTL index removes one. It names the "
             "person by the action log's pseudonym and never an address, and no erasure reaches it: it outlives one at most "
-            "until the German midnight ending its day plus the TTL monitor's lag (`docs/backend/spec.md :: I837`)."
+            "until the German midnight ending its day plus the TTL monitor's lag (`docs/backend/spec.md :: I619`)."
         ),
     ),
 )
@@ -930,7 +930,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
         "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
         "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
-        "evidence (`docs/backend/spec.md :: I869`)",
+        "evidence (`docs/backend/spec.md :: I613`)",
         "app.api.konto.services.compose_person_move",
     ),
     FieldPolicy(

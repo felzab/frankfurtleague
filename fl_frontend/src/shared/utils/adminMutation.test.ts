@@ -185,7 +185,7 @@ describe("the refresh an admin write owes the page", () => {
   });
 
   /* A drop after the awaited write never reaches a write whose answer was lost, and the cached public
-     read it feeds serves the replaced data for days (`docs/frontend/spec.md :: I894`). */
+     read it feeds serves the replaced data for days (`docs/frontend/spec.md :: I640`). */
   it("drops the tags a body declared after a landed write, and after one whose answer was lost", async () => {
     const lost = new APINetworkError({
       message: "Request failed.",

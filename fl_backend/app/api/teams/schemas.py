@@ -656,7 +656,7 @@ class SitzEinwilligungPayload(BaseModel):
     medien: bool
     # The label of the account page's seat control the press was given under, recorded on its evidence.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
-    # The row's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I995`).
+    # The row's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I591`).
     nachweis_stand: FLEinwilligungStandPayload
 
 
@@ -803,7 +803,7 @@ class FLKontaktMint(BaseModel):
     vorname: str
     schule: str
     # The row's state in the same transaction, so the mail asks what the link's page takes: a closed
-    # row's link takes the Widerspruch alone (`docs/backend/spec.md :: I935`).
+    # row's link takes the Widerspruch alone (`docs/backend/spec.md :: I570`).
     zeile: FLKontaktZeile
 
 

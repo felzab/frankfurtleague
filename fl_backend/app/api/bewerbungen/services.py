@@ -1073,7 +1073,7 @@ def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> K
 
 
 def antwort_seite(*, seiten: Sequence[KontaktSeite], verwaltet: KontaktSeite) -> KontaktSeite:
-    """The one page a link answering seats of these pages opens, which its answer is judged against (`docs/backend/spec.md :: I861`).
+    """The one page a link answering seats of these pages opens, which its answer is judged against (`docs/backend/spec.md :: I605`).
 
     The applicant's only where every seat's is: one press is one person's answer to one page.
     """

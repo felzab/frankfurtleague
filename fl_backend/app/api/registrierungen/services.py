@@ -582,7 +582,7 @@ def compose_confirmation_update(
 
     if umfang is None and medien is None:
         # The returning pupil's page asked nothing, so the record holds no choice, no evidence and no
-        # `datum`, the day a consent was given (`docs/backend/spec.md :: I_NEW_KONTO-B3_1`).
+        # `datum`, the day a consent was given (`docs/backend/spec.md :: I557`).
         return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"bestaetigt_am": today, "text_version": text_version}}}
 
     if umfang is None or medien is None:
@@ -972,7 +972,7 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
     fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
     if not traegt_wahlen(registrierung_raw["einwilligung"]):
         # Not one key of the block, its label and day included: they name the last confirmation that
-        # asked its choices (`docs/backend/spec.md :: I867`).
+        # asked its choices (`docs/backend/spec.md :: I611`).
         return {"$set": fields}
 
     # A matched person always holds a block, the validator requiring one, so the dotted paths are viable.

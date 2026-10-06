@@ -16,7 +16,7 @@ import type z from "zod";
 /**
  * A referee's own consent. The page binds the record's id, one address possibly holding several
  * referee rows, and the write claims that record, so a retired referee can still withdraw
- * (`docs/frontend/spec.md :: I893`).
+ * (`docs/frontend/spec.md :: I639`).
  */
 export async function patchSchiedsrichterEinwilligungAction(
   schiedsrichterId: string,

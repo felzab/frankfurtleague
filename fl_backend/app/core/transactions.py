@@ -107,7 +107,7 @@ class JudgedSession:
         self._judge = judge
 
     async def with_transaction[T](self, callback: Callable[[AsyncClientSession], Awaitable[T]]) -> T:
-        """`callback` in one transaction, the actor judged again in each attempt the driver retries (`docs/backend/spec.md :: I921`)."""
+        """`callback` in one transaction, the actor judged again in each attempt the driver retries (`docs/backend/spec.md :: I575`)."""
 
         async def judged(session: AsyncClientSession) -> T:
             async with self._judge(session):

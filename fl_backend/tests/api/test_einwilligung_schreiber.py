@@ -472,7 +472,7 @@ def test_the_markers_pass_over_what_writes_no_choice(source: str):
 
 
 class TestNoAdministrativeWriteSetsAConsentChoice:
-    """`docs/backend/spec.md :: I869`: only a person's own write sets a choice of theirs, or stamps its evidence."""
+    """`docs/backend/spec.md :: I613`: only a person's own write sets a choice of theirs, or stamps its evidence."""
 
     @pytest.mark.parametrize("writer", sorted(ADMIN_WRITES))
     def test_each_block_it_leaves_grants_nothing_it_did_not_hold_and_carries_no_new_evidence(self, writer: str):
@@ -497,7 +497,7 @@ class TestNoAdministrativeWriteSetsAConsentChoice:
 
 
 class TestAPersonsWriteKeepsWhatItDoesNotMove:
-    """`docs/backend/spec.md :: I991`: every field of the stored block the write does not name survives byte for byte."""
+    """`docs/backend/spec.md :: I587`: every field of the stored block the write does not name survives byte for byte."""
 
     @pytest.mark.parametrize("writer", sorted(PERSON_WRITES))
     def test_the_fields_it_leaves_survive(self, writer: str):

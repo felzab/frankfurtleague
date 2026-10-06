@@ -52,10 +52,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   season row, and each of them confirms their own entry through their own link. No administrative
   route creates a player and no administrative payload carries a consent choice, so an administrator
   can neither create one nor assume, enter or transcribe a consent on anybody's behalf
-  (`docs/backend/spec.md :: I869`). The one write that creates a player is a team's admission of a
+  (`docs/backend/spec.md :: I613`). The one write that creates a player is a team's admission of a
   pupil's own confirmed registration, which carries that pupil's own answer onto the person
-  (`fl_backend/app/api/registrierungen/person_router.py :: aufnehmen`, `docs/backend/spec.md :: I951`,
-  `:: I953`).
+  (`fl_backend/app/api/registrierungen/person_router.py :: aufnehmen`, `docs/backend/spec.md :: I580`,
+  `:: I582`).
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(f) rather than an
   Einwilligung, and the only consents their block holds are the optional WhatsApp scope and the media
@@ -138,7 +138,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
     and is told at once by mail through a link of their own that also takes their Widerspruch;
     each expects the league to hold what running the competition takes, a person the
     administration entered reading on their own confirmation page who entered them
-    (`docs/backend/spec.md :: I861`).
+    (`docs/backend/spec.md :: I605`).
   - **Safeguards, weighed against most participants being sixteen or seventeen**, which Art.
     6(1)(f) weighs heavier: nothing of a pupil is published on this basis, a pupil's name appearing
     only on their own consent ([section 4](#4-what-is-published-and-on-what-basis)); a referee's
@@ -179,10 +179,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
     registration form, which refuses a submission carrying no token or one Cloudflare judged against, before
     anything is written or mailed, and asks the person to confirm they are human
     (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check Cloudflare cannot answer
-    letting the submission through (`docs/frontend/spec.md :: I822`);
+    letting the submission through (`docs/frontend/spec.md :: I623`);
   - the daily write ceiling, which refuses a signed-in person's counted writes past the bound of
-    their kind of person until German midnight (`REQ-DROSSELUNG-001`, `docs/backend/spec.md :: I831`)
-    and never refuses a withdrawal (`:: I833`).
+    their kind of person until German midnight (`REQ-DROSSELUNG-001`, `docs/backend/spec.md :: I614`)
+    and never refuses a withdrawal (`:: I616`).
 
   The notice offers a person's review of both on request by mail, as the ruling above has it for
   every refusal the code takes alone; whether that ruling reaches these two is not yet confirmed.
@@ -276,7 +276,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   the address on file in force and holds the new one beside it with a link of its own, which
   confirms the mailbox and asks no consent again, and tells the address on file that a change was
   asked without naming the new one; until its holder answers, the new address reaches
-  nothing of the referee's (`docs/backend/spec.md :: I_NEW_KREF_2`). A referee who has not yet
+  nothing of the referee's (`docs/backend/spec.md :: I560`). A referee who has not yet
   confirmed holds no record an address could reach, so theirs is still replaced at once and the
   fresh consent link goes to it (`fl_backend/app/api/schiedsrichter/services.py :: save_moves_the_link`).
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
@@ -284,7 +284,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   above. Ruled 2026-10-03. The save mints one for each person it newly seats
   (`fl_backend/app/api/teams/services.py :: links_owed`), on a row whose season has ended or whose
   team has left it too, where the link takes the person's Widerspruch and no confirmation
-  (`docs/backend/spec.md :: I935`). An administrator re-sends one to any seat
+  (`docs/backend/spec.md :: I570`). An administrator re-sends one to any seat
   still unconfirmed while the season runs and the team is in it, a seat entered before the link
   existed included (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
   fourteen days, and on it the person confirms the seat or makes their Widerspruch, which empties it.
@@ -403,7 +403,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   its holder is not the person the referee's erasure is about: the link's own decline or
   `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address and empties every
   image the action log holds of the referee, since every write on the row while the change stood, a
-  re-send included, filed one carrying it (`docs/backend/spec.md :: I_NEW_KREF_4`); the referee's own
+  re-send included, filed one carrying it (`docs/backend/spec.md :: I562`); the referee's own
   earlier images go with them, the price a contact person's Widerspruch already pays. A save
   replacing the pending address with another mailbox's empties them the same way, the replaced
   address being one nobody proved either. `POST /kontakte/erasure` reaches no referee row, a pending
@@ -525,10 +525,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`docs/glossary.md :: Drosselung`) keeps one row per kind of person the write was made as, pseudonym and German day, holding a number and no
   address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
   at that day's German midnight, plus the monitor's lag, and no erasure reaches it before then
-  (`docs/backend/spec.md :: I837`). **The ceiling's first refusal of a day also leaves one line in
+  (`docs/backend/spec.md :: I619`). **The ceiling's first refusal of a day also leaves one line in
   the application log**, naming the kind of person and the pseudonym's prefix the action-log page shows,
   never an address (`fl_backend/app/core/drosselung.py :: get_drossel`,
-  `docs/backend/spec.md :: I835`). That line is kept as every application-log line is, by size while
+  `docs/backend/spec.md :: I618`). That line is kept as every application-log line is, by size while
   the container runs and for thirty days in the copy each deploy takes
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it; an
   administrator can match the prefix to the person's rows on the log page.
@@ -976,7 +976,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   media consent, keeps when its person last set it and under which wording, and a withdrawal keeps
   the grant it ended, for as long as the record stands. Only the person's own answer grants a choice
   or stamps its evidence: their own write, on their confirmation page or their account page, or an
-  admission carrying their own registration's answer (`docs/backend/spec.md :: I869`). An act before
+  admission carrying their own registration's answer (`docs/backend/spec.md :: I613`). An act before
   those survives only in the log row its write left, whose image an erasure empties and which
   expires twelve months after the write ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
   The question to put: whether the latest act and the grant a withdrawal ended are proof enough,
@@ -996,7 +996,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   The sign-in page, the application form and the pupil's registration form also run Cloudflare's
   Turnstile check in a frame of Cloudflare's own, which reads the visitor's address, the TLS
   fingerprint and the browser's identification, and whose token the server verifies before any of
-  the three sends its mail ([`frontend/spec.md`](frontend/spec.md) I821). Cloudflare's Turnstile
+  the three sends its mail ([`frontend/spec.md`](frontend/spec.md) I622). Cloudflare's Turnstile
   addendum names it a processor for that check and a controller of the same signals for improving
   its bot detection, on its own legitimate interest — read on 2026-10-04, and moving without us.
   The questions to put: whether each is strictly necessary under § 25 (2) Nr. 2 TDDDG, so that no

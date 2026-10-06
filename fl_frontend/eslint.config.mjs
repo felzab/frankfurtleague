@@ -553,7 +553,7 @@ const ACTION_STATE_BAN = {
     `TemplateElement[value.cooked=${ACTION_STATE_HOOKS}]`,
   ].join(", "),
   message:
-    "Take `useActionState`, or react-dom's `useFormState`, through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I838).",
+    "Take `useActionState`, or react-dom's `useFormState`, through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I656).",
   exempt: ["src/shared/hooks/useAnsweredActionState.ts"],
 };
 
@@ -1154,7 +1154,7 @@ const SOURCE_BANS = [
     // never reached by a write whose answer was lost.
     selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
     message:
-      "Declare a write's cache tags with `invalidatesOnWrite` before the write: fl_frontend/src/shared/utils/adminMutation.ts drops them, a lost answer included (docs/frontend/spec.md :: I894).",
+      "Declare a write's cache tags with `invalidatesOnWrite` before the write: fl_frontend/src/shared/utils/adminMutation.ts drops them, a lost answer included (docs/frontend/spec.md :: I640).",
     exempt: ["src/shared/utils/adminMutation.ts"],
   },
   {

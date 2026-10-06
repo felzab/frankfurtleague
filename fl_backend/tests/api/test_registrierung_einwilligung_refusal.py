@@ -512,7 +512,7 @@ RETURNING_LABEL = LAUFENDE_FASSUNGEN[SEITE_WIEDERKEHREND]
 
 
 class TestWhatAReturningPupilsConfirmationWrites:
-    """`docs/backend/spec.md :: I_NEW_KONTO-B3_1`: the page asked no choice, so the record holds none."""
+    """`docs/backend/spec.md :: I557`: the page asked no choice, so the record holds none."""
 
     def test_the_registrations_validator_takes_it_and_a_persons_would_not(self):
         """Why the registration has a sub-schema of its own: `_EINWILLIGUNG` requires a scope this record does not carry."""
@@ -558,7 +558,7 @@ class TestTheChoicesThePageAsks:
 
 
 class TestWhatAReturningAdmissionWrites:
-    """`docs/backend/spec.md :: I867`: a registration carrying no choice renews nothing on the person's record."""
+    """`docs/backend/spec.md :: I611`: a registration carrying no choice renews nothing on the person's record."""
 
     RETURNING = {
         "vorname": "Quillhilde",

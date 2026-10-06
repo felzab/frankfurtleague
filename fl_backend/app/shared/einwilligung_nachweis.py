@@ -7,7 +7,7 @@ the grant it ended: proof for as long as the record stands, bounded at one act p
 
 Invariants:
 - Only the person's own writes grant a choice or stamp its evidence, an admission renewing from their own
-  registration among them; no administrative write does (`docs/backend/spec.md :: I869`).
+  registration among them; no administrative write does (`docs/backend/spec.md :: I613`).
 - A choice and its evidence move in one update, never one without the other.
 
 See: docs/glossary.md
@@ -158,7 +158,7 @@ def beleg_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl, *, stamp: Stamp
 def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any], stamp: Stamp) -> dict[str, Any]:
     """The dotted `$set` renewing the block at `pfad` from `erneuert`, the same person's later answers.
 
-    A choice moves only where it was set there later (`docs/backend/spec.md :: I867`), and only with evidence to carry.
+    A choice moves only where it was set there later (`docs/backend/spec.md :: I611`), and only with evidence to carry.
     """
 
     # The day and the label, `datum` with them, only from a confirmation no older than the stored one:

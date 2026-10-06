@@ -544,7 +544,7 @@ REFUSED_GRANTS = [
 
 
 class TestAGrantAnotherRuleRefuses:
-    """Counted only once every other refusal has passed (`docs/backend/spec.md :: I833`): its own reason, never the day's, and no unit spent."""
+    """Counted only once every other refusal has passed (`docs/backend/spec.md :: I616`): its own reason, never the day's, and no unit spent."""
 
     @pytest.mark.parametrize("exhausted", [False, True], ids=("an empty count", "an exhausted count"))
     @pytest.mark.parametrize(("pressed", "refusal"), REFUSED_GRANTS)

@@ -387,7 +387,7 @@ const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"
 /* Spelled out rather than read off the published document, which is the very thing the case below
    compares it to: a code taken from `publishedRefusals` would agree with itself whatever the backend publishes. */
 const STALE_BLOCK = "REQ-KONTAKT-001";
-/** The backend's judgement of a seat's label (`docs/backend/spec.md :: I866`), spelled out for the same reason. */
+/** The backend's judgement of a seat's label (`docs/backend/spec.md :: I610`), spelled out for the same reason. */
 const LABEL_REFUSED = "REQ-EINWILLIGUNG-001";
 /** A newly seated address on the ban list, spelled out for the same reason. */
 const BARRED = "REQ-KONTAKT-003";

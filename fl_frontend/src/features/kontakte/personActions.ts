@@ -21,7 +21,7 @@ const SitzAdresseSchema = z.object({ team_id: CustomObjectIdStringSchema, saison
 
 /**
  * A seat holder's own two choices for one team season. It claims the person's record on that row,
- * never a seat panel, so a past season's seat holder can still withdraw (`docs/frontend/spec.md :: I893`).
+ * never a seat panel, so a past season's seat holder can still withdraw (`docs/frontend/spec.md :: I639`).
  */
 export async function patchSitzEinwilligungAction(
   teamId: string,

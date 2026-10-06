@@ -1081,7 +1081,7 @@ ITS_TEAM_LEFT: dict[str, Any] = {"$set": {"austritt": {"type": "rueckzug", "grun
 
 
 class TestALinkOutlivingItsSeason:
-    """A link minted while the season ran asks no consent once it has ended or the team left it (`docs/backend/spec.md :: I935`)."""
+    """A link minted while the season ran asks no consent once it has ended or the team left it (`docs/backend/spec.md :: I570`)."""
 
     async def closed(self, database: AsyncDatabase, how: str) -> None:
         if how in ("past", "both"):

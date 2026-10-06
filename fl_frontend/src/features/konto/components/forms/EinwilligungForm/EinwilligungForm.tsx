@@ -83,7 +83,7 @@ type Gespeichert = { readonly success: true; readonly nachweis_stand: FLEinwilli
 
 /**
  * One grant switch, closed where the record admits no grant and never left out, as its paragraph names it
- * (`docs/frontend/spec.md :: I_NEW_KFE_2`). Keyed by that state: a withdrawal closing it draws a new one,
+ * (`docs/frontend/spec.md :: I646`). Keyed by that state: a withdrawal closing it draws a new one,
  * which the focus lands past.
  */
 function GrantSchalter({
@@ -137,7 +137,7 @@ export type EinwilligungFormProps<U extends Umfang> = {
 /**
  * One consent record's controls, each saved by its own press. Every record a person holds renders
  * through this one component, so the pupil's, the referee's, a seat's and a registration's cannot drift
- * apart in wording or behaviour (`docs/frontend/spec.md :: I891`).
+ * apart in wording or behaviour (`docs/frontend/spec.md :: I637`).
  */
 export function EinwilligungForm<U extends Umfang>({
   worte,
@@ -165,7 +165,7 @@ export function EinwilligungForm<U extends Umfang>({
     gehalten.current = { wahl: gespeichert, stand: nachweisStand };
   }, [gespeichert, nachweisStand]);
 
-  // The one rule every control is closed by (`docs/frontend/spec.md :: I892`): a grant is closed where the
+  // The one rule every control is closed by (`docs/frontend/spec.md :: I638`): a grant is closed where the
   // record admits none and does not already hold it, the media consent also below the age the backend names.
   const zu = (wahl_: Wahl, gehaltenWahl: EinwilligungWahl): boolean =>
     istGrant(wahl_) && !hält(gehaltenWahl, wahl_) && (!erteilbar || (wahl_.wahl === "medien" && !medienAngeboten));

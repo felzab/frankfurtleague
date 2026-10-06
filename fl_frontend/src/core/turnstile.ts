@@ -21,7 +21,7 @@ const TOKEN_MAX_LENGTH = 2048;
 
 /**
  * Cloudflare refusing our own secret or request shape, which no visitor can repair. Refused, so a wrong
- * key shows at the first submission instead of switching the check off unseen (`docs/frontend/spec.md :: I822`).
+ * key shows at the first submission instead of switching the check off unseen (`docs/frontend/spec.md :: I623`).
  */
 const OURS = new Set(["missing-input-secret", "invalid-input-secret", "bad-request"]);
 

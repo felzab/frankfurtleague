@@ -27,7 +27,7 @@ class FLEinwilligungNachweise(BaseModel):
 class FLEinwilligungStand(BaseModel):
     """Each choice's stand where the account page was served, null where the record carried no evidence for it.
 
-    A consent PATCH's precondition, echoed back as served, never a secret (`docs/backend/spec.md :: I995`).
+    A consent PATCH's precondition, echoed back as served, never a secret (`docs/backend/spec.md :: I591`).
     """
 
     # Required with no default, as `kontakte_stand` is: an omitted precondition judges nothing.

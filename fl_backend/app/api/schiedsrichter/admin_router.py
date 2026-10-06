@@ -193,7 +193,7 @@ async def patch_schiedsrichter(
     link to the new address and a notice to the stored one. Retired or not: the record is theirs
     either way. A new pending change replaces an earlier one, whose link stops working, and where it
     names another mailbox the earlier address goes from the action log as a decline's does
-    (`docs/backend/spec.md :: I_NEW_KREF_4`); a save leaving the address alone leaves a pending change
+    (`docs/backend/spec.md :: I562`); a save leaving the address alone leaves a pending change
     standing. Its consent is never asked again.
 
     **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
@@ -576,7 +576,7 @@ async def delete_adresswechsel(
     """
     Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.
 
-    **The address goes from the action log too** (`docs/backend/spec.md :: I_NEW_KREF_4`): every image the log holds of this
+    **The address goes from the action log too** (`docs/backend/spec.md :: I562`): every image the log holds of this
     referee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one
     carrying an address nobody proved. Nothing is mailed. 404 where the referee holds no pending change, and for an id no
     referee holds, the ghost's included.

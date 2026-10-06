@@ -172,7 +172,7 @@ WRITES: Mapping[str, Write] = {
 
 
 class TestAnAdministratorRevokedMidWriteWritesNothing:
-    """`docs/backend/spec.md :: I921`, where the actor check before the handler admitted the actor."""
+    """`docs/backend/spec.md :: I575`, where the actor check before the handler admitted the actor."""
 
     @pytest.mark.parametrize("write", WRITES.values(), ids=WRITES.keys())
     def test_the_revoke_landing_inside_refuses_the_write_and_stores_nothing(self, mongo_replica_set_url: str, write: Write):
@@ -286,7 +286,7 @@ def person_race(url: str, *, ban: bool, touches_the_row: bool) -> tuple[int, str
 
 
 class TestAPersonBarredWhileTheirWriteRuns:
-    """`docs/backend/spec.md :: I922`: the person's ban is read again in every attempt, and nothing anchors it."""
+    """`docs/backend/spec.md :: I576`: the person's ban is read again in every attempt, and nothing anchors it."""
 
     def test_a_ban_committed_before_the_retry_reads_refuses_it_and_stores_nothing(self, mongo_replica_set_url: str):
         """The ban lands inside the first attempt beside a write of the same row, so the attempt conflicts and runs again.

@@ -454,7 +454,7 @@ class SelbstEinwilligungPayload(BaseModel):
     umfang: Literal["kader_oeffentlich", "intern"]
     medien: bool
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
-    # The record's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I995`).
+    # The record's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I591`).
     nachweis_stand: FLEinwilligungStandPayload
 
 

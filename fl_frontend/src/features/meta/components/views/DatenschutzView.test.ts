@@ -448,7 +448,7 @@ describe("the privacy notice's account of the site's own protection", () => {
   it("gives a person's daily count its clock, and says it holds no address", () => {
     const frist = ANGABEN.get("Tageszähler einer angemeldeten Person, je Personengruppe") ?? "";
 
-    // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I837`), and per kind of person a write is made as, never per mailbox.
+    // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I619`), and per kind of person a write is made as, never per mailbox.
     assert.ok(frist.startsWith("Bis kurz nach Mitternacht des Tages, den er zählt."), frist);
     assert.ok(
       frist.includes(

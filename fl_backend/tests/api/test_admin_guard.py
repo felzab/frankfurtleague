@@ -324,7 +324,7 @@ def test_the_declaration_sweep_reads_some_operation_and_a_write():
 
 @pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
 def test_every_admin_tier_write_runs_in_a_transaction_judging_its_actor(path: str, method: str):
-    """`docs/backend/spec.md :: I921`: a write outside the helper's session is judged once, before its handler.
+    """`docs/backend/spec.md :: I575`: a write outside the helper's session is judged once, before its handler.
 
     A revoke committing between that check and the write then leaves the revoked administrator one write to make.
     """
@@ -341,7 +341,7 @@ PERSON_LANE_WRITES = sorted(operation for operation in PERSON_OPERATIONS if oper
 
 @pytest.mark.parametrize(("path", "method"), PERSON_LANE_WRITES, ids=lambda value: value)
 def test_every_person_lane_write_runs_in_a_transaction_judging_its_person(path: str, method: str):
-    """`docs/backend/spec.md :: I922`: the binder reads the ban once before the handler; the transaction reads it again in each attempt."""
+    """`docs/backend/spec.md :: I576`: the binder reads the ban once before the handler; the transaction reads it again in each attempt."""
 
     assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
         f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no person"

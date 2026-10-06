@@ -174,7 +174,7 @@ STEP_UP_WINDOW_HOURS: Final = 2
 # keeps that bound.
 
 # A signed-in person's counted writes per German day, by Funktion, each about three to five times its
-# kind's busiest legitimate day (`docs/backend/spec.md :: I831`). A pupil's is the first visit: two
+# kind's busiest legitimate day (`docs/backend/spec.md :: I614`). A pupil's is the first visit: two
 # choices, each granted and corrected once, 4 grants.
 DROSSELUNG_SPIELER_PRO_TAG: Final = 20
 # A referee's is a season's match work done in one sitting, about 31 writes, beside four consent grants.

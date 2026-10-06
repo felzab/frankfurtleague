@@ -443,7 +443,7 @@ async def _withdrawn_then_granted(http: AsyncClient, path: str, payload: Callabl
 
 @pytest.mark.db
 class TestErteilbarIsTheGrantThePressTakes:
-    """`docs/backend/spec.md :: I973`: every entry the account read serves is offered a grant exactly where its PATCH takes one."""
+    """`docs/backend/spec.md :: I597`: every entry the account read serves is offered a grant exactly where its PATCH takes one."""
 
     @staticmethod
     async def _a_withdrawn_teams_confirmed_seat(database: AsyncDatabase) -> None:

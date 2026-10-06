@@ -396,7 +396,7 @@ class TestWhatAConfirmationWrites:
         assert (record["umfang"], record["medien"]) == ("intern", False)
 
     def test_a_returning_pupils_press_stores_the_stamp_and_the_label_alone(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I_NEW_KONTO-B3_1`: the page asked no choice, so none is stored, and the person's record is untouched."""
+        """`docs/backend/spec.md :: I557`: the page asked no choice, so none is stored, and the person's record is untouched."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             held = await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})

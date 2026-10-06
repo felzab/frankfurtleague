@@ -295,7 +295,7 @@ describe("the contacts save that seats new people", () => {
 });
 
 /* A seat handed to another person is a new acceptance, admitted under the running label alone; the
-   label the editor's page held may be one a deploy has since moved past (`docs/backend/spec.md :: I866`). */
+   label the editor's page held may be one a deploy has since moved past (`docs/backend/spec.md :: I610`). */
 describe("the label a contacts save names", () => {
   it("sends every seat under the label the form runs at the write, whatever label the page held", async () => {
     const alt = (person: typeof BLOCK.trainer) => ({

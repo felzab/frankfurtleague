@@ -205,7 +205,7 @@ def _lists_on(session: AsyncClientSession, config: BackendConfig) -> tuple[Async
 
 
 def admin_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
-    """The actor check asked again in each attempt of every transaction the request opens (`docs/backend/spec.md :: I921`)."""
+    """The actor check asked again in each attempt of every transaction the request opens (`docs/backend/spec.md :: I575`)."""
 
     @asynccontextmanager
     async def judging_the_administrator(session: AsyncClientSession) -> AsyncIterator[None]:
@@ -330,7 +330,7 @@ async def verify_person_is_unbarred(
 
 
 def person_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
-    """The ban check asked again in each attempt of every transaction a person's request opens (`docs/backend/spec.md :: I921`)."""
+    """The ban check asked again in each attempt of every transaction a person's request opens (`docs/backend/spec.md :: I575`)."""
 
     @asynccontextmanager
     async def judging_the_person(session: AsyncClientSession) -> AsyncIterator[None]:
@@ -361,7 +361,7 @@ async def bind_actor(
     # Folded, as the grant check read it: one administrator is one spelling in every stored actor
     # field, whatever case the session's address was typed in.
     actor_token = actor_var.set(Actor(kind="admin_session", email=sign_in_identifier(actor.email)))
-    # Beside the actor, so no transaction this request opens runs unjudged (`docs/backend/spec.md :: I921`).
+    # Beside the actor, so no transaction this request opens runs unjudged (`docs/backend/spec.md :: I575`).
     judge_token = actor_judge_var.set(admin_judge(actor, config))
     # The route's template, not `request.url.path`: an id baked into the stored path would make one
     # row per document where the page wants one row per kind of action.

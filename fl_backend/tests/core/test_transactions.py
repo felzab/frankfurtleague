@@ -167,7 +167,7 @@ PERSON = PersonActor(pseudonym="0" * 64, funktion="spieler")
 
 
 class TestEveryAttemptJudgesItsActorFirst:
-    """`docs/backend/spec.md :: I921`: the judge a binder bound is entered inside every attempt the driver makes, around its callback."""
+    """`docs/backend/spec.md :: I575`: the judge a binder bound is entered inside every attempt the driver makes, around its callback."""
 
     def test_the_judge_is_entered_before_the_callback_and_left_after_it_on_every_attempt(self):
         """Two attempts, as a write conflict makes: a judge entered once per session would let the retry run on the first attempt's read."""
@@ -716,7 +716,7 @@ def _sessions_a_judge_carried(judge: Any, grants: list[Mapping[str, Any]]) -> tu
 
 
 class TestEveryJudgeReadsInTheAttemptsSession:
-    """`docs/backend/spec.md :: I921`, `:: I922`: a judge's read left off the session judges what committed last, not the attempt's snapshot.
+    """`docs/backend/spec.md :: I575`, `:: I576`: a judge's read left off the session judges what committed last, not the attempt's snapshot.
 
     Entered through `JudgedSession`, which no in-session sweep over a callback's source reaches.
     """

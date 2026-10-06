@@ -50,7 +50,7 @@ export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession
 export type AnmeldungRecords = Omit<FLAnmeldungResponse, "acknowledged">;
 
 // React's `cache` for `lookUpSubjekt`'s reason. Its own read rather than the subject's: only a sign-in
-// pays for the two collections `konto` reads beyond the subject's three (`docs/backend/spec.md :: I_NEW_KONTO-BE_2`).
+// pays for the two collections `konto` reads beyond the subject's three (`docs/backend/spec.md :: I565`).
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
 export const lookUpAnmeldung = cache(async (email: string): Promise<AnmeldungRecords> => {
   const payload: FLSubjektPayload = { email: email };

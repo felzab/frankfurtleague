@@ -6,7 +6,7 @@ are recorded, and an endpoint's count is the transitive sum over its callees wit
 into a callback handed to `with_transaction`. `app/core/crud.py` is the chokepoint the helpers
 live in, `app/core/recording.py` is the log's companion insert -- the pairing gap
 `docs/backend/spec.md` section 4 names -- and `app/core/drosselung.py` counts a person's write
-outside its transaction by design (`docs/backend/spec.md :: I834`), so none of the three is swept.
+outside its transaction by design (`docs/backend/spec.md :: I617`), so none of the three is swept.
 
 What the sweep proves is exactly that no endpoint composes a second write outside a transaction.
 Whether a write inside a callback carries `session=` is beyond a lexical read, and stays with the

@@ -987,7 +987,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
     """Each seat's record and its birthdate, composed here rather than taken from the payload (`docs/backend/spec.md :: I142`).
 
     A seat its person keeps keeps its record; any other is born under the payload's label granting
-    nothing (`docs/backend/spec.md :: I865`).
+    nothing (`docs/backend/spec.md :: I609`).
     """
 
     if kontakte is None:
@@ -1004,7 +1004,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         stored_slot = stored_block.get(slot)
         einwilligung = _confirmation_held_by(stored_slot, seat=seat)
         if einwilligung is None:
-            # Born afresh (`docs/backend/spec.md :: I865`): nothing of a person who left travels to the
+            # Born afresh (`docs/backend/spec.md :: I609`): nothing of a person who left travels to the
             # one seated, and nobody filling a seat for another person may give their media consent.
             einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "medien": False, "eingetragen_von": "liga"}
         composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}

@@ -349,7 +349,7 @@ the server block's `error_page 429` sending a zone's refusal and the connection 
 `nginx/shared/site.conf :: @edge_refusal`. Next 16.3.8 hands a server action's caller the body of a
 failed answer that is not RSC as the error's message under that exact type alone, and the frontend
 reads that message as a press that wrote nothing
-([`docs/frontend/spec.md`](../frontend/spec.md) I838). A `charset` makes the header
+([`docs/frontend/spec.md`](../frontend/spec.md) I656). A `charset` makes the header
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
 handler's caller reads the status alone, and a page load past the connection ceiling shows the
 sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
@@ -384,7 +384,7 @@ names neither nginx nor the block responsible.
 (I177): a navigation renders the interstitial, where a background POST can render nothing and is
 answered with markup the caller cannot read. **No rule checks the POST behind a challenged page**, so
 the clearance a navigation earns protects none of the writes there; the bot check judged on the
-server at the submit does ([`docs/frontend/spec.md`](../frontend/spec.md) I821).
+server at the submit does ([`docs/frontend/spec.md`](../frontend/spec.md) I622).
 A Next server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
 interstitial: the challenge's HTML reaches React where a Flight stream was expected, and the throw
 lands on the error boundary before any application code runs. Every page and every server action
@@ -449,7 +449,7 @@ restated copy would be a second enforcing policy, which the
 **Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
 no other directive**: the bot check on the sign-in and the two public forms loads its script from
 there and renders its widget in a frame of that origin
-([`docs/frontend/spec.md`](../frontend/spec.md) I821), so a policy losing it from either breaks all
+([`docs/frontend/spec.md`](../frontend/spec.md) I622), so a policy losing it from either breaks all
 three while every location still sends the file's value. `nginx/edge_test.sh` fails a response
 whose policy does. Cloudflare's own list for the check adds `connect-src 'self'` for pre-clearance
 alone, which the widget does not use (https://developers.cloudflare.com/turnstile/reference/content-security-policy/,

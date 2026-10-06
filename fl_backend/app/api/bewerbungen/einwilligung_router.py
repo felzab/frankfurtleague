@@ -283,14 +283,14 @@ async def post_einwilligung(
             assert geburtsdatum is not None
 
             # Unanchored: the rollover reads nothing this press writes, so one committing inside it orders as
-            # one committing just after (`docs/backend/spec.md :: I_NEW_H1-BE_1`).
+            # one committing just after (`docs/backend/spec.md :: I579`).
             saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1}, session=session)
             # `find_one` rather than `pull_one_from_db`: no season is ever deleted, so a miss is a broken
             # invariant rather than a 404 this press could answer.
             assert saison_raw is not None
             # Every link on a closed row meets this here, whether minted before it closed, beside its
             # rollover or after it; never the Widerspruch below, which removes the person
-            # (`docs/backend/spec.md :: I935`).
+            # (`docs/backend/spec.md :: I570`).
             refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
 
             # Against the one page the view answered for these seats.

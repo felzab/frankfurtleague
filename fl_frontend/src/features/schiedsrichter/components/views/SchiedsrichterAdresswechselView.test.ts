@@ -79,7 +79,7 @@ describe("the referee's address page", () => {
     assert.doesNotMatch(shown, /Anna/);
   });
 
-  it("offers the decline alone on a lapsed link, which names nobody and keeps the address in force (`docs/frontend/spec.md :: I_NEW_KREF_6`)", () => {
+  it("offers the decline alone on a lapsed link, which names nobody and keeps the address in force (`docs/frontend/spec.md :: I630`)", () => {
     const shown = words({ zustand: "abgelaufen", token: "abc123" });
 
     assert.match(shown, /Dieser Link ist abgelaufen/);

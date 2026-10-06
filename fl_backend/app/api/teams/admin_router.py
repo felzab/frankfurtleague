@@ -645,7 +645,7 @@ async def patch_saison_team_kontakte(
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
         # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
-        # Widerspruch alone (`docs/backend/spec.md :: I935`).
+        # Widerspruch alone (`docs/backend/spec.md :: I570`).
         owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
         # A ban committing after this read conflicts with the save on the saver's own grant row, which
         # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
@@ -661,7 +661,7 @@ async def patch_saison_team_kontakte(
 
         # Read only where a link is minted, and in session as the address is. Unanchored: a rollover
         # committing after this read leaves the mail asking the open row's answer, which the press then
-        # refuses (`docs/backend/spec.md :: I935`).
+        # refuses (`docs/backend/spec.md :: I570`).
         zeile: FLKontaktZeile = "offen"
         if owed:
             saison_raw = await pull_one_from_db(
@@ -683,7 +683,7 @@ async def patch_saison_team_kontakte(
         )
 
         # Judged on what this transaction mints and voids, which aborts with the refusal: a bearer link
-        # handed out or taken away is a step-up write (`docs/backend/spec.md :: I931`).
+        # handed out or taken away is a step-up write (`docs/backend/spec.md :: I566`).
         voids = voids_a_live_link(
             stored_kontakte=stored.get("kontakte"),
             stored_bestaetigungen=stored.get("bestaetigungen"),

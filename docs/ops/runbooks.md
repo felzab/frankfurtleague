@@ -634,7 +634,7 @@ as them.
 - **A referee who HAS confirmed, retired or not.** Enter the new address in the referee editor. The
   save keeps the address on file and holds the new one as a pending change with a link of its own;
   the address moves only once its holder confirms there, so until then the referee still signs in,
-  and is written to, at the address on file (`docs/backend/spec.md :: I_NEW_KREF_1`). Re-send its
+  and is written to, at the address on file (`docs/backend/spec.md :: I559`). Re-send its
   link when it lapses, or discard it when the request turns out to be wrong; a lapsed change is
   the yearly deletion's to remove, which is not built yet, so until it is the change stands
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
@@ -651,12 +651,12 @@ as them.
   registration storing it unfolded (`docs/glossary.md :: Registrierung`). Those are the records
   the sign-in gate admits an address for (`docs/glossary.md :: Konto`).
 - **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
-  read keys on that address, by design (`docs/backend/spec.md :: I_NEW_KREF_2`), so no page search
+  read keys on that address, by design (`docs/backend/spec.md :: I560`), so no page search
   finds the referee from it: find the row with a read-only Playground query on `schiedsrichter` for
   `adresswechsel.email` equal to the address, matched in any case and projecting `_id` and `name`
   alone, then open that referee's editor and press „Änderung verwerfen“
   (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`), which removes the address and the
-  log's images of it (`docs/backend/spec.md :: I_NEW_KREF_4`). The link's own „Das ist nicht meine
+  log's images of it (`docs/backend/spec.md :: I562`). The link's own „Das ist nicht meine
   Adresse“ does the same, past its deadline too.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
@@ -674,7 +674,7 @@ administrator's save, proved by the new mailbox's own link and told to the addre
 every other role's is the administrator's correction.
 
 **Withdrawing a consent is the person's own write on their account page, `/bereich/konto`, and
-never an erasure or an edit by hand** (`docs/backend/spec.md :: I869`, `:: I972`). Point a request
+never an erasure or an edit by hand** (`docs/backend/spec.md :: I613`, `:: I596`). Point a request
 arriving by mail at the control for its record, which the person reaches by signing in with the
 address that record holds:
 
@@ -682,7 +682,7 @@ address that record holds:
   `PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`.
 - **A seat's WhatsApp scope and media consent on a team's season row:**
   `PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`, for every seat the address holds
-  on that row (`docs/backend/spec.md :: I975`).
+  on that row (`docs/backend/spec.md :: I599`).
 - **A seat's WhatsApp scope and media consent on a pending application:**
   `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
   either.
@@ -721,7 +721,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   again with „Bestätigungslink senden“ on that seat in the team's contacts editor
   (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
   whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
-  ended or whose team has left it (`REQ-KONTAKT-005`, `docs/backend/spec.md :: I935`), though a link
+  ended or whose team has left it (`REQ-KONTAKT-005`, `docs/backend/spec.md :: I570`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is `POST /kontakte/erasure`.
 
@@ -736,14 +736,14 @@ by mail instead has two answers, and which one you give is the person's to choos
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
   on their account page, `/bereich/konto`, which they reach by signing in with the address their
   record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
-  the person did not make is not their consent (`docs/backend/spec.md :: I869`). **A pupil whose
+  the person did not make is not their consent (`docs/backend/spec.md :: I613`). **A pupil whose
   record holds no address cannot sign in**, and the one route the code leaves to keep their place
   takes two writes by their team, in this order. A seat holder first takes the pupil's squad row of
   the season out, since a live row there refuses any admission (`REQ-REGISTRIERUNG-015`); the pupil
   then registers again through the team's link while the season's registration window is open,
   choosing the narrower publication, and a seat holder admits that registration onto the stored
-  record the pending list proposes by name (`docs/backend/spec.md :: I952`). The admission writes the address, rewrites the retired
-  squad row rather than writing a second (`docs/backend/spec.md :: I954`) and renews the choice from
+  record the pending list proposes by name (`docs/backend/spec.md :: I581`). The admission writes the address, rewrites the retired
+  squad row rather than writing a second (`docs/backend/spec.md :: I583`) and renews the choice from
   the pupil's own answer
   (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`). Where the window is
   shut, the erasure above is the only route. Either write that withholds the name drops the cached
@@ -1525,7 +1525,7 @@ of the line keeps every security flaw fixed since.
 **Nothing in this repository watches how full the database is, and the production tier stops at a
 hard limit**: 5 GB of documents and indexes together, past which every write fails, so the
 application shows it as every save failing at once. What keeps one person from filling it is the
-daily write ceiling (`docs/backend/spec.md :: I831`, its numbers
+daily write ceiling (`docs/backend/spec.md :: I614`, its numbers
 `fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two siblings), sized
 so that no one person writing 10 KB a write at their ceiling every day reaches the alert below within
 a year. The alert shows the rest: many people at once, the action log's own growth, or counts that
@@ -1541,5 +1541,5 @@ Flex limitations, which move without us; read 2026-10-07.
 
 **When it fires, find the collection that grew**, from the cluster's collection sizes in the Atlas
 console. `drosselung` holds one row per person, kind of person and day, which its TTL index removes
-(`docs/backend/spec.md :: I837`), so a large one there is the TTL monitor stopping rather than people
+(`docs/backend/spec.md :: I619`), so a large one there is the TTL monitor stopping rather than people
 writing.

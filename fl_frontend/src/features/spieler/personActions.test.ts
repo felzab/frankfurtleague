@@ -147,7 +147,7 @@ describe("a pupil's own consent write", () => {
   });
 
   /* The backend committed the withdrawal and the answer went missing: a squad read cached for days
-     would keep publishing the name the pupil withdrew (`docs/frontend/spec.md :: I894`). */
+     would keep publishing the name the pupil withdrew (`docs/frontend/spec.md :: I640`). */
   it("drops the squad's cached public read when the write's answer is lost", async () => {
     setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
     answerWith(() =>
@@ -194,7 +194,7 @@ describe("what a pupil's own consent write answers a refusal with", () => {
   });
 
   /* A grant past the day's ceiling is told that withdrawing still goes through, where the spine's own
-     sentence would not say so (`docs/frontend/spec.md :: I836`). */
+     sentence would not say so (`docs/frontend/spec.md :: I655`). */
   it("answers a pupil's grant past the day's ceiling with the withdrawal still open", async () => {
     setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
     answerWith(() => Promise.reject(refusedOn(EINWILLIGUNG_OPERATION, "REQ-DROSSELUNG-001")));

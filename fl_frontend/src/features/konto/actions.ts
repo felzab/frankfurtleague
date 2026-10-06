@@ -63,7 +63,7 @@ const CODE_UNTERWEGS = "Ein Anmeldecode ist an Deine Adresse unterwegs.";
 
 /**
  * Mails the holder a code to confirm themselves with. The address is the session's and never a posted one,
- * so the press mails nobody but the holder and needs no bot check (`docs/frontend/spec.md :: I823`).
+ * so the press mails nobody but the holder and needs no bot check (`docs/frontend/spec.md :: I624`).
  */
 export async function sendeBestaetigungscodeAction(): Promise<ActionResult> {
   return runKontoStepUp("sendeBestaetigungscodeAction", async (served) => {

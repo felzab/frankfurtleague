@@ -137,7 +137,7 @@ for (const subject of SUBJECTS) {
 }
 
 describe("every anonymous entry point", () => {
-  /* `docs/frontend/spec.md :: I821`: a public form added without the check, or asking it after a parse or
+  /* `docs/frontend/spec.md :: I622`: a public form added without the check, or asking it after a parse or
      a read, answers a script before Cloudflare has judged it. */
   it("turns away a caller with no session, or answers the bot check's refusal before anything else, or carries an exemption", () => {
     const unchecked = [...VERDICTS].filter(([, verdict]) => verdict === "unchecked").map(([name]) => name);

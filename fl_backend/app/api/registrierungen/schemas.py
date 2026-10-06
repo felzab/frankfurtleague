@@ -89,7 +89,7 @@ class FLRegistrierungEntscheidungZeile(FLRegistrierungEntscheidung):
 class FLRegistrierungEinwilligung(FLEinwilligung):
     """A pending registration's consent record, each choice and `datum` optional here alone.
 
-    A returning pupil's page asks no choice (`docs/backend/spec.md :: I_NEW_KONTO-B3_1`).
+    A returning pupil's page asks no choice (`docs/backend/spec.md :: I557`).
     """
 
     umfang: FLEinwilligungUmfang | None = None

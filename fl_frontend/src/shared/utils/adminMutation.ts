@@ -146,7 +146,7 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   const { answer, wrote, tags } = guarded;
   const outcome = "outcome" in answer ? answer.outcome : undefined;
   // Wherever a write may stand, a lost answer and a partial one included: a cached public read the
-  // write feeds keeps serving what it replaced for days otherwise (`docs/frontend/spec.md :: I894`).
+  // write feeds keeps serving what it replaced for days otherwise (`docs/frontend/spec.md :: I640`).
   if (wrote && (answer.success || outcome !== undefined)) for (const tag of tags) updateTag(tag);
   // Here, where no action can forget it (`docs/frontend/spec.md :: I233`). Never on a refusal, left to its
   // action where a landed write stands behind it: a refresh can remount an editor keyed on its row,

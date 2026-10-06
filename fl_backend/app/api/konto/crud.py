@@ -6,7 +6,7 @@ grant the record may not take, then the label, the media age and the ceiling. Th
 before and writes the move after, a write by the id it read in the same transaction never missing.
 
 Invariants:
-- A press refused at any step writes nothing and spends no unit of the ceiling (`docs/backend/spec.md :: I833`).
+- A press refused at any step writes nothing and spends no unit of the ceiling (`docs/backend/spec.md :: I616`).
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence

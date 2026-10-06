@@ -872,7 +872,7 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
 
 
 class TestAReturningRegistration:
-    """`docs/backend/spec.md :: I867`: a registration confirmed on the returning pupil's page moves nothing on the person's record."""
+    """`docs/backend/spec.md :: I611`: a registration confirmed on the returning pupil's page moves nothing on the person's record."""
 
     # Confirmed under an older label, its media grant standing, so a renewal of either choice or a
     # restamp of the label would each move a byte.

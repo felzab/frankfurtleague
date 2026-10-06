@@ -44,7 +44,7 @@ def find_fassung_refusal(
         # A withdrawal may name any version of its page: taking a consent back is never harder than giving it.
         and not (jede_fassung and _version_of(label, seite=seite))
         # Keyed by the places whose PERSON the write leaves unchanged, whichever page the label is a
-        # version of: that record is carried, not stamped (`docs/backend/spec.md :: I866`).
+        # version of: that record is carried, not stamped (`docs/backend/spec.md :: I610`).
         and not (label is not None and label == gehalten.get(ort))
     ]
 

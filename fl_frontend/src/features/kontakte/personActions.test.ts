@@ -152,7 +152,7 @@ describe("what a seat holder's consent writes answer a refusal with", () => {
   });
 
   /* A grant past the day's ceiling is told that withdrawing still goes through, where the spine's own
-     sentence would not say so (`docs/frontend/spec.md :: I836`). */
+     sentence would not say so (`docs/frontend/spec.md :: I655`). */
   it("answers a season seat's grant past the day's ceiling with the withdrawal still open", async () => {
     setSubject(person({ sitze: [sitz()] }));
     answerWith(() => Promise.reject(refusedOn(OPERATION, "REQ-DROSSELUNG-001")));
