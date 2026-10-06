@@ -875,12 +875,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
         # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
+        "brought onto the row by the acceptance, which copies the application's block with every seat held to its own "
+        "stamp (`app.api.teams.services.compose_kontakte_at_entry`); "
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
         "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`). A seat's own person "
-        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum`, "
-        "the stamp and the media answer on every seat that person holds, and a Widerspruch nulls those slots; and the "
+        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum` "
+        "and the consent record's stamp, wording, scope and media answer on every seat that person holds, each answer "
+        "with its evidence, and a Widerspruch nulls those slots; and the "
         "seat's own person moves "
         "`medien` with its evidence (`nachweis.medien`) on every seat they hold on the row, and nothing else, through "
         "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
@@ -2622,9 +2625,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "in one squad all wearing 1 -- so refusing the state would make live rows uneditable and, once "
             "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
             "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). It is REPORTED "
-            "rather than refused, and on one read alone: a team's own representative is served `nummer_doppelt` on "
+            "rather than refused, on the two reads a team's own representative is served: `nummer_doppelt` on "
             "every live row whose number another live row of the squad wears (`app.api.spieler.services.shared_nummern`), "
-            "an ausgetragen row wearing nothing. The comparison reads the stored string as typed: `07` is a shirt "
+            "an ausgetragen row wearing nothing, and on every pending registration whose number a live row already wears "
+            "(`app.api.registrierungen.services.nummern_im_kader`), shown beside the squad row and the registration "
+            "(`fl_frontend/src/features/registrierungen/components/collections/RegistrierungenList.tsx`). The comparison "
+            "reads the stored string as typed: `07` is a shirt "
             "somebody had printed and is not `7`, so a numeric reading that merges the two makes a judgement this "
             "rule declines. The administrator's create form and squad section judge `nummer` on its format alone, "
             "and the public squad list names no state either -- whether either should is open rather than settled, "

@@ -17,8 +17,8 @@ from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLAnmeldungResponse, FLSubjektPayload
 from app.api.identitaet.services import eigene_eintraege
-from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
@@ -106,7 +106,7 @@ def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
-    return {**{slot: None for slot in KONTAKT_SLOTS}, "trainer_ist_zugleich": None, **seats}
+    return {**{slot: None for slot in KONTAKT_ROLLEN}, "trainer_ist_zugleich": None, **seats}
 
 
 def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping[str, Any] | None = None, **seats: Any) -> dict[str, Any]:
@@ -136,7 +136,7 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
         "wunschgegner": None,
         "entscheidung": None,
         "bestaetigungsfrist": "2026-01-15",
-        "bestaetigungen": compose_bestaetigungen(hashes={slot: hash_token(f"{oid}-{slot}") for slot in KONTAKT_SLOTS}, today="2026-01-01"),
+        "bestaetigungen": compose_bestaetigungen(hashes={slot: hash_token(f"{oid}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-01"),
     }
 
 

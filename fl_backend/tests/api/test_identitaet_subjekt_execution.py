@@ -15,7 +15,7 @@ from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.identitaet.router import get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.identitaet.services import build_referee_pipeline, build_seat_pipeline
-from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
@@ -152,10 +152,10 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
         name[:2].upper(),
         _id=row_id,
         kontakte={
-            **{slot: None for slot in KONTAKT_SLOTS},
+            **{slot: None for slot in KONTAKT_ROLLEN},
             **{slot: _person(seat) if isinstance(seat, str) else seat for slot, seat in slots.items()},
             # A declaration about two slots rather than a slot of its own, so it names nobody and
-            # no case here turns on it (`app/api/kontakte/services.py :: KONTAKT_SLOTS`).
+            # no case here turns on it (`app/api/kontakte/services.py :: KONTAKT_ROLLEN`).
             "trainer_ist_zugleich": None,
         },
     )
@@ -466,7 +466,7 @@ def test_a_seat_carries_its_own_season_s_status(mongo_replica_set_url: str):
 def test_every_person_slot_the_block_declares_is_a_published_role():
     """Kills a fourth person slot reaching this answer: `FLSubjektSitz.rolle` would refuse it at run time, as a 500 in a person's own lane."""
 
-    assert set(KONTAKT_SLOTS) == set(get_args(FLKontaktRolle))
+    assert set(KONTAKT_ROLLEN) == set(get_args(FLKontaktRolle))
 
 
 def test_the_operation_is_unreachable_without_a_bearer_token():

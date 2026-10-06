@@ -1,8 +1,8 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, get_args
+from typing import Any
 
-from app.api.bewerbungen.schemas import FLKontaktRolle
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.api.zustellung.schemas import ZIELE_JE_SITZ, FLZustellungZiel
 from app.core.collections import Collection
 
@@ -10,9 +10,6 @@ from app.core.collections import Collection
 # shares read it off the carrier (`app/api/bewerbungen/services.py :: seat_zustellung`), so a second
 # spelling here would judge one field and write another.
 ZUSTELLUNG_FELD = "zustellung"
-
-# The order a contact seat's carriers are resolved in, the block's own declaration order.
-_SITZE = get_args(FLKontaktRolle)
 
 
 @dataclass(frozen=True)
@@ -58,7 +55,7 @@ def traeger_pfade(ziel: FLZustellungZiel, rollen: Sequence[str]) -> list[str]:
     if ziel not in ZIELE_JE_SITZ:
         return [pfad.traeger]
 
-    return [f"{pfad.traeger}.{sitz}" for sitz in _SITZE if sitz in rollen]
+    return [f"{pfad.traeger}.{sitz}" for sitz in KONTAKT_ROLLEN if sitz in rollen]
 
 
 def traeger_halter(raw: Mapping[str, Any], traeger: str) -> tuple[Any, str]:

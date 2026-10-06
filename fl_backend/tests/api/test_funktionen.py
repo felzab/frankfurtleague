@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.crud import find_eigene_eintraege, funktionen_of
 from app.api.identitaet.schemas import FLSubjekt
-from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import sign_in_identifier
@@ -128,7 +128,7 @@ def _junction(
         name[:2].upper(),
         _id=row_id,
         austritt=austritt,
-        kontakte={**{slot: None for slot in KONTAKT_SLOTS}, **slots, "trainer_ist_zugleich": zugleich},
+        kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_ist_zugleich": zugleich},
     )
 
 

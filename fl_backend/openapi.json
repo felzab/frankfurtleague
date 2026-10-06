@@ -10845,6 +10845,22 @@
             ],
             "title": "Zustand"
           },
+          "zeile": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "offen",
+                  "saison_vorbei",
+                  "ausgetreten"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zeile"
+          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -10917,6 +10933,7 @@
         "required": [
           "quelle",
           "zustand",
+          "zeile",
           "saison_id",
           "schule",
           "rolle",
@@ -14828,6 +14845,15 @@
           "schule": {
             "type": "string",
             "title": "Schule"
+          },
+          "zeile": {
+            "type": "string",
+            "enum": [
+              "offen",
+              "saison_vorbei",
+              "ausgetreten"
+            ],
+            "title": "Zeile"
           }
         },
         "type": "object",
@@ -14837,7 +14863,8 @@
           "email",
           "frist",
           "vorname",
-          "schule"
+          "schule",
+          "zeile"
         ],
         "title": "FLKontaktMint",
         "description": "One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever."
@@ -23546,7 +23573,7 @@
           "sitze"
         ],
         "title": "FLTeamSitzeResponse",
-        "description": "A team's three seats in one season, in the order `app/api/kontakte/services.py :: KONTAKT_SLOTS` reads them."
+        "description": "A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them."
       },
       "FLTeamStatistik": {
         "properties": {

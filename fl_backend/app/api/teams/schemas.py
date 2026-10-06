@@ -94,9 +94,17 @@ FLTrikotFarbe = Literal[
 # seat: the two are alternatives, and nothing can mean holding both.
 FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
 
-# The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
-# derives the same three from the model, and a test holds the two spellings equal.
+# The three seats as a closed set, for the wire, in the order `FLSaisonTeamKontakte` declares them;
+# `tests/api/test_kontakt_erasure_execution.py :: test_every_slot_the_model_declares_is_covered` holds
+# the two equal, order included.
 FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+
+# The one spelling of the seat set every module iterates, so a fourth seat is added in one place.
+KONTAKT_ROLLEN: tuple[FLKontaktRolle, ...] = get_args(FLKontaktRolle)
+
+# A season row as a link minted on it sees it: open, or closed by its season ending, which outranks
+# its team having left it.
+FLKontaktZeile = Literal["offen", "saison_vorbei", "ausgetreten"]
 
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
@@ -776,6 +784,9 @@ class FLKontaktMint(BaseModel):
     # seated, and the club under the name it carries in that season, the link's own page saying the same.
     vorname: str
     schule: str
+    # The row's state in the same transaction, so the mail asks what the link's page takes: a closed
+    # row's link takes the Widerspruch alone (`docs/backend/spec.md :: I935`).
+    zeile: FLKontaktZeile
 
 
 class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
@@ -853,7 +864,7 @@ class FLTeamSitz(BaseModel):
 
 
 class FLTeamSitzeResponse(BaseAPIResponse):
-    """A team's three seats in one season, in the order `app/api/kontakte/services.py :: KONTAKT_SLOTS` reads them."""
+    """A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them."""
 
     team_id: CustomObjectId
     saison_id: str

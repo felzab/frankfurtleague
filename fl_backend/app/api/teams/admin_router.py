@@ -27,8 +27,10 @@ from app.api.sperrliste.services import withheld_actor
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.schemas import (
+    KONTAKT_ROLLEN,
     FLKontaktEinladenResponse,
     FLKontaktMint,
+    FLKontaktZeile,
     FLPatchSaisonTeamKontaktePayload,
     FLPatchSaisonTeamKontakteResponse,
     FLPatchSaisonTeamPayload,
@@ -51,7 +53,6 @@ from app.api.teams.schemas import (
     FLTeamWriteResponse,
 )
 from app.api.teams.services import (
-    KONTAKT_ROLLEN,
     build_gruppen,
     build_team_memberships_pipeline,
     build_team_pipeline,
@@ -69,6 +70,7 @@ from app.api.teams.services import (
     find_replacement_refusal,
     find_retire_refusal,
     has_taken_place,
+    kontakt_zeile_of,
     kontakte_fassungen_gehalten,
     kontakte_fassungen_genannt,
     links_owed,
@@ -579,6 +581,7 @@ async def patch_saison_team_kontakte(
     saison_id: str,
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
@@ -629,7 +632,7 @@ async def patch_saison_team_kontakte(
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
-            projection=["kontakte", "bestaetigungen", "name"],
+            projection=["kontakte", "bestaetigungen", "name", "austritt"],
             session=session,
         )
 
@@ -654,6 +657,16 @@ async def patch_saison_team_kontakte(
         )
         refuse(find_kontakt_sitz_gesperrt_refusal(gesperrt=bool(barred)))
 
+        # Read only where a link is minted, and in session as the address is. Unanchored: a rollover
+        # committing after this read leaves the mail asking the open row's answer, which the press then
+        # refuses (`docs/backend/spec.md :: I935`).
+        zeile: FLKontaktZeile = "offen"
+        if owed:
+            saison_raw = await pull_one_from_db(
+                collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session
+            )
+            zeile = kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt"))
+
         minted: dict[str, dict[str, Any]] = {}
         links: list[FLKontaktMint] = []
         for seats in owed:
@@ -661,7 +674,7 @@ async def patch_saison_team_kontakte(
             entry = compose_kontakt_bestaetigung(token_hash=token_hash, today=today)
             minted.update(dict.fromkeys(seats, entry))
             assert kontakte is not None
-            links.append(mint_answer(token=raw_token, seats=seats, kontakte=kontakte, row=stored, frist=entry["frist"]))
+            links.append(mint_answer(token=raw_token, seats=seats, kontakte=kontakte, row=stored, frist=entry["frist"], zeile=zeile))
 
         bestaetigungen = compose_bestaetigungen_nach(
             kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("bestaetigungen"), minted=minted
@@ -929,7 +942,14 @@ async def einladen_kontakt(
             saison_team_id=stored["_id"],
             # The address read in-session, never one the caller read before this request: a save moving
             # it in between would otherwise send the link to the previous mailbox.
-            bestaetigung=mint_answer(token=raw_token, seats=seats, kontakte=kontakte, row=stored, frist=entry["frist"]),
+            bestaetigung=mint_answer(
+                token=raw_token,
+                seats=seats,
+                kontakte=kontakte,
+                row=stored,
+                frist=entry["frist"],
+                zeile=kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")),
+            ),
         )
 
     async with transaction_session(db) as session:
