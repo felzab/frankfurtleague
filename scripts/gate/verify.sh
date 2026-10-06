@@ -473,7 +473,9 @@ run_checker() {
   fi
   case "$rc" in
     0) return 0 ;;
-    1) if [[ "$mode" == "collect" || "$mode" == "annotate" ]]; then fail "$message"; return 1; fi
+    # An annotating checker has marked each finding itself, so its pointer to them marks none.
+    1) if [[ "$mode" == "annotate" ]]; then fail --summary "$message"; return 1; fi
+       if [[ "$mode" == "collect" ]]; then fail "$message"; return 1; fi
        die "$message" ;;
     # A refusal ends the run in `collect` too: collecting exists so that findings reach the reader
     # together, and a check that could not judge its input has none.

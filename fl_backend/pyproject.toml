@@ -123,8 +123,10 @@ ignore = ["B008"]
 
 [tool.ruff.lint.per-file-ignores]
 # `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
-# design: every entry in the banned list guards the backend alone.
+# design: every entry in the banned list guards the backend alone. The orchestration tools are the
+# same scope's python.
 "../scripts/**" = ["TID251"]
+"../.claude/skills/orchestration/tools/**" = ["TID251"]
 
 # A handler reading the environment's settings answers with those whatever the app was built with,
 # and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.

@@ -1001,10 +1001,17 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     else note_fail "compaction hook: ${compact_case%%|*} must exit 0 silently, got '${compact_said:0:200}'"; fi
   done
 
-  # The coordinator's send is recorded once, in the recipient's file, through uv; a subagent's send to
-  # the coordinator writes nothing. The recording's cases are scripts/tests/test_orchestration_tools.py's.
+  # The coordinator's send is recorded in the recipient's file through uv, its text whatever it names;
+  # one it cannot record reaches the coordinator; a subagent's writes nothing. The recording's cases are
+  # scripts/tests/test_orchestration_tools.py's.
   MESSAGES_HOOK="${REPO_ROOT}/.claude/hooks/orchestration-messages.sh"
   check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PostToolUse orchestration-messages.sh SendMessage
+  # With no uv nothing records, and a silent hook reads exactly like one that recorded.
+  messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"W","message":"x"}}' |
+    PATH=/nonexistent "$BASH" "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+  if [[ "$messages_said" == *'"additionalContext":"The messages hook found no uv'* ]]; then
+    info 'messages hook: no uv — told to the coordinator'
+  else note_fail "messages hook: with no uv it must tell the coordinator, got '${messages_said:0:200}'"; fi
   if ! command -v uv >/dev/null 2>&1; then
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then note_fail "uv is absent, and this is CI, which installs it for every python scope"
     else note_skip "the messages hook's probe did not run: uv is absent, and the hook records through it"; fi
@@ -1022,14 +1029,18 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
       out="$(printf '%s' "$1" | HOME="$messages_home" bash "$MESSAGES_HOOK" 2>&1)" || rc=$?
       printf '%s %s' "$rc" "$out"
     }
-    messages_said="$(messages_drive '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"probe order"}}')"
-    if [[ "$messages_said" == "0 " ]] && grep -q '^probe order$' "${messages_briefs}/WORKER-messages.md"; then
+    messages_said="$(messages_drive '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"probe order naming \"agent_id\": in its text"}}')"
+    if [[ "$messages_said" == "0 " ]] && grep -q '^probe order naming "agent_id": in its text$' "${messages_briefs}/WORKER-messages.md"; then
       info 'messages hook: the coordinator'"'"'s send — recorded in the recipient'"'"'s file'
     else note_fail "messages hook: the coordinator's send must be appended to WORKER-messages.md silently, got '${messages_said:0:200}'"; fi
     messages_said="$(messages_drive '{"session_id":"probe-1","agent_id":"a1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"subagent reply"}}')"
     if [[ "$messages_said" == "0 " ]] && ! grep -q 'subagent reply' "${messages_briefs}/WORKER-messages.md"; then
       info 'messages hook: a subagent'"'"'s send — silent, nothing written'
     else note_fail "messages hook: a subagent's send must write nothing and stay silent, got '${messages_said:0:200}'"; fi
+    messages_said="$(messages_drive '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"NOBODY","message":"lost order"}}')"
+    if [[ "$messages_said" == "0 "*'"hookEventName": "PostToolUse"'*"is in no messages file"* ]]; then
+      info 'messages hook: a send it cannot record — told to the coordinator'
+    else note_fail "messages hook: a send to an agent with no messages file must be told as PostToolUse context, got '${messages_said:0:200}'"; fi
   fi
 
   # A writing or driving agent's MCP and Skill calls refused, because the app ignores the
@@ -1297,5 +1308,5 @@ printf '\n'
 if (( FAILURES == 0 )); then
   ok "All script self-checks passed."
 else
-  die "${FAILURES} script self-check(s) failed."
+  die --summary "${FAILURES} script self-check(s) failed."
 fi
