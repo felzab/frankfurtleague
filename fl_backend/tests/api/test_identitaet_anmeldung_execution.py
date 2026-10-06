@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.router import get_anmeldung
@@ -27,10 +26,11 @@ from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    ADDRESS,
     EINWILLIGUNG,
     ban_document,
+    bewerbung_document,
     kontaktperson_document,
+    neue_schule_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -109,28 +109,15 @@ def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping
 def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dict[str, Any]:
     """An application naming a new school, as the submission stores one."""
 
-    return {
-        "_id": oid,
-        "saison_id": ACTIVE_SAISON,
-        "eingereicht_am": "2026-01-01",
-        "status": status,
-        "team_id": None,
-        "schule": {
-            "team_name": f"Bewerberschule {oid}",
-            "full_name": f"Bewerberschule {oid}",
-            "shorthand": str(oid)[-4:],
-            "schulform": None,
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": _kontakte(trainer=dict(trainer)),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-01-15",
-        "bestaetigungen": compose_bestaetigungen(hashes={slot: hash_token(f"{oid}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-01"),
-    }
+    return bewerbung_document(
+        oid,
+        ACTIVE_SAISON,
+        status,
+        kontakte=_kontakte(trainer=dict(trainer)),
+        eingereicht_am="2026-01-01",
+        bestaetigungsfrist="2026-01-15",
+        schule=neue_schule_document(f"Bewerberschule {oid}", str(oid)[-4:]),
+    )
 
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:

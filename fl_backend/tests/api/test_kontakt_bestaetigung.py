@@ -31,7 +31,6 @@ from app.api.bewerbungen.services import (
     KONTAKT_SAISON_VORBEI,
     SEAT_MIN_AGE_YEARS,
     bestaetigungsfrist_from,
-    compose_bestaetigungen,
     hash_token,
 )
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
@@ -985,24 +984,18 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
                 },
             )
             await database[Collection.BEWERBUNGEN].insert_one(
-                {
-                    "_id": ObjectId("6890a1b2c3d4e5f607a50021"),
-                    "saison_id": SAISON_ID,
-                    "eingereicht_am": "2026-03-20",
-                    "status": "eingereicht",
-                    "team_id": TEAM_OID,
-                    "schule": None,
-                    "kontakte": {
-                        seat: documents.kontaktperson_document(name) for seat, name in zip(SEATS, ("Ida", "Jonas", "Klara"), strict=True)
-                    }
+                documents.bewerbung_document(
+                    ObjectId("6890a1b2c3d4e5f607a50021"),
+                    SAISON_ID,
+                    "eingereicht",
+                    kontakte={seat: documents.kontaktperson_document(name) for seat, name in zip(SEATS, ("Ida", "Jonas", "Klara"), strict=True)}
                     | {"trainer_ist_zugleich": None},
-                    "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-                    "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-                    "wunschgegner": None,
-                    "entscheidung": None,
-                    "bestaetigungsfrist": FRIST,
-                    "bestaetigungen": compose_bestaetigungen(hashes=hashes, today=TODAY),
-                }
+                    eingereicht_am="2026-03-20",
+                    bestaetigungsfrist=FRIST,
+                    team_id=TEAM_OID,
+                    link_prefix=raw,
+                    verschickt_am=TODAY,
+                )
             )
             view = await ansicht(database, f"{raw}-trainer")
             answered = await answer(database, f"{raw}-trainer", text_version=BEWERBER_SEITE)
@@ -1244,26 +1237,22 @@ class TestTheLinkLookupWalksAnIndex:
 def angenommene_bewerbung(trainer: Mapping[str, Any]) -> dict[str, Any]:
     """The accepted application this team entered the season through, its Trainer seat holding `trainer`."""
 
-    return {
-        "_id": ObjectId("6890a1b2c3d4e5f607a50031"),
-        "saison_id": SAISON_ID,
-        "eingereicht_am": "2026-03-01",
-        "status": "angenommen",
-        "team_id": TEAM_OID,
-        "schule": None,
-        "kontakte": {
+    return documents.bewerbung_document(
+        ObjectId("6890a1b2c3d4e5f607a50031"),
+        SAISON_ID,
+        "angenommen",
+        kontakte={
             "trainer": dict(trainer),
             "ansprechperson": documents.kontaktperson_document("Jonas"),
             "stellvertretung": documents.kontaktperson_document("Klara"),
             "trainer_ist_zugleich": None,
         },
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": FRIST,
-        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"angenommen-{seat}") for seat in SEATS}, today=TODAY),
-    }
+        eingereicht_am="2026-03-01",
+        bestaetigungsfrist=FRIST,
+        team_id=TEAM_OID,
+        link_prefix="angenommen",
+        verschickt_am=TODAY,
+    )
 
 
 class TestThePageASeasonRowsLinkOpens:

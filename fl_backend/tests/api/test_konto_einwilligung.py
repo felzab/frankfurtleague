@@ -17,7 +17,7 @@ from httpx2 import AsyncClient
 from pydantic import BaseModel, ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token, mindestalter_for
+from app.api.bewerbungen.services import hash_token, mindestalter_for
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung
@@ -34,7 +34,8 @@ from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    ADDRESS,
+    bewerbung_document,
+    neue_schule_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -848,7 +849,8 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607850031")
 # The school as the application named it, apart from the club's and the season row's names, so a fill
 # taken from any of those two is seen to be wrong.
 BEWERBUNG_SCHULE = "Helmholtz, wie beworben"
-BEWERBUNG_TOKENS = {seat: f"bewerbungslink-{seat}" for seat in ("trainer", "ansprechperson", "stellvertretung")}
+BEWERBUNG_LINK = "bewerbungslink"
+BEWERBUNG_TOKENS = {seat: f"{BEWERBUNG_LINK}-{seat}" for seat in ("trainer", "ansprechperson", "stellvertretung")}
 SAISON_TOKEN = "saisonlink-stellvertretung"
 
 
@@ -856,35 +858,22 @@ async def _both_homes(database: AsyncDatabase) -> None:
     """The past row's seats confirmed through the admitted application, the active row's through a link the row minted."""
 
     await database[Collection.BEWERBUNGEN].insert_one(
-        {
-            "_id": BEWERBUNG_OID,
-            "saison_id": PAST_SAISON,
-            "eingereicht_am": "2025-01-10",
-            "status": "angenommen",
-            "team_id": TEAM_A_OID,
-            "schule": {
-                "team_name": BEWERBUNG_SCHULE,
-                "full_name": f"{BEWERBUNG_SCHULE}-Schule",
-                "shorthand": "HW",
-                "schulform": None,
-                "address": dict(ADDRESS),
-                "website_url": None,
-            },
-            "kontakte": _kontakte(
+        bewerbung_document(
+            BEWERBUNG_OID,
+            PAST_SAISON,
+            "angenommen",
+            kontakte=_kontakte(
                 trainer=_seat(REFEREE_STORED),
                 ansprechperson=_seat(REFEREE_STORED),
                 stellvertretung=_seat(BYSTANDER),
                 trainer_ist_zugleich="ansprechperson",
             ),
-            "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-            "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-            "wunschgegner": None,
-            "entscheidung": None,
-            "bestaetigungsfrist": "2025-01-24",
-            "bestaetigungen": compose_bestaetigungen(
-                hashes={seat: hash_token(token) for seat, token in BEWERBUNG_TOKENS.items()}, today="2025-01-10"
-            ),
-        }
+            eingereicht_am="2025-01-10",
+            bestaetigungsfrist="2025-01-24",
+            team_id=TEAM_A_OID,
+            schule=neue_schule_document(BEWERBUNG_SCHULE, "HW"),
+            link_prefix=BEWERBUNG_LINK,
+        )
     )
     link = {"token_hash": hash_token(SAISON_TOKEN), "verschickt_am": "2026-09-01", "frist": "2026-09-15", "abgelehnt_am": None}
     await database[Collection.SAISON_TEAMS].update_one(
@@ -929,30 +918,15 @@ PENDING_SCHULE = "Goethe, wie beworben"
 def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[str, Any]:
     """An application naming its school, as the submission stores one; `kontakte` its seats as the case needs them."""
 
-    return {
-        "_id": oid,
-        "saison_id": ACTIVE_SAISON,
-        "eingereicht_am": "2026-09-01",
-        "status": status,
-        "team_id": None,
-        "schule": {
-            "team_name": PENDING_SCHULE,
-            "full_name": f"{PENDING_SCHULE}-Schule",
-            "shorthand": "GW",
-            "schulform": None,
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": kontakte,
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-09-15",
-        "bestaetigungen": compose_bestaetigungen(
-            hashes={seat: hash_token(f"{oid}-{seat}") for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-09-01"
-        ),
-    }
+    return bewerbung_document(
+        oid,
+        ACTIVE_SAISON,
+        status,
+        kontakte=kontakte,
+        eingereicht_am="2026-09-01",
+        bestaetigungsfrist="2026-09-15",
+        schule=neue_schule_document(PENDING_SCHULE, "GW"),
+    )
 
 
 async def _applications(database: AsyncDatabase) -> None:
