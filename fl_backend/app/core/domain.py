@@ -1131,11 +1131,24 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
         "kontakt.email",
-        Editability.EDITABLE,
-        "required on both payloads with no default, so a create or a save without an address is a 422: an administrator "
-        "enters a referee, and the address is the one route by which that person learns of it. Nullable on the stored row "
-        "all the same, for the ghost, which stands behind nobody",
-        "app.shared.schemas.kontakt.FLKontaktPayload",
+        Editability.CONDITIONAL,
+        "written by a save only until the referee has confirmed; afterwards it moves only when the new mailbox confirms it "
+        "through `POST /schiedsrichter/adresswechsel`, the save keeping the stored address meanwhile, because the address is "
+        "what the person's own sign-in and records are keyed on. Required on both payloads with no default, so a create or a "
+        "save without an address is a 422: an administrator enters a referee, and the address is the one route by which that "
+        "person learns of it. Nullable on the stored row all the same, for the ghost, which stands behind nobody",
+        "app.api.schiedsrichter.services.save_asks_an_address_change",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
+        "adresswechsel",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block. The save that moves a confirmed referee's address writes it WHOLE, replacing a pending "
+        "one, and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` replaces it whole for the same address, "
+        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so does "
+        "either answer its person gives through `POST /schiedsrichter/adresswechsel`. The three delivery endpoints write its "
+        "delivery state as they write `bestaetigung`'s, on the system key alone",
+        "app.api.schiedsrichter.services.compose_korrektur_update",
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
@@ -1929,18 +1942,24 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-002",
         status=HTTPStatus.NOT_FOUND,
-        operation="POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung",
+        operation=(
+            "POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel/ansicht"
+            " · POST /schiedsrichter/adresswechsel"
+        ),
         aggregate="Schiedsrichter",
-        summary="a confirmation link opens no referee's entry -- unknown, replaced by a later mint, or deleted with the referee",
+        summary=(
+            "a referee's link opens no entry -- unknown, replaced by a later mint, an address change already answered or "
+            "discarded, or deleted with the referee"
+        ),
         implemented_by="app.api.schiedsrichter.services.find_unknown_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestATokenNoRefereeHolds",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-003",
         status=HTTPStatus.GONE,
-        operation="POST /schiedsrichter/bestaetigung",
+        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
         aggregate="Schiedsrichter",
-        summary="a link whose deadline has passed records no consent",
+        summary="a link whose deadline has passed records no consent and confirms no address",
         implemented_by="app.api.schiedsrichter.services.find_expired_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestALinkWhoseDeadlineHasPassed",
     ),
@@ -1976,10 +1995,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /schiedsrichter · PATCH /schiedsrichter/{schiedsrichter_id} · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen"
-            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate"
+            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen"
         ),
         aggregate="Schiedsrichter",
-        summary="no confirmation link is minted for an address the ban list still holds",
+        summary="no confirmation or address link is minted for an address the ban list still holds",
         implemented_by="app.api.schiedsrichter.services.find_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnAddressOnTheBanList",
     ),
@@ -1995,9 +2014,9 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-009",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /schiedsrichter/bestaetigung",
+        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
         aggregate="Schiedsrichter",
-        summary="a link mailed to an address the ban list now holds records no consent, whenever it was minted",
+        summary="a link mailed to an address the ban list now holds records no consent and confirms no address, whenever it was minted",
         implemented_by="app.api.schiedsrichter.services.find_bestaetigung_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
     ),

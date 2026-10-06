@@ -58,6 +58,21 @@ export type ZielMailOutcome = {
   gesperrt: number;
 };
 
+/**
+ * How a one-recipient link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it
+ * (`fl_frontend/src/core/mail.ts :: MailWithheldError`), `gesperrt` the ban list keeping it from the
+ * address (`:: MailBarredError`): neither is sent, and neither is a failure to warn about.
+ */
+export type LinkVersand = "gesendet" | "zurueckgehalten" | "gesperrt" | "fehlgeschlagen";
+
+/** The one reading of a link mail's fan-out, so every surface reporting a link names one outcome alike. */
+export function linkVersandOf({ delivered, withheld, gesperrt }: Pick<ZielMailOutcome, "delivered" | "withheld" | "gesperrt">): LinkVersand {
+  if (delivered.length > 0) return "gesendet";
+  if (gesperrt > 0) return "gesperrt";
+
+  return withheld.length > 0 ? "zurueckgehalten" : "fehlgeschlagen";
+}
+
 /** One message as its builder composed it, without the envelope the fan-out fills in. */
 export type ZielMail = Pick<OutboundMail, "subject" | "html" | "text">;
 

@@ -39,6 +39,9 @@ ZIEL_PFADE: Mapping[FLZustellungZiel, ZielPfad] = {
     # A contact seat an administrator typed onto a team's season row: each seat's link entry is a
     # carrier, so two people on one row are two records and one message reaches every seat its person holds.
     "kontakt": ZielPfad(Collection.SAISON_TEAMS, "bestaetigungen"),
+    # A confirmed referee's address link, which goes to the address the change names rather than to
+    # the one the row holds: its own carrier, so its bounce never marks the consent link's message.
+    "schiedsrichter_adresswechsel": ZielPfad(Collection.SCHIEDSRICHTER, "adresswechsel"),
 }
 
 

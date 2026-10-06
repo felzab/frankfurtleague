@@ -54,6 +54,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
         geburtsdatum: schiedsrichter.geburtsdatum,
         einwilligung: schiedsrichter.einwilligung,
         bestaetigung: schiedsrichter.bestaetigung,
+        adresswechsel: schiedsrichter.adresswechsel,
       }}
       istFassungBekannt={fassungBekannt}
       inactiveSince={schiedsrichter.inactive_since}

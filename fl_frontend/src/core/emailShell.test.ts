@@ -59,7 +59,8 @@ const {
   buildRegistrierungErinnerungEmail,
   buildRegistrierungSaisonendeEmail,
 } = await import("./registrierungEmail.ts");
-const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
+const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, buildSchiedsrichterBestaetigungEmail } =
+  await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
@@ -230,6 +231,9 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildSchiedsrichterBestaetigungEmail: (origin) =>
     buildSchiedsrichterBestaetigungEmail({ origin: origin, vorname: "Anna", token: "beispiel-fuenf", fristText: "05.10.2026" }),
+  buildSchiedsrichterAdresswechselEmail: (origin) =>
+    buildSchiedsrichterAdresswechselEmail({ origin: origin, vorname: "Anna", token: "beispiel-sechs", fristText: "05.10.2026" }),
+  buildSchiedsrichterAdresswechselHinweisEmail: (origin) => buildSchiedsrichterAdresswechselHinweisEmail({ origin: origin, vorname: "Anna" }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
 };
@@ -573,6 +577,7 @@ describe("the shared email shell", () => {
       "buildEinladungEmail",
       "buildKontaktBestaetigungEmail",
       "buildRegistrierungBestaetigungEmail",
+      "buildSchiedsrichterAdresswechselEmail",
       "buildSchiedsrichterBestaetigungEmail",
     ]) {
       assert.ok(gedruckt.has(name), `${name} carries no token link on a control, so this case no longer reads it`);

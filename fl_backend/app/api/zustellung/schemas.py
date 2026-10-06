@@ -17,7 +17,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 # A member joins this set in the commit that gives it an `app/api/zustellung/services.py ::
 # ZIEL_PFADE` row and its own validator block: one arriving without either names a kind every
 # write reaches nothing through.
-FLZustellungZiel = Literal["schiedsrichter", "einladung", "registrierung", "kontakt"]
+FLZustellungZiel = Literal["schiedsrichter", "einladung", "registrierung", "kontakt", "schiedsrichter_adresswechsel"]
 
 # The kinds whose record sits under each contact seat rather than once per row, so a report names
 # the seats one message reached. Every other kind names none.

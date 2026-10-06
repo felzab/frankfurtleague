@@ -156,6 +156,7 @@ const schiedsrichter = (id: string, name: string, inactive_since: string | null)
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 });
 const SR_A = "68c1f0a2b3c4d5e6f7a8b921";
 const SR_B = "68c1f0a2b3c4d5e6f7a8b922";

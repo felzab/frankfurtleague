@@ -23,6 +23,7 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 const view = (props: { name: string | null; inactiveSince: string | null }): string =>

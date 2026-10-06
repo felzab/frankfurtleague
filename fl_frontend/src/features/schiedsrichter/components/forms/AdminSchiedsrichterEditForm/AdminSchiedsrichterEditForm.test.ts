@@ -56,6 +56,7 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 const editor = (email: string | null) =>

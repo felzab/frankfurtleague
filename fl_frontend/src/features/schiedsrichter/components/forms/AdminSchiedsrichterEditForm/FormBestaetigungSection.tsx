@@ -10,6 +10,7 @@ import { Button } from "@heroui/react/button";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { einladeSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import {
+  SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS,
   SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE,
   SCHIEDSRICHTER_EINLADEN_STILLGELEGT,
   SCHIEDSRICHTER_KORREKTUR_HINWEIS,
@@ -273,9 +274,9 @@ export function FormBestaetigungSection({
           </>
         )}
 
-        {/* Only while the record is outstanding, because that is the one state the correction mints
-            in: on a confirmed referee the save moves the address and sends nothing. */}
-        {!istBestaetigt && <p className="muted-hint">{SCHIEDSRICHTER_KORREKTUR_HINWEIS}</p>}
+        {/* One sentence per state, because the save mints a different link in each: a consent link
+            while the record is outstanding, an address link once it is given. */}
+        <p className="muted-hint">{istBestaetigt ? SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS : SCHIEDSRICHTER_KORREKTUR_HINWEIS}</p>
 
         <div className="flex w-full flex-col items-start">
           {/* Closed rather than withheld, so the refusal can name what to repair. `sendet` is left
