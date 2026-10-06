@@ -20,12 +20,14 @@ import {
   registrierungTitel,
   schiedsrichterTitel,
   schiedsrichterWorte,
+  sitzBestaetigungZeile,
   sitzTitel,
   sitzWorte,
   SPIELER_TITEL,
   spielerWorte,
 } from "../forms/EinwilligungForm/kontoWorte";
 
+import type { FLSitzBestaetigt } from "../../schemas";
 import type { EinwilligungEintrag } from "../forms/EinwilligungForm/EinwilligungPanel";
 import type { Fuellung } from "../forms/EinwilligungForm/kontoWorte";
 
@@ -38,6 +40,40 @@ async function bestaetigt(textVersion: string | null, fuellung: Fuellung) {
   const fassung = await getEinwilligungFassung(textVersion);
 
   return fassung === null ? null : bestaetigteWorte(fassung, fuellung);
+}
+
+/**
+ * A row's seats' confirmed words, one block per confirmation, each filled with its own roles and floor
+ * and headed by them: a Trainer who took a second seat later confirmed each under its own words.
+ */
+async function sitzBestaetigt(bestaetigungen: readonly FLSitzBestaetigt[]) {
+  const bloecke = await Promise.all(
+    bestaetigungen.map(async (bestaetigung) => ({
+      bestaetigung: bestaetigung,
+      worte: await bestaetigt(bestaetigung.text_version, {
+        ...KONSTANTEN,
+        ...bestaetigung.kontext,
+        rolle: rollenLangform(bestaetigung.rollen),
+        minAlter: String(bestaetigung.mindestalter),
+        ablehnen: ABLEHNEN_LABEL,
+      }),
+    })),
+  );
+  const gezeigt = bloecke.filter(({ worte }) => worte !== null);
+  if (gezeigt.length === 0) return null;
+
+  return (
+    <>
+      {gezeigt.map(({ bestaetigung, worte }) => (
+        <div
+          key={`${bestaetigung.rollen.join("-")}-${bestaetigung.text_version ?? ""}`}
+          className="flex flex-col gap-y-3">
+          <p className="fluid-sm font-bold text-foreground">{sitzBestaetigungZeile(bestaetigung)}</p>
+          {worte}
+        </div>
+      ))}
+    </>
+  );
 }
 
 /**
@@ -143,14 +179,7 @@ export async function EinwilligungSection() {
       eintraege.push({
         id: `sitz-${sitz.team_id}-${sitz.saison_id}`,
         titel: sitzTitel(sitz),
-        bestaetigt: await bestaetigt(sitz.bestaetigt_text_version, {
-          ...KONSTANTEN,
-          ...sitz.kontext,
-          // Every seat held on the row, as the contact page named them and judged the age.
-          rolle: rollenLangform(sitz.rollen),
-          minAlter: String(sitz.mindestalter),
-          ablehnen: ABLEHNEN_LABEL,
-        }),
+        bestaetigt: await sitzBestaetigt(sitz.bestaetigt),
         control: (
           <EinwilligungForm
             // Withdraw-only on a past season or a withdrawn team, with the reason the label gives for it.
@@ -172,13 +201,7 @@ export async function EinwilligungSection() {
       eintraege.push({
         id: `bewerbung-${bewerbung.bewerbung_id}`,
         titel: bewerbungTitel(bewerbung),
-        bestaetigt: await bestaetigt(bewerbung.bestaetigt_text_version, {
-          ...KONSTANTEN,
-          ...bewerbung.kontext,
-          rolle: rollenLangform(bewerbung.rollen),
-          minAlter: String(bewerbung.mindestalter),
-          ablehnen: ABLEHNEN_LABEL,
-        }),
+        bestaetigt: await sitzBestaetigt(bewerbung.bestaetigt),
         control: (
           <EinwilligungForm
             worte={sitzWorte(fassung, { team_name: bewerbung.schule, saison_id: bewerbung.saison_id }, "bisZusage")}

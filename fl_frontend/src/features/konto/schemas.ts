@@ -27,6 +27,22 @@ export const FLSitzKontextSchema = z.object({
 export type FLSitzKontext = z.infer<typeof FLSitzKontextSchema>;
 
 /**
+ * Mirrors `FLSitzBestaetigt`: one confirmation the seats held on a row stand on, its own roles, words,
+ * day and age floor. A Trainer who took a second seat later confirmed twice, under two floors.
+ */
+export const FLSitzBestaetigtSchema = z.object({
+  rollen: z.array(FLKontaktRolleSchema).nonempty(),
+  // The label whose words the account page shows: the backend names it, so the page never decides it
+  // from the record's shape.
+  text_version: z.string().nullable(),
+  bestaetigt_am: CustomDateStringSchema.nullable(),
+  // The floor that confirmation page named, served so the two tiers cannot name different ages.
+  mindestalter: z.number().int(),
+  kontext: FLSitzKontextSchema,
+});
+export type FLSitzBestaetigt = z.infer<typeof FLSitzBestaetigtSchema>;
+
+/**
  * Mirrors `FLKontoSitzEinwilligung`: one entry per team season, however many of its seats the person
  * holds, because one press moves both choices on every one of them.
  */
@@ -35,19 +51,13 @@ export const FLKontoSitzEinwilligungSchema = z.object({
   team_name: z.string(),
   saison_id: z.string(),
   rollen: z.array(FLKontaktRolleSchema).nonempty(),
-  // The label whose words the account page shows beside the control: the backend names which stored
-  // label the person confirmed, so the page never decides it from the record's shape.
-  bestaetigt_text_version: z.string().nullable(),
   umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
   medien: z.boolean(),
   // The consent press's precondition, for the reason `FLSpielerSelbstSchema` gives.
   nachweis_stand: FLEinwilligungStandSchema,
-  // The floor the seat's confirmation page named, over every seat held on the row: served, never
-  // recomputed here from the roles, so the two tiers cannot name different ages.
-  mindestalter: z.number().int(),
   medien_angeboten: z.boolean(),
   erteilbar: z.boolean(),
-  kontext: FLSitzKontextSchema,
+  bestaetigt: z.array(FLSitzBestaetigtSchema).nonempty(),
 });
 export type FLKontoSitzEinwilligung = z.infer<typeof FLKontoSitzEinwilligungSchema>;
 
@@ -62,14 +72,10 @@ export const FLKontoBewerbungSitzEinwilligungSchema = z.object({
   schule: z.string(),
   saison_id: z.string(),
   rollen: z.array(FLKontaktRolleSchema).nonempty(),
-  // For `FLKontoSitzEinwilligungSchema`'s reason.
-  bestaetigt_text_version: z.string().nullable(),
   umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
   medien: z.boolean(),
   nachweis_stand: FLEinwilligungStandSchema,
-  // For `FLKontoSitzEinwilligungSchema`'s reason.
-  mindestalter: z.number().int(),
-  kontext: FLSitzKontextSchema,
+  bestaetigt: z.array(FLSitzBestaetigtSchema).nonempty(),
 });
 export type FLKontoBewerbungSitzEinwilligung = z.infer<typeof FLKontoBewerbungSitzEinwilligungSchema>;
 

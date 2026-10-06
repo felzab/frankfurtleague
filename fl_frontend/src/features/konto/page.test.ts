@@ -309,11 +309,17 @@ const SITZ = {
   team_name: "Lessing Lions",
   saison_id: "2526",
   rollen: ["stellvertretung", "trainer"],
-  bestaetigt_text_version: "2026-09-bestaetigungsseite-6",
   umfang: "kontaktdaten_whatsapp",
   nachweis_stand: { umfang: null, medien: null },
-  mindestalter: 18,
-  kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
+  bestaetigt: [
+    {
+      rollen: ["stellvertretung", "trainer"],
+      text_version: "2026-09-bestaetigungsseite-6",
+      bestaetigt_am: "2026-09-01",
+      mindestalter: 18,
+      kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
+    },
+  ],
   medien: false,
   medien_angeboten: true,
   erteilbar: true,
@@ -325,12 +331,18 @@ const BEWERBUNG_SITZ = {
   schule: "Goethe-Gymnasium",
   saison_id: "2627",
   rollen: ["ansprechperson"],
-  bestaetigt_text_version: "2026-09-bestaetigungsseite-6",
   umfang: "kontaktdaten",
   medien: true,
   nachweis_stand: { umfang: null, medien: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90" },
-  mindestalter: 18,
-  kontext: { vorname: "Erika", team: "Goethe", schule: "Goethe-Gymnasium", saison: "2627" },
+  bestaetigt: [
+    {
+      rollen: ["ansprechperson"],
+      text_version: "2026-09-bestaetigungsseite-6",
+      bestaetigt_am: "2026-09-02",
+      mindestalter: 18,
+      kontext: { vorname: "Erika", team: "Goethe", schule: "Goethe-Gymnasium", saison: "2627" },
+    },
+  ],
 };
 
 const EINWILLIGUNG = {
@@ -518,9 +530,35 @@ describe("the account page's consent section", () => {
      would name another age the day the backend's rule moves. */
   it("names the floor the read serves for a seat in the words its person confirmed", async () => {
     setSubject(OHNE_FUNKTION);
-    answeringKonto({ sitze: [{ ...SITZ, mindestalter: 21 }] });
+    answeringKonto({ sitze: [{ ...SITZ, bestaetigt: [{ ...SITZ.bestaetigt[0], mindestalter: 21 }] }] });
 
     assert.ok((await sectionText()).includes("mindestens 21 Jahre"), "the seat's confirmed words name a floor of the page's own");
+  });
+
+  /* A Trainer who took the Ansprechperson seat later confirmed twice, each seat under its own words and
+     floor: one block per confirmation, each headed by its own roles, never one block naming both seats
+     at the higher floor. */
+  it("shows one block of confirmed words per confirmation on a row, each with its own roles and floor", async () => {
+    setSubject(OHNE_FUNKTION);
+    const [erste] = SITZ.bestaetigt;
+    answeringKonto({
+      sitze: [
+        {
+          ...SITZ,
+          rollen: ["ansprechperson", "trainer"],
+          bestaetigt: [
+            { ...erste, rollen: ["trainer"], bestaetigt_am: "2026-08-20", mindestalter: 16 },
+            { ...erste, rollen: ["ansprechperson"], bestaetigt_am: "2026-09-01", mindestalter: 18 },
+          ],
+        },
+      ],
+    });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Als Trainerin oder Trainer, bestätigt am 20.08.2026"), text);
+    assert.ok(text.includes("Als Ansprechperson, bestätigt am 01.09.2026"), text);
+    assert.ok(text.includes("mindestens 16 Jahre") && text.includes("mindestens 18 Jahre"), "a block names the other's floor");
+    assert.equal(await disclosures(), 1, "the row's confirmations stand under more than one disclosure");
   });
 
   /* A pending registration takes a withdrawal alone until its team admits it, and says so; its press is

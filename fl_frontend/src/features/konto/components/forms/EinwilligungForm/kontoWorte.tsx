@@ -2,6 +2,7 @@ import { gekeyteFassung } from "@/core/einwilligungSeiten";
 import { ABSATZ_CLASSES, Gefuellt } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants";
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { GekeyteFassung } from "@/core/einwilligungSeiten";
 import type { FLEinwilligungFassung } from "@/core/schemas";
@@ -149,6 +150,15 @@ export const bewerbungTitel = (bewerbung: {
   readonly schule: string;
   readonly saison_id: string;
 }): string => `Als ${rollenLangform(bewerbung.rollen)}: Bewerbung für ${bewerbung.schule}, Saison ${bewerbung.saison_id}`;
+
+/** What heads one confirmation's words on a seat's record: the roles it confirmed, and the day where stored. */
+export const sitzBestaetigungZeile = (bestaetigung: {
+  readonly rollen: readonly FLKontaktRolle[];
+  readonly bestaetigt_am: string | null;
+}): string =>
+  bestaetigung.bestaetigt_am === null
+    ? `Als ${rollenLangform(bestaetigung.rollen)}`
+    : `Als ${rollenLangform(bestaetigung.rollen)}, bestätigt am ${formatSpielDatum(bestaetigung.bestaetigt_am)}`;
 
 /** A pending registration's record title; its team gone, the season alone names it. */
 export const registrierungTitel = (registrierung: { readonly team_name: string | null; readonly saison_id: string }): string =>
