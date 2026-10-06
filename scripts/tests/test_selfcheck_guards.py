@@ -284,6 +284,49 @@ def test_a_registration_whose_script_is_there_passes(tmp_path: Path) -> None:
         assert "FAIL" not in out, out
 
 
+def _check_matcher(matcher: str, tmp_path: Path) -> str:
+    """The step-12 matcher read over one registration, asked for the three shell tools."""
+    registration = json.loads(_registration("guard.sh"))
+    registration["hooks"]["PreToolUse"][0]["matcher"] = matcher
+    settings = write_shell(tmp_path / "settings.json", json.dumps(registration))
+    _, out, err = _bash(
+        (
+            SHEBANG,
+            f"source {LIB.as_posix()!r}",
+            "note_fail() { printf 'FAIL %s\\n' \"$*\"; }",
+            "info() { printf 'INFO %s\\n' \"$*\"; }",
+            _function("check_hook_matcher", "  "),
+            f"check_hook_matcher {settings.as_posix()!r} PreToolUse guard.sh Bash Monitor PowerShell",
+        ),
+        tmp_path,
+    )
+    return out + err
+
+
+# The line a machine without node prints for every row, read for in place of the row's own.
+NO_NODE_MATCHER: Final = "FAIL guard.sh's PreToolUse registration in"
+
+
+def test_a_matcher_missing_one_tool_is_a_finding_naming_that_tool(tmp_path: Path) -> None:
+    """A guard registered on `Bash` alone runs for no `Monitor` call, and its own probes stay green."""
+    out = _check_matcher("Bash|PowerShell", tmp_path)
+    if not NODE:
+        assert NO_NODE_MATCHER in out, out
+        return
+    assert "registers guard.sh on PreToolUse with no matcher taking Monitor" in out, out
+    assert out.count("FAIL") == 1, out
+
+
+def test_a_matcher_taking_every_tool_passes_in_either_list_form(tmp_path: Path) -> None:
+    """The contrast the case above needs, in both spellings the harness reads as an exact list."""
+    for matcher in ("Bash|Monitor|PowerShell", "Bash, Monitor, PowerShell"):
+        out = _check_matcher(matcher, tmp_path)
+        if not NODE:
+            assert NO_NODE_MATCHER in out, out
+            continue
+        assert "INFO guard.sh: registered on PreToolUse for Bash Monitor PowerShell" in out and "FAIL" not in out, (matcher, out)
+
+
 # Three characters the fixtures below cannot spell in a line literal without an escape a reader of
 # this file would have to count: a backslash, the quote awk is told about, and a dollar beside one.
 BS: Final = chr(92)

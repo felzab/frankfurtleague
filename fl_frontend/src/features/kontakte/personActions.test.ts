@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 /* The real action, its spine and its mutation, called: the request it runs in, the subject lookup and
    the backend client are the doubles. */
@@ -12,7 +12,8 @@ const { setSubject } = doubleActionRequest({ session: null, subject: person({ si
 const { answerWith, calls } = doubleApiAnswers();
 
 const { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } = await import("./personActions.ts");
-const { EINTRAG_WEG, MEDIEN_ZU_JUNG, SEITE_VERALTET, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
+const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, MEDIEN_ZU_JUNG, SEITE_VERALTET, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
+  await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung";
 const WAHL = { medien: true, text_version: "2026-10-konto-kontakt", nachweis_stand: { medien: null } };
@@ -137,4 +138,41 @@ describe("a seat holder's withdrawal on a pending application", () => {
       assert.deepEqual(invalidations(), [], "a refused write refreshed the page");
     });
   }
+});
+
+/* Every code the document publishes, through the consent writes' one mapper: an action consulting it
+   for the lost record alone would answer the rest in the shared fallback's words. */
+describe("what a seat holder's consent writes answer a refusal with", () => {
+  it("answers every published refusal of the season seat's write through the consent mapper", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    await assertEachAnswered({
+      operation: OPERATION,
+      refuseWith: answerWith,
+      act: () => patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, WAHL),
+      mapped: mapEigeneEinwilligungRefusal,
+    });
+  });
+
+  it("answers every published refusal of the application seat's withdrawal through the consent mapper", async () => {
+    setSubject(person());
+    await assertEachAnswered({
+      operation: BEWERBUNG_OPERATION,
+      refuseWith: answerWith,
+      act: () => patchBewerbungEinwilligungAction(BEWERBUNG_ID, WIDERRUF),
+      mapped: mapEigeneEinwilligungRefusal,
+    });
+  });
+
+  /* A grant past the day's ceiling is told that withdrawing still goes through, where the spine's own
+     sentence would not say so (`docs/frontend/spec.md :: I836`). */
+  it("answers a season seat's grant past the day's ceiling with the withdrawal still open", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    answerWith(() => Promise.reject(refusedOn(OPERATION, "REQ-DROSSELUNG-001")));
+
+    assert.deepEqual(await (() => patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, WAHL))(), {
+      success: false,
+      error: ZUSTIMMEN_MORGEN,
+      fieldErrors: undefined,
+    });
+  });
 });

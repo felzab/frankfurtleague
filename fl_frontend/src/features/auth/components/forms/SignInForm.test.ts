@@ -9,6 +9,7 @@ import { act, createElement as h } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { MENSCH_BESTAETIGEN, TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -344,7 +345,7 @@ describe("the sign-in card's bot check", () => {
     }
   });
 
-  it("sends nothing while its check has not loaded, and says so with the passkey as the way in", async () => {
+  it("sends nothing while its check has not loaded, and says so with the passkey and the league's address as the ways in", async () => {
     fetchMock.mock.mockImplementation(async () => new Response(null, { status: 204 }));
     turnstile.mintsAtOnce(false);
     const before = calls.length;
@@ -396,7 +397,8 @@ describe("the sign-in card's bot check", () => {
 
 /** The card's own sentence for a check that did not load. */
 const NICHT_GELADEN_HIER =
-  "Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, oder melde Dich mit einem Passkey an.";
+  "Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker " +
+  `und lade die Seite neu, melde Dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`;
 
 /* The step on its own, as a page confirming a signed-in person mounts it: the caller decides what a
    finished sign-in does, and an address that may not change is offered no way to change it. */
