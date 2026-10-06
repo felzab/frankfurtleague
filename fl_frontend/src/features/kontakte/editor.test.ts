@@ -47,7 +47,7 @@ import { mapKontakteRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
-import type { FLAustritt, FLKontaktperson, FLSaisonTeamBestaetigungen, FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { FLAustritt, FLKontaktperson, FLSaisonTeamBestaetigungenAnsicht, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { AdminKontakteRow, AdminKontaktSeat, TeamSaisonMembership } from "@/features/teams/types";
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
@@ -190,7 +190,7 @@ const sectionElement = (
   kontakte: FLSaisonTeamKontakte | null,
   isMember = true,
   nimmtLinks = true,
-  bestaetigungen: FLSaisonTeamBestaetigungen | null = null,
+  bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null = null,
 ): ReactNode =>
   h(FormKontakteSection, {
     laufendesLabel: FORM.text_version,
@@ -1273,10 +1273,10 @@ describe("the contact person's own two choices", () => {
   });
 });
 
-/* The owner's ruling: each seat shows its link's state as the referee editor shows the referee's. */
+/* Each seat shows its link's state as the referee editor shows the referee's, by ruling. */
 describe("what each seat shows of its confirmation link", () => {
-  const LINK = { verschickt_am: "2026-09-21", frist: "2026-10-05", abgelehnt_am: null, zustellung: null };
-  const markup = (bestaetigungen: FLSaisonTeamBestaetigungen | null): string =>
+  const LINK = { verschickt_am: "2026-09-21", frist: "2026-10-05", abgelehnt_am: null, zustellung: null, abgelaufen: false };
+  const markup = (bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null): string =>
     editorTree(sectionElement(BLOCK, true, true, bestaetigungen), BLOCK);
 
   it("reads out the sent day, the deadline and the delivery on the seat its link went to", () => {
@@ -1293,6 +1293,15 @@ describe("what each seat shows of its confirmation link", () => {
 
   it("names nothing to report where the delivery is not one to act on", () => {
     assert.match(markup({ trainer: LINK, ansprechperson: LINK, stellvertretung: LINK }), /Nichts zu melden/);
+  });
+
+  /* The read judges the deadline by the seat's own rule, so this browser's day decides nothing. */
+  it("marks a lapse by the read's judgement alone, never by the date it shows", () => {
+    const lapse = (frist: string, abgelaufen: boolean) =>
+      markup({ trainer: { ...LINK, frist, abgelaufen }, ansprechperson: null, stellvertretung: null });
+
+    assert.doesNotMatch(lapse("2020-01-01", false), />abgelaufen</);
+    assert.match(lapse("2099-12-31", true), />abgelaufen</);
   });
 
   it("reads out no link on a row that stores none", () => {

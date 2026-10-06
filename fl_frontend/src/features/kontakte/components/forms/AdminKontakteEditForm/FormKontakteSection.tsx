@@ -40,7 +40,12 @@ import { FormKontaktErasure } from "./FormKontaktErasure";
 
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLSaisonTeamBestaetigung, FLSaisonTeamBestaetigungen, FLSaisonTeamKontakte, FLTrainerZugleich } from "@/features/teams/schemas";
+import type {
+  FLSaisonTeamBestaetigungAnsicht,
+  FLSaisonTeamBestaetigungenAnsicht,
+  FLSaisonTeamKontakte,
+  FLTrainerZugleich,
+} from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -109,7 +114,7 @@ export function FormKontakteSection({
   /** The block as the row holds it: a link goes to the person stored on a seat, never to one only typed. */
   stored: FLSaisonTeamKontakte | null;
   /** Each seat's link as the row stores it, read beside the block, as the referee editor reads its own. */
-  bestaetigungen: FLSaisonTeamBestaetigungen | null;
+  bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
   teamId: string;
   saisonId: string;
   /** The row still takes confirmation links: its season is not over and its team has not left it. */
@@ -306,7 +311,7 @@ function KontaktpersonFields({
   /** The row stores a person on this seat, so a record naming no one who seated them predates the field. */
   istGespeichert: boolean;
   /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
-  link: FLSaisonTeamBestaetigung | null;
+  link: FLSaisonTeamBestaetigungAnsicht | null;
   /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
   kannLeerOeffnen: boolean;
   /** This seat IS another seat's person, so its boxes read out rather than take input. */
@@ -375,7 +380,7 @@ function KontaktpersonFields({
             <LinkStandAngaben
               verschicktAm={link.verschickt_am}
               frist={link.frist}
-              istAbgelaufen={false}
+              istAbgelaufen={link.abgelaufen}
               zustellung={link.zustellung}
             />
           </dl>

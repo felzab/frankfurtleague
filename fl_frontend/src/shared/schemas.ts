@@ -235,9 +235,9 @@ export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
 });
 
 /**
- * Mirrors `FLBewerbungZustellstand`, held here beside the backend's `app/shared/schemas/zustellung.py`: an
- * application's seats, a season row's, a registration's and a referee's links all record one. **Orthogonal to `Stand`**, which is what the PERSON did: a seat
- * can have confirmed from an address an earlier link bounced at, and folding the two would lose it.
+ * Mirrors `FLBewerbungZustellstand`, which every kind of link records. **Orthogonal to `Stand`**, which is
+ * what the PERSON did: a seat can have confirmed from an address an earlier link bounced at, and folding
+ * the two would lose it.
  */
 export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
   error: "Diesen Zustellstand gibt es nicht.",

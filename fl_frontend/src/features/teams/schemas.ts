@@ -423,23 +423,25 @@ export const FLTeamRecordSchema = z.object({
 });
 export type FLTeamRecord = z.infer<typeof FLTeamRecordSchema>;
 
-/** Mirrors `FLSaisonTeamBestaetigung` — one seat's link as the editor reads it, its hash never served. */
-export const FLSaisonTeamBestaetigungSchema = z.object({
+/** Mirrors `FLSaisonTeamBestaetigungAnsicht` — one seat's link as the editor reads it, its hash never served. */
+export const FLSaisonTeamBestaetigungAnsichtSchema = z.object({
   verschickt_am: CustomDateStringSchema,
   frist: CustomDateStringSchema,
   // A Widerspruch's day, kept beside the slot the Widerspruch emptied.
   abgelehnt_am: CustomDateStringSchema.nullable(),
   zustellung: FLBewerbungZustellungSchema.nullable(),
+  // The backend's judgement of the deadline today, so the editor reads no day of its own.
+  abgelaufen: z.boolean(),
 });
-export type FLSaisonTeamBestaetigung = z.infer<typeof FLSaisonTeamBestaetigungSchema>;
+export type FLSaisonTeamBestaetigungAnsicht = z.infer<typeof FLSaisonTeamBestaetigungAnsichtSchema>;
 
-/** Mirrors `FLSaisonTeamBestaetigungen` — one link per seat, `null` where the seat holds none. */
-export const FLSaisonTeamBestaetigungenSchema = z.object({
-  trainer: FLSaisonTeamBestaetigungSchema.nullable(),
-  ansprechperson: FLSaisonTeamBestaetigungSchema.nullable(),
-  stellvertretung: FLSaisonTeamBestaetigungSchema.nullable(),
+/** Mirrors `FLSaisonTeamBestaetigungenAnsicht` — one link per seat, `null` where the seat holds none. */
+export const FLSaisonTeamBestaetigungenAnsichtSchema = z.object({
+  trainer: FLSaisonTeamBestaetigungAnsichtSchema.nullable(),
+  ansprechperson: FLSaisonTeamBestaetigungAnsichtSchema.nullable(),
+  stellvertretung: FLSaisonTeamBestaetigungAnsichtSchema.nullable(),
 });
-export type FLSaisonTeamBestaetigungen = z.infer<typeof FLSaisonTeamBestaetigungenSchema>;
+export type FLSaisonTeamBestaetigungenAnsicht = z.infer<typeof FLSaisonTeamBestaetigungenAnsichtSchema>;
 
 /** Mirrors `FLTeamMembership` — one junction row as seen from its club. */
 export const FLTeamMembershipSchema = z.object({
@@ -451,7 +453,7 @@ export const FLTeamMembershipSchema = z.object({
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // Each seat's link as the contacts editor shows it, `null` where the row stores no block.
-  bestaetigungen: FLSaisonTeamBestaetigungenSchema.nullable(),
+  bestaetigungen: FLSaisonTeamBestaetigungenAnsichtSchema.nullable(),
   // Opaque here: the server derives it from the block beside it, and a save echoes it back so a row
   // that moved under an open editor is refused rather than overwritten (`REQ-KONTAKT-001`).
   kontakte_stand: z.string(),
