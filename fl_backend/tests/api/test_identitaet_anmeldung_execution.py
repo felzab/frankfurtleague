@@ -27,7 +27,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, EINWILLIGUNG, ban_document, saison_document, saison_team_document, spieler_document
+from tests.documents import ADDRESS, EINWILLIGUNG, ban_document, kontaktperson_document, saison_document, saison_team_document, spieler_document
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -87,19 +87,7 @@ GRANT_OID = ObjectId("6890a1b2c3d4e5f607860051")
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
-    return {
-        "vorname": "Anna",
-        "nachname": "Müller",
-        "email": email,
-        "telefon": "+49 69 5550101",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "v1",
-            "datum": "2026-01-05",
-            "bestaetigt_am": bestaetigt_am,
-        },
-    }
+    return kontaktperson_document("Anna", bestaetigt_am=bestaetigt_am, email=email)
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
