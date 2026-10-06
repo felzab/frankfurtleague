@@ -579,7 +579,8 @@ export function DatenschutzView() {
           </p>
           <p className={ABSATZ_CLASSES}>
             Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den Link
-            bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige, und sie erfährt von der Änderung.
+            bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis
+            auf die Änderung.
           </p>
           <p className={ABSATZ_CLASSES}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn
