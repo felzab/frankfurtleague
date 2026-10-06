@@ -52,7 +52,7 @@ from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
-from tests.whole_database import every_collection_as_text
+from tests.whole_database import where_held
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -416,16 +416,17 @@ class TestWhatAnAdmissionWrites:
                 await database[Collection.AKTIONEN].find({"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id}).to_list()
             )
 
-            return imaged, naming, await database[Collection.REGISTRIERUNGEN].count_documents({}), await every_collection_as_text(database)
+            remaining = await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        imaged, naming, remaining, everything = on_a_league(mongo_replica_set_url, body)
+            return imaged, naming, remaining, await where_held(database, TYPED_EMAIL, hash_token(TOKEN))
+
+        imaged, naming, remaining, held = on_a_league(mongo_replica_set_url, body)
 
         # The premise: without an image the redaction below would pass reaching nothing.
         assert imaged >= 1
         assert remaining == 0
         assert naming and all(row["before"] is None and row["redacted_at"] is not None for row in naming)
-        assert TYPED_EMAIL not in everything
-        assert hash_token(TOKEN) not in everything
+        assert held == {TYPED_EMAIL: [], hash_token(TOKEN): []}
 
     def test_it_writes_nothing_beyond_the_person_the_squad_row_the_anchor_and_the_log(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

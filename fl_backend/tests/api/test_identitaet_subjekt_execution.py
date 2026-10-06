@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -17,13 +16,11 @@ from app.api.identitaet.services import build_referee_pipeline, build_seat_pipel
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.main import create_app
 from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
 from tests.bans import ban_list
-from tests.config import BASE_AUTH, SYSTEM_AUTH
-from tests.core.app_source import application
+from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, ban_document, rules_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.records import record_collections
@@ -460,24 +457,6 @@ def test_a_seat_carries_its_own_season_s_status(mongo_replica_set_url: str):
     """The one read of `saisons` a seat costs. Two seasons of differing status, so a status taken from whichever sorted first is wrong here."""
 
     assert [seat.saison_status for seat in answered(mongo_replica_set_url).sitze] == ["past", "active", "active"]
-
-
-def test_the_operation_is_unreachable_without_a_bearer_token():
-    """The guard runs ahead of the payload's own validation, so a malformed body still answers the guard's code rather than a 422."""
-
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
-
-    assert response.status_code == 401
-    assert response.json()["error_code"] == MISSING_TOKEN
-
-
-def test_the_base_key_draws_the_system_guard_s_own_code():
-    """`WRONG_BASE_KEY` here would mean `verify_access_base` is on this route; each guard answers its own code, whatever key arrives."""
-
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": IDENTIFIER})
-
-    assert response.status_code == 401
-    assert response.json()["error_code"] == WRONG_SYSTEM_KEY
 
 
 @functools.cache

@@ -62,7 +62,7 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import InterleavedCollection
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
-from tests.whole_database import every_collection_as_text
+from tests.whole_database import where_held
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -389,9 +389,9 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, {**THREE, "ansprechperson": None, "stellvertretung": None})
 
-            return response, await row_now(database), await every_collection_as_text(database)
+            return response, await row_now(database), await where_held(database, response.bestaetigungen[0].token)
 
-        response, row, everything = on_a_league(mongo_replica_set_url, body)
+        response, row, held = on_a_league(mongo_replica_set_url, body)
 
         assert [(mint.rollen, mint.email, mint.frist, mint.vorname, mint.schule, mint.zeile) for mint in response.bestaetigungen] == [
             (["trainer"], "ida@example.com", FRIST, "Ida", TEAM_NAME, "offen")
@@ -403,7 +403,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
             "ansprechperson": None,
             "stellvertretung": None,
         }
-        assert token not in everything, "the raw link is stored somewhere, so a read of the database recovers it"
+        assert held[token] == [], "the raw link is stored somewhere, so a read of the database recovers it"
 
     def test_three_new_people_are_minted_three_links_each_opening_its_own_seat(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
