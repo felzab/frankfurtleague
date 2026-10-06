@@ -17,7 +17,6 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
-import type { EinwilligungAntwort } from "@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx";
 import type { UserEvent } from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
@@ -632,7 +631,7 @@ const kontoBewerbung = (medien: boolean) =>
           medienAngeboten: false,
           erteilbar: false,
           // Through the doubled export, typed as the panel's slot takes every record's control.
-          speichereAction: (antwort: EinwilligungAntwort) =>
+          speichereAction: (antwort: Parameters<Parameters<typeof EinwilligungForm>[0]["speichereAction"]>[0]) =>
             patchBewerbungEinwilligungAction(BEWERBUNG_ID, antwort as Parameters<typeof patchBewerbungEinwilligungAction>[1]),
         }),
       },
