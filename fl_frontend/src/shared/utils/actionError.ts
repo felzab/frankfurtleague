@@ -29,8 +29,9 @@ export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
 export const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
 
 /**
- * What a signed-in person is told at their Funktion's ceiling for the day (`REQ-DROSSELUNG-001`): the count
- * starts again at German midnight, so neither a retry nor a sign-in is offered.
+ * What a signed-in person is told at the ceiling of the kind of person they write as
+ * (`REQ-DROSSELUNG-001`): the count starts again at German midnight, so neither a retry nor a sign-in
+ * is offered.
  */
 export const HEUTE_GENUG_GEAENDERT = "Du hast heute schon sehr viel geändert. Morgen geht es weiter.";
 
