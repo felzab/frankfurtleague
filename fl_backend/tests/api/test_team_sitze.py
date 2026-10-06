@@ -140,11 +140,17 @@ def keys_at_every_depth(value: Any) -> Iterator[str]:
 
 
 class TestTheSeatRead:
-    def test_a_seat_holder_reads_three_lines_for_their_own_team(self, mongo_replica_set_url: str):
+    def test_a_seat_holder_reads_three_lines_for_their_own_team_pending_confirmed_and_empty(self, mongo_replica_set_url: str):
+        """An emptied slot is answered rather than omitted, which would say the team has two seats rather than one unfilled."""
+
         status, served = sitze_read(mongo_replica_set_url, identifier=THEO)
 
         assert status == 200
-        assert [sitz["rolle"] for sitz in served["sitze"]] == ["trainer", "ansprechperson", "stellvertretung"]
+        assert served["sitze"] == [
+            {"rolle": "trainer", "name": "Theo Theo-Mustermann", "bestaetigt": True},
+            {"rolle": "ansprechperson", "name": "Anna Anna-Mustermann", "bestaetigt": False},
+            {"rolle": "stellvertretung", "name": None, "bestaetigt": False},
+        ]
 
     def test_a_stellvertretung_reads_the_lines_of_their_own_season(self, mongo_replica_set_url: str):
         status, served = sitze_read(mongo_replica_set_url, identifier=STELLA, saison_id=NEXT_SAISON_ID)
@@ -165,20 +171,6 @@ class TestTheSeatRead:
         status, served = sitze_read(mongo_replica_set_url, identifier=identifier, saison_id=saison_id)
 
         assert (status, served["error_code"]) == (403, "REQ-FUNKTION-001")
-
-    def test_a_person_who_has_not_confirmed_reads_as_pending_and_a_stamped_one_as_confirmed(self, mongo_replica_set_url: str):
-        _, served = sitze_read(mongo_replica_set_url, identifier=THEO)
-
-        by_rolle = {sitz["rolle"]: sitz for sitz in served["sitze"]}
-        assert (by_rolle["trainer"]["name"], by_rolle["trainer"]["bestaetigt"]) == ("Theo Theo-Mustermann", True)
-        assert (by_rolle["ansprechperson"]["name"], by_rolle["ansprechperson"]["bestaetigt"]) == ("Anna Anna-Mustermann", False)
-
-    def test_an_emptied_slot_is_answered_as_an_empty_seat_rather_than_omitted(self, mongo_replica_set_url: str):
-        """Omitted, the landing would say the team has two seats rather than that one is unfilled."""
-
-        _, served = sitze_read(mongo_replica_set_url, identifier=THEO)
-
-        assert {"rolle": "stellvertretung", "name": None, "bestaetigt": False} in served["sitze"]
 
     def test_no_address_telephone_or_birthdate_at_any_depth(self, mongo_replica_set_url: str):
         """Over the serialised body, keys and values both, so a nested block cannot smuggle one in.

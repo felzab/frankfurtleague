@@ -565,8 +565,12 @@ class TestTheThreeSeatsAreThreePeople:
 
     @pytest.mark.parametrize(("seat", "field", "value"), SHARED_CONTACT_DETAILS)
     def test_two_distinct_people_may_share_neither_an_email_nor_a_number(self, seat: str, field: str, value: str):
+        """Every other detail the seat's own: a seat sharing both, either rule would hide the other's removal."""
+
+        other = {**person(vorname="Andere", email="andere@example.com", telefon="+49 170 9999999"), field: value}
+
         with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(**{seat: person(vorname="Andere", **{field: value})}))
+            FLBewerbungKontaktePayload.model_validate(kontakte(**{seat: other}))
 
     def test_an_email_repeated_in_another_case_is_still_one_address(self):
         """A mailbox is addressed the same however the local part is capitalised, so the comparison folds case.

@@ -64,6 +64,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   OptionalExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
   PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
   KontaktEmail: "a shared validator applied per field; the backend spells it as the `CustomEmail` alias",
+  LinkAntwortTextVersion: "a shared validator applied per field; the backend spells it as each link confirmation's `text_version` bounds",
 
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonPhase: "a Pydantic Literal alias, inlined as an enum at each use site",

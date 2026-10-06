@@ -17,7 +17,10 @@ from typing import Any, Final
 
 from bson import ObjectId
 
+from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
+from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -137,6 +140,107 @@ def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fiel
         "inactive_since": None,
         **fields,
     }
+
+
+def neue_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
+    """The school block of an application naming a school the league does not hold yet, named as `team_document` names one."""
+
+    return {
+        "team_name": team_name,
+        "full_name": f"{team_name}-Schule",
+        "shorthand": shorthand,
+        "schulform": None,
+        "address": dict(ADDRESS),
+        "website_url": None,
+        **fields,
+    }
+
+
+def bewerbung_document(
+    bewerbung_id: Any,
+    saison_id: str,
+    status: str,
+    *,
+    kontakte: Mapping[str, Any],
+    eingereicht_am: str,
+    bestaetigungsfrist: str,
+    team_id: Any = None,
+    schule: Mapping[str, Any] | None = None,
+    link_prefix: str | None = None,
+    verschickt_am: str | None = None,
+    **fields: Any,
+) -> dict[str, Any]:
+    """An application as the submission stores it: `team_id` for a school the league holds, `schule` for one it does not.
+
+    Each seat's raw token is `<link_prefix>-<seat>`, minted on `verschickt_am`; by default the id and the submission's day.
+    """
+
+    prefix = str(bewerbung_id) if link_prefix is None else link_prefix
+
+    return {
+        "_id": bewerbung_id,
+        "saison_id": saison_id,
+        "eingereicht_am": eingereicht_am,
+        "status": status,
+        "team_id": team_id,
+        "schule": None if schule is None else dict(schule),
+        "kontakte": dict(kontakte),
+        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "wunschgegner": None,
+        "entscheidung": None,
+        "bestaetigungsfrist": bestaetigungsfrist,
+        "bestaetigungen": compose_bestaetigungen(
+            hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=verschickt_am or eingereicht_am
+        ),
+        **fields,
+    }
+
+
+def registrierung_document(
+    registrierung_id: Any,
+    email: str,
+    *,
+    saison_id: str,
+    team_id: Any,
+    vorname: str,
+    nachname: str,
+    token: str,
+    eingereicht_am: str,
+    frist: str,
+    position: str | None = None,
+    nummer: str | None = None,
+    stufe: str | None = None,
+    bestaetigt: Mapping[str, Any] | None = None,
+    **fields: Any,
+) -> dict[str, Any]:
+    """A registration as the submission leaves it and, given `bestaetigt`, as its pupil's own confirmation then does, through their composers.
+
+    `token` is the raw link its hash is minted from; `bestaetigt` the confirmation composer's keywords.
+    """
+
+    document = {
+        "_id": registrierung_id,
+        **compose_registrierung(
+            saison_id=saison_id,
+            team_id=team_id,
+            einladung_id=ObjectId(),
+            vorname=vorname,
+            nachname=nachname,
+            email=email,
+            position=position,
+            nummer=nummer,
+            stufe=stufe,
+            bestaetigung=compose_bestaetigung(token_hash=hash_token(token), today=eingereicht_am, frist=frist),
+            today=eingereicht_am,
+        ),
+        "idempotenz_schluessel": str(registrierung_id),
+        "idempotenz_fingerabdruck": "f" * 64,
+    }
+    if bestaetigt is not None:
+        document.update(compose_confirmation_update(**bestaetigt)["$set"])
+
+    return {**document, **fields}
 
 
 def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **fields: Any) -> dict[str, Any]:

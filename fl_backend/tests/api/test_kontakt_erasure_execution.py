@@ -423,11 +423,6 @@ class TestTheSlotsAreReadOffTheModel:
     def test_the_person_valued_slots_are_the_three_roles(self):
         assert KONTAKT_ROLLEN == ("trainer", "ansprechperson", "stellvertretung")
 
-    def test_the_assertion_field_is_not_among_them(self):
-        """`trainer_ist_zugleich` records what somebody ASSERTED about two slots, which stays true once one is empty."""
-
-        assert "trainer_ist_zugleich" not in KONTAKT_ROLLEN
-
     def test_every_slot_the_model_declares_is_covered(self):
         """A role added to the block alone is cleared by nothing, and one added out of order is listed out of it."""
 
