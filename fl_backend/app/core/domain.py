@@ -923,8 +923,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "it creates, and onto one it matches renews it, each choice only where the registration set it later, and not at "
         "all where the returning pupil's page asked none "
         "(`app/api/registrierungen/services.py :: compose_person_update`). Its two choices, `umfang` and `medien`, are "
-        "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration, "
-        "which an admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
+        "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration and "
+        "a withdrawal they made on it through `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which an "
+        "admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
         "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
         "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
         "evidence (`docs/backend/spec.md :: I869`)",

@@ -168,8 +168,9 @@ class _KontaktKenntnisnahmeWritable(BaseModel):
     datum: CustomDateString
 
 
-# Widened past the payload's on the READ side alone: the WhatsApp scope is what a person ticks on
-# their own confirmation page, and a payload offering it would let an administrator transcribe one.
+# Wider than the administrative payload's: the WhatsApp scope is the person's own, set on their
+# confirmation page and moved by their account page's seat PATCH; an administrator's payload offering it
+# would transcribe one.
 FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
 
 # What stored seats name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
