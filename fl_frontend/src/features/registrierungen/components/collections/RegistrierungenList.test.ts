@@ -284,6 +284,30 @@ describe("deciding a registration", () => {
     assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: VORSCHLAG } });
   });
 
+  /* A stored pupil may hold no surname, so every name the row gives a stored or proposed person is
+     the squad's own full name, never the two fields joined. */
+  it("names a proposed or a differing stored person holding no surname by the first name alone", async () => {
+    const vorgeschlagen = viewWith({ vorschlag: { spieler_id: VORSCHLAG, vorname: "Lena", nachname: null } });
+    await armedThen(userEvent.setup(), "Als Lena aufnehmen", () => {
+      const shown = screen.getByRole("alert").textContent;
+      assert.ok(shown.includes("Ist das dieselbe Person wie Lena?"), shown);
+    });
+    assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: VORSCHLAG } });
+    vorgeschlagen.unmount();
+
+    viewWith({ person: { spieler_id: STORED, vorname: "Lena", nachname: null, weicht_ab: true } });
+    await pressTwice(userEvent.setup(), {
+      resting: "Aufnehmen: Lena Meier",
+      armed: "Als Lena aufnehmen",
+      whileArmed: () => {
+        const shown = screen.getByRole("alert").textContent;
+        assert.ok(shown.includes(`${ANGABEN_WEICHEN_AB} Ist das dieselbe Person wie Lena?`), shown);
+      },
+    });
+    await act(answered);
+    assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: STORED } });
+  });
+
   it("declines a row with no reason from its own control", async () => {
     viewWith({ aufnehmbar: false });
     await pressTwice(userEvent.setup(), { resting: "Ablehnen: Registrierung von Lena Meier", armed: "Ja, ablehnen" });
