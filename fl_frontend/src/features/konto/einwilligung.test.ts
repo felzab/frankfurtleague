@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { publishedOperations } from "@/core/openapiDocument.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import {
@@ -33,30 +34,50 @@ const MAPPERS = [
   ],
 ] as const;
 
+/**
+ * The code set the three mappers share. A withdraw-only write publishes no media floor and no ceiling,
+ * both refusing a grant its page never sends, so each code is asked of the writes publishing it alone.
+ */
+const GETEILT = [
+  ["REQ-EINWILLIGUNG-001", "a stale wording", SEITE_VERALTET],
+  ["REQ-EINWILLIGUNG-003", "a stale choice", SEITE_VERALTET],
+  ["REQ-EINWILLIGUNG-002", "a media consent below the floor", MEDIEN_ZU_JUNG],
+  // The record is the person's and only the grant was refused, so never the lost record's sentence.
+  ["REQ-EINWILLIGUNG-004", "a grant on a record taking a withdrawal alone", NUR_WIDERRUF],
+  // Ahead of the person spine's ceiling sentence, which says nothing of a withdrawal, never counted here.
+  ["REQ-DROSSELUNG-001", "a grant past the day's ceiling", ZUSTIMMEN_MORGEN],
+] as const;
+
+/** Every code each operation publishes, the ceiling's protocol family included, which `publishedRefusals` leaves out. */
+const CODES = new Map(publishedOperations().map(({ operation, answers }) => [operation, new Set(answers.map(({ code }) => code))]));
+const codesOf = (operation: string): ReadonlySet<string> => CODES.get(operation) ?? assert.fail(`the document publishes no ${operation}`);
+
+/** The consent PATCHes the eigene mapper serves beside the pupil's. */
+const EIGENE_WEITERE = [
+  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
+  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
+];
+
 describe("the consent writes' mappers", () => {
+  /* A shared code no consent write publishes is a sentence nobody can be shown. */
+  it("answers no shared code that no consent write publishes", () => {
+    const veroeffentlicht = new Set(
+      [...MAPPERS.map(([, operation]) => operation), ...EIGENE_WEITERE].flatMap((operation) => [...codesOf(operation)]),
+    );
+    assert.deepEqual(
+      GETEILT.map(([code]) => code).filter((code) => !veroeffentlicht.has(code)),
+      [],
+    );
+  });
+
   for (const [art, operation, mapper, eintragWeg] of MAPPERS) {
-    /* Read by its code at any status: a rule the backend moves to another status keeps its words. */
-    for (const status of [409, 422]) {
-      it(`words a stale wording, a stale choice and a media consent below the floor on ${art} at ${String(status)}`, () => {
-        assert.deepEqual(mapper(refusedOn(operation, "REQ-EINWILLIGUNG-001", status)), { error: SEITE_VERALTET });
-        assert.deepEqual(mapper(refusedOn(operation, "REQ-EINWILLIGUNG-003", status)), { error: SEITE_VERALTET });
-        assert.deepEqual(mapper(refusedOn(operation, "REQ-EINWILLIGUNG-002", status)), { error: MEDIEN_ZU_JUNG });
+    const veroeffentlicht = codesOf(operation);
+    for (const [code, ursache, worte] of GETEILT.filter(([code]) => veroeffentlicht.has(code))) {
+      /* Read by its code at any status: a rule the backend moves to another status keeps its words. */
+      it(`words ${ursache} on ${art}, at any status`, () => {
+        for (const status of [403, 409, 422, 429]) assert.deepEqual(mapper(refusedOn(operation, code, status)), { error: worte });
       });
     }
-
-    /* Ahead of the person spine's ceiling sentence, which promises nothing about a withdrawal: here a
-       withdrawal is never counted, and the page says so. */
-    for (const status of [429, 409]) {
-      it(`words a grant past the day's ceiling on ${art} at ${String(status)}`, () => {
-        assert.deepEqual(mapper(refusedOn(operation, "REQ-DROSSELUNG-001", status)), { error: ZUSTIMMEN_MORGEN });
-      });
-    }
-
-    /* The record was found and is the person's: only the grant was refused, so the sentence says
-       that, never that the record is gone. */
-    it(`words a grant on ${art} that takes a withdrawal alone by that cause`, () => {
-      assert.deepEqual(mapper(refusedOn(operation, "REQ-EINWILLIGUNG-004", 403)), { error: NUR_WIDERRUF });
-    });
 
     /* The shared answer to a lost Funktion names a team, which these records have none of. */
     it(`words ${art} no longer the person's by that record`, () => {
