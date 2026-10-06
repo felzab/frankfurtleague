@@ -229,7 +229,7 @@ export function AdminSchiedsrichterEditForm({
 
           offerUndo({
             endpoint: "/api/admin/schiedsrichter/undo",
-            body: undoPayload,
+            body: { ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true },
             message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
             // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
             // referee having no working link and nobody else being told.

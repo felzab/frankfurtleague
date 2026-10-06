@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { patchSchiedsrichter } from "@/features/schiedsrichter/mutations";
 import {
@@ -16,11 +18,17 @@ import type { NextRequest } from "next/server";
 const ADRESSWECHSEL_WARTET_WEITER =
   "Die neue E-Mail-Adresse wartet weiter auf Bestätigung. Soll sie nicht gelten, verwirf die Änderung im Eintrag.";
 
+/**
+ * The stored values, and the save's own report of whether it left the waiting address: no read after
+ * the replay tells that save from one that moved only the fee while an earlier change waited.
+ */
+const UndoRequestSchema = FLPatchSchiedsrichterPayloadSchema.extend({ adresswechsel_gespeichert: z.boolean() });
+
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
     mutationName: "undoAdminSchiedsrichterEdit",
-    schema: FLPatchSchiedsrichterPayloadSchema,
-    restore: async (payload) => {
+    schema: UndoRequestSchema,
+    restore: async ({ adresswechsel_gespeichert, ...payload }) => {
       let operation;
       try {
         operation = await patchSchiedsrichter(payload);
@@ -48,8 +56,9 @@ export async function POST(request: NextRequest) {
       }
 
       // The replay writes the fields back and leaves a pending address standing, its link already
-      // in that mailbox: the discard is the editor's control, never a side effect of an undo.
-      if (operation.updated_document.adresswechsel !== null) return { cost: ADRESSWECHSEL_WARTET_WEITER };
+      // in that mailbox: the discard is the editor's control, never a side effect of an undo. Said only
+      // where the undone save was the one that left it, an undone fee edit having nothing to do with it.
+      if (adresswechsel_gespeichert && operation.updated_document.adresswechsel !== null) return { cost: ADRESSWECHSEL_WARTET_WEITER };
 
       // The replay puts the earlier address back, which the endpoint reads as a correction and mints
       // for: unmailed, that token exists in the database alone and the referee's own link is dead.
