@@ -152,7 +152,7 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
     # A peer's `[ref]` suffix addresses the same agent.
     to = re.sub(r"\s*\[[^\]]*\]$", "", to)
     claimed = re.compile(rf"^Coordinator session id: {re.escape(session)}\s*$", re.MULTILINE)
-    # Replaced rather than refused: an unreadable register this session never claimed is no reason to stop.
+    # Replaced rather than refused: an unreadable register the sending session never claimed stops nothing.
     registers = [path for path in sorted(plans.glob("*/REGISTER-*.md")) if claimed.search(path.read_bytes().decode("utf-8", "replace"))]
     if not registers:
         return None

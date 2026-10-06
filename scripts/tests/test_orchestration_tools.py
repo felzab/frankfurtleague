@@ -1012,7 +1012,7 @@ UV_RECORDER: Final = (
 
 
 def test_a_merge_moving_a_lockfile_installs_before_it_type_checks(tmp_path: Path) -> None:
-    """Checked against the checkout's stale install, a merge moving a dependency was judged by packages it no longer uses."""
+    """Checked against the checkout's stale install, a merge moving a dependency is judged by packages it does not use."""
     root = _repo(tmp_path)
     env = _stub(tmp_path, "uv", UV_RECORDER)
     _agent_commit(root, "Backend deps: A lock moves", {"fl_backend/uv.lock": "version = 2\n"})
