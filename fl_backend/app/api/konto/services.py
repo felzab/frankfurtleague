@@ -44,8 +44,7 @@ def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwill
 
 
 def _bewegt(gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any) -> bool:
-    # A stored record carrying no `medien` predates the field and is off.
-    return wert != (bool(gespeichert.get("medien", False)) if wahl == "medien" else gespeichert.get(wahl))
+    return wert != (ist_erteilt("medien", gespeichert.get("medien")) if wahl == "medien" else gespeichert.get(wahl))
 
 
 def compose_person_move(
@@ -455,8 +454,7 @@ def compose_registrierungen_selbst(
                 "saison_id": row["saison_id"],
                 "bestaetigt_text_version": block.get("text_version"),
                 "umfang": block["umfang"],
-                # A block confirmed before the field existed is off, as on every record.
-                "medien": bool(block.get("medien", False)),
+                "medien": ist_erteilt("medien", block.get("medien")),
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 "kontext": {
                     "vorname": row["vorname"],
