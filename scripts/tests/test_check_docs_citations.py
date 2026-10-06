@@ -591,6 +591,34 @@ def test_a_name_a_script_module_only_imports_resolves_nowhere_while_a_re_export_
     _assert_corpus_restored()
 
 
+# A script module whose comment still spells its constant's old name.
+RENAMED_MODULE: Final = "fl_frontend/src/renamed.ts"
+# A shell script whose function opens on a line ending in a comment.
+TRAILING_SCRIPT: Final = "scripts/trailing-step.sh"
+
+
+def test_a_name_only_a_comment_still_spells_resolves_nowhere_while_the_code_s_names_do() -> None:
+    """A comment outlives a rename, so presence over the whole text certifies the dead name.
+
+    One finding, the old name's. The shell function shares its line with a comment, which a reader
+    shifting the comment left blanks.
+    """
+    _reset()
+    root = _gate().root
+    write(root, RENAMED_MODULE, _page("// Read as KEINE_VERBINDUNG wherever a send fails.", "export const KEINE_VERBINDUNG_ALT = 1;"))
+    write(root, TRAILING_SCRIPT, _page("probe_step() { " + HASH + " the step a hook runs", "}"))
+    cited = [RENAMED_MODULE + " :: KEINE_VERBINDUNG", RENAMED_MODULE + " :: KEINE_VERBINDUNG_ALT", TRAILING_SCRIPT + " :: probe_step"]
+    _append(NOTES, "The renamed names: " + ", ".join(_tick(citation) for citation in cited) + ".")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, _shape(reported)
+    assert "anchor 'KEINE_VERBINDUNG' is spelled in " + RENAMED_MODULE + " only by a comment" in output, output
+    _assert_corpus_restored()
+
+
 def test_a_hyphen_continues_a_name_in_yaml_and_ends_one_in_typescript() -> None:
     """A compose option spells `--no-autoupdate`, so `autoupdate` there is no name; `1-SPAN` subtracts a name.
 

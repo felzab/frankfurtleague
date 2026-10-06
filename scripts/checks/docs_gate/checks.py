@@ -1626,18 +1626,20 @@ IMPORT_DECLARATION_RE: Final = re.compile(
 
 
 @cache
-def _import_free(path: Path) -> str:
-    """One file's text, a script module's import declarations blanked, every line kept.
+def _name_text(path: Path) -> str:
+    """A cited name's text: a source file's code, its import declarations blanked; a file read whole, whole. Every line kept.
 
-    `import { A as B }` leaves `A` on that line alone: another module's name, which no unused-name
-    check refuses.
+    A comment outlives the name it spelled, and `import { A as B }` leaves `A`: another module's name.
     """
     raw = _read_text(path)[0]
-    if raw is None or not has_suffix(path.name, SCRIPT_SUFFIXES):
+    if raw is None or is_prose(path):
         return raw or ""
-    kept = list(raw)
-    # Over the code alone, a comment quoting a declaration being prose; `code_body` keeps the offsets.
-    for match in IMPORT_DECLARATION_RE.finditer(code_body(path)):
+    code = code_body(path)
+    if not has_suffix(path.name, SCRIPT_SUFFIXES):
+        return code
+    kept = list(code)
+    # `code_body` keeps the offsets, so a declaration a comment quotes is never matched.
+    for match in IMPORT_DECLARATION_RE.finditer(code):
         for offset in range(match.start(), match.end()):
             if kept[offset] != "\n":
                 kept[offset] = " "
@@ -1671,7 +1673,7 @@ def _uncited_lines(path: Path, *, names: bool = False) -> tuple[str, ...]:
         line = bisect_right(body_lines, offset) - 1
         return raw_lines[line] + offset - body_lines[line]
 
-    kept = list(_import_free(path) if names else raw)
+    kept = list(_name_text(path) if names else raw)
     for pattern in (CITATION_TEXT_RE, CONTINUATION_TEXT_RE):
         for match, _ in spans_reading(joined, pattern):
             for offset in range(in_raw(at(match.start)), in_raw(at(match.end - 1)) + 1):
@@ -1724,8 +1726,8 @@ def _lines_carrying(text: str, sought: str, *, rendered: bool, continues: str | 
 def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], citing: frozenset[int] | None = None) -> list[Finding]:
     """A <file> :: <anchor> citation: the file must exist, and the anchor must be defined there.
 
-    By name in Python, by a table row for an invariant id, and by presence anywhere else, a name's
-    as a whole one.
+    By name in Python, by a table row for an invariant id, and elsewhere by presence: a name's whole,
+    in the code alone.
     """
     file_part, _, anchor = citation.partition(" :: ")
     file_part, anchor = file_part.strip(), anchor.strip()
@@ -1804,13 +1806,17 @@ def _check_citation(citation: str, rel: str, invariants: dict[str, list[str]], c
     rendered = quoted and has_suffix(where, (".tsx",))
     # A quoted anchor is a fragment whatever it spells: `_anchor_names` reads its quotes as no name.
     continues = None if names is None else NAME_WITH_HYPHEN if comment_style(target) in HYPHENATED_STYLES else NAME_CONTINUES
-    # A name an import alone spells is defined elsewhere; a quoted fragment is text, an import's too.
-    searched = content if names is None else _import_free(target)
+    # A name a comment or an import alone spells is defined nowhere here; a quoted fragment is text,
+    # a comment's and an import's too.
+    searched = content if names is None else _name_text(target)
     spellings = _lines_carrying(searched, sought, rendered=rendered, continues=continues)
     if not spellings:
-        # Told the name is gone, a reader finds it on the import line and doubts the finding.
-        if names is not None and _lines_carrying(content, sought, rendered=rendered, continues=continues):
+        # Told the name is gone, a reader finds it on the import line or in a comment and doubts the finding.
+        if names is not None and _lines_carrying(code_body(target), sought, rendered=rendered, continues=continues):
             return [Finding("fail", "citation", rel, f"anchor '{anchor}' is only imported into {where} -- cite the module defining it")]
+        if names is not None and _lines_carrying(content, sought, rendered=rendered, continues=continues):
+            detail = f"anchor '{anchor}' is spelled in {where} only by a comment -- the code no longer names it"
+            return [Finding("fail", "citation", rel, detail)]
         return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     # A file citing itself proves the anchor with the citing line, so renaming the block it points
     # at leaves this green. The Python and invariant arms above list definitions and never presence.
