@@ -52,9 +52,9 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-09-spielerseite-2": "eae0481230b89f7c1c21b53cca87acc81058bde375544b98b2907e880e16cdeb",
     "2026-09-spielerseite-3": "08810bd6501bdde29d871b01a4878f77b2e25d2562bb63e5b8d6ef8d4db74a48",
     # The account page's three, minted over the backend's words: no frontend copy of them ever existed.
-    "2026-10-konto-spieler": "f74896a1b38592d5558ea0685eab6db1d97e27dcf158e913e19c804658961ff6",
+    "2026-10-konto-spieler": "6b923626436ceb6b4670f6eb447e16bdbf633f2f8c2a637fa5818aff49f68031",
     "2026-10-konto-schiedsrichter": "c19cab56bfd34675507b17933d1c355a98b268d36f6ead18aa07fcda12a28192",
-    "2026-10-konto-kontakt": "20efbd427de15ae5d7e422d4c0ae73b27e096365523e38b0261f44939899ece0",
+    "2026-10-konto-kontakt": "59c714135fa1a5662913aa268cfb87aaaee21534549bf8017e6bb2ee6a3f3b5c",
     "2026-10-spielerseite-4": "0490d658a40af1a93a487338c2edaea205073bab924f15a060d236c04812fd5b",
     "2026-10-bestaetigungsseite-7": "c60d790129420fda529b1c7d790d6cf0dd3dead79ad7189cd7664e53f7641f01",
     "2026-10-bestaetigungsseite-verwaltung": "783c9d3c23d444371ac861d1d30cf2ec9412f5c0f8f6a9f526ea8ad51710a709",

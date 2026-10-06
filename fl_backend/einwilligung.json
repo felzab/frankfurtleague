@@ -875,7 +875,7 @@
         "Unabhängig davon entscheidest Du ab {medienMinAlter} Jahren, ob Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Bist Du jünger, ist dieser Schalter aus und lässt sich nicht einschalten.",
         "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin veröffentlicht wurde, bleibt rechtmäßig (Art. 7 Abs. 3 DSGVO).",
         "Bist Du nicht mehr in der Liga aktiv, kannst Du eine Erlaubnis hier nur noch zurücknehmen, nicht neu erteilen.",
-        "Solange Dein Team über Deine Registrierung nicht entschieden hat, kannst Du die Einwilligung hier nur widerrufen. Nimmt Dein Team Dich auf, kannst Du hier auch wieder zustimmen."
+        "Solange Dein Team über Deine Registrierung nicht entschieden hat, kannst Du eine Erlaubnis hier nur zurücknehmen. Nimmt Dein Team Dich auf, kannst Du sie hier auch erteilen."
       ],
       "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
       "bedienelemente": {
@@ -887,7 +887,7 @@
         "medien": "Unabhängig davon entscheidest Du ab {medienMinAlter} Jahren, ob Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Bist Du jünger, ist dieser Schalter aus und lässt sich nicht einschalten.",
         "widerruf": "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin veröffentlicht wurde, bleibt rechtmäßig (Art. 7 Abs. 3 DSGVO).",
         "nurWiderrufNichtAktiv": "Bist Du nicht mehr in der Liga aktiv, kannst Du eine Erlaubnis hier nur noch zurücknehmen, nicht neu erteilen.",
-        "nurWiderrufBisAufnahme": "Solange Dein Team über Deine Registrierung nicht entschieden hat, kannst Du die Einwilligung hier nur widerrufen. Nimmt Dein Team Dich auf, kannst Du hier auch wieder zustimmen."
+        "nurWiderrufBisAufnahme": "Solange Dein Team über Deine Registrierung nicht entschieden hat, kannst Du eine Erlaubnis hier nur zurücknehmen. Nimmt Dein Team Dich auf, kannst Du sie hier auch erteilen."
       },
       "platzhalter": [
         "medienMinAlter"
@@ -927,7 +927,7 @@
         "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Kontaktpersonen eines Teams zu sehen sind, und führt Interviews. Ab {medienMinAlter} Jahren entscheidest Du hier für {team} in der Saison {saison}, ob Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Deine Kontaktdaten werden davon nicht berührt und nirgends veröffentlicht.",
         "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin geschah, bleibt rechtmäßig (Art. 7 Abs. 3 DSGVO).",
         "Für eine vergangene Saison oder ein Team, das aus der Saison ausgetreten ist, kannst Du eine Erlaubnis hier nur noch zurücknehmen, nicht neu erteilen.",
-        "Solange über die Bewerbung nicht entschieden ist, kannst Du die Einwilligung hier nur widerrufen. Nach einer Zusage kannst Du hier auch wieder zustimmen."
+        "Solange über die Bewerbung nicht entschieden ist, kannst Du eine Erlaubnis hier nur zurücknehmen. Nach einer Zusage kannst Du sie hier auch erteilen."
       ],
       "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
       "bedienelemente": {
@@ -938,7 +938,7 @@
         "medien": "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Kontaktpersonen eines Teams zu sehen sind, und führt Interviews. Ab {medienMinAlter} Jahren entscheidest Du hier für {team} in der Saison {saison}, ob Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Deine Kontaktdaten werden davon nicht berührt und nirgends veröffentlicht.",
         "widerruf": "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin geschah, bleibt rechtmäßig (Art. 7 Abs. 3 DSGVO).",
         "nurWiderrufVorbei": "Für eine vergangene Saison oder ein Team, das aus der Saison ausgetreten ist, kannst Du eine Erlaubnis hier nur noch zurücknehmen, nicht neu erteilen.",
-        "nurWiderrufBisZusage": "Solange über die Bewerbung nicht entschieden ist, kannst Du die Einwilligung hier nur widerrufen. Nach einer Zusage kannst Du hier auch wieder zustimmen."
+        "nurWiderrufBisZusage": "Solange über die Bewerbung nicht entschieden ist, kannst Du eine Erlaubnis hier nur zurücknehmen. Nach einer Zusage kannst Du sie hier auch erteilen."
       },
       "platzhalter": [
         "medienMinAlter",
