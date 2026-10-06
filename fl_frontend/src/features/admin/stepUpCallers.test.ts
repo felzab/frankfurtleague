@@ -19,6 +19,7 @@ import { filesUnder, isTestFile, serverActionModules } from "@/core/treeWalk.ts"
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
@@ -165,16 +166,12 @@ const seat = (vorname: string, email: string, bestaetigtAm: string | null = null
   email,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten" as const,
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? ("administrativ" as const) : ("person" as const),
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  }),
 });
 const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 const strip = (trainerStieAus: boolean) =>

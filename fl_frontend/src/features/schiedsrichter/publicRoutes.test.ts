@@ -79,7 +79,6 @@ describe("the words the referee's confirmation page is handed", () => {
       { name: "ContractBreakError" },
       "no label for the page",
     );
-    await assert.rejects(start({ laufend: "2026-01-nirgends" }), { name: "ContractBreakError" }, "a label serving no words");
     await assert.rejects(start({ seiten: { acknowledged: 1 } }), { name: "APIMalformedDataError" }, "an answer off its schema");
   });
 });

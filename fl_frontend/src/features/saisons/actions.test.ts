@@ -7,6 +7,7 @@ import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
@@ -29,17 +30,7 @@ const SWAP_OPERATION = "POST /saisons/{saison_id}/gruppen/swap";
 
 const SAISON_ID = "2026";
 
-const RULES: FLSaisonRules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const RULES: FLSaisonRules = saisonRules();
 
 /** A season both schemas take as it stands, so each write reaches the doubled request rather than the parse. */
 const SAISON = { id: SAISON_ID, start_date: "2026-03-01", end_date: "2026-07-01", rules: RULES, bewerbung: null, registrierung: null };

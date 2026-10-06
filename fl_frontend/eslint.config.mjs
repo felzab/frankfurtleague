@@ -180,6 +180,11 @@ const TEST_ONLY = [
     message: "childTestRun spawns a child test run of a fixture: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core for `mailDouble.ts`'s reason: the core mail suites read each message through it.
+    group: ["**/mailText.ts", "**/mailText"],
+    message: "mailText reduces a message to the words its reader reads: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
     group: ["**/testing/**"],
     message: "src/shared/testing is the suite's harness: a *.test.ts(x) file may import it, production code may not.",
@@ -1188,7 +1193,7 @@ const SCOPED_BANS = [
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
     {
-      files: ["src/app/**/route.ts"],
+      files: ["src/app/**/route.{ts,tsx}"],
       selector: inLiteral("REQ-EINLADUNG"),
       message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
     },

@@ -202,11 +202,6 @@ export const NOCH_NICHT_BESTAETIGT = "Aufnehmen kannst Du erst, wenn die Person 
 export const ANGABEN_WEICHEN_AB = "Die Angaben weichen von einem früheren Eintrag ab.";
 export const dieselbePerson = (name: string): string => `Ist das dieselbe Person wie ${name}?`;
 
-/** „Vorname Nachname“ of a stored person, whose surname may be missing on a record entered before it was asked. */
-export function personName({ vorname, nachname }: { vorname: string; nachname: string | null }): string {
-  return nachname === null ? vorname : `${vorname} ${nachname}`;
-}
-
 /** A registration another seat decided since the page was drawn: the press meets no pending row. */
 export const REGISTRIERUNG_SCHON_ENTSCHIEDEN = buildRefusal({
   reason: "Diese Registrierung ist schon entschieden",

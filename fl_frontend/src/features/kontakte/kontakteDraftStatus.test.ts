@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import { deriveKontakteDraftStatus, kontaktSeatPaths } from "./kontakteDraftStatus";
 
@@ -15,16 +16,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: {
-    umfang: "kontaktdaten",
-    erfasst_von: "person",
-    text_version: "2025-08",
-    datum: "2025-09-01",
-    bestaetigt_am: "2025-09-02",
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
   ...overrides,
 });
 
@@ -157,16 +149,7 @@ describe("deriveKontakteDraftStatus", () => {
       stored: EMPTY,
       draft: block({
         trainer: person({
-          einwilligung: {
-            umfang: "kontaktdaten",
-            erfasst_von: null,
-            text_version: "",
-            datum: "",
-            bestaetigt_am: null,
-            medien: false,
-            eingetragen_von: null,
-            nachweis: { umfang: null, medien: null },
-          },
+          einwilligung: kenntnisnahme({ erfasst_von: null, text_version: "", datum: "", bestaetigt_am: null }),
         }),
       }),
       fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },

@@ -19,6 +19,7 @@ import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
 import type { ReactNode } from "react";
@@ -77,17 +78,7 @@ const swapTeam = (id: string, name: string, gruppe: "A" | "B") => ({
 });
 const SWAP = { teams: [swapTeam("t1", "SG Alpha", "A"), swapTeam("t2", "TSV Beta", "B")], playedKnockoutSpiele: 0 };
 
-const RULES = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const RULES = saisonRules();
 const UNDRAWN = {
   saisonId: "2026-27",
   saisonStatus: "future",

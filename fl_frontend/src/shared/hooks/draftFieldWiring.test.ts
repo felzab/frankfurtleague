@@ -16,6 +16,7 @@ import { z } from "zod";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeKontaktFassung, laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 
@@ -100,16 +101,12 @@ const kontakt = (vorname: string, email: string) => ({
   email,
   telefon: "069 1234567",
   geburtsdatum: null,
-  einwilligung: {
-    umfang: "kontaktdaten" as const,
+  einwilligung: kenntnisnahme({
     erfasst_von: "administrativ" as const,
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: null,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  }),
 });
 
 /* `aria` sets `noValidate` and drops every `required`, so the browser stops nothing: a form whose press
