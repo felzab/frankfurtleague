@@ -1300,6 +1300,18 @@ def test_a_literal_the_function_may_change_after_binding_counts_as_writing_every
     assert read is not None and [path for path, _ in read] == ["vorname"]
 
 
+@pytest.mark.parametrize(("today", "reaches"), [((_Typed(str),), False), ((UNRESOLVED,), True)], ids=["a day", "anything"])
+def test_a_name_read_above_its_assignment_holds_what_it_is_assigned(today: Values, reaches: bool):
+    """The trace's second pass: on the first, `day` is not yet bound, and the update would read as writing anything there."""
+
+    source = "def compose(today):\n    update = {'$set': {'widerrufen_am': day}}\n    day = today\n    return update\n"
+    [declaration] = ast.parse(source).body
+    assert isinstance(declaration, ast.FunctionDef)
+    fields = _updated_fields(_return_values(declaration, {"today": today}, importlib.import_module(COMPOSERS)))
+
+    assert _reaches(Write("patch_one_in_db", (Collection.EINLADUNGEN,), (COMPOSERS, 0), kind="update", sets=fields)) is reaches
+
+
 @pytest.mark.parametrize(("store", "reaches"), [("", False), ("    written['idempotenz_schluessel'] = day\n", True)])
 def test_a_dict_filled_by_its_own_stores_writes_what_they_name(store: str, reaches: bool):
     """A dict built empty and filled key by key, the shape the application's own composers take."""
