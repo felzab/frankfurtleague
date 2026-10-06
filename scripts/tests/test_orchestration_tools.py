@@ -87,13 +87,47 @@ ENDPOINTS: Final = "| Method | Path |\n| --- | --- |\n| GET | `/spiele` |\n| POS
 @pytest.mark.parametrize(
     ("ours", "theirs"),
     [("| POST | `/teams` |\n", "| POST | `/spieler` |\n"), ("| GET | `/teams` |\n", "| GET | `/spieler` |\n")],
-    ids=["both add a POST row", "both add a GET row the table already keys"],
+    ids=["both add a POST row", "both add a GET row the table already holds"],
 )
-def test_a_key_naming_more_than_one_row_stops_the_merge(ours: str, theirs: str) -> None:
+def test_a_table_whose_first_cell_repeats_is_keyed_by_the_column_naming_one_row(ours: str, theirs: str) -> None:
     conflicted = f"{ENDPOINTS}<<<<<<< HEAD\n{ours}=======\n{theirs}>>>>>>> agent\n"
     merge = merge_rows.merge_text(conflicted, ENDPOINTS, ENDPOINTS + theirs)
+    assert merge.text is not None, merge.conflicts
+    assert ours.strip() in merge.text and theirs.strip() in merge.text
+    assert merge.done == [f"ADD {theirs.split('|')[2].strip()} after {ours.split('|')[2].strip()}"]
+
+
+# The backend spec's two refusal tables both open on `Code`; the agent's longer placeholder re-pads
+# the second whole, header and separator included, so the conflict spans every row of it.
+TWO_CODE_TABLES: Final = (
+    "| Code | Refuses |\n| ---- | ------- |\n| `REQ-A` | a |\n\nprose\n\n| Code | Not served |\n| ---- | ---------- |\n| `READ-A` | a |\n"
+)
+
+
+def test_a_re_padded_table_beside_another_with_the_same_first_header_merges() -> None:
+    padded = "| Code           | Not served |\n| -------------- | ---------- |\n"
+    padded += "| `READ-A`       | a          |\n| `I_NEW_LONG_1` | b          |\n"
+    session = "| Code | Not served |\n| ---- | ---------- |\n| `READ-A` | a |\n| `READ-B` | c |\n"
+    above = TWO_CODE_TABLES.split("| Code | Not served |")[0]
+    conflicted = f"{above}<<<<<<< HEAD\n{session}=======\n{padded}>>>>>>> agent\n"
+    merge = merge_rows.merge_text(conflicted, TWO_CODE_TABLES, above + padded)
+    assert merge.text is not None, merge.conflicts
+    assert merge.done == ["ADD `I_NEW_LONG_1` after `READ-A`"]
+    assert merge.text.endswith("| `READ-A` | a |\n| `I_NEW_LONG_1` | b          |\n| `READ-B` | c |\n")
+
+
+@pytest.mark.parametrize(
+    ("base", "ours", "theirs", "said"),
+    [
+        ("| K | V |\n| - | - |\n| a | 1 |\n| a | 1 |\n", "| b | 2 |\n", "| c | 3 |\n", "no column of the table"),
+        ("| K | V |\n| - | - |\n| a | 1 |\n\n| K | V |\n| - | - |\n| z | 9 |\n", "| b | 2 |\n", "| c | 3 |\n", "2 tables in"),
+    ],
+    ids=["no column names one row", "two tables open with one header"],
+)
+def test_a_table_no_column_keys_stops_the_merge(base: str, ours: str, theirs: str, said: str) -> None:
+    merge = merge_rows.merge_text(f"{base}<<<<<<< HEAD\n{ours}=======\n{theirs}>>>>>>> agent\n", base, base + theirs)
     assert merge.text is None
-    assert any("names no one row" in conflict for conflict in merge.conflicts), merge.conflicts
+    assert any(said in conflict for conflict in merge.conflicts), merge.conflicts
 
 
 # The admin-write table's continuation rows, whose empty first cell names nothing to place them by.
@@ -426,10 +460,10 @@ def test_a_conflict_outside_a_table_aborts_the_merge(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("ours", "theirs", "base", "reason"),
     [
-        ("| POST | `/teams` |\n", "| POST | `/spieler` |\n", ENDPOINTS, "names no one row"),
+        ("| a | 2 |\n", "| a | 3 |\n", "| K | V |\n| - | - |\n| a | 1 |\n| a | 1 |\n", "no column of the table"),
         ("| A | session |\n", "| A | agent |\n", None, "is missing from the merge-base"),
     ],
-    ids=["a method-keyed table", "a file both sides added"],
+    ids=["a table no column keys", "a file both sides added"],
 )
 def test_a_markdown_conflict_the_row_merge_cannot_settle_aborts_the_merge(
     tmp_path: Path, ours: str, theirs: str, base: str | None, reason: str

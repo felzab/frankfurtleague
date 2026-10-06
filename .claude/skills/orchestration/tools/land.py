@@ -3,7 +3,7 @@
 `git merge --no-ff` brings the branch in whole: the agent's commits keep the hooks they ran in its
 worktree, and the merge commit takes git's own message, which `commit-msg` leaves to git. A conflict
 in a generated document is answered by regenerating it from the merged code, one inside a markdown
-table by row key where every key names one row, and any other aborts the merge and goes back to the
+table by row key where a column names one row, and any other aborts the merge and goes back to the
 agent. A merge touching `fl_backend/` regenerates both documents either way: two branches each
 carrying a current document can merge cleanly into one that is not.
 
