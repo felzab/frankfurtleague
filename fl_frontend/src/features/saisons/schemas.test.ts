@@ -1,21 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
+
 import { FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema } from "./schemas";
 
-const rules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 4,
-  teams_per_group: 4,
-  tiebreak_order: "tordifferenz",
-  max_kadergroesse: 50,
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "E2", "Q1", "Q2"],
-};
+import type { FLSaisonRules } from "./schemas";
 
-const create = (overrides: Partial<typeof rules> = {}) => ({
+const rules = saisonRules({ number_of_groups: 4, max_kadergroesse: 50, erlaubte_stufen: ["E1", "E2", "Q1", "Q2"] });
+
+// Any value under a rule's key: the cases hand the schema what it refuses.
+const create = (overrides: Partial<Record<keyof FLSaisonRules, unknown>> = {}) => ({
   id: "2026",
   start_date: "2025-09-01",
   end_date: "2026-06-30",

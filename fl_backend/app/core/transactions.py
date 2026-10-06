@@ -1,10 +1,10 @@
 import asyncio
 import contextvars
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
 from contextvars import ContextVar
-from typing import Any, Final
+from typing import Final
 
 import anyio
 import pymongo
@@ -105,10 +105,6 @@ class JudgedSession:
     def __init__(self, session: AsyncClientSession, judge: ActorJudge) -> None:
         self._session = session
         self._judge = judge
-
-    @property
-    def session_id(self) -> Mapping[str, Any]:
-        return self._session.session_id
 
     async def with_transaction[T](self, callback: Callable[[AsyncClientSession], Awaitable[T]]) -> T:
         """`callback` in one transaction, the actor judged again in each attempt the driver retries (`docs/backend/spec.md :: I921`)."""

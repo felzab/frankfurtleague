@@ -14,6 +14,7 @@ import {
   FELD_ABGELEHNT,
   HEUTE_GENUG_GEAENDERT,
   isRuleRefusal,
+  outcomeUnknown,
   refusedDraftAnswer,
   rejectedWrite,
   toActionErrorResult,
@@ -457,8 +458,9 @@ describe("a write action that rejected", () => {
     let refreshed = 0;
     const router = { refresh: () => void (refreshed += 1) };
 
-    assert.deepEqual(rejectedWrite(router)(), unansweredAction());
-    assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(), { ...unansweredAction(), error: "Prüfe die Verbindung." });
+    const dropped = new Error("An unexpected response was received from the server.");
+    assert.deepEqual(rejectedWrite(router)(dropped), outcomeUnknown());
+    assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(dropped), { ...outcomeUnknown(), error: "Prüfe die Verbindung." });
     assert.equal(refreshed, 2, "a rejected write left the page as it was");
   });
 
@@ -481,7 +483,7 @@ describe("a write action that rejected", () => {
       new Error(`${EDGE_REFUSAL_BODY}\n`),
       EDGE_REFUSAL_BODY,
     ]) {
-      assert.deepEqual(unansweredAction(other), unansweredAction(), String(other));
+      assert.deepEqual(unansweredAction(other), outcomeUnknown(), String(other));
     }
   });
 

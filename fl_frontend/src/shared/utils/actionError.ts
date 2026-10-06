@@ -156,12 +156,22 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
   "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
 };
 
+/** The sentence of a write that may or may not have landed. */
+export const SPEICHERUNG_UNKLAR = buildRefusal({
+  reason: "Ob die Änderung gespeichert wurde, ist unklar",
+  repair: "Lade die Seite neu und prüfe, ob sie da ist",
+});
+
 /** A write that may or may not have landed, marked so the toast titles it neither a success nor a failure. */
-const OUTCOME_UNKNOWN: ActionFailure = {
-  success: false,
-  error: buildRefusal({ reason: "Ob die Änderung gespeichert wurde, ist unklar", repair: "Lade die Seite neu und prüfe, ob sie da ist" }),
-  outcome: "unknown",
-};
+const OUTCOME_UNKNOWN: ActionFailure = { success: false, error: SPEICHERUNG_UNKLAR, outcome: "unknown" };
+
+/**
+ * A spine's answer where a write it sent may stand behind whatever the body made of it. Never an
+ * action's rejection, which `unansweredAction` reads first.
+ */
+export function outcomeUnknown(): ActionFailure {
+  return { ...OUTCOME_UNKNOWN };
+}
 
 /**
  * An undo nobody can tell landed, said by the route for a replay that threw and by the dispatch for
@@ -200,11 +210,11 @@ export function edgeRefusedSend(error: unknown): ActionFailure | null {
 }
 
 /**
- * An editor's answer to its own action rejecting, a dropped connection among the causes: the press may
- * have reached the server, and uncaught inside a transition the rejection replaces the editor with the
- * error page.
+ * An editor's answer to its own action rejecting: the press may have reached the server, and uncaught in a
+ * transition the rejection replaces the editor with the error page. Required: dropped, the edge's refusal reads
+ * as an unclear save.
  */
-export function unansweredAction(error?: unknown, repair?: string): ActionFailure {
+export function unansweredAction(error: unknown, repair?: string): ActionFailure {
   // The one rejection that says what became of the press: the edge refused it before Next ran.
   if (isEdgeRefusal(error)) return { success: false, error: ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT };
 
@@ -215,7 +225,7 @@ export function unansweredAction(error?: unknown, repair?: string): ActionFailur
  * A write action's rejection answered as `unansweredAction` answers it, with the page read again: a rejection brings
  * no server refresh back while the write may stand. The edge's refusal wrote nothing, so it reads nothing.
  */
-export function rejectedWrite(router: { refresh: () => void }, repair?: string): (error?: unknown) => ActionFailure {
+export function rejectedWrite(router: { refresh: () => void }, repair?: string): (error: unknown) => ActionFailure {
   return (error) => {
     if (!isEdgeRefusal(error)) router.refresh();
 

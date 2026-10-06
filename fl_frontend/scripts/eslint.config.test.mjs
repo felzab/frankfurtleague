@@ -64,7 +64,7 @@ const BANS = [
   ["vendor-root-load", /An `import\(\)` of a package root/],
   ["heroui-form-load", /Load HeroUI's form through/],
   ["passkey-deletion", /passkey plugin's own deletion/],
-  ["action-state", /Take `useActionState` through/],
+  ["action-state", /through `useAnsweredActionState`/],
   ["node-in-equality", /serialises the whole rendered tree/],
   ["facets-server", /cannot hand across to a client/],
   ["invite-refusal", /No undo route replays/],

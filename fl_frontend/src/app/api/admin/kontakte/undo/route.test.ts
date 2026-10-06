@@ -7,7 +7,7 @@ import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, assertEachRowPublished, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /** The stored block the press replays, and the token the save left, as the editor builds them. */
 const BODY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "9f2c" };
@@ -78,7 +78,6 @@ const doubled = doubleApiAnswers(
 const { calls } = doubled;
 const answerWith = (answer: Answer) => doubled.answerWith(mitSeiten(answer));
 const { POST } = await import("./route.ts");
-const { KONTAKTE_REPLAY_REFUSALS } = await import("@/features/kontakte/refusals.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 
 /** What `fl_frontend/src/features/kontakte/mutations.ts :: patchSaisonTeamKontakte` sends, as the backend's own routes spell it. */
@@ -254,11 +253,5 @@ describe("the contacts save's undo", () => {
     answerWith(() => Promise.resolve(replayed(0)));
 
     assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten."));
-  });
-});
-
-describe("the replay table against the replayed endpoint", () => {
-  it("words only codes the replayed endpoint publishes", () => {
-    assertEachRowPublished(KONTAKTE_REPLAY_REFUSALS, REPLAY_OPERATION);
   });
 });

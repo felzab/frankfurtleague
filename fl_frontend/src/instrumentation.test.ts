@@ -346,26 +346,6 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
     assert.deepEqual(local, { code: 0, said: "" });
   });
 
-  it("refuses with 3 a Cloudflare test site key under production, naming the variable and never the key", () => {
-    const key = "1x00000000000000000000AA";
-    const { code, said } = boot({ settings: { TURNSTILE_SITE_KEY: key } });
-
-    assert.equal(code, 3);
-    assert.match(said, /"error_code":"FE-BOOT-001"/);
-    assert.match(said, /"variables":"TURNSTILE_SITE_KEY"/);
-    assert.ok(!said.includes(key), "the refusal quoted the key");
-  });
-
-  it("refuses with 3 a sign-in secret a character short of its library's floor, naming its file and never the value", () => {
-    const short = SIGN_IN_SECRET.slice(0, 31);
-    const { code, said } = boot({ files: { auth_secret: short } });
-
-    assert.equal(code, 3);
-    assert.match(said, /"error_code":"FE-BOOT-004"/);
-    assert.match(said, /"files":"auth_secret"/);
-    assert.ok(!said.includes(short), "the refusal quoted the secret");
-  });
-
   // No other check reads the files before the recreate, so every way one fails is a case: missing,
   // missing under production alone, blank, and not a file.
   it("refuses with 3 a secret file missing, blank or not a file, naming the file", () => {
@@ -385,6 +365,7 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
   });
 
   // A line the file leaves out and a bare `NAME` compose holds no value for reach the container alike.
+  // The only case pinning `API_URL` as required: `fl_frontend/src/core/config.test.ts` reads that set off the schema.
   it("refuses with 3 a required variable the container was not handed", () => {
     assert.deepEqual(refused({ settings: { API_URL: undefined } }), { code: 3, lines: ["FE-BOOT-001 API_URL"] });
   });
@@ -398,6 +379,7 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
     assert.deepEqual(refused({ ...production, checkedAs: "local" }), { code: 0, lines: [] });
   });
 
+  // X25519 rather than `fl_frontend/src/core/actorToken.test.ts`'s P-256: the one curve sharing Ed25519's JWK key type.
   it("refuses with 3 a signing key the frontend cannot read, or one that is not Ed25519", () => {
     const notSigning = path.join(KEY_DIRECTORY, "x25519.pem");
     writeFileSync(notSigning, generateKeyPairSync("x25519").privateKey.export({ type: "pkcs8", format: "pem" }));

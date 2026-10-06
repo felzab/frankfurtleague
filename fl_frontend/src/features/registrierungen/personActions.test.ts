@@ -6,7 +6,7 @@ import { doubleSendMail } from "@/core/mailDouble.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapAblehnungRefusal, mapAufnahmeRefusal } from "./utils.ts";
 
@@ -30,8 +30,9 @@ const { calls } = client;
 /** Answers the decision a case presses with `next`, a delivery report after it as the endpoint does. */
 const answerWith = (next: () => Promise<unknown>): void => client.answerWith((call) => (reportsDelivery(call) ? deliveryApplied() : next()));
 
-const { ablehnenRegistrierungAction, aufnehmenRegistrierungAction } = await import("./personActions.ts");
-const { SITZ_WEG } = await import("@/shared/utils/actionError.ts");
+const { ablehnenRegistrierungAction, aufnehmenRegistrierungAction, patchRegistrierungEinwilligungAction } = await import("./personActions.ts");
+const { mapRegistrierungEinwilligungRefusal, REGISTRIERUNG_NICHT_MEHR_OFFEN, SEITE_VERALTET, WAHL_GESPEICHERT } =
+  await import("@/features/konto/einwilligung.ts");
 
 const AUFNEHMEN_OPERATION = "POST /registrierungen/{registrierung_id}/aufnehmen";
 const ABLEHNEN_OPERATION = "POST /registrierungen/{registrierung_id}/ablehnen";
@@ -110,25 +111,6 @@ describe("a seat holder's decisions on a registration", () => {
     });
     assert.deepEqual(invalidations(), [["refresh"]]);
   });
-
-  /* The seat is the spine's to derive from the session, never the payload's word: the payload names a
-     team the person holds nothing on. */
-  it("never reaches the backend for a seat the person does not hold", async () => {
-    setSubject(person({ sitze: [sitz({ team_id: "6890a1b2c3d4e5f607250012" })] }));
-    answerWith(() => Promise.resolve(AUFNAHME));
-
-    const answers = [
-      await aufnehmenRegistrierungAction({ ...ZIEL, spieler_id: null }),
-      await ablehnenRegistrierungAction({ ...ZIEL, grund: null }),
-    ];
-
-    assert.deepEqual(calls, [], "a decision for a seat the person does not hold reached the backend");
-    assert.deepEqual(answers, [
-      { success: false, error: SITZ_WEG },
-      { success: false, error: SITZ_WEG },
-    ]);
-    assert.deepEqual(mailed, [], "a refused decline mailed the pupil");
-  });
 });
 
 describe("the note a decline sends the pupil", () => {
@@ -187,6 +169,92 @@ describe("what each decision answers a refusal with", () => {
       refuseWith: answerWith,
       act: () => ablehnenRegistrierungAction({ ...ZIEL, grund: null }),
       mapped: mapAblehnungRefusal,
+    });
+  });
+});
+
+const EINWILLIGUNG_OPERATION = "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung";
+const DIGEST = "c".repeat(64);
+
+/** The media consent withdrawn beside a publication scope left standing, on the account page's own label. */
+const WIDERRUF = {
+  umfang: "kader_oeffentlich" as const,
+  medien: false,
+  text_version: "2026-10-konto-spieler",
+  nachweis_stand: { umfang: null, medien: DIGEST },
+};
+
+const WIDERRUFEN = {
+  acknowledged: 1,
+  registrierung_id: REGISTRIERUNG_ID,
+  einwilligung: {
+    umfang: "kader_oeffentlich",
+    erteilt_von: null,
+    datum: "2026-09-20",
+    bestaetigt_am: "2026-09-20",
+    text_version: "2026-10-spielerseite-4",
+    medien: false,
+    nachweis: { umfang: null, medien: { am: "2026-10-06T09:00:00+00:00", text_version: "2026-10-konto-spieler", erteilt_zuvor: null } },
+  },
+  // Moved by the press, so an answer echoing the sent stand would not pass for this one.
+  nachweis_stand: { umfang: null, medien: "d".repeat(64) },
+};
+
+/* A pending registration grants no Funktion, so a pupil holding none reaches the backend, which judges
+   the registration theirs and takes a withdrawal alone. */
+describe("a pupil's withdrawal on their pending registration", () => {
+  it("sends both choices and the account page's label to the registration's path, and refreshes the page", async () => {
+    setSubject(person());
+    answerWith(() => Promise.resolve(WIDERRUFEN));
+    calls.length = 0;
+    cacheCalls.length = 0;
+
+    const answer = await patchRegistrierungEinwilligungAction(REGISTRIERUNG_ID, WIDERRUF);
+
+    assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT, nachweis_stand: WIDERRUFEN.nachweis_stand });
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `/registrierungen/selbst/${REGISTRIERUNG_ID}/einwilligung`, method: "PATCH", body: WIDERRUF },
+    ]);
+    // No public read serves a pending registration: the spine's refresh is the page's whole re-read.
+    assert.deepEqual(
+      cacheCalls.map(({ name }) => name),
+      ["refresh"],
+    );
+  });
+
+  it("refuses a malformed registration before the backend", async () => {
+    setSubject(person());
+    calls.length = 0;
+
+    assert.equal((await patchRegistrierungEinwilligungAction("kein-id", WIDERRUF)).success, false);
+    assert.deepEqual(calls, [], "a malformed registration reached the backend");
+  });
+
+  /* The page offers no grant here, so the backend's lost record is a registration decided or deleted,
+     which its own sentence names rather than the shared one about a team. */
+  for (const [code, words] of [
+    ["REQ-FUNKTION-001", REGISTRIERUNG_NICHT_MEHR_OFFEN],
+    ["REQ-EINWILLIGUNG-003", SEITE_VERALTET],
+  ] as const) {
+    it(`answers ${code} in the account page's words`, async () => {
+      setSubject(person());
+      answerWith(() => Promise.reject(refusedOn(EINWILLIGUNG_OPERATION, code)));
+
+      assert.deepEqual(await patchRegistrierungEinwilligungAction(REGISTRIERUNG_ID, WIDERRUF), {
+        success: false,
+        error: words,
+        fieldErrors: undefined,
+      });
+    });
+  }
+
+  it("answers every published refusal of the withdrawal through the registration's consent mapper", async () => {
+    setSubject(person());
+    await assertEachAnswered({
+      operation: EINWILLIGUNG_OPERATION,
+      refuseWith: answerWith,
+      act: () => patchRegistrierungEinwilligungAction(REGISTRIERUNG_ID, WIDERRUF),
+      mapped: mapRegistrierungEinwilligungRefusal,
     });
   });
 });

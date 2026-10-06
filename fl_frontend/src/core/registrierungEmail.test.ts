@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { redactedParameterNames } from "./edgeRedaction.ts";
+import { assertRedactedAtTheEdge } from "./edgeRedaction.ts";
 import { registerDoubles } from "./exportingModule.ts";
 
 import type { RegistrierungLinkEmailData } from "./registrierungEmail.ts";
@@ -43,14 +43,8 @@ const MESSAGES = {
 };
 
 describe("the pupil's confirmation link", () => {
-  /* The name is the whole of what the edge matches on (`docs/logging/spec.md :: L11`), so a link
-     spelled with any other parameter writes the credential into the access line and the referer. */
   it("names a parameter the edge's own redaction map replaces", () => {
-    const redacted = redactedParameterNames();
-    const name = /\?(\w+)=/.exec(spielerBestaetigungsLink(ORIGIN, "kein-echtes-token"))?.[1] ?? "";
-
-    assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
-    assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
+    assertRedactedAtTheEdge(spielerBestaetigungsLink(ORIGIN, "kein-echtes-token"));
   });
 
   it("lands on the pupil's own segment rather than the shared confirmation path", () => {

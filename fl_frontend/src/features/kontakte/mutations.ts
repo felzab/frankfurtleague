@@ -81,7 +81,7 @@ export async function einladeKontakt({ team_id, saison_id, rolle }: FLKontaktEin
   );
 }
 
-// A seat holder's own media choice, under the person lane's actor: the backend moves it on every seat
+// A seat holder's own two choices, under the person lane's actor: the backend moves them on every seat
 // of theirs on that row and judges the seat itself, a past season's included for a withdrawal.
 export async function patchSitzEinwilligung(
   teamId: string,
@@ -100,7 +100,7 @@ export async function patchSitzEinwilligung(
 }
 
 // A seat holder's withdrawal on a pending application, under the person lane's actor: the backend moves
-// every seat of theirs on it and takes `false` alone, a grant being the confirmation page's.
+// every seat of theirs on it and takes a withdrawal alone, a grant being the confirmation page's.
 export async function patchBewerbungEinwilligung(
   bewerbungId: string,
   payload: FLBewerbungPersonEinwilligungPayload,

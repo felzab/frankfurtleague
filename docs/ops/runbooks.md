@@ -677,6 +677,9 @@ address that record holds:
 - **A seat's WhatsApp scope and media consent on a pending application:**
   `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
   either.
+- **A pending registration's publication scope and media consent:**
+  `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which withdraws them and never
+  grants either until the team admits the registration.
 - **A pupil's:** the paragraph below.
 
 **Taking a contact person off their seat is an erasure, unless the seat's own link still takes

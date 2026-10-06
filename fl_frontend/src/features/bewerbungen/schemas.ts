@@ -3,7 +3,12 @@ import z from "zod";
 import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLMedienStandPayloadSchema, FLMedienStandSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
+import {
+  FLEinwilligungStandPayloadSchema,
+  FLEinwilligungStandSchema,
+  FLSpielerSelbstEinwilligungPayloadSchema,
+  LinkAntwortTextVersionSchema,
+} from "@/features/spieler/schemas";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
@@ -15,6 +20,7 @@ import {
 import { kontaktePersonenRegeln } from "@/features/teams/kontaktePersonen";
 import {
   FLGruppenNamesSchema,
+  FLKontaktKenntnisnahmeSchema,
   FLSaisonTeamKontakteSchema,
   FLSchulformSchema,
   FLTrainerZugleichSchema,
@@ -683,14 +689,7 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
       medien: z.boolean(),
       // The version this page rendered, never the one the submission stamped: the seat's record has to
       // cite the words the confirming person read, and the two are months apart.
-      text_version: z
-        .string()
-        .trim()
-        // The endpoint's own floor: the page fills it from the served label, so only a drifted page sends none.
-        .nonempty({ error: "Deine Antwort nennt keine Fassung der Hinweise. Bitte öffne den Link noch einmal aus Deiner E-Mail." })
-        .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-          error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-        }),
+      text_version: LinkAntwortTextVersionSchema,
     })
     .superRefine((payload, ctx) => {
       if (payload.antwort !== "erteilt") {
@@ -787,14 +786,16 @@ export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema
 export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungPersonEinwilligungPayload`: a seat holder's withdrawal of their media consent on a
- * pending application, from the account page. Withdraw-only, a grant being the confirmation page's;
- * the application travels in the path.
+ * Mirrors `SitzEinwilligungPayload`, which the backend publishes as this and as
+ * `FLSaisonTeamPersonEinwilligungPayload`: a seat holder's two choices from the account page. A pending
+ * application's seats take a withdrawal alone, which the backend judges; the page offers no grant there.
  */
 export const FLBewerbungPersonEinwilligungPayloadSchema = z.object({
-  medien: z.literal(false, { error: "Hier kannst Du die Einwilligung nur widerrufen. Lade die Seite neu." }),
+  // Both choices on every press, so moving one never leaves the other judged by nothing.
+  umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: "Diese Wahl kennen wir nicht. Lade die Seite neu." }),
+  medien: z.boolean(),
   text_version: FLSpielerSelbstEinwilligungPayloadSchema.shape.text_version,
-  nachweis_stand: FLMedienStandPayloadSchema,
+  nachweis_stand: FLEinwilligungStandPayloadSchema,
 });
 export type FLBewerbungPersonEinwilligungPayload = z.infer<typeof FLBewerbungPersonEinwilligungPayloadSchema>;
 
@@ -802,8 +803,9 @@ export type FLBewerbungPersonEinwilligungPayload = z.infer<typeof FLBewerbungPer
 export const FLBewerbungPersonEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
   bewerbung_id: CustomObjectIdStringSchema,
   rollen: z.array(FLKontaktRolleSchema),
-  medien: z.literal(false),
-  nachweis_stand: FLMedienStandSchema,
+  umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
+  medien: z.boolean(),
+  nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLBewerbungPersonEinwilligungResponse = z.infer<typeof FLBewerbungPersonEinwilligungResponseSchema>;
 

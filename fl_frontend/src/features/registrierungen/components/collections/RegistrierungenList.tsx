@@ -8,7 +8,8 @@ import SealCheck from "@gravity-ui/icons/SealCheck";
 import { Button } from "@heroui/react/button";
 
 import { ablehnenRegistrierungAction, aufnehmenRegistrierungAction } from "@/features/registrierungen/personActions";
-import { ANGABEN_WEICHEN_AB, dieselbePerson, NOCH_NICHT_BESTAETIGT, personName } from "@/features/registrierungen/utils";
+import { ANGABEN_WEICHEN_AB, dieselbePerson, NOCH_NICHT_BESTAETIGT } from "@/features/registrierungen/utils";
+import { kaderName } from "@/features/spieler/constants";
 import {
   IDENTITY_HEAD_CLASSES,
   IDENTITY_LINE_CLASSES,
@@ -116,7 +117,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
   const vorgeschlagen = person === null ? vorschlag : null;
   // Each armed control names its effect, so one habitual press means the same in every card: the
   // primary is the safer answer, the stored record where the address resolved it.
-  const gewaffnet = gefragt ? `Als ${personName(person)} aufnehmen` : vorgeschlagen === null ? "Ja, aufnehmen" : "Als neue Person aufnehmen";
+  const gewaffnet = gefragt ? `Als ${kaderName(person)} aufnehmen` : vorgeschlagen === null ? "Ja, aufnehmen" : "Als neue Person aufnehmen";
 
   // The row's cancel hands the focus back to the control that armed it, and the row's first press is
   // the admission: a cancelled decline names its own control here, read once the decline has disarmed.
@@ -163,7 +164,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
         <ConfirmReveal>
           {gefragt && (
             <p className="fluid-sm text-pretty text-foreground">
-              {ANGABEN_WEICHEN_AB} {dieselbePerson(personName(person))}
+              {ANGABEN_WEICHEN_AB} {dieselbePerson(kaderName(person))}
             </p>
           )}
           {gefragt && (
@@ -172,7 +173,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               registrieren.
             </p>
           )}
-          {vorgeschlagen !== null && <p className="fluid-sm text-pretty text-foreground">{dieselbePerson(personName(vorgeschlagen))}</p>}
+          {vorgeschlagen !== null && <p className="fluid-sm text-pretty text-foreground">{dieselbePerson(kaderName(vorgeschlagen))}</p>}
           {!gefragt && vorgeschlagen === null && (
             <p className="fluid-sm text-pretty text-foreground">{registrierung.vorname} kommt in den Kader dieser Saison.</p>
           )}
@@ -216,7 +217,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               isPending={aufnahme.isPending}
               onPress={() => aufnehmen(vorgeschlagen.spieler_id)}
               className={formButton({ intent: "cancel", stacks: true })}>
-              {`Als ${personName(vorgeschlagen)} aufnehmen`}
+              {`Als ${kaderName(vorgeschlagen)} aufnehmen`}
             </Button>
           </FocusSlot>
         )}

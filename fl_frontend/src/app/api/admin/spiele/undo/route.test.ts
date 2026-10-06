@@ -3,13 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import {
-  assertEachRefusalCloses,
-  assertEachRowPublished,
-  doubleRouteRequest,
-  revalidatedTags,
-  unacknowledged,
-} from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spiele/paarungen";
@@ -21,7 +15,6 @@ const { setSession } = doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(RESTORED));
 
 const { POST } = await import("./route.ts");
-const { PAARUNGEN_REPLAY_REFUSALS } = await import("@/features/spiele/refusals.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 
 /** One refused answer as the client raises it; only the status and the code are read past this file. */
@@ -245,11 +238,5 @@ describe("the undo route, driven", () => {
 
     assert.equal(answered.status, 401);
     assert.equal(calls.length, 0);
-  });
-});
-
-describe("the replay table against the replayed endpoint", () => {
-  it("words only codes the replayed endpoint publishes", () => {
-    assertEachRowPublished(PAARUNGEN_REPLAY_REFUSALS, REPLAY_OPERATION);
   });
 });

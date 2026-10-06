@@ -259,7 +259,7 @@ describe("what one refused confirmation shows", () => {
     assert.deepEqual(mapped, await mapBestaetigungRefusal(refusal("REQ-VAL-001", 422), floorOf(16).lesen));
   });
 
-  /* Choices the link's page does not ask come from a page older than the backend's answer, as the media yes does. */
+  /* No page of ours sends choices its page does not ask, the label check refusing a mismatched page first. */
   it("answers choices the link's page does not ask with the mail's link", async () => {
     assert.deepEqual(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-017", 422), floorOf(16).lesen), { error: ANTWORT_NEU_OEFFNEN });
   });

@@ -117,7 +117,7 @@ const { sent, answerWith: answerMail } = registerAuthDoubles({
 /** What the backend holds for an address, answered at each read in that read's shape, or that it throws for it or refuses it as a payload. */
 type Backend = LookupFixture | "throws" | "refuses";
 
-const NOTHING_HELD = NO_RECORDS;
+const NOTHING_HELD = { ...NO_RECORDS, konto: false };
 const A_SEAT = SITZ;
 
 /** Before every session a case makes, so a grant dated by it admits what it held before grants were dated. */
@@ -290,7 +290,7 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
   // Seated for the mint alone, unless the case said otherwise: the gate at session creation admits
   // nobody else, and a seat left standing would change what a later case's send mails.
   const seated = !BACKENDS.has(email);
-  if (seated) BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT] });
+  if (seated) BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
 
   return sessionByCode(auth, store, email).finally(() => {
     if (seated) BACKENDS.delete(email);
@@ -673,14 +673,14 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
   /* A session its ban's ending missed: every guard behind `/bereich` refuses it, so a landing there
      sends it straight back to a page that would greet it as signed in (`docs/frontend/spec.md :: I406`). */
   it("greets no barred person, and lands them on the sign-in rather than in the person area", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     try {
       const { cookie } = await signIn(PERSON_EMAIL);
       arriveAs(cookie);
       assert.notEqual(await getSignInDestination(), "/signin", "the seated person was not landed, so the case below proves nothing");
       assert.equal(await getSignedInAddress(), PERSON_EMAIL);
 
-      BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+      BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
       assert.equal(await getSignInDestination(), "/signin");
       assert.equal(await getSignedInAddress(), null);
@@ -697,15 +697,15 @@ describe("what the landing ends (`docs/frontend/spec.md :: I518`)", () => {
   afterEach(() => BACKENDS.delete(PERSON_EMAIL));
 
   it("ends a barred person's session, so a lift of the ban serves it no more", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     const { cookie, row } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
     assert.equal(await getSignedInAddress(), null);
     assert.ok(!store.session.includes(row), "a barred session the ban's ending missed outlived the landing");
 
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     assert.equal(await getKontoSession(), null, "the ban's lift served the session again with no sign-in");
   });
 
@@ -854,7 +854,7 @@ describe("why the admin guard refused", () => {
     assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" }, "a code-borne session was told its grant is gone");
 
     madeByPasskey(store, row);
-    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
 
     assert.equal(await getAdminSession(), null, "the guard admitted a session holding no grant");
     assert.deepEqual(await judgeAdminRequest(), { refused: "grantGone" });
@@ -866,7 +866,7 @@ describe("why the admin guard refused", () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     store.passkey.length = 0;
-    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     arriveAs(cookie);
 
     assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" });
@@ -943,12 +943,12 @@ describe("the account page's guard on a barred address", () => {
   afterEach(() => BACKENDS.delete(PERSON_EMAIL));
 
   it("answers no session once the address is barred, and the same session before", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
     assert.ok(await getKontoSession(), "the seated person's session was refused, so the case below proves nothing");
 
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
     assert.equal(await getKontoSession(), null);
   });
@@ -1232,15 +1232,15 @@ describe("the session a code's second tab counts as signed in (`docs/frontend/sp
   afterEach(() => BACKENDS.delete(PERSON_EMAIL));
 
   it("serves the session every guard serves, and none a ban or a gone passkey refuses", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     const { cookie, row } = await signIn(PERSON_EMAIL);
     const request = new Headers({ ...ORIGIN, cookie });
     assert.equal((await readAdmittedSession(request))?.session.id, row.id, "the live session was refused, so the cases below prove nothing");
 
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
     assert.equal(await readAdmittedSession(request), null, "a barred subject's session counted as signed in");
 
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     madeByPasskey(store, row);
     store.passkey.length = 0;
     assert.equal(await readAdmittedSession(request), null, "a session whose passkey is gone counted as signed in");
@@ -2248,7 +2248,7 @@ describe("what a ban ends in the sign-in store", () => {
     }
 
     // Lifted: the lookup answers the person unbarred, holding the seat they held before.
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     try {
       arriveAs(cookie);
       assert.equal(await readServedSession(new Headers({ ...ORIGIN, cookie })), null, "the lift served the stamped session again");
@@ -2263,7 +2263,7 @@ describe("what a ban ends in the sign-in store", () => {
   /* The enrolment arm reads its caller through the library, past every lane above: a stamped session
      still inside the enrolment window would add a passkey once the ban is lifted. */
   it("enrols no passkey from a session the ending stamped, once the ban is lifted", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     try {
       const { cookie, row } = await signIn(PERSON_EMAIL);
       assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 200, "the control was refused before any ending");
@@ -2767,7 +2767,7 @@ describe("the failures one address may spend, across every code it is sent (`doc
     const address = "an-der-praegung-gescheitert@example.org";
     const refusals: unknown[] = [];
     try {
-      for (const backend of [{ ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true }, NOTHING_HELD, "throws"] as const) {
+      for (const backend of [{ ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true }, NOTHING_HELD, "throws"] as const) {
         BACKENDS.set(address, backend);
         const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
         const refused = await answerOf(address, otp);
@@ -2789,7 +2789,7 @@ describe("the failures one address may spend, across every code it is sent (`doc
   it("takes a refusal at the mint's own row back out, never another attempt's", async () => {
     const address = "eigene-zeile@example.org";
     try {
-      BACKENDS.set(address, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+      BACKENDS.set(address, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
       const first = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
       await answerOf(address, wrongFor(first));
       const [counted] = failureRows();
@@ -2977,7 +2977,7 @@ describe("which addresses the send gate mails", () => {
   const SEATED_EMAIL = "trainerin@example.org";
   const UNCONFIRMED_EMAIL = "unbestaetigte@example.org";
   const BARRED_EMAIL = "gesperrte@example.org";
-  const PAST_SEATED_EMAIL = "ehemalige@example.org";
+  const UNREACHED_EMAIL = "unerreichte@example.org";
   const ACCOUNT_ONLY_EMAIL = "bewerberin@example.org";
 
   /** A record of the address's own that no subject list names: a pending application's seat, a retired row. */
@@ -3000,7 +3000,7 @@ describe("which addresses the send gate mails", () => {
   }
 
   it("mails an address holding a seat on a live season, after the one backend read", async () => {
-    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
 
     assert.deepEqual((await askFor(SEATED_EMAIL)).mailed, [SEATED_EMAIL]);
     assert.deepEqual(asked, ["/api/v0/identitaet/anmeldung"]);
@@ -3034,7 +3034,7 @@ describe("which addresses the send gate mails", () => {
   });
 
   it("mails nothing to a barred address holding a live seat", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
     assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
   });
@@ -3042,13 +3042,6 @@ describe("which addresses the send gate mails", () => {
   it("mails nothing to an address holding nothing at all", async () => {
     assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
     assert.equal(asked.length, 1, "the gate refused without asking the backend, so holding nothing decided nothing");
-  });
-
-  /* A `past` season's seat grants no panel, and its consent is still the person's to take back. */
-  it("mails an address whose only seat is on a past season", async () => {
-    BACKENDS.set(PAST_SEATED_EMAIL, { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] });
-
-    assert.deepEqual((await askFor(PAST_SEATED_EMAIL)).mailed, [PAST_SEATED_EMAIL]);
   });
 
   it("mails nothing to a barred address whose only record is one the account page serves", async () => {
@@ -3060,7 +3053,7 @@ describe("which addresses the send gate mails", () => {
   /* The grant is read on the same one call as the records, so an administrator's address costs the
      gate what a person's does: the answer and its timing tell the two apart nowhere. */
   it("mails an address holding a grant after the one backend read, answering it as it answers a person's", async () => {
-    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
 
     const granted = await askFor(ADMIN_EMAIL);
     const seated = await askFor(SEATED_EMAIL);
@@ -3115,10 +3108,10 @@ describe("which addresses the send gate mails", () => {
   /* The three refusals are three reasons to the gate and one answer to the person asking: which of
      them held is what the sign-in exists not to say. */
   it("answers a barred address, one holding nothing and one whose read failed with one body, mailing none", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
-    BACKENDS.set(PAST_SEATED_EMAIL, "throws");
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
+    BACKENDS.set(UNREACHED_EMAIL, "throws");
 
-    const refusals = [await askFor(BARRED_EMAIL), await askFor(PERSON_EMAIL), await askFor(PAST_SEATED_EMAIL)];
+    const refusals = [await askFor(BARRED_EMAIL), await askFor(PERSON_EMAIL), await askFor(UNREACHED_EMAIL)];
 
     assert.deepEqual(
       refusals.flatMap((refusal) => refusal.mailed),
@@ -3141,19 +3134,13 @@ describe("which addresses the send gate mails", () => {
     // The ban ahead of the grant: the order a gate judging the grant first would answer otherwise.
     ["a barred address holding a grant", BARRED_EMAIL, { ...A_GRANT, gesperrt: true }, "barred"],
     ["an administrator's address, the read throwing", ADMIN_EMAIL, "throws", "failed"],
-    ["an address holding a live seat", SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] }, "admitted"],
+    ["an address holding a live seat", SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true }, "admitted"],
     ["an address whose records all await confirmation", UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true }, "admitted"],
-    ["a barred address holding a live seat", BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true }, "barred"],
+    ["a barred address holding a live seat", BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true }, "barred"],
     // The two a gate judging the records before the ban would answer otherwise.
     ["a barred address holding nothing", BARRED_EMAIL, { ...NOTHING_HELD, gesperrt: true }, "barred"],
     ["a barred address whose records all await confirmation", BARRED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true, gesperrt: true }, "barred"],
     ["an address holding nothing", PERSON_EMAIL, undefined, "holds-nothing"],
-    [
-      "an address whose only seat is on a past season",
-      PAST_SEATED_EMAIL,
-      { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] },
-      "admitted",
-    ],
     ["an address whose only record no list names", ACCOUNT_ONLY_EMAIL, ONLY_AN_ACCOUNT, "admitted"],
     // The ban ahead of the account: a gate judging `konto` first would admit it.
     ["a barred address whose only record no list names", BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, gesperrt: true }, "barred"],
@@ -3193,7 +3180,7 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
   /* A code mailed before the ban, or typed after a record went, reaches the mint with no send gate
      in front of it: the gate here is what refuses it. */
   it("mints no mailbox session for a barred address, one holding nothing, or one whose read failed", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
     BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
     BACKENDS.set(PERSON_EMAIL, "throws");
 
@@ -3215,7 +3202,7 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
   it("refuses a barred address's passkey with the ban's own code, minting nothing and ending nothing", async () => {
     const { cookie, row } = await signIn(BARRED_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
     const before = [...store.session];
 
     const refused = await assertPasskey(cookie, true);
@@ -3256,7 +3243,7 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
      (`docs/frontend/spec.md :: I406`). */
   it("refuses a barred address's enrolment that signs nobody in, at both halves, writing no passkey", async () => {
     const { cookie } = await signIn(BARRED_EMAIL);
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
     assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404, "the options half served a barred address");
 
@@ -3264,7 +3251,7 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
     BACKENDS.delete(BARRED_EMAIL);
     const offered = await overHttp("/passkey/generate-register-options", { cookie });
     const { challenge } = (await offered.json()) as { challenge: string };
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
     const refused = await overHttp("/passkey/verify-registration", {
       method: "POST",
@@ -3278,12 +3265,12 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
 
   it("offers a barred subject no passkey card, and the same subject unbarred the offer", async () => {
     const { cookie } = await signIn(BARRED_EMAIL);
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
     arriveAs(cookie);
 
     assert.equal(await getPasskeyStep(), null);
 
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     assert.deepEqual(await getPasskeyStep(), { step: "offer", email: BARRED_EMAIL });
   });
 
@@ -3292,7 +3279,7 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
      hook's. */
   it("reads the gate's answer once for a set-up that signs in, ahead of the registration's transaction", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     const offered = await overHttp("/passkey/generate-register-options", { cookie });
     const { challenge } = (await offered.json()) as { challenge: string };
     asked.length = 0;
@@ -3396,7 +3383,7 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
 
   it("mints by code a session no lane serves once the ending has passed its gate read", async () => {
     await signIn(OVERTAKEN_EMAIL);
-    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
 
     try {
       const read = holdNext((hold) => (heldRead = hold));
@@ -3421,7 +3408,7 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
      transaction later, so its row is dated by that earlier read. */
   it("dates a passkey set-up's session no later than the read its before hook carried", async () => {
     const { cookie, row } = await signIn(OVERTAKEN_EMAIL);
-    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
 
     try {
       const offered = await overHttp("/passkey/generate-register-options", { cookie });

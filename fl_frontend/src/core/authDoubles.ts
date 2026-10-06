@@ -255,7 +255,7 @@ export const GATE_BACKEND_CONFIG = {
 export const HOLDS_NOTHING = deepFrozen({ acknowledged: 1 as const, ...NO_RECORDS });
 
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
-const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration" as const, berechtigt_seit: "2026-01-01T00:00:00Z" });
+const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration" as const, berechtigt_seit: "2026-01-01T00:00:00Z", konto: false });
 
 /** Whether a suite's lookup answer is installed, which `registerAuthDoubles`' default must not replace. */
 let lookupAnswered = false;
@@ -289,7 +289,7 @@ function answerTheLookup(answerFor: (email: string) => LookupFixture | null): vo
  * (`docs/frontend/spec.md :: I403`).
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
-  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ] }));
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ], konto: true }));
 }
 
 /**

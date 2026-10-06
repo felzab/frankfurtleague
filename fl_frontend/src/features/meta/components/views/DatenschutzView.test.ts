@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "6. Oktober 2026", digest: "d94710d13f195499be6c862268059e32a5d9798325da482cf2c152c5676c1f6b" } as const;
+const FASSUNG = { stand: "6. Oktober 2026", digest: "afde28f7b72523df7159e6baff8bd910a8d140c846eb1a15fa1918164f5ac532" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -407,7 +407,7 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   // Self-service withdrawal on the account page stands beside the e-mail route.
   {
     weg: "Du kannst diese Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, formlos an",
-    statt: "die Erlaubnis für Fotos, Videos und Interviews nimmst Du außerdem selbst in Deinem Konto zurück",
+    statt: "beide nimmst Du außerdem selbst in Deinem Konto zurück",
   },
   {
     weg: "Das ist die einzige Einwilligung, die wir an dieser Stelle einholen",
@@ -448,7 +448,7 @@ describe("the privacy notice's account of the site's own protection", () => {
   it("gives a person's daily count its clock, and says it holds no address", () => {
     const frist = ANGABEN.get("Tageszähler einer angemeldeten Person, je Funktion") ?? "";
 
-    // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I837`), and per Funktion, never per mailbox.
+    // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I837`), and per kind of person a write is made as, never per mailbox.
     assert.ok(frist.startsWith("Bis kurz nach Mitternacht des Tages, den er zählt."), frist);
     assert.ok(
       frist.includes(
@@ -641,6 +641,18 @@ describe("the privacy notice's publication and retention rows keep their ruled b
 
   /* Only the admission enforces it (`docs/datenschutz.md :: "One address is one person"`); every other
      writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
+  /* The account page lists every consent stored under the address it signs in with, so the notice says
+     where to sign in to take one back (Art. 7(3): withdrawing is as easy as giving). */
+  it("names the account as the place to take back any consent, signed in with the address it was given under", () => {
+    assert.equal(
+      vorkommen(
+        "Eine Einwilligung kannst Du außerdem selbst in Deinem Konto zurücknehmen: Melde Dich mit der E-Mail-Adresse an, unter der Du " +
+          "sie gegeben hast; dort steht jede Einwilligung, die bei uns unter dieser Adresse gespeichert ist.",
+      ),
+      1,
+    );
+  });
+
   it("tells a person that their address stands for them alone and everything under it is their account's", () => {
     rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
   });
@@ -650,7 +662,8 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   it("names the team's three seats as who sees a registration, and what stays with the administrators", () => {
     rendert(
       "Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und " +
-        "Stufe; mit der Bestätigung kommen Dein Geburtsdatum und Deine Antworten zu Veröffentlichung und Medien dazu. Über die " +
+        "Stufe; mit der Bestätigung kommt Dein Geburtsdatum dazu, wenn wir es noch nicht kennen, und, bist Du neu in der Liga, " +
+        "Deine Antworten zu Veröffentlichung und Medien. Über die " +
         "Aufnahme in den Kader entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen " +
         "Deinen Namen, Deine Rückennummer, Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst. Deine " +
         "E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und " +

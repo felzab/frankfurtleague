@@ -3,10 +3,10 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 // The wire's three seats, mirrored once: a second enum here would let the reveal name a seat no
 // other response of this API publishes.
-import { FLKontaktRolleSchema, FLKontaktZeileSchema } from "@/features/bewerbungen/schemas";
+import { FLBewerbungPersonEinwilligungPayloadSchema, FLKontaktRolleSchema, FLKontaktZeileSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLMedienStandPayloadSchema, FLMedienStandSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
-import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
+import { FLEinwilligungStandSchema } from "@/features/spieler/schemas";
+import { FLKontaktKenntnisnahmeSchema, FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
 import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 /**
@@ -136,16 +136,8 @@ export const FLKontaktEinladenResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLKontaktEinladenResponse = z.infer<typeof FLKontaktEinladenResponseSchema>;
 
-/**
- * Mirrors `FLSaisonTeamPersonEinwilligungPayload`: a seat holder's media choice alone, its contact
- * scope being no publication choice. The label rule is the person writes' one rule, read off the pupil's.
- */
-export const FLSaisonTeamPersonEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema.pick({
-  medien: true,
-  text_version: true,
-}).extend({
-  nachweis_stand: FLMedienStandPayloadSchema,
-});
+/** The application seat's payload, as the backend publishes one declaration under both names: the two writes cannot drift. */
+export const FLSaisonTeamPersonEinwilligungPayloadSchema = FLBewerbungPersonEinwilligungPayloadSchema;
 export type FLSaisonTeamPersonEinwilligungPayload = z.infer<typeof FLSaisonTeamPersonEinwilligungPayloadSchema>;
 
 /** Mirrors `FLSaisonTeamPersonEinwilligungResponse`: every seat of the person's on that row, moved together. */
@@ -153,7 +145,8 @@ export const FLSaisonTeamPersonEinwilligungResponseSchema = BaseAPIResponseSchem
   team_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   rollen: z.array(FLKontaktRolleSchema),
+  umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
   medien: z.boolean(),
-  nachweis_stand: FLMedienStandSchema,
+  nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLSaisonTeamPersonEinwilligungResponse = z.infer<typeof FLSaisonTeamPersonEinwilligungResponseSchema>;

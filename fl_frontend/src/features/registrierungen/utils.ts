@@ -158,8 +158,8 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     // The page offers no media switch below the served age, so only a page older than that rule
     // sends this answer, and its repair is the refused payload's.
     case "REQ-REGISTRIERUNG-010":
-    // Choices the link's page did not ask, or none where it asked both: each page sends its own pair,
-    // so only one older than the backend's answer sends this, and the mail's link reopens it.
+    // Choices the link's page did not ask: no page of ours sends it, the label check refusing a
+    // mismatched page first, so only a drifted client meets this, and the mail's link reopens the page.
     case "REQ-REGISTRIERUNG-017":
       return { error: ANTWORT_NEU_OEFFNEN };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
@@ -201,11 +201,6 @@ export const NOCH_NICHT_BESTAETIGT = "Aufnehmen kannst Du erst, wenn die Person 
  */
 export const ANGABEN_WEICHEN_AB = "Die Angaben weichen von einem früheren Eintrag ab.";
 export const dieselbePerson = (name: string): string => `Ist das dieselbe Person wie ${name}?`;
-
-/** „Vorname Nachname“ of a stored person, whose surname may be missing on a record entered before it was asked. */
-export function personName({ vorname, nachname }: { vorname: string; nachname: string | null }): string {
-  return nachname === null ? vorname : `${vorname} ${nachname}`;
-}
 
 /** A registration another seat decided since the page was drawn: the press meets no pending row. */
 export const REGISTRIERUNG_SCHON_ENTSCHIEDEN = buildRefusal({

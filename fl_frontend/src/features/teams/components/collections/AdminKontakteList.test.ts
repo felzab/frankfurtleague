@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
@@ -14,16 +15,12 @@ import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types.
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminKontakteList } = await import("./AdminKontakteList.tsx");
 
-const KENNTNISNAHME: FLKontaktKenntnisnahme = {
-  umfang: "kontaktdaten",
+const KENNTNISNAHME: FLKontaktKenntnisnahme = kenntnisnahme({
   erfasst_von: "administrativ",
   text_version: "kontakte-1",
   datum: "2026-05-01",
   bestaetigt_am: null,
-  medien: false,
-  eingetragen_von: null,
-  nachweis: { umfang: null, medien: null },
-};
+});
 
 /**
  * One person per seat, each field distinct from every other seat's, so an assertion reaching a name

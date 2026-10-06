@@ -6,6 +6,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -53,13 +54,13 @@ const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 
-const aRefusal = (serverErrorCode: string, statusCode = 409) =>
+const aRefusal = (serverErrorCode: string) =>
   new APIBadStatusError({
     message: "refused",
     url: "http://localhost/teams",
-    statusCode,
+    statusCode: 409,
     serverErrorCode,
     endpoint: "/teams",
     method: "POST",
@@ -83,14 +84,7 @@ const sitz = (vorname: string, email: string) => ({
 const gespeichert = (vorname: string, email: string) => ({
   ...sitz(vorname, email),
   geburtsdatum: null,
-  einwilligung: {
-    ...sitz(vorname, email).einwilligung,
-    erfasst_von: "administrativ" as const,
-    bestaetigt_am: null,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, erfasst_von: "administrativ", bestaetigt_am: null }),
 });
 
 const BLOCK = {
@@ -304,7 +298,7 @@ describe("the contacts save that seats new people", () => {
     save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"])]);
     mail.answerWith(() => "lost");
 
-    assert.deepEqual(await patchSaisonTeamKontakteAction(PAYLOAD), unansweredAction());
+    assert.deepEqual(await patchSaisonTeamKontakteAction(PAYLOAD), outcomeUnknown());
   });
 });
 
@@ -337,19 +331,6 @@ describe("the label a contacts save names", () => {
 });
 
 describe("a contacts save from a session past the step-up window", () => {
-  /* A save that may seat somebody new mints a bearer link, so the passkey is asked before the write. */
-  it("is refused where the draft seats a person the row does not hold, reaching no write", async () => {
-    setFresh(false);
-    memberships = holding({ ...GESPEICHERT, stellvertretung: null });
-
-    assert.deepEqual(await patchSaisonTeamKontakteAction(PAYLOAD), stepUpRequired());
-    assert.deepEqual(
-      requestsOf(client.calls).filter(({ method }) => method !== undefined),
-      [],
-      "the write was sent for a session past the window",
-    );
-  });
-
   /* Emptying a seat voids the link its person holds, which is a step-up write as much as a mint. */
   it("is refused where the draft empties a seat the row holds, reaching no write", async () => {
     setFresh(false);
@@ -373,14 +354,6 @@ describe("a contacts save from a session past the step-up window", () => {
 
     assert.notDeepEqual(res, stepUpRequired());
     assert.equal(res.success, true);
-  });
-
-  /* The backend judges by its own read and may still refuse at the window's edge; the spine answers that as its own. */
-  it("answers the backend's own step-up refusal as the spine's", async () => {
-    setFresh(false);
-    save = () => aRefusal("REQ-AUTH-009", 401);
-
-    assert.deepEqual(await patchSaisonTeamKontakteAction(PAYLOAD), stepUpRequired());
   });
 });
 

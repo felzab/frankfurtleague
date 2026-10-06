@@ -139,7 +139,9 @@ export function useTurnstile(
 
     return () => {
       widgetId.current = null;
+      // Minting again with the token: a press before the new widget mints waits for it, never answers at once.
       token.current = null;
+      setStand("laedt");
       api.remove(id);
     };
   }, [container, isScriptReady, siteKey, theme]);

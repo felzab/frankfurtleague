@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, HOLDS_NOTHING, memoryAdapterDouble, memoryStore, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
-import { answerAt, SITZ, sitz } from "@/core/subjectFixtures.ts";
+import { answerAt, SITZ } from "@/core/subjectFixtures.ts";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
@@ -30,7 +30,6 @@ const UNREACHED = "unerreichte@example.org";
 /** The addresses holding no grant the gate admits, so the refusals above are the gate's rather than the harness's. */
 const SEATED = "trainerin@example.org";
 const UNCONFIRMED = "unbestaetigte@example.org";
-const PAST_SEATED = "ehemalige@example.org";
 /** Holding a record of its own no list names, a pending application's seat: no Funktion, and a consent to take back. */
 const ACCOUNT_ONLY = "bewerberin@example.org";
 
@@ -38,19 +37,18 @@ const ACCOUNT_ONLY = "bewerberin@example.org";
 type Backend = LookupFixture | "throws";
 
 const BACKENDS: Readonly<Record<string, Backend>> = {
-  [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" },
-  [BARRED]: { ...HOLDS_NOTHING, sitze: [SITZ], gesperrt: true },
-  [PAST_SEATED]: { ...HOLDS_NOTHING, sitze: [sitz({ saison_status: "past" })] },
+  [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: false },
+  [BARRED]: { ...HOLDS_NOTHING, sitze: [SITZ], gesperrt: true, konto: true },
   [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, konto: true },
   [UNREACHED]: "throws",
-  [UNCONFIRMED]: { ...HOLDS_NOTHING, unbestaetigt: true },
-  [SEATED]: { ...HOLDS_NOTHING, sitze: [SITZ] },
+  [UNCONFIRMED]: { ...HOLDS_NOTHING, unbestaetigt: true, konto: false },
+  [SEATED]: { ...HOLDS_NOTHING, sitze: [SITZ], konto: true },
 };
 
 /** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
 function answerFromTheBackend(call: ApiCall): Promise<unknown> {
   const asked = (JSON.parse(call.body ?? "{}") as { email?: string }).email ?? "";
-  const backend = BACKENDS[asked] ?? HOLDS_NOTHING;
+  const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, konto: false };
   if (backend === "throws") return Promise.reject(new Error("the backend answered nothing"));
 
   return Promise.resolve(answerAt(call.endpoint, backend));
@@ -238,7 +236,6 @@ const rejected = await signInWith(REJECTED);
 const admittedByTheGate = {
   "a person holding a live seat": { attempt: await signInWith(SEATED), address: SEATED },
   "a person whose records all await confirmation": { attempt: await signInWith(UNCONFIRMED), address: UNCONFIRMED },
-  "a person whose only seat is on a past season": { attempt: await signInWith(PAST_SEATED), address: PAST_SEATED },
   "a person whose only record no list names": { attempt: await signInWith(ACCOUNT_ONLY), address: ACCOUNT_ONLY },
 };
 const refusedByTheGate = {
