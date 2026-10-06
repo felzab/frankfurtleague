@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
-import CircleXmark from "@gravity-ui/icons/CircleXmark";
 
 import { Button } from "@heroui/react/button";
 
@@ -115,21 +114,21 @@ function useAntwort(token: string, onAbschluss: (stand: Stand) => void) {
   return { sende: sende, isPending: isPending, gedrueckt: gedrueckt };
 }
 
-/** The decline, the one press every link a referee still holds takes. */
+/**
+ * The decline, the one press every link a referee still holds takes, worn as the contact page wears
+ * its Widerspruch (`BestaetigungFormPanel.tsx`): the action bar's exit, beside and after the confirmation.
+ */
 function AblehnenButton({ antwort }: { antwort: ReturnType<typeof useAntwort> }) {
   const { sende, isPending, gedrueckt } = antwort;
 
   return (
     <Button
       type="button"
+      variant="secondary"
       isPending={isPending && gedrueckt === "abgelehnt"}
       isDisabled={isPending}
       onPress={() => sende("abgelehnt")}
-      className={formButton({ intent: "nav", stacks: true })}>
-      <CircleXmark
-        className="size-4.5"
-        aria-hidden="true"
-      />
+      className={formButton({ intent: "cancel", stacks: true })}>
       {NICHT_MEINE_ADRESSE}
     </Button>
   );
@@ -159,7 +158,6 @@ function AntwortPanel({
         Bis dahin gilt die bisherige Adresse. Der Link ist bis zum <Wert>{formatSpielDatum(frist)}</Wert> gültig.
       </p>
       <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:justify-end">
-        <AblehnenButton antwort={antwort} />
         <Button
           type="button"
           isPending={isPending && gedrueckt === "bestaetigt"}
@@ -172,6 +170,7 @@ function AntwortPanel({
           />
           {JA_MEINE_ADRESSE}
         </Button>
+        <AblehnenButton antwort={antwort} />
       </div>
     </BestaetigungAbschnitt>
   );

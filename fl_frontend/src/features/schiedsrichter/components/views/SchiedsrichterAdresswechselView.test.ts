@@ -47,6 +47,17 @@ afterEach(() => {
 });
 
 describe("the referee's address page", () => {
+  /* The contact page's order and grades: the confirmation first, the decline beside it as the row's exit. */
+  it("offers the confirmation first and the decline after it, as the exit", () => {
+    render(h(SchiedsrichterAdresswechselView, { start: OFFEN }));
+
+    assert.deepEqual(
+      screen.getAllByRole("button").map((button) => button.textContent.trim()),
+      [JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE],
+    );
+    assert.match(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }).className, /bg-transparent/);
+  });
+
   it("names the referee, the deadline and both answers on an open link", () => {
     const shown = words(OFFEN);
 
