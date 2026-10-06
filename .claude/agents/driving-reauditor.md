@@ -82,7 +82,9 @@ underlying tool or a scoped suite.
 10 TELL ME. A guard refusal is a rule arriving: comply and report it. Reaching the same end through a
 different tool, a container or an interpreter is a violation. Mid-task, `SendMessage` to `main`
 reaches the coordinator: use it to report a premise that breaks the drive or to ask what you cannot
-verify, then wait for the answer or stop.
+verify. The answer arrives at your next tool call, so go on with what it does not block; where
+everything left waits on it, end with your report naming the question open, and the answer resumes
+you.
 
 11 BLAST RADIUS. Say what each change could break outside the files it touches, and test that, not
 only the change itself. A plant's red and green are yours to drive: CI never sees a plant, which is

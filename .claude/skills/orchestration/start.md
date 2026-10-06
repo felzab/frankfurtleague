@@ -4,7 +4,8 @@ Run once, in this order, before the first agent goes out. Every step is the core
 applied to the whole session.
 
 1. Read the starter prompt's files in the order it gives, before any work.
-2. Cut the session's one branch (`.claude/CLAUDE.md` §2) before the first read of the tree.
+2. Cut the session's one branch (`.claude/CLAUDE.md` §2) before the first read of the tree, and
+   check that the Docker engine the database tier needs answers (`docker info` exits 0).
 3. Enumerate the population from the tree by command, and tick every slice off against that listing:
    a slice nobody listed is one nobody considers. Measure duplication across the whole set in the
    same pass.

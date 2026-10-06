@@ -16,7 +16,8 @@ const NODE_VALUE = new Set(["--import", "--test-name-pattern"]);
 const PYTEST_VALUE = new Set(["-m", "-k"]);
 const UV_RUN_VALUE = new Set(["--project", "--directory"]);
 const PNPM_VALUE = new Set(["-C", "--dir", "--filter"]);
-const COLLECT_ONLY = new Set(["--collect-only", "--co"]);
+// Flags with which pytest collects or answers and runs no test.
+const RUNS_NO_TEST = new Set(["--collect-only", "--co", "--version", "-V", "--help", "-h"]);
 const WRAPPERS = new Set(["time", "exec", "command", "!", "if", "then", "else", "do", "while", "until"]);
 // A command substitution in an argument position: its output is read as an operand that narrows,
 // and the command inside it is judged on its own.
@@ -267,7 +268,7 @@ function judge(words, depth, escapes) {
     const m = w.indexOf("-m");
     if (m !== -1 && w[m + 1] === "pytest") pytestArgs = w.slice(m + 2);
   }
-  if (pytestArgs === null || pytestArgs.some((a) => COLLECT_ONLY.has(a))) return null;
+  if (pytestArgs === null || pytestArgs.some((a) => RUNS_NO_TEST.has(a))) return null;
   const named = testOperands(pytestArgs, PYTEST_VALUE);
   if (databaseTier(pytestArgs))
     return named.length === 1 && !named[0].includes(SUBSTITUTION) ? null : "the database tier on more than one named file";
