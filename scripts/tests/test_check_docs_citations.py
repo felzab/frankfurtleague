@@ -554,6 +554,43 @@ def test_a_name_cut_short_resolves_nowhere_while_the_whole_name_and_a_quoted_fra
     _assert_corpus_restored()
 
 
+# A script module importing one name under an alias, re-exporting a second and declaring a third;
+# and a module citing a name it imports.
+IMPORTING_MODULE: Final = "fl_frontend/src/importing.ts"
+SELF_CITING_MODULE: Final = "fl_frontend/src/selfImporting.ts"
+
+
+def test_a_name_a_script_module_only_imports_resolves_nowhere_while_a_re_export_and_a_declaration_do() -> None:
+    """The aliased import is the form a type checker's unused-name check lets through.
+
+    One finding on each side: the page's citation of the imported name, and a second module's
+    citation of its own import. A shim's re-export stays citable.
+    """
+    _reset()
+    import_line = 'import { IMPORTED as aliased } from "./elsewhere";'
+    write(
+        _gate().root,
+        IMPORTING_MODULE,
+        _page(import_line, 'export { REEXPORTED } from "./elsewhere";', "export const DECLARED = aliased;"),
+    )
+    write(
+        _gate().root,
+        SELF_CITING_MODULE,
+        _page(import_line, "", "// Read from `" + SELF_CITING_MODULE + " :: IMPORTED`.", "export const READ = aliased;"),
+    )
+    cited = [IMPORTING_MODULE + " :: " + anchor for anchor in ("IMPORTED", "REEXPORTED", "DECLARED")]
+    _append(NOTES, "The importing module's names: " + ", ".join(_tick(citation) for citation in cited) + ".")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, _shape(reported)
+    assert reported[("fail", "citation", SELF_CITING_MODULE)] == 1, _shape(reported)
+    assert "anchor 'IMPORTED' is only imported into " + IMPORTING_MODULE in output, output
+    _assert_corpus_restored()
+
+
 def test_a_hyphen_continues_a_name_in_yaml_and_ends_one_in_typescript() -> None:
     """A compose option spells `--no-autoupdate`, so `autoupdate` there is no name; `1-SPAN` subtracts a name.
 

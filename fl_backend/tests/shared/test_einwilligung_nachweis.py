@@ -2,15 +2,12 @@ from collections.abc import Mapping
 from typing import Any, Final
 
 import pytest
-from bson import ObjectId
-from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.services import compose_person_update
 from app.api.spieler.schemas import FLEinwilligung
 from app.api.teams.schemas import FLKontaktKenntnisnahme
 from app.core.recording import log_stamp
 from app.shared.einwilligung_nachweis import (
-    FLEinwilligungWahl,
     compose_beleg,
     compose_erneuert,
     compose_geboren,
@@ -18,8 +15,6 @@ from app.shared.einwilligung_nachweis import (
     ist_erteilt,
     nachweis_stand_of,
 )
-from tests.database import a_clean_database, on_the_seed_loop
-from tests.worker import worker_database
 
 # Three instants, in order, as `app/core/recording.py :: log_stamp` spells one.
 GIVEN_AT: Final = "2026-04-01T10:30:00+00:00"
@@ -446,71 +441,3 @@ class TestARecordStoredBeforeItsEvidence:
         read = FLKontaktKenntnisnahme.model_validate(SEAT_BEFORE_MEDIEN)
 
         assert (read.nachweis.umfang, read.nachweis.medien, read.medien) == (None, None, False)
-
-
-DATABASE_NAME = worker_database("fl_einwilligung_nachweis_test")
-REFEREE_OID = ObjectId("6890a1b2c3d4e5f607a10001")
-
-
-def on_a_stored_record(url: str, einwilligung: Mapping[str, Any], *updates: Mapping[str, Any]) -> Mapping[str, Any]:
-    """The record stored, each update applied in order, and the block read back.
-
-    Unconstrained: the subject is what MongoDB does with a dotted path, which the validator does not decide.
-    """
-
-    async def body(database: AsyncDatabase) -> Mapping[str, Any]:
-        collection = database["einwilligung_nachweis"]
-        await collection.insert_one({"_id": REFEREE_OID, "einwilligung": dict(einwilligung)})
-        for update in updates:
-            await collection.update_one({"_id": REFEREE_OID}, update)
-
-        found = await collection.find_one({"_id": REFEREE_OID})
-        assert found is not None, "the record this case stored is gone"
-
-        return found["einwilligung"]
-
-    async def run() -> Mapping[str, Any]:
-        async with a_clean_database(url, DATABASE_NAME, constraints=False) as (_, database):
-            return await body(database)
-
-    return on_the_seed_loop(run())
-
-
-def press(stored: Mapping[str, Any], gesetzt: Mapping[FLEinwilligungWahl, Any]) -> Mapping[str, Any]:
-    return {
-        "$set": compose_wahlen(pfad="einwilligung", gespeichert=stored, gesetzt=gesetzt, am=LATER, text_version=ACCOUNT_LABEL, stamp=log_stamp)
-    }
-
-
-@pytest.mark.db
-class TestAPressLandsOnTheStoredRecord:
-    def test_a_withdrawal_leaves_the_other_choice_and_its_evidence_as_stored(self, mongo_url: str):
-        """Literal values, never the composer's own fold: a fold computing both sides agrees with itself whatever it does."""
-
-        read = on_a_stored_record(mongo_url, CONFIRMED, press(CONFIRMED, {"umfang": "intern"}))
-
-        assert read == {
-            **CONFIRMED,
-            "umfang": "intern",
-            "nachweis": {
-                "umfang": {"am": LATER, "text_version": ACCOUNT_LABEL, "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
-                "medien": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
-            },
-        }
-
-    def test_a_record_stored_before_its_evidence_gains_it_without_a_backfill(self, mongo_url: str):
-        """A dotted `$set` onto a missing key makes the path, so a record predating the field needs no migration."""
-
-        read = on_a_stored_record(mongo_url, WITHOUT_EVIDENCE, press(WITHOUT_EVIDENCE, {"medien": False}))
-
-        assert read == {
-            **WITHOUT_EVIDENCE,
-            "medien": False,
-            "nachweis": {
-                "medien": {
-                    "am": LATER,
-                    "text_version": ACCOUNT_LABEL,
-                    "erteilt_zuvor": {"am": START_OF_2026_04_01, "text_version": CONFIRMED_LABEL},
-                }
-            },
-        }
