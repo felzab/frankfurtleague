@@ -27,3 +27,6 @@ export function readable(html: string): string {
       .trim()
   );
 }
+
+/** The text branch on the same terms, so a comparison between the two is not a comparison of line wrapping. */
+export const flat = (text: string): string => text.replace(/\s+/g, " ").trim();

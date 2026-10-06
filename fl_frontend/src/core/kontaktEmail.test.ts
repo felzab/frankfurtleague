@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { redactedParameterNames } from "./edgeRedaction.ts";
 import { registerDoubles } from "./exportingModule.ts";
-import { readable } from "./mailText.ts";
+import { flat, readable } from "./mailText.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -16,8 +16,6 @@ const { KONTAKT_EMAIL } = await import("./brand.ts");
 
 const TOKEN = "abc123";
 const FRIST = "05.10.2026";
-
-const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 const daten = {
   origin: ORIGIN,

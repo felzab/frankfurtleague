@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { registerDoubles } from "./exportingModule.ts";
-import { readable } from "./mailText.ts";
+import { flat, readable } from "./mailText.ts";
 
 registerDoubles();
 
@@ -14,8 +14,6 @@ const GUELTIGKEIT = `${String(CODE_VALIDITY_MINUTES)} Minuten`;
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
-
-const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 const CODE = "048213";
 
