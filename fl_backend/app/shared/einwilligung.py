@@ -1100,7 +1100,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-bestaetigungsseite-7": Fassung(
             seite="bestaetigung_kontakt",
-            gilt_ab=date(2026, 10, 6),
+            gilt_ab=date(2026, 10, 7),
             absaetze=tuple(_BESTAETIGUNGSSEITE_7.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_7,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
@@ -1108,7 +1108,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-bestaetigungsseite-verwaltung": Fassung(
             seite="bestaetigung_kontakt_verwaltung",
-            gilt_ab=date(2026, 10, 6),
+            gilt_ab=date(2026, 10, 7),
             absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
@@ -1116,7 +1116,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-bestaetigungsseite-saison": Fassung(
             seite="bestaetigung_kontakt_saison",
-            gilt_ab=date(2026, 10, 6),
+            gilt_ab=date(2026, 10, 7),
             absaetze=tuple(_BESTAETIGUNGSSEITE_SAISON.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_SAISON,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
@@ -1463,7 +1463,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-spielerseite-4": Fassung(
             seite="bestaetigung_spieler",
-            gilt_ab=date(2026, 10, 6),
+            gilt_ab=date(2026, 10, 7),
             absaetze=tuple(_SPIELERSEITE_4.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_4,
             schalter=_MEDIEN_SCHALTER,
@@ -1476,7 +1476,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-spielerseite-wiederkehrend": Fassung(
             seite="bestaetigung_spieler_wiederkehrend",
-            gilt_ab=date(2026, 10, 6),
+            gilt_ab=date(2026, 10, 7),
             absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND,
             # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
@@ -1490,7 +1490,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-konto-spieler": Fassung(
             seite="konto_spieler",
-            gilt_ab=date(2026, 10, 6),
+            gilt_ab=date(2026, 10, 7),
             absaetze=tuple(_KONTO_SPIELER.values()),
             absaetze_nach_schluessel=_KONTO_SPIELER,
             schalter=_MEDIEN_SCHALTER,
@@ -1503,7 +1503,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-konto-schiedsrichter": Fassung(
             seite="konto_schiedsrichter",
-            gilt_ab=date(2026, 10, 6),
+            gilt_ab=date(2026, 10, 7),
             absaetze=tuple(_KONTO_SCHIEDSRICHTER.values()),
             absaetze_nach_schluessel=_KONTO_SCHIEDSRICHTER,
             schalter=_MEDIEN_SCHALTER,
@@ -1516,7 +1516,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-konto-kontakt": Fassung(
             seite="konto_kontakt",
-            gilt_ab=date(2026, 10, 6),
+            gilt_ab=date(2026, 10, 7),
             absaetze=tuple(_KONTO_KONTAKT.values()),
             absaetze_nach_schluessel=_KONTO_KONTAKT,
             schalter=_MEDIEN_SCHALTER,
