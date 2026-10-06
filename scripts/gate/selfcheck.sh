@@ -1006,6 +1006,12 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
   # scripts/tests/test_orchestration_tools.py's.
   MESSAGES_HOOK="${REPO_ROOT}/.claude/hooks/orchestration-messages.sh"
   check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PostToolUse orchestration-messages.sh SendMessage
+  # With no uv nothing records, and a silent hook reads exactly like one that recorded.
+  messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"W","message":"x"}}' |
+    PATH=/nonexistent "$BASH" "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+  if [[ "$messages_said" == *'"additionalContext":"The messages hook found no uv'* ]]; then
+    info 'messages hook: no uv — told to the coordinator'
+  else note_fail "messages hook: with no uv it must tell the coordinator, got '${messages_said:0:200}'"; fi
   if ! command -v uv >/dev/null 2>&1; then
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then note_fail "uv is absent, and this is CI, which installs it for every python scope"
     else note_skip "the messages hook's probe did not run: uv is absent, and the hook records through it"; fi

@@ -6,9 +6,14 @@
 
 IFS= read -r -d '' payload || true
 
-# Without uv nothing can record, and nothing can say so either: the coordinator's check of its first
-# send (`SKILL.md`, every dispatch) is what catches it.
-command -v uv >/dev/null 2>&1 || exit 0
+# Without uv nothing records, so the coordinator is told; a subagent's send, which records nothing
+# anyway, stays silent.
+if ! command -v uv >/dev/null 2>&1; then
+  [[ "$payload" =~ \"agent_id\"[[:space:]]*: ]] && exit 0
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}' \
+    "The messages hook found no uv, so this message is in no messages file."
+  exit 0
+fi
 
 here="${BASH_SOURCE[0]%/*}"
 [[ "$here" == "${BASH_SOURCE[0]}" ]] && here=.

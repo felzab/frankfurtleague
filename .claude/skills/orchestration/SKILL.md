@@ -99,8 +99,7 @@ Stop once the bar is met.
    agent's messages file and live-agent row, before it runs, and again with `--id` once the Agent
    tool returns; the dispatch prompt names the brief and the messages file by full path. Every later
    message goes by `SendMessage` alone: the messages hook records it there, and a line
-   `Rows: <row id>, …` in it routes those ledger rows. Until a session has seen one send recorded in
-   its file, append each message by hand as well. A message for later is a standing action.
+   `Rows: <row id>, …` in it routes those ledger rows. A message for later is a standing action.
 7. An agent that writes or plants runs in its own worktree (`isolation: "worktree"`), forked from your
    `HEAD`: commit what it needs first. A reader runs in your checkout.
 8. An `implementer` or `driving-reauditor` may message you mid-task through `SendMessage`, to ask
