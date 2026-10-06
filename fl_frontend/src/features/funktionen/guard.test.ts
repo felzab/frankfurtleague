@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { createElement as h } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction, loggedLines } from "@/shared/testing/actionDoubles.ts";
@@ -375,6 +376,39 @@ describe("the player's page", () => {
     await renderedAlone(PersoenlichSpielerPage);
 
     assert.deepEqual(refusalLines(), []);
+  });
+});
+
+describe("an own-record page's failed read", () => {
+  /* A lost row alone answers the landing: a page reading every other failure as one sends a holder
+     whose backend fell over away from the area's boundary, telling them nothing failed. */
+  it("throws to the area's boundary from both pages, never answering it as a lost row", async () => {
+    setSubject(person({ spieler: [{ spieler_id: TEAM_A }], schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
+
+    for (const [name, Page] of [
+      ["the player's page", PersoenlichSpielerPage],
+      ["the referee's page", PersoenlichSchiedsrichterPage],
+    ] as const) {
+      const failure = new APIBadStatusError({
+        message: "failed",
+        url: "http://backend/api/v0/any",
+        statusCode: 500,
+        endpoint: "/any",
+        method: "GET",
+        readOnly: true,
+        traceId: "0",
+      });
+      answerReadsWith(() => {
+        throw failure;
+      });
+      try {
+        const { thrown } = await callPage(Page, NO_PROPS);
+
+        assert.deepEqual(thrown, [failure], `${name} answers a failed read as something other than a failure`);
+      } finally {
+        answerReadsWith(EMPTIEST_ANSWER);
+      }
+    }
   });
 });
 
