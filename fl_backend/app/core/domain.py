@@ -478,7 +478,9 @@ REFERENCES: tuple[Reference, ...] = (
             "`REQ-SQUAD-001` wants a junction row for this season, and a season nothing holds has none. "
             "`erlaubte_stufen` bounds what the administrator's squad FORM offers and not what a row holds, so narrowing it "
             "strands nothing; a stranger's registration is refused at it outright (`REQ-REGISTRIERUNG-003`), a row nobody "
-            "has stored having nothing for the narrowing to protect. No season delete exists."
+            "has stored having nothing for the narrowing to protect, and a representative's edit is held to it or to the "
+            "row's own stored level (`REQ-SQUAD-005`), so a narrowed list never forces a stored row off its level. No season "
+            "delete exists."
         ),
     ),
     Reference(

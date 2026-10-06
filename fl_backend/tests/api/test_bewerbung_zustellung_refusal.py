@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungZustellEreignis,
-    FLBewerbungZustellstand,
     FLBewerbungZustellungAngenommenPayload,
     FLBewerbungZustellungEreignisPayload,
     normalise_zustellzeitpunkt,
@@ -24,6 +23,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.bewerbungen.zustellung_router import ZUSTELLUNG_FIELDS
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.shared.schemas.zustellung import FLBewerbungZustellstand
 
 BEWERBUNG_ID = "6890a1b2c3d4e5f607970001"
 

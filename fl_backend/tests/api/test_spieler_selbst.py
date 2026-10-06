@@ -42,6 +42,8 @@ CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/spieler/selbst"
 PATCH_PATH = f"{PATH}/einwilligung"
+# The account page's read, which serves the consent the self read leaves to it.
+KONTO_PATH = f"/api/v{API_VERSION}/konto/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -215,9 +217,9 @@ async def _records(database: AsyncDatabase) -> dict[Any, Any]:
     return {row["_id"]: row async for row in database[Collection.SPIELER].find({}, {"einwilligung": 1})}
 
 
-def _read(email: str) -> Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]:
+def _read(email: str, *, path: str = PATH) -> Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]:
     async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-        return await http.get(PATH, headers=_person(email))
+        return await http.get(path, headers=_person(email))
 
     return steps
 
@@ -266,9 +268,11 @@ class TestTheOwnRecord:
             "Zwiebelmayer",
             ADULT_BIRTHDATE,
         )
-        assert (record["einwilligung"]["text_version"], record["bestaetigt_text_version"]) == (CONFIRMATION_LABEL, CONFIRMATION_LABEL)
-        assert (record["erteilbar"], record["medien_angeboten"]) == (True, True)
-        assert "email" not in record
+        # Its stored data alone: neither the sign-in address nor the consent, which is the account page's.
+        assert not {"email", "einwilligung", "erteilbar", "nachweis_stand"} & set(record)
+        eintrag = served(mongo_replica_set_url, _read(IDENTIFIER, path=KONTO_PATH)).json()["spieler"]
+        assert (eintrag["einwilligung"]["text_version"], eintrag["bestaetigt_text_version"]) == (CONFIRMATION_LABEL, CONFIRMATION_LABEL)
+        assert (eintrag["erteilbar"], eintrag["medien_angeboten"]) == (True, True)
 
     def test_each_squad_row_carries_the_name_its_season_was_played_under(self, mongo_replica_set_url: str):
         kader = served(mongo_replica_set_url, _read(IDENTIFIER)).json()["spieler"]["kader"]
@@ -286,7 +290,7 @@ class TestTheOwnRecord:
         assert served(mongo_replica_set_url, _read(IDENTIFIER_SPELLED_OTHERWISE)).json()["spieler"]["spieler_id"] == str(PUPIL_OID)
 
     def test_a_retired_record_is_served_for_its_withdrawal_alone(self, mongo_replica_set_url: str):
-        record = served(mongo_replica_set_url, _read(RETIRED)).json()["spieler"]
+        record = served(mongo_replica_set_url, _read(RETIRED, path=KONTO_PATH)).json()["spieler"]
 
         assert (record["spieler_id"], record["inactive_since"], record["erteilbar"]) == (str(RETIRED_OID), "2026-07-01", False)
 
@@ -294,7 +298,7 @@ class TestTheOwnRecord:
         ("email", "angeboten"), [(YOUNG, False), (UNDATED, False), (IDENTIFIER, True)], ids=["seventeen", "no-birthdate", "adult"]
     )
     def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, angeboten: bool):
-        assert served(mongo_replica_set_url, _read(email)).json()["spieler"]["medien_angeboten"] is angeboten
+        assert served(mongo_replica_set_url, _read(email, path=KONTO_PATH)).json()["spieler"]["medien_angeboten"] is angeboten
 
     @pytest.mark.parametrize("email", [NOBODY, UNCONFIRMED], ids=["no-record", "unconfirmed"])
     def test_an_address_holding_no_confirmed_record_is_refused(self, mongo_replica_set_url: str, email: str):
@@ -476,7 +480,7 @@ class TestAStalePage:
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.medien": True}})
-            first_tab = (await http.get(PATH, headers=_person(IDENTIFIER))).json()["spieler"]
+            first_tab = (await http.get(KONTO_PATH, headers=_person(IDENTIFIER))).json()["spieler"]
             withdrawn = await http.patch(
                 PATCH_PATH, json=_payload(medien=False, stand=first_tab["nachweis_stand"]), headers=_person(IDENTIFIER)
             )
@@ -498,7 +502,7 @@ class TestAStalePage:
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.nachweis": EARLIER_EVIDENCE}})
-            served_stand = (await http.get(PATH, headers=_person(IDENTIFIER))).json()["spieler"]["nachweis_stand"]
+            served_stand = (await http.get(KONTO_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["nachweis_stand"]
             response = await http.patch(PATCH_PATH, json=_payload(umfang="intern", stand=served_stand), headers=_person(IDENTIFIER))
             return served_stand, response, await _records(database)
 
@@ -516,7 +520,7 @@ class TestAStalePage:
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             withdrawn = await http.patch(PATCH_PATH, json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
-            between = (await http.get(PATH, headers=_person(IDENTIFIER))).json()["spieler"]["nachweis_stand"]
+            between = (await http.get(KONTO_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["nachweis_stand"]
             granted = await http.patch(
                 PATCH_PATH, json=_payload(umfang="kader_oeffentlich", stand=withdrawn.json()["nachweis_stand"]), headers=_person(IDENTIFIER)
             )
@@ -536,11 +540,11 @@ class TestTheWordsContext:
     """The agreed words render with what the record names today: the club as it is called now, never the season row's copy."""
 
     def test_the_newest_seasons_squad_row_names_the_team_school_and_season(self, mongo_replica_set_url: str):
-        kontext = served(mongo_replica_set_url, _read(IDENTIFIER)).json()["spieler"]["kontext"]
+        kontext = served(mongo_replica_set_url, _read(IDENTIFIER, path=KONTO_PATH)).json()["spieler"]["kontext"]
 
         assert kontext == {"vorname": "Ortrud", "team": CLUB_NAME_A_NOW, "schule": f"{CLUB_NAME_A_NOW}-Schule", "saison": ACTIVE_SAISON}
 
     def test_a_record_with_no_squad_row_names_its_person_alone(self, mongo_replica_set_url: str):
-        kontext = served(mongo_replica_set_url, _read(YOUNG)).json()["spieler"]["kontext"]
+        kontext = served(mongo_replica_set_url, _read(YOUNG, path=KONTO_PATH)).json()["spieler"]["kontext"]
 
         assert kontext == {"vorname": "Jonas", "team": None, "schule": None, "saison": None}

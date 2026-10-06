@@ -853,7 +853,22 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
                 # ADMIN-only, unlike `build_team_pipeline`'s join, so the contact records are in --
                 # they are what the club editor edits. Still an allow-list, so the next field added
                 # to the junction reaches this read only when somebody names it.
-                "pipeline": [{"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1, "trikot_farbe": 1, "kontakte": 1}}],
+                "pipeline": [
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "saison_id": 1,
+                            "gruppe": 1,
+                            "austritt": 1,
+                            "trikot_farbe": 1,
+                            "kontakte": 1,
+                            "bestaetigungen": 1,
+                        }
+                    },
+                    # Each link's state and never its hash, which only the link's own lookup reads. Unset
+                    # rather than projected field by field: a sub-path projection drops a null seat's key.
+                    {"$unset": [f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_ROLLEN]},
+                ],
                 "as": "memberships",
             }
         },
