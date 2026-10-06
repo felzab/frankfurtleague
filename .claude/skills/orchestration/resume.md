@@ -29,7 +29,7 @@ Resume this session. Do not continue any work until you have finished this proto
 3. THE FLEET. List every subagent actually running; assume none alive and none dead. For each one
    the register records:
      - finished and banked -> mark it done; finished and not banked -> bank its report from its
-       transcript, and judge its edits on disk against it.
+       transcript (`ledger.py bank --from <agent id>`), and judge its edits on disk against it.
      - running -> leave it, and note what it owns.
      - paused, killed or unaccounted for -> resume it by the id the Agent tool returned, as a new
        dispatch: check its files are still free, and count nothing done until its acceptance
