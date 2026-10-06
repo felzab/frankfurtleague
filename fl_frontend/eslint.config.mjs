@@ -1181,6 +1181,13 @@ const SOURCE_BANS = [
     message:
       "A function reading for its caller directly, through runPersonRead or with the admin key, is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares (docs/frontend/spec.md §1.2).",
   },
+  {
+    // `error` is `unknown`, so the type checker passes an empty one, which reads an edge's 429 as an unclear save.
+    selector:
+      ':matches(CallExpression[callee.name="unansweredAction"], CallExpression[callee.property.name="unansweredAction"]) > :matches(Identifier[name="undefined"], Literal[raw="null"], UnaryExpression[operator="void"]).arguments:nth-child(1)',
+    message:
+      "Hand `unansweredAction` the rejection it answers: without it, the edge's own refusal of the press reads as an unclear save rather than as one that wrote nothing.",
+  },
 ];
 
 /**
