@@ -262,6 +262,20 @@ class FLSaisonTeamBestaetigungen(BaseModel):
     stellvertretung: FLSaisonTeamBestaetigung | None
 
 
+class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung):
+    """One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."""
+
+    # Judged on the read by the rule the seat's press refuses on, at the server's date, so no client
+    # compares `frist` to a clock of its own; a read model, since nothing stores it.
+    abgelaufen: bool
+
+
+class FLSaisonTeamBestaetigungenAnsicht(BaseModel):
+    trainer: FLSaisonTeamBestaetigungAnsicht | None
+    ansprechperson: FLSaisonTeamBestaetigungAnsicht | None
+    stellvertretung: FLSaisonTeamBestaetigungAnsicht | None
+
+
 def _project_seat(value: Any) -> Any:
     """One seat with every READ field spelled, absent or not.
 
@@ -520,7 +534,7 @@ class FLTeamMembership(BaseModel):
     trikot_farbe: FLTrikotFarbe | None = None
     kontakte: FLSaisonTeamKontakte | None = None
     # Each seat's link as the editor shows it, the referee editor's twin; defaulted for `kontakte`'s reason.
-    bestaetigungen: FLSaisonTeamBestaetigungen | None = None
+    bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | None = None
 
     @computed_field
     @property
