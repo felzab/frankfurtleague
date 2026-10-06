@@ -33,9 +33,9 @@ export const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen. La
 export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du morgen wieder. Widerrufen geht jederzeit.";
 
 /**
- * The code set every consent write shares, each with its sentence: one set behind one control, so a
- * refusal reads the same whichever record it refused. A lost seat and a barred address are the person
- * spine's to word, never this set's. Exported so a suite holds every code to a consent write publishing it.
+ * The code set every consent write shares, each with its sentence, so a refusal reads the same whichever
+ * record it refused; a lost seat and a barred address are the person spine's. Exported for the
+ * publication sweep.
  */
 export const EINWILLIGUNG_WAHL_SAETZE: Readonly<Record<string, string>> = {
   "REQ-EINWILLIGUNG-001": SEITE_VERALTET,

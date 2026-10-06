@@ -91,9 +91,8 @@ describe("the panel a triage decision is taken from", () => {
     });
   }
 
-  /* The person may withdraw either choice on the account page while the application is pending, so the
-     administrator deciding it reads both as they stand, each with the act it stands on. Both arms: a
-     readout saying „erlaubt“ for every seat would have the league write to or publish someone who said no. */
+  /* Withdrawable on the account page while the application is pending, so the administrator deciding it
+     reads both as they stand, each with its act; both arms, so „erlaubt“ for every seat fails. */
   for (const [umfang, medien, whatsappWorte, medienWorte] of [
     ["kontaktdaten_whatsapp", true, "erlaubt", "Fotos, Videos und Interviews zugesagt"],
     ["kontaktdaten", false, "nicht erlaubt", "Nicht zugesagt"],

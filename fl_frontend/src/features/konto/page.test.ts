@@ -470,9 +470,8 @@ describe("the account page's consent section", () => {
     assert.deepEqual([control?.erteilbar, control?.medienAngeboten, control?.nachweisStand], [false, false, BEWERBUNG_SITZ.nachweis_stand]);
   });
 
-  /* What each control shows and presses from is its own record's, as served: a stored choice shown
-     inverted is sent as a grant on the next press of the other control, and a stand from another record
-     is refused as a stale page. Run twice, each value flipped, so a constant at any call site fails one. */
+  /* Each control shows and presses from its own record's values: a choice shown inverted is sent as a
+     grant on the next press. Run twice, every value flipped, so a constant at any call site fails one. */
   for (const gekippt of [false, true]) {
     it(`hands each control its own record's choices, verdicts and stand${gekippt ? ", every value flipped" : ""}`, async () => {
       setSubject(OHNE_FUNKTION);
