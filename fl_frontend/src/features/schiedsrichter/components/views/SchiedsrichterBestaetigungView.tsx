@@ -25,6 +25,7 @@ import {
   GespeicherteAngaben,
   LINK_UNLESBAR_TITEL,
   LinkUnlesbar,
+  medienZeile,
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
@@ -530,7 +531,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
               { label: "Name im Spielplan", wert: stand.umfang === "kader_oeffentlich" ? "wird angezeigt" : "anonym" },
-              { label: "Fotos, Videos und Interviews", wert: stand.medien ? "erlaubt" : "nicht erlaubt" },
+              medienZeile(stand.medien),
             ]}
           />
           <p className={ABSATZ_CLASSES}>
