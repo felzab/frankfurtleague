@@ -27,7 +27,6 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_UNKNOWN,
     SWEEP_PAGE,
     build_erinnerung_filter,
-    compose_bestaetigungen,
     compose_confirmation_update,
     hash_token,
 )
@@ -49,11 +48,12 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
+from tests import documents
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ADDRESS, ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -112,29 +112,18 @@ def kontakte() -> dict[str, Any]:
 
 
 def application(bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, **overrides: Any) -> dict[str, Any]:
-    return {
-        "_id": bewerbung_id,
-        "saison_id": saison_id,
-        "eingereicht_am": MAILED_ON_THE_MARK,
-        "status": "eingereicht",
-        "team_id": None,
-        "schule": {
-            "team_name": SCHOOL_NAME,
-            "full_name": f"{SCHOOL_NAME}-Gesamtschule",
-            "shorthand": "ZX",
-            "schulform": "gesamtschule",
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": kontakte(),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-04-12",
-        "bestaetigungen": compose_bestaetigungen(hashes=first_hashes(str(bewerbung_id)), today=MAILED_ON_THE_MARK),
-        **overrides,
-    }
+    # Each seat's first link minted from the application's id, as `first_hashes` reads it back.
+    stored = documents.bewerbung_document(
+        bewerbung_id,
+        saison_id,
+        "eingereicht",
+        kontakte=kontakte(),
+        eingereicht_am=MAILED_ON_THE_MARK,
+        bestaetigungsfrist="2026-04-12",
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+    )
+
+    return {**stored, **overrides}
 
 
 def the_corpus() -> list[dict[str, Any]]:
