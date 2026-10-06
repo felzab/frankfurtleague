@@ -312,9 +312,10 @@ async def _nothing() -> None:
 
 
 def save_racing_a_ban(url: str, *, rival: bool) -> tuple[int, str | None, int]:
-    """`THREE` saved by one administrator through the served application, Ida banned inside it by another where `rival` is set.
+    """`THREE` saved by one administrator, Ida banned inside it by another where `rival` is set.
 
-    Answers the status, the refusal's code and the arrivals at the ban read. Called directly, a handler binds no judge and commits Ida's seat.
+    Answers status, code and arrivals at the ban read.
+    Through the served application: a handler called directly binds no judge, and commits Ida's seat.
     """
 
     async def seeded(_: AsyncDatabase, __: AsyncMongoClient) -> None:
