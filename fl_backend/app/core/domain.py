@@ -875,12 +875,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
         # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
+        "brought onto the row by the acceptance, which copies the application's block with every seat held to its own "
+        "stamp (`app.api.teams.services.compose_kontakte_at_entry`); "
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
         "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`). A seat's own person "
-        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum`, "
-        "the stamp and the media answer on every seat that person holds, and a Widerspruch nulls those slots; and the "
+        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum` "
+        "and the consent record's stamp, wording, scope and media answer on every seat that person holds, each answer "
+        "with its evidence, and a Widerspruch nulls those slots; and the "
         "seat's own person moves "
         "`medien` with its evidence (`nachweis.medien`) on every seat they hold on the row, and nothing else, through "
         "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",

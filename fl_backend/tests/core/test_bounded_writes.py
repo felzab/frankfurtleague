@@ -25,6 +25,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import anchor_the_actors_grant, pull_the_list_to_judge
+from app.api.bewerbungen.einwilligung_router import _pull_the_season_a_consent_is_judged_in
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
@@ -43,6 +44,7 @@ from tests.core.app_source import (
     declared,
     module_of,
     parsed,
+    session_carriers,
     session_handoffs,
     transactional_callbacks,
 )
@@ -118,6 +120,8 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_a_booked_referee": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
     # The rollover sweeps what a ban's bound falls below, and writes the season the ban is counted from.
     "_pull_the_season_a_ban_counts_from": frozenset({"app/api/sperrliste/admin_router.py :: judge_and_ban"}),
+    # The rollover demotes the season a row's consent is judged in, and writes nothing on the row.
+    "_pull_the_season_a_consent_is_judged_in": frozenset({"app/api/bewerbungen/einwilligung_router.py :: answer_on_the_season_row"}),
     # The floor of two, the last owner and the two refusals between a ban and a grant are each judged
     # over the whole list, so every transaction judging one writes every row of it.
     "pull_the_list_to_judge": frozenset(
@@ -148,6 +152,7 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (anchor_a_booked_venue, "spielorte_collection"),
     (anchor_a_booked_referee, "schiedsrichter_collection"),
     (_pull_the_season_a_ban_counts_from, "saisons_collection"),
+    (_pull_the_season_a_consent_is_judged_in, "saisons_collection"),
     (pull_the_list_to_judge, "berechtigungen_collection"),
     (anchor_the_actors_grant, "berechtigungen_collection"),
 )
@@ -385,7 +390,9 @@ def test_every_caller_hands_the_choke_point_a_transactions_session(function: str
 
     assert _app_callers_of(function) == callers
 
-    transactional = {callback.where for callback in transactional_callbacks(WRITE_HELPERS)} | HOOKED_CALLERS
+    # A helper the callback hands its own session to runs inside the same transaction.
+    carried = {carrier.where.rsplit("(", 1)[0] for carrier in session_carriers()}
+    transactional = {callback.where for callback in transactional_callbacks(WRITE_HELPERS)} | HOOKED_CALLERS | carried
 
     assert callers <= transactional, f"{sorted(callers - transactional)} call {function} outside any transaction"
 

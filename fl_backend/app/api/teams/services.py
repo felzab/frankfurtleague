@@ -20,6 +20,7 @@ from app.api.teams.schemas import (
     FLGruppenTeam,
     FLKontaktMint,
     FLKontaktRolle,
+    FLKontaktZeile,
     FLPublicTeamsFilterParams,
     FLTeam,
     FLTeamsFilterParams,
@@ -1170,7 +1171,7 @@ def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[st
 
 
 def mint_answer(
-    *, token: str, seats: Sequence[FLKontaktRolle], kontakte: Mapping[str, Any], row: Mapping[str, Any], frist: str
+    *, token: str, seats: Sequence[FLKontaktRolle], kontakte: Mapping[str, Any], row: Mapping[str, Any], frist: str, zeile: FLKontaktZeile
 ) -> FLKontaktMint:
     """One person's raw link with what its mail names, every value off the row this transaction wrote, the seats' person being one."""
 
@@ -1183,6 +1184,7 @@ def mint_answer(
         frist=frist,
         vorname=str(person["vorname"]),
         schule=str(row.get("name") or ""),
+        zeile=zeile,
     )
 
 
@@ -1201,6 +1203,15 @@ KONTAKTE_MOVED_UNDER_THE_SAVE = "REQ-KONTAKT-001"
 KONTAKT_SITZ_OHNE_BESTAETIGUNG = "REQ-KONTAKT-002"
 KONTAKT_SITZ_GESPERRT = "REQ-KONTAKT-003"
 KONTAKT_ZEILE_OHNE_SAISON = "REQ-KONTAKT-005"
+
+
+def kontakt_zeile_of(*, saison_status: Any, austritt: Any) -> FLKontaktZeile:
+    """The state of the row a link is minted on, as its mail names it."""
+
+    if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
+        return "offen"
+
+    return "saison_vorbei" if saison_status == "past" else "ausgetreten"
 
 
 def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:

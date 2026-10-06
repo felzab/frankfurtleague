@@ -14608,6 +14608,15 @@
           "schule": {
             "type": "string",
             "title": "Schule"
+          },
+          "zeile": {
+            "type": "string",
+            "enum": [
+              "offen",
+              "saison_vorbei",
+              "ausgetreten"
+            ],
+            "title": "Zeile"
           }
         },
         "type": "object",
@@ -14617,7 +14626,8 @@
           "email",
           "frist",
           "vorname",
-          "schule"
+          "schule",
+          "zeile"
         ],
         "title": "FLKontaktMint",
         "description": "One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever."

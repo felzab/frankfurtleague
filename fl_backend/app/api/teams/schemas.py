@@ -98,6 +98,10 @@ FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
 # derives the same three from the model, and a test holds the two spellings equal.
 FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
 
+# A season row as a link minted on it sees it: open, or closed by its season ending, which outranks
+# its team having left it.
+FLKontaktZeile = Literal["offen", "saison_vorbei", "ausgetreten"]
+
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
 # start with `49` -- so the order carries nothing.
@@ -776,6 +780,9 @@ class FLKontaktMint(BaseModel):
     # seated, and the club under the name it carries in that season, the link's own page saying the same.
     vorname: str
     schule: str
+    # The row's state in the same transaction, so the mail asks what the link's page takes: a closed
+    # row's link takes the Widerspruch alone (`docs/backend/spec.md :: I935`).
+    zeile: FLKontaktZeile
 
 
 class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
