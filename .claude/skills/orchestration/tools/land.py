@@ -5,8 +5,8 @@ worktree, and the merge commit takes git's own message, which `commit-msg` leave
 in a generated document is answered by regenerating it from the merged code, one inside a markdown
 table by row key where a column names one row, and any other aborts the merge and goes back to the
 agent. A merge touching `fl_backend/` regenerates both documents either way: two branches each
-carrying a current document can merge cleanly into one that is not. Each findings-ledger row the
-merged commits name that is ROUTED closes as FIXED by the merge.
+carrying a current document can merge cleanly into one that is not. A row a merged body names in its
+`Rows fixed:` line closes as FIXED by the merge where it is ROUTED to the branch's agent.
 
     uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <register> <branch>
 
@@ -16,6 +16,7 @@ merged commits name that is ROUTED closes as FIXED by the merge.
 from __future__ import annotations
 
 import io
+import os
 import re
 import shutil
 import subprocess
@@ -25,6 +26,7 @@ from typing import Final
 
 # Run as a script, python seeds this file's own directory on the path.
 import ledger
+import reg
 from merge_rows import merge_file
 
 # Each document beside the module that writes it, run from `fl_backend` by the interpreter running
@@ -41,6 +43,14 @@ TYPE_CHECKS: Final = (
     (("fl_backend/",), (sys.executable, "-m", "pyright"), "fl_backend"),
     (("scripts/", ".claude/skills/orchestration/tools/"), (sys.executable, "-m", "pyright"), "scripts"),
 )
+# A merge moving a manifest or a lockfile is checked against the install it implies rather than this
+# checkout's stale one; each runs from the root.
+INSTALLS: Final = (
+    (("fl_frontend/package.json", "fl_frontend/pnpm-lock.yaml"), ("pnpm", "--dir", "fl_frontend", "install", "--frozen-lockfile")),
+    (("fl_backend/pyproject.toml", "fl_backend/uv.lock"), ("uv", "sync", "--project", "fl_backend", "--dev", "--frozen")),
+)
+ROWS_FIXED_RE: Final = re.compile(r"^Rows fixed:\s*(?P<rows>.+)$", re.MULTILINE)
+STANDING_HEADING: Final = "## Standing actions"
 EXITS: Final = {
     0: "merged, or nothing to merge",
     2: "refused before the merge",
@@ -49,16 +59,19 @@ EXITS: Final = {
     5: "the merged tree fails a touched package's type check, or the check could not run; the merge is aborted",
     6: "a hook refused the merge commit; the merge is aborted",
     7: "git failed during the merge; read `git status`",
+    8: "the session branch fails that type check before the merge; the merge is aborted and the branch was not judged",
 }
 
 
 class Stop(Exception):
     """A landing that cannot go on: its exit code and the lines the coordinator reads."""
 
-    def __init__(self, code: int, *lines: str) -> None:
+    def __init__(self, code: int, *lines: str, recheck: tuple[tuple[str, ...], Path] | None = None) -> None:
         super().__init__(lines[0] if lines else "")
         self.code = code
         self.lines = lines
+        # A failed check's command and directory, run again at `HEAD` once the merge is aborted.
+        self.recheck = recheck
 
 
 def git(*args: str, check: bool = True) -> str:
@@ -134,19 +147,32 @@ def regenerate(root: Path, written: list[str]) -> list[str]:
     return [document for _, document in GENERATED if git("ls-files", "--stage", "--", document) != before[document]]
 
 
+def _run(command: tuple[str, ...], cwd: Path) -> subprocess.CompletedProcess[bytes]:
+    program = shutil.which(command[0])
+    if program is None:
+        raise Stop(5, f"{command[0]} is not on PATH, so the merged tree could not be checked")
+    # The release lookup pyright makes on every run, which the gate's own pyright units skip too.
+    env = {**os.environ, "PYRIGHT_PYTHON_IGNORE_WARNINGS": "1"}
+    return subprocess.run((program, *command[1:]), cwd=cwd, capture_output=True, check=False, env=env)
+
+
+def _tail(done: subprocess.CompletedProcess[bytes]) -> list[str]:
+    return (done.stdout + done.stderr).decode("utf-8", "replace").strip().splitlines()[-15:]
+
+
 def type_check(root: Path, touched: list[str]) -> list[str]:
-    """Each touched package's type checker run over the merged tree; the packages checked."""
+    """Each touched package's type checker run over the merged tree, after any install it moved; the packages checked."""
+    for manifests, command in INSTALLS:
+        if any(path in manifests for path in touched) and (done := _run(command, root)).returncode != 0:
+            raise Stop(5, f"`{' '.join(command)}` exited {done.returncode} for the merged manifests:", *_tail(done))
     checked: list[str] = []
     for prefixes, command, where in TYPE_CHECKS:
         if not any(path.startswith(prefixes) for path in touched):
             continue
-        program = shutil.which(command[0])
-        if program is None:
-            raise Stop(5, f"{command[0]} is not on PATH, so the merged {where} could not be type-checked")
-        done = subprocess.run((program, *command[1:]), cwd=root / where, capture_output=True, check=False)
+        done = _run(command, root / where)
         if done.returncode != 0:
-            said = (done.stdout + done.stderr).decode("utf-8", "replace").strip().splitlines()[-15:]
-            raise Stop(5, f"the merged tree fails `{' '.join(command)}` in {where} (exit {done.returncode}):", *said)
+            said = (f"the merged tree fails `{' '.join(command)}` in {where} (exit {done.returncode}):", *_tail(done))
+            raise Stop(5, *said, recheck=(command, root / where))
         checked.append(where)
     # A checker writing a tracked file would leave it out of the merge commit and the tree dirty.
     if wrote := git("diff", "--name-only").split():
@@ -154,10 +180,36 @@ def type_check(root: Path, touched: list[str]) -> list[str]:
     return checked
 
 
+def owners(register: str, branch: str) -> set[str]:
+    """The agent a `worktree-agent-<id>` branch belongs to, by its id and by its live-agent row's name."""
+    found = re.fullmatch(r"worktree-agent-(?P<id>[A-Za-z0-9]+)", branch)
+    if found is None:
+        return set()
+    name = reg.agent_name(register, found["id"])
+    return {found["id"], name} if name else {found["id"]}
+
+
+def standing(register: str, names: set[str]) -> list[str]:
+    """The trigger of each undispatched standing action naming the landed branch or its agent."""
+    lines = register.split("\n")
+    at = next((k for k, line in enumerate(lines) if line.startswith(STANDING_HEADING)), None)
+    said: list[str] = []
+    for line in lines[at + 1 :] if at is not None else []:
+        if line.startswith("## "):
+            break
+        cells = [cell.strip() for cell in line.strip().split("|")[1:-1]]
+        # The third cell is ticked only on evidence the action went out (`register-template.md`).
+        pending = len(cells) == 3 and (not cells[2] or cells[2].lower().startswith("no"))
+        if pending and any(re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", cells[0]) for name in names):
+            said.append(cells[0])
+    return said
+
+
 def land(register: Path, branch: str) -> int:
     root = Path(git("rev-parse", "--show-toplevel").strip())
     try:
-        rows = ledger.row_ids(register)
+        ledger.open_rows(register)
+        held = register.read_bytes().decode("utf-8")
     except (ValueError, OSError) as unreadable:
         raise Stop(2, f"the register's findings ledger cannot be read: {unreadable}") from None
     preflight(branch)
@@ -192,24 +244,32 @@ def land(register: Path, branch: str) -> int:
         mine = sorted(dirty & set(written))
         if mine:
             git("restore", "--source=HEAD", "--staged", "--worktree", "--", *mine, check=False)
-        stop.lines = (
-            *stop.lines,
-            "the merge is aborted" if not git("status", "--porcelain").strip() else "read `git status` before anything else",
-        )
+        clean = not git("status", "--porcelain").strip()
+        stop.lines = (*stop.lines, "the merge is aborted" if clean else "read `git status` before anything else")
+        # A red already at `HEAD` is no fault of the branch, and no rebase of it can clear it.
+        if clean and stop.recheck is not None and _run(*stop.recheck).returncode != 0:
+            stop.code = 8
+            head = f"the session branch already fails `{' '.join(stop.recheck[0])}` before this merge, so {branch} was not judged:"
+            stop.lines = (head, "route the red at HEAD to its owner and land again once it clears", *stop.lines)
         raise
     notes = [f"regenerated {', '.join(Path(document).name for document in moved)}"] if moved else []
     notes += [f"merged by row key: {'; '.join(merged)}"] if merged else []
     notes += [f"type-checked {', '.join(checked)}"] if checked else []
     merge = git("rev-parse", "--short", "HEAD").strip()
     print(f"landed {branch} as {merge}" + (f" ({'; '.join(notes)})" if notes else ""))
-    # By exact id, and only a ROUTED row: an OPEN row nobody was given stays for the coordinator to judge.
+    # Only a `Rows fixed:` line closes, and only a row routed to this branch's agent: a mention, or a
+    # row another fixer holds, stays for the coordinator to judge.
     bodies = git("log", "--format=%B", "HEAD^1..HEAD^2")
-    named = sorted(row for row in rows if re.search(rf"(?<![\w-]){re.escape(row)}(?![\w-])", bodies))
-    closed = ledger.close(register, named, merge)
+    named = sorted({row.rstrip(".") for found in ROWS_FIXED_RE.findall(bodies) for row in re.split(r"[,\s]+", found) if row.rstrip(".")})
+    agent = owners(held, branch)
+    closed = ledger.close(register, named, merge, agent)
     for row in closed:
         print(f"FIXED {row} by {merge}")
     if unclosed := sorted(set(named) - set(closed)):
-        print(f"named by the merged commits and not ROUTED, so left as they stand: {', '.join(unclosed)}")
+        who = ", ".join(sorted(agent)) or "an agent this tool can name"
+        print(f"named fixed by the merged commits and not ROUTED to {who}, so left as they stand: {', '.join(unclosed)}")
+    for trigger in standing(held, agent | {branch}):
+        print(f"a standing action waits on this landing: {trigger}")
     return 0
 
 

@@ -5,7 +5,7 @@ Run once, in this order, when what remains is the last wave plus this list.
 1. Land the last wave. The audit its last landing dispatches and the fix the cycle ends on are a
    whole round the ending still holds.
 2. Re-run the start's enumeration and tick every slice to a landed commit. Close every findings-ledger
-   row (`ledger.py open` prints nothing) and every expected-red row. Renumber every `I_NEW_*`
+   row (`ledger.py open --unclosed` prints nothing) and every expected-red row. Renumber every `I_NEW_*`
    invariant placeholder once, as one rename across the tree: agents number a new spec-sheet
    invariant `I_NEW_<agent name>_<n>` so that parallel allocations cannot collide, and code comments,
    tests and generated documents cite it too. Each takes its real number everywhere

@@ -95,10 +95,12 @@ Stop once the bar is met.
    asserts; every figure with its provenance; a plan's repair briefed to be driven and reported if
    it does not close; a judgement test with its parameters and one worked verdict; the version meant
    wherever the session is rewriting the rules cited. No time budget, no length cap, no stop-at-N.
-6. Save the brief and an empty `<NAME>-messages.md` in the register's `Briefs:` directory and record
-   the dispatch, all before it runs; the dispatch prompt names both by full path. Every later message
-   goes by `SendMessage` alone: the messages hook appends it to that file, and a line
-   `Rows: <row id>, …` in it routes those ledger rows. A message for later is a standing action.
+6. Save the brief in the register's `Briefs:` directory and run `reg.py dispatch`, which writes the
+   agent's messages file and live-agent row, before it runs, and again with `--id` once the Agent
+   tool returns; the dispatch prompt names the brief and the messages file by full path. Every later
+   message goes by `SendMessage` alone: the messages hook records it there, and a line
+   `Rows: <row id>, …` in it routes those ledger rows. Until a session has seen one send recorded in
+   its file, append each message by hand as well. A message for later is a standing action.
 7. An agent that writes or plants runs in its own worktree (`isolation: "worktree"`), forked from your
    `HEAD`: commit what it needs first. A reader runs in your checkout.
 8. An `implementer` or `driving-reauditor` may message you mid-task through `SendMessage`, to ask
@@ -149,9 +151,9 @@ Stop once the bar is met.
 - Push once per wave and start `gh pr checks <n> --watch` in the background in the same action. A
   push cancels the run before it, so landings made during a run wait for one push after it. The
   first push opens the draft pull request, its body in `docs/_git/templates.md`'s form.
-- Read every failed run as `gh run view <run> --log-failed | ci.py <register>`: each NEW line is a
-  new defect, routed at once, and a RED row still matching after its clearing landing is a finding.
-  Start no driving re-audit until it exits 0 over a concluded run.
+- Read every run with `ci.py <register> <run>`: each NEW line is a new defect, routed at once, and a
+  RED row still matching after its clearing landing is a finding. Start no driving re-audit until
+  it exits 0.
 - Run the suites in your checkout every few waves: CI is Linux. The bare gate is the ending's.
 - At a wave boundary `ledger.py open` prints nothing, your checkout is clean and every
   `git worktree list` entry is a live agent's or merged; remove a merged one with `git worktree remove` and `git branch -d`. Where Windows stops a

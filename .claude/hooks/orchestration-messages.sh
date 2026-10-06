@@ -2,12 +2,12 @@
 # HOOKS · a coordinator's sent message recorded in its agent's messages file
 # PostToolUse hook on SendMessage. An order appended to a messages file by hand, its send forgotten,
 # never reached its agent; recorded from the send itself, the file holds exactly what was sent. The
-# work is `.claude/skills/orchestration/tools/reg.py :: record`; silent wherever it cannot run.
+# work, and every judgement of the payload, is `.claude/skills/orchestration/tools/reg.py :: record`.
 
 IFS= read -r -d '' payload || true
 
-# A subagent's send goes to the coordinator, whose inbox has no file: answered before uv starts.
-[[ "$payload" =~ \"agent_id\"[[:space:]]*: ]] && exit 0
+# Without uv nothing can record, and nothing can say so either: the coordinator's check of its first
+# send (`SKILL.md`, every dispatch) is what catches it.
 command -v uv >/dev/null 2>&1 || exit 0
 
 here="${BASH_SOURCE[0]%/*}"
@@ -15,5 +15,5 @@ here="${BASH_SOURCE[0]%/*}"
 root="$(cd "${here}/../.." && pwd)"
 
 printf '%s' "$payload" | uv run --quiet --project "${root}/fl_backend" --frozen python \
-  "${root}/.claude/skills/orchestration/tools/reg.py" message "${HOME}/.claude/plans" 2>/dev/null
+  "${root}/.claude/skills/orchestration/tools/reg.py" message "${HOME}/.claude/plans"
 exit 0

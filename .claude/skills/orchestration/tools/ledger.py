@@ -1,19 +1,20 @@
 """ORCHESTRATION · the findings ledger: one row per labelled finding, each routed to one owner.
 
 A finding routed from memory drops out while its report sits banked, so `bank` writes one OPEN row
-per `F<n>` label, `route` moves rows to one owner and refuses a second, and the ending runs `open`
-until it prints nothing. A report with no label banks nothing and says so, since a silent zero reads
-exactly like a report with nothing in it.
+per `F<n>` label, `route` moves rows to one owner and refuses a second, and the ending runs
+`open --unclosed` until it prints nothing. A report with no label banks nothing and says so, since a
+silent zero reads exactly like a report with nothing in it.
 
     uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/ledger.py <command>
 
     bank <register> <report> [--from <agent id>] [--none] [--as <name>]
     route <register> <agent> <row>… [--reroute]
-    open <register>
+    open <register> [--unclosed]
 
-`--from` first saves the agent's final message from its transcript as `<report>`, never over a file
-already there. Rows are named after the report's file; `--as` names a second report under a banked
-name. Exit 0 done, 2 refused, 3 a report with no label and no `--none`, and `open` 1 while a row is OPEN.
+`--from` saves the agent's final message from its transcript as `<report>` once it has banked,
+never over a different file already there. Rows are named after the report's file; `--as` names a
+second report under a banked name. Exit 0 done, 2 refused, 3 a report with no label and no `--none`,
+and `open` 1 while it prints a row.
 """
 
 from __future__ import annotations
@@ -33,8 +34,10 @@ LABEL_RE: Final = re.compile(r"^\s{0,3}(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|\|\s*)?(
 # Other ways a report numbers its findings, counted when no label is found.
 OTHER_SHAPE_RE: Final = re.compile(r"^\s{0,3}(?:(?:#{1,6}\s+)?(?:\*\*|__)\d+[.)]|\|\s*\d+\s*\|)")
 SUMMARY_CHARS: Final = 160
-# The template's statuses that end a row's life; ROUTED and OPEN are the two that do not.
-CLOSED: Final = frozenset({"FIXED", "RULED", "HANDOFF", "NOT", "MOOT", "CLOSED"})
+# The Status cell's whole vocabulary, which `register-template.md` cites: a word outside it is a row
+# no command can judge, so `open --unclosed` prints it and `route` refuses it.
+STATUSES: Final = ("OPEN", "ROUTED", "FIXED", "RULED", "HANDOFF", "NOT A DEFECT", "MOOT")
+CLOSED: Final = frozenset({"FIXED", "RULED", "HANDOFF", "NOT A DEFECT", "MOOT"})
 CELL_SPLIT_RE: Final = re.compile(r"(?<!\\)\|")
 CODE_SPAN_RE: Final = re.compile(r"`([^`]+)`")
 AGENT_ID_RE: Final = re.compile(r"^[A-Za-z0-9]+$")
@@ -84,8 +87,15 @@ def _cells(line: str) -> list[str]:
     return [cell.strip() for cell in CELL_SPLIT_RE.split(line.strip())[1:-1]]
 
 
-def _status(cells: list[str]) -> str:
-    return (cells[3].split() or [""])[0].upper() if len(cells) == 5 else ""
+def status(cells: list[str]) -> str:
+    """The row's status word from the vocabulary, or the cell's first word where it names none."""
+    cell = cells[3].upper() if len(cells) == 5 else ""
+    return next((word for word in STATUSES if cell.startswith(word)), (cell.split() or [""])[0])
+
+
+def owner(cells: list[str]) -> str:
+    # `route` writes the owner, then `; ` and whatever the cell held before.
+    return cells[4].split(";", 1)[0].strip() if len(cells) == 5 else ""
 
 
 def _write(path: Path, lines: list[str]) -> None:
@@ -95,6 +105,14 @@ def _write(path: Path, lines: list[str]) -> None:
     os.replace(spare, path)
 
 
+def _rows(register: Path) -> tuple[list[str], dict[str, int]]:
+    lines = register.read_bytes().decode("utf-8").split("\n")
+    end, heading = _ledger_rows(lines)
+    # Past the table's header and separator rows.
+    first = next(k for k in range(heading + 1, end + 1) if lines[k].startswith("|")) + 2
+    return lines, {cells[0]: k for k in range(first, end + 1) if len(cells := _cells(lines[k])) == 5}
+
+
 def _spans(text: str) -> set[str]:
     """The code spans a finding names, a call's parentheses and a path's folders dropped."""
     return {span.removesuffix("()").rsplit("/", 1)[-1] for span in CODE_SPAN_RE.findall(text)}
@@ -102,44 +120,46 @@ def _spans(text: str) -> set[str]:
 
 def repeats(register: Path, added: list[str]) -> list[str]:
     """Each banked row naming two code spans an earlier unclosed row names too: one finding several lenses reported."""
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    end, heading = _ledger_rows(lines)
+    lines, at = _rows(register)
     new = {_cells(row)[0] for row in added}
-    earlier = [cells for line in lines[heading + 1 : end + 1] if len(cells := _cells(line)) == 5 and cells[0] not in new]
+    earlier = [_cells(lines[k]) for name, k in at.items() if name not in new]
     said: list[str] = []
     for row in added:
         name, summary = _cells(row)[0], _cells(row)[2]
         for cells in earlier:
             shared = sorted(_spans(summary) & _spans(cells[2]))
-            if len(shared) >= 2 and _status(cells) not in CLOSED:
+            if len(shared) >= 2 and status(cells) not in CLOSED:
                 said.append(f"{name} may repeat {cells[0]} ({cells[3]} {cells[4]}): both name {', '.join(f'`{span}`' for span in shared)}")
     return said
 
 
-def bank(register: Path, report: Path, declared_none: bool = False, name: str | None = None) -> list[str]:
-    """One OPEN row per labelled finding, written; the rows added."""
-    text = report.read_bytes().decode("utf-8")
+def bank_text(register: Path, text: str, report_name: str, declared_none: bool = False, name: str | None = None) -> list[str]:
+    """One OPEN row per labelled finding of a report's text, written; the rows added."""
     labelled = findings(text)
     if not labelled:
         if declared_none:
             return []
         shapes = other_shapes(text)
         raise LookupError(
-            f"{report.name} labels no finding F<n>"
+            f"{report_name} labels no finding F<n>"
             + (f", and numbers {shapes} line(s) in another shape: bank those by hand or have them relabelled" if shapes else "")
             + "; pass --none for a report with no finding"
         )
-    source = name or report.name.removesuffix(".md").removesuffix("-report")
+    source = name or report_name.removesuffix(".md").removesuffix("-report")
     lines = register.read_bytes().decode("utf-8").split("\n")
     end, heading = _ledger_rows(lines)
     # Every report numbers from F1, so a second report under a banked name would bank only the labels
     # past the first one's highest and drop the rest in silence.
     if any(line.startswith(f"| {source}-F") for line in lines[heading : end + 1]):
         raise ValueError(f"the ledger already holds rows for {source}: bank a second report under another name with --as")
-    added = [f"| {source}-F{n} | {report.name} | {_cell(summary)} | OPEN | |" for n, summary in sorted(labelled.items())]
+    added = [f"| {source}-F{n} | {report_name} | {_cell(summary)} | OPEN | |" for n, summary in sorted(labelled.items())]
     lines[end + 1 : end + 1] = added
     _write(register, lines)
     return added
+
+
+def bank(register: Path, report: Path, declared_none: bool = False, name: str | None = None) -> list[str]:
+    return bank_text(register, report.read_bytes().decode("utf-8"), report.name, declared_none, name)
 
 
 def final_message(agent: str, projects: Path) -> str:
@@ -165,35 +185,39 @@ def final_message(agent: str, projects: Path) -> str:
         parts += texts
     if not parts:
         raise ValueError(f"no final message in {found[0]}")
-    return "".join(parts)
+    return "".join(parts).rstrip("\n") + "\n"
 
 
-def save(report: Path, agent: str, projects: Path) -> None:
-    # A resumed agent's next reply is a report of its own: written over the first, it erased it.
-    if report.exists():
-        raise ValueError(f"{report} already exists: save a later round under its own name, such as <NAME>-r2-report.md")
+def bank_from(register: Path, report: Path, agent: str, projects: Path, declared_none: bool = False, name: str | None = None) -> list[str]:
+    """The agent's final message banked, then saved as `report`: a refused bank saves nothing, so its retry is clean."""
     text = final_message(agent, projects)
-    report.write_bytes((text.rstrip("\n") + "\n").encode("utf-8"))
+    # A resumed agent's next reply is a report of its own: written over the first, it erased it.
+    if report.exists() and report.read_bytes() != text.encode("utf-8"):
+        raise ValueError(f"{report} already holds another report: save a later round under its own name, such as <NAME>-r2-report.md")
+    added = bank_text(register, text, report.name, declared_none, name)
+    report.write_bytes(text.encode("utf-8"))
+    return added
 
 
 def route(register: Path, agent: str, rows: list[str], reroute: bool = False) -> list[str]:
     """Each row ROUTED to the agent, all or none; the rows that moved."""
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    end, heading = _ledger_rows(lines)
-    at = {cells[0]: k for k in range(heading + 1, end + 1) if len(cells := _cells(lines[k])) == 5}
+    lines, at = _rows(register)
     refused, moved = [], []
     for row in rows:
         if row not in at:
             refused.append(f"{row} is no ledger row")
             continue
         cells = _cells(lines[at[row]])
-        status, owner = _status(cells), (cells[4].split() or [""])[0]
-        if status in CLOSED:
-            refused.append(f"{row} is closed: {cells[3]} {cells[4]}")
-        elif status == "ROUTED" and owner != agent and not reroute:
-            refused.append(f"{row} is routed to {owner} already: one finding, one owner (--reroute moves it)")
-        elif not (status == "ROUTED" and owner == agent):
-            note = cells[4] if status == "OPEN" else ""
+        held, by = status(cells), owner(cells)
+        if held == "ROUTED" and by == agent:
+            continue
+        if held == "ROUTED" and not reroute:
+            refused.append(f"{row} is routed to {by} already: one finding, one owner (--reroute moves it)")
+        elif held not in ("OPEN", "ROUTED"):
+            # A closed row, or a status no command knows, carries evidence a route would overwrite.
+            refused.append(f"{row} is {cells[3]}, which only an OPEN row leaves by a route")
+        else:
+            note = cells[4].split(";", 1)[1].strip() if held == "ROUTED" and ";" in cells[4] else cells[4] if held == "OPEN" else ""
             cells[3:5] = ["ROUTED", f"{agent}; {note}" if note else agent]
             lines[at[row]] = "| " + " | ".join(cells) + " |"
             moved.append(row)
@@ -204,37 +228,30 @@ def route(register: Path, agent: str, rows: list[str], reroute: bool = False) ->
     return moved
 
 
-def close(register: Path, rows: list[str], evidence: str) -> list[str]:
-    """Each named row still ROUTED set FIXED with the evidence; the rows closed."""
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    end, heading = _ledger_rows(lines)
+def close(register: Path, rows: list[str], evidence: str, by: set[str]) -> list[str]:
+    """Each named row ROUTED to one of `by`, the names of one agent, set FIXED with the evidence; the rows closed."""
+    lines, at = _rows(register)
     closed = []
-    for k in range(heading + 1, end + 1):
-        cells = _cells(lines[k])
-        if len(cells) == 5 and cells[0] in rows and _status(cells) == "ROUTED":
+    for row in rows:
+        cells = _cells(lines[at[row]]) if row in at else []
+        if cells and status(cells) == "ROUTED" and owner(cells) in by:
             cells[3:5] = [f"FIXED ({evidence})", f"was {cells[4]}"]
-            lines[k] = "| " + " | ".join(cells) + " |"
-            closed.append(cells[0])
+            lines[at[row]] = "| " + " | ".join(cells) + " |"
+            closed.append(row)
     if closed:
         _write(register, lines)
     return closed
 
 
-def row_ids(register: Path) -> set[str]:
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    end, heading = _ledger_rows(lines)
-    return {cells[0] for line in lines[heading + 1 : end + 1] if len(cells := _cells(line)) == 5}
-
-
-def gaps(report: Path) -> list[int]:
-    numbers = sorted(findings(report.read_bytes().decode("utf-8")))
+def gaps(text: str) -> list[int]:
+    numbers = sorted(findings(text))
     return [n for n in range(1, numbers[-1] + 1) if n not in numbers] if numbers else []
 
 
-def open_rows(register: Path) -> list[str]:
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    end, heading = _ledger_rows(lines)
-    return [line for line in lines[heading + 1 : end + 1] if re.search(r"\|\s*OPEN\s*\|", line)]
+def open_rows(register: Path, unclosed: bool = False) -> list[str]:
+    """The OPEN rows, or with `unclosed` every row whose status is not a closed one."""
+    lines, at = _rows(register)
+    return [lines[k] for k in at.values() if (status(_cells(lines[k])) not in CLOSED if unclosed else status(_cells(lines[k])) == "OPEN")]
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -253,6 +270,7 @@ def _parser() -> argparse.ArgumentParser:
     routing.add_argument("--reroute", action="store_true")
     opening = commands.add_parser("open")
     opening.add_argument("register", type=Path)
+    opening.add_argument("--unclosed", action="store_true")
     return parser
 
 
@@ -261,20 +279,21 @@ def main(argv: list[str]) -> int:
     try:
         if args.command == "bank":
             if args.agent:
-                save(args.report, args.agent, Path.home() / ".claude" / "projects")
-            added = bank(args.register, args.report, args.none, args.name)
+                added = bank_from(args.register, args.report, args.agent, Path.home() / ".claude" / "projects", args.none, args.name)
+            else:
+                added = bank(args.register, args.report, args.none, args.name)
             for row in added:
                 print(row)
             for line in repeats(args.register, added):
                 print(line, file=sys.stderr)
-            if missing := gaps(args.report):
+            if missing := gaps(args.report.read_bytes().decode("utf-8")):
                 print(f"{args.report.name} skips F{', F'.join(map(str, missing))}: a finding may be unlabelled", file=sys.stderr)
             return 0
         if args.command == "route":
             for row in route(args.register, args.agent, args.rows, args.reroute):
                 print(f"ROUTED {row} to {args.agent}")
             return 0
-        rows = open_rows(args.register)
+        rows = open_rows(args.register, args.unclosed)
         for row in rows:
             print(row)
         return 1 if rows else 0
