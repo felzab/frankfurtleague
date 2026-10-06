@@ -59,7 +59,7 @@ export type PublicAnswer<T> =
 export const EDGE_RATE_LIMIT_STATUS = 429;
 
 /** The request reached no judgement, so nothing of what was typed may be named here. */
-const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
+const KEINE_VERBINDUNG = "Prüfe die Verbindung und versuche es erneut.";
 
 /**
  * Every other answer that was not this application's, an edge challenge among them. It claims

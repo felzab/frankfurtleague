@@ -70,6 +70,17 @@ describe("the panel a triage decision is taken from", () => {
     assert.notEqual(factLine(markup(), "Team"), "", "no fact stands under „Team“ at all");
   });
 
+  /* The form never asks a contact's birthdate; it arrives with their confirmation, so an empty one is a
+     fact the league holds nothing for yet, never a field the school left empty. */
+  it("reads a contact's missing birthdate as not held, and a field the school left empty as not given", () => {
+    const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+    assert.ok(ansprechperson !== null);
+    const html = markup({ wunschgegner: null, kontakte: { ...BEWERBUNG.kontakte, ansprechperson: { ...ansprechperson, geburtsdatum: null } } });
+
+    assert.equal(textOf(factLine(html, "Geburtsdatum")), "Nicht hinterlegt");
+    assert.equal(textOf(factLine(html, "Wunschgegner")), "Nicht angegeben");
+  });
+
   /* The Herkunft is who seated the person, `eingetragen_von`: `erfasst_von` is written by nothing new
      and leaves the stored records at the programme's end, so a label read off it would go blank. */
   for (const [von, label] of [

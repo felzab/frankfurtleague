@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "6. Oktober 2026", digest: "830a258917742077b1939aa848b2c2921ce01424319b81c51ff0a575957d8f8c" } as const;
+const FASSUNG = { stand: "7. Oktober 2026", digest: "a5fe22b42bb815843e002dd223b774dc1e6f6efa97f1c978e0813012be4cbdf5" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -620,7 +620,7 @@ describe("the privacy notice's publication and retention rows keep their ruled b
         "an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt, oder wenn Cloudflare nicht antwortet " +
         "(Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. " +
         `Lässt Dich die Prüfung nicht durch, schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an. ` +
-        "Und wer angemeldet ist, kann in jeder Funktion an einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach " +
+        "Und wer angemeldet ist, kann je Personengruppe an einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach " +
         "weist die Website weitere Änderungen bis Mitternacht zurück. Das Zurückziehen einer Einwilligung weist sie dabei nie " +
         `zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an ${KONTAKT_EMAIL} schreibst. Profiling ` +
         "findet nicht statt.",

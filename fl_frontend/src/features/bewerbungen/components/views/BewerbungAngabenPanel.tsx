@@ -14,7 +14,7 @@ import {
   trikotFarbeHex,
   trikotFarbeLabel,
 } from "@/features/teams/constants";
-import { Angabe } from "@/shared/components/ui/Angabe";
+import { Angabe, NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -31,9 +31,12 @@ import type { ReactNode } from "react";
 /** What an unanswered field reads as — the school left it empty, which is not the same as a zero. */
 const NOT_RECORDED = "Nicht angegeben";
 
-/** A value the school did not fill in, in the one grade every empty field here takes. */
-function Leer() {
-  return <span className="text-foreground-muted italic">{NOT_RECORDED}</span>;
+/**
+ * An empty field in the one grade every empty field here takes: by default one the school did not fill
+ * in, or the stored-fact wording where the league holds nothing yet.
+ */
+function Leer({ children = NOT_RECORDED }: { children?: string }) {
+  return <span className="text-foreground-muted italic">{children}</span>;
 }
 
 /**
@@ -173,7 +176,9 @@ export function BewerbungAngabenPanel({
                     <Angabe label="Name">{`${person.vorname} ${person.nachname}`}</Angabe>
                     {/* Null until that seat's contact has confirmed and entered it themselves, so an
                         empty one is a step still outstanding rather than a school's omission. */}
-                    <Angabe label="Geburtsdatum">{person.geburtsdatum === null ? <Leer /> : formatSpielDatum(person.geburtsdatum)}</Angabe>
+                    <Angabe label="Geburtsdatum">
+                      {person.geburtsdatum === null ? <Leer>{NICHT_HINTERLEGT}</Leer> : formatSpielDatum(person.geburtsdatum)}
+                    </Angabe>
                     {/* The scheme is a literal prefix here, so neither stored value can steer the href
                         the way `Website`'s can, and neither needs that field's validator. */}
                     {/* Both rows guard the TRIMMED value: `PHONE_REGEX` admits the space character, the read

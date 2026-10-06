@@ -321,14 +321,15 @@ known-address request in twenty exceeds it by design, and it costs every sign-in
 
 **The sign-in form's send carries a boundary of its own**
 (`fl_frontend/src/features/auth/components/ui/SignInActionFallback.tsx`, wired by `catchError` in
-`fl_frontend/src/features/auth/components/forms/SignInForm.tsx`): an edge answering that POST with
-anything but a Flight stream throws before any application code runs
-([`docs/ops/spec.md`](../ops/spec.md) I177), and a route-segment `error.tsx` would answer a send the
-visitor can simply repeat with the whole page. **Nothing of the response reaches the panel** — a
-rejected server action arrives carrying no status and no body — so it says the answer was not ours
-and names no cause, and its press loads the page again rather than resetting the boundary: a reset
-sends the same action, which fails again where it names a build other than the one the server runs or where
-the edge challenged the POST, a challenge being cleared by a page load alone. **Nothing else about a
+`fl_frontend/src/features/auth/components/forms/SignInForm.tsx`): a send rejecting throws before any
+application code runs, whether its action id is another build's (§1.12) or an edge answered the POST
+with anything but a Flight stream ([`docs/ops/spec.md`](../ops/spec.md) I177), and the boundary keeps
+the card standing while the panel alone answers the send, where a route-segment `error.tsx` would
+replace the page. **Nothing of the response reaches the panel** — a rejected server action arrives
+carrying no status and no body — so it says the answer was not ours and names no cause, and its
+press loads the page again rather than resetting the boundary: a reset sends nothing, and the next
+press would send the same stale action id, where a new document carries the running build's ids and
+meets any challenge on its navigation. **Nothing else about a
 sign-in is held in the page**:
 the send names no destination at all, so nothing about where it lands is a value a caller supplies,
 and a server-side `auth.api.*` call passes no `Request`, so the library's own form-CSRF middleware
@@ -1554,10 +1555,17 @@ state each answer a question the reader has already been made to ask. What binds
 - **A toast's title says what happened, and its body what it cost.** Where the server sent a
   message, that message is the body and nothing is written over it.
 - **An unknown outcome's repair names a reload before the retry wherever a server action carried
-  the press** (my rule, 2026-10-06): a rejection may name an action the running build does not
-  hold, which only a new document replaces (the version skew of Next.js's self-hosting guide). A
-  public form's post to its route handler names none: the route answers across a deploy, and a
-  reload discards what was typed and, on a page a token link opens, the token.
+  the press** (my rule, 2026-10-06): a rejection may carry an action id the running build does not
+  hold, "Server Function mismatches" under
+  [Next.js's version skew](https://nextjs.org/docs/app/guides/self-hosting#version-skew), and only a
+  new document carries the running build's ids.
+- **Two presses whose outcome is unknown name no reload.** A control performing the reload itself,
+  the sign-in fallback's button, needs no sentence saying so. A public form's post to its route
+  handler needs none and is harmed by one: the route answers across a deploy, and a challenge never
+  meets an `/api/*` POST ([`docs/ops/spec.md`](../ops/spec.md) I177), while a reload strips a token
+  link page's token, and the application and registration forms keep their idempotency key in
+  component state, so a reload mints a new key and a resend can arrive twice
+  (`fl_frontend/src/shared/utils/publicSubmit.ts :: KEINE_VERBINDUNG` is that sentence).
 - **An empty state says which narrowing emptied the list**, so a reader who searched, one who
   filtered and one who has entered nothing yet each meet a different sentence.
 
