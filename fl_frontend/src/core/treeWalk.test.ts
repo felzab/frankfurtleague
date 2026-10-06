@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { filesUnder, isTestFile } from "./treeWalk.ts";
+import { filesUnder, isTestFile, serverActionModules } from "./treeWalk.ts";
 
 describe("the one decision every sweep delegates", () => {
   /* The tree holds no `.test.tsx`, so a wrong spelling here reddens nothing and silently hands
@@ -62,6 +62,28 @@ describe("the predicate shape a sweep excluding its fixtures takes", () => {
     assert.deepEqual(
       swept((name) => /\.tsx?$/.test(name) && !isTestFile(name)),
       ["Panel.tsx", "helper.ts"],
+    );
+  });
+});
+
+describe("the server actions every action sweep reads", () => {
+  /* Next serves a module by its directive and never by its name, so each file here is one a name rule
+     or a first-characters pattern would decide wrong; the tree holds none of them to redden that reader. */
+  const root = mkdtempSync(path.join(tmpdir(), "treewalk-actions-"));
+  mkdirSync(path.join(root, "nested"));
+  const files: [string, string][] = [
+    [path.join("nested", "kaderPflege.ts"), `// Served whatever its name.\n"use server";\n\nexport async function a() {}\n`],
+    ["actions.ts", "export async function b() {}\n"],
+    ["constants.ts", `export const DIRECTIVE = "use server";\n`],
+    ["helper.ts", `import x from "y";\n"use server";\n`],
+    [path.join("nested", "kaderPflege.test.ts"), `"use server";\n`],
+  ];
+  for (const [rel, text] of files) writeFileSync(path.join(root, rel), text, { encoding: "utf8" });
+
+  it("takes a module by the directive in its prologue alone, whatever the file is named", () => {
+    assert.deepEqual(
+      serverActionModules(1, root).map((file) => path.relative(root, file).split(path.sep).join("/")),
+      ["nested/kaderPflege.ts"],
     );
   });
 });
