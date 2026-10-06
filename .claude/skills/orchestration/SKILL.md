@@ -137,9 +137,9 @@ Stop once the bar is met.
 ## Landing and CI
 
 - Land a finished branch in the turn its report is judged, with `land.py <register> <branch>`, and
-  dispatch its audit in the same action. Before the merge, read `git diff --stat --summary
-HEAD...<branch>`, the diff itself, and each commit body against it; send a false body or a stray
-  file back to the agent, and a landing `land.py` stops back for the agent to rebase onto the
+  dispatch its audit in the same action. Before the merge, read
+  `git diff --stat --summary HEAD...<branch>`, the diff and each commit body against it. A false
+  body, a stray file or a landing `land.py` stops goes back to the agent, which rebases onto the
   session branch. A fix to landed work is a new commit naming the one it corrects.
 - Check a claim you commit against that commit, and qualify every blanket negative to what you
   checked. Only the branch's final state passes the gate; never reorder or probe a commit to make
