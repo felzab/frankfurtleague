@@ -42,23 +42,15 @@ const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsricht
   await import("./actions.ts");
 const { describeLinkMail } = await import("./notifications.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { FELD_ABGELEHNT, outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
-const aRefusal = (serverErrorCode: string, statusCode = 409) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/schiedsrichter",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/schiedsrichter",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+const ROW_OPERATION = "GET /schiedsrichter/{schiedsrichter_id}";
+const MINT_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen";
+const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
 
 /** The referee as the backend stores it, holding `email`. */
 const stored = (email: string | null, name: string | null = "Anna Meier") => ({
@@ -166,7 +158,7 @@ describe("the re-send the editor's panel presses", () => {
   });
 
   it("refuses a row the read no longer finds", async () => {
-    row = () => aRefusal("DB-COMMON-001", 404);
+    row = () => refusedOn(ROW_OPERATION, "DB-COMMON-001");
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
@@ -185,7 +177,7 @@ describe("the re-send the editor's panel presses", () => {
   ] as const) {
     it(`words ${code} at the panel, and mails nothing`, async () => {
       mint = () => {
-        throw aRefusal(code);
+        throw refusedOn(MINT_OPERATION, code);
       };
 
       const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
@@ -399,7 +391,7 @@ describe("the reactivation of an unanswered referee", () => {
 
   it("words the ban the mint on return is refused on", async () => {
     reactivate = () => {
-      throw aRefusal("REQ-SCHIEDSRICHTER-007");
+      throw refusedOn(REACTIVATE_OPERATION, "REQ-SCHIEDSRICHTER-007");
     };
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
