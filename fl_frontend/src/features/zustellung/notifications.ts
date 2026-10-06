@@ -74,9 +74,8 @@ export function linkVersandOf({ delivered, withheld, gesperrt }: Pick<ZielMailOu
 }
 
 /**
- * How one send that did not go out ended: kept back by the ban list, filed by a deployment that mails
- * nothing, broken off unanswered so the provider may still have taken it, or failed. The one reading of
- * a send's failure, for the fan-out below and for a message sent on its own, so neither drifts from it.
+ * How one unsent message ended, `ungewiss` having broken off unanswered so the provider may have taken
+ * it. The one reading of a send's failure, for the fan-out below and a message sent alone, so neither drifts.
  */
 export type VersandAusfall = "gesperrt" | "zurueckgehalten" | "ungewiss" | "fehlgeschlagen";
 

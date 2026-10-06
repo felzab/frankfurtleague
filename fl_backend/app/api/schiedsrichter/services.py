@@ -565,9 +565,8 @@ def compose_adresswechsel_antwort(*, antwort: str, email: Any) -> Mapping[str, A
     """
 
     if antwort == "bestaetigt":
-        # The consent link's delivery state goes with the address it was recorded against, as a
-        # correction replacing that block takes it, so the editor shows no bounce beside the new one;
-        # a later delivery event about that message then finds no id to match (`docs/backend/spec.md :: I_NEW_KREF_3`).
+        # The consent link's delivery state described the replaced address, so it goes, as a correction
+        # replacing that block takes it: no bounce stands beside the new one (`docs/backend/spec.md :: I_NEW_KREF_3`).
         return {"$set": {"kontakt.email": email}, "$unset": {ADRESSWECHSEL_FELD: "", f"{BESTAETIGUNG_FELD}.zustellung": ""}}
 
     return {"$unset": {ADRESSWECHSEL_FELD: ""}}
@@ -578,9 +577,8 @@ def adresswechsel_zustand_of(
 ) -> FLSchiedsrichterAdresswechselZustand:
     """What the link shows, ranked as the press refuses a confirmation.
 
-    A ban on the link's own address first, as the consent link's `zustand_of` ranks it, then the
-    deadline, then a ban on the address the change replaces. An answered change has no state, its
-    block being gone.
+    A ban on the link's own address first, as `zustand_of` ranks it, then the deadline, then a ban on
+    the replaced address. An answered change has no state.
     """
 
     if gesperrt:

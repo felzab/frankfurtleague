@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
         return { cost: describeAdresswechselMail(wechsel.email, wechselVersand) };
       }
 
-      // The replay writes the fields back and leaves a pending address standing, its link already
-      // in that mailbox: the discard is the editor's control, never a side effect of an undo. Said only
-      // where the undone save was the one that left it, an undone fee edit having nothing to do with it.
+      // The replay leaves a pending address standing, its link already in that mailbox, the discard
+      // being the editor's control. Said only after undoing the save that left it: an undone fee edit
+      // has nothing to do with it.
       if (adresswechsel_gespeichert && operation.updated_document.adresswechsel !== null) return { cost: ADRESSWECHSEL_WARTET_WEITER };
 
       // The replay puts the earlier address back, which the endpoint reads as a correction and mints
