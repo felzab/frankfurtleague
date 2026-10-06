@@ -19,6 +19,17 @@ class FLSitzKontext(BaseModel):
     saison: str
 
 
+class FLSitzBestaetigt(BaseModel):
+    """One confirmation a person gave on a row: the seats it answered, its words and the floor its page named."""
+
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    text_version: str | None
+    bestaetigt_am: CustomOptionalDateString
+    # The age floor that page named over these roles, which the page fills `{minAlter}` from.
+    mindestalter: int
+    kontext: FLSitzKontext
+
+
 class FLKontoSitzEinwilligung(BaseModel):
     """One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.
 
@@ -31,19 +42,17 @@ class FLKontoSitzEinwilligung(BaseModel):
     saison_id: str
     # Never empty: an entry exists for a held seat alone, and the published floor is what the page parses against.
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    # The first held slot's, for `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    bestaetigt_text_version: str | None
     # Each on where any held slot's is, so a withdrawal stays offered.
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     # Over every held slot, for `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     nachweis_stand: FLEinwilligungStand
-    # The person's age floor over the held slots, as the confirmation page is served it, so the page
-    # fills `{minAlter}` from the rule rather than from a copy of it.
-    mindestalter: int
     medien_angeboten: bool
     erteilbar: bool
-    kontext: FLSitzKontext
+    # Never empty, a held seat being a confirmed one.
+    bestaetigt: list[FLSitzBestaetigt] = Field(min_length=1)
+    # One per entry: every confirmation and the control's own words name the same media floor.
+    medien_mindestalter: int
 
 
 class FLKontoBewerbungSitzEinwilligung(BaseModel):
@@ -59,19 +68,16 @@ class FLKontoBewerbungSitzEinwilligung(BaseModel):
     # For `FLKontoSitzEinwilligung.rollen`'s reason.
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     # For `FLKontoSitzEinwilligung`'s reasons.
-    bestaetigt_text_version: str | None
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     nachweis_stand: FLEinwilligungStand
-    mindestalter: int
-    kontext: FLSitzKontext
+    bestaetigt: list[FLSitzBestaetigt] = Field(min_length=1)
+    # One per entry: every confirmation and the control's own words name the same media floor.
+    medien_mindestalter: int
 
 
 class FLKontoRegistrierungEinwilligung(BaseModel):
-    """One pending registration its pupil confirmed with their choices, which the account page may only withdraw.
-
-    A returning pupil's registration is never one: it carries no choice, its person's own record standing.
-    """
+    """One pending registration its pupil confirmed: its choices to withdraw, and what it stores."""
 
     registrierung_id: CustomObjectId
     team_id: CustomObjectId
@@ -79,9 +85,15 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     team_name: str | None
     saison_id: str
     bestaetigt_text_version: str | None
-    umfang: FLEinwilligungUmfang
-    medien: bool
+    # Both null on a returning pupil's registration, which asked none: the page shows its stored data
+    # and offers no consent control, the person's own record holding their choices.
+    umfang: FLEinwilligungUmfang | None
+    medien: bool | None
     nachweis_stand: FLEinwilligungStand
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    mindestalter: int
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    medien_mindestalter: int
     # What the pupil's confirmation page filled its words with, read today.
     kontext: FLSpielerKontext
     # As the registration stores them: the account page shows what is kept about the pupil.

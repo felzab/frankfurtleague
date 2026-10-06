@@ -8872,7 +8872,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/person/einwilligung": {
       "patch": {
         "summary": "Change a seat holder's own WhatsApp and media consent on one team's season",
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once. No other slot of the row and no\nother row is written, each choice moving with its own evidence and leaving the other standing; a press moving no\nseat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien` to `true`) is taken on a row of an\n`active` or `future` season its team has not left; a withdrawal on any row the person confirmed a seat on, a past\nseason's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the held seats' own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-FUNKTION-001`); a `text_version` naming no\nversion of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is\nmissing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`),\nwhich counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.",
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the held seats' own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-EINWILLIGUNG-004`); a `text_version` naming no\nversion of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is\nmissing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`),\nwhich counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.",
         "operationId": "patch_einwilligung_api_v0_teams__team_id__saisons__saison_id__person_einwilligung_patch",
         "security": [
           {
@@ -8934,7 +8934,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-EINWILLIGUNG-004.REQ-FUNKTION-001"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
@@ -8952,7 +8952,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/person/einwilligung": {
       "patch": {
         "summary": "Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
-        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nWITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the\naccount page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for\nevery seat the person holds there; no other seat, field or document is written, and a press moving no seat\nwrites nothing. Nothing is counted against the person's ceiling.\n\nRefuses, in this order: an application that is decided or holds no confirmed seat of the address\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the\npage was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-FUNKTION-001`); and a `text_version`\nnaming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.",
+        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nWITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the\naccount page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for\nevery seat the person holds there, each choice moving only where it differs from the application as the page\nserved it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is\ncounted against the person's ceiling.\n\nRefuses, in this order: an application that is decided or holds no confirmed seat of the address\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the\npage was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a `text_version`\nnaming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.",
         "operationId": "patch_einwilligung_api_v0_bewerbungen__bewerbung_id__person_einwilligung_patch",
         "security": [
           {
@@ -9005,7 +9005,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-EINWILLIGUNG-004.REQ-FUNKTION-001"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
@@ -9060,7 +9060,7 @@
     "/api/v0/spieler/selbst/einwilligung": {
       "patch": {
         "summary": "Change a signed-in pupil's own publication and media consent",
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`REQ-FUNKTION-001`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`REQ-EINWILLIGUNG-003`); a\ngrant on a retired record (`REQ-FUNKTION-001`); a `text_version` naming no version of the account page's pupil\ncontrol, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a\ngrant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a\nwithdrawal is never refused for it. Each refusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`REQ-FUNKTION-001`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`REQ-EINWILLIGUNG-003`); a\ngrant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of the account page's pupil\ncontrol, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a\ngrant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a\nwithdrawal is never refused for it. Each refusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "patch_einwilligung_api_v0_spieler_selbst_einwilligung_patch",
         "requestBody": {
           "content": {
@@ -9096,7 +9096,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-EINWILLIGUNG-004.REQ-FUNKTION-001"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
@@ -9119,7 +9119,7 @@
     "/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung": {
       "patch": {
         "summary": "Withdraw a pupil's own publication and media consent on their pending registration",
-        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nWITHDRAW-ONLY until the admission: a grant is the team's admission's to make possible, after which the pupil's own\nrecord takes it on the account page; this one is offered so taking a consent back is as easy as giving it was\n(Art. 7(3) DSGVO). Writes those two on this one registration, and nothing else: the confirmation day, the day given\nand the wording the pupil confirmed stand. A PATCH moving neither choice writes nothing, and nothing is counted\nagainst the person's ceiling. The admission carries a withdrawal made here onto the person, as it carries every\nchoice the registration set later than the person's own.\n\nRefuses, in this order: an id that is no pending registration of this address, confirmed by its pupil and carrying\ntheir choices (`REQ-FUNKTION-001`); a `nachweis_stand` other than the registration's own, either choice having\nmoved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-FUNKTION-001`); and a\n`text_version` naming no version of the account page's pupil control (`REQ-EINWILLIGUNG-001`). Each refusal writes\nnothing.",
+        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nWITHDRAW-ONLY until the admission: a grant is the team's admission's to make possible, after which the pupil's own\nrecord takes it on the account page; this one is offered so taking a consent back is as easy as giving it was\n(Art. 7(3) DSGVO). Writes those two on this one registration, and nothing else: the confirmation day, the day given\nand the wording the pupil confirmed stand. A PATCH moving neither choice writes nothing, and nothing is counted\nagainst the person's ceiling. The admission carries a withdrawal made here onto the person, as it carries every\nchoice the registration set later than the person's own.\n\nRefuses, in this order: an id that is no pending registration of this address, confirmed by its pupil and carrying\ntheir choices (`REQ-FUNKTION-001`); a `nachweis_stand` other than the registration's own, either choice having\nmoved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a\n`text_version` naming no version of the account page's pupil control (`REQ-EINWILLIGUNG-001`). Each refusal writes\nnothing.",
         "operationId": "patch_einwilligung_api_v0_registrierungen_selbst__registrierung_id__einwilligung_patch",
         "security": [
           {
@@ -9172,7 +9172,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-EINWILLIGUNG-004.REQ-FUNKTION-001"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
@@ -9227,7 +9227,7 @@
     "/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": {
       "patch": {
         "summary": "Change a signed-in referee's own publication and media consent",
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\nfixture list does not read the scope yet: it serves the name each fixture stores, so a withdrawal here changes no\nfixture page until its read joins this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-FUNKTION-001`); a `text_version` naming no version of\nthe account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing\n(`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which\ncounts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this\nrow; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\nfixture list does not read the scope yet: it serves the name each fixture stores, so a withdrawal here changes no\nfixture page until its read joins this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of\nthe account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing\n(`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which\ncounts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this\nrow; nothing here can.",
         "operationId": "patch_einwilligung_api_v0_schiedsrichter_selbst__schiedsrichter_id__einwilligung_patch",
         "security": [
           {
@@ -9280,7 +9280,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-EINWILLIGUNG-004.REQ-FUNKTION-001"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
@@ -9298,7 +9298,7 @@
     "/api/v0/konto/einwilligungen": {
       "get": {
         "summary": "A signed-in person's own consent records",
-        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;\n`registrierungen` one per pending registration its pupil confirmed with their choices, withdraw-only alike until\nthe admission. A returning pupil's registration carries no choice and is not served: their own record is.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `kontext` carries what the record's\nconfirmation page filled its words with, as those records stand today; `erteilbar` says whether a grant is\nadmitted, `medien_angeboten` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
+        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;\n`registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission; a\nreturning pupil's asked no choice, so it serves its stored data with both choices null and offers nothing to press.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `kontext` carries what the record's\nconfirmation page filled its words with, as those records stand today; `erteilbar` says whether a grant is\nadmitted, `medien_angeboten` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
         "operationId": "get_einwilligungen_api_v0_konto_einwilligungen_get",
         "responses": {
           "200": {
@@ -9982,7 +9982,7 @@
           "funktion"
         ],
         "title": "FLAktorPerson",
-        "description": "A signed-in person, named by a pseudonym and the Funktion the write was authorised under.\n\nMirrors `app/core/recording.py :: PersonActor`, and carries no address."
+        "description": "A signed-in person, named by a pseudonym and the kind of person the write was made as.\n\nMirrors `app/core/recording.py :: PersonActor`, and carries no address."
       },
       "FLAnmeldungResponse": {
         "properties": {
@@ -15135,17 +15135,6 @@
             "minItems": 1,
             "title": "Rollen"
           },
-          "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Text Version"
-          },
           "umfang": {
             "type": "string",
             "enum": [
@@ -15161,12 +15150,17 @@
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
           },
-          "mindestalter": {
-            "type": "integer",
-            "title": "Mindestalter"
+          "bestaetigt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSitzBestaetigt"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Bestaetigt"
           },
-          "kontext": {
-            "$ref": "#/components/schemas/FLSitzKontext"
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
           }
         },
         "type": "object",
@@ -15175,12 +15169,11 @@
           "schule",
           "saison_id",
           "rollen",
-          "bestaetigt_text_version",
           "umfang",
           "medien",
           "nachweis_stand",
-          "mindestalter",
-          "kontext"
+          "bestaetigt",
+          "medien_mindestalter"
         ],
         "title": "FLKontoBewerbungSitzEinwilligung",
         "description": "One pending application on which the address holds a confirmed contact seat, with its two choices to withdraw.\n\nPending alone: an accepted application's seats are its season row's, listed under `sitze`."
@@ -15283,19 +15276,41 @@
             "title": "Bestaetigt Text Version"
           },
           "umfang": {
-            "type": "string",
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Umfang"
           },
           "medien": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Medien"
           },
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
           },
           "kontext": {
             "$ref": "#/components/schemas/FLSpielerKontext"
@@ -15378,6 +15393,8 @@
           "umfang",
           "medien",
           "nachweis_stand",
+          "mindestalter",
+          "medien_mindestalter",
           "kontext",
           "vorname",
           "nachname",
@@ -15387,7 +15404,7 @@
           "stufe"
         ],
         "title": "FLKontoRegistrierungEinwilligung",
-        "description": "One pending registration its pupil confirmed with their choices, which the account page may only withdraw.\n\nA returning pupil's registration is never one: it carries no choice, its person's own record standing."
+        "description": "One pending registration its pupil confirmed: its choices to withdraw, and what it stores."
       },
       "FLKontoSitzEinwilligung": {
         "properties": {
@@ -15416,17 +15433,6 @@
             "minItems": 1,
             "title": "Rollen"
           },
-          "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigt Text Version"
-          },
           "umfang": {
             "type": "string",
             "enum": [
@@ -15442,10 +15448,6 @@
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
           },
-          "mindestalter": {
-            "type": "integer",
-            "title": "Mindestalter"
-          },
           "medien_angeboten": {
             "type": "boolean",
             "title": "Medien Angeboten"
@@ -15454,8 +15456,17 @@
             "type": "boolean",
             "title": "Erteilbar"
           },
-          "kontext": {
-            "$ref": "#/components/schemas/FLSitzKontext"
+          "bestaetigt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSitzBestaetigt"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Bestaetigt"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
           }
         },
         "type": "object",
@@ -15464,14 +15475,13 @@
           "team_name",
           "saison_id",
           "rollen",
-          "bestaetigt_text_version",
           "umfang",
           "medien",
           "nachweis_stand",
-          "mindestalter",
           "medien_angeboten",
           "erteilbar",
-          "kontext"
+          "bestaetigt",
+          "medien_mindestalter"
         ],
         "title": "FLKontoSitzEinwilligung",
         "description": "One team season on which the address holds a confirmed contact seat, with its WhatsApp and media choices.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both."
@@ -20461,6 +20471,14 @@
             "type": "boolean",
             "title": "Medien Angeboten"
           },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "kontext": {
             "$ref": "#/components/schemas/FLSchiedsrichterKontext"
           }
@@ -20478,6 +20496,8 @@
           "nachweis_stand",
           "erteilbar",
           "medien_angeboten",
+          "mindestalter",
+          "medien_mindestalter",
           "kontext"
         ],
         "title": "FLSchiedsrichterSelbst",
@@ -20616,6 +20636,63 @@
         ],
         "title": "FLSchiedsrichterWriteResponse",
         "description": "Shared by delete and anonymisieren.\n\nThe retirement answers with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
+      },
+      "FLSitzBestaetigt": {
+        "properties": {
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Rollen"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
+          },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "kontext": {
+            "$ref": "#/components/schemas/FLSitzKontext"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rollen",
+          "text_version",
+          "bestaetigt_am",
+          "mindestalter",
+          "kontext"
+        ],
+        "title": "FLSitzBestaetigt",
+        "description": "One confirmation a person gave on a row: the seats it answered, its words and the floor its page named."
       },
       "FLSitzKontext": {
         "properties": {
@@ -22569,6 +22646,14 @@
             "type": "boolean",
             "title": "Medien Angeboten"
           },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
+          "medien_mindestalter": {
+            "type": "integer",
+            "title": "Medien Mindestalter"
+          },
           "kader": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerSelbstKaderZeile"
@@ -22591,6 +22676,8 @@
           "nachweis_stand",
           "erteilbar",
           "medien_angeboten",
+          "mindestalter",
+          "medien_mindestalter",
           "kader",
           "kontext"
         ],
@@ -24688,6 +24775,31 @@
                     "error_code": {
                       "enum": [
                         "REQ-AUTH-008"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-AUTH-008.REQ-EINWILLIGUNG-004.REQ-FUNKTION-001": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-008",
+                        "REQ-EINWILLIGUNG-004",
+                        "REQ-FUNKTION-001"
                       ]
                     }
                   }

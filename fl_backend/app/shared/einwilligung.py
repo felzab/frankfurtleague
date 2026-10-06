@@ -490,8 +490,16 @@ _KONTO_SPIELER: Final[Mapping[str, str]] = MappingProxyType(
         ),
         "widerruf": (
             "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin veröffentlicht wurde, bleibt "
-            "rechtmäßig (Art. 7 Abs. 3 DSGVO). Bist Du nicht mehr in der Liga aktiv, kannst Du eine Erlaubnis hier nur "
-            "noch zurücknehmen, nicht neu erteilen."
+            "rechtmäßig (Art. 7 Abs. 3 DSGVO)."
+        ),
+        # Each shown beside the record its cause holds alone, a retired pupil's and a pending registration's
+        # sharing this control's label.
+        "nurWiderrufNichtAktiv": (
+            "Bist Du nicht mehr in der Liga aktiv, kannst Du eine Erlaubnis hier nur noch zurücknehmen, nicht neu erteilen."
+        ),
+        "nurWiderrufBisAufnahme": (
+            "Solange Dein Team über Deine Registrierung nicht entschieden hat, kannst Du eine Erlaubnis hier nur "
+            "zurücknehmen. Nimmt Dein Team Dich auf, kannst Du sie hier auch erteilen."
         ),
     }
 )
@@ -506,8 +514,11 @@ _KONTO_SCHIEDSRICHTER: Final[Mapping[str, str]] = MappingProxyType(
         "medien": _KONTO_SPIELER["medien"],
         "widerruf": (
             "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin veröffentlicht wurde, bleibt "
-            "rechtmäßig (Art. 7 Abs. 3 DSGVO). Setzt die Verwaltung Dich nicht mehr ein, kannst Du eine Erlaubnis hier "
-            "nur noch zurücknehmen, nicht neu erteilen."
+            "rechtmäßig (Art. 7 Abs. 3 DSGVO)."
+        ),
+        # Shown beside a retired referee's record alone.
+        "nurWiderrufNichtAktiv": (
+            "Setzt die Verwaltung Dich nicht mehr ein, kannst Du eine Erlaubnis hier nur noch zurücknehmen, nicht neu erteilen."
         ),
     }
 )
@@ -516,8 +527,8 @@ _KONTO_KONTAKT: Final[Mapping[str, str]] = MappingProxyType(
     {
         "whatsapp": (
             "Ob wir Dich für {team} in der Saison {saison} auch über WhatsApp erreichen dürfen, entscheidest Du hier. "
-            "Ist es eingeschaltet, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu "
-            "WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Ist es "
+            "Ist der Schalter an, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu "
+            "WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Ist er "
             "aus, erreichen wir Dich per E-Mail und, wenn es eilt, telefonisch."
         ),
         "medien": (
@@ -528,9 +539,17 @@ _KONTO_KONTAKT: Final[Mapping[str, str]] = MappingProxyType(
             "berührt und nirgends veröffentlicht."
         ),
         "widerruf": (
-            "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin geschah, bleibt rechtmäßig "
-            "(Art. 7 Abs. 3 DSGVO). Für eine vergangene Saison kannst Du eine Erlaubnis hier nur noch zurücknehmen, "
-            "nicht neu erteilen."
+            "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin geschah, bleibt rechtmäßig (Art. 7 Abs. 3 DSGVO)."
+        ),
+        # Each shown beside the seat its cause holds alone. „erteilen“ and never „wieder zustimmen“: most
+        # seats reading one never agreed to the choice it names.
+        "nurWiderrufVorbei": (
+            "Für eine vergangene Saison oder ein Team, das aus der Saison ausgetreten ist, kannst Du eine Erlaubnis "
+            "hier nur noch zurücknehmen, nicht neu erteilen."
+        ),
+        "nurWiderrufBisZusage": (
+            "Solange über die Bewerbung nicht entschieden ist, kannst Du eine Erlaubnis hier nur zurücknehmen. Nach "
+            "einer Zusage kannst Du sie hier auch erteilen."
         ),
     }
 )
