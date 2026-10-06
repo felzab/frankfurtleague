@@ -458,6 +458,11 @@ class Estate:
             id(definition): [(definition.scope, definition.name)] for module in self.modules for definition in module.definitions
         }
         self.requests: list[Request] = []
+        # What `_ask_through_calls` reads off a node, which answers the same for every root reaching it,
+        # so each node is read once rather than once a root.
+        self._bound_by: dict[ast.AST, dict[str, CalledNode]] = {}
+        self._callees_of: dict[ast.AST, tuple[tuple[Module, CalledNode], ...]] = {}
+        self._asked_by: dict[ast.AST, tuple[tuple[str, ...], Unfollowed | None]] = {}
         # Every scope is widened before any request is read, a fixture's own requests being made from all of them.
         for step in (self._supply_imports, self._request):
             for module in self.modules:
@@ -488,16 +493,23 @@ class Estate:
         """The function or lambda `name` is bound to where `node` is defined: by `node` itself, or by a function enclosing it."""
         scope: CalledNode | None = node
         while scope is not None:
-            if (bound := _nested(scope).get(name)) is not None:
+            if scope not in self._bound_by:
+                self._bound_by[scope] = _nested(scope)
+            if (bound := self._bound_by[scope].get(name)) is not None:
                 return bound
             scope = self.enclosing.get(id(scope))
         return None
 
-    def _callees(self, module: Module, node: CalledNode) -> Iterator[tuple[Module, CalledNode]]:
+    def _callees(self, module: Module, node: CalledNode) -> tuple[tuple[Module, CalledNode], ...]:
         """The estate's own functions `node` calls by a name its module binds: its own, or one it imports.
 
         And each nested function or lambda it calls by the name it or an enclosing function binds one to.
         """
+        if node not in self._callees_of:
+            self._callees_of[node] = tuple(self._calls_from(module, node))
+        return self._callees_of[node]
+
+    def _calls_from(self, module: Module, node: CalledNode) -> Iterator[tuple[Module, CalledNode]]:
         for call in _run_by(node):
             if not isinstance(call, ast.Call):
                 continue
@@ -582,15 +594,27 @@ class Estate:
             if (id(node), where, point, origin) in reached:
                 return
             reached.add((id(node), where, point, origin))
-            try:
-                self.requests.extend(Request(name, where, point, origin) for name in _requested(node, GETFIXTUREVALUE))
-            except Unfollowed as error:
-                self.unfollowed.append((module.path, str(error)))
+            names, refusal = self._asked(node)
+            self.requests.extend(Request(name, where, point, origin) for name in names)
+            if refusal is not None:
+                self.unfollowed.append((module.path, str(refusal)))
             for callee_module, callee in self._callees(module, node):
                 ask(callee_module, callee, where, point, origin)
 
         for root in roots:
             ask(*root)
+
+    def _asked(self, node: CalledNode) -> tuple[tuple[str, ...], Unfollowed | None]:
+        """Every `getfixturevalue` name `node` asks for, up to the first it cannot read, and the refusal that one raised."""
+        if node not in self._asked_by:
+            names: list[str] = []
+            refusal: Unfollowed | None = None
+            try:
+                names.extend(_requested(node, GETFIXTUREVALUE))
+            except Unfollowed as error:
+                refusal = error
+            self._asked_by[node] = (tuple(names), refusal)
+        return self._asked_by[node]
 
     def consumed(self, definition: Definition, configured: frozenset[str] = frozenset()) -> bool:
         """Whether any request pytest would answer with this fixture names it, a fixture's own name inside it excepted.
