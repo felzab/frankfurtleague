@@ -1,5 +1,18 @@
+import json
+from typing import Any
+
+import pytest
+from bson import ObjectId
+
+from app.api.bewerbungen.services import hash_token
+from app.api.teams.admin_router import get_team_memberships
 from app.api.teams.schemas import FLTeamMembership, FLTeamsMembershipsResponse
-from app.api.teams.services import build_team_memberships_pipeline
+from app.api.teams.services import build_team_memberships_pipeline, compose_kontakt_bestaetigung
+from app.core.collections import Collection
+from app.core.crud import aggregate_many_from_db
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import kontaktperson_document, saison_team_document, team_document
+from tests.worker import worker_database
 
 
 class TestTheMembershipsPipeline:
@@ -41,3 +54,49 @@ class TestTheResponseModel:
             }
         )
         assert response.teams[0].memberships == []
+
+
+DATABASE_NAME = worker_database("fl_team_memberships_test")
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607990001")
+ZUSTELLUNG = {"nachricht_id": "msg-trainer", "stand": "zugestellt", "grund": None, "am": "2026-03-02T09:00:00.000000+00:00"}
+
+
+@pytest.mark.db
+def test_each_seats_link_is_served_by_its_state_and_never_by_its_hash(mongo_replica_set_url: str):
+    """The contacts editor shows each seat's link as the referee editor shows the referee's: sent, due and delivered."""
+
+    trainer_link = {**compose_kontakt_bestaetigung(token_hash=hash_token("trainer-link"), today="2026-03-01"), "zustellung": ZUSTELLUNG}
+
+    async def run() -> Any:
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
+            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Muster", "MU"))
+            await database[Collection.SAISON_TEAMS].insert_one(
+                saison_team_document(
+                    "2026",
+                    TEAM_OID,
+                    "Muster",
+                    "MU",
+                    kontakte={
+                        "trainer": kontaktperson_document("Anke"),
+                        "ansprechperson": kontaktperson_document("Bert"),
+                        "stellvertretung": None,
+                        "trainer_ist_zugleich": None,
+                    },
+                    bestaetigungen={"trainer": trainer_link, "ansprechperson": None, "stellvertretung": None},
+                )
+            )
+            roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_memberships_pipeline())
+            return roh, await get_team_memberships(teams_collection=database[Collection.TEAMS])
+
+    roh, response = on_the_seed_loop(run())
+    [membership] = response.teams[0].memberships
+    served = membership.model_dump(mode="json")["bestaetigungen"]
+
+    assert served == {
+        "trainer": {"verschickt_am": "2026-03-01", "frist": trainer_link["frist"], "abgelehnt_am": None, "zustellung": ZUSTELLUNG},
+        "ansprechperson": None,
+        "stellvertretung": None,
+    }
+    # Twice: the read drops the hash, and the model declares none, so neither alone carries it to the wire.
+    assert "token_hash" not in json.dumps(roh, default=str)
+    assert "token_hash" not in json.dumps(served)

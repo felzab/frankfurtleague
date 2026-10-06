@@ -2,9 +2,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-# The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
-# names, so the referee's carrier declares the application's model rather than a twin of it.
-from app.api.bewerbungen.schemas import FLBewerbungZustellung
 from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
@@ -22,6 +19,10 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
+
+# The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
+# names, so the referee's carrier declares the application's model rather than a twin of it.
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # A SECOND spelling of `app/api/spieler/schemas.py :: FLEinwilligung`'s own, which is inline and so
 # cannot be imported. Widened alone it would take a scope mongod refuses, and the press would 500:

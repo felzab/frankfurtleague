@@ -19507,6 +19507,92 @@
         "title": "FLSaisonSpielplan",
         "description": "What the generator left behind on the season it wrote.\n\nCounts rather than a hash: these are the two numbers an admin can compare against the page in\nfront of them, and a hash answers no question anyone standing there is asking."
       },
+      "FLSaisonTeamBestaetigung": {
+        "properties": {
+          "verschickt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "abgelehnt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abgelehnt Am"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "verschickt_am",
+          "frist",
+          "abgelehnt_am"
+        ],
+        "title": "FLSaisonTeamBestaetigung",
+        "description": "One seat's confirmation link as the season row stores it -- and NO `token_hash`, the raw document key the link's lookup alone reads."
+      },
+      "FLSaisonTeamBestaetigungen": {
+        "properties": {
+          "trainer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ansprechperson": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stellvertretung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamBestaetigung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "title": "FLSaisonTeamBestaetigungen",
+        "description": "The three seats' links, outside `kontakte` and mirroring its slots; nullable per seat, as the slot beside each is."
+      },
       "FLSaisonTeamEinwilligungAntwortResponse": {
         "properties": {
           "acknowledged": {
@@ -23888,6 +23974,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLSaisonTeamKontakte"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bestaetigungen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonTeamBestaetigungen"
               },
               {
                 "type": "null"

@@ -30,8 +30,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSchule,
     FLBewerbungStatus,
     FLBewerbungTrikot,
-    FLBewerbungZustellstand,
-    FLBewerbungZustellung,
 )
 from app.api.einladungen.schemas import FLEinladung, FLEinladungVersand
 from app.api.registrierungen.schemas import (
@@ -109,6 +107,7 @@ from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.einwilligung import FLEinwilligungBeleg, FLEinwilligungNachweis, FLEinwilligungNachweise
 from app.shared.schemas.kontakt import FLKontakt
+from app.shared.schemas.zustellung import FLBewerbungZustellstand, FLBewerbungZustellung
 from tests.config import UNANSWERED_URI, build_test_config
 
 # Not derived from `db.py`'s providers: the junctions are reached by `$lookup` and have none.

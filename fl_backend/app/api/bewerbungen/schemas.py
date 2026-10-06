@@ -50,6 +50,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # `eingereicht` is the only state a submission arrives in; the other two are the triage's, and
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
@@ -64,10 +65,6 @@ FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
 # submission and no path removes a row, so a second order would plan a blocking sort over an archive
 # nothing bounds.
 FLBewerbungenSortOptions = Literal["eingereicht_am"]
-
-# What became of the last message to one seat's address. `angenommen` is the provider ACCEPTING the
-# request, which is all a send ever learns; the five after it are what a delivery event reports.
-FLBewerbungZustellstand = Literal["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
 
 # The arms an EVENT may carry. `angenommen` is the sender's own answer and no event reports it, so an
 # event claiming it would overwrite a refusal with the accept that preceded it.
@@ -105,25 +102,6 @@ CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_
 # one every other kind's takes too. Bounded and single-line for `CustomNachrichtId`'s reason, the
 # token being the provider's own and never its prose.
 CustomZustellgrund = Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
-
-
-class FLBewerbungZustellung(BaseModel):
-    """What became of the last message to one seat.
-
-    Inside the seat's block rather than a collection of its own: an erasure empties that block, so
-    this goes with the person it is about.
-    """
-
-    # The join key: an event naming another message is about a link the seat does not hold, so a
-    # superseded message's bounce cannot mark the fresh one.
-    nachricht_id: str
-    stand: FLBewerbungZustellstand
-    # The provider's own token, never its prose: a bounce message quotes the recipient's address
-    # (`docs/logging/spec.md :: L9`), and the German is composed at the surface.
-    grund: str | None
-    # A PLAIN string here where the payload normalises, as `FLBewerbungSchule.website_url` is: this
-    # model reads stored values, and refusing one would 500 the whole triage list.
-    am: str
 
 
 class FLBewerbungBestaetigung(BaseModel):
