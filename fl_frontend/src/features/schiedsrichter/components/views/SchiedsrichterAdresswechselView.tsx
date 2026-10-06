@@ -223,6 +223,11 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>Deine neue E-Mail-Adresse gilt jetzt. Melde Dich künftig mit ihr an.</p>
+          {/* A passkey belongs to the account of the address it was set up under, which the move leaves behind. */}
+          <p className={ABSATZ_CLASSES}>
+            Hattest Du für die bisherige Adresse einen Passkey eingerichtet, gilt er für die neue nicht: Richte nach der Anmeldung in Deinem
+            Konto einen neuen ein.
+          </p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}

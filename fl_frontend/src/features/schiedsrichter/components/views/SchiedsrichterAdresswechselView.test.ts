@@ -135,7 +135,7 @@ describe("the referee's address page", () => {
   });
 
   for (const [gedrueckt, antwort, ergebnis] of [
-    [JA_MEINE_ADRESSE, "bestaetigt", /Deine neue E-Mail-Adresse gilt jetzt/],
+    [JA_MEINE_ADRESSE, "bestaetigt", /Deine neue E-Mail-Adresse gilt jetzt.*gilt er für die neue nicht/s],
     [NICHT_MEINE_ADRESSE, "abgelehnt", /Wir haben die Adresse wieder entfernt/],
   ] as const) {
     it(`sends „${gedrueckt}“ as ${antwort} with the link's token and shows its result`, async () => {
