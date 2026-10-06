@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapAdresseRefusal } from "./refusals.ts";
 
@@ -57,7 +57,7 @@ describe("the address a unique index already holds", () => {
     assert.deepEqual(mapAdresseRefusal(refusedWith(422, DUPLICATE_KEY)), mapAdresseRefusal(refusedWith(409, DUPLICATE_KEY)));
     /* A row another administrator has already lifted is `DB-COMMON-001`, which
        `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is. */
-    assert.equal(mapAdresseRefusal(refusedWith(404, "DB-COMMON-001")), null);
+    assert.equal(mapAdresseRefusal(unpublishedOn(CREATE_OPERATION, "DB-COMMON-001", 404)), null);
   });
 
   it("leaves an error that never came from the API alone", () => {

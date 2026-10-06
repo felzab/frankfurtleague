@@ -12,10 +12,10 @@ import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR, rejectedWrite } from "@/shared/utils/actionError";
+import { LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
-import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 
@@ -46,21 +46,15 @@ export function FormKontaktEinladen({
   const sendeLabel = benannt("Bestätigungslink senden", label);
 
   const sende = async () => {
-    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
-
-    setSendet(true);
-    // Every press mints a bearer link and voids the seat's earlier one (`docs/frontend/spec.md :: I432`).
-    if (!(await stepUp.confirm(true))) {
-      setSendet(false);
-      return;
-    }
-
-    // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
-    // leaves „Sendet...“ standing for good and reports nothing.
-    const res = await einladeKontaktAction({ team_id: teamId, saison_id: saisonId, rolle: rolle }).catch(
-      rejectedWrite(router, LINK_ERNEUT_OHNE_ANTWORT),
-    );
-    setSendet(false);
+    // Every press mints a bearer link and voids the seat's earlier one.
+    const res = await pressLinkWrite({
+      isDirty,
+      stepUp,
+      router,
+      pending: setSendet,
+      write: () => einladeKontaktAction({ team_id: teamId, saison_id: saisonId, rolle: rolle }),
+    });
+    if (res === null) return;
 
     if (!res.success) {
       appToast.failure("Bestätigungslink nicht gesendet", res, LINK_UNKLAR);

@@ -40,7 +40,7 @@ const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselH
   await import("@/core/schiedsrichterEmail.ts");
 const { SPERRLISTE_ADRESSE_GESPERRT } = await import("@/features/sperrliste/constants.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
-const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 const BISHER = "anna@alt.example";
@@ -259,7 +259,7 @@ describe("what one refused answer asks the address page to show", () => {
   });
 
   it("answers nothing for a code it does not word", () => {
-    assert.equal(mapSchiedsrichterAdresswechselRefusal(refusedOn(ANSWER_OPERATION, "REQ-SCHIEDSRICHTER-004", 409)), null);
+    assert.equal(mapSchiedsrichterAdresswechselRefusal(unpublishedOn(ANSWER_OPERATION, "REQ-SCHIEDSRICHTER-004", 409)), null);
     assert.equal(mapSchiedsrichterAdresswechselRefusal(new Error("network")), null);
   });
 });

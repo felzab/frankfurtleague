@@ -41,12 +41,13 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR, rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
+import { LINK_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
+import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { Absatz } from "./BestaetigungHinweise";
@@ -164,24 +165,19 @@ export function BewerbungBestaetigungStrip({
   const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, heute: getGermanTodayStr() });
 
   const sendeErneut = async (rolle: KontaktRolle) => {
-    if (!guardAgainstDraft(isDirty || boxGetippt, DRAFT_DISCARDED)) return;
-
     // The page re-keys on the sent link's record, drawing this seat's control anew.
     const landing = focusAfterWrite();
-    setSendendeRollen((vorher) => new Set(vorher).add(rolle));
-
-    // A new link voids the one the seat holds (`docs/frontend/spec.md :: I432`).
-    if (!(await stepUp.confirm(true))) {
-      setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
-      return;
-    }
-
-    // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
-    // „Sendet...“ standing for good and reports nothing.
-    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(rejectedWrite(router, LINK_ERNEUT_OHNE_ANTWORT));
-
-    // This seat alone, through the updater, so two writes settling never clear each other.
-    setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
+    // A new link voids the one the seat holds.
+    const res = await pressLinkWrite({
+      isDirty: isDirty || boxGetippt,
+      stepUp,
+      router,
+      // This seat alone, through the updater, so two writes settling never clear each other.
+      pending: (running) =>
+        setSendendeRollen((vorher) => (running ? new Set(vorher).add(rolle) : new Set([...vorher].filter((sendend) => sendend !== rolle)))),
+      write: () => einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }),
+    });
+    if (res === null) return;
 
     // A rejection, which no answer came back from, carries this control's repair naming the connection; an
     // answer, an unknown outcome among them, carries its own sentence.

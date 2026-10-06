@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { nummerPayload } from "@/features/spieler/utils.ts";
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink.ts";
@@ -91,7 +91,7 @@ describe("what one refused submission shows", () => {
     assert.equal(mapRegistrierungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-REGISTRIERUNG-001", 500)), null);
     assert.equal(mapRegistrierungSubmitRefusal(new Error("kein API-Fehler")), null);
     assert.equal(
-      mapRegistrierungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-004", 409)),
+      mapRegistrierungSubmitRefusal(unpublishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-004", 409)),
       null,
       "a code of another flow's is mapped here",
     );
@@ -351,8 +351,8 @@ describe("what a refused READ says about a link", () => {
   /* Neither judged the token: a route the API does not serve is met mid-deploy, and an unreadable body
      failed in the page's own encoding. The dead-link panel would send the pupil away from a live link. */
   it("leaves a routing refusal or an unreadable body to the page's own state, never the dead-link panel", () => {
-    assert.equal(mapRegistrierungAnsichtRefusal(refusedOn(EINLADUNG_ANSICHT_OPERATION, "REQ-ROUTE-001", 404)), null);
-    assert.equal(mapRegistrierungAnsichtRefusal(refusedOn(EINLADUNG_ANSICHT_OPERATION, "REQ-ROUTE-002", 405)), null);
+    assert.equal(mapRegistrierungAnsichtRefusal(unpublishedOn(EINLADUNG_ANSICHT_OPERATION, "REQ-ROUTE-001", 404)), null);
+    assert.equal(mapRegistrierungAnsichtRefusal(unpublishedOn(EINLADUNG_ANSICHT_OPERATION, "REQ-ROUTE-002", 405)), null);
     for (const operation of ["POST /registrierungen/einladung/ansicht", "POST /registrierungen/bestaetigung/ansicht"]) {
       assert.equal(mapRegistrierungAnsichtRefusal(refusedOn(operation, "REQ-VAL-002")), null, operation);
     }
