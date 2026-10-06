@@ -76,7 +76,9 @@ def pytest_collectreport(report: pytest.CollectReport) -> Generator[None]:
     or one holding no test, as passing.
     """
     module = report.result[0].parent if report.passed and report.result else None
-    if isinstance(module, pytest.Module) and module.nodeid not in module.config.stash.get(_YIELDING, set()):
+    # The module's own report alone: a node-id run's session report holds the selected node, whose
+    # parent is its module, and arrives before any of that module's tests are collected.
+    if isinstance(module, pytest.Module) and report.nodeid == module.nodeid and module.nodeid not in module.config.stash.get(_YIELDING, set()):
         report.outcome = "failed"
         report.longrepr = _COLLECTS_NOTHING.format(module=module.nodeid)
 
