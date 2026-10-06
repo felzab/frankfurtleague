@@ -282,6 +282,7 @@ const PANELS: Record<string, Arming[]> = {
             acknowledged: 1,
             zustand: "saison_vorbei",
             quelle: "saison",
+            zeile: "saison_vorbei",
             saison_id: "2026",
             schule: "Lessing-Kolleg",
             rolle: "ansprechperson",

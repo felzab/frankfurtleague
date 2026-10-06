@@ -83,7 +83,8 @@ describe("what every message of the registration flow carries", () => {
 
     assert.equal(new Set(subjects).size, subjects.length, "two messages of the flow arrive under one subject");
     for (const [name, mail] of Object.entries(MESSAGES)) {
-      assert.ok(mail.subject.includes(LINK_DATEN.teamName), `${name}'s subject names no team`);
+      // One preposition for one relation: a registration is „für“ its team in every message of the flow.
+      assert.ok(mail.subject.includes(`für ${LINK_DATEN.teamName}`), `${name}'s subject names no team, or names it apart`);
     }
   });
 

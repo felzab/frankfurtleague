@@ -64,7 +64,7 @@ const {
   zustellungIdempotenzSchluessel,
 } = await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
-const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
+const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
@@ -301,8 +301,8 @@ describe("which mailbox is sent which link", () => {
     };
     // The local stack's own origin, as every minter now hands the helper (`docs/frontend/spec.md :: I186`).
     const origin = "http://localhost:3000";
-    const ownLink2 = bestaetigungsLink(origin, "erste");
-    const gespiegelter = bestaetigungsLink(origin, "zweite");
+    const ownLink2 = kontaktBestaetigungsLink(origin, "erste");
+    const gespiegelter = kontaktBestaetigungsLink(origin, "zweite");
 
     const verlinkt = seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: ownLink2, trainer: gespiegelter });
     const gepaart = verlinkt.find((mailbox) => mailbox.address === "mira@schule.de");

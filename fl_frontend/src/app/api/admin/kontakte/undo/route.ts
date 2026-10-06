@@ -1,7 +1,7 @@
 import { getLaufendesLabel } from "@/core/einwilligung";
 import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { patchSaisonTeamKontakte } from "@/features/kontakte/mutations";
-import { describeKontaktVersand, leseKontaktZeile, mailKontaktLink } from "@/features/kontakte/notifications";
+import { describeKontaktVersand, mailKontaktLink } from "@/features/kontakte/notifications";
 import { KONTAKTE_REPLAY_REFUSALS } from "@/features/kontakte/refusals";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
 import { mitLaufenderFassung } from "@/features/kontakte/utils";
@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
 
       // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
       // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
-      const zeile = operation.bestaetigungen.length === 0 ? "offen" : await leseKontaktZeile(payload);
       const versendet = await Promise.all(
         operation.bestaetigungen.map(async (mint) => ({
           email: mint.email,
@@ -53,7 +52,6 @@ export async function POST(request: NextRequest) {
             saisonId: operation.saison_id,
             mint: mint,
             anlass: "erneut",
-            zeile: zeile,
           }),
         })),
       );

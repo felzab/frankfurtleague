@@ -2,6 +2,7 @@ import "server-only";
 
 import { buildBewerbungErinnerungEmail, buildBewerbungGeloeschtEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
@@ -10,7 +11,6 @@ import { sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import { bestaetigungsLink } from "./bestaetigungLink";
 import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekuendigt, postBewerbungSweepLoeschen } from "./mutations";
 import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
@@ -221,7 +221,7 @@ async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<v
   const [erster, ...weitere] = erinnerung.seats.map((seat) => ({
     vorname: seat.vorname,
     rolleText: rollenText(seat.rollen),
-    link: bestaetigungsLink(origin, seat.token),
+    link: kontaktBestaetigungsLink(origin, seat.token),
   }));
 
   // The wire can carry an empty list where the recipient type cannot, and a message offering no link

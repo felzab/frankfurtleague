@@ -102,7 +102,8 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         {stand.zustand === "gueltig" && (
           <FaktenBanner
             zeilen={[
-              { label: "Schule", wert: stand.ansicht.schule, unbegrenzt: true },
+              // A season row's seat is entered for a team, which its stamped words and its mail call it.
+              { label: saisonRow ? "Team" : "Schule", wert: stand.ansicht.schule, unbegrenzt: true },
               { label: "Saison", wert: stand.ansicht.saison_id },
               { label: "Deine Rolle", wert: linkRollen(stand.ansicht) },
             ]}
@@ -155,11 +156,11 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             Danke, <Wert>{stand.ansicht.vorname}</Wert>.{" "}
             {stand.ansicht.zugleich_rolle === null ? (
               <>
-                Dein Eintrag für die Schule <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
+                Dein Eintrag für {saisonRow ? "das Team" : "die Schule"} <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
               </>
             ) : (
               <>
-                Deine beiden Einträge für die Schule <Wert>{stand.ansicht.schule}</Wert> sind bestätigt.
+                Deine beiden Einträge für {saisonRow ? "das Team" : "die Schule"} <Wert>{stand.ansicht.schule}</Wert> sind bestätigt.
               </>
             )}
           </p>

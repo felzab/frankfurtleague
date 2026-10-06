@@ -33,6 +33,7 @@ const VORBEI: BestaetigungStart = {
     acknowledged: 1,
     zustand: "saison_vorbei",
     quelle: "saison",
+    zeile: "saison_vorbei",
     saison_id: "2627",
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
@@ -64,10 +65,31 @@ describe("a season row's link past its season", () => {
     const text = textOf(html);
 
     assert.ok(text.includes("Deinen Eintrag kannst Du deshalb nicht mehr bestätigen."), "the page does not say why nothing is confirmed");
+    // No greeting: the other confirmation pages open on their facts, and none says „Hallo“.
+    assert.ok(!text.includes("Hallo"), "the page opens on a greeting no sibling page has");
     assert.ok(text.includes(ABLEHNEN_LABEL), "the page offers no Widerspruch");
     assert.ok(!text.includes("Eintrag bestätigen"), "the page offers a confirmation the backend refuses");
     assert.ok(!html.includes('name="geburtsdatum"'), "the page asks a birthdate nothing will store");
   });
+
+  /* The view names the one cause, as the mail does: a page naming both would tell a person whose
+     season is still running that it might be over. */
+  for (const [zeile, gilt, nichtGilt] of [
+    ["saison_vorbei", "Die Saison 2627 ist für das Team Lessing-Kolleg vorbei.", "spielt in der Saison"],
+    ["ausgetreten", "Das Team Lessing-Kolleg spielt in der Saison 2627 nicht mehr mit.", "vorbei"],
+  ] as const) {
+    it(`names the one cause that applies, ${zeile}`, () => {
+      if (VORBEI.zustand !== "saison_vorbei") assert.fail("the fixture opens no closed row");
+      const text = textOf(renderMarkup(BestaetigungView, { start: { ...VORBEI, ansicht: { ...VORBEI.ansicht, zeile } } }), " ").replace(
+        /\s+/g,
+        " ",
+      );
+
+      assert.ok(text.includes(gilt), `the page does not name its cause: ${text}`);
+      assert.ok(!text.includes(nichtGilt), "the page names the cause that does not apply");
+      assert.ok(!text.includes(" oder das Team"), "the page names both causes at once");
+    });
+  }
 
   it("sends a Widerspruch under the view's label and shows it taken", async () => {
     const { sent } = answerEveryFetch({ success: true });

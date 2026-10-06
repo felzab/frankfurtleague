@@ -101,6 +101,7 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
         vorname: "Anna",
         schule: "Lessing-Kolleg",
         frist: "2026-10-17",
+        zeile: "offen",
       },
     };
   }

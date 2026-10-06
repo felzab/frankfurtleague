@@ -3,7 +3,7 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 // The wire's three seats, mirrored once: a second enum here would let the reveal name a seat no
 // other response of this API publishes.
-import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
+import { FLKontaktRolleSchema, FLKontaktZeileSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLMedienStandPayloadSchema, FLMedienStandSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
@@ -96,6 +96,9 @@ export const FLKontaktMintSchema = z.object({
   vorname: z.string(),
   schule: z.string(),
   frist: CustomDateStringSchema,
+  // The row's state, read in the mint's own transaction: it fixes what the link's page takes, so the
+  // mail asks for exactly that.
+  zeile: FLKontaktZeileSchema,
 });
 export type FLKontaktMint = z.infer<typeof FLKontaktMintSchema>;
 

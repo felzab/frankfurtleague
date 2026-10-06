@@ -79,9 +79,19 @@ export function BestaetigungSaisonVorbei({
 
   return (
     <BestaetigungAbschnitt titel="Deine Antwort">
+      {/* The one cause the view names, as the mail names it. Only a withdrawal reads apart: an ended
+          season outranks it, so every other state this page opens on is an ended season. */}
       <p className={ABSATZ_CLASSES}>
-        Hallo <Wert>{ansicht.vorname}</Wert>. Die Saison <Wert>{ansicht.saison_id}</Wert> ist für das Team <Wert>{ansicht.schule}</Wert> vorbei,
-        oder das Team spielt in ihr nicht mehr mit. Deinen Eintrag kannst Du deshalb nicht mehr bestätigen.
+        {ansicht.zeile === "ausgetreten" ? (
+          <>
+            Das Team <Wert>{ansicht.schule}</Wert> spielt in der Saison <Wert>{ansicht.saison_id}</Wert> nicht mehr mit.
+          </>
+        ) : (
+          <>
+            Die Saison <Wert>{ansicht.saison_id}</Wert> ist für das Team <Wert>{ansicht.schule}</Wert> vorbei.
+          </>
+        )}{" "}
+        Deinen Eintrag kannst Du deshalb nicht mehr bestätigen.
       </p>
       <p className={ABSATZ_CLASSES}>
         Möchtest Du dort nicht eingetragen bleiben, kannst Du widersprechen. Dann entfernen wir Deine Angaben aus dem Eintrag.

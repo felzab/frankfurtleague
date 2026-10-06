@@ -78,6 +78,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLTrikotFarbe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLKontaktZeile: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLZustellungZiel: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLEinwilligungUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
