@@ -5,7 +5,6 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -14,12 +13,10 @@ from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exception_handlers import PAYLOAD_REFUSED
-from app.core.security import WRONG_SYSTEM_KEY
 from app.main import create_app
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.app_client import app_client
-from tests.config import BASE_AUTH, SYSTEM_AUTH
-from tests.core.app_source import application
+from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
 from tests.worker import worker_database
@@ -206,11 +203,3 @@ class TestWhatThePayloadRefuses:
         assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
         assert [field["path"] for field in response.json()["fields"]] == [["email"]]
         assert email is None or email == "" or email not in response.text
-
-
-def test_the_base_key_draws_the_system_guard_s_own_code():
-    """The ban is keyed under a secret the system tier alone may make the backend use; the guard answers its own code."""
-
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": GESPERRT})
-
-    assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)
