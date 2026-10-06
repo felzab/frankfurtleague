@@ -1,7 +1,7 @@
 """
-API · the account page's consent controls: what the pupil's, the referee's and a contact seat's share
+API · the account page's consent controls: what every kind of own record's share
 
-One module for the three, so their PATCHes cannot answer one press differently and the account page's
+One module for every kind, so their PATCHes cannot answer one press differently and the account page's
 read judges a grant exactly as the PATCH it offers does. Pure: `fl_backend/tests/core/test_write_shapes.py`
 sweeps every services module for a read of its own.
 """
@@ -13,8 +13,9 @@ from typing import Any, Final
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.schemas import FLSubjektSitz
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat
+from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat, ist_eigene_registrierung
 from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
+from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.schiedsrichter.services import vorname_of
 from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
@@ -428,6 +429,71 @@ def compose_bewerbungssitze_selbst(
                     "schule": schule,
                     "saison": row["saison_id"],
                 },
+            }
+        )
+
+    return eintraege
+
+
+# --- The pending registrations a pupil confirmed with their choices: withdraw-only until the admission.
+
+
+def build_selbst_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """Every pending registration that may be the address's, `ist_eigene_registrierung` deciding as the gate's does."""
+
+    return [
+        {"$match": build_eigene_registrierung_filter(identifier)},
+        {
+            "$project": {
+                field: 1
+                for field in (
+                    "saison_id",
+                    "team_id",
+                    "status",
+                    "email",
+                    "vorname",
+                    "nachname",
+                    "geburtsdatum",
+                    "nummer",
+                    "position",
+                    "stufe",
+                    "einwilligung",
+                )
+            }
+        },
+        {"$sort": {"saison_id": -1, "_id": 1}},
+    ]
+
+
+def compose_registrierungen_selbst(
+    rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """One entry per pending registration of this address its pupil confirmed with their choices."""
+
+    eintraege = []
+    for row in rows:
+        if not ist_eigene_registrierung(row, identifier):
+            continue
+        block = row["einwilligung"]
+        team = teams.get(row["team_id"])
+        eintraege.append(
+            {
+                "registrierung_id": row["_id"],
+                "team_id": row["team_id"],
+                "team_name": None if team is None else team.get("name"),
+                "saison_id": row["saison_id"],
+                "bestaetigt_text_version": block.get("text_version"),
+                "umfang": block["umfang"],
+                # A block confirmed before the field existed is off, as on every record.
+                "medien": bool(block.get("medien", False)),
+                "nachweis_stand": nachweis_stand_of(bloecke=[block], wahlen=WAHLEN),
+                "kontext": {
+                    "vorname": row["vorname"],
+                    "team": None if team is None else team.get("name"),
+                    "schule": None if team is None else team.get("full_name"),
+                    "saison": row["saison_id"],
+                },
+                **{field: row.get(field) for field in ("vorname", "nachname", "geburtsdatum", "nummer", "position", "stufe")},
             }
         )
 

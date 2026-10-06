@@ -32,6 +32,7 @@ LABEL_WRITERS: Final = frozenset(
         "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
         "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
         "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung",
+        "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung",
     }
 )
 
@@ -330,6 +331,7 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/konto/services.py::compose_schiedsrichter_selbst",
         "app/api/konto/services.py::compose_sitze_selbst",
         "app/api/konto/services.py::compose_bewerbungssitze_selbst",
+        "app/api/konto/services.py::compose_registrierungen_selbst",
         "app/api/konto/services.py::_sitz_wahlen_gehalten",
         "app/api/teams/services.py::_confirmation_held_by",
         "app/api/teams/services.py::kontakte_fassungen_gehalten",
@@ -341,6 +343,8 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/schiedsrichter/person_router.py::write",
         "app/api/spieler/selbst_router.py::patch_einwilligung",
         "app/api/spieler/selbst_router.py::write",
+        "app/api/registrierungen/selbst_router.py::patch_einwilligung",
+        "app/api/registrierungen/selbst_router.py::write",
         "app/api/teams/person_router.py::patch_einwilligung",
         "app/api/teams/person_router.py::write",
         "app/api/bewerbungen/person_router.py::patch_einwilligung",

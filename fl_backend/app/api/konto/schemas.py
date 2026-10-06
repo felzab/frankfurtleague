@@ -2,9 +2,9 @@ from pydantic import BaseModel, Field
 
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
-from app.api.spieler.schemas import FLSpielerSelbst
+from app.api.spieler.schemas import FLEinwilligungUmfang, FLSpielerKontext, FLSpielerPosition, FLSpielerSelbst, FLSpielerStufe
 from app.api.teams.schemas import FLKontaktKenntnisnahmeUmfang
-from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -67,6 +67,32 @@ class FLKontoBewerbungSitzEinwilligung(BaseModel):
     kontext: FLSitzKontext
 
 
+class FLKontoRegistrierungEinwilligung(BaseModel):
+    """One pending registration its pupil confirmed with their choices, which the account page may only withdraw.
+
+    A returning pupil's registration is never one: it carries no choice, its person's own record standing.
+    """
+
+    registrierung_id: CustomObjectId
+    team_id: CustomObjectId
+    # The club's own name, today; null where its document is gone.
+    team_name: str | None
+    saison_id: str
+    bestaetigt_text_version: str | None
+    umfang: FLEinwilligungUmfang
+    medien: bool
+    nachweis_stand: FLEinwilligungStand
+    # What the pupil's confirmation page filled its words with, read today.
+    kontext: FLSpielerKontext
+    # As the registration stores them: the account page shows what is kept about the pupil.
+    vorname: str
+    nachname: str
+    geburtsdatum: CustomOptionalDateString
+    nummer: str | None
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
+
+
 class FLKontoEinwilligungenResponse(BaseAPIResponse):
     """Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.
 
@@ -78,3 +104,5 @@ class FLKontoEinwilligungenResponse(BaseAPIResponse):
     sitze: list[FLKontoSitzEinwilligung]
     # Withdraw-only on the page: nothing on an application grants a panel to answer a grant against.
     bewerbungen: list[FLKontoBewerbungSitzEinwilligung]
+    # Withdraw-only too, until the admission makes the pupil's own record the place for a grant.
+    registrierungen: list[FLKontoRegistrierungEinwilligung]

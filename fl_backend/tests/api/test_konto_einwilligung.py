@@ -22,10 +22,12 @@ from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALT
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung
 from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SCHIEDSRICHTER
+from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
+from app.api.registrierungen.services import compose_ablehnung_update, compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, nachweis_stand_of
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -565,10 +567,12 @@ class TestTheAccountPagesRead:
         response = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
-        assert {key: response.json()[key] for key in ("spieler", "schiedsrichter", "sitze")} == {
+        assert {key: response.json()[key] for key in ("spieler", "schiedsrichter", "sitze", "bewerbungen", "registrierungen")} == {
             "spieler": None,
             "schiedsrichter": [],
             "sitze": [],
+            "bewerbungen": [],
+            "registrierungen": [],
         }
 
     def test_a_retired_referee_is_answered_for_withdrawal_alone(self, mongo_replica_set_url: str):
@@ -1117,3 +1121,202 @@ class TestAPendingApplicationsSeats:
         assert first.status_code == 200, first.text
         assert (again.status_code, again.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
         assert after == before
+
+
+REGISTRIERUNG_OWN = ObjectId("6890a1b2c3d4e5f607850061")
+REGISTRIERUNG_UNCONFIRMED = ObjectId("6890a1b2c3d4e5f607850062")
+REGISTRIERUNG_DECLINED = ObjectId("6890a1b2c3d4e5f607850063")
+REGISTRIERUNG_RETURNING = ObjectId("6890a1b2c3d4e5f607850064")
+REGISTRIERUNG_BYSTANDER = ObjectId("6890a1b2c3d4e5f607850065")
+# The new pupil's grant, evidenced by the confirmation that gave it.
+REGISTRIERUNG_GRANT = {"am": "2026-09-21T08:00:00+00:00", "text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"]}
+
+
+def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaetigung_spieler", **choices: Any) -> dict[str, Any]:
+    """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
+
+    document: dict[str, Any] = {
+        "_id": oid,
+        **compose_registrierung(
+            saison_id=ACTIVE_SAISON,
+            team_id=TEAM_A_OID,
+            einladung_id=ObjectId(),
+            vorname="Ortrud",
+            nachname="Zwiebelmayer",
+            email=email,
+            position="Mittelfeld",
+            nummer="17",
+            stufe="Q1",
+            bestaetigung=compose_bestaetigung(token_hash=hash_token(str(oid)), today="2026-09-20", frist="2026-09-27"),
+            today="2026-09-20",
+        ),
+        "idempotenz_schluessel": str(oid),
+        "idempotenz_fingerabdruck": "f" * 64,
+    }
+    if seite is not None:
+        gewaehlt = (
+            {"umfang": "kader_oeffentlich", "medien": True, **choices} if seite == "bestaetigung_spieler" else {"umfang": None, "medien": None}
+        )
+        document.update(
+            compose_confirmation_update(
+                geburtsdatum=SEVENTEEN_BIRTHDATE,
+                text_version=LAUFENDE_FASSUNGEN[seite],
+                today="2026-09-21",
+                am=REGISTRIERUNG_GRANT["am"],
+                **gewaehlt,
+            )["$set"]
+        )
+
+    return document
+
+
+async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
+    """The person's own registration, stored as typed; one of theirs in each state that leaves nothing to change; a stranger's."""
+
+    declined = _registrierung(REGISTRIERUNG_DECLINED, REFEREE_STORED)
+    declined.update(compose_ablehnung_update(von="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
+    await database[Collection.REGISTRIERUNGEN].insert_many(
+        [
+            _registrierung(REGISTRIERUNG_OWN, REFEREE_STORED, **choices),
+            _registrierung(REGISTRIERUNG_UNCONFIRMED, IDENTIFIER, seite=None),
+            declined,
+            _registrierung(REGISTRIERUNG_RETURNING, IDENTIFIER, seite="bestaetigung_spieler_wiederkehrend"),
+            _registrierung(REGISTRIERUNG_BYSTANDER, BYSTANDER),
+        ]
+    )
+
+
+def _registrierung_path(registrierung_id: ObjectId) -> str:
+    return f"/api/v{API_VERSION}/registrierungen/selbst/{registrierung_id}/einwilligung"
+
+
+async def _registrierung_docs(database: AsyncDatabase) -> dict[Any, Any]:
+    return {row["_id"]: row async for row in database[Collection.REGISTRIERUNGEN].find({})}
+
+
+def _registrierung_body(database_row: Mapping[str, Any], **gewaehlt: Any) -> dict[str, Any]:
+    """A press from a page served the registration as stored, keeping each choice the case does not move."""
+
+    block = database_row["einwilligung"]
+
+    return {
+        "umfang": block["umfang"],
+        "medien": block["medien"],
+        "text_version": LAUFENDE_FASSUNGEN["konto_spieler"],
+        "nachweis_stand": nachweis_stand_of(bloecke=[block], wahlen=WAHLEN),
+        **gewaehlt,
+    }
+
+
+@pytest.mark.db
+class TestAPendingRegistration:
+    """A consent a new pupil gave on their registration's link, withdrawn on the account page before their team decides."""
+
+    def test_a_withdrawal_lands_with_its_evidence_and_moves_nothing_else(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _registrierungen(database)
+            before = await _registrierung_docs(database)
+            body = _registrierung_body(before[REGISTRIERUNG_OWN], umfang="intern")
+            response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
+            return response, before, await _registrierung_docs(database), await database[Collection.DROSSELUNG].count_documents({})
+
+        response, before, after, counted = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
+        assert response.json() == {
+            "acknowledged": 1,
+            "registrierung_id": str(REGISTRIERUNG_OWN),
+            # As the read model serves the stored block, every declared field spelled.
+            "einwilligung": FLRegistrierungEinwilligung.model_validate(einwilligung).model_dump(mode="json"),
+            "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung], wahlen=WAHLEN),
+        }
+        assert (einwilligung["umfang"], einwilligung[NACHWEIS]["umfang"]) == (
+            "intern",
+            {"am": AM, "text_version": LAUFENDE_FASSUNGEN["konto_spieler"], "erteilt_zuvor": REGISTRIERUNG_GRANT},
+        )
+        stood = before[REGISTRIERUNG_OWN]["einwilligung"]
+        # The other choice, its evidence, the days and the label the pupil confirmed all stand.
+        assert {key: value for key, value in einwilligung.items() if key not in ("umfang", NACHWEIS)} == {
+            key: value for key, value in stood.items() if key not in ("umfang", NACHWEIS)
+        }
+        assert einwilligung[NACHWEIS]["medien"] == stood[NACHWEIS]["medien"]
+        assert {key: value for key, value in after.items() if key != REGISTRIERUNG_OWN} == {
+            key: value for key, value in before.items() if key != REGISTRIERUNG_OWN
+        }
+        assert counted == 0
+
+    @pytest.mark.parametrize(
+        ("umfang", "medien"), [("kader_oeffentlich", False), ("intern", True)], ids=["the publication scope", "the media consent"]
+    )
+    def test_a_grant_of_either_choice_is_refused_uncounted_and_unwritten(self, mongo_replica_set_url: str, umfang: str, medien: bool):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _registrierungen(database, umfang="intern", medien=False)
+            before = await _registrierung_docs(database)
+            body = _registrierung_body(before[REGISTRIERUNG_OWN], umfang=umfang, medien=medien)
+            response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
+            return response, before, await _registrierung_docs(database), await database[Collection.DROSSELUNG].count_documents({})
+
+        response, before, after, counted = served(mongo_replica_set_url, steps)
+
+        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (after, counted) == (before, 0)
+
+    @pytest.mark.parametrize(
+        "registrierung_id",
+        [REGISTRIERUNG_UNCONFIRMED, REGISTRIERUNG_DECLINED, REGISTRIERUNG_RETURNING, REGISTRIERUNG_BYSTANDER],
+        ids=["unconfirmed", "declined", "a returning pupil's, carrying no choice", "another address's"],
+    )
+    def test_a_registration_leaving_this_person_nothing_to_withdraw_is_refused(self, mongo_replica_set_url: str, registrierung_id: ObjectId):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _registrierungen(database)
+            before = await _registrierung_docs(database)
+            # The own registration's stand and choices, so only the record the path names can refuse.
+            body = _registrierung_body(before[REGISTRIERUNG_OWN], umfang="intern")
+            response = await http.patch(_registrierung_path(registrierung_id), json=body, headers=_person(IDENTIFIER))
+            return response, before, await _registrierung_docs(database)
+
+        response, before, after = served(mongo_replica_set_url, steps)
+
+        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert after == before
+
+    def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _registrierungen(database)
+            served_page = _registrierung_body((await _registrierung_docs(database))[REGISTRIERUNG_OWN], medien=False)
+            first = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=served_page, headers=_person(IDENTIFIER))
+            before = await _registrierung_docs(database)
+            again = await http.patch(
+                _registrierung_path(REGISTRIERUNG_OWN), json={**served_page, "umfang": "intern"}, headers=_person(IDENTIFIER)
+            )
+            return first, again, before, await _registrierung_docs(database)
+
+        first, again, before, after = served(mongo_replica_set_url, steps)
+
+        assert first.status_code == 200, first.text
+        assert (again.status_code, again.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert after == before
+
+    def test_a_label_naming_no_version_of_the_pupils_control_is_refused(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _registrierungen(database)
+            before = await _registrierung_docs(database)
+            body = {**_registrierung_body(before[REGISTRIERUNG_OWN], umfang="intern"), "text_version": LAUFENDE_FASSUNGEN["konto_kontakt"]}
+            response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
+            return response, before, await _registrierung_docs(database)
+
+        response, before, after = served(mongo_replica_set_url, steps)
+
+        assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
+        assert after == before
+
+    def test_the_read_lists_the_own_registration_alone(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _registrierungen(database)
+            return await http.get(KONTO_PATH, headers=_person(IDENTIFIER))
+
+        response = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        assert [entry["registrierung_id"] for entry in response.json()["registrierungen"]] == [str(REGISTRIERUNG_OWN)]

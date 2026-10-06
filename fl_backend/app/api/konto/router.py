@@ -8,8 +8,10 @@ from app.api.konto.services import (
     build_angenommene_bewerbungen_pipeline,
     build_kontext_teams_pipeline,
     build_selbst_bewerbung_pipeline,
+    build_selbst_registrierung_pipeline,
     build_selbst_seat_pipeline,
     compose_bewerbungssitze_selbst,
+    compose_registrierungen_selbst,
     compose_schiedsrichter_selbst,
     compose_sitze_selbst,
     compose_spieler_selbst,
@@ -22,6 +24,7 @@ from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
+    RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielerCollection,
@@ -47,6 +50,7 @@ async def get_einwilligungen(
     saison_teams_collection: SaisonTeamsCollection,
     teams_collection: TeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
+    registrierungen_collection: RegistrierungenCollection,
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -55,10 +59,12 @@ async def get_einwilligungen(
     Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.
 
     The seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;
-    `bewerbungen` one per PENDING application on which it does, whose media consent the account page may only withdraw.
+    `bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;
+    `registrierungen` one per pending registration its pupil confirmed with their choices, withdraw-only alike until
+    the admission. A returning pupil's registration carries no choice and is not served: their own record is.
 
     PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
-    `spieler: null` and three empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
+    `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
     seat are served too, a withdrawal staying open wherever a consent stands; `kontext` carries what the record's
     confirmation page filled its words with, as those records stand today; `erteilbar` says whether a grant is
     admitted, `medien_angeboten` whether the media consent may be switched on. A record awaiting its person's
@@ -78,6 +84,9 @@ async def get_einwilligungen(
         bewerbung_rows = await aggregate_many_from_db(
             collection=bewerbungen_collection, pipeline=build_selbst_bewerbung_pipeline(identifier), session=session
         )
+        registrierung_rows = await aggregate_many_from_db(
+            collection=registrierungen_collection, pipeline=build_selbst_registrierung_pipeline(identifier), session=session
+        )
         subjekt = await funktionen_of(identifier, records, session=session)
 
         pupil = next((row for row in pupils if ist_eigener_spieler(row)), None)
@@ -87,6 +96,7 @@ async def get_einwilligungen(
             *(row["team_id"] for row in seat_rows),
             # A school applying as a club the league already holds names it by `team_id` alone.
             *(row["team_id"] for row in bewerbung_rows if row.get("team_id") is not None),
+            *(row["team_id"] for row in registrierung_rows),
         ]
         teams = {
             team["_id"]: team
@@ -122,5 +132,6 @@ async def get_einwilligungen(
                     seat_rows, identifier, sitze_mit_panel=subjekt.sitze, today=today, teams=teams, bewerbungen=bewerbungen
                 ),
                 "bewerbungen": compose_bewerbungssitze_selbst(bewerbung_rows, identifier, teams=teams),
+                "registrierungen": compose_registrierungen_selbst(registrierung_rows, identifier, teams=teams),
             }
         )

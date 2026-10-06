@@ -34,6 +34,7 @@ from app.api.registrierungen.einwilligung_router import router as registrierunge
 from app.api.registrierungen.person_router import router as registrierungen_person_router
 from app.api.registrierungen.public_router import router as registrierungen_public_router
 from app.api.registrierungen.router import router as registrierungen_router
+from app.api.registrierungen.selbst_router import router as registrierungen_selbst_router
 from app.api.registrierungen.sweep_router import router as registrierungen_sweep_router
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
@@ -160,6 +161,7 @@ PERSON_ROUTERS = (
     teams_person_router,
     bewerbungen_person_router,
     spieler_selbst_router,
+    registrierungen_selbst_router,
     schiedsrichter_person_router,
     konto_router,
 )

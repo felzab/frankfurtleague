@@ -1212,7 +1212,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "names no speaker (`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
         "The returning pupil's page asks no choice, so its record is `bestaetigt_am` and `text_version` alone "
         "(`REQ-REGISTRIERUNG-017`). `text_version` arrives on the payload, and anything but the running label of the page "
-        "the press resolves is refused (`REQ-EINWILLIGUNG-001`)",
+        "the press resolves is refused (`REQ-EINWILLIGUNG-001`). Until the admission, only the pupil moves a choice the "
+        "new pupil's record holds, withdrawing it on the account page with its evidence and granting nothing there "
+        "(`app.api.konto.services.compose_person_move`)",
         "app.api.registrierungen.services.find_already_confirmed_refusal",
     ),
     FieldPolicy(
@@ -2473,7 +2475,8 @@ RULES: tuple[Rule, ...] = (
             "POST /registrierungen/bestaetigung · "
             "POST /schiedsrichter/bestaetigung · PATCH /teams/{team_id}/saisons/{saison_id}/kontakte · "
             "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
         ),
         aggregate="Bewerbung",
         summary="a consent label a write stamps names a version of that write's page, and a new acceptance the running one",
@@ -2489,7 +2492,8 @@ RULES: tuple[Rule, ...] = (
             "POST /registrierungen/{registrierung_id}/aufnehmen · POST /registrierungen/{registrierung_id}/ablehnen · "
             "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
             "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
         ),
         aggregate="Saison",
         summary=(
@@ -2562,7 +2566,8 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
-            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
         ),
         aggregate="Spieler",
         summary="a press on the account page answers the consent evidence its page was served, never evidence moved since",

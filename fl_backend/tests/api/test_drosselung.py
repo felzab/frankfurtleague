@@ -37,6 +37,7 @@ PERSON_LANE_WRITES = sorted(
 # The person writes that count nothing, each with why: a withdrawal stays as easy as the grant was.
 UNCOUNTED_PERSON_WRITES: Mapping[tuple[str, str], str] = {
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"): "withdraw-only, and a withdrawal is never counted",
+    ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"): "withdraw-only, and a withdrawal is never counted",
 }
 
 

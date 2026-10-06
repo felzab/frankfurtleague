@@ -15,7 +15,7 @@ from bson import ObjectId
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
-from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter
+from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, traegt_wahlen
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import build_selbst_referee_filter
 from app.api.spieler.services import build_selbst_pupil_filter
@@ -143,11 +143,7 @@ def ist_eigene_registrierung(row: Mapping[str, Any], identifier: str) -> bool:
     einwilligung = row.get("einwilligung")
 
     return (
-        row.get("status") == SUBMITTED
-        and folds_to(row.get("email"), identifier)
-        and is_confirmed(einwilligung)
-        and isinstance(einwilligung, Mapping)
-        and "umfang" in einwilligung
+        row.get("status") == SUBMITTED and folds_to(row.get("email"), identifier) and is_confirmed(einwilligung) and traegt_wahlen(einwilligung)
     )
 
 

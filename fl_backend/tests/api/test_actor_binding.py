@@ -402,6 +402,7 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/schiedsrichter/selbst/{schiedsrichter_id:objectid}/einwilligung", "PATCH"),
     ("/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/einwilligung", "PATCH"),
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
+    ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"),
 ]
 
 # Split by the methods `app/core/security.py` names as recording nothing, since a read binding no actor

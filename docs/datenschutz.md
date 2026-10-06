@@ -495,7 +495,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   for the reason administrators give, so a person's actor carries none: the binder every router of
   `fl_backend/app/main.py :: PERSON_ROUTERS` declares
   (`fl_backend/app/core/security.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
-  of the folded address as the ban list takes one, and the Funktion the write was authorised under,
+  of the folded address as the ban list takes one, and the kind of person the write was made as,
   and the log refuses a person's row carrying an address (`docs/backend/spec.md :: I384`). Ruled
   2026-09-21. **No erasure reaches the pseudonym yet**: an erasure empties the images of the rows
   naming the documents it removes (`docs/backend/spec.md :: I42`), while every row the person wrote

@@ -6,7 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapte
 # (`app/api/zustellung/services.py :: ZIEL_PFADE`).
 from app.api.bewerbungen.schemas import FLBewerbungZustellung
 from app.api.saisons.schemas import FLSaisonStatus
-from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung, FLEinwilligungUmfang, FLSpielerPosition, FLSpielerStufe
+from app.api.spieler.schemas import (
+    SQUAD_NUMMER_PATTERN,
+    FLEinwilligung,
+    FLEinwilligungUmfang,
+    FLSpielerPosition,
+    FLSpielerStufe,
+    SelbstEinwilligungPayload,
+)
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -20,6 +27,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
 )
+from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -93,8 +101,8 @@ class FLRegistrierungEinwilligung(FLEinwilligung):
 class FLRegistrierung(BaseModel):
     """One pupil's registration for one team's season, as stored, its decision as served.
 
-    The submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and
-    `einwilligung`, and a decline writes `status` and `entscheidung`.
+    The submission is never rewritten: its pupil fills and withdraws `einwilligung` and fills
+    `geburtsdatum`, and a decline writes `status` and `entscheidung`.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -312,6 +320,22 @@ class FLRegistrierungBestaetigungResponse(BaseAPIResponse):
     # Null on a returning pupil's press, which posted none: the panel states the view's stored pair.
     umfang: FLRegistrierungUmfang | None
     medien: bool | None
+
+
+# --- The pupil's own WITHDRAWAL on the account page, between the confirmation and the admission.
+
+
+class FLRegistrierungSelbstEinwilligungPayload(SelbstEinwilligungPayload):
+    """The pupil's own two choices on one pending registration, the pupil's account control's shape: a grant is refused."""
+
+
+class FLRegistrierungSelbstEinwilligungResponse(BaseAPIResponse):
+    """The registration's consent record as it stands after the write, everything the pupil did not move unchanged."""
+
+    registrierung_id: CustomObjectId
+    einwilligung: FLRegistrierungEinwilligung
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
+    nachweis_stand: FLEinwilligungStand
 
 
 # --- The retention SWEEP, system tier. The backend decides and erases, the frontend mails: what
