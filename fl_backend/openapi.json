@@ -15296,6 +15296,10 @@
           "nachweis_stand": {
             "$ref": "#/components/schemas/FLEinwilligungStand"
           },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
           "kontext": {
             "$ref": "#/components/schemas/FLSpielerKontext"
           },
@@ -15377,6 +15381,7 @@
           "umfang",
           "medien",
           "nachweis_stand",
+          "mindestalter",
           "kontext",
           "vorname",
           "nachname",
@@ -20447,6 +20452,10 @@
             "type": "boolean",
             "title": "Medien Angeboten"
           },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
           "kontext": {
             "$ref": "#/components/schemas/FLSchiedsrichterKontext"
           }
@@ -20464,6 +20473,7 @@
           "nachweis_stand",
           "erteilbar",
           "medien_angeboten",
+          "mindestalter",
           "kontext"
         ],
         "title": "FLSchiedsrichterSelbst",
@@ -22612,6 +22622,10 @@
             "type": "boolean",
             "title": "Medien Angeboten"
           },
+          "mindestalter": {
+            "type": "integer",
+            "title": "Mindestalter"
+          },
           "kader": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerSelbstKaderZeile"
@@ -22634,6 +22648,7 @@
           "nachweis_stand",
           "erteilbar",
           "medien_angeboten",
+          "mindestalter",
           "kader",
           "kontext"
         ],

@@ -86,6 +86,8 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     umfang: FLEinwilligungUmfang | None
     medien: bool | None
     nachweis_stand: FLEinwilligungStand
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    mindestalter: int
     # What the pupil's confirmation page filled its words with, read today.
     kontext: FLSpielerKontext
     # As the registration stores them: the account page shows what is kept about the pupil.

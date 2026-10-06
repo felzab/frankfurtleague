@@ -23,6 +23,7 @@ from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
@@ -268,6 +269,7 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "bestaetigt_text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
         "umfang": "kader_oeffentlich",
         "medien": True,
+        "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
         "kontext": {"vorname": "Wiltrudis", "team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",
