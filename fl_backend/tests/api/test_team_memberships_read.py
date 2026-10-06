@@ -63,7 +63,9 @@ ZUSTELLUNG = {"nachricht_id": "msg-trainer", "stand": "zugestellt", "grund": Non
 TODAY = "2026-03-01"
 
 
-def read_the_links(mongo_replica_set_url: str, bestaetigungen: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]:
+def read_the_links(
+    mongo_replica_set_url: str, bestaetigungen: Mapping[str, Any], *, kontakte: Mapping[str, Any] | None = None
+) -> tuple[Any, dict[str, Any]]:
     """The pipeline's raw rows and the read's served seat links, over one club holding two seats on one season row."""
 
     async def run() -> Any:
@@ -80,6 +82,7 @@ def read_the_links(mongo_replica_set_url: str, bestaetigungen: Mapping[str, Any]
                         "ansprechperson": kontaktperson_document("Bert"),
                         "stellvertretung": None,
                         "trainer_ist_zugleich": None,
+                        **(kontakte or {}),
                     },
                     bestaetigungen={"stellvertretung": None, **bestaetigungen},
                 )
@@ -130,3 +133,23 @@ def test_a_link_reads_as_lapsed_exactly_where_its_press_refuses(mongo_replica_se
 
     assert [seat["abgelaufen"] for seat in seats] == [False, True]
     assert [find_saison_frist_refusal(frist=seat["frist"], today=TODAY) is not None for seat in seats] == [False, True]
+
+
+@pytest.mark.db
+def test_an_answered_seat_reads_as_lapsed_never_once_its_deadline_passes(mongo_replica_set_url: str):
+    """A confirmed seat and one its person declined have nothing left to collect, so their passed deadlines cost nothing."""
+
+    def link(name: str, **fields: Any) -> dict[str, Any]:
+        return {**compose_kontakt_bestaetigung(token_hash=hash_token(name), today="2026-02-01"), "frist": "2026-02-28", **fields}
+
+    _, served = read_the_links(
+        mongo_replica_set_url,
+        {"trainer": link("confirmed"), "ansprechperson": link("declined", abgelehnt_am="2026-02-10"), "stellvertretung": link("open")},
+        kontakte={
+            "trainer": kontaktperson_document("Anke", bestaetigt_am="2026-02-05"),
+            "ansprechperson": None,
+            "stellvertretung": kontaktperson_document("Cora"),
+        },
+    )
+
+    assert [served[seat]["abgelaufen"] for seat in ("trainer", "ansprechperson", "stellvertretung")] == [False, False, True]
