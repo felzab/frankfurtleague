@@ -5,7 +5,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
@@ -53,7 +52,7 @@ from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medi
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, patch_many_in_db, patch_one_in_db, refuse
+from app.core.crud import patch_many_in_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
@@ -92,28 +91,6 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
     assert team_raw is not None
 
     return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=team_raw.get("name"))
-
-
-async def _pull_the_season_a_consent_is_judged_in(
-    *,
-    saisons_collection: AsyncCollection,
-    saison_id: str,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
-    # TypeError at the call rather than a silent reopening of it.
-    session: AsyncClientSession,
-) -> Any:
-    """The status of the season a row's consent is judged in (`REQ-KONTAKT-006`), that season anchored."""
-
-    # `find_one` rather than `pull_one_from_db`: no season is ever deleted, so a miss is a broken
-    # invariant rather than a 404 this press could answer.
-    saison_raw = await saisons_collection.find_one({"_id": saison_id}, projection={"status": 1}, session=session)
-    assert saison_raw is not None
-
-    # The rollover demotes this season and writes nothing on the row: without this write both commit,
-    # and a consent lands on a season that has ended (`docs/backend/spec.md :: I935`).
-    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-
-    return saison_raw.get("status")
 
 
 async def _saison_ansicht(
@@ -302,13 +279,16 @@ async def post_einwilligung(
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
 
-            saison_status = await _pull_the_season_a_consent_is_judged_in(
-                saisons_collection=saisons_collection, saison_id=row["saison_id"], session=session
-            )
+            # Unanchored: the rollover reads nothing this press writes, so one committing inside it orders as
+            # one committing just after (`docs/backend/spec.md :: I_NEW_H1-BE_1`).
+            saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1}, session=session)
+            # `find_one` rather than `pull_one_from_db`: no season is ever deleted, so a miss is a broken
+            # invariant rather than a 404 this press could answer.
+            assert saison_raw is not None
             # Every link on a closed row meets this here, whether minted before it closed, beside its
             # rollover or after it; never the Widerspruch below, which removes the person
             # (`docs/backend/spec.md :: I935`).
-            refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_status, austritt=row.get("austritt")))
+            refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
 
             # Against the one page the view answered for these seats.
             seite = saison_antwort_seite(row=row, seats=seats)

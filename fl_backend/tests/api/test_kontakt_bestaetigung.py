@@ -1194,9 +1194,12 @@ NEXT_SAISON_ID = "2027"
 
 
 class TestARolloverInsideTheConsentPress:
-    """The rollover writes the season and nothing on the row, so the press's season anchor is what makes the two conflict."""
+    """The rollover reads nothing the press writes, so a press that read `active` commits across one landing inside it.
 
-    def test_a_rollover_committing_after_the_presss_status_read_makes_it_retry_and_refuse(self, mongo_replica_set_url: str):
+    An anchor on the season would make it retry against every write to the season document instead.
+    """
+
+    def test_a_press_that_read_the_season_active_commits_across_a_rollover_inside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISONS].insert_one(documents.saison_document(NEXT_SAISON_ID, "future"))
             # What makes the next season activatable (`REQ-ACTIVATE-003`).
@@ -1216,15 +1219,17 @@ class TestARolloverInsideTheConsentPress:
                 )
 
             seasons = SeasonsRunningARivalAfterTheirRead(database[Collection.SAISONS], roll_over)
-            code = await refused(answer(database, token, saisons=cast(AsyncCollection, seasons)))
-            seasons.assert_landed_inside(serially=1)
+            answered = await answer(database, token, saisons=cast(AsyncCollection, seasons))
+            saison = await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, projection={"status": 1})
 
-            return code, await row_now(database)
+            return answered.ergebnis, seasons.passes, saison, await row_now(database)
 
-        code, row = on_a_league(mongo_replica_set_url, body)
+        ergebnis, passes, saison, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == KONTAKT_SAISON_VORBEI
-        assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "a consent landed on a season that has ended"
+        # Both landed: the season ended under the press, and the press it read as running committed.
+        assert saison is not None and saison["status"] == "past"
+        assert (ergebnis, row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"]) == ("bestaetigt", TODAY)
+        assert passes == 1, "the press read the season again, so something it writes now conflicts with the rollover"
 
 
 class TestTheLinkLookupWalksAnIndex:
