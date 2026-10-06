@@ -5,6 +5,7 @@ import { createElement as h } from "react";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import type { FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas.ts";
 import type { AdminSaisonRow } from "@/features/saisons/types.ts";
@@ -13,17 +14,7 @@ import type { AdminSaisonRow } from "@/features/saisons/types.ts";
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminSaisonsView } = await import("./AdminSaisonsView.tsx");
 
-const RULES: FLSaisonRules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const RULES: FLSaisonRules = saisonRules();
 
 const saison = (id: string, status: FLSaisonStatus): AdminSaisonRow => ({
   id: id,

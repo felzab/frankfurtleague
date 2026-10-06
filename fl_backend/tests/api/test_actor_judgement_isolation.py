@@ -31,7 +31,14 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database_sync
-from tests.documents import ban_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
+from tests.documents import (
+    ban_document,
+    kontaktperson_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    spieler_document,
+)
 from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
@@ -204,22 +211,6 @@ NOW = datetime(2026, 4, 1, 12, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 
 
-def seat(email: str) -> dict[str, Any]:
-    return {
-        "vorname": "Anna",
-        "nachname": "Müller",
-        "email": email,
-        "telefon": "+49 69 5550199",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "v1",
-            "datum": "2026-01-05",
-            "bestaetigt_am": "2026-01-06",
-        },
-    }
-
-
 def person_seeded(url: str) -> str:
     """A running season, one team whose contact seat the person holds, and one live squad row of that team."""
 
@@ -227,7 +218,11 @@ def person_seeded(url: str) -> str:
     try:
         database = a_clean_database_sync(client, url, DATABASE_NAME)
         database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active", start_date="2025-08-01", end_date="2026-06-30"))
-        kontakte = {**{slot: None for slot in KONTAKT_ROLLEN}, "ansprechperson": seat(SEAT), "trainer_ist_zugleich": None}
+        kontakte = {
+            **{slot: None for slot in KONTAKT_ROLLEN},
+            "ansprechperson": kontaktperson_document("Anna", bestaetigt_am="2026-01-06", email=SEAT),
+            "trainer_ist_zugleich": None,
+        }
         database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "AD", kontakte=kontakte))
         database[Collection.SPIELER].insert_one(spieler_document(PUPIL_ID, "Karla", "Weber"))
         database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(PUPIL_ID, SAISON_ID, TEAM_ID, nummer="7"))

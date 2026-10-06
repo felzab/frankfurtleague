@@ -565,7 +565,11 @@ Read it for an access request. **Finish the erasure of anybody who has signed in
 Atlas console**, after the route's own erasure has run:
 
 1. In the `auth` database's `user` collection, find the row whose `email` is the address as the
-   sign-in box folds it, in lower case (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
+   sign-in box folds it, in lower case (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`),
+   and do the same for **every address the record held**: a referee whose address moved by its link
+   left an account at each earlier one, which the record does not name. Read those
+   addresses off the action log's images of the referee before the route's erasure runs, which
+   empties them; a decline or a discard of a later change empties them too.
 2. Delete every row of `session`, `account` and `passkey` whose `userId` is that row's `_id`, then
    the `user` row itself.
 3. Delete the `verification` row whose `identifier` is `sign-in-otp-` followed by that address, a
@@ -629,9 +633,22 @@ as them.
 - **A referee who HAS confirmed, retired or not.** Enter the new address in the referee editor. The
   save keeps the address on file and holds the new one as a pending change with a link of its own;
   the address moves only once its holder confirms there, so until then the referee still signs in,
-  and is written to, at the address on file (`docs/backend/spec.md :: I_NEW_KREF_1`). A pending
-  change waits with no clock: re-send its link when it lapses, or discard it when the request turns
-  out to be wrong. Their consent link is not re-minted — the record is already given.
+  and is written to, at the address on file (`docs/backend/spec.md :: I_NEW_KREF_1`). Re-send its
+  link when it lapses, or discard it when the request turns out to be wrong; a lapsed change is
+  the yearly deletion's to remove, which is not built yet, so until it is the change stands
+  ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
+  Their consent link is not re-minted — the record is already given. **Once the change confirms,
+  the old address's sign-in account stays behind**, the confirmation touching no sign-in row, and
+  the referee's passkeys stay on it until its rows are deleted. Where the sign-in gate answers that
+  the old address holds nothing — no record of its own, none awaiting confirmation and no grant
+  (`docs/glossary.md :: Konto`) — delete its sign-in rows by the erasure's hand step above, run on
+  the old address.
+- **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
+  read keys on that address, by design (`docs/backend/spec.md :: I_NEW_KREF_2`), so no search finds
+  the referee from it: open the editor of the referee whose „Neue E-Mail-Adresse“ panel shows it and
+  press „Änderung verwerfen“ (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`), which
+  removes the address and the log's images of it (`docs/backend/spec.md :: I_NEW_KREF_4`). The
+  link's own „Das ist nicht meine Adresse“ does the same, past its deadline too.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
@@ -642,9 +659,10 @@ as them.
   confirmation deadline, and where one person holds two seats it corrects both. A seat whose person
   has stepped out takes a different route, below.
 
-**The self-service change is not built.** It would be an endpoint, a page, a proving link and a
-notice to the old mailbox, for a case nobody has met twice; the procedure above is the answer, and a
-request for one is answered by performing it rather than by building the route.
+**A person asking to change their own address is answered by performing the procedure above.**
+No page lets anybody change the address they sign in as: a confirmed referee's change is the
+administrator's save, proved by the new mailbox's own link and told to the address on file, and
+every other role's is the administrator's correction.
 
 **Withdrawing a consent is the person's own write on their account page, `/bereich/konto`, and
 never an erasure or an edit by hand** (`docs/backend/spec.md :: I869`, `:: I972`). Point a request

@@ -21,7 +21,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
-from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, FLEinwilligungWahl, compose_beleg, ist_erteilt, nachweis_stand_of
+from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, compose_wahlen, ist_erteilt, nachweis_stand_of
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
@@ -63,15 +63,14 @@ def compose_person_move(
         return None
 
     return {
-        "$set": {
-            **{f"einwilligung.{wahl}": gewaehlt[wahl] for wahl in bewegt},
-            **{
-                f"einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
-                    gespeichert=gespeichert, wahl=wahl, wert=gewaehlt[wahl], am=am, text_version=text_version, stamp=log_stamp
-                )
-                for wahl in bewegt
-            },
-        }
+        "$set": compose_wahlen(
+            pfad="einwilligung",
+            gespeichert=gespeichert,
+            gesetzt={wahl: gewaehlt[wahl] for wahl in bewegt},
+            am=am,
+            text_version=text_version,
+            stamp=log_stamp,
+        )
     }
 
 
@@ -80,26 +79,20 @@ def compose_sitz_move(
 ) -> dict[str, dict[str, Any]] | None:
     """The update moving every held seat's block of one row or application, `sitze` keyed by slot; `None` where none moves."""
 
-    bewegt: list[tuple[str, FLEinwilligungWahl]] = [
-        (slot, wahl)
-        for slot, gespeichert in sitze.items()
-        for wahl in WAHLEN
-        if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])
-    ]
-    if not bewegt:
-        return None
+    gesetzt: dict[str, Any] = {}
+    for slot, gespeichert in sitze.items():
+        gesetzt.update(
+            compose_wahlen(
+                pfad=f"kontakte.{slot}.einwilligung",
+                gespeichert=gespeichert,
+                gesetzt={wahl: gewaehlt[wahl] for wahl in WAHLEN if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])},
+                am=am,
+                text_version=text_version,
+                stamp=log_stamp,
+            )
+        )
 
-    return {
-        "$set": {
-            **{f"kontakte.{slot}.einwilligung.{wahl}": gewaehlt[wahl] for slot, wahl in bewegt},
-            **{
-                f"kontakte.{slot}.einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
-                    gespeichert=sitze[slot], wahl=wahl, wert=gewaehlt[wahl], am=am, text_version=text_version, stamp=log_stamp
-                )
-                for slot, wahl in bewegt
-            },
-        }
-    }
+    return {"$set": gesetzt} if gesetzt else None
 
 
 def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:

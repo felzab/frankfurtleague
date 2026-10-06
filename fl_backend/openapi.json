@@ -2270,7 +2270,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one** in\n`bestaetigung`, for the caller to mail to the new address: the old link was posted to a mailbox\nnobody reads, and leaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address does not move on this save.** The stored address stays in force,\nand the typed one is held as a pending change until its own mailbox confirms it, the save\nanswering `adresswechsel` with that link and the address it replaces, for the caller to mail the\nlink to the new address and a notice to the stored one. Retired or not: the record is theirs\neither way. A new pending change replaces an earlier one, whose link stops working; a save\nleaving the address alone leaves a pending change standing. Its consent is never asked again.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where either link is minted, a banned new address is refused\n`REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one** in\n`bestaetigung`, for the caller to mail to the new address: the old link was posted to a mailbox\nnobody reads, and leaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address does not move on this save.** The stored address stays in force,\nand the typed one is held as a pending change until its own mailbox confirms it, the save\nanswering `adresswechsel` with that link and the address it replaces, for the caller to mail the\nlink to the new address and a notice to the stored one. Retired or not: the record is theirs\neither way. A new pending change replaces an earlier one, whose link stops working, and where it\nnames another mailbox the earlier address goes from the action log as a decline's does\n(`docs/backend/spec.md :: I_NEW_KREF_4`); a save leaving the address alone leaves a pending change\nstanding. Its consent is never asked again.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where either link is minted, a banned new address is refused\n`REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -5642,7 +5642,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel": {
       "delete": {
         "summary": "Discard a Schiedsrichter's pending address change",
-        "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\nNothing is mailed. 404 where the referee holds no pending change, and for an id no referee holds, the ghost's included.",
+        "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I_NEW_KREF_4`): every image the log holds of this\nreferee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one\ncarrying an address nobody proved. Nothing is mailed. 404 where the referee holds no pending change, and for an id no\nreferee holds, the ghost's included.",
         "operationId": "delete_adresswechsel_api_v0_schiedsrichter__schiedsrichter_id__adresswechsel_delete",
         "security": [
           {
@@ -7453,7 +7453,7 @@
     "/api/v0/schiedsrichter/adresswechsel/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter address link opens",
-        "description": "Answer what this token opens: the referee's first name, the link's state and its deadline.\n\n**A first name and nothing else about the row** (`READ-REFEREE-003`): never either address, the school, the fee or the id. A POST\nthat reads, so the token travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`), which an answered, replaced or discarded change is too: an\nanswer removes what the link opens. An expired link is SERVED in that state rather than refused, and the state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`).",
+        "description": "Answer what this token opens: the referee's first name, the link's state and its deadline.\n\n**A first name and nothing else about the row** (`READ-REFEREE-003`): never either address, the school, the fee or the id. A POST\nthat reads, so the token travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`), which an answered, replaced or discarded change is too: an\nanswer removes what the link opens. An expired link is SERVED in that state rather than refused, and the state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`), and\n`nicht_bestaetigbar`, behind the deadline, wherever it holds the address the change would replace (`REQ-SCHIEDSRICHTER-010`):\neach state the confirmation would be refused in.",
         "operationId": "get_adresswechsel_ansicht_api_v0_schiedsrichter_adresswechsel_ansicht_post",
         "requestBody": {
           "content": {
@@ -7507,7 +7507,7 @@
     "/api/v0/schiedsrichter/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Schiedsrichter's pending address",
-        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation asks no consent and writes none: the\nconsent record stands as the referee gave it, and only `kontakt.email` moves.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SCHIEDSRICHTER-003`) or one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`). **A decline is refused\nneither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep.",
+        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation asks no consent and writes none: the\nconsent record stands as the referee gave it, and only `kontakt.email` moves.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SCHIEDSRICHTER-003`), one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`), and one whose change\nwould replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their record off\nthe address the ban keys on. **A decline is refused\nneither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it empties every image\nthe action log holds of this referee, those of every write while the change stood, a re-send included, carrying that address.",
         "operationId": "post_adresswechsel_api_v0_schiedsrichter_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -7547,6 +7547,9 @@
           },
           "404": {
             "$ref": "#/components/responses/404.REQ-SCHIEDSRICHTER-002"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SCHIEDSRICHTER-010"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-SCHIEDSRICHTER-003"
@@ -19896,7 +19899,8 @@
             "enum": [
               "gueltig",
               "abgelaufen",
-              "gesperrt"
+              "gesperrt",
+              "nicht_bestaetigbar"
             ],
             "title": "Zustand"
           },
@@ -26055,6 +26059,29 @@
                     "error_code": {
                       "enum": [
                         "REQ-SCHIEDSRICHTER-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SCHIEDSRICHTER-010": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-010"
                       ]
                     }
                   }

@@ -26,7 +26,7 @@ const { answerWith, answered } = doubleActions({
 const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { ADRESSWECHSEL_ABGELAUFEN, ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET, FormAdresswechselSection } =
+const { ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET, FormAdresswechselSection } =
   await import("./FormAdresswechselSection.tsx");
 
 const OFFEN: FLSchiedsrichterAdresswechsel = { email: "anna@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
@@ -51,15 +51,29 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
     assert.match(shown, /anna@neu\.example/);
     assert.match(shown, /01\.10\.2026/);
     assert.match(shown, /31\.12\.2099/);
-    assert.ok(shown.includes(ADRESSWECHSEL_ERNEUT) && shown.includes(ADRESSWECHSEL_VERWERFEN), "a control is missing");
+    assert.ok(shown.includes(ADRESSWECHSEL_VERWERFEN), "the discard is missing");
+  });
+
+  /* The consent panel on the same page holds a „Link erneut senden“ for its own link, so this one is named for its link. */
+  it("names its re-send for the link it sends, the visible words staying the consent panel's", () => {
+    render(
+      underNext(h(FormAdresswechselSection, { schiedsrichterId: "6890a1b2c3d4e5f607800001", adresswechsel: OFFEN, isDirty: false }), {
+        router: nextRouter(),
+      }),
+    );
+
+    const erneut = screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT });
+    assert.equal(ADRESSWECHSEL_ERNEUT, "Link erneut senden: Neue E-Mail-Adresse");
+    assert.equal(erneut.textContent.trim(), "Link erneut senden");
   });
 
   /* No clock removes a lapsed change, so a past date alone would read as a deadline still running. */
   it("says a lapsed link is lapsed, beside its date", () => {
     const shown = words({ ...OFFEN, frist: "2020-01-01" });
 
-    assert.ok(shown.includes(ADRESSWECHSEL_ABGELAUFEN), "a lapsed link reads as waiting");
-    assert.match(shown, /abgelaufen/);
+    // Once, beside the date, as the consent link's panel marks its own.
+    assert.equal(shown.split("abgelaufen").length - 1, 1, "the lapse is said other than once");
+    assert.match(shown, /01\.01\.2020 abgelaufen/);
   });
 
   it("wears the delivery register's own chip where the link's message was refused", () => {

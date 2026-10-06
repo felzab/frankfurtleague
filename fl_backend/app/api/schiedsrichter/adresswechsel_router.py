@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -14,20 +15,24 @@ from app.api.schiedsrichter.schemas import (
 from app.api.schiedsrichter.services import (
     ADRESSWECHSEL_ANSICHT_FIELDS,
     ADRESSWECHSEL_FELD,
+    adresswechsel_adressen,
     adresswechsel_zustand_of,
     build_adresswechsel_filter,
     compose_adresswechsel_antwort,
     find_bestaetigung_gesperrt_refusal,
+    find_ersetzte_adresse_gesperrt_refusal,
     find_expired_token_refusal,
     find_unknown_token_refusal,
     frist_of,
     vorname_of,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, refuse
-from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str
+from app.core.crud import patch_many_in_db, patch_one_in_db, refuse
+from app.core.dependencies import AktionenCollection, DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
 from app.core.exception_handlers import stores_nothing
+from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 
@@ -59,7 +64,9 @@ async def get_adresswechsel_ansicht(
 
     Refuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`), which an answered, replaced or discarded change is too: an
     answer removes what the link opens. An expired link is SERVED in that state rather than refused, and the state is `gesperrt`,
-    ahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`).
+    ahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`), and
+    `nicht_bestaetigbar`, behind the deadline, wherever it holds the address the change would replace (`REQ-SCHIEDSRICHTER-010`):
+    each state the confirmation would be refused in.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -74,10 +81,12 @@ async def get_adresswechsel_ansicht(
     refuse(find_unknown_token_refusal(found=isinstance(frist, str)))
     assert raw is not None and wechsel is not None
 
-    gesperrt = await adressen_gesperrt(sperrliste, [str(wechsel.get("email") or "")])
+    # Both addresses in one read, so the page never offers a confirmation the press refuses.
+    neue, ersetzte = adresswechsel_adressen(raw)
+    gesperrt = await adressen_gesperrt(sperrliste, [neue, ersetzte])
 
     return FLSchiedsrichterAdresswechselAnsichtResponse(
-        zustand=adresswechsel_zustand_of(wechsel=wechsel, today=today, gesperrt=bool(gesperrt)),
+        zustand=adresswechsel_zustand_of(wechsel=wechsel, today=today, gesperrt=neue in gesperrt, ersetzte_gesperrt=ersetzte in gesperrt),
         vorname=vorname_of(raw.get("name")),
         frist=frist,
     )
@@ -92,8 +101,10 @@ async def post_adresswechsel(
     antwort_data: Annotated[FLSchiedsrichterAdresswechselPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     sperrliste: SperrlisteLookup,
+    aktionen_collection: AktionenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterAdresswechselResponse:
     """
     Record whether the mailbox this link was sent to is the referee's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.
@@ -102,8 +113,11 @@ async def post_adresswechsel(
     consent record stands as the referee gave it, and only `kontakt.email` moves.
 
     Refuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and a CONFIRMATION through a link whose deadline has passed
-    (`REQ-SCHIEDSRICHTER-003`) or one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`). **A decline is refused
-    neither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep.
+    (`REQ-SCHIEDSRICHTER-003`), one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`), and one whose change
+    would replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their record off
+    the address the ban keys on. **A decline is refused
+    neither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it empties every image
+    the action log holds of this referee, those of every write while the change stood, a re-send included, carrying that address.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -122,10 +136,11 @@ async def post_adresswechsel(
 
         if antwort_data.antwort == "bestaetigt":
             refuse(find_expired_token_refusal(frist=frist_of(wechsel), today=today))
-            gesperrt = await adressen_gesperrt(
-                sperrliste, [str(wechsel.get("email") or "")], massgebliche_saison_id=massgebliche_saison_id, session=session
-            )
-            refuse(find_bestaetigung_gesperrt_refusal(gesperrt=bool(gesperrt)))
+            neue, ersetzte = adresswechsel_adressen(raw)
+            gesperrt = await adressen_gesperrt(sperrliste, [neue, ersetzte], massgebliche_saison_id=massgebliche_saison_id, session=session)
+            # The link's own address first: where both are barred, its holder is the barred person.
+            refuse(find_bestaetigung_gesperrt_refusal(gesperrt=neue in gesperrt))
+            refuse(find_ersetzte_adresse_gesperrt_refusal(gesperrt=ersetzte in gesperrt))
 
         await patch_one_in_db(
             collection=schiedsrichter_collection,
@@ -134,6 +149,16 @@ async def post_adresswechsel(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
+
+        if antwort_data.antwort == "abgelehnt":
+            # LAST, for the contact's Widerspruch's reason: it reaches the pre-image the patch above
+            # just filed, which still holds the address its holder disowned.
+            await patch_many_in_db(
+                collection=aktionen_collection,
+                db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [raw["_id"]])]),
+                update=build_redaction_update(at=log_stamp(germany_now)),
+                session=session,
+            )
 
         return FLSchiedsrichterAdresswechselResponse(antwort=antwort_data.antwort)
 

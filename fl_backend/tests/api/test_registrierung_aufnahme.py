@@ -32,9 +32,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_SCHON_IM_KADER,
     REGISTRIERUNG_STUFE_NICHT_ERLAUBT,
     REGISTRIERUNG_UNBESTAETIGT,
-    compose_bestaetigung,
     compose_confirmation_update,
-    compose_registrierung,
 )
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
@@ -54,7 +52,7 @@ from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
-from tests.whole_database import every_collection_as_text
+from tests.whole_database import where_held
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -199,41 +197,38 @@ def registrierung_document(
     nachname: str = "Okonkwo-Brandt",
     geburtsdatum: str = GEBURTSDATUM,
     token: str = TOKEN,
+    position: str | None = "Mittelfeld",
+    nummer: str | None = "17",
+    stufe: str | None = "Q1",
     **fields: Any,
 ) -> dict[str, Any]:
-    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it, through their composers."""
+    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it."""
 
-    document = {
-        "_id": ObjectId(),
-        **compose_registrierung(
-            saison_id=saison_id,
-            team_id=team_id,
-            einladung_id=ObjectId(),
-            vorname=vorname,
-            nachname=nachname,
-            email=email,
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(token), today="2026-03-30", frist="2026-04-06"),
-            today="2026-03-30",
-        ),
-        "idempotenz_schluessel": str(ObjectId()),
-        "idempotenz_fingerabdruck": "f" * 64,
-    }
-    if confirmed:
-        document.update(
-            compose_confirmation_update(
-                geburtsdatum=geburtsdatum,
-                umfang="intern",
-                medien=False,
-                text_version="2026-09",
-                today="2026-03-31",
-                am="2026-03-31T08:00:00+00:00",
-            )["$set"]
-        )
-
-    return {**document, **fields}
+    return documents.registrierung_document(
+        ObjectId(),
+        email,
+        saison_id=saison_id,
+        team_id=team_id,
+        vorname=vorname,
+        nachname=nachname,
+        token=token,
+        eingereicht_am="2026-03-30",
+        frist="2026-04-06",
+        position=position,
+        nummer=nummer,
+        stufe=stufe,
+        bestaetigt=None
+        if not confirmed
+        else {
+            "geburtsdatum": geburtsdatum,
+            "umfang": "intern",
+            "medien": False,
+            "text_version": "2026-09",
+            "today": "2026-03-31",
+            "am": "2026-03-31T08:00:00+00:00",
+        },
+        **fields,
+    )
 
 
 async def seed(database: AsyncDatabase, document: Mapping[str, Any]) -> ObjectId:
@@ -295,13 +290,19 @@ class PersonsRunningARivalBeforeTheInsert(InterleavedCollection):
 
 
 async def decline(
-    database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: Any, *, grund: Any = None, identifier: str = ANNA
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    registrierung_id: Any,
+    *,
+    grund: Any = None,
+    identifier: str = ANNA,
+    registrierungen: Any = None,
 ) -> Any:
     return await ablehnen(
         registrierung_id=registrierung_id,
         ablehnung_data=FLRegistrierungAblehnenPayload(grund=grund),
         identifier=identifier,
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         records=record_collections(database),
         db=client,
@@ -415,16 +416,17 @@ class TestWhatAnAdmissionWrites:
                 await database[Collection.AKTIONEN].find({"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id}).to_list()
             )
 
-            return imaged, naming, await database[Collection.REGISTRIERUNGEN].count_documents({}), await every_collection_as_text(database)
+            remaining = await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        imaged, naming, remaining, everything = on_a_league(mongo_replica_set_url, body)
+            return imaged, naming, remaining, await where_held(database, TYPED_EMAIL, hash_token(TOKEN))
+
+        imaged, naming, remaining, held = on_a_league(mongo_replica_set_url, body)
 
         # The premise: without an image the redaction below would pass reaching nothing.
         assert imaged >= 1
         assert remaining == 0
         assert naming and all(row["before"] is None and row["redacted_at"] is not None for row in naming)
-        assert TYPED_EMAIL not in everything
-        assert hash_token(TOKEN) not in everything
+        assert held == {TYPED_EMAIL: [], hash_token(TOKEN): []}
 
     def test_it_writes_nothing_beyond_the_person_the_squad_row_the_anchor_and_the_log(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -666,23 +668,11 @@ class TestThePersonAnAdmissionNames:
         assert admitted == stored_id
         assert len(stored) == 1 and stored[0]["geburtsdatum"] == GEBURTSDATUM
 
-    def test_the_consent_record_is_the_registrations_fresh_one(self, mongo_replica_set_url: str):
-        """The confirmation page promises renewal: a narrowed answer left under the older record would be ignored."""
-
-        stored_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id))
-            await admit(database, client, await seed(database, registrierung_document()))
-
-            return (await persons(database))[0]["einwilligung"]
-
-        einwilligung = on_a_league(mongo_replica_set_url, body)
-
-        assert (einwilligung["umfang"], einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("intern", "2026-03-31", "2026-09")
-
     def test_a_returning_persons_record_is_renewed_with_the_registrations_evidence(self, mongo_replica_set_url: str):
-        """The registration's confirmation is the person's own act, so its evidence is what the renewed record proves."""
+        """The confirmation page promises renewal, a narrowed answer left under the older record being ignored.
+
+        The registration's confirmation is the person's own act, so its evidence is what the renewed record proves.
+        """
 
         stored_id = ObjectId()
 
@@ -1114,7 +1104,37 @@ class TestEverySeatActsAlike:
         assert after == before
 
 
+class RegistrationsRunningARivalAfterTheirRead(InterleavedCollection):
+    """`registrierungen` with a rival run once just after the decline read the pending registration, before it writes."""
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        await self.run_the_rival()
+
+        return found
+
+
 class TestTheDecline:
+    def test_a_rival_decision_landing_after_its_read_makes_it_retry_and_miss(self, mongo_replica_set_url: str):
+        """The rival's decision stands: the decline's write conflicts with it, and the retry's read finds nothing pending."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            registrierung_id = await seed(database, registrierung_document())
+
+            async def the_rival_declines() -> None:
+                await decline(database, client, registrierung_id, grund="andere_person", identifier=THEO)
+
+            registrierungen = RegistrationsRunningARivalAfterTheirRead(database[Collection.REGISTRIERUNGEN], the_rival_declines)
+            with pytest.raises(DocumentNotFoundException):
+                await decline(database, client, registrierung_id, registrierungen=registrierungen)
+
+            return registrierungen.passes, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
+
+        passes, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert stored is not None and stored["entscheidung"] == {"getroffen_am": TODAY, "von": THEO, "grund": "andere_person"}
+        assert passes == 2, "one read is a decline that wrote over the rival's decision without a retry"
+
     @pytest.mark.parametrize("grund", [None, "andere_person"])
     def test_it_writes_the_state_and_the_decision_and_nothing_else(self, mongo_replica_set_url: str, grund: str | None):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

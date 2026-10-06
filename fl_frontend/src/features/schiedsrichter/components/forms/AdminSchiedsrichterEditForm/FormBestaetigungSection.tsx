@@ -43,6 +43,11 @@ import type { PillTone } from "@/shared/components/ui/badges";
 const LINK_ABGELAUFEN_LABEL = "abgelaufen";
 const LINK_ABGELAUFEN_TINT: PillTone = "warning";
 
+/** A lapsed link's mark beside its deadline, in this panel and the address change's, so one state is one word in both. */
+export function LinkAbgelaufen() {
+  return <span className={`${labelBadge(LINK_ABGELAUFEN_TINT)} ms-2 h-7 shrink-0`}>{LINK_ABGELAUFEN_LABEL}</span>;
+}
+
 /** Closed on a person who answered: the endpoint refuses a second link, there being no page left to open. */
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
 
@@ -58,7 +63,7 @@ function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsric
       <Angabe label="Link gesendet am">{formatSpielDatum(bestaetigung.verschickt_am)}</Angabe>
       <Angabe label="Gültig bis">
         {formatSpielDatum(bestaetigung.frist)}
-        {istAbgelaufen && <span className={`${labelBadge(LINK_ABGELAUFEN_TINT)} ms-2 h-7 shrink-0`}>{LINK_ABGELAUFEN_LABEL}</span>}
+        {istAbgelaufen && <LinkAbgelaufen />}
       </Angabe>
       {/* A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
           rather than a day that went missing. */}

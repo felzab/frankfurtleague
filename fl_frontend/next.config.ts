@@ -61,6 +61,9 @@ const nextConfig: NextConfig = {
   // after `.dockerignore`, which no tsc has checked.
   typescript: { ignoreBuildErrors: process.env.SKIP_BUILD_TYPE_CHECK === "true" },
   output: "standalone",
+  // TypeScript alone: Next's default also serves a `route.js` or a `page.jsx`, which tsc (`allowJs` off),
+  // the lint globs and every sweep over handlers and pages never read.
+  pageExtensions: ["tsx", "ts"],
   // No `partialPrefetching`, although Next's ISR guide presents it as `cacheComponents`' partner:
   // enabling it was measured to change nothing this app needed.
   // https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components

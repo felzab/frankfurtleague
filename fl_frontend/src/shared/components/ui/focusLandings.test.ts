@@ -13,8 +13,10 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { UserEvent } from "@testing-library/user-event";
@@ -288,17 +290,7 @@ const SCHEDULE = [
 const SPIELPLAN_UNDRAWN = {
   saisonId: "2026",
   saisonStatus: "future",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
+  rules: saisonRules(),
   startDate: "2026-08-01",
   endDate: "2027-06-30",
   spielplan: null,
@@ -367,16 +359,12 @@ const kontaktperson = (vorname: string, email: string | null, bestaetigtAm: stri
   email: email ?? `${vorname.toLowerCase()}@schule.example`,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  }),
 });
 const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 const OFFENE_BESTAETIGUNGEN = { ansprechperson: SITZ, stellvertretung: SITZ, trainer: { ...SITZ, abgelehnt_am: "2026-09-03" } };
@@ -1182,6 +1170,22 @@ const LANDINGS: Record<string, Landing> = {
       }),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Link erneut senden" }),
+  },
+  /* The discard takes its own panel away, so the focus lands on the contact panel beside it, which stays. */
+  "a referee's waiting address discarded, on the contact panel's heading": {
+    before: () =>
+      h(AdminSchiedsrichterEditView, {
+        istFassungBekannt: true,
+        schiedsrichter: {
+          ...SR_RECORD,
+          adresswechsel: { email: "pia@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null },
+        },
+        inactiveSince: null,
+      }),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
+    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
+    remount: true,
+    lands: () => heading(/^Kontakt/),
   },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),

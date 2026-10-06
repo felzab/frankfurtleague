@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import {
@@ -30,16 +31,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: {
-    umfang: "kontaktdaten",
-    erfasst_von: "person",
-    text_version: "2025-08",
-    datum: "2025-09-01",
-    bestaetigt_am: "2025-09-02",
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
   ...overrides,
 });
 

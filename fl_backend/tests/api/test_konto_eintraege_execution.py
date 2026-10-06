@@ -32,7 +32,8 @@ from tests.documents import (
     bewerbung_document,
     eigene_einwilligung_document,
     kontakte_document,
-    kontaktsitz_document,
+    kontaktperson_document,
+    neue_schule_document,
     registrierung_bestaetigt,
     registrierung_document,
     saison_document,
@@ -114,13 +115,13 @@ def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03") -> dict[str, Any]:
-    return kontaktsitz_document(
-        email,
-        vorname="Wiltrudis",
-        text_version="2026-09-bestaetigungsseite-6",
+    return kontaktperson_document(
+        "Wiltrudis",
         bestaetigt_am=bestaetigt_am,
+        email=email,
+        telefon="+49 69 5550101",
         geburtsdatum="2000-05-09",
-        medien=True,
+        einwilligung={"erfasst_von": "person", "text_version": "2026-09-bestaetigungsseite-6", "datum": "2026-09-01", "medien": True},
     )
 
 
@@ -129,7 +130,15 @@ def _kontakte(**seats: Any) -> dict[str, Any]:
 
 
 def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[str, Any]:
-    return bewerbung_document(oid, saison_id=ACTIVE, status=status, schule=f"Schule {oid}", kontakte=kontakte)
+    return bewerbung_document(
+        oid,
+        ACTIVE,
+        status,
+        kontakte=kontakte,
+        eingereicht_am="2026-09-01",
+        bestaetigungsfrist="2026-09-15",
+        schule=neue_schule_document(f"Schule {oid}", "SW"),
+    )
 
 
 def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaetigung_spieler", vorname: str = "Wiltrudis") -> dict[str, Any]:
@@ -144,12 +153,14 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
 
     return registrierung_document(
         oid,
-        email=email,
+        email,
         saison_id=ACTIVE,
         team_id=TEAMS[3],
         vorname=vorname,
         nachname="Ehrenpreis",
+        token=str(oid),
         eingereicht_am="2026-09-20",
+        frist="2026-09-27",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",

@@ -4,8 +4,13 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLBewerbungZustellungSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
-import { FLEinwilligungSchema, FLEinwilligungStandSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "@/features/spieler/schemas";
-import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
+import {
+  FLEinwilligungSchema,
+  FLEinwilligungStandSchema,
+  FLSpielerSelbstEinwilligungPayloadSchema,
+  LinkAntwortTextVersionSchema,
+} from "@/features/spieler/schemas";
+import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
@@ -294,12 +299,7 @@ export const FLSchiedsrichterBestaetigungPayloadSchema = z.object({
   medien: z.boolean(),
   // The version this page rendered, never one a browser chose: the record has to cite the words the
   // confirming person read.
-  text_version: z
-    .string()
-    .trim()
-    .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-      error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
+  text_version: LinkAntwortTextVersionSchema,
 });
 export type FLSchiedsrichterBestaetigungPayload = z.infer<typeof FLSchiedsrichterBestaetigungPayloadSchema>;
 
@@ -340,7 +340,7 @@ export type FLSchiedsrichterAdresswechselAnsichtPayload = z.infer<typeof FLSchie
  */
 export const FLSchiedsrichterAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // No `bestaetigt`: an answer removes what the link opens, so a reopened link is an unknown token.
-  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt"]),
+  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]),
   vorname: z.string().nullable(),
   frist: CustomDateStringSchema,
 });

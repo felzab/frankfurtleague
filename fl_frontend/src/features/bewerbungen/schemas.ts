@@ -3,7 +3,12 @@ import z from "zod";
 import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLEinwilligungStandSchema, FLSpielerSelbstEinwilligungPayloadSchema, WAHL_UNBEKANNT } from "@/features/spieler/schemas";
+import {
+  FLEinwilligungStandSchema,
+  FLSpielerSelbstEinwilligungPayloadSchema,
+  LinkAntwortTextVersionSchema,
+  WAHL_UNBEKANNT,
+} from "@/features/spieler/schemas";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
@@ -684,14 +689,7 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
       medien: z.boolean(),
       // The version this page rendered, never the one the submission stamped: the seat's record has to
       // cite the words the confirming person read, and the two are months apart.
-      text_version: z
-        .string()
-        .trim()
-        // The endpoint's own floor: the page fills it from the served label, so only a drifted page sends none.
-        .nonempty({ error: "Deine Antwort nennt keine Fassung der Hinweise. Bitte öffne den Link noch einmal aus Deiner E-Mail." })
-        .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-          error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-        }),
+      text_version: LinkAntwortTextVersionSchema,
     })
     .superRefine((payload, ctx) => {
       if (payload.antwort !== "erteilt") {

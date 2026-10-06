@@ -5,6 +5,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import type { MailOutcome, SentMail } from "@/core/mailDouble.ts";
 
@@ -63,7 +64,7 @@ registerDoubles({
 
 const { mailEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 const { ZURUECKGEHALTEN } = await import("./meldungen.ts");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 
 const SAISON_ID = "2627";
 const EINLADUNG_ID = "b".repeat(24);
@@ -75,16 +76,12 @@ const seat = (email: string, bestaetigtAm: string | null) => ({
   email: email,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1990-04-01",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-08-01",
     datum: "2026-08-02",
     bestaetigt_am: bestaetigtAm,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  }),
 });
 
 const BEIDE_BESTAETIGT = {
@@ -216,7 +213,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   /* The spine leaves a refusal standing, and a refused address is still written to the delivery record

@@ -1161,9 +1161,11 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "no payload carries the block. Four controls replace it WHOLE, each answering the raw token once -- every "
         "create, the save that corrects an unconfirmed live referee's address, the reactivation of an unconfirmed referee, and "
-        "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting a RETIRED referee's address "
-        "removes it and mints nothing, so the link a replaced block held stops working at once "
-        "and the delivery state of the message it went out in goes with it. `POST /zustellung`, `POST /zustellung/angenommen` "
+        "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting an unconfirmed RETIRED "
+        "referee's address removes it and mints nothing, so the link a replaced block held stops working at once "
+        "and the delivery state of the message it went out in goes with it. A confirmed referee's address moves through "
+        "`POST /schiedsrichter/adresswechsel` instead, whose confirmation removes that delivery state alone. "
+        "`POST /zustellung`, `POST /zustellung/angenommen` "
         "and `POST /zustellung/abgewiesen` write that delivery state under it on the system key alone, each applying only where "
         "the report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
         "to state a delivery state is a "
@@ -2026,6 +2028,15 @@ RULES: tuple[Rule, ...] = (
         summary="a link mailed to an address the ban list now holds records no consent and confirms no address, whenever it was minted",
         implemented_by="app.api.schiedsrichter.services.find_bestaetigung_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-010",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /schiedsrichter/adresswechsel",
+        aggregate="Schiedsrichter",
+        summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
+        implemented_by="app.api.schiedsrichter.services.find_ersetzte_adresse_gesperrt_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestAChangeReplacingABarredAddress",
     ),
     Rule(
         code="REQ-SQUAD-001",

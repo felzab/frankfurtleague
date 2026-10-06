@@ -6,6 +6,7 @@ import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/
 import {
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
+  FLSchiedsrichterBestaetigungPayloadSchema,
   FLSchiedsrichterListResponseSchema,
   hatAdresse,
 } from "./schemas.ts";
@@ -90,4 +91,26 @@ describe("the ceiling a referee's name is held to", () => {
       assert.equal(parsed.data?.name, atCeiling);
     });
   }
+});
+
+describe("the label a confirmation's answer names", () => {
+  /* The endpoint refuses an empty label, so the page refuses it first, in German, rather than sending a
+     body the endpoint answers with a code no box can carry. */
+  it("is refused empty or blank, as the endpoint refuses it", () => {
+    const antwort = { token: "kein-echtes-token", geburtsdatum: "1990-01-01", umfang: "intern", medien: false };
+
+    assert.equal(
+      FLSchiedsrichterBestaetigungPayloadSchema.safeParse({ ...antwort, text_version: "2026-09-seite" }).success,
+      true,
+      "the fixture is refused for a field of its own",
+    );
+    for (const text_version of ["", "   "]) {
+      const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse({ ...antwort, text_version });
+      assert.deepEqual(
+        parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
+        [["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail noch einmal."]],
+        JSON.stringify(text_version),
+      );
+    }
+  });
 });

@@ -1,3 +1,4 @@
+import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any, get_args
@@ -5,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -15,6 +17,7 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbstEinwilligungPay
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungPayload
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
 from tests.actor_tokens import SignedActor
@@ -182,13 +185,27 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
+@functools.cache
+def _app() -> FastAPI:
+    """Built once for the module: a build per case would be about half of what a case here costs."""
+
+    return create_app(CONFIG)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _built_before_any_case() -> None:
+    """Never inside a case, for the reason `tests/api/test_drosselung_execution.py :: _built_before_any_case` gives."""
+
+    _app()
+
+
 def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]]) -> T:
     """`steps` against a freshly seeded database, served on the clock `NOW` reads."""
 
     async def _run() -> T:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
             await _seed(database)
-            async with app_client(url, config=CONFIG, now=NOW) as http:
+            async with app_client(url, app=_app(), now=NOW) as http:
                 return await steps(http, database)
 
     return on_the_seed_loop(_run())

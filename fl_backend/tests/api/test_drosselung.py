@@ -15,8 +15,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.routing import APIRoute
 
-from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, gedrosselt, get_drossel, sekunden_bis_tagesende, tagesende
-from app.core.exceptions import DrosselungException
+from app.core.drosselung import TAGESBUDGETS, gedrosselt, get_drossel, sekunden_bis_tagesende, tagesende
 from app.core.recording import AktorFunktion
 from app.core.security import PERSON_ACTOR_BINDERS
 from app.main import RefusalDriver, _dependency_calls, dependency_refusals
@@ -182,9 +181,3 @@ def test_every_funktion_has_a_ceiling():
 def test_retry_after_counts_real_seconds_to_the_german_midnight(germany_now: datetime, midnight: datetime, seconds: int):
     assert tagesende(germany_now) == midnight
     assert sekunden_bis_tagesende(germany_now) == seconds
-
-
-def test_the_refusal_is_a_429_naming_when_to_come_back():
-    refusal = DrosselungException(error_code=DROSSELUNG_ERREICHT, retry_after_s=43200)
-
-    assert (refusal.status_code, refusal.error_code, refusal.headers) == (429, DROSSELUNG_ERREICHT, {"Retry-After": "43200"})

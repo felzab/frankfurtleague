@@ -9,16 +9,20 @@ import { act, createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeKontaktSaisonFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
+import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 
 import { ABLEHNEN_LABEL, VERTRETUNG_MIN_ALTER } from "../../constants.ts";
 
 import type { BestaetigungStart } from "./BestaetigungView.tsx";
 
 const fetchMock = doubleFetch();
+/* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
+const { raised } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { BestaetigungView } = await import("./BestaetigungView.tsx");
@@ -119,5 +123,37 @@ describe("a season row's link past its season", () => {
     unmount();
 
     assert.ok(tot, "a refused Widerspruch left the offer standing");
+  });
+
+  /** The toasts a refused Widerspruch raises, and whether the offer still stands after it. */
+  async function pressAgainst(answer: unknown): Promise<{ toasts: [string, string, unknown][]; offerStands: boolean }> {
+    raised.length = 0;
+    answerEveryFetch(answer);
+    const user = userEvent.setup();
+    const { unmount } = render(h(BestaetigungView, { start: VORBEI }));
+
+    await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(fetchMock.answered);
+    const offerStands = screen.queryByRole("button", { name: ABLEHNEN_LABEL }) !== null;
+    unmount();
+
+    return { toasts: raised.map(({ variant, title, description }) => [variant, title, description]), offerStands };
+  }
+
+  /* A refusal naming no state of the link leaves the offer standing, so the person can press again,
+     and says the Widerspruch was not taken in the answer's own sentence. */
+  it("names a refusal under the Widerspruch's own title, and keeps the offer", async () => {
+    const { toasts, offerStands } = await pressAgainst({ success: false, error: "Der Eintrag wurde gerade geändert. Versuche es erneut." });
+
+    assert.deepEqual(toasts, [["danger", "Widerspruch nicht gespeichert", "Der Eintrag wurde gerade geändert. Versuche es erneut."]]);
+    assert.ok(offerStands, "a refused Widerspruch took the offer away");
+  });
+
+  /* The Widerspruch may have landed, so the envelope's own sentence, an administrator's repair, is
+     not the visitor's: the page sends them back to the link, which says whether it was taken. */
+  it("titles a Widerspruch of unknown outcome as unclear, and sends the person back to the link", async () => {
+    const { toasts } = await pressAgainst({ success: false, outcome: "unknown", error: "Ob der Widerspruch gespeichert wurde, ist unklar." });
+
+    assert.deepEqual(toasts, [["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]]);
   });
 });

@@ -11,6 +11,7 @@ import { serverActionModules } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import {
   actionReachOf,
   CONDITIONALLY_STEPPED_UP,
@@ -418,13 +419,18 @@ describe("an administrator write the server holds to the step-up window", () => 
 
 const ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
 
-/** A referee's undo body, the save's payload with its address set to `email`. */
+/**
+ * A referee's undo body as the editor sends it: the save's payload with its address set to `email`, and
+ * the route's own word on whether the undone save left a new address waiting, as the kontakte drive
+ * carries its route's `kontakte_stand`.
+ */
 const refereeReplay = (email: string) => ({
   id: REFEREE_ID,
   name: "Anna Körner",
   schule: null,
   default_payment: 20,
   kontakt: { telefon: null, email },
+  adresswechsel_gespeichert: false,
 });
 
 /**
@@ -527,17 +533,7 @@ const NEW_SAISON = {
   id: "2027",
   start_date: "2027-03-01",
   end_date: "2027-07-01",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
+  rules: saisonRules(),
   bewerbung: null,
   registrierung: null,
 };

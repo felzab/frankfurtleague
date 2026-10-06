@@ -1494,17 +1494,19 @@ describe("the words the two contact pages are handed", () => {
 
   /**
    * Every read answered as the backend would: `laufend` overriding what it runs on each page,
-   * `ansichtNennt` and `zustand` the label and state the link's view answers, and `scheitert` failing
-   * one endpoint.
+   * `ansichtNennt` and `zustand` the label and state the link's view answers, `scheitert` failing
+   * one endpoint, and `worte` answering every words read.
    */
   function backend({
     laufend,
     ansichtNennt,
     zustand,
     scheitert,
-  }: { laufend?: Record<string, string>; ansichtNennt?: string; zustand?: string; scheitert?: string } = {}): void {
+    worte,
+  }: { laufend?: Record<string, string>; ansichtNennt?: string; zustand?: string; scheitert?: string; worte?: unknown } = {}): void {
     answerReadsWith((endpoint, schema, params) => {
       if (endpoint === scheitert) throw new Error(`the backend failed ${endpoint}`);
+      if (worte !== undefined && endpoint.startsWith("/einwilligung/fassungen/")) return worte;
       if (endpoint === "/einwilligung/seiten" && laufend !== undefined) return { acknowledged: 1, laufende_fassungen: laufend };
       if (endpoint === "/bewerbungen/einwilligung/ansicht")
         return { ...GEOEFFNET, zustand: zustand ?? GEOEFFNET.zustand, laufende_fassung: ansichtNennt ?? GEOEFFNET.laufende_fassung };
@@ -1583,11 +1585,15 @@ describe("the words the two contact pages are handed", () => {
     );
   });
 
-  /* The registry holding no such label is a read that failed, never a dead link. */
-  it("opens a link on the failed read's panel where its view names a label the registry does not hold", async () => {
+  /* The backend naming a label its own registry does not hold, or words off their schema, is a broken
+     contract: only a deploy repairs it, so it reaches the error boundary, never the panel asking for a
+     reload. */
+  it("lets a view naming words the registry cannot serve reach the error boundary", async () => {
     backend({ ansichtNennt: "eine-unbekannte-fassung" });
+    await assert.rejects(bestaetigungStart(), { name: "ContractBreakError" }, "a label the registry does not hold was absorbed into a panel");
 
-    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+    backend({ worte: { acknowledged: 1 } });
+    await assert.rejects(bestaetigungStart(), { name: "ContractBreakError" }, "words off their schema were absorbed into a panel");
   });
 
   it("hands the application form the words and label the backend runs on the form", async () => {
@@ -1613,8 +1619,5 @@ describe("the words the two contact pages are handed", () => {
   it("lets a registry breaking its contract on the form reach the error boundary", async () => {
     backend({ laufend: {} });
     await assert.rejects(formFassung(), { name: "ContractBreakError" }, "no label for the form was absorbed into a panel");
-
-    backend({ laufend: { bewerbung: "2026-01-nirgends" } });
-    await assert.rejects(formFassung(), { name: "ContractBreakError" }, "a label serving no words was absorbed into a panel");
   });
 });

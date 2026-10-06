@@ -26,6 +26,7 @@ from app.api.einladungen.services import compose_einladung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exception_handlers import STORES_NOTHING_WHEN, stores_nothing
+from app.core.recording import log_stamp
 from app.core.security import verify_access_admin
 from app.main import create_app
 from tests.actor_tokens import SignedActor
@@ -160,11 +161,14 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                 "entscheidung": {"getroffen_am": "2026-04-03", "von": BARRED, "grund": None},
             }
         )
+        # The real clock, never a date: the retention index removes a row a year past `at_date`, so a
+        # fixed one would leave the `/aktionen` reads nothing to answer once that year had run.
+        recorded = datetime.now(UTC)
         database[Collection.AKTIONEN].insert_one(
             {
                 "_id": AKTION_OID,
-                "at": "2026-04-01T09:30:00+00:00",
-                "at_date": datetime(2026, 4, 1, 9, 30, tzinfo=UTC),
+                "at": log_stamp(recorded),
+                "at_date": recorded,
                 "actor": {"kind": "admin_session", "email": BARRED},
                 "trace_id": "0123456789abcdef",
                 "request": {"method": "POST", "path": "/api/v0/sperrliste"},

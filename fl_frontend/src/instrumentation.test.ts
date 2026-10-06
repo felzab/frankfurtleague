@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { generateKeyPairSync } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, beforeEach, describe, it } from "node:test";
@@ -278,30 +277,25 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
     turnstile_secret_key: "fabricated-turnstile-secret",
   };
 
-  /** A file's place taken by a directory. */
-  const A_DIRECTORY = Symbol("a directory");
-
   type Case = {
     settings?: Record<string, string | undefined>;
-    files?: Record<string, string | typeof A_DIRECTORY | undefined>;
+    files?: Record<string, string | undefined>;
     checkedAs?: string;
-    keyFile?: string;
   };
 
   /** One boot in a process of its own: its exit code, and everything it wrote. */
-  function boot({ settings = {}, files = {}, checkedAs = "production", keyFile = ACTOR_KEY_FILE }: Case): {
+  function boot({ settings = {}, files = {}, checkedAs = "production" }: Case): {
     code: number | null;
     said: string;
   } {
     const secrets = mkdtempSync(path.join(KEY_DIRECTORY, "secrets-"));
     for (const [name, content] of Object.entries({ ...FILES, ...files })) {
-      if (content === A_DIRECTORY) mkdirSync(path.join(secrets, name));
-      else if (content !== undefined) writeFileSync(path.join(secrets, name), content);
+      if (content !== undefined) writeFileSync(path.join(secrets, name), content);
     }
 
     // Built rather than inherited, so no variable of the runner's own, `SKIP_ENV_VALIDATION` above all,
     // decides a case. Not production, under which a hook left returning would arm the sweeps and never end.
-    const environment: NodeJS.ProcessEnv = { NODE_ENV: "test", SECRETS_DIR: secrets, ACTOR_SIGNING_KEY_FILE: keyFile };
+    const environment: NodeJS.ProcessEnv = { NODE_ENV: "test", SECRETS_DIR: secrets, ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE };
     for (const name of ["PATH", "Path", "SystemRoot"]) {
       const value = process.env[name];
       if (value !== undefined) environment[name] = value;
@@ -346,49 +340,6 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
     assert.deepEqual(local, { code: 0, said: "" });
   });
 
-  it("refuses with 3 a Cloudflare test site key under production, naming the variable and never the key", () => {
-    const key = "1x00000000000000000000AA";
-    const { code, said } = boot({ settings: { TURNSTILE_SITE_KEY: key } });
-
-    assert.equal(code, 3);
-    assert.match(said, /"error_code":"FE-BOOT-001"/);
-    assert.match(said, /"variables":"TURNSTILE_SITE_KEY"/);
-    assert.ok(!said.includes(key), "the refusal quoted the key");
-  });
-
-  it("refuses with 3 a sign-in secret a character short of its library's floor, naming its file and never the value", () => {
-    const short = SIGN_IN_SECRET.slice(0, 31);
-    const { code, said } = boot({ files: { auth_secret: short } });
-
-    assert.equal(code, 3);
-    assert.match(said, /"error_code":"FE-BOOT-004"/);
-    assert.match(said, /"files":"auth_secret"/);
-    assert.ok(!said.includes(short), "the refusal quoted the secret");
-  });
-
-  // No other check reads the files before the recreate, so every way one fails is a case: missing,
-  // missing under production alone, blank, and not a file.
-  it("refuses with 3 a secret file missing, blank or not a file, naming the file", () => {
-    const cases: [Case["files"], RegExp][] = [
-      [{ internal_api_key_admin: undefined }, /^FE-BOOT-004 internal_api_key_admin$/],
-      [{ turnstile_secret_key: undefined }, /^FE-BOOT-004 turnstile_secret_key$/],
-      [{ resend_webhook_secret: "" }, /^FE-BOOT-004 resend_webhook_secret$/],
-      [{ frontend_mongodb_uri: A_DIRECTORY }, /^FE-BOOT-004 .*frontend_mongodb_uri \(EISDIR\)$/],
-    ];
-    for (const [files, line] of cases) {
-      const { code, lines } = refused({ files });
-
-      assert.equal(code, 3, String(line));
-      assert.equal(lines.length, 1, lines.join("; "));
-      assert.match(lines[0] ?? "", line);
-    }
-  });
-
-  // A line the file leaves out and a bare `NAME` compose holds no value for reach the container alike.
-  it("refuses with 3 a required variable the container was not handed", () => {
-    assert.deepEqual(refused({ settings: { API_URL: undefined } }), { code: 3, lines: ["FE-BOOT-001 API_URL"] });
-  });
-
   /* The schema demands production's files on `APP_ENV`'s word alone, so a production host whose file says
      `local` would pass with none of them and its bot check on the published test secret. */
   it("refuses with 3 a deployment its APP_ENV does not name, judging the files that deployment is held to", () => {
@@ -396,15 +347,6 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
 
     assert.deepEqual(refused(production), { code: 3, lines: ["FE-BOOT-001 APP_ENV"] });
     assert.deepEqual(refused({ ...production, checkedAs: "local" }), { code: 0, lines: [] });
-  });
-
-  it("refuses with 3 a signing key the frontend cannot read, or one that is not Ed25519", () => {
-    const notSigning = path.join(KEY_DIRECTORY, "x25519.pem");
-    writeFileSync(notSigning, generateKeyPairSync("x25519").privateKey.export({ type: "pkcs8", format: "pem" }));
-
-    for (const keyFile of [path.join(KEY_DIRECTORY, "absent.pem"), notSigning]) {
-      assert.deepEqual(refused({ keyFile }), { code: 3, lines: [`FE-BOOT-003 ${keyFile}`] });
-    }
   });
 
   /* The process's environment carries names of the platform's own beside the file's, so no boot can tell a

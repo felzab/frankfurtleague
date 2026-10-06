@@ -89,6 +89,34 @@ describe("what the editor shows about a referee's own confirmation", () => {
     assert.ok(words(overrides).includes(EINWILLIGUNG_MEDIEN_LABELS.erteilt), "the media consent reads in a wording of its own");
   });
 
+  /** The stored label's row alone, read off the markup: each choice's act names the label too. */
+  const fassungRow = (overrides: Partial<Props>): string => {
+    const zeile = new RegExp(`<dt\\b[^>]*>${EINWILLIGUNG_FASSUNG_FRAGE}</dt>\\s*<dd\\b[^>]*>([\\s\\S]*?)</dd>`).exec(
+      renderTree(panel(overrides)),
+    );
+    assert.ok(zeile, "the panel renders no stored label's row");
+
+    return textOf(zeile[1] ?? "", " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  /* A key the registry holds nothing for is a record citing words nobody can produce, and a bare key
+     renders it alike a known one; the key stands beside the mark, for whoever repairs it. */
+  it("marks a stored label the registry does not hold, beside the key", () => {
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: false }), `${String(BESTAETIGT.text_version)} Unbekannte Fassung`);
+  });
+
+  /* The registry's read failed: the panel says the check was not made rather than calling the label known or unknown. */
+  it("says the stored label went unchecked where the registry could not be read", () => {
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: null }), `${String(BESTAETIGT.text_version)} Nicht geprüft`);
+  });
+
+  it("says in words where the record cites no label, and shows a known one as its key", () => {
+    assert.equal(fassungRow({ einwilligung: { ...BESTAETIGT, text_version: null } }), "Nicht erfasst");
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT }), String(BESTAETIGT.text_version));
+  });
+
   /* The account page moves one choice and leaves the confirmation's day and label standing, so a
      choice read beside those alone would claim the referee decided it on the confirmation day. */
   it("reads each choice with the act it stands on, a withdrawal naming the grant it ended", () => {

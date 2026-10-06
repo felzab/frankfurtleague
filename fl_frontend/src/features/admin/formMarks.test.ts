@@ -16,7 +16,9 @@ import ts from "typescript";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import type { ReactNode } from "react";
@@ -121,16 +123,7 @@ const PERSON = (vorname: string, email: string) => ({
   email,
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: {
-    umfang: "kontaktdaten" as const,
-    erfasst_von: "person" as const,
-    text_version: "1",
-    datum: "2026-03-12",
-    bestaetigt_am: "2026-03-14",
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
 const TEAM_B = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "SG Beta", shorthand: "SB" };
@@ -154,17 +147,7 @@ const OFFER = [
   { gruppe: "A" as const, occupied: 1, capacity: 4 },
   { gruppe: "B" as const, occupied: 0, capacity: 4 },
 ];
-const SAISON_RULES = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const SAISON_RULES = saisonRules();
 const LEVEL_KNOCKOUT = spielFields({
   id: "6890a1b2c3d4e5f607182901",
   saison_id: "2026",
@@ -184,16 +167,7 @@ const staende = async () => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: {
-      umfang: "kontaktdaten" as const,
-      erfasst_von: "administrativ" as const,
-      text_version: "1",
-      datum: "2026-09-01",
-      bestaetigt_am: null,
-      medien: false,
-      eingetragen_von: null,
-      nachweis: { umfang: null, medien: null },
-    },
+    einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "1", datum: "2026-09-01", bestaetigt_am: null }),
   });
   const offen = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 

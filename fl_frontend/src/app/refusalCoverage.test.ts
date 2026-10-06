@@ -9,7 +9,7 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 /* The request the public mappers' reads and the undo spine load in, doubled before the `await import`s below. */
 doubleActionRequest();
 
-const { answerSettled } = await import("@/shared/testing/publishedRefusals.ts");
+const { answerSettled, publishedRefusals } = await import("@/shared/testing/publishedRefusals.ts");
 const { isFunktionLost } = await import("@/shared/utils/actionError.ts");
 const { replayRefusal } = await import("@/shared/utils/undoRoute.ts");
 const berechtigungen = await import("@/features/berechtigungen/refusals.ts");
@@ -170,5 +170,46 @@ describe("every published refusal against the mapper answering it", () => {
     }
 
     assert.deepEqual(unworded, []);
+  });
+});
+
+/** Each undo route's replay table, with the operations its replay sends. */
+const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...operations: string[]])[] = [
+  [kontakte.KONTAKTE_REPLAY_REFUSALS, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
+  [saisons.SAISON_REPLAY_REFUSALS, "PATCH /saisons/{saison_id}"],
+  [schiedsrichter.SCHIEDSRICHTER_REPLAY_REFUSALS, "PATCH /schiedsrichter/{schiedsrichter_id}"],
+  [spiele.PAARUNGEN_REPLAY_REFUSALS, "PATCH /spiele/paarungen"],
+  [spieler.SQUAD_REPLAY_REFUSALS, "PATCH /spieler/{spieler_id}/saisons/{saison_id}"],
+  [spielorte.SPIELORT_REPLAY_REFUSALS, "PATCH /spielorte/{spielort_id}"],
+  [spieltage.SPIELTAG_REPLAY_REFUSALS, "PATCH /spieltage/{spieltag_id}"],
+  [teams.TEAM_REPLAY_REFUSALS, "PATCH /teams/{team_id}", "PATCH /teams/{team_id}/saisons/{saison_id}"],
+];
+
+describe("every undo route's replay table", () => {
+  /* Read off the slices' exports rather than this table, so a replay table left out of it fails here
+     instead of going unjudged. */
+  it("is judged here, each one a slice exports", () => {
+    const exported = [kontakte, saisons, schiedsrichter, spiele, spieler, spielorte, spieltage, teams].flatMap((slice) =>
+      Object.entries(slice).filter(([name]) => name.endsWith("_REPLAY_REFUSALS")),
+    );
+
+    assert.deepEqual(
+      exported.filter(([, table]) => !REPLAYED.some(([judged]) => judged === table)).map(([name]) => name),
+      [],
+      "a replay table this file does not judge",
+    );
+  });
+
+  /* `fl_frontend/src/shared/testing/undoRoutes.ts :: assertEachRefusalCloses` holds the other direction:
+     a row for a code nothing sends is German nobody meets. */
+  it("words only codes one of its replayed operations publishes", () => {
+    const stray = REPLAYED.flatMap(([table, ...operations]) => {
+      const published = new Set(operations.flatMap((operation) => publishedRefusals(operation)));
+      return Object.keys(table)
+        .filter((code) => !published.has(code))
+        .map((code) => `${code} beside ${operations.join(" and ")}`);
+    });
+
+    assert.deepEqual(stray, [], "a replay table words a code its replayed operations no longer publish");
   });
 });

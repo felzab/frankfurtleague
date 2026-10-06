@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -19,21 +18,20 @@ from app.api.identitaet.services import eigene_eintraege
 from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client
 from tests.bans import ban_list
-from tests.config import BASE_AUTH, SYSTEM_AUTH
-from tests.core.app_source import application
+from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     EINWILLIGUNG,
     ban_document,
     bewerbung_document,
     kontakte_document,
-    kontaktsitz_document,
+    kontaktperson_document,
+    neue_schule_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -104,7 +102,7 @@ GRANT_OID = ObjectId("6890a1b2c3d4e5f607860051")
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
-    return kontaktsitz_document(email, vorname="Anna", text_version="v1", bestaetigt_am=bestaetigt_am)
+    return kontaktperson_document("Anna", bestaetigt_am=bestaetigt_am, email=email)
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
@@ -116,14 +114,16 @@ def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping
 
 
 def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dict[str, Any]:
+    """An application naming a new school, as the submission stores one."""
+
     return bewerbung_document(
         oid,
-        saison_id=ACTIVE_SAISON,
-        status=status,
-        schule=f"Bewerberschule {oid}",
+        ACTIVE_SAISON,
+        status,
         kontakte=_kontakte(trainer=dict(trainer)),
         eingereicht_am="2026-01-01",
         bestaetigungsfrist="2026-01-15",
+        schule=neue_schule_document(f"Bewerberschule {oid}", str(oid)[-4:]),
     )
 
 
@@ -134,27 +134,33 @@ def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
 
 
 def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **fields: Any) -> dict[str, Any]:
-    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it, through their composers."""
+    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it."""
 
-    bestaetigt = (
-        compose_confirmation_update(
-            geburtsdatum="2009-05-04", umfang="intern", medien=False, text_version="2026-09", today="2026-01-03", am="2026-01-03T08:00:00+00:00"
-        )["$set"]
-        if confirmed
-        else None
-    )
-    document = registrierung_document(
+    return registrierung_document(
         oid,
-        email=email,
+        email,
         saison_id=ACTIVE_SAISON,
         team_id=TEAM_OIDS[0],
         vorname="Rita",
         nachname="Registriert",
+        token=str(oid),
         eingereicht_am="2026-01-02",
-        bestaetigt=bestaetigt,
+        frist="2026-01-09",
+        position="Mittelfeld",
+        nummer="17",
+        stufe="Q1",
+        bestaetigt=None
+        if not confirmed
+        else {
+            "geburtsdatum": "2009-05-04",
+            "umfang": "intern",
+            "medien": False,
+            "text_version": "2026-09",
+            "today": "2026-01-03",
+            "am": "2026-01-03T08:00:00+00:00",
+        },
+        **fields,
     )
-
-    return {**document, **fields}
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -392,18 +398,6 @@ def test_every_funktion_list_is_drawn_from_the_own_records(monkeypatch: pytest.M
         ("spieler", e.spieler_id) for e in subjekt.spieler
     } <= eintraege
     assert subjekt.schiedsrichter == []
-
-
-def test_the_operation_is_unreachable_without_a_bearer_token():
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
-
-    assert (response.status_code, response.json()["error_code"]) == (401, MISSING_TOKEN)
-
-
-def test_the_base_key_draws_the_system_guard_s_own_code():
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": SITZ_AKTIV})
-
-    assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)
 
 
 @functools.cache

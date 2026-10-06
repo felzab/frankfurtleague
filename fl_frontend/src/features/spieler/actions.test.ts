@@ -9,6 +9,7 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { ContractBreakError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -61,9 +62,13 @@ let pageAnswers: {
   teams?: unknown;
   asked?: string[];
   nachnominierung?: boolean;
-  /** The registry's read failing, where a case asks it to. */
-  registerFehlt?: boolean;
+  /** The registry's read failing, where a case asks it to: with a failure, or with a contract break. */
+  registerFehlt?: boolean | "vertragsbruch";
 } = {};
+
+/** Every error line the page wrote: what it says, and the error it carries. */
+const errorLines: { message: string; error: unknown; meta: unknown }[] = [];
+const inertLog = (): undefined => undefined;
 
 const getSaisons = () => Promise.resolve(pageAnswers.saisons);
 
@@ -79,7 +84,21 @@ const PAGE_DOUBLES = {
   "features/saisons/queries.ts": { getAdminSaisons: getSaisons, getSaisons },
   "features/teams/queries.ts": { getTeamMemberships: () => Promise.resolve(pageAnswers.teams) },
   "core/einwilligung.ts": {
-    istFassungBekannt: () => (pageAnswers.registerFehlt === true ? Promise.reject(new Error("backend unreachable")) : Promise.resolve(true)),
+    istFassungBekannt: async () => {
+      if (pageAnswers.registerFehlt === true) throw new Error("backend unreachable");
+      if (pageAnswers.registerFehlt === "vertragsbruch") {
+        throw new ContractBreakError("the backend's words for 2026-09-spielerseite break their schema (trace 0)");
+      }
+      return true;
+    },
+  },
+  "core/logging.ts": {
+    logger: {
+      debug: inertLog,
+      info: inertLog,
+      warn: inertLog,
+      error: (message: string, error?: unknown, meta?: unknown) => void errorLines.push({ message, error, meta }),
+    },
   },
 };
 
@@ -414,6 +433,23 @@ describe("the player editor over a registry it cannot read", () => {
       (body.props as { istFassungBekannt: unknown }).istFassungBekannt,
       null,
       "a failed registry read reached the editor as a verdict",
+    );
+  });
+
+  /* The editor is the operator's tool for repairing the record, so a broken contract leaves it
+     standing too; logged under the error boundary's own code, so the broken deploy is still seen. */
+  it("hands the editor an unchecked label where the registry broke its contract, and logs it", async () => {
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
+    pageAnswers.registerFehlt = "vertragsbruch";
+    errorLines.length = 0;
+
+    const body = await editorPageBody();
+
+    assert.equal((body.props as { istFassungBekannt: unknown }).istFassungBekannt, null, "a contract break took the editor down");
+    assert.deepEqual(
+      errorLines.map(({ error, meta }) => [(error as Error).name, (meta as { error_code?: string }).error_code]),
+      [["ContractBreakError", "FE-RSC-001"]],
+      "the contract break went unlogged",
     );
   });
 });

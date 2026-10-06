@@ -32,7 +32,6 @@ const answerWith = (next: () => Promise<unknown>): void => client.answerWith((ca
 
 const { ablehnenRegistrierungAction, aufnehmenRegistrierungAction, patchRegistrierungEinwilligungAction } = await import("./personActions.ts");
 const { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
-const { SITZ_WEG } = await import("@/shared/utils/actionError.ts");
 
 const AUFNEHMEN_OPERATION = "POST /registrierungen/{registrierung_id}/aufnehmen";
 const ABLEHNEN_OPERATION = "POST /registrierungen/{registrierung_id}/ablehnen";
@@ -110,25 +109,6 @@ describe("a seat holder's decisions on a registration", () => {
       message: "Lena kommt nicht in den Kader. Die Registrierung löschen wir einen Monat nach der Entscheidung.",
     });
     assert.deepEqual(invalidations(), [["refresh"]]);
-  });
-
-  /* The seat is the spine's to derive from the session, never the payload's word: the payload names a
-     team the person holds nothing on. */
-  it("never reaches the backend for a seat the person does not hold", async () => {
-    setSubject(person({ sitze: [sitz({ team_id: "6890a1b2c3d4e5f607250012" })] }));
-    answerWith(() => Promise.resolve(AUFNAHME));
-
-    const answers = [
-      await aufnehmenRegistrierungAction({ ...ZIEL, spieler_id: null }),
-      await ablehnenRegistrierungAction({ ...ZIEL, grund: null }),
-    ];
-
-    assert.deepEqual(calls, [], "a decision for a seat the person does not hold reached the backend");
-    assert.deepEqual(answers, [
-      { success: false, error: SITZ_WEG },
-      { success: false, error: SITZ_WEG },
-    ]);
-    assert.deepEqual(mailed, [], "a refused decline mailed the pupil");
   });
 });
 

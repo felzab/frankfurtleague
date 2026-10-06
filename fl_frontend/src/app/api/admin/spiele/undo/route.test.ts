@@ -2,14 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
-import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import {
-  assertEachRefusalCloses,
-  assertEachRowPublished,
-  doubleRouteRequest,
-  revalidatedTags,
-  unacknowledged,
-} from "@/shared/testing/undoRoutes.ts";
+import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 /** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spiele/paarungen";
@@ -21,21 +15,6 @@ const { setSession } = doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(RESTORED));
 
 const { POST } = await import("./route.ts");
-const { PAARUNGEN_REPLAY_REFUSALS } = await import("@/features/spiele/refusals.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
-
-/** One refused answer as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (statusCode: number, serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/spiele/paarungen",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/spiele/paarungen",
-    method: "PATCH",
-    readOnly: false,
-    traceId: "0",
-  });
 
 const SAISON_ID = "2026";
 const SPIEL_ID = "6890a1b2c3d4e5f607a10001";
@@ -77,7 +56,7 @@ describe("the undo route's replay refusals against the endpoint it replays", () 
     const answers = await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
       refuse: (code) => {
-        answerWith(() => Promise.reject(aRefusal(409, code)));
+        answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code)));
       },
       press: () => post(aReplayOf(SPIEL_ID)),
     });
@@ -134,7 +113,7 @@ describe("the undo route, driven", () => {
   });
 
   it("reports a mapped refusal as the change still standing", async () => {
-    answerWith(() => Promise.reject(aRefusal(409, "REQ-WIRING-001")));
+    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-WIRING-001")));
 
     const answered = await post(aReplayOf(SPIEL_ID, OTHER_SPIEL_ID));
 
@@ -149,7 +128,7 @@ describe("the undo route, driven", () => {
   // A row retired before the save being undone meets this refusal too, so a sentence dating the
   // retirement after that save would tell the admin something the record contradicts.
   it("words a retired or deleted booking without saying when it retired", async () => {
-    answerWith(() => Promise.reject(aRefusal(409, "REQ-BOOKING-001")));
+    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-BOOKING-001")));
 
     const answered = await post(aReplayOf(SPIEL_ID));
 
@@ -159,7 +138,11 @@ describe("the undo route, driven", () => {
   });
 
   it("does not resolve a rejection it cannot word as a success", async () => {
-    for (const rejection of [aRefusal(409, "REQ-INVENTED-001"), aRefusal(500, "REQ-WIRING-001"), new Error("socket")]) {
+    for (const rejection of [
+      refusedOn(REPLAY_OPERATION, "REQ-INVENTED-001", 409),
+      refusedOn(REPLAY_OPERATION, "REQ-WIRING-001", 500),
+      new Error("socket"),
+    ]) {
       answerWith(() => Promise.reject(rejection));
 
       const answered = await post(aReplayOf(SPIEL_ID));
@@ -245,11 +228,5 @@ describe("the undo route, driven", () => {
 
     assert.equal(answered.status, 401);
     assert.equal(calls.length, 0);
-  });
-});
-
-describe("the replay table against the replayed endpoint", () => {
-  it("words only codes the replayed endpoint publishes", () => {
-    assertEachRowPublished(PAARUNGEN_REPLAY_REFUSALS, REPLAY_OPERATION);
   });
 });

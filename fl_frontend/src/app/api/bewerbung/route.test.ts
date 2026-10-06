@@ -32,7 +32,7 @@ const siteverify = doubleSiteverify();
 const { POST } = await import("./route.ts");
 const { BEWERBUNG_VERALTET, bewerbungPayload, buildEmptyBewerbungDraft } = await import("@/features/bewerbungen/utils.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 const { mapBewerbungSubmitRefusal } = await import("@/features/bewerbungen/utils.ts");
@@ -151,18 +151,8 @@ describe("the application handler's submission key", () => {
   });
 });
 
-/** One refused write as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://backend/api/v0/bewerbungen",
-    statusCode: 409,
-    serverErrorCode,
-    endpoint: "/bewerbungen",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** One refused write as the client raises it, at the status the document publishes its code under. */
+const aRefusal = (serverErrorCode: string) => refusedOn("POST /bewerbungen", serverErrorCode);
 
 describe("the application handler's refused write", () => {
   /* The window shut between the page loading and the press: the answer is the slice's own banner,
@@ -352,40 +342,18 @@ describe("what the submission's messages say about themselves", () => {
 });
 
 describe("the application handler's bot check", () => {
-  const MENSCH = "Bitte bestätige kurz, dass Du ein Mensch bist.";
-
-  /* Before the write, which mails three addresses the payload names: a refused check stores nothing and
-     sends nothing. */
-  it("refuses a submission carrying no token, and writes and mails nothing", async () => {
-    const answer = await bodyOf(aRequest({ [TURNSTILE_HEADER]: "" }));
-
-    assert.deepEqual(answer.body, { success: false, error: MENSCH });
-    assert.deepEqual(writes(), []);
-    assert.deepEqual(mails, []);
-  });
-
-  it("refuses a submission whose token Cloudflare judged, and writes nothing", async () => {
-    siteverify.judges(false);
-
-    assert.deepEqual((await bodyOf(aRequest({ "Idempotency-Key": KEY }))).body, { success: false, error: MENSCH });
-    assert.deepEqual(writes(), []);
-  });
-
-  it("writes past the test key's token, asked of Cloudflare with the test secret", async () => {
+  /* The check's verdicts, and the secret it sends under the real config, are `fl_frontend/src/core/turnstile.test.ts`'s;
+     this handler asking it first is `fl_frontend/src/app/botCheckCoverage.test.ts`'s. Here: the header
+     the token is read from. */
+  it("writes past the test key's token, read from the header the form sends it in", async () => {
     const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }));
 
     assert.equal((answer.body as { success: boolean }).success, true);
     assert.equal(writes().length, 1);
-    assert.deepEqual(siteverify.asked(), [{ secret: TEST_SECRET, response: TEST_TOKEN }]);
-  });
-
-  it("writes past a check Cloudflare could not answer, with one line saying so", async () => {
-    siteverify.unreachable();
-
-    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }));
-
-    assert.equal((answer.body as { success: boolean }).success, true);
-    assert.equal(logs.filter((entry) => entry.includes("FE-TURNSTILE-001")).length, 1);
+    assert.deepEqual(
+      siteverify.asked().map(({ response }) => response),
+      [TEST_TOKEN],
+    );
   });
 });
 

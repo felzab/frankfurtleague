@@ -17,10 +17,14 @@ import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt, Wert } from "@/features/bewerbun
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AdresseGesperrt,
+  ANTWORT_NICHT_GESPEICHERT,
+  ANTWORT_NICHT_GESPEICHERT_SATZ,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
   GespeicherteAngaben,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
@@ -53,7 +57,6 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { GekeyteFassung, SchiedsrichterAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
@@ -90,16 +93,11 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   bestaetigt: "Schon erledigt",
   abgelaufen: "Link ungültig",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
-
-const NICHT_GESPEICHERT = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
-
-/** This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here made. */
-const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
 
 /**
  * The slots a record fills from the person who opened the link
@@ -326,7 +324,7 @@ function SchiedsrichterFormPanel({
             reportSubmitFailure(
               {
                 success: false,
-                error: antwort.error ?? NICHT_GESPEICHERT,
+                error: antwort.error ?? ANTWORT_NICHT_GESPEICHERT_SATZ,
                 fieldErrors: antwort.fieldErrors,
                 unplacedError: antwort.unplacedError,
               },
@@ -571,18 +569,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         </BestaetigungErgebnis>
       )}
 
-      {/* Says that it does not know, and nothing else: folded into the dead-link panel, this arm
-          would call a live link void on a day the backend was merely unreachable. */}
-      {stand.zustand === "unlesbar" && (
-        <BestaetigungErgebnis
-          panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
     </section>
   );
 }

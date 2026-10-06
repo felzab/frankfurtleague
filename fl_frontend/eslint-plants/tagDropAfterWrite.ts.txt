@@ -8,6 +8,7 @@ export async function plantedAfterWrite(write: () => Promise<void>): Promise<voi
   await write();
   updateTag("spieler");
   nextCache.updateTag("spieler"); // expect: tag-drop
+  nextCache["updateTag"]("spieler"); // expect: tag-drop
   refresh();
 }
 
