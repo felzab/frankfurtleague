@@ -9979,7 +9979,7 @@
           "funktion"
         ],
         "title": "FLAktorPerson",
-        "description": "A signed-in person, named by a pseudonym and the Funktion the write was authorised under.\n\nMirrors `app/core/recording.py :: PersonActor`, and carries no address."
+        "description": "A signed-in person, named by a pseudonym and the kind of person the write was made as.\n\nMirrors `app/core/recording.py :: PersonActor`, and carries no address."
       },
       "FLAnmeldungResponse": {
         "properties": {

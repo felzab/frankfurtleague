@@ -498,8 +498,8 @@ _KONTO_SPIELER: Final[Mapping[str, str]] = MappingProxyType(
             "Bist Du nicht mehr in der Liga aktiv, kannst Du eine Erlaubnis hier nur noch zurücknehmen, nicht neu erteilen."
         ),
         "nurWiderrufBisAufnahme": (
-            "Solange Dein Team über Deine Registrierung nicht entschieden hat, kannst Du die Einwilligung hier nur "
-            "widerrufen. Nimmt Dein Team Dich auf, kannst Du hier auch wieder zustimmen."
+            "Solange Dein Team über Deine Registrierung nicht entschieden hat, kannst Du eine Erlaubnis hier nur "
+            "zurücknehmen. Nimmt Dein Team Dich auf, kannst Du sie hier auch erteilen."
         ),
     }
 )
@@ -541,15 +541,15 @@ _KONTO_KONTAKT: Final[Mapping[str, str]] = MappingProxyType(
         "widerruf": (
             "Jede Änderung gilt ab dem Moment, in dem Du sie speicherst; was bis dahin geschah, bleibt rechtmäßig (Art. 7 Abs. 3 DSGVO)."
         ),
-        # Each shown beside the seat its cause holds alone: a seat granting no panel takes a withdrawal and
-        # nothing else, for one of two reasons on a season row and for one on a pending application.
+        # Each shown beside the seat its cause holds alone. „erteilen“ and never „wieder zustimmen“: most
+        # seats reading one never agreed to the choice it names.
         "nurWiderrufVorbei": (
             "Für eine vergangene Saison oder ein Team, das aus der Saison ausgetreten ist, kannst Du eine Erlaubnis "
             "hier nur noch zurücknehmen, nicht neu erteilen."
         ),
         "nurWiderrufBisZusage": (
-            "Solange über die Bewerbung nicht entschieden ist, kannst Du die Einwilligung hier nur widerrufen. Nach "
-            "einer Zusage kannst Du hier auch wieder zustimmen."
+            "Solange über die Bewerbung nicht entschieden ist, kannst Du eine Erlaubnis hier nur zurücknehmen. Nach "
+            "einer Zusage kannst Du sie hier auch erteilen."
         ),
     }
 )

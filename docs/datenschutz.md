@@ -516,11 +516,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   controller holds the key that recomputes it from the address.
 - **A signed-in person's writes are counted per day under the same pseudonym, and the count
   outlives an erasure until that day ends.** The daily write ceiling
-  (`docs/glossary.md :: Drosselung`) keeps one row per Funktion, pseudonym and German day, holding a number and no
+  (`docs/glossary.md :: Drosselung`) keeps one row per kind of person the write was made as, pseudonym and German day, holding a number and no
   address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
   at that day's German midnight, plus the monitor's lag, and no erasure reaches it before then
   (`docs/backend/spec.md :: I837`). **The ceiling's first refusal of a day also leaves one line in
-  the application log**, naming the Funktion and the pseudonym's prefix the action-log page shows,
+  the application log**, naming the kind of person and the pseudonym's prefix the action-log page shows,
   never an address (`fl_backend/app/core/drosselung.py :: get_drossel`,
   `docs/backend/spec.md :: I835`). That line is kept as every application-log line is, by size while
   the container runs and for thirty days in the copy each deploy takes
