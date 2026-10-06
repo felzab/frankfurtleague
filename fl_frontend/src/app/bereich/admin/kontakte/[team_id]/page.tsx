@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { getLaufendesLabel } from "@/core/einwilligung";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { AdminKontakteEditView } from "@/features/kontakte/components/views/AdminKontakteEditView";
 import { resolveTeamSaisonMembership } from "@/features/kontakte/utils";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
@@ -44,7 +45,7 @@ async function AdminKontakteEditContent({
     resolveAdminSaison(searchParams),
     // Per request, as every stamper reads the running label: a deploy moves it. `null` where the read
     // failed, which closes opening a seat blank and leaves every stored one editable.
-    runWithIncomingTrace(() => getLaufendesLabel("bewerbung")).catch(() => null),
+    runWithIncomingTrace(() => getLaufendesLabel("bewerbung")).catch(nullUnlessContractBreak),
   ]);
   if (!selectedSaison) {
     notFound();

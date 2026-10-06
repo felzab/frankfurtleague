@@ -163,7 +163,22 @@ describe("the running label", () => {
     beginRenderPass();
     api.answerWith(() => Promise.resolve({ acknowledged: 1, laufende_fassungen: { bewerbung: BEWERBUNG.text_version } }));
 
-    await assert.rejects(getLaufendesLabel("bestaetigung_kontakt"), /runs no label for the page bestaetigung_kontakt/);
+    await assert.rejects(getLaufendesLabel("bestaetigung_kontakt"), {
+      name: "ContractBreakError",
+      message: /runs no label for the page bestaetigung_kontakt/,
+    });
+  });
+
+  /* Thrown as a contract break, which every page's degraded catch hands to the error boundary. */
+  it("throws for a running label the backend serves no words for", async () => {
+    beginRenderPass();
+    api.answerWith((endpoint) =>
+      endpoint === "/einwilligung/seiten"
+        ? Promise.resolve({ acknowledged: 1, laufende_fassungen: { bewerbung: "2026-01-nirgends" } })
+        : Promise.resolve(einwilligungAnswer(endpoint)),
+    );
+
+    await assert.rejects(getLaufendeFassung("bewerbung"), { name: "ContractBreakError", message: /runs 2026-01-nirgends on bewerbung/ });
   });
 });
 

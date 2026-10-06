@@ -9,10 +9,11 @@ import { Badge } from "@heroui/react/badge";
 import { Popover } from "@heroui/react/popover";
 import { Separator } from "@heroui/react/separator";
 
-import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { withSaisonId } from "@/shared/utils/saisonHref";
+
+import { AustrittKuerzel } from "./AustrittKuerzel";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
 
@@ -104,11 +105,10 @@ export function TeamPopoverMenu({
                   3.76:1 on this panel in light and 4.06:1 in dark, both under the 4.5:1 this size
                   answers to. */}
               {teamAustritt !== null && (
-                <span
-                  aria-label={austrittZustand(teamAustritt)}
-                  className="rounded-md bg-danger/15 px-2 py-0.5 fluid-xxs font-extrabold text-danger-strong uppercase">
-                  {austrittKuerzel(teamAustritt)}
-                </span>
+                <AustrittKuerzel
+                  type={teamAustritt}
+                  className="rounded-md bg-danger/15 px-2 py-0.5 fluid-xxs font-extrabold text-danger-strong uppercase"
+                />
               )}
             </Popover.Heading>
 

@@ -106,6 +106,7 @@ const NAMENLOS_IN_LIST: FLSchiedsrichter = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 /** The picker under both providers it reads, with the list offering NOBODY unless a caller names somebody. */

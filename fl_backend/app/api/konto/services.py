@@ -14,9 +14,10 @@ from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbun
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.schemas import FLSubjektSitz
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat, ist_eigene_registrierung
-from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
+from app.api.kontakte.services import rows_possibly_naming
 from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.schiedsrichter.services import vorname_of
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
@@ -120,7 +121,7 @@ def _sitz_wahlen(
 
 
 # Unpacked rather than looped over, for the move's reason above: a fourth slot fails here at import.
-_ERSTER_SITZ, _ZWEITER_SITZ, _DRITTER_SITZ = KONTAKT_SLOTS
+_ERSTER_SITZ, _ZWEITER_SITZ, _DRITTER_SITZ = KONTAKT_ROLLEN
 
 
 def compose_sitz_move(
@@ -280,8 +281,8 @@ def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
-                **{f"bestaetigungen.{slot}.verschickt_am": 1 for slot in KONTAKT_SLOTS},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
+                **{f"bestaetigungen.{slot}.verschickt_am": 1 for slot in KONTAKT_ROLLEN},
             }
         },
         {"$sort": {"saison_id": -1, "name": 1, "team_id": 1}},
@@ -394,7 +395,7 @@ def build_selbst_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "schule.team_name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("vorname", "email", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "einwilligung")},
             }
         },
         {"$sort": {"saison_id": -1, "_id": 1}},

@@ -39,6 +39,7 @@ from app.api.registrierungen.sweep_router import router as registrierungen_sweep
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
+from app.api.schiedsrichter.adresswechsel_router import router as schiedsrichter_adresswechsel_router
 from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
@@ -67,6 +68,8 @@ from app.core.exception_handlers import (
     BODY_UNREADABLE,
     COMPONENT_REF,
     JSON_MEDIA_TYPE,
+    METHOD_NOT_SERVED,
+    NO_ROUTE,
     PAYLOAD_REFUSED,
     STORES_NOTHING_WHEN,
     refusal_response,
@@ -140,6 +143,7 @@ PUBLIC_ROUTERS = (
     registrierungen_public_router,
     registrierungen_einwilligung_router,
     schiedsrichter_bestaetigung_router,
+    schiedsrichter_adresswechsel_router,
 )
 # Its own group for the same reason: system-tier operations the application makes to itself, which
 # neither tuple above describes. A POST that stores nothing sits here too, both guard sheets listing
@@ -222,6 +226,38 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
 UNGUARDED_TIER = "none"
 
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
+
+# Not domain rules: each is a property of the transport, or of how much one person writes in a day.
+# Each is raised in `app/core/` and declared by no `RULES` row, which is what
+# `fl_backend/tests/core/test_domain.py :: test_the_protocol_codes_are_the_ones_outside_the_api_layer` holds.
+PROTOCOL_CODES = frozenset(
+    {
+        MISSING_TOKEN,
+        WRONG_BASE_KEY,
+        WRONG_SYSTEM_KEY,
+        WRONG_ADMIN_KEY,
+        MISSING_ACTOR,
+        ACTOR_NOT_ADMIN,
+        ACTOR_TOKEN_REFUSED,
+        PERSON_BARRED,
+        CONFIRMATION_REQUIRED,
+        DROSSELUNG_ERREICHT,
+        PAYLOAD_REFUSED,
+        BODY_UNREADABLE,
+        NO_ROUTE,
+        METHOD_NOT_SERVED,
+    }
+)
+
+# Published for the frontend, which hands a code to no slice's mapper by its family alone
+# (`fl_frontend/src/core/errors.ts :: PROTOCOL_FAMILIES`) and is compared against this.
+PROTOCOL_FAMILIES_EXTENSION = "x-fl-protocol-families"
+
+
+def refusal_family(code: str) -> str:
+    """`REQ-AUTH-001`'s `AUTH`."""
+
+    return code.split("-")[1]
 
 
 # Every failure an operation answers is `app/core/exception_handlers.py :: error_response`'s body, and
@@ -356,6 +392,11 @@ def publish_stores_nothing(app: FastAPI) -> DocumentPass:
             declared.update(dict.fromkeys(route.operations, flag))
 
     return functools.partial(with_extension, extension=STORES_NOTHING_EXTENSION, values=declared)
+
+
+def with_protocol_families(document: Mapping[str, Any]) -> Document:
+    # On the document rather than an operation: a family is the protocol's on every operation alike.
+    return {**document, PROTOCOL_FAMILIES_EXTENSION: sorted({refusal_family(code) for code in PROTOCOL_CODES})}
 
 
 def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
@@ -558,7 +599,15 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
     # caches what it builds, so an edit made afterwards never reaches a reader.
     publish_document(
-        app, (publish_key_tiers(app), publish_stores_nothing(app), publish_path_patterns(app), with_failure_bodies, publish_refusals(app))
+        app,
+        (
+            publish_key_tiers(app),
+            publish_stores_nothing(app),
+            publish_path_patterns(app),
+            with_failure_bodies,
+            publish_refusals(app),
+            with_protocol_families,
+        ),
     )
 
     return app

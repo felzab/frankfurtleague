@@ -18,6 +18,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
     REGISTRIERUNG_MEDIEN_ALTER,
+    REGISTRIERUNG_PERSON_FEHLT,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     REGISTRIERUNG_WAHLEN_UNPASSEND,
@@ -33,6 +34,7 @@ from app.api.registrierungen.services import (
     find_alter_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
+    find_person_fehlt_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
     persons_named,
@@ -587,8 +589,24 @@ class TestWhatAReturningAdmissionWrites:
         assert "$unset" not in update
         assert update["$set"]["geburtsdatum"] == "2009-05-09"
 
+    @pytest.mark.parametrize(
+        ("registrierung", "adresse", "refused"),
+        [
+            pytest.param(RETURNING, None, True, id="returning, nobody at the address"),
+            pytest.param(RETURNING, {"vorname": "Quillhilde"}, False, id="returning, the person still there"),
+            pytest.param({**RETURNING, "einwilligung": einwilligung()}, None, False, id="new, nobody at the address"),
+        ],
+    )
+    def test_a_returning_registration_admits_nobody_once_its_person_is_gone(self, registrierung: Any, adresse: Any, refused: bool):
+        """A new pupil's registration carries the choices a new person is born with; a returning one carries none."""
+
+        refusal = find_person_fehlt_refusal(registrierung_raw=registrierung, adresse_raw=adresse)
+
+        assert (refusal is not None) == refused
+        assert refusal is None or (refusal.error_code, refusal.status) == (REGISTRIERUNG_PERSON_FEHLT, 409)
+
     def test_a_new_person_is_never_born_from_it(self):
-        """Reached only where the person the press resolved is gone by the admission; a block with no scope is one mongod refuses."""
+        """The guard behind `REQ-REGISTRIERUNG-018`: a person born with no scope is one the validator refuses mid-transaction."""
 
         with pytest.raises(ValueError, match="no choice"):
             compose_person(spieler_id="a-new-id", registrierung_raw=self.RETURNING, adresse="quillhilde@example.com")

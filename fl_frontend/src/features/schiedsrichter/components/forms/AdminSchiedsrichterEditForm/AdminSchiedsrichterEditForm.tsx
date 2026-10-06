@@ -27,6 +27,7 @@ import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
+import { FormAdresswechselSection } from "./FormAdresswechselSection";
 import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
 import { FormBestaetigungSection } from "./FormBestaetigungSection";
 import { FormHonorarSection } from "./FormHonorarSection";
@@ -35,6 +36,7 @@ import { FormPersonSection } from "./FormPersonSection";
 
 import type {
   FLPatchSchiedsrichterPayload,
+  FLSchiedsrichterAdresswechsel,
   FLSchiedsrichterBestaetigung,
   FLSchiedsrichterPayloadDraft,
 } from "@/features/schiedsrichter/schemas";
@@ -85,6 +87,7 @@ export function AdminSchiedsrichterEditForm({
     geburtsdatum: string | null;
     einwilligung: FLEinwilligung | null;
     bestaetigung: FLSchiedsrichterBestaetigung | null;
+    adresswechsel: FLSchiedsrichterAdresswechsel | null;
   };
   /** Whether the registry holds the stored label, which no record of the row says. */
   istFassungBekannt: boolean | null;
@@ -279,6 +282,16 @@ export function AdminSchiedsrichterEditForm({
             onChange={setKontakt}
             onFieldLeft={validateFields}
           />
+
+          {/* Beside the address it would replace, and only while one waits: the box above still holds
+              the address in force, which an administrator would otherwise read as a save that failed. */}
+          {schiedsrichter.adresswechsel !== null && (
+            <FormAdresswechselSection
+              schiedsrichterId={schiedsrichter.id}
+              adresswechsel={schiedsrichter.adresswechsel}
+              isDirty={isDirty}
+            />
+          )}
 
           <FormHonorarSection
             defaultPayment={defaultPayment}

@@ -94,6 +94,21 @@ const keysOf = (value: unknown): string[] =>
 /** What a seat holder must never be handed about a pupil: a way to reach them, their birthdate, their consent. */
 const PRIVATE_KEY = /mail|telefon|phone|geburtsdatum|einwilligung/i;
 
+describe("a pending row without a number", () => {
+  /* An `aria-label` on a span with no role is one a screen reader may skip, so the empty chip says it in text. */
+  it("says so in text a screen reader reads, and nowhere in an aria-label", async () => {
+    answeringOffen({ ...OFFEN, registrierungen: [zeile(LENA, "Lena", "Meier", { nummer: null })] });
+    try {
+      const { markup } = await renderedPage();
+
+      assert.ok(markup.includes('<span class="sr-only">Keine Nummer</span>'), "the empty chip says nothing a screen reader reads");
+      assert.doesNotMatch(markup, /aria-label="Keine Nummer"/, "the empty chip is named by an aria-label again");
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
+    }
+  });
+});
+
 describe("the registrations page, as a seat holder reads it", () => {
   /* A Trainer-only seat, the narrowest there is: whatever an Ansprechperson reads, it reads too. */
   it("lists every pending row with its marker, the unconfirmed one closed to admission, and whom to ask for a fresh link", async () => {
@@ -205,7 +220,7 @@ const viewWith = (fields: Record<string, unknown>) =>
 async function armedThen(user: UserEvent, control: string | RegExp, whileArmed?: () => void): Promise<void> {
   mock.timers.enable({ apis: ["Date"] });
   try {
-    await user.click(screen.getByRole("button", { name: "Lena Meier aufnehmen" }));
+    await user.click(screen.getByRole("button", { name: "Aufnehmen: Lena Meier" }));
     whileArmed?.();
     mock.timers.tick(DOUBLE_PRESS_MS);
     await user.click(screen.getByRole("button", { name: control }));
@@ -227,7 +242,7 @@ describe("deciding a registration", () => {
 
   it("admits a row whose address resolves nobody as a new person", async () => {
     viewWith({});
-    await pressTwice(userEvent.setup(), { resting: "Lena Meier aufnehmen", armed: "Ja, aufnehmen" });
+    await pressTwice(userEvent.setup(), { resting: "Aufnehmen: Lena Meier", armed: "Ja, aufnehmen" });
     await act(answered);
 
     assert.deepEqual(calls, [{ action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: null } }]);
@@ -240,7 +255,7 @@ describe("deciding a registration", () => {
     viewWith({ person: { spieler_id: STORED, vorname: "Lena", nachname: "Schulz", weicht_ab: true } });
     const user = userEvent.setup();
     await pressTwice(user, {
-      resting: "Lena Meier aufnehmen",
+      resting: "Aufnehmen: Lena Meier",
       armed: "Als Lena Schulz aufnehmen",
       whileArmed: () => {
         assert.equal(primaryName(), "Als Lena Schulz aufnehmen", "the stored record is not the armed primary");
@@ -280,7 +295,7 @@ describe("deciding a registration", () => {
 
   it("declines a row with no reason from its own control", async () => {
     viewWith({ aufnehmbar: false });
-    await pressTwice(userEvent.setup(), { resting: "Registrierung von Lena Meier ablehnen", armed: "Ja, ablehnen" });
+    await pressTwice(userEvent.setup(), { resting: "Ablehnen: Registrierung von Lena Meier", armed: "Ja, ablehnen" });
     await act(answered);
 
     assert.deepEqual(calls, [{ action: "ablehnenRegistrierungAction", payload: { ...ZIEL, grund: null } }]);

@@ -82,21 +82,20 @@ export const SCHIEDSRICHTER_UMFANG_LABELS: Record<FLEinwilligung["umfang"], stri
 };
 
 /**
- * `false` is read as nobody having agreed rather than as a refusal: the switch is off until somebody
- * presses it, and a word naming a decision would put one in that person's mouth.
- */
-export const SCHIEDSRICHTER_MEDIEN_LABELS = {
-  erteilt: "Fotos, Videos und Interviews zugesagt",
-  nicht_erteilt: "Nicht zugesagt",
-} as const;
-
-/**
  * Stated in the editor because no control shows it: an administrator correcting an outstanding
  * referee's address sends a link from the save bar, and would otherwise look for a press that mails it.
  */
 export const SCHIEDSRICHTER_KORREKTUR_HINWEIS =
   "Solange diese Person nicht bestätigt hat, geht beim Speichern einer geänderten E-Mail-Adresse " +
   "automatisch ein neuer Link an die neue Adresse, und der bisherige gilt nicht mehr.";
+
+/**
+ * The confirmed referee's twin, for the same reason: the save keeps the address on file, and an
+ * administrator expecting it to move at once reads the unchanged box as a save that failed.
+ */
+export const SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS =
+  "Eine geänderte E-Mail-Adresse gilt erst, wenn die Person sie über den Link bestätigt, der beim Speichern an die neue Adresse geht; " +
+  "bis dahin bleibt die bisherige, und die bisherige Adresse erfährt von der Änderung.";
 
 /**
  * The two states that close the send, worded for the administrator at the control rather than left

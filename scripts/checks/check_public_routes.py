@@ -276,8 +276,12 @@ def _block(tokens: list[tuple[str, str, int]], index: int, source: str, *, top: 
     return tuple(out), index
 
 
-def read_location(directive: Directive, source: str) -> Location:
-    """One `location` block as this accounting reads it, refusing a modifier it cannot judge."""
+def read_location(directive: Directive, source: str, redirected: frozenset[str] = frozenset()) -> Location | None:
+    """One `location` block as this accounting reads it, refusing a modifier it cannot judge.
+
+    `None` for a named location an `error_page` of the same level sends to, which answers no
+    request URI and so covers no handler and orphans none.
+    """
     block = directive.block
     if block is None:
         raise NginxSyntax(f"{source}:{directive.line}: a location with no block under it")
@@ -290,7 +294,9 @@ def read_location(directive: Directive, source: str) -> Location:
         # starts with it, which is none of them, and reading it as coverage is the one direction
         # this check may not fail in.
         if path.startswith(NAMED):
-            raise NginxSyntax(f"{source}:{directive.line}: the named location {path!r}, which no request URI reaches")
+            if path in redirected:
+                return None
+            raise NginxSyntax(f"{source}:{directive.line}: the named location {path!r}, which no request URI and no error_page reaches")
         return Location(False, path, metered, directive.line)
     if len(directive.args) == 2:
         modifier, path = directive.args
@@ -323,7 +329,15 @@ def locations(tree: tuple[Directive, ...], source: str) -> tuple[Location, ...]:
             f"{source}: {len(serving)} server blocks declare a location, and this reader cannot say which one answers a route handler"
         )
     block = tree if top else (serving[0].block or ())
-    found = tuple(read_location(child, source) for child in block if child.name == "location")
+    # The redirect's target is an `error_page`'s last argument; a location declaring one of its own
+    # is nested, which `read_location` refuses before this could matter.
+    redirected = frozenset(child.args[-1] for child in block if child.name == "error_page" and child.args)
+    read = (read_location(child, source, redirected) for child in block if child.name == "location")
+    found = tuple(location for location in read if location is not None)
+    named = {child.args[0] for child in block if child.name == "location" and len(child.args) == 1}
+    dangling = sorted(target for target in redirected if target.startswith(NAMED) and target not in named)
+    if dangling:
+        raise NginxSyntax(f"{source}: an error_page sends to {dangling[0]!r}, which no named location declares")
     _declared_once(found, source)
     return found
 

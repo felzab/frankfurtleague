@@ -1,5 +1,3 @@
-import { revalidateTag } from "next/cache";
-
 import { patchSpieltag } from "@/features/spieltage/mutations";
 import { SPIELTAG_REPLAY_REFUSALS } from "@/features/spieltage/refusals";
 import { FLPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
@@ -21,8 +19,6 @@ export async function POST(request: NextRequest) {
 
       return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
     },
-    invalidate: () => {
-      revalidateTag("spieltage", { expire: 0 });
-    },
+    tags: () => ["spieltage"],
   });
 }

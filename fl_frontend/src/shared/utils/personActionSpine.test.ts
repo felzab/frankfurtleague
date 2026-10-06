@@ -4,8 +4,9 @@ import { describe, it, mock } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
-import { filesUnder } from "@/core/treeWalk.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
+import { PERSON_ACTION_MODULES, srcPathOf } from "@/shared/testing/actionLanes.ts";
 
 /* The subject lookup, the sign-in store, the logger and the framework's request packages, doubled
    before the `await import`s below; the spine between them and the action is what is driven. */
@@ -31,8 +32,9 @@ const refusedFunktion = () =>
     traceId: "0",
   });
 
-const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
-const PERSON_ACTION_FILES = filesUnder(SLICES, (name) => name === "personActions.ts", 1).sort();
+const ACTION_MODULES = serverActionModules(20);
+/** The person lane's modules, read off Next's own population by the lane table both spines share. */
+const PERSON_ACTION_FILES = ACTION_MODULES.filter((file) => PERSON_ACTION_MODULES.has(srcPathOf(file)));
 
 /** Team A this season, the address the fixture's seat stands at. */
 const HELD = { team_id: SITZ.team_id, saison_id: SITZ.saison_id };
@@ -116,7 +118,18 @@ async function entryOf(action: PersonAction): Promise<"seat" | "record"> {
 
 describe("every person's server action", () => {
   it("is found at all, so the sweeps below sweep something", () => {
-    assert.ok(PERSON_ACTION_FILES.length > 0, "no features/*/personActions.ts was found");
+    assert.ok(PERSON_ACTION_FILES.length > 0, "no person action module was found");
+  });
+
+  /* An entry no server action module answers would stand ready for a module of that path, and claim
+     a sweep over nothing meanwhile. */
+  it("names a server action module at every entry of the lane table", () => {
+    const served = new Set(ACTION_MODULES.map(srcPathOf));
+
+    assert.deepEqual(
+      [...PERSON_ACTION_MODULES].filter((module) => !served.has(module)),
+      [],
+    );
   });
 
   /* Two listings reached by different routes, the declaration above and what each export does,

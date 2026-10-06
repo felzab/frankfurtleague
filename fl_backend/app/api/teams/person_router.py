@@ -9,10 +9,10 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.crud import funktionen_of, refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import eigene_sitze, holds_a_seat, seat_is_confirmed
-from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.konto.crud import press_einwilligung
 from app.api.konto.services import KONTO_SEITE_KONTAKT, compose_sitz_move, find_eigener_eintrag_refusal
 from app.api.teams.schemas import (
+    KONTAKT_ROLLEN,
     FLSaisonTeamPersonEinwilligungPayload,
     FLSaisonTeamPersonEinwilligungResponse,
     FLTeamSitz,
@@ -79,12 +79,12 @@ async def get_team_sitze(
         # The seat just judged lives on this row, read in the same snapshot, so it stands and no 404 is owed.
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            [f"kontakte.{slot}.{field}" for slot in KONTAKT_SLOTS for field in ("vorname", "nachname", "einwilligung.bestaetigt_am")],
+            [f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("vorname", "nachname", "einwilligung.bestaetigt_am")],
             session=session,
         )
         kontakte = (row or {}).get("kontakte") or {}
 
-    return FLTeamSitzeResponse(team_id=team_id, saison_id=saison_id, sitze=[_as_sitz(kontakte, slot) for slot in KONTAKT_SLOTS])
+    return FLTeamSitzeResponse(team_id=team_id, saison_id=saison_id, sitze=[_as_sitz(kontakte, slot) for slot in KONTAKT_ROLLEN])
 
 
 @router.patch(
@@ -127,7 +127,7 @@ async def patch_einwilligung(
     async def write(session: AsyncClientSession) -> FLSaisonTeamPersonEinwilligungResponse:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "geburtsdatum", "einwilligung")},
+            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
             session=session,
         )
         rollen = [] if row is None else eigene_sitze(row, identifier)

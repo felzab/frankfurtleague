@@ -17,7 +17,7 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.kontakte.services import rows_possibly_naming
 from app.api.sperrliste.services import withheld_actor
-from app.api.teams.schemas import FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
@@ -351,7 +351,7 @@ def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -
     """
 
     block = bewerbung_raw.get("bestaetigungen")
-    entries = {seat: _entry_of(block, seat) for seat in KONTAKT_SEATS}
+    entries = {seat: _entry_of(block, seat) for seat in KONTAKT_ROLLEN}
 
     terms: dict[str, Any] = {}
     unerreicht: list[Mapping[str, Any]] = []
@@ -417,9 +417,6 @@ def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKo
     return block
 
 
-# The three seats, in the order `FLSaisonTeamKontakte` declares them; nothing reads one by position.
-KONTAKT_SEATS = ("trainer", "ansprechperson", "stellvertretung")
-
 # Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen
 # (`docs/backend/spec.md :: I180`).
 SEAT_MIN_AGE_YEARS: Mapping[str, int] = {
@@ -455,7 +452,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
                 text_version=kontakte[seat]["einwilligung"]["text_version"], today=today, eingetragen_von="bewerbung"
             ),
         }
-        for seat in KONTAKT_SEATS
+        for seat in KONTAKT_ROLLEN
     }
     composed["trainer_ist_zugleich"] = kontakte["trainer_ist_zugleich"]
 
@@ -504,7 +501,7 @@ def compose_bestaetigung(*, token_hash: str, today: str) -> dict[str, Any]:
 
 
 def compose_bestaetigungen(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
-    return {seat: compose_bestaetigung(token_hash=hashes[seat], today=today) for seat in KONTAKT_SEATS}
+    return {seat: compose_bestaetigung(token_hash=hashes[seat], today=today) for seat in KONTAKT_ROLLEN}
 
 
 # A reminder's fresh hash and the first mail's, both live: a reader still looking at the first
@@ -516,13 +513,13 @@ TOKEN_HASH_FIELDS = ("token_hash", "token_hash_zuvor")
 # The admin reads' projection, and the FIRST exclusion projection in this tree: an inclusion list
 # would have to restate every field an application holds. Derived from the pair above, so a third
 # hash field cannot reach a read.
-WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_SEATS for field in TOKEN_HASH_FIELDS}
+WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_ROLLEN for field in TOKEN_HASH_FIELDS}
 
 
 def _per_seat(block: str, *fields: str) -> dict[str, int]:
     """Each seat's copy of these paths, included, so a fourth seat cannot fall out of a read."""
 
-    return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in fields}
+    return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_ROLLEN for field in fields}
 
 
 # What decides which page a seat's link opens (`kontakt_seite_of`): who seated its person, and the
@@ -573,7 +570,7 @@ EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """Every seat path and both hashes, so the hash alone finds the seat. No status term: a reopened link shows its own state."""
 
-    return {"$or": [{f"bestaetigungen.{seat}.{field}": token_hash} for seat in KONTAKT_SEATS for field in TOKEN_HASH_FIELDS]}
+    return {"$or": [{f"bestaetigungen.{seat}.{field}": token_hash} for seat in KONTAKT_ROLLEN for field in TOKEN_HASH_FIELDS]}
 
 
 def seat_named(value: Any) -> FLKontaktRolle | None:
@@ -589,7 +586,7 @@ def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKont
     if not isinstance(block, Mapping):
         return None
 
-    for seat in KONTAKT_SEATS:
+    for seat in KONTAKT_ROLLEN:
         entry = block.get(seat)
         if isinstance(entry, Mapping) and any(entry.get(field) == token_hash for field in TOKEN_HASH_FIELDS):
             return seat_named(seat)
@@ -744,7 +741,7 @@ SAISON_TOKEN_FIELD: Final = "token_hash"
 def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """Every seat path, so the hash alone finds the seat on whichever row holds it."""
 
-    return {"$or": [{f"bestaetigungen.{seat}.{SAISON_TOKEN_FIELD}": token_hash} for seat in KONTAKT_SEATS]}
+    return {"$or": [{f"bestaetigungen.{seat}.{SAISON_TOKEN_FIELD}": token_hash} for seat in KONTAKT_ROLLEN]}
 
 
 # An INCLUSION for `EINWILLIGUNG_ANSICHT_FIELDS`' reason: the rest of the row is what a base-tier read
@@ -870,7 +867,7 @@ def compose_saison_decline_update(*, seats: Sequence[str], today: str) -> Mappin
 def ausstehende_seats(*, kontakte: Any) -> list[FLKontaktRolle]:
     """Every seat without a stamp, in declaration order. An emptied slot counts: the application cannot complete without it."""
 
-    return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_SEATS if not _seat_is_confirmed(kontakte, seat)]
+    return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_ROLLEN if not _seat_is_confirmed(kontakte, seat)]
 
 
 def find_unconfirmed_kontakte_refusal(*, kontakte: Any, bestaetigungen: Any) -> WriteRefusal | None:
@@ -947,7 +944,7 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     addresses: dict[str, str] = {}
 
-    for seat in KONTAKT_SEATS:
+    for seat in KONTAKT_ROLLEN:
         slot = slots.get(seat)
         email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
         if email:
@@ -958,7 +955,7 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
         return None, []
 
     key = mailbox_key(anchor)
-    held = [seat for seat in KONTAKT_SEATS if seat in addresses and mailbox_key(addresses[seat]) == key]
+    held = [seat for seat in KONTAKT_ROLLEN if seat in addresses and mailbox_key(addresses[seat]) == key]
 
     return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
 
@@ -1087,8 +1084,8 @@ def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence
 def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str) -> KontaktSeite:
     """The page a season row's seat opens.
 
-    A seat stored before `eingetragen_von` opens the season row's own whoever named its person: the
-    applicant's page promises a deletion and a message that a season row's link never brings.
+    A seat stored before `eingetragen_von` opens the season row's own page, whoever named its person:
+    the applicant's page promises a deletion and a message that a season row's link never brings.
     """
 
     return kontakt_seite_of(
@@ -1210,7 +1207,7 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     # The seats this correction writes are left out: they are one person, and their blocks are equal
     # by the submission's own rule.
-    others = [slots.get(seat) for seat in KONTAKT_SEATS if seat not in seats]
+    others = [slots.get(seat) for seat in KONTAKT_ROLLEN if seat not in seats]
     # On the sign-in fold, as `FLBewerbungKontaktePayload` compares it: a third spelling of "one
     # mailbox" here would refuse where the form accepted, or the reverse.
     held = {sign_in_identifier(str(slot.get("email") or "")) for slot in others if isinstance(slot, Mapping)}
@@ -1464,7 +1461,7 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str) -> list[FLKo
 
     return [
         seat_named(seat) or cast(FLKontaktRolle, seat)
-        for seat in KONTAKT_SEATS
+        for seat in KONTAKT_ROLLEN
         if seat_reminder_is_due(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat, today=today)
     ]
 
@@ -1599,7 +1596,7 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "status": "eingereicht",
         # `$not` rather than `$gte`: a row carrying no readable deadline has a link that is not over.
         "bestaetigungsfrist": {"$not": {"$lt": today}},
-        "$or": [_seat_reminder_term(seat=seat, today=today) for seat in KONTAKT_SEATS],
+        "$or": [_seat_reminder_term(seat=seat, today=today) for seat in KONTAKT_ROLLEN],
     }
 
 
@@ -1611,7 +1608,7 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "status": "eingereicht",
         "bestaetigungsfrist": {"$lt": today},
         "bestaetigungen.ansprechperson.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP} for seat in KONTAKT_SEATS],
+        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP} for seat in KONTAKT_ROLLEN],
     }
 
 

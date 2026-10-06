@@ -243,6 +243,13 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
         reason: "Wen diese Registrierung meint, hat sich seit dem Laden der Seite geändert",
         repair: "Lade die Seite neu und entscheide erneut",
       });
+    // The pupil confirmed as a person the league has erased since, and gave no answers a new person
+    // could stand on: only a fresh registration asks them.
+    case "REQ-REGISTRIERUNG-018":
+      return buildRefusal({
+        reason: "Die Person zu dieser Registrierung ist bei uns nicht mehr gespeichert",
+        repair: "Lehne die Registrierung ab; die Person kann sich danach erneut registrieren",
+      });
     case "REQ-REGISTRIERUNG-015":
       return buildRefusal({
         reason: "Diese Person steht in dieser Saison schon in einem Kader",

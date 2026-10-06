@@ -181,8 +181,22 @@ export const EDGE_REFUSAL_BODY = "Zu viele Versuche in kurzer Zeit. Warte einen 
 export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
   "Zu viele Versuche in kurzer Zeit. Die Änderung wurde nicht gespeichert. Warte einen Moment und versuche es dann erneut.";
 
+/**
+ * A send or a submission the edge's rate refused, under a title saying what did not happen: the meter
+ * refills within the minute. The public forms' answer to the same refusal too.
+ */
+export const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
+
 function isEdgeRefusal(error: unknown): boolean {
   return error instanceof Error && error.message === EDGE_REFUSAL_BODY;
+}
+
+/**
+ * A send's state where its action rejected with the edge's own refusal, which reached nothing past the
+ * edge; any other rejection is handed back unread, to whatever its caller answers it with.
+ */
+export function edgeRefusedSend(error: unknown): ActionFailure | null {
+  return isEdgeRefusal(error) ? { success: false, error: ZU_VIELE_VERSUCHE } : null;
 }
 
 /**
@@ -292,7 +306,8 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
     // The person binder reads the ban per request, so a ban entered since the session was judged.
     if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
-    // Every person's write route can answer it, so it is worded here once rather than by each slice.
+    // Every person's write route can answer it, so it is worded here rather than by each slice; the consent
+    // writes' mapper words a refused grant first (`fl_frontend/src/features/konto/einwilligung.ts :: ZUSTIMMEN_MORGEN`).
     if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: HEUTE_GENUG_GEAENDERT };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.

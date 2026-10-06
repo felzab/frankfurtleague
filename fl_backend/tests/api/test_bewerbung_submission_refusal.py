@@ -26,7 +26,6 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
-    KONTAKT_SEATS,
     SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
     build_wiederholung_filter,
@@ -45,6 +44,7 @@ from app.api.bewerbungen.services import (
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, find_fassung_refusal
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.teams.schemas import (
+    KONTAKT_ROLLEN,
     FLKontaktperson,
     FLKontaktpersonPayload,
     FLPostTeamPayload,
@@ -407,7 +407,7 @@ class TestTheProposedKuerzel:
 def labelled(**labels: str) -> dict[str, str]:
     """The label each seat names, the running one unless the case names another."""
 
-    return {seat: labels.get(seat, LAUFENDE_FASSUNGEN["bewerbung"]) for seat in KONTAKT_SEATS}
+    return {seat: labels.get(seat, LAUFENDE_FASSUNGEN["bewerbung"]) for seat in KONTAKT_ROLLEN}
 
 
 class TestTheWordingTheFormShows:
@@ -418,7 +418,7 @@ class TestTheWordingTheFormShows:
 
         assert find_fassung_refusal(seite="bewerbung", genannt=labelled()) is None
 
-    @pytest.mark.parametrize("seat", KONTAKT_SEATS)
+    @pytest.mark.parametrize("seat", KONTAKT_ROLLEN)
     def test_one_seat_naming_an_earlier_label_is_refused(self, seat: str):
         """Each seat alone: the form stamps one label per seat, so a check reading one of them passes a stale label on another."""
 

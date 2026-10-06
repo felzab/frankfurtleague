@@ -1,23 +1,12 @@
-"""
-API · what an erasure of one contact person has to reach, spelled apart from the request
-
-The slot names are read off `FLSaisonTeamKontakte` rather than typed here, the shape
-`app/api/schiedsrichter/services.py :: build_ghost_schiedsrichter` reads for the ghost's two contact fields.
-"""
+"""API · what an erasure of one contact person has to reach, spelled apart from the request."""
 
 from collections.abc import Mapping, Sequence
-from typing import Any, get_args
+from typing import Any
 
-from app.api.teams.schemas import FLKontaktperson, FLSaisonTeamKontakte
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
 from app.shared.folding import sign_in_identifier, trimmed_pattern
-
-# `get_args` of a bare `FLKontaktperson` is `()`, so a fourth role typed without `| None` is missed
-# here in silence. `test_every_slot_the_model_declares_is_covered` is what catches one, not the scan.
-KONTAKT_SLOTS: tuple[str, ...] = tuple(
-    name for name, field in FLSaisonTeamKontakte.model_fields.items() if FLKontaktperson in get_args(field.annotation)
-)
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
@@ -39,7 +28,7 @@ def rows_possibly_naming(identifier: str) -> Mapping[str, Any]:
     sign-in counts rows the account page never serves.
     """
 
-    return {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS]}
+    return {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN]}
 
 
 def build_matching_rows_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -53,7 +42,7 @@ def build_matching_rows_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         {"$match": rows_possibly_naming(identifier)},
         # The bookkeeping block's PRESENCE rides along: the clearing nulls its seat only where the
         # block exists, since a dotted `$set` into an absent one creates a block short of its keys.
-        {"$project": {**{f"kontakte.{slot}.email": 1 for slot in KONTAKT_SLOTS}, "bestaetigungen": 1}},
+        {"$project": {**{f"kontakte.{slot}.email": 1 for slot in KONTAKT_ROLLEN}, "bestaetigungen": 1}},
     ]
 
 
@@ -70,7 +59,7 @@ def build_matching_seats_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": rows_possibly_naming(identifier)},
-        {"$project": {"saison_id": 1, **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in SEAT_FIELDS}}},
+        {"$project": {"saison_id": 1, **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS}}},
         # Ordered here rather than by the reader: a reader counting seats needs one season's together,
         # and natural order is the order the rows were written in.
         {"$sort": {"saison_id": 1}},
@@ -91,10 +80,10 @@ def build_orphaned_images_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 # `collection` first, the one half of this an index serves: `aktionen_target` is a
                 # prefix match here, and nothing indexes inside `before`.
                 "collection": {"$in": [str(Collection.SAISON_TEAMS), str(Collection.BEWERBUNGEN)]},
-                "$or": [{f"before.kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS],
+                "$or": [{f"before.kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN],
             }
         },
-        {"$project": {f"before.kontakte.{slot}.email": 1 for slot in KONTAKT_SLOTS}},
+        {"$project": {f"before.kontakte.{slot}.email": 1 for slot in KONTAKT_ROLLEN}},
     ]
 
 
@@ -109,7 +98,7 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
 
     # `str` around it because the slot is declared `bsonType: "string"` and nothing narrower, so what
     # sits there is only as trustworthy as whatever wrote the row.
-    return tuple(slot for slot in KONTAKT_SLOTS if sign_in_identifier(str((kontakte.get(slot) or {}).get("email") or "")) == identifier)
+    return tuple(slot for slot in KONTAKT_ROLLEN if sign_in_identifier(str((kontakte.get(slot) or {}).get("email") or "")) == identifier)
 
 
 def rows_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:

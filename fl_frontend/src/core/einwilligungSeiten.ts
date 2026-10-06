@@ -20,12 +20,6 @@ export const EINWILLIGUNG_SEITEN = [
 
 export type EinwilligungSeite = (typeof EINWILLIGUNG_SEITEN)[number];
 
-/**
- * What an admin editor says where the consent registry's read failed: the one control needing a label
- * closes with it, and the rest of the page stands.
- */
-export const FASSUNG_UNLESBAR = "Die laufende Fassung der Hinweise ließ sich nicht lesen. Lade die Seite neu und versuche es erneut.";
-
 // Each list is its page's whole set: a served map missing or adding a key fails `gekeyteFassung`
 // rather than rendering a gap or dropping a paragraph. The contact pages share one set, placing
 // whichever label a link's view names.

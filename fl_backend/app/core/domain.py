@@ -876,12 +876,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
         # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
+        "brought onto the row by the acceptance, which copies the application's block with every seat held to its own "
+        "stamp (`app.api.teams.services.compose_kontakte_at_entry`); "
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
         "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`). A seat's own person "
-        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum`, "
-        "the stamp and the media answer on every seat that person holds, and a Widerspruch nulls those slots; and the "
+        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum` "
+        "and the consent record's stamp, wording, scope and media answer on every seat that person holds, each answer "
+        "with its evidence, and a Widerspruch nulls those slots; and the "
         "seat's own person moves "
         "`umfang` and `medien`, each with its evidence, on every seat they hold on the row, and nothing else, through "
         "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
@@ -1132,11 +1135,24 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
         "kontakt.email",
-        Editability.EDITABLE,
-        "required on both payloads with no default, so a create or a save without an address is a 422: an administrator "
-        "enters a referee, and the address is the one route by which that person learns of it. Nullable on the stored row "
-        "all the same, for the ghost, which stands behind nobody",
-        "app.shared.schemas.kontakt.FLKontaktPayload",
+        Editability.CONDITIONAL,
+        "written by a save only until the referee has confirmed; afterwards it moves only when the new mailbox confirms it "
+        "through `POST /schiedsrichter/adresswechsel`, the save keeping the stored address meanwhile, because the address is "
+        "what the person's own sign-in and records are keyed on. Required on both payloads with no default, so a create or a "
+        "save without an address is a 422: an administrator enters a referee, and the address is the one route by which that "
+        "person learns of it. Nullable on the stored row all the same, for the ghost, which stands behind nobody",
+        "app.api.schiedsrichter.services.save_asks_an_address_change",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
+        "adresswechsel",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block. The save that moves a confirmed referee's address writes it WHOLE, replacing a pending "
+        "one, and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` replaces it whole for the same address, "
+        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so does "
+        "either answer its person gives through `POST /schiedsrichter/adresswechsel`. The three delivery endpoints write its "
+        "delivery state as they write `bestaetigung`'s, on the system key alone",
+        "app.api.schiedsrichter.services.compose_korrektur_update",
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
@@ -1932,18 +1948,24 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-002",
         status=HTTPStatus.NOT_FOUND,
-        operation="POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung",
+        operation=(
+            "POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel/ansicht"
+            " · POST /schiedsrichter/adresswechsel"
+        ),
         aggregate="Schiedsrichter",
-        summary="a confirmation link opens no referee's entry -- unknown, replaced by a later mint, or deleted with the referee",
+        summary=(
+            "a referee's link opens no entry -- unknown, replaced by a later mint, an address change already answered or "
+            "discarded, or deleted with the referee"
+        ),
         implemented_by="app.api.schiedsrichter.services.find_unknown_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestATokenNoRefereeHolds",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-003",
         status=HTTPStatus.GONE,
-        operation="POST /schiedsrichter/bestaetigung",
+        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
         aggregate="Schiedsrichter",
-        summary="a link whose deadline has passed records no consent",
+        summary="a link whose deadline has passed records no consent and confirms no address",
         implemented_by="app.api.schiedsrichter.services.find_expired_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestALinkWhoseDeadlineHasPassed",
     ),
@@ -1979,10 +2001,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /schiedsrichter · PATCH /schiedsrichter/{schiedsrichter_id} · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen"
-            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate"
+            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen"
         ),
         aggregate="Schiedsrichter",
-        summary="no confirmation link is minted for an address the ban list still holds",
+        summary="no confirmation or address link is minted for an address the ban list still holds",
         implemented_by="app.api.schiedsrichter.services.find_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnAddressOnTheBanList",
     ),
@@ -1998,9 +2020,9 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-009",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /schiedsrichter/bestaetigung",
+        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
         aggregate="Schiedsrichter",
-        summary="a link mailed to an address the ban list now holds records no consent, whenever it was minted",
+        summary="a link mailed to an address the ban list now holds records no consent and confirms no address, whenever it was minted",
         implemented_by="app.api.schiedsrichter.services.find_bestaetigung_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
     ),
@@ -2549,6 +2571,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
     ),
     Rule(
+        code="REQ-REGISTRIERUNG-018",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Registrierung",
+        summary="a registration confirmed on the returning pupil's page admits nobody where its address holds no stored person",
+        implemented_by="app.api.registrierungen.services.find_person_fehlt_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestAReturningRegistration",
+    ),
+    Rule(
         code="REQ-EINWILLIGUNG-002",
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation=(
@@ -2600,9 +2631,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "in one squad all wearing 1 -- so refusing the state would make live rows uneditable and, once "
             "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
             "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). It is REPORTED "
-            "rather than refused, and on one read alone: a team's own representative is served `nummer_doppelt` on "
+            "rather than refused, on the two reads a team's own representative is served: `nummer_doppelt` on "
             "every live row whose number another live row of the squad wears (`app.api.spieler.services.shared_nummern`), "
-            "an ausgetragen row wearing nothing. The comparison reads the stored string as typed: `07` is a shirt "
+            "an ausgetragen row wearing nothing, and on every pending registration whose number a live row already wears "
+            "(`app.api.registrierungen.services.nummern_im_kader`), shown beside the squad row and the registration "
+            "(`fl_frontend/src/features/registrierungen/components/collections/RegistrierungenList.tsx`). The comparison "
+            "reads the stored string as typed: `07` is a shirt "
             "somebody had printed and is not `7`, so a numeric reading that merges the two makes a judgement this "
             "rule declines. The administrator's create form and squad section judge `nummer` on its format alone, "
             "and the public squad list names no state either -- whether either should is open rather than settled, "

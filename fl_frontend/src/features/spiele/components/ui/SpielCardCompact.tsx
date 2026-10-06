@@ -7,6 +7,7 @@ import { Card } from "@heroui/react/card";
 
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { benannt } from "@/shared/utils/benannt";
 
 import { ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
@@ -56,7 +57,7 @@ export function SpielCardCompact({
               <IconTooltip label="Spielinfo">
                 <Button
                   isIconOnly
-                  aria-label={`Spielinfo Spiel Nr. ${spielData.spiel_nr}`}
+                  aria-label={benannt("Spielinfo", `Spiel Nr. ${spielData.spiel_nr}`)}
                   onPress={onOpenInfoModal}
                   size="sm"
                   variant="tertiary"

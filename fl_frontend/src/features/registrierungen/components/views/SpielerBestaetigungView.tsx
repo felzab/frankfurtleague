@@ -50,7 +50,8 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { EINWILLIGUNG_UMFANG_OPTIONS, SPIELER_UMFANG_FRAGE } from "../../constants";
@@ -421,30 +422,21 @@ function SpielerBestaetigungForm({
       // so bare it commits before the pending state lifts.
       startSending(() => {
         if (!antwort.success) {
-          // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
-          // sentence is an administrator's repair, and a reload of this page has lost its token.
-          if (antwort.outcome === "unknown") {
-            appToast.danger(UNKLAR_TITEL, { description: ANTWORT_UNKLAR });
-            return;
-          }
-
-          // The link died between the open and the press: the answer is the panel, never a toast.
-          if (antwort.zustand !== undefined) {
-            onAbschluss({ zustand: antwort.zustand });
-            return;
-          }
-
-          // The hook owns the press's one toast: none where a field shows the refusal.
-          reportSubmitFailure(
-            {
-              success: false,
-              error: antwort.error ?? NICHT_GESPEICHERT,
-              fieldErrors: antwort.fieldErrors,
-              unplacedError: antwort.unplacedError,
-            },
-            { bestaetigung: body },
-            { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
-          );
+          reportRefusedConfirmation(antwort, {
+            onZustand: (zustand) => onAbschluss({ zustand }),
+            // The hook owns the press's one toast: none where a field shows the refusal.
+            onRefusal: () =>
+              reportSubmitFailure(
+                {
+                  success: false,
+                  error: antwort.error ?? NICHT_GESPEICHERT,
+                  fieldErrors: antwort.fieldErrors,
+                  unplacedError: antwort.unplacedError,
+                },
+                { bestaetigung: body },
+                { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+              ),
+          });
           return;
         }
 

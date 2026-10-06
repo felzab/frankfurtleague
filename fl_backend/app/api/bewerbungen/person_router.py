@@ -7,9 +7,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligungResponse
 from app.api.identitaet.services import eigene_sitze
-from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import KONTO_SEITE_KONTAKT, compose_sitz_move, find_eigener_eintrag_refusal
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
@@ -60,7 +60,7 @@ async def patch_einwilligung(
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
         bewerbung = await bewerbungen_collection.find_one(
             {"_id": bewerbung_id, "status": "eingereicht"},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "einwilligung")},
+            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung")},
             session=session,
         )
         rollen = [] if bewerbung is None else eigene_sitze(bewerbung, identifier)

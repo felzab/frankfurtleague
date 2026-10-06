@@ -19,7 +19,6 @@ from app.api.bewerbungen.schemas import (
     FLPostBewerbungResponse,
 )
 from app.api.bewerbungen.services import (
-    KONTAKT_SEATS,
     SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
     bestaetigungsfrist_from,
@@ -43,6 +42,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hashes_gesperrt, sperrliste_saison
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -80,7 +80,7 @@ WIEDERHOLUNG_PROJECTION = [
     "eingereicht_am",
     "bestaetigungsfrist",
     "idempotenz_fingerabdruck",
-    *(f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_SEATS),
+    *(f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_ROLLEN),
 ]
 
 # What a season read takes on this tier: the window, and the status judging it, served only as
@@ -290,7 +290,7 @@ async def _answer_as_the_first(
     db_filter = build_wiederholung_filter(bewerbung_raw=stored, today=today)
 
     if db_filter is not None:
-        minted = {seat: mint_token() for seat in KONTAKT_SEATS}
+        minted = {seat: mint_token() for seat in KONTAKT_ROLLEN}
         try:
             await patch_one_in_db(
                 collection=bewerbungen_collection,
@@ -393,7 +393,9 @@ async def post_bewerbung(
         # After the lookup and never ahead of it: a retry across a deploy that moved the label resends
         # the first press's words, and refusing it here would have its reload store a second application.
         refuse(
-            find_fassung_refusal(seite="bewerbung", genannt={seat: getattr(kontakte, seat).einwilligung.text_version for seat in KONTAKT_SEATS})
+            find_fassung_refusal(
+                seite="bewerbung", genannt={seat: getattr(kontakte, seat).einwilligung.text_version for seat in KONTAKT_ROLLEN}
+            )
         )
 
         # The season first, so a submission arriving after the deadline is refused before anything about
@@ -434,7 +436,7 @@ async def post_bewerbung(
 
         # Minted here rather than in the document literal below, so the raw half reaches the response
         # and the hashed half the database, and the two never sit in one structure.
-        tokens = {seat: mint_token() for seat in KONTAKT_SEATS}
+        tokens = {seat: mint_token() for seat in KONTAKT_ROLLEN}
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
         # Every refusal is behind us, so the write follows with nothing left to judge. The uniqueness the

@@ -20,10 +20,10 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.spieler.person_router import patch_kader_zeile
 from app.api.spieler.schemas import FLPatchKaderZeilePayload
 from app.api.spieler.services import KADER_STUFE_NICHT_ERLAUBT, SQUAD_ROLLE_TAKEN
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exception_handlers import PAYLOAD_REFUSED
@@ -104,7 +104,7 @@ def _seat(email: str) -> dict[str, Any]:
 
 def _junction(saison_id: str, team_id: ObjectId, name: str, **slots: dict[str, Any]) -> dict[str, Any]:
     return saison_team_document(
-        saison_id, team_id, name, name[:2].upper(), kontakte={**{slot: None for slot in KONTAKT_SLOTS}, **slots, "trainer_ist_zugleich": None}
+        saison_id, team_id, name, name[:2].upper(), kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_ist_zugleich": None}
     )
 
 

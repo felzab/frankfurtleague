@@ -10,6 +10,7 @@ from app.api.teams.schemas import (
     FLGruppenNames,
     FLKontaktKenntnisnahmeUmfang,
     FLKontaktRolle,
+    FLKontaktZeile,
     FLSaisonTeamKontakte,
     FLSaisonTeamKontaktePayload,
     FLSchulform,
@@ -708,6 +709,9 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
 
     quelle: FLEinwilligungQuelle
     zustand: FLBewerbungEinwilligungZustand
+    # A season row's state now, read as the mint reads it, so a closed row's page can name why it takes
+    # no consent; null on an application's link, which no season or withdrawal closes.
+    zeile: FLKontaktZeile | None
     saison_id: str
     # The school's name as submitted, or the picked club's; on a season row, the name the club
     # carries in that season.

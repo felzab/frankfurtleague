@@ -636,7 +636,7 @@ async def activate_saison(
     "/{saison_id}/gruppen/swap",
     response_model=FLSwapGruppenResponse,
     summary="Exchange two teams' groups",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def swap_gruppen(
     saison_id: str,

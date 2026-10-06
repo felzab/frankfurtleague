@@ -1,5 +1,3 @@
-import { revalidateTag } from "next/cache";
-
 import { patchSpielort } from "@/features/spielorte/mutations";
 import { SPIELORT_REPLAY_REFUSALS } from "@/features/spielorte/refusals";
 import { FLPatchSpielortPayloadSchema } from "@/features/spielorte/schemas";
@@ -22,8 +20,6 @@ export async function POST(request: NextRequest) {
       return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten." };
     },
     // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
-    invalidate: () => {
-      revalidateTag("spiele", { expire: 0 });
-    },
+    tags: () => ["spiele"],
   });
 }

@@ -8,6 +8,7 @@ import { Button } from "@heroui/react/button";
 
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
+import { benannt } from "@/shared/utils/benannt";
 import { focusRow, focusSlot } from "@/shared/utils/focusAfterWrite";
 
 import type { Anmeldung } from "../../types";
@@ -30,7 +31,7 @@ const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", ti
 function abmeldenName(anmeldung: Anmeldung): string {
   const angemeldet = new Date(anmeldung.angemeldetAm);
   const faktor = anmeldung.faktor.art === "passkey" ? `Passkey „${anmeldung.faktor.name}“` : "Code";
-  return `Anmeldung per ${faktor} vom ${TAG.format(angemeldet)}, ${UHRZEIT.format(angemeldet)} abmelden`;
+  return benannt("Abmelden", `Anmeldung per ${faktor} vom ${TAG.format(angemeldet)}, ${UHRZEIT.format(angemeldet)}`);
 }
 
 /** One live sign-in: when it began and was last active, when it ends at the latest, and what made it. */

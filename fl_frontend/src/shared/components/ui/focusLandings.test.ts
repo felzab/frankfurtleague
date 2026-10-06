@@ -89,7 +89,7 @@ const heading = (name: string | RegExp): HTMLElement => screen.getByRole("headin
 
 /** The retirement a list's dialog confirms, from the row's own control. */
 const retireThroughDialog = (key: string, row: string) => async (user: UserEvent) => {
-  await user.click(buttonIn(key, `${row} stilllegen`));
+  await user.click(buttonIn(key, `Stilllegen: ${row}`));
   await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
 };
 
@@ -115,7 +115,7 @@ const pressVirtually = async (user: UserEvent, key: string, name: string | RegEx
 
 /** The retirement a table's dialog confirms, opened by a screen reader's activation of the row's own control. */
 const retireVirtually = (key: string, row: string) => async (user: UserEvent) => {
-  await pressVirtually(user, key, `${row} stilllegen`);
+  await pressVirtually(user, key, `Stilllegen: ${row}`);
   await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
 };
 
@@ -156,6 +156,7 @@ const schiedsrichter = (id: string, name: string, inactive_since: string | null)
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 });
 const SR_A = "68c1f0a2b3c4d5e6f7a8b921";
 const SR_B = "68c1f0a2b3c4d5e6f7a8b922";
@@ -574,7 +575,7 @@ const panel = (stand: Sicherheit) => h(SicherheitPanel, { sicherheit: stand });
 const STEP_UP_DUE = sicherheit({ passkeys: [passkey("laptop", "Laptop")], enrolmentUntil: null });
 
 /** A sign-in's control, named by the minute it began, which is what tells two rows apart. */
-const abmelden = (minute: string) => new RegExp(`vom 25\\. September 2026, ${minute} abmelden$`);
+const abmelden = (minute: string) => new RegExp(`^Abmelden: .* vom 25\\. September 2026, ${minute}$`);
 
 /** One confirmed pending registration on team A, as the seat holder's read serves it. */
 const registrierung = (registrierung_id: string, vorname: string, nachname: string) => ({
@@ -600,9 +601,9 @@ const registrierungen = (rows: readonly ReturnType<typeof registrierung>[]) =>
 const LANDINGS: Record<string, Landing> = {
   "a venue row's reactivation, on the retirement replacing it": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
-    press: (user) => user.click(buttonIn("spielorte-karten", "Spielort Halle B reaktivieren")),
+    press: (user) => user.click(buttonIn("spielorte-karten", "Reaktivieren: Spielort Halle B")),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
-    lands: () => buttonIn("spielorte-karten", "Spielort Halle B stilllegen"),
+    lands: () => buttonIn("spielorte-karten", "Stilllegen: Spielort Halle B"),
   },
   "a venue row's reactivation the filter then hides, on the next row's": {
     search: "status=stillgelegt",
@@ -610,10 +611,10 @@ const LANDINGS: Record<string, Landing> = {
       h(AdminSpielorteView, {
         spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)],
       }),
-    press: (user) => user.click(buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren")),
+    press: (user) => user.click(buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle B")),
     after: () =>
       h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", null), ort(ORT_C, "Halle C", RETIRED_ON)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle C reaktivieren"),
+    lands: () => buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle C"),
   },
   "a venue row's reactivation the filter then hides from the table's first row, on the next row's": {
     search: "status=stillgelegt",
@@ -621,131 +622,131 @@ const LANDINGS: Record<string, Landing> = {
       h(AdminSpielorteView, {
         spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)],
       }),
-    press: (user) => user.click(buttonIn("spielorte-tabelle", "Spielort Halle A reaktivieren")),
+    press: (user) => user.click(buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle A")),
     after: () =>
       h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren"),
+    lands: () => buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle B"),
   },
   "a venue's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
     press: retireThroughDialog("spielorte-karten", "Spielort Halle A"),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", null)] }),
-    lands: () => buttonIn("spielorte-karten", "Spielort Halle A reaktivieren"),
+    lands: () => buttonIn("spielorte-karten", "Reaktivieren: Spielort Halle A"),
   },
   "a club row's reactivation, on the retirement replacing it": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
-    press: (user) => user.click(buttonIn("teams-karten", "Team SG Beta reaktivieren")),
+    press: (user) => user.click(buttonIn("teams-karten", "Reaktivieren: Team SG Beta")),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-karten", "Team SG Beta stilllegen"),
+    lands: () => buttonIn("teams-karten", "Stilllegen: Team SG Beta"),
   },
   "a club's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
     press: retireThroughDialog("teams-tabelle", "Team SG Alpha"),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", RETIRED_ON), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-tabelle", "Team SG Alpha reaktivieren"),
+    lands: () => buttonIn("teams-tabelle", "Reaktivieren: Team SG Alpha"),
   },
   "a referee row's reactivation, on the retirement replacing it": {
     before: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
-    press: (user) => user.click(buttonIn("schiedsrichter-karten", /Ole Berg reaktivieren$/)),
+    press: (user) => user.click(buttonIn("schiedsrichter-karten", /^Reaktivieren: .*Ole Berg$/)),
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
-    lands: () => buttonIn("schiedsrichter-karten", /Ole Berg stilllegen$/),
+    lands: () => buttonIn("schiedsrichter-karten", /^Stilllegen: .*Ole Berg$/),
   },
   "a referee's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
     press: async (user) => {
-      await user.click(buttonIn("schiedsrichter-tabelle", /Pia Kraft stilllegen$/));
+      await user.click(buttonIn("schiedsrichter-tabelle", /^Stilllegen: .*Pia Kraft$/));
       await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
     },
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", RETIRED_ON), schiedsrichter(SR_B, "Ole Berg", null)] }),
-    lands: () => buttonIn("schiedsrichter-tabelle", /Pia Kraft reaktivieren$/),
+    lands: () => buttonIn("schiedsrichter-tabelle", /^Reaktivieren: .*Pia Kraft$/),
   },
   "a player row's reactivation, on the retirement replacing it": {
     before: () => spielerList([spieler(SP_A, "Lena", RETIRED_ON), spieler(SP_B, "Mia", null)]),
-    press: (user) => user.click(buttonIn("spieler-karten", "Spieler Lena Meier reaktivieren")),
+    press: (user) => user.click(buttonIn("spieler-karten", "Spieler reaktivieren: Lena Meier")),
     after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
-    lands: () => buttonIn("spieler-karten", "Spieler Lena Meier stilllegen"),
+    lands: () => buttonIn("spieler-karten", "Stilllegen: Spieler Lena Meier"),
   },
   "a player's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
     press: retireThroughDialog("spieler-tabelle", "Spieler Lena Meier"),
     after: () => spielerList([spieler(SP_A, "Lena", RETIRED_ON), spieler(SP_B, "Mia", null)]),
-    lands: () => buttonIn("spieler-tabelle", "Spieler Lena Meier reaktivieren"),
+    lands: () => buttonIn("spieler-tabelle", "Spieler reaktivieren: Lena Meier"),
   },
   "a venue table row's reactivation a screen reader activates, on the retirement replacing it": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
-    press: (user) => pressVirtually(user, "spielorte-tabelle", "Spielort Halle B reaktivieren"),
+    press: (user) => pressVirtually(user, "spielorte-tabelle", "Reaktivieren: Spielort Halle B"),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B stilllegen"),
+    lands: () => buttonIn("spielorte-tabelle", "Stilllegen: Spielort Halle B"),
   },
   "a venue table row's retirement a screen reader activates, on the reactivation replacing it": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
     press: retireVirtually("spielorte-tabelle", "Spielort Halle B"),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren"),
+    lands: () => buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle B"),
   },
   "a club table row's reactivation a screen reader activates, on the retirement replacing it": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
-    press: (user) => pressVirtually(user, "teams-tabelle", "Team SG Beta reaktivieren"),
+    press: (user) => pressVirtually(user, "teams-tabelle", "Reaktivieren: Team SG Beta"),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-tabelle", "Team SG Beta stilllegen"),
+    lands: () => buttonIn("teams-tabelle", "Stilllegen: Team SG Beta"),
   },
   "a club table row's retirement a screen reader activates, on the reactivation replacing it": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
     press: retireVirtually("teams-tabelle", "Team SG Beta"),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-tabelle", "Team SG Beta reaktivieren"),
+    lands: () => buttonIn("teams-tabelle", "Reaktivieren: Team SG Beta"),
   },
   "a referee table row's reactivation a screen reader activates, on the retirement replacing it": {
     before: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
-    press: (user) => pressVirtually(user, "schiedsrichter-tabelle", /Ole Berg reaktivieren$/),
+    press: (user) => pressVirtually(user, "schiedsrichter-tabelle", /^Reaktivieren: .*Ole Berg$/),
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
-    lands: () => buttonIn("schiedsrichter-tabelle", /Ole Berg stilllegen$/),
+    lands: () => buttonIn("schiedsrichter-tabelle", /^Stilllegen: .*Ole Berg$/),
   },
   "a referee table row's retirement a screen reader activates, on the reactivation replacing it": {
     before: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
     press: async (user) => {
-      await pressVirtually(user, "schiedsrichter-tabelle", /Ole Berg stilllegen$/);
+      await pressVirtually(user, "schiedsrichter-tabelle", /^Stilllegen: .*Ole Berg$/);
       await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
     },
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
-    lands: () => buttonIn("schiedsrichter-tabelle", /Ole Berg reaktivieren$/),
+    lands: () => buttonIn("schiedsrichter-tabelle", /^Reaktivieren: .*Ole Berg$/),
   },
   "a player table row's reactivation a screen reader activates, on the retirement replacing it": {
     before: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", RETIRED_ON)]),
-    press: (user) => pressVirtually(user, "spieler-tabelle", "Spieler Mia Meier reaktivieren"),
+    press: (user) => pressVirtually(user, "spieler-tabelle", "Spieler reaktivieren: Mia Meier"),
     after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
-    lands: () => buttonIn("spieler-tabelle", "Spieler Mia Meier stilllegen"),
+    lands: () => buttonIn("spieler-tabelle", "Stilllegen: Spieler Mia Meier"),
   },
   "a player table row's retirement a screen reader activates, on the reactivation replacing it": {
     before: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
     press: retireVirtually("spieler-tabelle", "Spieler Mia Meier"),
     after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", RETIRED_ON)]),
-    lands: () => buttonIn("spieler-tabelle", "Spieler Mia Meier reaktivieren"),
+    lands: () => buttonIn("spieler-tabelle", "Spieler reaktivieren: Mia Meier"),
   },
   /* The list narrowed to retired squad rows drops the row its return revived, as working through them does. */
   "a squad row's return from the list, on the next row's": {
     search: "kader=ausgetragen&saison_id=2026",
     before: () =>
       spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
-    press: (user) => user.click(buttonIn("spieler-karten", "Kadereintrag von Mia Meier reaktivieren")),
+    press: (user) => user.click(buttonIn("spieler-karten", "Kadereintrag reaktivieren: Mia Meier")),
     after: () => spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null), spieler(SP_C, "Nora", null, RETIRED_ON)]),
-    lands: () => buttonIn("spieler-karten", "Kadereintrag von Nora Meier reaktivieren"),
+    lands: () => buttonIn("spieler-karten", "Kadereintrag reaktivieren: Nora Meier"),
   },
   "a squad row's return from the table's first row, on the next row's": {
     search: "kader=ausgetragen&saison_id=2026",
     before: () =>
       spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
-    press: (user) => user.click(buttonIn("spieler-tabelle", "Kadereintrag von Lena Meier reaktivieren")),
+    press: (user) => user.click(buttonIn("spieler-tabelle", "Kadereintrag reaktivieren: Lena Meier")),
     after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
-    lands: () => buttonIn("spieler-tabelle", "Kadereintrag von Mia Meier reaktivieren"),
+    lands: () => buttonIn("spieler-tabelle", "Kadereintrag reaktivieren: Mia Meier"),
   },
   "a ban's removal, on the next ban's": {
     before: () => sperrliste(SPERREN),
@@ -808,13 +809,13 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a passkey's deletion, on the next card's": {
     before: () => panel(sicherheit()),
-    press: (user) => pressTwice(user, { resting: "Passkey „Laptop“ löschen", armed: "Ja, Passkey löschen" }),
+    press: (user) => pressTwice(user, { resting: "Löschen: Passkey „Laptop“", armed: "Ja, Passkey löschen" }),
     after: () => panel(sicherheit({ passkeys: [passkey("handy", "Handy")] })),
-    lands: () => screen.getByRole("button", { name: "Passkey „Handy“ löschen" }),
+    lands: () => screen.getByRole("button", { name: "Löschen: Passkey „Handy“" }),
   },
   "the last passkey's deletion, on the panel's heading once the list has gone": {
     before: () => panel(sicherheit({ passkeys: [passkey("laptop", "Laptop")] })),
-    press: (user) => pressTwice(user, { resting: "Passkey „Laptop“ löschen", armed: "Ja, Passkey löschen" }),
+    press: (user) => pressTwice(user, { resting: "Löschen: Passkey „Laptop“", armed: "Ja, Passkey löschen" }),
     after: () => panel(sicherheit({ passkeys: [] })),
     lands: () => heading("Sicherheit"),
   },
@@ -853,12 +854,12 @@ const LANDINGS: Record<string, Landing> = {
   "a passkey's saved name, on the rename control the form gives way to": {
     before: () => panel(sicherheit()),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Passkey „Laptop“ umbenennen" }));
+      await user.click(screen.getByRole("button", { name: "Umbenennen: Passkey „Laptop“" }));
       await user.type(screen.getByRole("textbox", { name: "Name" }), " alt");
       await user.click(screen.getByRole("button", { name: "Speichern" }));
     },
     after: () => panel(sicherheit({ passkeys: [passkey("laptop", "Laptop alt"), passkey("handy", "Handy")] })),
-    lands: () => screen.getByRole("button", { name: "Passkey „Laptop alt“ umbenennen" }),
+    lands: () => screen.getByRole("button", { name: "Umbenennen: Passkey „Laptop alt“" }),
   },
   "a first registration link, on the new link's copy control": {
     answers: { postEinladungAction: MINTED },
@@ -900,20 +901,20 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a seat's re-sent link, on the seat's re-send drawn anew": {
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
-    press: (user) => user.click(screen.getByRole("button", { name: "Link erneut senden an Stellvertretung" })),
+    press: (user) => user.click(screen.getByRole("button", { name: "Link erneut senden: Stellvertretung" })),
     after: () =>
       bewerbungPage({
         ...MIT_OFFENEN_SITZEN,
         bestaetigungen: { ...OFFENE_BESTAETIGUNGEN, stellvertretung: { ...SITZ, erinnert_am: "2026-09-05" } },
       }),
     remount: true,
-    lands: () => screen.getByRole("button", { name: "Link erneut senden an Stellvertretung" }),
+    lands: () => screen.getByRole("button", { name: "Link erneut senden: Stellvertretung" }),
   },
   "a seat's corrected address, on the pencil that opened the box": {
     answers: { kontaktEmailKorrigierenAction: { success: true, verschickt: true, message: "Korrigiert." } },
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }));
+      await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }));
       await user.clear(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }));
       await user.type(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }), "bernd.meier@schule.example");
       await user.click(screen.getByRole("button", { name: "Korrigieren und Link senden" }));
@@ -924,32 +925,32 @@ const LANDINGS: Record<string, Landing> = {
         kontakte: { ...MIT_OFFENEN_SITZEN.kontakte, stellvertretung: kontaktperson("Bernd", "bernd.meier@schule.example", null) },
       }),
     remount: true,
-    lands: () => screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }),
+    lands: () => screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }),
   },
   "a correction's cancel, on the pencil that opened the box": {
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }));
+      await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }));
       await user.click(screen.getByRole("button", { name: "Abbrechen" }));
     },
     after: () => bewerbungPage(MIT_OFFENEN_SITZEN),
-    lands: () => screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }),
+    lands: () => screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }),
   },
   "a reseating's cancel, on the control that opened the box": {
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+      await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
       await user.click(screen.getByRole("button", { name: "Abbrechen" }));
     },
     after: () => bewerbungPage(MIT_OFFENEN_SITZEN),
-    lands: () => screen.getByRole("button", { name: "Trainer neu besetzen" }),
+    lands: () => screen.getByRole("button", { name: "Neu besetzen: Trainer" }),
   },
   /* No other seat can be reseated, so the strip's heading takes the focus once the declined seat is filled. */
   "a reseated seat, on the strip's heading": {
     answers: { besetzeKontaktSitzAction: { success: true, verschickt: true, message: "Besetzt." } },
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+      await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
       await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
       await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
       await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "doreen@schule.example");
@@ -1111,13 +1112,13 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a registration's admission, on the next row's admission": {
     before: () => registrierungen([REG_LENA, REG_MIA]),
-    press: (user) => pressTwice(user, { resting: "Lena Meier aufnehmen", armed: "Ja, aufnehmen" }),
+    press: (user) => pressTwice(user, { resting: "Aufnehmen: Lena Meier", armed: "Ja, aufnehmen" }),
     after: () => registrierungen([REG_MIA]),
-    lands: () => screen.getByRole("button", { name: "Mia Schmidt aufnehmen" }),
+    lands: () => screen.getByRole("button", { name: "Aufnehmen: Mia Schmidt" }),
   },
   "a registration's decline, the last row, on the queue's heading": {
     before: () => registrierungen([REG_LENA]),
-    press: (user) => pressTwice(user, { resting: "Registrierung von Lena Meier ablehnen", armed: "Ja, ablehnen" }),
+    press: (user) => pressTwice(user, { resting: "Ablehnen: Registrierung von Lena Meier", armed: "Ja, ablehnen" }),
     after: () => registrierungen([]),
     lands: () => heading("Offene Registrierungen"),
   },

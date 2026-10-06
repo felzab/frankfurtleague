@@ -123,6 +123,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterEinladenPayload: "the referee's re-send POST takes its id from the path and has no request body",
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
+  FLSchiedsrichterAdresswechselEinladenPayload: "the address link's re-send POST takes its id from the path and has no request body",
+  FLSchiedsrichterAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -344,7 +346,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 294;
+const EXPECTED_PAIRS = 301;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

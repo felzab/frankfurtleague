@@ -50,6 +50,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, refuse
@@ -122,6 +123,7 @@ async def _saison_ansicht(
     return FLBewerbungEinwilligungAnsichtResponse(
         quelle="saison",
         zustand=saison_zustand_of(row=row, seat=seat, today=today, gesperrt=bool(gesperrt), saison_status=saison_raw.get("status")),
+        zeile=kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=row.get("austritt")),
         saison_id=str(row["saison_id"]),
         schule=saison_schule(row),
         rolle=seat,
@@ -201,6 +203,7 @@ async def get_einwilligung_ansicht(
     return FLBewerbungEinwilligungAnsichtResponse(
         quelle="bewerbung",
         zustand=zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, gesperrt=bool(gesperrt)),
+        zeile=None,
         saison_id=str(bewerbung_raw["saison_id"]),
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         rolle=seat,
@@ -279,9 +282,11 @@ async def post_einwilligung(
             geburtsdatum = antwort_data.geburtsdatum
             assert geburtsdatum is not None
 
+            # Unanchored: the rollover reads nothing this press writes, so one committing inside it orders as
+            # one committing just after (`docs/backend/spec.md :: I_NEW_H1-BE_1`).
+            saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1}, session=session)
             # `find_one` rather than `pull_one_from_db`: no season is ever deleted, so a miss is a broken
             # invariant rather than a 404 this press could answer.
-            saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1}, session=session)
             assert saison_raw is not None
             # Every link on a closed row meets this here, whether minted before it closed, beside its
             # rollover or after it; never the Widerspruch below, which removes the person

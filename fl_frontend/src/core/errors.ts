@@ -132,10 +132,12 @@ export class APIBadStatusError extends Error {
 }
 
 /**
- * The protocol's classes: a credential, a request the API cannot take, a route it does not serve, a person's
- * day ceiling. None is a rule refusing what was asked, and each class grows codes the backend adds to it.
+ * The protocol's code families: a credential, a request the API cannot take, a route it does not serve, a person's
+ * day ceiling. None is a rule refusing what was asked, and each family grows codes the backend adds to it.
  */
-const PROTOCOL_CLASS = /^REQ-(AUTH|VAL|ROUTE|DROSSELUNG)-/;
+export const PROTOCOL_FAMILIES: readonly string[] = ["AUTH", "VAL", "ROUTE", "DROSSELUNG"];
+
+const PROTOCOL_CLASS = new RegExp(`^REQ-(?:${PROTOCOL_FAMILIES.join("|")})-`);
 
 /**
  * Whether a code is one a slice's mapper words: a rule's, or the unique index's `DB-COMMON-002`. By the
@@ -192,6 +194,25 @@ export class APIMalformedDataError extends Error {
     this.method = method;
     this.readOnly = readOnly;
   }
+}
+
+/**
+ * The backend answering against what this frontend was built for, such as a registry running no label
+ * on a page this frontend serves. Only a deploy repairs it, so no page renders it as a failed read.
+ */
+export class ContractBreakError extends Error {
+  override name = "ContractBreakError";
+}
+
+/**
+ * A degraded read's rejection handler: a failed read settles to the page's `null`, and a contract
+ * break reaches the error boundary, which logs it. Told apart only outside a `"use cache"` scope,
+ * whose throws a production build redacts (`docs/frontend/spec.md` §1.2).
+ */
+export function nullUnlessContractBreak(error: unknown): null {
+  if (error instanceof ContractBreakError || error instanceof APIMalformedDataError) throw error;
+
+  return null;
 }
 
 export class APINetworkError extends Error {

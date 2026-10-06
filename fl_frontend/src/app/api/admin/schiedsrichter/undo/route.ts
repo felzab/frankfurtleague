@@ -1,14 +1,20 @@
-import { revalidateTag } from "next/cache";
-
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { patchSchiedsrichter } from "@/features/schiedsrichter/mutations";
-import { describeLinkMail, mailSchiedsrichterLink } from "@/features/schiedsrichter/notifications";
+import {
+  describeAdresswechselMail,
+  describeLinkMail,
+  mailSchiedsrichterAdresswechsel,
+  mailSchiedsrichterLink,
+} from "@/features/schiedsrichter/notifications";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { SCHIEDSRICHTER_REPLAY_REFUSALS } from "@/features/schiedsrichter/refusals";
 import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
+
+const ADRESSWECHSEL_WARTET_WEITER =
+  "Die neue E-Mail-Adresse wartet weiter auf Bestätigung. Soll sie nicht gelten, verwirf die Änderung im Eintrag.";
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
@@ -25,6 +31,25 @@ export async function POST(request: NextRequest) {
       if (!operation.acknowledged) {
         return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." };
       }
+
+      // A confirmed referee's address never moved on the save, so the replay asks the earlier address
+      // again only where that change was confirmed since; unmailed, that link reaches nobody.
+      const wechsel = operation.adresswechsel;
+      if (wechsel !== null) {
+        const wechselVersand = await mailSchiedsrichterAdresswechsel({
+          operation: "undoAdminSchiedsrichterEdit",
+          schiedsrichterId: payload.id,
+          name: payload.name,
+          mint: wechsel,
+          anlass: "erneut",
+        });
+
+        return { cost: describeAdresswechselMail(wechsel.email, wechselVersand) };
+      }
+
+      // The replay writes the fields back and leaves a pending address standing, its link already
+      // in that mailbox: the discard is the editor's control, never a side effect of an undo.
+      if (operation.updated_document.adresswechsel !== null) return { cost: ADRESSWECHSEL_WARTET_WEITER };
 
       // The replay puts the earlier address back, which the endpoint reads as a correction and mints
       // for: unmailed, that token exists in the database alone and the referee's own link is dead.
@@ -46,9 +71,7 @@ export async function POST(request: NextRequest) {
       return { cost: describeLinkMail(mint.email, versand) };
     },
     // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
-    invalidate: () => {
-      revalidateTag("spiele", { expire: 0 });
-    },
+    tags: () => ["spiele"],
     // The replay is a save, its mint judged as the save's own action judges one: without this the route
     // is a second door to that save with no step-up (`docs/frontend/spec.md :: I432`).
     stepUp: async (payload) => {
