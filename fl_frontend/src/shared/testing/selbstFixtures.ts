@@ -1,8 +1,7 @@
 /**
- * A person's own-data reads as the backend serves them, one confirmed record each, for every suite
- * rendering one: a field the read gains is added here once. Untyped, since `shared` may not import a
- * slice's schema (`docs/frontend/spec.md` I9): a typed suite parses the fixture through its mirror,
- * which refuses the drift.
+ * A person's own-data reads as the backend serves them, so a field a read gains is added here once.
+ * Untyped, `shared` naming no slice's schema (`docs/frontend/spec.md` I9): a typed suite parses the
+ * fixture through its mirror.
  */
 
 /** What a record confirmed on its own page holds of the person's choices, the media consent not given. */

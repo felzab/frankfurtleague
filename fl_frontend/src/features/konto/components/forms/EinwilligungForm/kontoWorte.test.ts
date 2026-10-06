@@ -28,11 +28,11 @@ describe("the account page's controls drawn from the served wording", () => {
     assert.equal(worte.medien.schalter, fassung.schalter);
   });
 
-  /* Each paragraph from its own section, the entry's floor filled: a paragraph put under the wrong
-     control describes the other choice, and a slot left standing reads as unfinished. A floor no
-     record is served at today, so a fill from anything but the entry fails. */
+  /* Each paragraph from its own section: a paragraph put under the wrong control describes the other
+     choice, and a slot left standing reads as unfinished. */
   it("puts each section under the control it governs and fills the entry's age floor", () => {
     const fassung = publishedLaufendeFassung("konto_spieler");
+    // No record is served at 21 today, so a fill from anything but the entry fails.
     const worte = spielerWorte(fassung, SPIELER_UMFANG_FRAGE, { medien_mindestalter: 21 });
     const sections = fassung.absaetze_nach_schluessel ?? assert.fail("the pupil's account wording carries no keyed sections");
 

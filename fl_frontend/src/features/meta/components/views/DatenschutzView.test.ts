@@ -617,8 +617,6 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* Only the admission enforces it (`docs/datenschutz.md :: "One address is one person"`); every other
-     writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
   /* The account page lists every consent stored under the address it signs in with, so the notice says
      where to sign in to take one back (Art. 7(3): withdrawing is as easy as giving). */
   it("names the account as the place to take back any consent, signed in with the address it was given under", () => {
@@ -632,6 +630,8 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
+  /* Only the admission enforces it (`docs/datenschutz.md :: "One address is one person"`); every other
+     writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
   it("tells a person that their address stands for them alone and everything under it is their account's", () => {
     rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
   });

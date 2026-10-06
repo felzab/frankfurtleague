@@ -18,7 +18,11 @@ export type EinwilligungEintrag = {
   readonly id: string;
   /** Names the record, so a person holding several reads which one each control moves. */
   readonly titel: string;
-  /** The record's stored data, read-only; absent on every seat, a pending application's included, which serves none. */
+  /**
+   * The record's stored data, read-only, which its confirmed wording promises the person sees here. Absent
+   * on every seat, a pending application's included: a seat's data is its team's record, and no contact
+   * wording promises it.
+   */
   readonly angaben?: ReactNode;
   /** The confirmed wording, read-only; `null` where the record names none the registry holds. */
   readonly bestaetigt: ReactNode;

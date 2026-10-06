@@ -12,7 +12,7 @@ export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu 
 // from, and the switch's own paragraph, filled from it, names the age once the page is reloaded.
 export const MEDIEN_ZU_JUNG = "Fotos, Videos und Interviews kannst Du in Deinem Alter noch nicht erlauben. Lade die Seite neu.";
 
-// `REQ-FUNKTION-001` on a record admitting a grant: the record is no longer the person's.
+// `REQ-FUNKTION-001` on a record admitting a grant: the address holds no such record of its own now.
 export const EINTRAG_WEG = "Diese Angaben sind nicht mehr bei Dir eingetragen. Lade die Seite neu.";
 
 // The same code on a pending application, whose page offers no grant: the application is decided, or
