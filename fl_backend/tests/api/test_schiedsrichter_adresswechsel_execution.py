@@ -59,6 +59,7 @@ from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.records import record_collections
+from tests.whole_database import every_collection_as_text
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -237,16 +238,6 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
     return found
 
 
-async def holding_the_address(database: AsyncDatabase, email: str) -> list[str]:
-    """Every collection still holding this address anywhere in a document, the action log's images included."""
-
-    holding = []
-    for name in await database.list_collection_names():
-        holding += [name async for document in database[name].find({}) if email in str(document)]
-
-    return holding
-
-
 async def refused_code(call: Awaitable[Any]) -> str:
     with pytest.raises(WriteRefusalException) as refused:
         await call
@@ -351,29 +342,23 @@ class TestWhoTheNewMailboxIsMeanwhile:
     """Until it confirms, the new mailbox holds nothing: no read keys on the pending address."""
 
     def test_the_gate_and_the_account_read_see_the_record_at_the_old_address_alone(self, mongo_replica_set_url: str):
-        async def steps() -> Any:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (client, database):
-                await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
-                await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-                await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
-                minted = await resend_consent_link(database, client)
-                await confirm_consent(database, client, minted.bestaetigung.token)
-                await save(database, client, email=NEW_EMAIL)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
 
-                async with app_client(mongo_replica_set_url, config=CONFIG, now=NOW) as http:
-                    served = {
-                        email: [
-                            record["schiedsrichter_id"]
-                            for record in (await http.get(KONTO_PATH, headers=SignedActor(email, ADMIN_KEY, lane="person"))).json()[
-                                "schiedsrichter"
-                            ]
+            async with app_client(mongo_replica_set_url, config=CONFIG, now=NOW) as http:
+                served = {
+                    email: [
+                        record["schiedsrichter_id"]
+                        for record in (await http.get(KONTO_PATH, headers=SignedActor(email, ADMIN_KEY, lane="person"))).json()[
+                            "schiedsrichter"
                         ]
-                        for email in (EMAIL, NEW_EMAIL)
-                    }
+                    ]
+                    for email in (EMAIL, NEW_EMAIL)
+                }
 
-                return {email: await holds_an_account_record(database, email) for email in (EMAIL, NEW_EMAIL)}, served
+            return {email: await holds_an_account_record(database, email) for email in (EMAIL, NEW_EMAIL)}, served
 
-        gate, served = on_the_seed_loop(steps())
+        gate, served = on_a_league(mongo_replica_set_url, body)
 
         assert gate == {EMAIL: True, NEW_EMAIL: False}
         assert served == {EMAIL: [str(SCHIEDSRICHTER_OID)], NEW_EMAIL: []}
@@ -549,9 +534,9 @@ class TestTheDecline:
             resent = await resend(database, client)
             await answer(database, client, resent.adresswechsel.token, "abgelehnt")
 
-            return await holding_the_address(database, NEW_EMAIL)
+            return await every_collection_as_text(database)
 
-        assert on_a_league(mongo_replica_set_url, body) == []
+        assert NEW_EMAIL not in on_a_league(mongo_replica_set_url, body)
 
 
 class TestTheView:
@@ -658,9 +643,9 @@ class TestTheDiscard:
             await resend(database, client)
             await discard(database, client)
 
-            return await holding_the_address(database, NEW_EMAIL)
+            return await every_collection_as_text(database)
 
-        assert on_a_league(mongo_replica_set_url, body) == []
+        assert NEW_EMAIL not in on_a_league(mongo_replica_set_url, body)
 
 
 class TestTheDeliveryState:
@@ -720,6 +705,6 @@ class TestTheErasure:
                 germany_now=NOW,
             )
 
-            return await holding_the_address(database, NEW_EMAIL)
+            return await every_collection_as_text(database)
 
-        assert on_a_league(mongo_replica_set_url, body) == []
+        assert NEW_EMAIL not in on_a_league(mongo_replica_set_url, body)

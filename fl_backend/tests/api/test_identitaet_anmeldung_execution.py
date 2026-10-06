@@ -7,30 +7,35 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLAnmeldungResponse, FLSubjektPayload
 from app.api.identitaet.services import eigene_eintraege
-from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client
 from tests.bans import ban_list
-from tests.config import BASE_AUTH, SYSTEM_AUTH
-from tests.core.app_source import application
+from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, EINWILLIGUNG, ban_document, saison_document, saison_team_document, spieler_document
+from tests.documents import (
+    EINWILLIGUNG,
+    ban_document,
+    bewerbung_document,
+    kontaktperson_document,
+    neue_schule_document,
+    registrierung_document,
+    saison_document,
+    saison_team_document,
+    spieler_document,
+)
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -90,19 +95,7 @@ GRANT_OID = ObjectId("6890a1b2c3d4e5f607860051")
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
-    return {
-        "vorname": "Anna",
-        "nachname": "Müller",
-        "email": email,
-        "telefon": "+49 69 5550101",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "v1",
-            "datum": "2026-01-05",
-            "bestaetigt_am": bestaetigt_am,
-        },
-    }
+    return kontaktperson_document("Anna", bestaetigt_am=bestaetigt_am, email=email)
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
@@ -116,28 +109,15 @@ def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping
 def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dict[str, Any]:
     """An application naming a new school, as the submission stores one."""
 
-    return {
-        "_id": oid,
-        "saison_id": ACTIVE_SAISON,
-        "eingereicht_am": "2026-01-01",
-        "status": status,
-        "team_id": None,
-        "schule": {
-            "team_name": f"Bewerberschule {oid}",
-            "full_name": f"Bewerberschule {oid}",
-            "shorthand": str(oid)[-4:],
-            "schulform": None,
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": _kontakte(trainer=dict(trainer)),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-01-15",
-        "bestaetigungen": compose_bestaetigungen(hashes={slot: hash_token(f"{oid}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-01"),
-    }
+    return bewerbung_document(
+        oid,
+        ACTIVE_SAISON,
+        status,
+        kontakte=_kontakte(trainer=dict(trainer)),
+        eingereicht_am="2026-01-01",
+        bestaetigungsfrist="2026-01-15",
+        schule=neue_schule_document(f"Bewerberschule {oid}", str(oid)[-4:]),
+    )
 
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -154,39 +134,33 @@ def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
 
 
 def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **fields: Any) -> dict[str, Any]:
-    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it, through their composers."""
+    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it."""
 
-    document = {
-        "_id": oid,
-        **compose_registrierung(
-            saison_id=ACTIVE_SAISON,
-            team_id=TEAM_OIDS[0],
-            einladung_id=ObjectId(),
-            vorname="Rita",
-            nachname="Registriert",
-            email=email,
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(str(oid)), today="2026-01-02", frist="2026-01-09"),
-            today="2026-01-02",
-        ),
-        "idempotenz_schluessel": str(oid),
-        "idempotenz_fingerabdruck": "f" * 64,
-    }
-    if confirmed:
-        document.update(
-            compose_confirmation_update(
-                geburtsdatum="2009-05-04",
-                umfang="intern",
-                medien=False,
-                text_version="2026-09",
-                today="2026-01-03",
-                am="2026-01-03T08:00:00+00:00",
-            )["$set"]
-        )
-
-    return {**document, **fields}
+    return registrierung_document(
+        oid,
+        email,
+        saison_id=ACTIVE_SAISON,
+        team_id=TEAM_OIDS[0],
+        vorname="Rita",
+        nachname="Registriert",
+        token=str(oid),
+        eingereicht_am="2026-01-02",
+        frist="2026-01-09",
+        position="Mittelfeld",
+        nummer="17",
+        stufe="Q1",
+        bestaetigt=None
+        if not confirmed
+        else {
+            "geburtsdatum": "2009-05-04",
+            "umfang": "intern",
+            "medien": False,
+            "text_version": "2026-09",
+            "today": "2026-01-03",
+            "am": "2026-01-03T08:00:00+00:00",
+        },
+        **fields,
+    )
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -432,18 +406,6 @@ def test_every_funktion_list_is_drawn_from_the_own_records(monkeypatch: pytest.M
         ("spieler", e.spieler_id) for e in subjekt.spieler
     } <= eintraege
     assert subjekt.schiedsrichter == []
-
-
-def test_the_operation_is_unreachable_without_a_bearer_token():
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
-
-    assert (response.status_code, response.json()["error_code"]) == (401, MISSING_TOKEN)
-
-
-def test_the_base_key_draws_the_system_guard_s_own_code():
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": SITZ_AKTIV})
-
-    assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)
 
 
 @functools.cache

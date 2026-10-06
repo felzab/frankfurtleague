@@ -26,7 +26,7 @@ from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
 from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
 from app.main import PERSON_ROUTERS, SYSTEM_ROUTERS, WRITE_ROUTERS
-from tests.core.app_source import APP_ROOT, parsed
+from tests.core.app_source import APP_ROOT, DRIVER_WRITES, WRITE_HELPERS, parsed
 from tests.documents import rules_document
 
 # The three a case below reads back or reshapes, passed rather than defaulted.
@@ -244,32 +244,15 @@ SAISONS_COLLECTION_PARAM = "saisons_collection"
 SAISONS_COLLECTION_ANNOTATION = "SaisonsCollection"
 
 # Spelled rather than read off the object, an `Annotated` alias carrying no name of its own, so the
-# spelling is checked against the module the way `CRUD_WRITERS` is.
+# spelling is checked against the module the way `WRITE_HELPERS` is.
 assert hasattr(dependencies, SAISONS_COLLECTION_ANNOTATION), (
     f"app/core/dependencies.py no longer spells {SAISONS_COLLECTION_ANNOTATION}, so the annotation route reads nothing"
 )
 
-# `app/core/crud.py`'s writing half, checked against that module below: a rename there would
-# otherwise leave this sweep matching nothing and passing.
-CRUD_WRITERS = ("anchor_in_db", "patch_one_in_db", "patch_many_in_db", "post_one_to_db", "post_many_to_db", "set_inactive_since", "insert_live")
-
-# A handler reaching past those helpers writes through the driver itself.
-DRIVER_WRITERS = frozenset(
-    {
-        "bulk_write",
-        "delete_many",
-        "delete_one",
-        "find_one_and_replace",
-        "find_one_and_update",
-        "insert_many",
-        "insert_one",
-        "replace_one",
-        "update_many",
-        "update_one",
-    }
-)
-
-UNKNOWN_WRITERS = [name for name in CRUD_WRITERS if not hasattr(crud, name)]
+# `app/core/crud.py`'s writing half, checked against that module here: a rename there would
+# otherwise leave this sweep matching nothing and passing. A handler reaching past those helpers
+# writes through the driver itself (`tests/core/app_source.py :: DRIVER_WRITES`).
+UNKNOWN_WRITERS = [name for name in WRITE_HELPERS if not hasattr(crud, name)]
 assert not UNKNOWN_WRITERS, f"{UNKNOWN_WRITERS} are no longer in app/core/crud.py, so this sweep would see no write"
 
 
@@ -328,12 +311,12 @@ def _season_write_among(nodes: Iterable[ast.AST], *, names: frozenset[str]) -> b
             continue
 
         called = node.func
-        if isinstance(called, ast.Name) and called.id in CRUD_WRITERS:
+        if isinstance(called, ast.Name) and called.id in WRITE_HELPERS:
             targets = (keyword for keyword in node.keywords if keyword.arg == "collection")
             if any(isinstance(target.value, ast.Name) and target.value.id in names for target in targets):
                 return True
 
-        if isinstance(called, ast.Attribute) and called.attr in DRIVER_WRITERS:
+        if isinstance(called, ast.Attribute) and called.attr in DRIVER_WRITES:
             if isinstance(called.value, ast.Name) and called.value.id in names:
                 return True
 

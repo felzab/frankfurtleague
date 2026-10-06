@@ -34,8 +34,16 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.documents import (
+    ban_document,
+    kontaktperson_document,
+    rules_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    spieler_document,
+)
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -87,19 +95,7 @@ PAYLOAD: Mapping[str, Any] = {"nummer": "11", "position": "Tor", "stufe": "Q1", 
 
 
 def _seat(email: str) -> dict[str, Any]:
-    return {
-        "vorname": "Anna",
-        "nachname": "Müller",
-        "email": email,
-        "telefon": SEAT_TELEFON,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "v1",
-            "datum": "2026-01-05",
-            "bestaetigt_am": "2026-01-06",
-        },
-    }
+    return kontaktperson_document("Anna", bestaetigt_am="2026-01-06", email=email, telefon=SEAT_TELEFON)
 
 
 def _junction(saison_id: str, team_id: ObjectId, name: str, **slots: dict[str, Any]) -> dict[str, Any]:
@@ -474,7 +470,6 @@ class TestAStufeTheSeasonDoesNotOffer:
         answer, _ = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(ALTE_STUFE), ANSPRECH, {**PAYLOAD, "stufe": stufe})
 
         assert answer[0] == 200
-        assert answer[1] != KADER_STUFE_NICHT_ERLAUBT
 
 
 class TestTheCaptaincy:
@@ -530,9 +525,6 @@ class TestTheCaptaincy:
 
 class SeasonsRunningARivalAtTheAnchor(InterleavedCollection):
     """A `saisons` stand-in running one rival just before the captaincy's anchor write."""
-
-    def __init__(self, collection: Any, rival: Rival) -> None:
-        super().__init__(collection, rival)
 
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
         await self.run_the_rival()

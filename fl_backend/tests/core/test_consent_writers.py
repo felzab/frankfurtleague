@@ -21,6 +21,11 @@ from tests.core.app_source import APP_ROOT, BACKEND_ROOT, parsed
 # A guardian filing for a pupil: one provenance value stored records carry and no route collects.
 GUARDIAN: Final = "erziehungsberechtigt"
 
+# Every speaker a stored record carries: each was written until no write named who answered any
+# longer, so each has to go on validating however the vocabularies change.
+STORED_ERTEILT_VON: Final = frozenset({GUARDIAN, "volljaehrig", "bestandsuebernahme"})
+STORED_ERFASST_VON: Final = frozenset({"person", "administrativ"})
+
 # A value the seat's composer does write, so the walk is seen to reach real source.
 WRITTEN: Final = "kontaktdaten"
 
@@ -159,7 +164,13 @@ def test_no_module_sets_who_answered_on_a_seat():
 
 
 def test_the_vocabularies_still_admit_what_stored_records_carry():
-    """The point: a stored record naming a speaker has to go on validating, so the value outlives its writer."""
+    """The point: a stored record naming a speaker has to go on validating, so the value outlives its writer.
 
-    assert list(get_args(FLEinwilligungQuelle)) == _EINWILLIGUNG_QUELLEN
-    assert list(get_args(FLKontaktKenntnisnahmeQuelle)) == _KONTAKT_KENNTNISNAHME_QUELLEN
+    Against the type and the validator's list alike: `tests/core/test_constraints.py :: MIRRORED_ENUMS`
+    holds the two equal, which both narrowed together still are.
+    """
+
+    assert STORED_ERTEILT_VON <= set(get_args(FLEinwilligungQuelle))
+    assert STORED_ERTEILT_VON <= set(_EINWILLIGUNG_QUELLEN)
+    assert STORED_ERFASST_VON <= set(get_args(FLKontaktKenntnisnahmeQuelle))
+    assert STORED_ERFASST_VON <= set(_KONTAKT_KENNTNISNAHME_QUELLEN)
