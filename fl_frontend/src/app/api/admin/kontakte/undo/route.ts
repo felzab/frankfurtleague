@@ -2,23 +2,13 @@ import { getLaufendesLabel } from "@/core/einwilligung";
 import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { patchSaisonTeamKontakte } from "@/features/kontakte/mutations";
 import { describeKontaktVersand, mailKontaktLink } from "@/features/kontakte/notifications";
-import { KONTAKTE_REPLAY_REFUSALS } from "@/features/kontakte/refusals";
+import { KONTAKTE_REPLAY_REFUSALS, STALE_BLOCK_REFUSAL } from "@/features/kontakte/refusals";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
 import { mitLaufenderFassung } from "@/features/kontakte/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { handleUndoRequest, refusedReplay, replayRefusal } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
-
-/**
- * Its own close, the one undo row without the change standing: it already says the undo did not run,
- * and why. Worded for the undo, whose toast has not got the save's form.
- */
-const STALE_BLOCK_REFUSAL: Record<string, string> = {
-  "REQ-KONTAKT-001":
-    "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde. " +
-    "Die Rücknahme wurde nicht ausgeführt, damit sie die neueren Angaben nicht überschreibt.",
-};
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {

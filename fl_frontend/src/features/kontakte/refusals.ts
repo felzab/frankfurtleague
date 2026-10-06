@@ -70,3 +70,13 @@ export const KONTAKTE_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
   "REQ-KONTAKT-003":
     "Die Rücknahme würde eine Kontaktperson eintragen, deren E-Mail-Adresse inzwischen auf der Sperrliste steht. Sie wurde nicht ausgeführt.",
 };
+
+/**
+ * Its own close, the one undo row without the change standing: it already says the undo did not run,
+ * and why. Worded for the undo, whose toast has not got the save's form.
+ */
+export const STALE_BLOCK_REFUSAL: Readonly<Record<string, string>> = {
+  "REQ-KONTAKT-001":
+    "Die Kontakte dieser Saison wurden nach dem Speichern erneut geändert, etwa weil eine Kontaktperson ihren Eintrag bestätigt oder ihm widersprochen hat oder gelöscht wurde. " +
+    "Die Rücknahme wurde nicht ausgeführt, damit sie die neueren Angaben nicht überschreibt.",
+};
