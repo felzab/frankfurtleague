@@ -4,7 +4,8 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { istDauerhaftUnzustellbar } from "./zustellung";
 
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLBewerbung, FLBewerbungZustellung } from "./schemas";
+import type { FLBewerbungZustellung } from "@/shared/schemas";
+import type { FLBewerbung } from "./schemas";
 
 /** Narrowed to the two blocks a confirmation moves, so a caller holding a queue row rather than a whole application still reads its seats. */
 type BewerbungSitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte">;

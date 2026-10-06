@@ -3,13 +3,12 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import {
   einzeiligerName,
-  FLBewerbungZustellstandSchema,
   FLKontaktRolleSchema,
   ZUSTELLUNG_GRUND_MAX_LENGTH,
   ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
 } from "@/features/bewerbungen/schemas";
-import { CustomObjectIdStringSchema } from "@/shared/schemas";
+import { CustomObjectIdStringSchema, FLBewerbungZustellstandSchema } from "@/shared/schemas";
 
 /**
  * Mirrors `fl_backend/app/api/zustellung/schemas.py :: FLZustellungZiel` — which kind of record a

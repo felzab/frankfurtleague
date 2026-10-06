@@ -15,7 +15,8 @@ import {
 
 import type { FLZustellungEreignisPayload, FLZustellungZiel } from "@/features/zustellung/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLBewerbung, FLBewerbungZustellstand, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "./schemas";
+import type { FLBewerbungZustellstand } from "@/shared/schemas";
+import type { FLBewerbung, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "./schemas";
 
 /**
  * Which message a delivery event is about, as it rides the send. Its own vocabulary rather than the

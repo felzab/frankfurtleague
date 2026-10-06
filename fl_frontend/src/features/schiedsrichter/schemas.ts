@@ -2,7 +2,6 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
-import { FLBewerbungZustellungSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import {
   FLEinwilligungSchema,
@@ -14,6 +13,7 @@ import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
+  FLBewerbungZustellungSchema,
   FLKontaktPayloadSchema,
   FLKontaktSchema,
   isPlaceholderAddress,
