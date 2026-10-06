@@ -999,6 +999,36 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     else note_fail "compaction hook: ${compact_case%%|*} must exit 0 silently, got '${compact_said:0:200}'"; fi
   done
 
+  # The coordinator's send is recorded once, in the recipient's file, through uv; a subagent's send to
+  # the coordinator writes nothing. The recording's cases are scripts/tests/test_orchestration_tools.py's.
+  MESSAGES_HOOK="${REPO_ROOT}/.claude/hooks/orchestration-messages.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PostToolUse orchestration-messages.sh SendMessage
+  if ! command -v uv >/dev/null 2>&1; then
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then note_fail "uv is absent, and this is CI, which installs it for every python scope"
+    else note_skip "the messages hook's probe did not run: uv is absent, and the hook records through it"; fi
+  else
+    messages_home="${SELFCHECK_TMP}/messages-home"
+    messages_briefs="${messages_home}/.claude/plans/programme/briefs"
+    mkdir -p "$messages_briefs"
+    # Python opens the register's path as written, so it is spelled the way the platform's own tools spell it.
+    printf '# Agent register\n\nCoordinator session id: probe-1\nBriefs: %s\n\n## Live agents\n\n| Agent | Status |\n| --- | --- |\n| WORKER | RUNNING |\n' \
+      "$(cygpath -m "$messages_briefs" 2>/dev/null || printf '%s' "$messages_briefs")" > "${messages_home}/.claude/plans/programme/REGISTER-one.md"
+    printf '# WORKER\n' > "${messages_briefs}/WORKER-messages.md"
+    messages_drive() { # $1 payload — prints the exit status and what the hook said
+      local rc=0 out
+      out="$(printf '%s' "$1" | HOME="$messages_home" bash "$MESSAGES_HOOK" 2>&1)" || rc=$?
+      printf '%s %s' "$rc" "$out"
+    }
+    messages_said="$(messages_drive '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"probe order"}}')"
+    if [[ "$messages_said" == "0 " ]] && grep -q '^probe order$' "${messages_briefs}/WORKER-messages.md"; then
+      info 'messages hook: the coordinator'"'"'s send — recorded in the recipient'"'"'s file'
+    else note_fail "messages hook: the coordinator's send must be appended to WORKER-messages.md silently, got '${messages_said:0:200}'"; fi
+    messages_said="$(messages_drive '{"session_id":"probe-1","agent_id":"a1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"subagent reply"}}')"
+    if [[ "$messages_said" == "0 " ]] && ! grep -q 'subagent reply' "${messages_briefs}/WORKER-messages.md"; then
+      info 'messages hook: a subagent'"'"'s send — silent, nothing written'
+    else note_fail "messages hook: a subagent's send must write nothing and stay silent, got '${messages_said:0:200}'"; fi
+  fi
+
   # A writing or driving agent's MCP and Skill calls refused, because the app ignores the
   # definitions' `disallowedTools`; every other caller and tool let through.
   TOOLS_HOOK="${REPO_ROOT}/.claude/hooks/writer-tools.sh"

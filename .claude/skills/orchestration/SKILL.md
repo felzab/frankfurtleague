@@ -95,14 +95,16 @@ Stop once the bar is met.
    asserts; every figure with its provenance; a plan's repair briefed to be driven and reported if
    it does not close; a judgement test with its parameters and one worked verdict; the version meant
    wherever the session is rewriting the rules cited. No time budget, no length cap, no stop-at-N.
-6. Save the brief to the scratch path and record the dispatch, both before it runs. The dispatch
-   prompt names the brief's file and `<NAME>-messages.md` by full path; append every later message
-   to that file in the same action as the send.
+6. Save the brief and an empty `<NAME>-messages.md` in the register's `Briefs:` directory and record
+   the dispatch, all before it runs; the dispatch prompt names both by full path. Every later message
+   goes by `SendMessage` alone: the messages hook appends it to that file, and a line
+   `Rows: <row id>, …` in it routes those ledger rows. A message for later is a standing action.
 7. An agent that writes or plants runs in its own worktree (`isolation: "worktree"`), forked from your
    `HEAD`: commit what it needs first. A reader runs in your checkout.
 8. An `implementer` or `driving-reauditor` may message you mid-task through `SendMessage`, to ask
    for a file outside its list, to report a broken premise or to ask what it cannot verify; answer
-   the same way and append the answer to its messages file. A `researcher` or `cold-auditor`
+   the same way. An answer reaches it at its next tool call, so one sent after its last is lost:
+   re-send it once the report lands, which resumes the agent. A `researcher` or `cold-auditor`
    reaches you only through its report.
 9. Dispatch no writer while `HEAD` holds a landing whose CI has not concluded. Once what remains is
    one wave plus [ending.md](ending.md)'s list, start nothing new.
@@ -113,8 +115,9 @@ Stop once the bar is met.
   every reply to the owner with the gauge: `Fleet: 3 of <cap>, two queued behind the gate commit.` Then name what would have to
   become true for the next agent on the critical path to go out, and check whether it already is.
   The gauge is a check that nothing on the critical path waits, never a target.
-- You are the fleet's one serial resource: bank a report as its saved path and a one-line verdict,
-  its findings with `ledger.py bank`; send a fix batch as its ledger rows and one line.
+- You are the fleet's one serial resource: bank every report, a fixer's included, with
+  `ledger.py bank <register> <report> --from <agent id>`, which saves it, and a one-line verdict;
+  send a fix batch as its `Rows:` line and one line.
 - Verify every count, file list and exit code in a report against the agent's branch
   (`git log --stat <session branch>..<branch>`, `git show <branch>:<path>`). Check a finding about a
   file its reporter does not own at `HEAD` before routing it. Pass one agent's conclusion to another
@@ -149,8 +152,8 @@ HEAD...<branch>`, the diff itself, and each commit body against it; send a false
   new defect, routed at once, and a RED row still matching after its clearing landing is a finding.
   Start no driving re-audit until it exits 0 over a concluded run.
 - Run the suites in your checkout every few waves: CI is Linux. The bare gate is the ending's.
-- At a wave boundary your checkout is clean and every `git worktree list` entry is a live agent's or
-  merged; remove a merged one with `git worktree remove` and `git branch -d`. Where Windows stops a
+- At a wave boundary `ledger.py open` prints nothing, your checkout is clean and every
+  `git worktree list` entry is a live agent's or merged; remove a merged one with `git worktree remove` and `git branch -d`. Where Windows stops a
   removal at the path limit, `rm -rf <path>` in Git Bash, then `git worktree prune -v`.
 
 ## The cycle

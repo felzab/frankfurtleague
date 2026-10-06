@@ -399,6 +399,88 @@ def test_bank_with_no_report_to_read_is_refused(tmp_path: Path, args: tuple[str,
     assert register.read_bytes() == before
 
 
+# --- reg message ----------------------------------------------------------------------------------
+
+LIVE: Final = (
+    "## Live agents\n\n| Agent name, then the id in backticks | Question | Status |\n| --- | --- | --- |\n"
+    "| WORKER `a1b2c3` (implementer) | the work | RUNNING |\n| OTHER `d4e5f6` | more | RUNNING |\n\n"
+)
+
+
+def _fleet(tmp_path: Path, messages_file: bool = True) -> tuple[Path, Path, Path]:
+    """A plans directory holding this session's register, its briefs folder and one agent's messages file."""
+    briefs = tmp_path / "plans" / "prog" / "scratch" / "briefs"
+    briefs.mkdir(parents=True)
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    head = f"# Agent register\n\nCoordinator session id: sess-1\nBriefs: {briefs}\n\n{LIVE}"
+    placed = tmp_path / "plans" / "prog" / "REGISTER-s.md"
+    placed.write_bytes(head.encode("utf-8") + register.read_bytes().split(b"\n", 1)[1])
+    messages = briefs / "WORKER-messages.md"
+    if messages_file:
+        messages.write_bytes(b"# WORKER -- messages after the brief\n")
+    return tmp_path / "plans", placed, messages
+
+
+def _sent(to: str, text: str, **extra: object) -> dict[str, object]:
+    return {"session_id": "sess-1", "tool_name": "SendMessage", "tool_input": {"to": to, "message": text}, **extra}
+
+
+@pytest.mark.parametrize("to", ["WORKER", "a1b2c3"], ids=["by name", "by id"])
+def test_a_sent_message_is_written_to_its_agents_file_and_routes_its_rows(tmp_path: Path, to: str) -> None:
+    """An order appended by hand, its send forgotten, never reached the agent: the record follows the send."""
+    plans, register, messages = _fleet(tmp_path)
+    now = datetime.datetime(2026, 10, 6, 19, 5, tzinfo=datetime.UTC)
+    said = reg.record(_sent(to, "Fix both.\r\nRows: A-F1, A-F2\nPath C:\\Users\\x stays as typed."), plans, now)
+    assert said is None
+    assert messages.read_bytes().decode("utf-8") == (
+        "# WORKER -- messages after the brief\n\n## 2026-10-06 19:05 coordinator\n\n"
+        "Fix both.\nRows: A-F1, A-F2\nPath C:\\Users\\x stays as typed.\n"
+    )
+    assert _status(register, "A-F1") == ["ROUTED", "WORKER"] and _status(register, "A-F2") == ["ROUTED", "WORKER"]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _sent("a1b2c3", "x", agent_id="a9"),
+        {**_sent("a1b2c3", "x"), "session_id": "another"},
+        _sent("PEER", "x"),
+        _sent("main", "x"),
+        {**_sent("a1b2c3", "x"), "tool_name": "Read"},
+    ],
+    ids=["a subagent's send", "another session", "no live agent", "the main session", "another tool"],
+)
+def test_a_send_that_is_no_coordinators_order_writes_nothing(tmp_path: Path, payload: dict[str, object]) -> None:
+    plans, register, messages = _fleet(tmp_path)
+    before = (messages.read_bytes(), register.read_bytes())
+    assert reg.record(payload, plans) is None
+    assert (messages.read_bytes(), register.read_bytes()) == before
+
+
+def test_a_message_with_no_file_to_take_it_is_told_rather_than_written_elsewhere(tmp_path: Path) -> None:
+    plans, _, messages = _fleet(tmp_path, messages_file=False)
+    said = reg.record(_sent("WORKER", "x"), plans)
+    assert said is not None and "is in no messages file" in said and "WORKER-messages.md" in said
+    assert not messages.exists()
+
+
+def test_rows_routed_elsewhere_are_told_and_the_message_still_recorded(tmp_path: Path) -> None:
+    plans, register, messages = _fleet(tmp_path)
+    ledger.route(register, "OTHER", ["A-F1"])
+    said = reg.record(_sent("WORKER", "Fix it.\nRows: A-F1"), plans)
+    assert said is not None and "routed to OTHER already" in said
+    assert "Fix it." in messages.read_bytes().decode("utf-8") and _status(register, "A-F1") == ["ROUTED", "OTHER"]
+
+
+def test_the_hook_command_answers_a_notice_as_hook_json(tmp_path: Path) -> None:
+    plans, _, _ = _fleet(tmp_path, messages_file=False)
+    done = _run("reg", "message", str(plans), stdin=json.dumps(_sent("WORKER", "x")).encode("utf-8"))
+    assert done.returncode == 0, done.stderr
+    said = json.loads(done.stdout)["hookSpecificOutput"]
+    assert said["hookEventName"] == "PostToolUse" and "is in no messages file" in said["additionalContext"]
+    assert _run("reg", "message", str(plans), stdin=b"not json").returncode == 0
+
+
 # --- ci -------------------------------------------------------------------------------------------
 
 

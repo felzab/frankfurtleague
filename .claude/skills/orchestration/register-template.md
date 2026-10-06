@@ -20,6 +20,7 @@ programme register's latest row, else 12, under a ceiling of 20; beneath it, the
 quality bears, learned by watching quality.
 Model: <what the owner last named for subagents>.
 Scratch path: <one directory outside the repository, a subdirectory per agent>.
+Briefs: <the directory holding each `<NAME>.md` brief and its `<NAME>-messages.md`, spelled as python opens it, alone after the colon>
 Starter prompt: <path>. Previous handoff: <path, or none>.
 Coordinator session id: <the id SKILL.md renders, alone after the colon>
 
@@ -67,9 +68,10 @@ fills "Landed".>
 matches the worktree table.>
 
 ## Live agents
-| Agent name, and the id the Agent tool returned | The question it settles | Owns | Cycle | Last write to an owned file | Status |
-| ---------------------------------------------- | ----------------------- | ---- | ----- | --------------------------- | ------ |
-<Cycle: implement, audit, fix, re-audit, fix, done.>
+| Agent name, then the id the Agent tool returned in backticks | The question it settles | Owns | Cycle | Last write to an owned file | Status |
+| ------------------------------------------------------------ | ----------------------- | ---- | ----- | --------------------------- | ------ |
+<Cycle: implement, audit, fix, re-audit, fix, done. The messages hook finds a send's recipient by
+the name or the id in the first cell.>
 
 ## Worktrees -- one per writing agent, from dispatch until its branch is deleted
 | Agent | Worktree path | Branch | Forked at | Merged | Removed | Branch deleted |
@@ -109,10 +111,12 @@ the owner works everywhere goes to their `~/.claude/CLAUDE.md`.>
 ## Findings ledger
 | # | Source report | Finding (file :: anchor) | Status | Owner, or the evidence that closed it |
 |---|---|---|---|---|
-<One row per labelled finding, written by `ledger.py bank <register> <report>` before the next
-dispatch; `--as <name>` for a second report under a banked name. Status: OPEN, ROUTED (agent),
-FIXED (commit), RULED, HANDOFF, NOT A DEFECT, MOOT. A routed finding is a claim until its fixer has
-judged it real. The ending closes every row.>
+<The fleet's only ledger: no other file holds findings. One row per labelled finding of every
+report, a fixer's included, written by `ledger.py bank` before the next dispatch. A row moves to
+ROUTED by a sent message's `Rows:` line or `ledger.py route`, one owner at a time, and to FIXED by
+the landing whose commit body names it. Status: OPEN, ROUTED, FIXED (commit), RULED, HANDOFF, NOT A
+DEFECT, MOOT. A routed finding is a claim until its fixer has judged it real. The ending closes
+every row.>
 
 ## Findings banked, and handoff material
 <Per agent: its report's saved path and a one-line verdict. What the handoff will need, written as
