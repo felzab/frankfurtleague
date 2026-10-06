@@ -666,13 +666,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE`), and each
   new one replaces the whole block, the delivery state of the message the old link went out in
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
-- **A confirmed referee's pending new address has no clock**: it stands beside the referee's row
-  until its holder confirms or declines it, an administrator replaces or discards it, or the
-  referee is erased with it (`fl_backend/app/core/domain.py :: FIELD_POLICIES`). Its link lasts the
-  confirmation link's fourteen days and a re-send restarts them
-  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`); a lapsed change is
-  marked as lapsed to the administrator rather than removed, a sweep being machinery for a row this
-  rare. Ruled 2026-10-04.
+- **A confirmed referee's pending new address stands until its holder confirms or declines it, an
+  administrator replaces or discards it, or the referee is erased with it, and once its link has
+  lapsed the yearly deletion removes it** (`fl_backend/app/core/domain.py :: FIELD_POLICIES`): the
+  address may be a stranger's, typed in by mistake, who never asked to be stored. Its link lasts
+  the confirmation link's fourteen days and a re-send restarts them
+  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`). The yearly deletion is
+  not built yet, so until it is a lapsed change stands, marked as lapsed to the administrator, who
+  can discard it; the published notice already states the removal
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.

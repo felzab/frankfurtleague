@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "4. Oktober 2026", digest: "a6b5d7c0c2508ca64b54b68c669fd97fe4da5b9360ec968126b36413d96d7fb5" } as const;
+const FASSUNG = { stand: "6. Oktober 2026", digest: "292ccbb51da361a81a7c12ef68bac8843a4c52015b21ca6044875dd9e8d767e9" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -194,6 +194,19 @@ describe("the privacy notice's retention table", () => {
       "Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt " +
         `${inWorten(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem ` +
         "Eintrag gelöscht",
+    );
+  });
+
+  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed. */
+  it("gives a referee's unconfirmed new address its retention and the removal once its link has lapsed", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
+          "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+      ),
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag " +
+        "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
+        " löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
     );
   });
 
