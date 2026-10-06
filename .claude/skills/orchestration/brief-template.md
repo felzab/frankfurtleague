@@ -17,7 +17,8 @@ section's one home.
 `.claude/agents/implementer.md` carries every other section. The brief carries the values that
 definition names in angle brackets, the BAR line, OWNERSHIP, THE WORK, and the traps specific to
 this work. The bar reaches an agent only through its brief: the definitions are dispatched outside
-skill sessions too.
+skill sessions too. The definition withholds `gh`, so a CI failure the work must answer goes in as
+the lines `ci.py` printed for it, never as a run to read.
 
 ```
 VALUES.         Your agent name: <name>. Session branch: <session branch>; your worktree forked
