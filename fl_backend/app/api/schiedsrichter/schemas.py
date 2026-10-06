@@ -312,7 +312,10 @@ class FLSchiedsrichterKontext(BaseModel):
 
 
 class FLSchiedsrichterSelbst(BaseModel):
-    """One referee record as its own person reads it: their contact details, fee and consent, never the link's bookkeeping."""
+    """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+
+    For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.
+    """
 
     schiedsrichter_id: CustomObjectId
     name: CustomNonEmptyString
@@ -321,21 +324,6 @@ class FLSchiedsrichterSelbst(BaseModel):
     # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
     honorar: int
     geburtsdatum: CustomOptionalDateString = None
-    inactive_since: CustomOptionalDateString
-    # Required: only a confirmed record is served.
-    einwilligung: FLEinwilligung
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    bestaetigt_text_version: str | None
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    nachweis_stand: FLEinwilligungStand
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    erteilbar: bool
-    medien_angeboten: bool
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    mindestalter: int
-    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    medien_mindestalter: int
-    kontext: FLSchiedsrichterKontext
 
 
 class FLSchiedsrichterSelbstResponse(BaseAPIResponse):

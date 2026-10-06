@@ -246,9 +246,11 @@ def test_a_seat_entry_names_at_least_one_role_and_publishes_the_floor(model: typ
 class TestTheOwnRecords:
     def test_the_address_is_answered_its_own_record_whatever_case_it_was_stored_in(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(PATH, headers=_person(IDENTIFIER.upper()))
+            selbst = await http.get(PATH, headers=_person(IDENTIFIER.upper()))
+            konto = await http.get(KONTO_PATH, headers=_person(IDENTIFIER.upper()))
+            return selbst, konto
 
-        response = served(mongo_replica_set_url, steps)
+        response, konto = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
         [record] = response.json()["schiedsrichter"]
@@ -257,13 +259,20 @@ class TestTheOwnRecords:
             "Ortrud Zwiebelmayer",
             REFEREE_STORED,
         )
-        assert (record["erteilbar"], record["medien_angeboten"]) == (True, True)
-        # The fee is the referee's own, served under the screen's word; the link's bookkeeping never is.
-        assert (record["honorar"], "default_payment" in record, "bestaetigung" in record) == (20, False, False)
+        # The fee is the referee's own, served under the screen's word; the link's bookkeeping never is, nor the
+        # consent, which is the account page's.
+        assert (record["honorar"], "default_payment" in record, "bestaetigung" in record, "einwilligung" in record) == (
+            20,
+            False,
+            False,
+            False,
+        )
+        [eintrag] = konto.json()["schiedsrichter"]
+        assert (eintrag["schiedsrichter_id"], eintrag["erteilbar"], eintrag["medien_angeboten"]) == (str(REFEREE_OID), True, True)
 
     def test_a_retired_record_is_served_for_its_withdrawal_alone(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(PATH, headers=_person(RETIRED))
+            return await http.get(KONTO_PATH, headers=_person(RETIRED))
 
         [record] = served(mongo_replica_set_url, steps).json()["schiedsrichter"]
 

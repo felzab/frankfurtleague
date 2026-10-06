@@ -12,9 +12,9 @@ from app.api.konto.services import (
     build_selbst_seat_pipeline,
     compose_bewerbungssitze_selbst,
     compose_registrierungen_selbst,
-    compose_schiedsrichter_selbst,
+    compose_schiedsrichter_konto,
     compose_sitze_selbst,
-    compose_spieler_selbst,
+    compose_spieler_konto,
     kontext_zeile,
 )
 from app.api.schiedsrichter.services import build_selbst_referee_pipeline
@@ -117,14 +117,14 @@ async def get_einwilligungen(
             {
                 "spieler": None
                 if pupil is None
-                else compose_spieler_selbst(
+                else compose_spieler_konto(
                     pupil,
                     erteilbar=may_grant_on_spieler(subjekt, pupil["_id"]),
                     today=today,
                     team=None if zeile is None else teams.get(zeile["team_id"]),
                 ),
                 "schiedsrichter": [
-                    compose_schiedsrichter_selbst(row, erteilbar=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
+                    compose_schiedsrichter_konto(row, erteilbar=may_grant_on_schiedsrichter(subjekt, row["_id"]), today=today)
                     for row in referees
                     if ist_eigener_schiedsrichter(row, identifier)
                 ],
