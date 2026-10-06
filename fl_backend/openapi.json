@@ -2592,7 +2592,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
         "summary": "One Bewerbung",
-        "description": "One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.",
+        "description": "One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.\n\nAnswers whether its confirmation deadline has passed today, so the editor words the deletion without reading a day of its own.",
         "operationId": "get_bewerbung_by_id_api_v0_bewerbungen__bewerbung_id__get",
         "security": [
           {
@@ -11978,11 +11978,16 @@
           },
           "bewerbung": {
             "$ref": "#/components/schemas/FLBewerbung"
+          },
+          "bestaetigungsfrist_abgelaufen": {
+            "type": "boolean",
+            "title": "Bestaetigungsfrist Abgelaufen"
           }
         },
         "type": "object",
         "required": [
-          "bewerbung"
+          "bewerbung",
+          "bestaetigungsfrist_abgelaufen"
         ],
         "title": "FLBewerbungSingleResponse"
       },

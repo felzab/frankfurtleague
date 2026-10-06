@@ -257,13 +257,13 @@ export function loeschungsSatz({
   staende,
   frist,
   eingereicht,
-  heute,
+  istAbgelaufen,
 }: {
   staende: readonly SitzBestaetigung[];
   frist: string | null;
   eingereicht: boolean;
-  /** The Europe/Berlin day, which is the one the backend's clock compares against. */
-  heute: string;
+  /** The read's judgement of the deadline on the server's day, never this browser's. */
+  istAbgelaufen: boolean;
 }): string | null {
   if (!eingereicht || frist === null || !staende.some(istOffen)) return null;
 
@@ -273,7 +273,7 @@ export function loeschungsSatz({
   const gehalten = istDauerhaftUnzustellbar(staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung ?? null);
 
   // The deadline's own day still reads as ahead: the link answers on it, and the sweep deletes the day after.
-  if (frist >= heute) {
+  if (!istAbgelaufen) {
     // „Die Frist für die Bestätigungen“ is the deletion notice's own phrase, so the administrator reads
     // what the school is sent (`fl_frontend/src/core/bewerbungEmail.ts`).
     return gehalten

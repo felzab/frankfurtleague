@@ -236,6 +236,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
           bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
           staende,
           frist: "2099-12-31",
+          fristAbgelaufen: false,
           isOpen: true,
           isDirty: false,
           onGetipptChange: () => undefined,

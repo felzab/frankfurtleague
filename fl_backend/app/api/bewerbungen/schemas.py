@@ -335,6 +335,9 @@ class FLBewerbungenListResponse(BaseAPIResponse):
 
 class FLBewerbungSingleResponse(BaseAPIResponse):
     bewerbung: FLBewerbung
+    # Whether the confirmation deadline has passed today, judged on the server's date so the editor
+    # reads no day of its own; false where the application holds no deadline.
+    bestaetigungsfrist_abgelaufen: bool
 
 
 class FLAnnehmenBewerbungResponse(BaseAPIResponse):

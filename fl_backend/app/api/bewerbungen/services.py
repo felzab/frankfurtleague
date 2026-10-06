@@ -617,6 +617,12 @@ def _deadline_passed(*, bestaetigungsfrist: Any, today: str) -> bool:
     return isinstance(bestaetigungsfrist, str) and bestaetigungsfrist < today
 
 
+def bestaetigungsfrist_passed(*, bestaetigungsfrist: Any, today: str) -> bool:
+    """Whether an application's confirmation deadline has passed today, by the rule its seats' links refuse on."""
+
+    return _deadline_passed(bestaetigungsfrist=bestaetigungsfrist, today=today)
+
+
 def link_is_over(*, bestaetigungsfrist: Any, status: Any, today: str) -> bool:
     """Whether the link is over: the deadline has passed, or the application was decided while the seat stood open."""
 

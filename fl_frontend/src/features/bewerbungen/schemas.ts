@@ -223,6 +223,8 @@ export type FLBewerbungenListResponse = z.infer<typeof FLBewerbungenListResponse
 
 export const FLBewerbungSingleResponseSchema = BaseAPIResponseSchema.extend({
   bewerbung: FLBewerbungSchema,
+  // The backend's judgement of the confirmation deadline today, so the editor reads no day of its own.
+  bestaetigungsfrist_abgelaufen: z.boolean(),
 });
 export type FLBewerbungSingleResponse = z.infer<typeof FLBewerbungSingleResponseSchema>;
 

@@ -1211,6 +1211,7 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
                 bewerbung_id=created.inserted_id,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 sperrliste=ban_list(database),
+                today=TODAY,
             )
 
             return response.bewerbung.kontakte.trainer
