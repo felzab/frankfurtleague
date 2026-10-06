@@ -9,6 +9,7 @@ nothing to refuse.
 from __future__ import annotations
 
 import datetime
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,9 +23,15 @@ TOOLS: Final = REPO_ROOT / ".claude" / "skills" / "orchestration" / "tools"
 merge_rows, reg, ledger, land = import_scripts("merge_rows", "reg", "ledger", "land", directories=("../.claude/skills/orchestration/tools",))
 
 
-def _run(tool: str, *args: str, cwd: Path | None = None, stdin: bytes | None = None) -> subprocess.CompletedProcess[str]:
-    """One tool run as the coordinator runs it, by this interpreter, its streams decoded as utf-8."""
-    done = subprocess.run((sys.executable, str(TOOLS / f"{tool}.py"), *args), cwd=cwd, input=stdin, capture_output=True, check=False)
+def _run(
+    tool: str, *args: str, cwd: Path | None = None, stdin: bytes | None = None, encoding: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    """One tool run as the coordinator runs it, by this interpreter, its streams decoded as utf-8.
+
+    `encoding` stands the child's streams on another codec, as a Windows pipe stands them on the console's codepage.
+    """
+    env = {**os.environ, "PYTHONIOENCODING": encoding} if encoding else None
+    done = subprocess.run((sys.executable, str(TOOLS / f"{tool}.py"), *args), cwd=cwd, input=stdin, capture_output=True, check=False, env=env)
     return subprocess.CompletedProcess(done.args, done.returncode, done.stdout.decode("utf-8"), done.stderr.decode("utf-8"))
 
 
@@ -248,6 +255,18 @@ def test_open_exits_one_while_a_row_is_open_and_zero_once_every_row_is_closed(tm
     register.write_bytes(register.read_bytes().replace(b"| OPEN |", b"| FIXED |"))
     closed = _run("ledger", "open", str(register))
     assert closed.returncode == 0 and closed.stdout == ""
+
+
+@pytest.mark.parametrize("tool", ["ledger", "reg"])
+def test_a_character_the_pipes_codepage_lacks_prints_rather_than_failing_after_the_write(tmp_path: Path, tool: str) -> None:
+    """A minus sign failed the print after the row was written, and the encode error read as a refusal."""
+    register = _register(tmp_path)
+    report = tmp_path / "A-report.md"
+    report.write_bytes("F1 a count − one\n".encode())
+    args = ("bank", str(register), str(report)) if tool == "ledger" else ("append", str(register), "a count − one")
+    done = _run(tool, *args, encoding="cp1252")
+    assert done.returncode == 0, done.stderr
+    assert "a count − one" in done.stdout
 
 
 def test_a_skipped_number_is_named(tmp_path: Path) -> None:

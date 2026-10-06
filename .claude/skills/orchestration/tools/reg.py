@@ -14,6 +14,7 @@ Exit 0 written, 2 refused: no text, or not exactly one marker.
 from __future__ import annotations
 
 import datetime
+import io
 import os
 import sys
 from pathlib import Path
@@ -61,4 +62,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    # A Windows pipe takes the console's codepage, which cannot encode every character a line holds.
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     sys.exit(main(sys.argv[1:]))

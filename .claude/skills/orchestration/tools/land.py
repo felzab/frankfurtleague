@@ -14,6 +14,7 @@ carrying a current document can merge cleanly into one that is not.
 
 from __future__ import annotations
 
+import io
 import re
 import subprocess
 import sys
@@ -170,4 +171,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    # A Windows pipe takes the console's codepage, which cannot encode every character git prints.
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     sys.exit(main(sys.argv[1:]))

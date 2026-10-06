@@ -15,6 +15,7 @@ it. Exit 0 done; `bank` 2 refused, 3 no label and no `--none`; `open` 1 while an
 
 from __future__ import annotations
 
+import io
 import os
 import re
 import sys
@@ -141,4 +142,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    # A Windows pipe takes the console's codepage, which cannot encode every character a report holds.
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     sys.exit(main(sys.argv[1:]))
