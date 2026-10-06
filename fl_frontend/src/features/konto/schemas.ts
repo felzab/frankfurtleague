@@ -57,6 +57,8 @@ export const FLKontoSitzEinwilligungSchema = z.object({
   nachweis_stand: FLEinwilligungStandSchema,
   medien_angeboten: z.boolean(),
   erteilbar: z.boolean(),
+  // One per entry, never per confirmation: every confirmation's words and the control's name one media floor.
+  medien_mindestalter: z.number().int(),
   bestaetigt: z.array(FLSitzBestaetigtSchema).nonempty(),
 });
 export type FLKontoSitzEinwilligung = z.infer<typeof FLKontoSitzEinwilligungSchema>;
@@ -75,6 +77,8 @@ export const FLKontoBewerbungSitzEinwilligungSchema = z.object({
   umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
   medien: z.boolean(),
   nachweis_stand: FLEinwilligungStandSchema,
+  // For `FLKontoSitzEinwilligungSchema`'s reason.
+  medien_mindestalter: z.number().int(),
   bestaetigt: z.array(FLSitzBestaetigtSchema).nonempty(),
 });
 export type FLKontoBewerbungSitzEinwilligung = z.infer<typeof FLKontoBewerbungSitzEinwilligungSchema>;
@@ -95,8 +99,9 @@ export const FLKontoRegistrierungEinwilligungSchema = z.object({
   umfang: FLEinwilligungSchema.shape.umfang.nullable(),
   medien: z.boolean().nullable(),
   nachweis_stand: FLEinwilligungStandSchema,
-  // For `FLSpielerSelbstSchema`'s reason.
+  // For `FLSpielerSelbstSchema`'s reason, both.
   mindestalter: z.number().int(),
+  medien_mindestalter: z.number().int(),
   kontext: FLSpielerKontextSchema,
   vorname: z.string(),
   nachname: z.string(),

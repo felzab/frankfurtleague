@@ -30,6 +30,7 @@ export const spielerSelbst = () => ({
   erteilbar: true,
   medien_angeboten: true,
   mindestalter: 16,
+  medien_mindestalter: 18,
   kader: [],
 });
 
@@ -49,4 +50,5 @@ export const schiedsrichterSelbst = () => ({
   erteilbar: true,
   medien_angeboten: true,
   mindestalter: 16,
+  medien_mindestalter: 18,
 });

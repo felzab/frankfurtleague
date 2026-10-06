@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import {
@@ -72,12 +71,8 @@ describe("the consent writes' mappers", () => {
     });
   }
 
-  it("names the floor the backend refuses at", () => {
-    assert.ok(MEDIEN_ZU_JUNG.includes(`ab ${String(MEDIEN_MIN_ALTER)} Jahren`), MEDIEN_ZU_JUNG);
-  });
-
-  it("gives each record's lost-record sentence its own words, and none the withdraw-only one", () => {
-    const saetze = [EINTRAG_WEG, BEWERBUNG_NICHT_MEHR_OFFEN, REGISTRIERUNG_NICHT_MEHR_OFFEN, NUR_WIDERRUF];
+  it("gives each cause its own sentence", () => {
+    const saetze = [EINTRAG_WEG, BEWERBUNG_NICHT_MEHR_OFFEN, REGISTRIERUNG_NICHT_MEHR_OFFEN, NUR_WIDERRUF, MEDIEN_ZU_JUNG];
     assert.equal(new Set(saetze).size, saetze.length);
   });
 });

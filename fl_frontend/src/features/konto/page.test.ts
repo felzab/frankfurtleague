@@ -324,6 +324,7 @@ const SITZ = {
   medien: false,
   medien_angeboten: true,
   erteilbar: true,
+  medien_mindestalter: 18,
 };
 
 /** A contact person confirmed on a school's application still awaiting its decision. */
@@ -335,6 +336,7 @@ const BEWERBUNG_SITZ = {
   umfang: "kontaktdaten",
   medien: true,
   nachweis_stand: { umfang: null, medien: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90" },
+  medien_mindestalter: 18,
   bestaetigt: [
     {
       rollen: ["ansprechperson"],
@@ -361,6 +363,7 @@ const REGISTRIERUNG = {
   medien: true,
   nachweis_stand: { umfang: null, medien: null },
   mindestalter: 16,
+  medien_mindestalter: 18,
   kontext: { vorname: "Nele", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2627" },
   vorname: "Nele",
   nachname: "Brandt",
@@ -503,6 +506,25 @@ describe("the account page's consent section", () => {
       answeringKonto(konto);
 
       assert.ok((await sectionText()).includes("mindestens 21 Jahre"), "the confirmed words name a floor of the page's own");
+    });
+  }
+
+  /* One media floor per entry, served: the control's paragraph and every confirmation's words name it,
+     a floor of the page's own in either reading as a second rule. 21 is no floor served today. */
+  for (const [art, konto] of [
+    ["a pupil", { spieler: { ...SPIELER, medien_mindestalter: 21 } }],
+    ["a referee", { schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 21 }] }],
+    ["a pending registration", { registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 21 }] }],
+    ["a seat", { sitze: [{ ...SITZ, medien_mindestalter: 21 }] }],
+    ["a pending application's seat", { bewerbungen: [{ ...BEWERBUNG_SITZ, medien_mindestalter: 21 }] }],
+  ] as const) {
+    it(`names the media floor the read serves for ${art} in its control's words and its confirmed words`, async () => {
+      setSubject(OHNE_FUNKTION);
+      answeringKonto(konto);
+      const text = await sectionText();
+
+      assert.ok(text.includes("21 Jahren"), "no words name the served media floor");
+      assert.ok(!text.includes("18 Jahren"), "words name a media floor of the page's own");
     });
   }
 

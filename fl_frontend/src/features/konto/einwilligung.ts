@@ -1,4 +1,3 @@
-import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants";
 import { isFunktionLost, isRefusal } from "@/shared/utils/actionError";
 
 export const WAHL_GESPEICHERT = "Deine Wahl ist gespeichert";
@@ -9,9 +8,9 @@ export const WAHL_NICHT_GESPEICHERT = "Deine Wahl wurde nicht gespeichert";
 // only a reload draws what the press would be recorded against.
 export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu und wähle erneut.";
 
-// The retyped floor rather than a served one: the floor is one constant for every record, and none of
-// the account page's reads serve it (`fl_frontend/src/features/registrierungen/constants.ts :: MEDIEN_MIN_ALTER`).
-export const MEDIEN_ZU_JUNG = `Fotos, Videos und Interviews kannst Du erst ab ${String(MEDIEN_MIN_ALTER)} Jahren erlauben.`;
+// No age named: the server action mapping the backend's refusal holds no entry to read the served floor
+// from, and the switch's own paragraph, filled from it, names the age once the page is reloaded.
+export const MEDIEN_ZU_JUNG = "Fotos, Videos und Interviews kannst Du in Deinem Alter noch nicht erlauben. Lade die Seite neu.";
 
 // `REQ-FUNKTION-001` on a record admitting a grant: the record is no longer the person's.
 export const EINTRAG_WEG = "Diese Angaben sind nicht mehr bei Dir eingetragen. Lade die Seite neu.";

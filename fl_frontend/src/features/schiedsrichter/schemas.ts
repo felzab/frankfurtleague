@@ -383,8 +383,9 @@ export const FLSchiedsrichterSelbstSchema = z.object({
   kontext: FLSchiedsrichterKontextSchema,
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),
-  // For `FLSpielerSelbstSchema`'s reason.
+  // For `FLSpielerSelbstSchema`'s reason, both.
   mindestalter: z.number().int(),
+  medien_mindestalter: z.number().int(),
 });
 export type FLSchiedsrichterSelbst = z.infer<typeof FLSchiedsrichterSelbstSchema>;
 

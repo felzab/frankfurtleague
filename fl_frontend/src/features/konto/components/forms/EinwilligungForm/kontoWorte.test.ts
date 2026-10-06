@@ -13,27 +13,31 @@ import { textOf } from "@/shared/testing/renderTest.ts";
 const { schiedsrichterWorte, sitzTitel, sitzWorte, spielerWorte } = await import("./kontoWorte.tsx");
 const { renderTree } = await import("@/shared/testing/renderTest.ts");
 
+/** The media floor every record is served at today. */
+const BODEN = { medien_mindestalter: 18 };
+
 const gerendert = (node: unknown): string => textOf(renderTree(h(Fragment, null, node as never)));
 
 describe("the account page's controls drawn from the served wording", () => {
   it("names the pupil's chips and switch by the running wording's own controls, and posts that wording's label", () => {
     const fassung = publishedLaufendeFassung("konto_spieler");
-    const worte = spielerWorte(fassung, SPIELER_UMFANG_FRAGE);
+    const worte = spielerWorte(fassung, SPIELER_UMFANG_FRAGE, BODEN);
 
     assert.equal(worte.textVersion, fassung.text_version);
     assert.deepEqual(worte.umfang?.optionen, fassung.bedienelemente);
     assert.equal(worte.medien.schalter, fassung.schalter);
   });
 
-  /* Each paragraph from its own section, the floor filled: a paragraph put under the wrong control
-     describes the other choice, and a slot left standing reads as unfinished. */
-  it("puts each section under the control it governs and fills the age floor", () => {
+  /* Each paragraph from its own section, the entry's floor filled: a paragraph put under the wrong
+     control describes the other choice, and a slot left standing reads as unfinished. A floor no
+     record is served at today, so a fill from anything but the entry fails. */
+  it("puts each section under the control it governs and fills the entry's age floor", () => {
     const fassung = publishedLaufendeFassung("konto_spieler");
-    const worte = spielerWorte(fassung, SPIELER_UMFANG_FRAGE);
+    const worte = spielerWorte(fassung, SPIELER_UMFANG_FRAGE, { medien_mindestalter: 21 });
     const sections = fassung.absaetze_nach_schluessel ?? assert.fail("the pupil's account wording carries no keyed sections");
 
     assert.equal(gerendert(worte.umfang?.absatz), sections.veroeffentlichung);
-    assert.equal(gerendert(worte.medien.absatz), sections.medien?.replace("{medienMinAlter}", "18"));
+    assert.equal(gerendert(worte.medien.absatz), sections.medien?.replace("{medienMinAlter}", "21"));
     assert.equal(gerendert(worte.widerruf), sections.widerruf);
   });
 
@@ -41,7 +45,7 @@ describe("the account page's controls drawn from the served wording", () => {
      paragraph beside it, where a person's record carries chips. */
   it("fills a seat's team and season into both switches' paragraphs and its title", () => {
     const fassung = publishedLaufendeFassung("konto_kontakt");
-    const sitz = { rollen: ["ansprechperson", "trainer"] as const, team_name: "Lessing Lions", saison_id: "2526" };
+    const sitz = { rollen: ["ansprechperson", "trainer"] as const, team_name: "Lessing Lions", saison_id: "2526", medien_mindestalter: 18 };
     const worte = sitzWorte(fassung, sitz);
 
     assert.equal(worte.umfang, undefined);
@@ -55,14 +59,18 @@ describe("the account page's controls drawn from the served wording", () => {
   it("refuses a wording that is not the account page's", () => {
     const fassung = publishedLaufendeFassung("konto_spieler");
 
-    assert.throws(() => spielerWorte({ ...fassung, absaetze_nach_schluessel: null }, SPIELER_UMFANG_FRAGE));
-    assert.throws(() => spielerWorte(publishedLaufendeFassung("bestaetigung_spieler"), SPIELER_UMFANG_FRAGE));
+    assert.throws(() => spielerWorte({ ...fassung, absaetze_nach_schluessel: null }, SPIELER_UMFANG_FRAGE, BODEN));
+    assert.throws(() => spielerWorte(publishedLaufendeFassung("bestaetigung_spieler"), SPIELER_UMFANG_FRAGE, BODEN));
   });
 
   /* Every seat's two switches carry the same served words, so only their names tell a screen reader which
      choice a press moves: the registry's two names must differ. */
   it("names a seat's WhatsApp switch and its media switch apart", () => {
-    const worte = sitzWorte(publishedLaufendeFassung("konto_kontakt"), { team_name: "Lessing Lions", saison_id: "2526" });
+    const worte = sitzWorte(publishedLaufendeFassung("konto_kontakt"), {
+      team_name: "Lessing Lions",
+      saison_id: "2526",
+      medien_mindestalter: 18,
+    });
 
     assert.ok(worte.whatsapp !== undefined, "a seat is offered no WhatsApp switch");
     assert.notEqual(worte.whatsapp.schalter, worte.medien.schalter);
@@ -74,15 +82,15 @@ describe("the account page's controls drawn from the served wording", () => {
     const spieler = publishedLaufendeFassung("konto_spieler").absaetze_nach_schluessel ?? assert.fail("no keyed pupil wording");
     const schiedsrichter = publishedLaufendeFassung("konto_schiedsrichter").absaetze_nach_schluessel ?? assert.fail("no keyed referee wording");
     const kontakt = publishedLaufendeFassung("konto_kontakt").absaetze_nach_schluessel ?? assert.fail("no keyed contact wording");
-    const sitz = { team_name: "Lessing Lions", saison_id: "2526" };
+    const sitz = { team_name: "Lessing Lions", saison_id: "2526", medien_mindestalter: 18 };
 
     assert.deepEqual(
       [
-        spielerWorte(publishedLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE).nurWiderruf,
-        spielerWorte(publishedLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE, "nichtAktiv").nurWiderruf,
-        spielerWorte(publishedLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE, "bisAufnahme").nurWiderruf,
-        schiedsrichterWorte(publishedLaufendeFassung("konto_schiedsrichter"), SCHIEDSRICHTER_UMFANG_FRAGE, false).nurWiderruf,
-        schiedsrichterWorte(publishedLaufendeFassung("konto_schiedsrichter"), SCHIEDSRICHTER_UMFANG_FRAGE, true).nurWiderruf,
+        spielerWorte(publishedLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE, BODEN).nurWiderruf,
+        spielerWorte(publishedLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE, BODEN, "nichtAktiv").nurWiderruf,
+        spielerWorte(publishedLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE, BODEN, "bisAufnahme").nurWiderruf,
+        schiedsrichterWorte(publishedLaufendeFassung("konto_schiedsrichter"), SCHIEDSRICHTER_UMFANG_FRAGE, BODEN, false).nurWiderruf,
+        schiedsrichterWorte(publishedLaufendeFassung("konto_schiedsrichter"), SCHIEDSRICHTER_UMFANG_FRAGE, BODEN, true).nurWiderruf,
         sitzWorte(publishedLaufendeFassung("konto_kontakt"), sitz).nurWiderruf,
         sitzWorte(publishedLaufendeFassung("konto_kontakt"), sitz, "vorbei").nurWiderruf,
         sitzWorte(publishedLaufendeFassung("konto_kontakt"), sitz, "bisZusage").nurWiderruf,

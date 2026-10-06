@@ -386,6 +386,8 @@ export const FLSpielerSelbstSchema = z.object({
   // The floor the record's confirmation page named, served as every seat entry's is, so the two tiers
   // cannot name different ages.
   mindestalter: z.number().int(),
+  // The media floor its words name, served as the participation floor is.
+  medien_mindestalter: z.number().int(),
   kader: z.array(FLSpielerSelbstKaderZeileSchema),
 });
 export type FLSpielerSelbst = z.infer<typeof FLSpielerSelbstSchema>;
