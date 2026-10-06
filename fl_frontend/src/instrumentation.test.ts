@@ -299,9 +299,8 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
       else if (content !== undefined) writeFileSync(path.join(secrets, name), content);
     }
 
-    // Built rather than inherited, so no variable of the runner's own -- `SKIP_ENV_VALIDATION` above all --
-    // decides a case; `PATH` and `SystemRoot` are what a Windows node needs to start.
-    // Not production, under which a plant that left the hook returning would arm the sweeps and never end.
+    // Built rather than inherited, so no variable of the runner's own, `SKIP_ENV_VALIDATION` above all,
+    // decides a case. Not production, under which a hook left returning would arm the sweeps and never end.
     const environment: NodeJS.ProcessEnv = { NODE_ENV: "test", SECRETS_DIR: secrets, ACTOR_SIGNING_KEY_FILE: keyFile };
     for (const name of ["PATH", "Path", "SystemRoot"]) {
       const value = process.env[name];
@@ -367,8 +366,8 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
     assert.ok(!said.includes(short), "the refusal quoted the secret");
   });
 
-  /* Each case the secret files' reader in the image once judged on its own: missing, missing under
-     production alone, blank, and not a file. */
+  // No other check reads the files before the recreate, so every way one fails is a case: missing,
+  // missing under production alone, blank, and not a file.
   it("refuses with 3 a secret file missing, blank or not a file, naming the file", () => {
     const cases: [Case["files"], RegExp][] = [
       [{ internal_api_key_admin: undefined }, /^FE-BOOT-004 internal_api_key_admin$/],
@@ -385,7 +384,7 @@ describe("the boot the deploy's preflight runs, and the code it ends on", () => 
     }
   });
 
-  // What the names reader once refused as missing: compose drops a bare `NAME` it holds no value for too.
+  // A line the file leaves out and a bare `NAME` compose holds no value for reach the container alike.
   it("refuses with 3 a required variable the container was not handed", () => {
     assert.deepEqual(refused({ settings: { API_URL: undefined } }), { code: 3, lines: ["FE-BOOT-001 API_URL"] });
   });

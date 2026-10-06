@@ -938,30 +938,25 @@ MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY R
 # `docker inspect` would print.
 RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS)
 
-# By the list the image's own schema emitted, so a file a release starts requiring is asked for by
-# the build requiring it (`fl_frontend/scripts/check-environment-names.mjs`'s `--secret-files`). The
-# backend's files are its boot check's.
-check_frontend_secret_files() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
-  local standing="$1" rc=0 said=""
-  local -a flags=(--secret-files)
-  # The schema demands the provider's two keys and the bot check's secret of production alone: the
-  # local stack sends no mail, is sent no provider event, and verifies with Cloudflare's test secret.
-  if [[ "$2" == production ]]; then flags+=(--production); fi
+# No command, so the image's own server runs its boot gates, which `BOOT_CHECK` ends there; `$2` is
+# the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
+check_frontend_boot_config() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
+  local standing="$1" deployment="$2" rc=0 said=""
   shift 2
-  said="$("$@" frontend node check-environment-names.mjs "${flags[@]}" 2>&1)" || rc=$?
-  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  said="$("$@" -e "BOOT_CHECK=${deployment}" frontend 2>&1)" || rc=$?
+  # A pass prints only the server's start banner, which says nothing about the check.
+  if (( rc )) && [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
   if (( rc == 3 )); then
-    refuse "the frontend container cannot use the secret files named above. Each is secrets/<name> on this
-host, owned and moded as docs/ops/runbooks.md §16 says: a missing one is written there, an unreadable
-one given that owner and mode, a blank one written again.
+    refuse "the frontend refuses the settings its container would boot with, and the CRITICAL line above names
+what: a variable to correct in fl_frontend/.env -- APP_ENV where it names another deployment than
+${deployment} -- or a file under secrets/, the signing key among them, to write again or give the owner
+and mode docs/ops/runbooks.md §16 says. No value is printed.
 ${standing}"
   elif (( rc )); then
-    # An advisory, as `check_actor_key`'s is: the running stack never runs this check, and an image
-    # older than the mode answers here.
-    warn "the frontend image could not be asked to read its secret files (exit ${rc}), so nothing here says
-whether it can. Its own answer is above."
+    warn "the frontend image could not be asked to run its boot gates (exit ${rc}), so nothing here says
+whether it would boot. Its own answer is above."
   else
-    ok "the frontend container reads every secret file its schema requires, and none is blank"
+    ok "the frontend's boot passes every gate on its container's variables, secret files and signing key"
   fi
 }
 
@@ -987,7 +982,7 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
-# `check_frontend_secret_files`' shape, the backend's program in place of the frontend's.
+# `check_frontend_boot_config`'s contract, the backend's program in place of the frontend's boot.
 check_backend_boot_config() { # $1 what stands at the refusal, the rest runs the backend's container
   local standing="$1" rc=0 said=""
   shift

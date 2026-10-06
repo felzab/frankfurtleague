@@ -1048,18 +1048,20 @@ fi
 step "The environment files, read by the builds about to run"
 check_env_names
 check_frontend_env_names
-# Through compose, as `local.sh` asks it: only the service's own container reads the key where its
-# environment files point it. It holds nothing the running frontend does not, on the frontend's network.
-check_actor_key "NOTHING has been recreated, and the site is untouched." \
-  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
 
-step "The secret files, read by the containers about to run"
-# Each service's own container, for the key check's reason: only it runs as the user, and in the
-# group, the files are handed over to (`docs/ops/spec.md :: I510`).
-check_frontend_secret_files "NOTHING has been recreated, and the site is untouched." production \
+step "Each service's settings and secret files, as its own boot builds them"
+# Through compose: only the service's own container holds its variables, mounts and the user its files
+# are handed to (`docs/ops/spec.md :: I510`). `run` publishes no port or alias, so nothing reaches the
+# frontend's one-off server.
+check_frontend_boot_config "NOTHING has been recreated, and the site is untouched." production \
   docker compose -f "$COMPOSE" run --rm --no-deps -T
 check_backend_boot_config "NOTHING has been recreated, and the site is untouched." \
   docker compose -f "$COMPOSE" run --rm --no-deps -T
+
+step "The actor token's key pair"
+# After the frontend's boot, which has refused a key it cannot read where its environment points it.
+check_actor_key "NOTHING has been recreated, and the site is untouched." \
+  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
 
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 

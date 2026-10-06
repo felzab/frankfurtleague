@@ -305,15 +305,15 @@ step "Building images from source"
 docker compose build || die "The image build failed — its own output is above."
 ok "images built"
 
-step "The actor token's key pair"
-# Through compose, so the key is mounted as the stack will mount it, owner and mode included, and
-# read at the path the frontend's environment files name.
-check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
-
-step "The secret files"
-# For the key check's reason: each container reads its files as the stack mounts them.
-check_frontend_secret_files "NOTHING has been started." local docker compose run --rm --no-deps -T
+step "Each service's settings and secret files, as its own boot builds them"
+# Through compose, as the deploy asks it: each container reads its variables and files as the stack
+# hands them over, owner and mode included.
+check_frontend_boot_config "NOTHING has been started." local docker compose run --rm --no-deps -T
 check_backend_boot_config "NOTHING has been started." docker compose run --rm --no-deps -T
+
+step "The actor token's key pair"
+# After the frontend's boot, which has refused a key it cannot read where its environment points it.
+check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
 # days. The copy comes before the database container as well, for the reason at `fetch_copy`.

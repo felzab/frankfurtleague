@@ -358,15 +358,3 @@ const required = (declarations: Record<string, z.ZodType>): string[] =>
  * already answering 502.
  */
 export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = required(environment).sort();
-
-/** The secret files every deployment's frontend must be handed, which the preflight's reader checks in the container. */
-export const REQUIRED_SECRET_FILES: readonly string[] = required(fromFiles)
-  .map((name) => SECRET_FILES[name as SecretKey])
-  .sort();
-
-/**
- * Demanded of a production host besides, which the derivation above cannot reach: `createFinalSchema`
- * conditions these on a VALUE the reader never opens, so the deploy names its deployment instead
- * (`scripts/lib/_lib.sh :: check_frontend_secret_files`).
- */
-export const PRODUCTION_REQUIRED_SECRET_FILES: readonly string[] = PRODUCTION_ONLY_REQUIRED.map((name) => SECRET_FILES[name]).sort();

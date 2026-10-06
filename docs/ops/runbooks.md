@@ -78,17 +78,21 @@ the machine is outside the repository. What it does tell you:
   **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
   from the shell that ran compose, which holds none for it, and reaching the container as nothing at
   all. That is where a
-  release adding a required name meets a host nobody edited. Every VALUE is judged at boot and
-  nowhere else, a sign-in secret below its library's floor of 32 characters among them — each a
-  refusal this reader and the secret files' reader both pass and the recreated container meets. It does catch the misspelling whose value is EMPTY
+  release adding a required name meets a host nobody edited. Every VALUE is the frontend's own boot's
+  to judge, in the step below. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
-- **Each application service's own container then judges its secret files**, started as the stack
-  starts it, so as its own user and in its own group, and by its own image's list: the frontend's
-  reads every file its schema requires (`scripts/lib/_lib.sh :: check_frontend_secret_files`), and
-  **a file missing, not a file, unreadable by that user or blank refuses the deploy at exit 2** with
-  nothing recreated, naming the file and never its contents. The remedy is §16's owner, mode or
-  contents for that file. The backend's container builds its settings as its boot does
+- **Each application service's own boot then judges its settings and secret files, before anything
+  is recreated**, in a one-off container started as the stack starts the service, so with its
+  variables, as its own user and in its own group. The frontend's runs the image's own server, which
+  runs every boot gate and ends there (`scripts/lib/_lib.sh :: check_frontend_boot_config`): **a value
+  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, a signing
+  key it cannot read, and an `APP_ENV` naming another deployment than the one being deployed each
+  refuse the deploy at exit 2** with nothing recreated — Cloudflare's published test site key under
+  production and a sign-in secret below its library's floor of 32 characters among them. The
+  `CRITICAL` line above the refusal names the variable, the file or the key's path and never a value:
+  correct a variable in `fl_frontend/.env`, and give a file §16's contents, owner or mode. The
+  backend's container builds its settings as its boot does
   (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
   validators refuse — an internal key outside its alphabet among them — refuse there, naming the
   variable or the file.

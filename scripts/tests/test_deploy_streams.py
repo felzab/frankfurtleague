@@ -732,16 +732,14 @@ def test_the_deploy_reads_the_key_s_mode_once_it_knows_the_key_is_there() -> Non
 
 
 @pytest.mark.parametrize(
-    ("script", "after", "before"),
-    [
-        (DEPLOY, "\ncheck_frontend_env_names\n", 'step "Recreating the application containers"'),
-        (LOCAL, 'ok "images built"', 'section "start"'),
-    ],
+    ("script", "before"),
+    [(DEPLOY, 'step "Recreating the application containers"'), (LOCAL, 'section "start"')],
 )
-def test_the_pair_is_judged_after_the_build_it_runs_in_and_before_anything_starts(script: Path, after: str, before: str) -> None:
+def test_the_pair_is_judged_after_the_frontend_s_boot_and_before_anything_starts(script: Path, before: str) -> None:
+    """The boot has refused a key it cannot read where its environment points it, which the pair check takes as read."""
     text = script.read_text(encoding="utf-8")
 
-    assert text.index(after) < text.index("\ncheck_actor_key ") < text.index(before), script.name
+    assert text.index("\ncheck_frontend_boot_config ") < text.index("\ncheck_actor_key ") < text.index(before), script.name
     assert text.index('\nrequire_file "$SIGNING_KEY_FILE"') < text.index("\ncheck_actor_key "), script.name
 
 
@@ -824,10 +822,10 @@ def test_the_local_stacks_health_read_names_no_file_and_leaves_the_choice_to_com
     assert argv[:3] == ["compose", "ps", "-q"], argv
 
 
-# --- the secret files, read by each service's own container ---------------------------------------------
+# --- each service's settings and secret files, built by its own container ---------------------------------
 
 RUNNER: Final = 'docker compose -f "$COMPOSE" run --rm --no-deps -T'
-FILES_CHECK: Final = f'check_frontend_secret_files "NOTHING has been recreated." production {RUNNER}'
+FRONTEND_BOOT: Final = f'check_frontend_boot_config "NOTHING has been recreated." production {RUNNER}'
 BOOT_CHECK: Final = f'check_backend_boot_config "NOTHING has been recreated." {RUNNER}'
 
 
@@ -835,10 +833,10 @@ def _lib_array(name: str) -> list[str]:
     return lift_assignment(LIB, name).split("=", 1)[1].strip("()").split()
 
 
-def test_a_file_the_container_cannot_use_refuses_with_nothing_recreated() -> None:
-    """Exit 3 is the image's own answer, and the remedy names where each file is written."""
-    said = "Unusable secret files: /run/secrets/auth_secret (ENOENT)"
-    code, output, _ = _run(FILES_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
+def test_settings_the_frontend_refuses_stop_the_run_with_nothing_recreated() -> None:
+    """Exit 3 is the boot's own refusal; its CRITICAL line is what names the setting, so it is printed."""
+    said = '{"level":"CRITICAL","error_code":"FE-BOOT-004","files":"auth_secret"}'
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
 
     assert code == 2, output
     assert said in output, output
@@ -846,49 +844,33 @@ def test_a_file_the_container_cannot_use_refuses_with_nothing_recreated() -> Non
     assert "NOTHING has been recreated." in output, output
 
 
-def test_a_file_check_that_could_not_be_made_is_an_advisory() -> None:
-    """An image older than the mode answers here too, so a check that could not run leaves the deploy where it stood."""
-    code, output, _ = _run(FILES_CHECK, FL_DEPLOY_RUN_RC="1", FL_DEPLOY_RUN_SAYS="Error: Cannot find module")
+def test_a_frontend_boot_that_could_not_be_asked_is_an_advisory() -> None:
+    """A fault ends the boot on 1, which is no verdict on the host's files."""
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_RC="1", FL_DEPLOY_RUN_SAYS="Error: Cannot find module")
 
     assert code == 0, output
     assert "(exit 1)" in output, output
+    assert "Error: Cannot find module" in output, output
 
 
-@pytest.mark.parametrize(("deployment", "flags"), [("production", ["--secret-files", "--production"]), ("local", ["--secret-files"])])
-def test_the_file_check_asks_the_image_s_own_list_as_the_service_s_own_user(deployment: str, flags: list[str]) -> None:
-    """The service's user, mounts and groups are what the answer is about, so no `--user` overrides them; local asks no provider key."""
-    code, output, fixture = _run(FILES_CHECK.replace(" production ", f" {deployment} "))
+def test_a_passing_boot_prints_nothing_its_server_said() -> None:
+    """Next's start banner is all a pass writes, and it names a listening address nobody can reach."""
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_SAYS="Next.js banner")
+
+    assert code == 0, output
+    assert "Next.js banner" not in output, output
+
+
+@pytest.mark.parametrize("deployment", ["production", "local"])
+def test_the_boot_runs_the_image_s_own_command_as_the_service_told_which_deployment_it_is(deployment: str) -> None:
+    """No command after the service, so the image's server runs the gates; no `--user`, the files being its user's."""
+    code, output, fixture = _run(FRONTEND_BOOT.replace(" production ", f" {deployment} "))
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
 
     assert code == 0, output
     run = argv.index("run")
-    assert argv[run:] == ["run", "--rm", "--no-deps", "-T", "frontend", "node", "check-environment-names.mjs", *flags], argv
+    assert argv[run:] == ["run", "--rm", "--no-deps", "-T", "-e", f"BOOT_CHECK={deployment}", "frontend"], argv
     assert "--user" not in argv, argv
-
-
-# The image's checker, handed the flags the function passes; the stand-in drops the service and names
-# the case's own key set, the image's living at a path no checkout has. `omega_file` is production's
-# alone.
-FRONTEND_FILES: Final = """mkdir -p run-secrets
-printf 'a placeholder' > run-secrets/alpha_file
-printf '%s' '{{"secretFiles": ["alpha_file"], "productionSecretFiles": ["omega_file"]}}' > sets.json
-in_the_image() {{ shift; local here="$PWD"; ( cd "{checker}" && SECRETS_DIR="$here/run-secrets" "$@" "$here/sets.json" ); }}
-check_frontend_secret_files "NOTHING has been started." {deployment} in_the_image
-echo files-judged
-"""
-
-
-@pytest.mark.parametrize(("deployment", "code_wanted"), [("local", 0), ("production", 2)])
-def test_the_image_s_checker_takes_the_flags_the_preflight_passes(deployment: str, code_wanted: int) -> None:
-    """Run for real: a stub proves the argv, and only the checker proves it reads those flags as the list it judges."""
-    checker = (REPO_ROOT / "fl_frontend" / "scripts").as_posix()
-    code, output, _ = _run(FRONTEND_FILES.format(checker=checker, deployment=deployment))
-
-    assert code == code_wanted, output
-    assert ("omega_file (ENOENT)" in output) == (deployment == "production"), output
-    # The advisory passes a deployment too, so a mode the checker lost would pass `local` unseen.
-    assert "could not be asked" not in output, output
-    assert "a placeholder" not in output, output
 
 
 def test_settings_the_backend_refuses_stop_the_run_with_nothing_recreated() -> None:
@@ -927,23 +909,23 @@ def test_the_settings_program_answers_3_naming_what_it_refuses_and_never_a_value
 @pytest.mark.parametrize(
     ("script", "after", "before"),
     [
-        (DEPLOY, "\ncheck_actor_key ", 'step "Recreating the application containers"'),
-        (LOCAL, "\ncheck_actor_key ", 'section "start"'),
+        (DEPLOY, "\ncheck_frontend_env_names\n", 'step "Recreating the application containers"'),
+        (LOCAL, 'ok "images built"', 'section "start"'),
     ],
 )
-def test_the_files_are_judged_after_the_key_and_before_anything_starts(script: Path, after: str, before: str) -> None:
+def test_each_boot_is_judged_after_the_build_it_runs_in_and_before_anything_starts(script: Path, after: str, before: str) -> None:
     text = script.read_text(encoding="utf-8")
 
-    for call in ("\ncheck_frontend_secret_files ", "\ncheck_backend_boot_config "):
+    for call in ("\ncheck_frontend_boot_config ", "\ncheck_backend_boot_config "):
         assert text.index(after) < text.index(call) < text.index(before), (script.name, call)
 
 
 @pytest.mark.parametrize(("script", "deployment"), [(DEPLOY, "production"), (LOCAL, "local")])
 def test_each_script_names_the_deployment_its_frontend_is_judged_as(script: Path, deployment: str) -> None:
-    """The local stack sends no mail, so its frontend holds no provider key and is asked for none."""
+    """The boot holds `APP_ENV` to it, so a production host whose file says `local` is not judged as the local stack."""
     text = script.read_text(encoding="utf-8")
 
-    assert re.search(rf'\ncheck_frontend_secret_files "[^"]*" {deployment} ', text), script.name
+    assert re.search(rf'\ncheck_frontend_boot_config "[^"]*" {deployment} ', text), script.name
 
 
 # --- a pin to a build from before the secret files --------------------------------------------------------
