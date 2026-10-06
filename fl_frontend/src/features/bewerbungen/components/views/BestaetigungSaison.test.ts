@@ -115,6 +115,32 @@ describe("the confirmation page for a seat on a team's season row", () => {
     });
   }
 
+  /* The receipt reads the media consent in the words every confirmation page shares (`medienZeile`), so
+     the contact page cannot drift to a wording of its own. */
+  it("reads the stored media consent back in the receipt's shared row", async () => {
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: true, ergebnis: "bestaetigt", geburtsdatum: "2000-01-01", whatsapp: false, medien: false }), {
+          status: 200,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    const { unmount } = render(
+      h(BestaetigungView, { start: { zustand: "gueltig", ansicht: ANSICHT, token: "kein-echtes-token", fassung: KONTAKT } }),
+    );
+
+    const [jahr = "", monat = "", tag = ""] = parseDate(getGermanTodayStr()).subtract({ years: 30 }).toString().split("-");
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard(`${tag}${monat}${jahr}`);
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    await act(fetchMock.answered);
+
+    const zeile = screen.getByText("Fotos, Videos und Interviews");
+    assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
+    unmount();
+  });
+
   it("asks a paired seat once without calling the entry an application", () => {
     const offen = page({ zustand: "gueltig", ansicht: ANSICHT, token: "kein-echtes-token", fassung: KONTAKT });
 
