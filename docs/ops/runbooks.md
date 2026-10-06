@@ -1373,6 +1373,10 @@ sudo install -o 1002 -g 1002 -m 400 /dev/stdin secrets/<a backend file>
 sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 ```
 
+**Each service reads its files once, as it boots**, so a value replaced on a running stack — a
+wrong `secrets/turnstile_secret_key` among them, which fails every bot check until then — takes
+effect only with the next `./scripts/ops/deploy.sh`, which judges it and recreates both containers.
+
 **Where a deploy refuses naming a file**, the refusal says
 which fault: a missing one is written, an unreadable one is given the user and mode above, a blank
 one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside
