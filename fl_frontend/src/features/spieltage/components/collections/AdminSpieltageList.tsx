@@ -112,7 +112,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       <RowActionLink
         href={`/bereich/admin/spielsuche?spieltag=${spieltag.id}&saison_id=${encodeURIComponent(spieltag.saison_id)}`}
         label="Spiele anzeigen"
-        ariaLabel={`${spieltag.label}: Spiele anzeigen`}>
+        subject={spieltag.label}>
         <Magnifier
           className="size-4.5"
           aria-hidden="true"
@@ -122,7 +122,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       <RowActionLink
         href={saisonHref(`/bereich/admin/spieltage/${spieltag.id}`)}
         label="Bearbeiten"
-        ariaLabel={`${spieltag.label} bearbeiten`}>
+        subject={spieltag.label}>
         <Pencil
           className="size-4.5"
           aria-hidden="true"

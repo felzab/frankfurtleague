@@ -220,7 +220,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
       <RowActionLink
         href={saisonHref(`/bereich/admin/bewerbungen/${bewerbung.id}`)}
         label="Bewerbung öffnen"
-        ariaLabel={`Bewerbung von ${bewerbung.teamName ?? NO_TEAM} öffnen`}>
+        subject={bewerbung.teamName ?? NO_TEAM}>
         <ArrowRightFromSquare
           className="size-4.5"
           aria-hidden="true"

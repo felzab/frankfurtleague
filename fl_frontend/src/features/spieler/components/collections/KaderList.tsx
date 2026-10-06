@@ -77,7 +77,7 @@ export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderZeile[]
               <RowActionLink
                 href={`${kaderHref}/${zeile.spieler_id}`}
                 label="Bearbeiten"
-                ariaLabel={`Kadereintrag von ${kaderName(zeile)} bearbeiten`}>
+                subject={`Kadereintrag von ${kaderName(zeile)}`}>
                 <Pencil
                   className="size-4.5"
                   aria-hidden="true"

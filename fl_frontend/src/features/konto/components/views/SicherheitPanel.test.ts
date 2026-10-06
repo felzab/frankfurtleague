@@ -70,9 +70,9 @@ const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
 
 /** The other device's sign-out and the card's two controls, as a screen reader names them. */
-const ANDERE_ABMELDEN = "Anmeldung per Passkey „Laptop“ vom 25. September 2026, 10:00 abmelden";
-const LAPTOP_LOESCHEN = "Passkey „Laptop“ löschen";
-const LAPTOP_UMBENENNEN = "Passkey „Laptop“ umbenennen";
+const ANDERE_ABMELDEN = "Abmelden: Anmeldung per Passkey „Laptop“ vom 25. September 2026, 10:00";
+const LAPTOP_LOESCHEN = "Löschen: Passkey „Laptop“";
+const LAPTOP_UMBENENNEN = "Umbenennen: Passkey „Laptop“";
 
 /** The holder's own address, where the code half mails its code. */
 const ADDRESS = "spielerin@example.org";
@@ -291,7 +291,7 @@ describe("where renaming a passkey leaves the focus", () => {
     await act(actionsAnswered);
     await waitFor(() => assert.ok(screen.queryByRole("textbox", { name: "Name" }) === null));
 
-    assert.ok(document.activeElement === screen.getByRole("button", { name: /umbenennen$/ }), "the saved form left the focus on the page");
+    assert.ok(document.activeElement === screen.getByRole("button", { name: /^Umbenennen: / }), "the saved form left the focus on the page");
   });
 });
 

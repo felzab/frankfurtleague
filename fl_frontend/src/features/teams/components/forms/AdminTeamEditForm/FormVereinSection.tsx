@@ -27,6 +27,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { Select } from "@/shared/components/ui/Select";
 import { TextField } from "@/shared/components/ui/TextField";
+import { benannt } from "@/shared/utils/benannt";
 
 import type { FLPostTeamPayload, FLSchulform } from "@/features/teams/schemas";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
@@ -181,7 +182,7 @@ export function FormVereinSection({
           <button
             type="button"
             onClick={() => setIsEditingDescription(true)}
-            aria-label="Beschreibung bearbeiten"
+            aria-label={benannt("Bearbeiten", "Beschreibung")}
             className="group flex w-full cursor-pointer flex-row items-start justify-between gap-x-3 rounded-lg border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:bg-hover">
             {draft.description.trim() === "" ? (
               <span className="muted-hint">Noch keine Beschreibung.</span>

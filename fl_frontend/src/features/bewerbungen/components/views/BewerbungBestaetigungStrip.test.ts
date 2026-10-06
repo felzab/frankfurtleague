@@ -124,9 +124,9 @@ function renderStrip({
   );
 }
 
-const pencil = (name: string) => screen.queryByRole("button", { name: `E-Mail-Adresse von ${name} korrigieren` });
+const pencil = (name: string) => screen.queryByRole("button", { name: `Adresse korrigieren: ${name}` });
 const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden an ${rolle}` });
-const reseat = (rolle: string) => screen.queryByRole("button", { name: `${rolle} neu besetzen` });
+const reseat = (rolle: string) => screen.queryByRole("button", { name: `Neu besetzen: ${rolle}` });
 const addressBox = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
 
 /** Fills the reseat box with a whole person, the address last so a case can press Enter in it. */
@@ -214,7 +214,7 @@ describe("the reseat over a registry the page could not read", () => {
   it("closes the reseat with the reason, and leaves the re-sends standing", () => {
     const { unmount } = renderStrip({ stands: standsOf(claraStieAus), neubesetzung: null });
 
-    closedControl("Trainer neu besetzen", FASSUNG_UNLESBAR);
+    closedControl("Neu besetzen: Trainer", FASSUNG_UNLESBAR);
     const sendStands = send("Stellvertretung") !== null;
     unmount();
 

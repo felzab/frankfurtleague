@@ -106,7 +106,7 @@ async function contactsLink(): Promise<string> {
     }),
   );
   const table = screen.getByRole("grid", { name: "Tabelle aller Teams" });
-  await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen für Team ${ROW.name}` }));
+  await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen: Team ${ROW.name}` }));
 
   const href = within(screen.getByRole("menu")).getByRole("menuitem", { name: "Kontakte anzeigen" }).getAttribute("href") ?? "";
   unmount();
