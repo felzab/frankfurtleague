@@ -56,8 +56,13 @@ const hält = (gehalten: EinwilligungWahl, wahl: Wahl): boolean => gehalten[wahl
 export type EinwilligungWorte<U extends Umfang = Umfang> = {
   /** The label the words below belong to, posted back with every press so the record names what was on screen. */
   readonly textVersion: string;
-  /** Keyed by the scope each chip writes, so a seat's words carry none. */
-  readonly umfang?: { readonly frage: string; readonly optionen: Readonly<Record<U & PersonUmfang, string>>; readonly absatz: ReactNode };
+  /**
+   * Keyed by the scope each chip writes. `never` on a seat's scope, so a person's words, chips and all,
+   * handed to a seat's control fail the type check rather than inferring `U` as the seat's.
+   */
+  readonly umfang?: [U] extends [SitzUmfang]
+    ? never
+    : { readonly frage: string; readonly optionen: Readonly<Record<U & PersonUmfang, string>>; readonly absatz: ReactNode };
   /** With the scope it writes on and off, so a person's words cannot carry one. */
   readonly whatsapp?: { readonly schalter: string; readonly an: U & SitzUmfang; readonly aus: U & SitzUmfang; readonly absatz: ReactNode };
   readonly medien: { readonly schalter: string; readonly absatz: ReactNode };
