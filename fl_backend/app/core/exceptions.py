@@ -139,7 +139,7 @@ class DatabaseUnavailableException(BaseAPIException):
 
 
 class DrosselungException(BaseAPIException):
-    """A signed-in person's write past their Funktion's ceiling for the German day: RFC 6585's 429.
+    """A signed-in person's write past the ceiling of the kind of person it was made as, for the German day: RFC 6585's 429.
 
     `Retry-After` names the seconds to the next German midnight, where the count starts again.
     """
@@ -148,7 +148,7 @@ class DrosselungException(BaseAPIException):
         super().__init__(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             error_code=error_code,
-            message="the person's counted writes reached their Funktion's ceiling for the German day",
+            message="the person's counted writes reached the ceiling of the kind of person they write as, for the German day",
             headers={"Retry-After": str(retry_after_s)},
         )
 
