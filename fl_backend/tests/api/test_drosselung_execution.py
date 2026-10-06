@@ -74,7 +74,7 @@ REFEREE = ObjectId("6890a1b2c3d4e5f607930021")
 NOT_IN_THE_SQUAD = ObjectId("6890a1b2c3d4e5f607930099")
 ANY_REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607930098")
 
-# One mailbox holding all three Funktionen, so a count is seen to be the Funktion's and not the mailbox's.
+# One mailbox writing as all three kinds of person, so a count is seen to be the kind's and not the mailbox's.
 PERSON = "anna.drossel@schule.de"
 OTHER_SEAT = "bernd.drossel@schule.de"
 ADULT_BIRTHDATE = "2100-05-09"
