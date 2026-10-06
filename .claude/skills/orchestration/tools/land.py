@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -31,11 +32,19 @@ GENERATED: Final = (
     ("tests.einwilligung_document", "fl_backend/einwilligung.json"),
 )
 REGENERATED_FROM: Final = "fl_backend/"
+# Run where the merge touches the package: two branches can merge clean as text and still fail
+# together, one cutting an import the other's new case uses. The frontend's runs `next typegen` first.
+TYPE_CHECKS: Final = (
+    (("fl_frontend/",), ("pnpm", "typecheck"), "fl_frontend"),
+    (("fl_backend/",), (sys.executable, "-m", "pyright"), "fl_backend"),
+    (("scripts/", ".claude/skills/orchestration/tools/"), (sys.executable, "-m", "pyright"), "scripts"),
+)
 EXITS: Final = {
     0: "merged, or nothing to merge",
     2: "refused before the merge",
     3: "a conflict the tool cannot settle; the merge is aborted, for the agent to rebase",
     4: "a regeneration failed; the merge is aborted",
+    5: "the merged tree fails a touched package's type check, or the check could not run; the merge is aborted",
     6: "a hook refused the merge commit; the merge is aborted",
     7: "git failed during the merge; read `git status`",
 }
@@ -123,6 +132,26 @@ def regenerate(root: Path, written: list[str]) -> list[str]:
     return [document for _, document in GENERATED if git("ls-files", "--stage", "--", document) != before[document]]
 
 
+def type_check(root: Path, touched: list[str]) -> list[str]:
+    """Each touched package's type checker run over the merged tree; the packages checked."""
+    checked: list[str] = []
+    for prefixes, command, where in TYPE_CHECKS:
+        if not any(path.startswith(prefixes) for path in touched):
+            continue
+        program = shutil.which(command[0])
+        if program is None:
+            raise Stop(5, f"{command[0]} is not on PATH, so the merged {where} could not be type-checked")
+        done = subprocess.run((program, *command[1:]), cwd=root / where, capture_output=True, check=False)
+        if done.returncode != 0:
+            said = (done.stdout + done.stderr).decode("utf-8", "replace").strip().splitlines()[-15:]
+            raise Stop(5, f"the merged tree fails `{' '.join(command)}` in {where} (exit {done.returncode}):", *said)
+        checked.append(where)
+    # A checker writing a tracked file would leave it out of the merge commit and the tree dirty.
+    if wrote := git("diff", "--name-only").split():
+        raise Stop(5, f"a type check wrote tracked files: {', '.join(wrote)}")
+    return checked
+
+
 def land(branch: str) -> int:
     root = Path(git("rev-parse", "--show-toplevel").strip())
     preflight(branch)
@@ -141,6 +170,7 @@ def land(branch: str) -> int:
         moved = regenerate(root, written) if any(path.startswith(REGENERATED_FROM) for path in touched) else []
         if git("diff", "--name-only", "--diff-filter=U").split():
             raise Stop(3, "a conflict is still unresolved after the regeneration")
+        checked = type_check(root, touched)
         done = subprocess.run(("git", "commit", "-q", "--no-edit"), capture_output=True, check=False)
         if done.returncode != 0:
             raise Stop(
@@ -163,6 +193,7 @@ def land(branch: str) -> int:
         raise
     notes = [f"regenerated {', '.join(Path(document).name for document in moved)}"] if moved else []
     notes += [f"merged by row key: {'; '.join(merged)}"] if merged else []
+    notes += [f"type-checked {', '.join(checked)}"] if checked else []
     print(f"landed {branch} as {git('rev-parse', '--short', 'HEAD').strip()}" + (f" ({'; '.join(notes)})" if notes else ""))
     return 0
 

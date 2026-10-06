@@ -424,7 +424,7 @@ def test_a_merge_touching_the_backend_regenerates_a_stale_document(tmp_path: Pat
     _agent_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2'})
     done = _run("land", "agent", cwd=root)
     assert done.returncode == 0, done.stderr
-    assert "(regenerated openapi.json)" in done.stdout
+    assert "(regenerated openapi.json; type-checked fl_backend)" in done.stdout
     assert git(root, "show", "HEAD:fl_backend/openapi.json") == '{"a": 2, "b": 1}'
 
 
@@ -497,6 +497,15 @@ def test_a_failing_regeneration_aborts_the_merge(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Backend: The writer breaks", {"fl_backend/tests/openapi_document.py": "raise SystemExit(3)\n"})
     assert "tests.openapi_document --write exited 3" in _stopped_clean(root, git(root, "rev-parse", "HEAD"), 4)
+
+
+def test_a_merge_failing_a_touched_packages_type_check_aborts_the_merge(tmp_path: Path) -> None:
+    """Each side type-checks alone; together the agent's new caller passes the session's narrowed parameter a string."""
+    root = _repo(tmp_path)
+    _agent_commit(root, "Backend: A caller", {"fl_backend/app/caller.py": "from app.callee import f\n\nf('one')\n"})
+    _session_commit(root, "Backend: A callee", {"fl_backend/app/callee.py": "def f(x: int) -> int:\n    return x\n"})
+    said = _stopped_clean(root, git(root, "rev-parse", "HEAD"), 5)
+    assert "the merged tree fails `" in said and "caller.py" in said
 
 
 def test_a_merge_commit_the_hooks_refuse_aborts_the_merge(tmp_path: Path) -> None:
