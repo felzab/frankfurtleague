@@ -10,7 +10,13 @@ from app.api.identitaet.crud import funktionen_of, refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import eigene_sitze, holds_a_seat, seat_is_confirmed
 from app.api.konto.crud import press_einwilligung
-from app.api.konto.services import KONTO_SEITE_KONTAKT, compose_sitz_move, find_eigener_eintrag_refusal
+from app.api.konto.services import (
+    KONTO_SEITE_KONTAKT,
+    compose_sitz_move,
+    find_eigener_eintrag_refusal,
+    geaenderte_sitz_wahlen,
+    sitz_wahlen_der_zeile,
+)
 from app.api.teams.schemas import (
     KONTAKT_ROLLEN,
     FLSaisonTeamPersonEinwilligungPayload,
@@ -107,8 +113,9 @@ async def patch_einwilligung(
     """
     Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
-    One answer for all of them: a person holding two of the row's slots answers once. No other slot of the row and no
-    other row is written, each choice moving with its own evidence and leaving the other standing; a press moving no
+    One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
+    differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
+    other slot of the row and no other row is written, each choice moving with its own evidence and leaving the other standing; a press moving no
     seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien` to `true`) is taken on a row of an
     `active` or `future` season its team has not left; a withdrawal on any row the person confirmed a seat on, a past
     season's included.
@@ -122,7 +129,7 @@ async def patch_einwilligung(
     which counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.
     """
 
-    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
 
     async def write(session: AsyncClientSession) -> FLSaisonTeamPersonEinwilligungResponse:
         row = await saison_teams_collection.find_one(
@@ -134,6 +141,7 @@ async def patch_einwilligung(
         refuse(find_eigener_eintrag_refusal(gehalten=bool(rollen)))
         assert row is not None
         sitze = {slot: row["kontakte"][slot] for slot in rollen}
+        gewaehlt = geaenderte_sitz_wahlen(bloecke=[sitz["einwilligung"] for sitz in sitze.values()], gedrueckt=gedrueckt)
 
         async def darf_erteilen() -> bool:
             # The panel narrowing a grant waits on: a `past` season's seat and a withdrawn team's grant none.
@@ -170,17 +178,17 @@ async def patch_einwilligung(
                 return_document=ReturnDocument.AFTER,
             )
         )
-        # Every held seat holds the payload's answer now, the ones the press moved and the ones it found so.
         kontakte = row["kontakte"] if updated is None else updated["kontakte"]
+        bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
 
+        # The row as the next read serves it: an unpressed choice its seats answered apart stays apart.
         return FLSaisonTeamPersonEinwilligungResponse.model_validate(
             {
                 "team_id": team_id,
                 "saison_id": saison_id,
                 "rollen": rollen,
-                "umfang": einwilligung_data.umfang,
-                "medien": einwilligung_data.medien,
-                "nachweis_stand": nachweis_stand_of(bloecke=[kontakte[slot]["einwilligung"] for slot in rollen], wahlen=WAHLEN),
+                **sitz_wahlen_der_zeile(bloecke),
+                "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=WAHLEN),
             }
         )
 

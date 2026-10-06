@@ -1320,3 +1320,137 @@ class TestAPendingRegistration:
 
         assert response.status_code == 200, response.text
         assert [entry["registrierung_id"] for entry in response.json()["registrierungen"]] == [str(REGISTRIERUNG_OWN)]
+
+
+async def _seats_disagreeing(database: AsyncDatabase) -> None:
+    """The asker's two seats on each row answered apart: WhatsApp on the first and off on the second, media on both.
+
+    Each seat's link is minted and answered on its own, so a stored row may hold this.
+    """
+
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"team_id": TEAM_A_OID, "saison_id": PAST_SAISON}, {"$set": {"kontakte.trainer.einwilligung.umfang": "kontaktdaten_whatsapp"}}
+    )
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
+        {
+            "$set": {
+                "kontakte.stellvertretung.einwilligung.umfang": "kontaktdaten_whatsapp",
+                "kontakte.ansprechperson": _seat(REFEREE_STORED, medien=True),
+            }
+        },
+    )
+
+
+async def _as_the_page_was_served(http: AsyncClient, team_id: ObjectId, saison_id: str, **pressed: Any) -> dict[str, Any]:
+    """A press echoing the entry the account read served for this row, `pressed` the choices the person changed."""
+
+    served_entries = (await http.get(KONTO_PATH, headers=_person(IDENTIFIER))).json()["sitze"]
+    [entry] = [entry for entry in served_entries if (entry["team_id"], entry["saison_id"]) == (str(team_id), saison_id)]
+
+    return {
+        "umfang": entry["umfang"],
+        "medien": entry["medien"],
+        "text_version": SEAT_RUNNING_LABEL,
+        "nachweis_stand": entry["nachweis_stand"],
+        **pressed,
+    }
+
+
+@pytest.mark.db
+class TestSeatsAnsweredApart:
+    """A press moves the choices its person changed on the page, never the other choice the page showed as the row's."""
+
+    def test_a_past_seasons_media_withdrawal_is_taken_and_leaves_each_seats_whatsapp_answer(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _seats_disagreeing(database)
+            body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, medien=False)
+            response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
+            return body, response, await _rows(database)
+
+        body, response, after = served(mongo_replica_set_url, steps)
+
+        assert body["umfang"] == "kontaktdaten_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
+        assert response.status_code == 200, response.text
+        row = after[(TEAM_A_OID, PAST_SAISON)]
+        assert [(row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
+            ("kontaktdaten_whatsapp", False),
+            ("kontaktdaten", False),
+        ]
+        assert all(set(row[slot]["einwilligung"][NACHWEIS]) == {"medien"} for slot in ("trainer", "ansprechperson"))
+
+    def test_a_running_seasons_media_withdrawal_grants_no_whatsapp_and_counts_nothing(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _seats_disagreeing(database)
+            body = await _as_the_page_was_served(http, TEAM_B_OID, ACTIVE_SAISON, medien=False)
+            response = await http.patch(_seat_path(TEAM_B_OID, ACTIVE_SAISON), json=body, headers=_person(IDENTIFIER))
+            return body, response, await _rows(database), await database[Collection.DROSSELUNG].count_documents({})
+
+        body, response, after, counted = served(mongo_replica_set_url, steps)
+
+        assert body["umfang"] == "kontaktdaten_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
+        assert response.status_code == 200, response.text
+        row = after[(TEAM_B_OID, ACTIVE_SAISON)]
+        assert [
+            (row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("stellvertretung", "ansprechperson")
+        ] == [
+            ("kontaktdaten_whatsapp", False),
+            ("kontaktdaten", False),
+        ]
+        assert counted == 0
+
+    def test_a_whatsapp_withdrawal_reaches_the_seat_that_held_it_alone(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _seats_disagreeing(database)
+            body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, umfang="kontaktdaten")
+            response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
+            return response, await _rows(database)
+
+        response, after = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        row = after[(TEAM_A_OID, PAST_SAISON)]
+        assert [(row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
+            ("kontaktdaten", True),
+            ("kontaktdaten", True),
+        ]
+        assert (set(row["trainer"]["einwilligung"][NACHWEIS]), NACHWEIS in row["ansprechperson"]["einwilligung"]) == ({"umfang"}, False)
+
+    def test_the_answer_serves_the_row_as_the_next_read_serves_it(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _seats_disagreeing(database)
+            body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, medien=False)
+            response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
+            again = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON)
+            return response, again
+
+        response, again = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        answer = response.json()
+        assert (answer["umfang"], answer["medien"], answer["nachweis_stand"]) == (again["umfang"], again["medien"], again["nachweis_stand"])
+
+
+@pytest.mark.db
+def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsapp_answer(mongo_replica_set_url: str):
+    """The application's seat press takes the same repair, a split there being stored data rather than an answer the API takes."""
+
+    async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+        await _applications(database)
+        await database[Collection.BEWERBUNGEN].update_one(
+            {"_id": PENDING_OID}, {"$set": {"kontakte.trainer.einwilligung.umfang": "kontaktdaten_whatsapp"}}
+        )
+        [entry] = (await http.get(KONTO_PATH, headers=_person(IDENTIFIER))).json()["bewerbungen"]
+        body = {"umfang": entry["umfang"], "medien": False, "text_version": SEAT_RUNNING_LABEL, "nachweis_stand": entry["nachweis_stand"]}
+        response = await http.patch(_application_path(PENDING_OID), json=body, headers=_person(IDENTIFIER))
+        return entry, response, await _application_docs(database)
+
+    entry, response, after = served(mongo_replica_set_url, steps)
+
+    assert entry["umfang"] == "kontaktdaten_whatsapp", "the page did not show the application's WhatsApp as on, so this case proves nothing"
+    assert response.status_code == 200, response.text
+    seats = after[PENDING_OID]
+    assert [(seats[slot]["einwilligung"]["umfang"], seats[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
+        ("kontaktdaten_whatsapp", False),
+        ("kontaktdaten", False),
+    ]

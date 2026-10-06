@@ -275,16 +275,37 @@ def _sitz_schule(
     return bewerbung_schule(bewerbung_raw=bewerbung, club_name=(teams.get(row["team_id"]) or {}).get("name"))
 
 
+def sitz_wahlen_der_zeile(bloecke: Sequence[Mapping[str, Any]]) -> dict[FLEinwilligungWahl, Any]:
+    """Each choice as the account page serves one person's seats on a row: on where any held seat's is, so a withdrawal stays offered.
+
+    One person's seats on a row may disagree, each seat's link being answered on its own.
+    """
+
+    return {
+        "umfang": "kontaktdaten_whatsapp" if any(ist_erteilt("umfang", block.get("umfang")) for block in bloecke) else "kontaktdaten",
+        "medien": any(ist_erteilt("medien", block.get("medien")) for block in bloecke),
+    }
+
+
+def geaenderte_sitz_wahlen(
+    *, bloecke: Sequence[Mapping[str, Any]], gedrueckt: Mapping[FLEinwilligungWahl, Any]
+) -> dict[FLEinwilligungWahl, Any]:
+    """The choices a seat press changed against the row its page served; one sent back as shown is no grant and no move.
+
+    On seats answered apart, moving it would grant one what was never pressed.
+    """
+
+    gezeigt = sitz_wahlen_der_zeile(bloecke)
+
+    return {wahl: wert for wahl, wert in gedrueckt.items() if wert != gezeigt[wahl]}
+
+
 def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """A seat entry's two choices and their stand, over every slot the person holds on the row."""
 
     bloecke = [seat["einwilligung"] for seat in held]
 
-    return {
-        "umfang": "kontaktdaten_whatsapp" if any(ist_erteilt("umfang", block.get("umfang")) for block in bloecke) else "kontaktdaten",
-        "medien": any(ist_erteilt("medien", block.get("medien")) for block in bloecke),
-        "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=WAHLEN),
-    }
+    return {**sitz_wahlen_der_zeile(bloecke), "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=WAHLEN)}
 
 
 def compose_sitze_selbst(
