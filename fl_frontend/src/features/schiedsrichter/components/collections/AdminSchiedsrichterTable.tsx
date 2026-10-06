@@ -126,9 +126,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
     // The italics marking the stand-in word a STATE reach a screen reader as nothing, so every control
     // on a nameless row names the entry rather than announcing that word as somebody's name.
-    const einsatzLabel = name === null ? "Einsätze dieses Eintrags anzeigen" : `Einsätze von ${name} anzeigen`;
     const rowSubject = name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${name}`;
-    const kontaktLabel = name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${name} kopieren`;
 
     // The stored values and never a displayed stand-in, less the placeholder a row without an address
     // holds: a clipboard carrying either reads as a detail somebody could paste into a message.
@@ -143,7 +141,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         <RowActionLink
           href={saisonHref(`/bereich/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
           label="Einsätze anzeigen"
-          ariaLabel={einsatzLabel}>
+          subject={rowSubject}>
           <Magnifier
             className="size-4.5"
             aria-hidden="true"
@@ -154,7 +152,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {hasKontakt && (
           <RowActionCopy
             label="Kontaktdaten kopieren"
-            ariaLabel={kontaktLabel}
+            subject={rowSubject}
             onPress={() => handleCopyKontakt(kontaktdaten)}
           />
         )}
@@ -162,7 +160,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         <RowActionLink
           href={saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter.id}`)}
           label="Bearbeiten"
-          ariaLabel={`${rowSubject} bearbeiten`}>
+          subject={rowSubject}>
           <Pencil
             className="size-4.5"
             aria-hidden="true"
@@ -171,7 +169,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {isRetired && (
           <RowActionRestore
             label="Reaktivieren"
-            ariaLabel={`${rowSubject} reaktivieren`}
+            subject={rowSubject}
             isPending={isReactivating}
             // A return that mints the referee a link is a step-up write.
             onPress={(pressed) => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter), pressed })}
@@ -180,7 +178,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {!isRetired && (
           <RowActionDelete
             label="Stilllegen"
-            ariaLabel={`${rowSubject} stilllegen`}
+            subject={rowSubject}
             onPress={(pressed) => setDeletingSchiedsrichter(schiedsrichter, pressed)}
           />
         )}

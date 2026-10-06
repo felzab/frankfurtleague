@@ -9,6 +9,7 @@ import { act, createElement as h } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeProvider, useTheme } from "next-themes";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { MENSCH_BESTAETIGEN } from "@/core/turnstileToken.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
@@ -175,6 +176,11 @@ describe("a check that did not load", () => {
     render(h(Formular));
     act(() => void turnstile.fire("error-callback", "300010"));
     assert.equal(screen.queryAllByText(NICHT_GELADEN).length, 1, "the form does not say the check failed");
+    // A blocked check stays refused, so the league's address is a browser's way in that will not load it.
+    assert.ok(
+      screen.queryAllByText((text) => text.includes(`schreib uns an ${KONTAKT_EMAIL}`)).length > 0,
+      "the sentence names no way in past a blocked check",
+    );
 
     const minted = await act(async () => turnstile.mint());
 

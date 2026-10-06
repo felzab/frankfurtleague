@@ -123,7 +123,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         <RowActionLink
           href={withSaisonId(`/bereich/admin/spieler/${spieler.id}`, selectedFromUrl)}
           label="Bearbeiten"
-          ariaLabel={`Spieler ${spieler.fullName} bearbeiten`}>
+          subject={`Spieler ${spieler.fullName}`}>
           <Pencil
             className="size-4.5"
             aria-hidden="true"
@@ -134,7 +134,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         {row?.inactive_since != null && (
           <RowActionRestore
             label="Kadereintrag reaktivieren"
-            ariaLabel={`Kadereintrag von ${spieler.fullName} reaktivieren`}
+            subject={spieler.fullName}
             // The editor's gate from the list, asked of the row's STORED club: a club replacement takes a club
             // out of the season and leaves the squad rows still naming it.
             disabledReason={RETURN_REFUSAL[judgeRowReturn(row.team_id, saisonTeams)]}
@@ -149,14 +149,14 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         {spieler.inactive_since !== null ? (
           <RowActionRestore
             label="Spieler reaktivieren"
-            ariaLabel={`Spieler ${spieler.fullName} reaktivieren`}
+            subject={spieler.fullName}
             isPending={person.isReactivating}
             onPress={(pressed) => person.reactivate({ id: spieler.id }, { pressed })}
           />
         ) : (
           <RowActionDelete
             label="Stilllegen"
-            ariaLabel={`Spieler ${spieler.fullName} stilllegen`}
+            subject={`Spieler ${spieler.fullName}`}
             onPress={(pressed) => setDeletingSpieler(spieler, pressed)}
           />
         )}

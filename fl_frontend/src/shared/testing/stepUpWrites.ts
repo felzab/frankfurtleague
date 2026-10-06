@@ -3,9 +3,7 @@ import path from "node:path";
 
 import ts from "typescript";
 
-import { filesUnder, isTestFile, routeHandlerFiles } from "@/core/treeWalk.ts";
-
-const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
+import { filesUnder, isTestFile, routeHandlerFiles, serverActionModules } from "@/core/treeWalk.ts";
 
 /** How an exported action declares its step-up: before its body, inside it, or not at all. */
 function declarationOf(body: ts.Node): "declared" | "conditional" | null {
@@ -63,14 +61,17 @@ function isExported(statement: ts.Statement): boolean {
   return ts.canHaveModifiers(statement) && (ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false);
 }
 
-/** Every slice's `actions.ts`, by the slice its directory names, with its syntax tree. */
-const ACTION_SOURCES = filesUnder(SLICES, (name) => name === "actions.ts", 10).map((file) => ({
+/**
+ * Every server action module, by the slice its directory names, with its syntax tree: a person's write
+ * is a door to a request as an administrator's is.
+ */
+const ACTION_SOURCES = serverActionModules(20).map((file) => ({
   file,
   slice: path.basename(path.dirname(file)),
   source: ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true),
 }));
 
-/** Every exported action of every slice, how it declares its step-up and the requests it sends, read off each `actions.ts`'s syntax tree. */
+/** Every exported action of every slice, how it declares its step-up and the requests it sends, read off each module's syntax tree. */
 const ACTIONS = ACTION_SOURCES.flatMap(({ slice, source }) => {
   const imported = mutationImports(source, slice);
 
@@ -254,7 +255,7 @@ const SOURCE_ROOT = path.resolve(import.meta.dirname, "..", "..");
 
 const relative = (file: string): string => path.relative(SOURCE_ROOT, file).split(path.sep).join("/");
 
-/** An `actions.ts`'s reach, read where `ACTIONS` reads one: a direct call inside an exported function's body. */
+/** A server action module's reach, read where `ACTIONS` reads one: a direct call inside an exported function's body. */
 export function actionReachOf(source: ts.SourceFile, slice: string): Reach {
   return reachOf(source, slice, inExportedAction);
 }

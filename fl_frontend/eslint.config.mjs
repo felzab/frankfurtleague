@@ -532,6 +532,18 @@ const PASSKEY_DELETION = {
     "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts (docs/frontend/spec.md :: I312).",
 };
 
+/**
+ * React's `useActionState` hands an action's rejection to the nearest error boundary, which reads nothing
+ * of it, the edge's own 429 included. The hook the codebase takes it through answers that one.
+ */
+const ACTION_STATE_BAN = {
+  selector:
+    'ImportSpecifier[imported.name="useActionState"], MemberExpression[property.name="useActionState"], Literal[value="useActionState"]',
+  message:
+    "Take `useActionState` through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I838).",
+  exempt: ["src/shared/hooks/useAnsweredActionState.ts"],
+};
+
 /** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
 const handedOnError = (object) =>
   [
@@ -869,6 +881,7 @@ const SOURCE_BANS = [
   },
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
+  ACTION_STATE_BAN,
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
     // A module double's source text, or a specifier held in a name for a later load. A path assembled

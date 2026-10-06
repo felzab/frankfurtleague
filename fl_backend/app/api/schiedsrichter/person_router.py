@@ -33,10 +33,9 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import WAHLEN, nachweis_stand_of
@@ -49,13 +48,10 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])],
 )
 
-# The router's own binder, answered from its run: the folded address the token names.
-Identifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])]
-
 
 @router.get("", response_model=FLSchiedsrichterSelbstResponse, summary="A signed-in referee's own records")
 async def get_selbst(
-    identifier: Identifier,
+    identifier: SchiedsrichterIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjektLookup,
     db: DBClient,
@@ -93,12 +89,11 @@ async def get_selbst(
     f"{by_id('schiedsrichter_id')}/einwilligung",
     response_model=FLSchiedsrichterSelbstEinwilligungResponse,
     summary="Change a signed-in referee's own publication and media consent",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_einwilligung(
     schiedsrichter_id: CustomRouteObjectId,
     einwilligung_data: Annotated[FLSchiedsrichterSelbstEinwilligungPayload, Body()],
-    identifier: Identifier,
+    identifier: SchiedsrichterIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjektLookup,
     db: DBClient,
@@ -109,11 +104,11 @@ async def patch_einwilligung(
     """
     Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
 
-    Writes those two on this one referee row, and nothing else: the confirmation day, the day given, who gave it and
-    the wording they confirmed stand, and no fixture is written. The fixture list does not read the scope yet: it
-    serves the name each fixture stores, so a withdrawal here changes no fixture page until its read joins this row. A
-    PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to
-    `true`) is taken on a live record alone; a withdrawal on a retired one too.
+    Writes those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing
+    else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
+    fixture list does not read the scope yet: it serves the name each fixture stores, so a withdrawal here changes no
+    fixture page until its read joins this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
+    `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one
     (`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since

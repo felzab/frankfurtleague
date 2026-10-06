@@ -118,14 +118,14 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     <RowActions row={ort.id}>
       <RowActionCopy
         label="Adresse kopieren"
-        ariaLabel={`Adresse von ${ort.name} kopieren`}
+        subject={ort.name}
         onPress={() => handleCopyAddress(ort)}
       />
       {/* A link and not a press: the venue form edits on a page of its own. */}
       <RowActionLink
         href={saisonHref(`/bereich/admin/spielorte/${ort.id}`)}
         label="Bearbeiten"
-        ariaLabel={`Spielort ${ort.name} bearbeiten`}>
+        subject={`Spielort ${ort.name}`}>
         <Pencil
           className="size-4.5"
           aria-hidden="true"
@@ -134,19 +134,19 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
       {ort.inactive_since !== null ? (
         <RowActionRestore
           label="Reaktivieren"
-          ariaLabel={`Spielort ${ort.name} reaktivieren`}
+          subject={`Spielort ${ort.name}`}
           isPending={isReactivating}
           onPress={(pressed) => reactivate({ id: ort.id }, { pressed })}
         />
       ) : (
         <RowActionDelete
           label="Stilllegen"
-          ariaLabel={`Spielort ${ort.name} stilllegen`}
+          subject={`Spielort ${ort.name}`}
           onPress={(pressed) => setDeletingOrt(ort, pressed)}
         />
       )}
       {/* Both leave the row; the copy above acts on it, which is what keeps that one inline. */}
-      <RowActionMenu ariaLabel={`Weitere Aktionen für Spielort ${ort.name}`}>
+      <RowActionMenu subject={`Spielort ${ort.name}`}>
         <RowActionMenuItem
           id="maps"
           href={formatMapsLink(ort)}

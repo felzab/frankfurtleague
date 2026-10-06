@@ -24,7 +24,7 @@ from app.api.bewerbungen.services import (
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
 from app.api.kontakte.services import same_address
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, FLRegistrierungEntscheidung
+from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, FLRegistrierungEntscheidung, FLRegistrierungSeite
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
@@ -34,7 +34,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_nachweis import SPRECHER, compose_erneuert, compose_geboren
+from app.shared.einwilligung_nachweis import SPRECHER, compose_erneuert, compose_geboren, ohne_sprecher
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -315,6 +315,11 @@ REGISTRIERUNG_ALREADY_CONFIRMED = "REQ-REGISTRIERUNG-006"
 REGISTRIERUNG_ALTER = "REQ-REGISTRIERUNG-007"
 REGISTRIERUNG_MEDIEN_ALTER = "REQ-REGISTRIERUNG-010"
 REGISTRIERUNG_BESTAETIGUNG_GESPERRT = "REQ-REGISTRIERUNG-012"
+REGISTRIERUNG_WAHLEN_UNPASSEND = "REQ-REGISTRIERUNG-017"
+
+# The two pages one link opens, each with its running label (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`).
+SEITE_NEU: Final[FLRegistrierungSeite] = "bestaetigung_spieler"
+SEITE_WIEDERKEHREND: Final[FLRegistrierungSeite] = "bestaetigung_spieler_wiederkehrend"
 
 
 def build_bestaetigung_filter(*, token_hash: str) -> Mapping[str, Any]:
@@ -342,19 +347,21 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     # neither read: the name narrows the address, for the reason `persons_named` gives.
     "nachname": 1,
     "email": 1,
-    "geburtsdatum": 1,
-    "einwilligung": 1,
+    # The stamp alone: what the pupil answered is shown back from the person, never from this row.
+    "einwilligung.bestaetigt_am": 1,
     # Suppressed here alone: only the answer's read below has a patch filter to key on it.
     "_id": 0,
 }
 
-# Narrower than the view's: the press judges the link, the stamp and the address the ban list is
-# asked of, and names no team and no person.
+# Narrower than the view's: the press judges the link, the stamp, the address the ban list is asked
+# of and the name its page is resolved by, and names no team.
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     "bestaetigung.frist": 1,
     "status": 1,
     "einwilligung.bestaetigt_am": 1,
     "email": 1,
+    "vorname": 1,
+    "nachname": 1,
 }
 
 
@@ -516,17 +523,34 @@ def sole_person(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
     return rows[0] if len(rows) == 1 else None
 
 
-def answers_shown_back(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mapping[str, Any] | None) -> Mapping[str, Any]:
-    """Whose birthdate and consent the page presents: this registration's own once confirmed, else the person's the league holds.
+def seite_of(*, registrierung_raw: Mapping[str, Any], person_raw: Mapping[str, Any] | None) -> FLRegistrierungSeite:
+    """The returning pupil's page only for the confirmed person stored at this address under this name, else the new pupil's.
 
-    The DOCUMENT rather than the two values: the pair must not be taken from two rows
-    (`docs/backend/spec.md :: I141`).
+    It asks no choice, saying the stored ones stand: an unconfirmed record's were given by no person.
     """
 
-    if registrierung_raw.get("einwilligung") is not None:
-        return registrierung_raw
+    rows = [] if person_raw is None else [person_raw]
+    named = sole_person(persons_named(rows, vorname=registrierung_raw.get("vorname"), nachname=registrierung_raw.get("nachname")))
 
-    return spieler_raw if spieler_raw is not None else {}
+    return SEITE_WIEDERKEHREND if named is not None and is_confirmed(named.get("einwilligung")) else SEITE_NEU
+
+
+def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any) -> WriteRefusal | None:
+    """`REQ-REGISTRIERUNG-017`: the body answers choices its page did not ask, or leaves out ones it did.
+
+    Both on the new pupil's page and neither on the returning pupil's, so no answer is stored that
+    the page never showed.
+    """
+
+    gefragt = seite == SEITE_NEU
+    if (umfang is not None) == gefragt and (medien is not None) == gefragt:
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_WAHLEN_UNPASSEND,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        message="the choices sent are not the ones this link's page asks: a returning pupil's page asks none, a new pupil's page both",
+    )
 
 
 def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> WriteRefusal | None:
@@ -547,12 +571,22 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
     )
 
 
-def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool, text_version: str, today: str, am: str) -> Mapping[str, Any]:
+def compose_confirmation_update(
+    *, geburtsdatum: str, umfang: str | None, medien: bool | None, text_version: str, today: str, am: str
+) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
     `docs/backend/spec.md :: I141` rests on the two landing together, and between two writes the row
     would hold a birthdate nobody had yet consented to the league keeping.
     """
+
+    if umfang is None and medien is None:
+        # The returning pupil's page asked nothing, so the record holds no choice, no evidence and no
+        # `datum`, the day a consent was given (`docs/backend/spec.md :: I_NEW_KONTO-B3_1`).
+        return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"bestaetigt_am": today, "text_version": text_version}}}
+
+    if umfang is None or medien is None:
+        raise ValueError("a confirmation answers both choices or neither, as `find_wahlen_refusal` holds a body to its page")
 
     # Born whole rather than moved: the submission stores no record and a second press is refused, so
     # no earlier choice stands on this block; the admission carries its evidence onto the person.
@@ -904,12 +938,24 @@ def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dic
     }
 
 
-def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: Any, adresse: str) -> Mapping[str, Any]:
-    """What an admission writes onto a matched person: the registration's name, birthdate, consent and address.
+def traegt_wahlen(einwilligung: Any) -> bool:
+    """Whether a registration's record carries its pupil's choices, which a returning pupil's confirmation never does."""
 
-    The consent is RENEWED, as the confirmation page promised, each choice only where the registration
-    set it later; `gespeichert` is read in the admission's transaction.
+    return isinstance(einwilligung, Mapping) and "umfang" in einwilligung
+
+
+def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: Any, adresse: str) -> Mapping[str, Any]:
+    """What an admission writes onto a matched person: the registration's name, birthdate and address, and any consent it carries.
+
+    RENEWED as the new pupil's page promised, each choice only where set later; `gespeichert` is read
+    in the admission's transaction.
     """
+
+    fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
+    if not traegt_wahlen(registrierung_raw["einwilligung"]):
+        # Not one key of the block, its label and day included: they name the last confirmation that
+        # asked its choices (`docs/backend/spec.md :: I867`).
+        return {"$set": fields}
 
     # A matched person always holds a block, the validator requiring one, so the dotted paths are viable.
     erneuert = compose_erneuert(
@@ -920,10 +966,7 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
     )
 
     # A speaker the stored record names is no truer once the person's own answer renews it.
-    return {
-        "$set": {**_person_fields(registrierung_raw=registrierung_raw, adresse=adresse), **erneuert},
-        "$unset": {f"einwilligung.{field}": "" for field in SPRECHER},
-    }
+    return {"$set": {**fields, **erneuert}, "$unset": {f"einwilligung.{field}": "" for field in SPRECHER}}
 
 
 def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
@@ -931,7 +974,12 @@ def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adr
 
     fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
 
-    einwilligung = {field: value for field, value in registrierung_raw["einwilligung"].items() if field not in SPRECHER}
+    if not traegt_wahlen(registrierung_raw["einwilligung"]):
+        # Only where the person a returning registration was confirmed against is gone by its
+        # admission: a new person needs choices nobody was asked for.
+        raise ValueError("a returning pupil's registration carries no choice to create a person from")
+
+    einwilligung = ohne_sprecher(registrierung_raw["einwilligung"])
 
     return {"_id": spieler_id, **fields, "einwilligung": einwilligung}
 

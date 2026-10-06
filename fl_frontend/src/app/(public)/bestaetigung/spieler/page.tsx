@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
-import { gekeyteFassung, SPIELER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { gekeyteFassung, SPIELER_ABSATZ_SCHLUESSEL, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
 import { SpielerBestaetigungView } from "@/features/registrierungen/components/views/SpielerBestaetigungView";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "@/features/registrierungen/constants";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
@@ -10,7 +10,9 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { SpielerBestaetigungStart } from "@/features/registrierungen/types";
+import type { FLEinwilligungFassung } from "@/core/schemas";
+import type { FLRegistrierungSeite } from "@/features/registrierungen/schemas";
+import type { SpielerBestaetigungStart, SpielerSeitenFassung } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
@@ -45,10 +47,11 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   await connection();
   const { token } = await props.searchParams;
 
-  // Beside the link's read, and per request: a deploy moves the label the answer must stamp. Any
-  // failure settles to `null`, a production build redacting what the cached read throws
+  // Beside the link's read, which names the page, and per request: a deploy moves the label the answer
+  // must stamp. Any failure settles to `null`, a production build redacting what the cached read throws
   // (`docs/frontend/spec.md` §1.2).
-  const fassung = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler")).catch(() => null);
+  const neu = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler")).catch(() => null);
+  const wiederkehrend = runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler_wiederkehrend")).catch(() => null);
 
   const start: SpielerBestaetigungStart =
     typeof token === "string" && token !== ""
@@ -58,14 +61,34 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
         )
       : { zustand: "ungueltig" };
 
-  const gelesen = await fassung;
-
   return (
     <SpielerBestaetigungView
       start={start}
-      // Keyed outside the read's catch: words this page cannot key are a broken contract, which the
-      // error boundary logs.
-      fassung={gelesen === null ? null : gekeyteFassung(gelesen, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS)}
+      fassung={start.zustand === "gueltig" ? await seitenFassung(start.ansicht.seite, neu, wiederkehrend) : null}
     />
   );
+}
+
+/**
+ * The words of the page the link opens, keyed as that page places them.
+ *
+ * Keyed outside the read's catch: words this page cannot key are a broken contract, which the error
+ * boundary logs.
+ */
+async function seitenFassung(
+  seite: FLRegistrierungSeite,
+  neu: Promise<FLEinwilligungFassung | null>,
+  wiederkehrend: Promise<FLEinwilligungFassung | null>,
+): Promise<SpielerSeitenFassung | null> {
+  if (seite === "bestaetigung_spieler") {
+    const gelesen = await neu;
+
+    return gelesen === null ? null : { ...gekeyteFassung(gelesen, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS), seite: seite };
+  }
+
+  const gelesen = await wiederkehrend;
+
+  return gelesen === null
+    ? null
+    : { ...gekeyteFassung(gelesen, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS), seite: seite };
 }

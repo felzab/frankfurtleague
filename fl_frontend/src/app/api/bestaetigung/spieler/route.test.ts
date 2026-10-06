@@ -31,7 +31,7 @@ const ANSICHT = {
   schule: "Lessing-Kolleg Oberstufengymnasium",
   saison_id: "2026",
   vorname: "Mira",
-  text_version: LAUFEND,
+  seite: "bestaetigung_spieler" as const,
   mindestalter: 16,
   medien_mindestalter: 18,
   geburtsdatum: null,
@@ -130,6 +130,29 @@ describe("the pupil's confirmation handler", () => {
 
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, LAUFEND);
     assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "2008-09-01", umfang: "intern", medien: false });
+  });
+
+  /* The returning pupil's page sends neither choice, and its answer echoes neither: the panel states
+     the read's stored pair instead. */
+  it("passes the returning pupil's body on with both choices null, and echoes the nulls", async () => {
+    schreibAntwort = () => ({ ...GESCHRIEBEN, umfang: null, medien: null });
+
+    const answer = await bodyOf(aRequest({ ...gueltigerKoerper, umfang: null, medien: null }));
+    const geschrieben = JSON.parse(calls.find((call) => call.endpoint === "/registrierungen/bestaetigung")?.body ?? "{}");
+
+    assert.deepEqual([geschrieben.umfang, geschrieben.medien], [null, null]);
+    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "2008-09-01", umfang: null, medien: null });
+  });
+
+  /* Each page sends its own pair, so only a page older than the backend's answer sends choices the
+     link's page does not ask, and the mail's link reopens it on the right one. */
+  it("answers the refusal of choices the page does not ask with the sentence that reopens the link", async () => {
+    schreibAntwort = () => aRefusal(422, "REQ-REGISTRIERUNG-017");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
+    assert.equal(ansichten(), 0);
   });
 
   /* The link died between the open and the press, so the page swaps the form for a panel; a field

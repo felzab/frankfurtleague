@@ -11,6 +11,7 @@ export const EINWILLIGUNG_SEITEN = [
   "bestaetigung_kontakt_verwaltung",
   "bestaetigung_kontakt_saison",
   "bestaetigung_spieler",
+  "bestaetigung_spieler_wiederkehrend",
   "bestaetigung_schiedsrichter",
   "konto_spieler",
   "konto_schiedsrichter",
@@ -71,6 +72,23 @@ export const SPIELER_ABSATZ_SCHLUESSEL = [
   "klickHinweise",
 ] as const;
 
+// The pupil page's keys less the choices' paragraphs and their point, `einwilligungen` in their place:
+// this page asks no choice, saying that the stored ones stand.
+export const SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL = [
+  "worum",
+  "gespeichert",
+  "geburtsdatum",
+  "wer",
+  "einwilligungen",
+  "rechtsgrundlage",
+  "frist",
+  "widerruf",
+  "art21",
+  "klickIdentitaet",
+  "klickAlter",
+  "klickHinweise",
+] as const;
+
 export const SCHIEDSRICHTER_ABSATZ_SCHLUESSEL = [
   "worum",
   "gespeichert",
@@ -92,6 +110,7 @@ export const SCHIEDSRICHTER_ABSATZ_SCHLUESSEL = [
 export type KontaktAbsatzSchluessel = (typeof KONTAKT_ABSATZ_SCHLUESSEL)[number];
 export type KontaktBedienSchluessel = (typeof KONTAKT_BEDIEN_SCHLUESSEL)[number];
 export type SpielerAbsatzSchluessel = (typeof SPIELER_ABSATZ_SCHLUESSEL)[number];
+export type SpielerWiederkehrendAbsatzSchluessel = (typeof SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL)[number];
 export type SchiedsrichterAbsatzSchluessel = (typeof SCHIEDSRICHTER_ABSATZ_SCHLUESSEL)[number];
 
 /**

@@ -404,7 +404,8 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
 ]
 
-# Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.
+# Split by the methods `app/core/security.py` names as recording nothing, since a read binding no actor
+# misattributes no row; the guard itself exempts none (`TestTheGuardExemptsNoMethod`).
 MUTATIONS = sorted(
     operation
     for operation in ROUTES_BY_OPERATION
@@ -461,6 +462,21 @@ def test_a_person_write_binds_no_administrator_beside_the_person():
 
     assert PERSON_WRITES, "the list is empty, so the comparison below holds of nothing"
     assert beside == [], f"{beside} binds the administrator's actor beside a person's"
+
+
+def test_no_route_binds_two_funktionen():
+    """A handler's identifier alias of another Funktion than its router's runs a second binder.
+
+    The route still serves, its writes recorded under the later Funktion, so nothing else fails.
+    """
+    binders = set(PERSON_ACTOR_BINDERS.values())
+    doubled = [
+        operation
+        for operation, route in sorted(ROUTES_BY_OPERATION.items())
+        if len({dependency.call for dependency in route.dependant.dependencies if dependency.call in binders}) > 1
+    ]
+
+    assert doubled == [], f"{doubled} binds more than one Funktion"
 
 
 @pytest.mark.parametrize(("path", "method"), PUBLIC_WRITES, ids=lambda value: value)

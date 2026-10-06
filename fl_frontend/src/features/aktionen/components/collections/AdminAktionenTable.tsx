@@ -225,7 +225,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         <RowActionLink
           href={withSaisonId(`/bereich/admin/aktionen?document_id=${encodeURIComponent(aktion.document_id)}`, selectedFromUrl)}
           label="Änderungen an diesem Datensatz"
-          ariaLabel={`Alle Änderungen an Datensatz ${aktion.document_id} anzeigen`}>
+          subject={`Datensatz ${aktion.document_id}`}>
           <ClockArrowRotateLeft
             className="size-4.5"
             aria-hidden="true"
@@ -234,7 +234,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       )}
       <RowActionCopy
         label="Vorgangsnummer kopieren und den Vorgang anzeigen"
-        ariaLabel={`Vorgangsnummer der Änderung vom ${zeitpunktLabel(aktion)} kopieren und den Vorgang anzeigen`}
+        subject={`Änderung vom ${zeitpunktLabel(aktion)}`}
         onPress={() => handleCopyVorgang(aktion)}
       />
     </RowActions>

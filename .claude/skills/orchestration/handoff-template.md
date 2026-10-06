@@ -1,13 +1,9 @@
 # Handoff template
 
-A handoff answers what a transcript cannot: **what the previous session believed, and how much of it
-was verified.** It is the next session's document; a pause inside this session is served by the
-register's resume point, never by a handoff. `SKILL.md` §7 says when it is written and audited.
-
-**A handoff, a register and a starter describe a session, not the system**, so what went wrong in
-one is its subject, and COR-3's ban on edit narration does not reach it. Its other half does: a
-claim the tree does not bear out is corrected, and a lesson is written as what is true rather than
-as a difference between drafts.
+A handoff tells the next session what this one believed and how much of it was verified. A pause
+inside a session is served by the register's resume point, never by a handoff. A handoff, a register
+and a starter describe a session, so what went wrong in one is its subject; a claim the tree does not
+bear out is still corrected, and a lesson is written as what is true.
 
 ## Required sections
 
@@ -16,75 +12,53 @@ as a difference between drafts.
 
 ## Read these, in this order
 <Each file, and the one question it answers. Point at files; do not restate them. The programme
-register holding this programme's rulings is one of them, by path: it is their only home.>
+register holding the rulings is one of them, by path.>
 
 ## What this session settled, so you do not re-open it
-<Decisions with the argument's location, not the argument. The owner's rulings are cited by their
-row in the programme's register, which is their single home (`register-template.md`): a copy of one
-here is the copy that diverges.>
+<Decisions with where the argument lives. A ruling is cited by its row in the programme register,
+never copied.>
 
 ## The single most important thing in this handoff
-<One item. If everything is important, nothing is.>
+<One item.>
 
 ## What actually bit, this session
-<Incidents, not advice. Each one: the mechanism, what it cost, and the rule it leaves behind.
-An entry with no incident behind it belongs in a standing rules file, not here.>
+<Incidents, each with its mechanism, what it cost, and the rule it leaves behind. An entry with no
+incident behind it belongs in a standing rules file.>
 
 ## What NOT to redo
-<Every rejected option with the reason it was rejected and, where one exists, the condition that
-would re-open it. Each entry cost someone a measurement.>
+<Every rejected option, its reason, and the condition that would re-open it.>
 
 ## Open, and owed to the owner
-<Every unanswered question, each with what is blocked behind it. The first item is whatever must
-be raised before the next session starts work. Nothing the owner has already ruled.>
+<Every unanswered question and what is blocked behind it; first, whatever must be raised before the
+next session starts. Nothing the owner has ruled.>
 
 ## Writing your own handoff
 <The standard, restated only where this session learned something about it.>
 
 ## VERIFIED STATE
-<Established by running a command, with the exit status taken from the command itself and never
-through a pipe, between <time> and <time> on <date>. Where a fact would have needed a command
-this session could not run, say so instead of guessing.>
+<Established by commands, each exit status read from the command itself, between <time> and <time>
+on <date>. Where a fact needed a command this session could not run, say so.>
 
-- Branch, and the commit SUBJECTS -- never SHAs, which a rebase invalidates silently.
-- Gate state: the full `./scripts/gate/verify.sh`'s real exit code, its closing line, the findings.
-- Counts, each with who measured it, the moment it was taken, and a note that it will move. A
-  figure whose provenance the next session cannot see is one it will act on without re-measuring.
-- What could NOT be established here, and why.
+- Branch, and the commit SUBJECTS -- never SHAs.
+- Gate state: the full `./scripts/gate/verify.sh`'s exit code, its closing line, the findings.
+- Counts, each with who measured it, when, and that it will move.
+- What could NOT be established, and why.
 ```
 
 ## What to leave out
 
-- **A figure quoted as a baseline** that nobody re-measured in the state the next session inherits,
-  and any figure taken while the fleet was running: it measured a contended machine, and three
-  agents timing one quantity got three answers.
-- **A filename a pending fix round will rename.** Hand over only what has reached the end of its
-  cycle; a handoff written mid-cycle sent the next session to a file about to be split.
-- **A question the owner has ruled.** One handoff re-asked the ruling that changed the per-slice
-  discipline, against its own "do not re-ask" line, because the ruling stood in one of two copies
-  and not the other.
-
-Incidents. A handoff that restated the rules file, the plan and this skill for a third of its
-length buried the four incidents only it knew. One paragraph named twelve modules where there were
-fourteen, and a collected test count moved through four values during a single audit.
-
-## Planning a programme
-
-**A programme is planned in its own session**, whose plan lays a path through the whole programme,
-one pull request per session; size a session to be worth its own branch and not exhaust its
-context, and give a phase whose verification verdict must stand alone its own session. **The plan
-is audited cold and its findings fixed before the owner sees it**, how well its sessions will
-execute in parallel included: a plan the owner reads first is one they review instead of approve.
-Where a plan's handoff protocol differs from this file, `SKILL.md` §7 decides.
+- A figure quoted as a baseline that nobody re-measured in the state the next session inherits, and
+  any figure taken while the fleet was running.
+- A filename a pending fix round will rename: hand over only what reached the end of its cycle.
+- A question the owner has ruled.
+- A restatement of the rules file, the plan or this skill.
 
 ## The starter prompt
 
-Every later session's starter prompt is a short map, under a page, that points at its predecessor's
-handoff and carries the lines below — never a copy of the handoff, which the reading order already
-delivers. **Where a programme's playbook lists what every starter carries, that list wins over the
-page bound**: each of its items is one the session needs before it has opened anything, and a
-starter cut to length drops the ones that look least like instructions. The owner sends `/orchestration` as its own message before pasting it
-([USAGE.md](USAGE.md)).
+A later session's starter is a short map, under a page, that points at its predecessor's handoff
+and carries the lines below — never a copy of the handoff. Where a programme's playbook lists what
+every starter carries, that list wins over the page bound. The owner sends `/orchestration` as its
+own message before pasting it.
 
 ```
 - Invoke the `orchestration` skill first if it is not already in context.
@@ -98,5 +72,4 @@ starter cut to length drops the ones that look least like instructions. The owne
   work audit it, then fixing what it finds.
 ```
 
-Both live in the durable plan directory beside the plan, with **one copy of each document they
-cite**: a second copy diverges, and a ruling standing in one and not the other gets re-asked.
+Both live in the durable plan directory beside the plan, with one copy of each document they cite.

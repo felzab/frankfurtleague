@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "6f57ddfcad36b5f4dab9bf86bfcac8889844682e97727f9fee54fe134f607231" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "0146472e63643a6f9ff27847c851b04c1b14091c9f03b4d58c039b32f6abc85f" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -173,13 +173,14 @@ describe("the privacy notice's retention table", () => {
 
   /* One fate per clock the registration sweep and the admission run: the admission erases the row, a
      decline starts a month, and a season ending undecided takes the rest. */
-  it("gives a pupil's registration three fates, one per decision", () => {
+  it("gives a pupil's registration three fates, one per decision, and keeps who declined it as long as the decline", () => {
     assert.equal(
       ANGABEN.get("Registrierung eines Spielers oder einer Spielerin"),
       `${amAnfang(inWorten(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE))} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht ` +
         "bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis " +
         "das Team über sie entscheidet: Nimmt es die Person auf, löschen wir die Registrierung, und ihre Angaben stehen von da an " +
-        "im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht " +
+        "im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung, und mit ihr Datum, Grund und " +
+        "E-Mail-Adresse der Person aus dem Team, die abgelehnt hat. Ist bis zum Ende der Saison nicht " +
         "entschieden, löschen wir sie dann",
     );
   });
@@ -334,6 +335,13 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   { weg: "Ohne einen Menschen weist die Website nur zweierlei zurück" },
   // The bot check and the day ceiling refuse without a human too, and the notice names every such refusal.
   { weg: "weist sie ohne einen Menschen nur zweierlei zurück" },
+  // The account page's step-up mails a code with no bot check, and an unanswered check lets a form through.
+  {
+    weg: "bevor wir einen Anmeldecode verschicken",
+    statt:
+      "bevor wir über die Anmeldeseite einen Anmeldecode verschicken oder eine Bewerbung oder Registrierung speichern; antwortet Cloudflare dabei nicht, nehmen wir das Formular ungeprüft an.",
+  },
+  { weg: "Einen Anmeldecode verschickt sie" },
   { weg: "an ihren eigenen Angaben", statt: "Änderungen der Verwaltung und Änderungen angemeldeter Personen" },
   { weg: "Trainerinnen, Trainern und Ansprechpersonen ab", statt: "Schiedsrichtern und Kontaktpersonen eines Teams ab" },
   { weg: "Er enthält nur die Zahl der Änderungen und Deine Rolle" },
@@ -400,6 +408,19 @@ describe("the privacy notice's account of the site's own protection", () => {
 
     assert.ok(absatz.includes("auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular"), absatz);
     assert.ok(absatz.includes("Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung"), absatz);
+  });
+
+  /* A browser that blocks the check stays refused, so the notice says so and names the way in that remains. */
+  it("says a blocked check takes nothing in, and names the league's address and the passkey as the ways in", () => {
+    const absatz = ABSAETZE.find((text) => text.startsWith("Eine zweite Prüfung von Cloudflare, Turnstile,")) ?? "";
+
+    assert.ok(
+      absatz.includes(
+        `Lässt Dein Browser oder ein Werbeblocker diese Prüfung nicht zu, nehmen wir über diese drei Formulare nichts an; dann erreichst Du uns unter ${KONTAKT_EMAIL}`,
+      ),
+      absatz,
+    );
+    assert.ok(absatz.endsWith("und anmelden kannst Du Dich auch mit einem Passkey."), absatz);
   });
 
   it("gives a person's daily count its clock, and says it holds no address", () => {
@@ -563,7 +584,7 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     rendert(
       "Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen " +
         "Menschen zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder Schiedsrichter oder als " +
-        "Kontaktperson einer Bewerbung einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter über " +
+        "Kontaktperson einer Bewerbung oder eines Teams einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter über " +
         `${String(BEWERBUNG_MAX_ALTER)} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf ` +
         `Deinen Wunsch ein Mensch: Schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an und ` +
         "antwortet Dir. Ein zurückgewiesenes Geburtsdatum wird nicht gespeichert; war es ein Tippfehler, trägst Du über denselben " +
@@ -571,8 +592,9 @@ describe("the privacy notice's publication and retention rows keep their ruled b
         "nach der Prüfung bei der Zurückweisung, weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die " +
         "Verwaltung nach der Prüfung aufheben. Ist der Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist " +
         "eine Grenze des Kaders und keine Entscheidung über Dich. Zwei weitere Grenzen setzt die Website ebenso ohne einen " +
-        "Menschen. Einen Anmeldecode verschickt sie, eine Bewerbung und eine Registrierung nimmt sie erst an, wenn Cloudflare " +
-        "bestätigt hat, dass ein Mensch das Formular abschickt (Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. " +
+        "Menschen. Einen Anmeldecode über die Anmeldeseite verschickt sie, eine Bewerbung und eine Registrierung nimmt sie erst " +
+        "an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt, oder wenn Cloudflare nicht antwortet " +
+        "(Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. " +
         `Lässt Dich die Prüfung nicht durch, schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an. ` +
         "Und wer angemeldet ist, kann in jeder Funktion an einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach " +
         "weist die Website weitere Änderungen bis Mitternacht zurück. Das Zurückziehen einer Einwilligung weist sie dabei nie " +
@@ -610,7 +632,9 @@ describe("the privacy notice's publication and retention rows keep their ruled b
         "Aufnahme in den Kader entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen " +
         "Deinen Namen, Deine Rückennummer, Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst. Deine " +
         "E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und " +
-        "Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail.",
+        "Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail. Zur " +
+        "Ablehnung halten wir das Datum, den Grund und die E-Mail-Adresse der Person aus dem Team fest, die abgelehnt hat; diese " +
+        "Angaben sehen die Administratorinnen und Administratoren der Liga.",
     );
   });
 

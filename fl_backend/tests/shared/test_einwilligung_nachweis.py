@@ -260,6 +260,22 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         assert not {"einwilligung.umfang", "einwilligung.medien"} & set(update)
 
     @pytest.mark.parametrize(
+        ("registered_on", "carried"),
+        [
+            pytest.param("2026-03-15", False, id="confirmed before the stored record"),
+            pytest.param("2026-04-01", True, id="confirmed the same day"),
+            pytest.param("2026-04-15", True, id="confirmed after it"),
+        ],
+    )
+    def test_an_older_registration_moves_neither_the_records_day_nor_its_label(self, registered_on: str, carried: bool):
+        """Admitted after a newer one, it keeps the newer choices and must not date and name the record by its older confirmation."""
+
+        update = renew(CONFIRMED, {**REGISTERED, "datum": registered_on, "bestaetigt_am": registered_on})
+
+        for field in ("datum", "bestaetigt_am", "text_version"):
+            assert (f"einwilligung.{field}" in update) is carried, f"{field} moved against the stored confirmation's day"
+
+    @pytest.mark.parametrize(
         ("registered_on", "renewed"),
         [
             pytest.param("2026-04-15", True, id="confirmed after the stored record"),

@@ -263,3 +263,7 @@ import { sendSperreNotice as queriedNotice } from "@/core/mail?probe"; // expect
 const { sendSperreNotice: loadedQueriedNotice } = await import("@/core/mail.ts?probe"); // expect: sperre-notice-load
 export const NOTICE_USED = [queriedNotice, loadedQueriedNotice];
 export const POPOVER_USED = queriedPopover;
+import { useActionState as reactActionState } from "react"; // expect: action-state
+declare const React: { useActionState: unknown };
+export const ACTION_STATE_TAKEN = [reactActionState, React.useActionState]; // expect: action-state
+export const ACTION_STATE_NAMED = "useActionState"; // expect: action-state

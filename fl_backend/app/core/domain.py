@@ -919,7 +919,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "einwilligung",
         Editability.COMPOSED,
         "on no administrative payload: the admission writes the registration's freshly confirmed record whole onto a person "
-        "it creates, and onto one it matches renews it, each choice only where the registration set it later "
+        "it creates, and onto one it matches renews it, each choice only where the registration set it later, and not at "
+        "all where the returning pupil's page asked none "
         "(`app/api/registrierungen/services.py :: compose_person_update`). Its two choices, `umfang` and `medien`, are "
         "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration, "
         "which an admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
@@ -1208,19 +1209,20 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.REGISTRIERUNGEN,
         "einwilligung",
         Editability.COMPOSED,
-        "on no payload beyond the scope and the media answer the pupil chose: the server stamps `bestaetigt_am` and `datum` "
-        "with the day the confirmation lands, nobody else being permitted to answer for a pupil, names no speaker "
-        "(`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
-        "`text_version` arrives on the "
-        "payload, and anything but the pupil page's running label is refused (`REQ-EINWILLIGUNG-001`)",
+        "on no payload beyond the scope and the media answer the pupil chose on the new pupil's page: the server stamps "
+        "`bestaetigt_am` and `datum` with the day the confirmation lands, nobody else being permitted to answer for a pupil, "
+        "names no speaker (`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
+        "The returning pupil's page asks no choice, so its record is `bestaetigt_am` and `text_version` alone "
+        "(`REQ-REGISTRIERUNG-017`). `text_version` arrives on the payload, and anything but the running label of the page "
+        "the press resolves is refused (`REQ-EINWILLIGUNG-001`)",
         "app.api.registrierungen.services.find_already_confirmed_refusal",
     ),
     FieldPolicy(
         Collection.REGISTRIERUNGEN,
         "geburtsdatum",
         Editability.COMPOSED,
-        "on no admin payload: the pupil answers on the confirmation page, which shows the date back where the league already "
-        "holds that person -- matched on the folded address AND the folded name, so a sibling registering from a mailbox shared "
+        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant shows the stored date "
+        "back -- matched on the folded address AND the folded name, so a sibling registering from a mailbox shared "
         "anyway is not shown the stored person's date -- and the write lands in the same `$set` as the consent record it is "
         "checked for (`REQ-REGISTRIERUNG-007`). No "
         "control puts it back, so a mistyped date is corrected by registering again",
@@ -2455,6 +2457,15 @@ RULES: tuple[Rule, ...] = (
         summary="a link mailed to an address the ban list now holds confirms no registration, whenever it was minted",
         implemented_by="app.api.registrierungen.services.find_bestaetigung_gesperrt_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestALinkToABarredAddress",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-017",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /registrierungen/bestaetigung",
+        aggregate="Registrierung",
+        summary="a confirmation answers both choices on the new pupil's page and neither on the returning pupil's",
+        implemented_by="app.api.registrierungen.services.find_wahlen_refusal",
+        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheChoicesThePageAsks",
     ),
     Rule(
         code="REQ-EINWILLIGUNG-001",

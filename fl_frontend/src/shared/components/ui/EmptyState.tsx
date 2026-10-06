@@ -1,4 +1,8 @@
+import Link from "next/link";
+
 import { tv } from "tailwind-variants";
+
+import { ctaButton } from "@/shared/components/ui/formButtons";
 
 /**
  * The app's "nothing here" language, so a view with an empty collection never renders a blank region. `tone="positive"`
@@ -28,11 +32,14 @@ const emptyState = tv({
 export function EmptyState({
   title,
   hint,
+  aktion,
   tone,
   className,
 }: {
   title: string;
   hint?: string;
+  /** The way out of the empty state where it has one, inside the panel as `BewerbungView`'s state panels carry theirs. */
+  aktion?: { href: string; label: string };
   tone?: "neutral" | "positive";
   className?: string;
 }) {
@@ -42,6 +49,14 @@ export function EmptyState({
     <div className={styles.root({ className })}>
       <p className={styles.title()}>{title}</p>
       {hint && <p className={styles.hint()}>{hint}</p>}
+      {aktion !== undefined && (
+        <Link
+          href={aktion.href}
+          prefetch={false}
+          className={`${ctaButton({ intent: "primary", size: "sm", hover: "css" })} mt-2 w-full sm:w-56`}>
+          {aktion.label}
+        </Link>
+      )}
     </div>
   );
 }
