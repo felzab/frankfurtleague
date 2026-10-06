@@ -462,7 +462,10 @@ describe("a write whose answer never arrives", () => {
         [
           // A send saves nothing, so its title says what is unknown of it.
           "Unklar, ob der Link verschickt wurde",
-          repairOn(arm, "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging."),
+          repairOn(
+            arm,
+            "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+          ),
         ],
       ]);
       assert.equal(raised.length, 1, "one press raised more than one toast");

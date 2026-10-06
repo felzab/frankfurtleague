@@ -30,7 +30,6 @@ import { CodeStep, LABEL_CLASSES } from "./CodeStep";
 import { PasskeySignIn } from "./PasskeySignIn";
 
 import type { FormState } from "@/shared/types/types";
-import type { ErrorInfo } from "next/error";
 
 /**
  * The spam folder alone: whether an address is sent a code at all is the gate's, and a line naming one
@@ -48,29 +47,19 @@ const PRUEFUNG_NICHT_GELADEN = `Die Prüfung, ob Du ein Mensch bist, ließ sich 
  * navigation included, so this card's retry panel would answer one — and would go on standing after
  * the route had changed under it.
  */
-const SignInActionBoundary = catchError((_props, { reset }: ErrorInfo) => (
-  // `reset` rather than `retry`, which refetches this route's payload: the POST is what failed, and
-  // the address the visitor typed is held outside this boundary.
-  <SignInActionFallback onRetry={reset} />
-));
+const SignInActionBoundary = catchError(() => <SignInActionFallback />);
 
 /**
  * `next` is the landing every finished sign-in leaves for, handed down by the page, which may read it, as it
  * reads `siteKey`, the bot check's public key.
  */
 export function SignInForm({ next, siteKey }: { next: string; siteKey: string }) {
-  // Outside the boundary on purpose: everything within it is unmounted by a catch and mounted again
-  // by the reset, so an address held in there would be gone from the box the visitor comes back to.
-  const [email, setEmail] = useState("");
-
   return (
     <SignInCard title="Anmelden">
       {/* The card's heading stays standing through a catch: the boundary is around the region the
           send can fail in, and a route-segment `error.tsx` would replace the page instead. */}
       <SignInActionBoundary>
         <SignInPanel
-          email={email}
-          onEmailChange={setEmail}
           next={next}
           siteKey={siteKey}
         />
@@ -79,17 +68,8 @@ export function SignInForm({ next, siteKey }: { next: string; siteKey: string })
   );
 }
 
-function SignInPanel({
-  email,
-  onEmailChange,
-  next,
-  siteKey,
-}: {
-  email: string;
-  onEmailChange: (value: string) => void;
-  next: string;
-  siteKey: string;
-}) {
+function SignInPanel({ next, siteKey }: { next: string; siteKey: string }) {
+  const [email, setEmail] = useState("");
   const [state, formAction, isDispatching] = useAnsweredActionState(handleSignIn, undefined);
   const humanCheck = useTurnstile(siteKey, PRUEFUNG_NICHT_GELADEN);
   // The press waits for the bot check's token before the send is dispatched, and is a send all along.
@@ -200,7 +180,7 @@ function SignInPanel({
           name="email"
           type="email"
           value={email}
-          onChange={onEmailChange}
+          onChange={setEmail}
           // Read-only rather than disabled while the code sends: a disabled field drops the focus of
           // the visitor who pressed `Enter` in it to the page.
           isReadOnly={isPending}>

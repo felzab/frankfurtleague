@@ -97,7 +97,8 @@ describe("the step-up's send", () => {
         [
           {
             title: "Unklar, ob der Code verschickt wurde",
-            description: "Prüfe die Verbindung und fordere den Code erneut an. Ein neuer Code ersetzt einen, der schon rausging.",
+            description:
+              "Prüfe die Verbindung, lade die Seite neu und fordere den Code erneut an. Ein neuer Code ersetzt einen, der schon rausging.",
           },
         ],
       ),

@@ -23,10 +23,15 @@ import type { FormState } from "@/shared/types/types";
 
 /** Every path the card left the document for. */
 const left: string[] = [];
+/** Every time the card loaded the page again. */
+let reloads = 0;
 
 /* A full document navigation, which jsdom does not implement and whose `location` no test can
    replace: recorded at the module boundary. */
-const NAVIGATION_DOUBLE = { leaveDocumentFor: (path: string) => void left.push(path) };
+const NAVIGATION_DOUBLE = {
+  leaveDocumentFor: (path: string) => void left.push(path),
+  reloadDocument: () => void (reloads += 1),
+};
 
 /* The passkey button's browser client, which reads the page's origin as it loads, and this window
    has none. No case presses the button. */
@@ -62,6 +67,7 @@ const answered = (body: unknown): Response =>
 
 beforeEach(() => {
   left.length = 0;
+  reloads = 0;
   raised.length = 0;
   answerWith(() => Promise.resolve(SENT));
 });
@@ -142,6 +148,21 @@ describe("the sign-in card's address step", () => {
     );
     assert.equal(screen.queryAllByRole("textbox", { name: "E-Mail-Adresse" }).length, 1, "the refused send took the address step down");
     assert.equal(screen.queryAllByText("Die Website ist gerade nicht erreichbar.").length, 0, "the edge's refusal reached the boundary");
+  });
+
+  /* As Next's action client raises an action id the running server does not hold. The boundary's
+     reset would send that same id again; a new document carries the running build's. */
+  it("answers a rejected send with a panel whose press loads the page again", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error('Server Action "0f" was not found on the server.')));
+    render(h(SignInForm, { next: LANDING, siteKey: TEST_SITE_KEY }));
+
+    await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+    await act(codeSent);
+    await user.click(await screen.findByRole("button", { name: "Erneut versuchen" }));
+
+    assert.equal(reloads, 1, "the press did not load the page again");
+    assert.equal(screen.queryAllByRole("textbox", { name: "E-Mail-Adresse" }).length, 0, "the press put the address step back unloaded");
   });
 });
 

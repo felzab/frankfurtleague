@@ -104,7 +104,7 @@ describe("a press of the address change's link nobody can tell landed", () => {
     send: {
       control: ADRESSWECHSEL_ERNEUT,
       title: "Unklar, ob der Link verschickt wurde",
-      repair: "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+      repair: "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
     },
     discard: {
       control: ADRESSWECHSEL_VERWERFEN,

@@ -328,7 +328,7 @@ describe("the control that sends the link", () => {
     // No answer came back, so the control's own repair names the connection.
     thrown: {
       answer: () => Promise.reject(new TypeError("Failed to fetch")),
-      repair: "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+      repair: "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
     },
     answered: { answer: () => Promise.resolve({ success: false, error: ANSWERED, outcome: "unknown" }), repair: ANSWERED },
   };

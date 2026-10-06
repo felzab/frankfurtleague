@@ -325,9 +325,11 @@ known-address request in twenty exceeds it by design, and it costs every sign-in
 anything but a Flight stream throws before any application code runs
 ([`docs/ops/spec.md`](../ops/spec.md) I177), and a route-segment `error.tsx` would answer a send the
 visitor can simply repeat with the whole page. **Nothing of the response reaches the panel** — a
-rejected server action arrives carrying no status and no body — so it says the answer was not ours,
-offers the send again, and names no cause. The typed address is held outside the boundary, every
-mount inside it being replaced by the reset. **Nothing else about a sign-in is held in the page**:
+rejected server action arrives carrying no status and no body — so it says the answer was not ours
+and names no cause, and its press loads the page again rather than resetting the boundary: a reset
+sends the same action, which fails again where it names a build other than the one the server runs or where
+the edge challenged the POST, a challenge being cleared by a page load alone. **Nothing else about a
+sign-in is held in the page**:
 the send names no destination at all, so nothing about where it lands is a value a caller supplies,
 and a server-side `auth.api.*` call passes no `Request`, so the library's own form-CSRF middleware
 returns without checking an origin — no cookie is owed before the POST, and a reload of `/signin`
@@ -1551,6 +1553,11 @@ state each answer a question the reader has already been made to ask. What binds
   is written.
 - **A toast's title says what happened, and its body what it cost.** Where the server sent a
   message, that message is the body and nothing is written over it.
+- **An unknown outcome's repair names a reload before the retry wherever a server action carried
+  the press** (my rule, 2026-10-06): a rejection may name an action the running build does not
+  hold, which only a new document replaces (the version skew of Next.js's self-hosting guide). A
+  public form's post to its route handler names none: the route answers across a deploy, and a
+  reload discards what was typed and, on a page a token link opens, the token.
 - **An empty state says which narrowing emptied the list**, so a reader who searched, one who
   filtered and one who has entered nothing yet each meet a different sentence.
 
