@@ -132,13 +132,11 @@ Stop once the bar is met.
 
 ## Landing and CI
 
-- Land a finished branch in the turn its report is judged, with `land.py <branch>`, and dispatch its
-  audit in the same action. Before the merge, read `git diff --stat --summary HEAD...<branch>`, the
-  diff itself, and each commit body against it; send a false body or a stray file back to the agent.
-- `land.py` merges with `--no-ff`, regenerates both generated documents on any merge touching
-  `fl_backend/`, merges a conflicted markdown table by row key, and otherwise aborts for the agent
-  to rebase onto the session branch. A fix to
-  landed work is a new commit naming the one it corrects.
+- Land a finished branch in the turn its report is judged, with `land.py <register> <branch>`, and
+  dispatch its audit in the same action. Before the merge, read `git diff --stat --summary
+HEAD...<branch>`, the diff itself, and each commit body against it; send a false body or a stray
+  file back to the agent, and a landing `land.py` stops back for the agent to rebase onto the
+  session branch. A fix to landed work is a new commit naming the one it corrects.
 - Check a claim you commit against that commit, and qualify every blanket negative to what you
   checked. Only the branch's final state passes the gate; never reorder or probe a commit to make
   it green alone.
@@ -147,9 +145,9 @@ Stop once the bar is met.
 - Push once per wave and start `gh pr checks <n> --watch` in the background in the same action. A
   push cancels the run before it, so landings made during a run wait for one push after it. The
   first push opens the draft pull request, its body in `docs/_git/templates.md`'s form.
-- Read each CI conclusion against the register's expected-red list: a red outside it is a new defect,
-  routed at once; a listed one whose clearing landing arrived and still fails is a finding. Start no
-  driving re-audit until the run concluded with nothing outside the list.
+- Read every failed run as `gh run view <run> --log-failed | ci.py <register>`: each NEW line is a
+  new defect, routed at once, and a RED row still matching after its clearing landing is a finding.
+  Start no driving re-audit until it exits 0 over a concluded run.
 - Run the suites in your checkout every few waves: CI is Linux. The bare gate is the ending's.
 - At a wave boundary your checkout is clean and every `git worktree list` entry is a live agent's or
   merged; remove a merged one with `git worktree remove` and `git branch -d`. Where Windows stops a

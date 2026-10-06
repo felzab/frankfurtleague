@@ -37,10 +37,12 @@ Unattended changes still open, and the command that restores each:
 <!-- reg.py appends UPDATE lines above this line -->
 
 ## Expected red -- every check known to fail at the pushed head, and the landing that clears it
-| Failing check, test or finding | Why it is red | Cleared by (the pending landing) | Since (push) |
-| ------------------------------ | ------------- | -------------------------------- | ------------ |
-<A row when the landing causing it is pushed, closed when the clearing landing arrives. Checks
-failing on `I_NEW_*` invariant rows are one row, closed when the ending renumbers them.>
+| Matches | Why it is red | Cleared by (the pending landing) | Since (push) | Status |
+| ------- | ------------- | -------------------------------- | ------------ | ------ |
+<Matches: a literal every CI log line of this red holds, which `ci.py` matches. A row is written
+when the landing causing it is pushed, its Status RED; it turns CLEARED <push> when a concluded run
+shows its job passing, never by deletion. Checks failing on `I_NEW_*` invariant rows are one row,
+cleared when the ending renumbers them.>
 
 ## File ownership
 | Files owned | Agent | Slice | Worktree branch, and the sha it forked at |

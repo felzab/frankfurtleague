@@ -1,7 +1,8 @@
 """SCRIPTS · the orchestration skill's tools, driven over fixture repositories and registers.
 
 Each tool replaces a step a coordinator can get wrong in silence: a merge taking in work nobody
-committed, a clock time typed ahead of the clock, a finding banked with no ledger row. Every
+committed, a clock time typed ahead of the clock, a finding banked with no ledger row, a CI red read
+as expected. Every
 refusal arm is driven as well as the pass, since a tool failing open reads exactly like one with
 nothing to refuse.
 """
@@ -396,6 +397,76 @@ def test_bank_with_no_report_to_read_is_refused(tmp_path: Path, args: tuple[str,
     done = _run("ledger", "bank", str(register), str(tmp_path / "X-report.md"), *args, env={"HOME": str(home), "USERPROFILE": str(home)})
     assert done.returncode == 2 and said in done.stderr and "Traceback" not in done.stderr
     assert register.read_bytes() == before
+
+
+# --- ci -------------------------------------------------------------------------------------------
+
+
+def _log(*lines: tuple[str, str]) -> bytes:
+    """`gh run view --log-failed` as it prints: job, step and stamp before each line, the escape spelled `^[`."""
+    stamped = [f"{job}\tRun the scope\t2026-10-06T14:54:53.1340914Z {text}" for job, text in lines]
+    return ("﻿" + "\n".join(stamped) + "\n").encode("utf-8")
+
+
+FAILED_RUN: Final = _log(
+    ("docs", "##[error]a row in `## 2. Invariants` is neither an invariant nor a header: '| I_NEW_A_1 | x' (OUT-4)"),
+    ("docs", "##[error]a tracked file holds U+FEFF: scripts/tests/test_x.py (invisible)"),
+    ("docs", "^[[31m   ✗^[[0m  The documentation gate failed. Each finding above opens with what it judged"),
+    ("docs", "##[error]Process completed with exit code 1."),
+    ("frontend-units (1)", "      ✖ a suite holding the failure (5.1ms)"),
+    ("frontend-units (1)", "      ✖ failing tests:"),
+    ("frontend-units (1)", "      test at src/core/apiContract.test.ts:366:3"),
+    ("frontend-units (1)", "      ✖ pairs every published component with a Zod mirror (2.629853ms)"),
+    ("frontend-units (1)", "^[[31m   ✗^[[0m  frontend unit tests failed.   ^[[2m108s^[[0m"),
+    ("backend", "FAILED tests/api/test_konto.py::test_a_read - AssertionError: 2 != 3"),
+    ("frontend", "src/features/funktionen/team.test.ts(189,27): error TS2304: Cannot find name 'APIBadStatusError'."),
+    ("ops", "^[[31m   ✗^[[0m  the compose model drifted."),
+    ("images", "##[error]Process completed with exit code 1."),
+    ("verify", "##[error]A scope job failed -- its own log has the findings."),
+    ("verify", "##[error]`db` took 155 s against a budget of 135 s"),
+)
+EXPECTED_RED: Final = (
+    "## Expected red\n\n| Matches | Why it is red | Cleared by | Since | Status |\n| --- | --- | --- | --- | --- |\n"
+    "| `is neither an invariant nor a header` | placeholders | the ending | start | RED |\n"
+    "| `took 155 s` | the budget | a measurement | x | RED |\n"
+    "| `apiContract.test.ts :: pairs` | mirrors | a lane | y | CLEARED z |\n"
+    "| `refusalCoverage` | mapper | a lane | y | RED |\n\n## Next\n"
+)
+
+
+def test_ci_names_every_finding_of_every_failed_job_expected_or_new(tmp_path: Path) -> None:
+    """A job holding an expected red was read as wholly expected while a second, unlisted finding sat in it."""
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    done = _run("ci", str(register), stdin=FAILED_RUN, env={"PYTHONIOENCODING": "cp1252"})
+    assert done.returncode == 1, done.stderr
+    new = [line.split("NEW", 1)[1].strip() for line in done.stdout.splitlines() if line.startswith("  NEW")]
+    assert new == [
+        "a tracked file holds U+FEFF: scripts/tests/test_x.py (invisible)",
+        "src/core/apiContract.test.ts :: pairs every published component with a Zod mirror",
+        "FAILED tests/api/test_konto.py::test_a_read - AssertionError: 2 != 3",
+        "src/features/funktionen/team.test.ts(189,27): error TS2304: Cannot find name 'APIBadStatusError'.",
+        "the compose model drifted.",
+        "images: no finding line recognised; read its log",
+    ]
+    assert "  expected  is neither an invariant nor a header  (1 line(s))" in done.stdout
+    assert "  expected  took 155 s  (1 line(s))" in done.stdout
+    assert "RED row no line matched: refusalCoverage" in done.stdout
+
+
+def test_ci_passes_a_run_whose_every_finding_is_listed(tmp_path: Path) -> None:
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    done = _run("ci", str(register), stdin=_log(("verify", "##[error]`db` took 155 s against a budget of 135 s")))
+    assert done.returncode == 0, done.stdout
+
+
+@pytest.mark.parametrize(("log", "table"), [(b"", True), (FAILED_RUN, False)], ids=["an empty log", "no expected-red table"])
+def test_ci_refuses_what_it_cannot_read(tmp_path: Path, log: bytes, table: bool) -> None:
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes((EXPECTED_RED if table else "# Agent register\n").encode("utf-8"))
+    done = _run("ci", str(register), stdin=log)
+    assert done.returncode == 2 and done.stderr and "Traceback" not in done.stderr
 
 
 # --- land -----------------------------------------------------------------------------------------
