@@ -11,14 +11,12 @@ from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLAnmeldungResponse, FLSubjektPayload
 from app.api.identitaet.services import eigene_eintraege
-from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
@@ -30,7 +28,18 @@ from tests.bans import ban_list
 from tests.config import BASE_AUTH, SYSTEM_AUTH
 from tests.core.app_source import application
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, EINWILLIGUNG, ban_document, saison_document, saison_team_document, spieler_document
+from tests.documents import (
+    EINWILLIGUNG,
+    ban_document,
+    bewerbung_document,
+    kontakte_document,
+    kontaktsitz_document,
+    registrierung_document,
+    saison_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spieler_document,
+)
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -90,23 +99,11 @@ GRANT_OID = ObjectId("6890a1b2c3d4e5f607860051")
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
-    return {
-        "vorname": "Anna",
-        "nachname": "Müller",
-        "email": email,
-        "telefon": "+49 69 5550101",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "v1",
-            "datum": "2026-01-05",
-            "bestaetigt_am": bestaetigt_am,
-        },
-    }
+    return kontaktsitz_document(email, vorname="Anna", text_version="v1", bestaetigt_am=bestaetigt_am)
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
-    return {**{slot: None for slot in KONTAKT_ROLLEN}, "trainer_ist_zugleich": None, **seats}
+    return kontakte_document(**seats)
 
 
 def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping[str, Any] | None = None, **seats: Any) -> dict[str, Any]:
@@ -114,77 +111,43 @@ def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping
 
 
 def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dict[str, Any]:
-    """An application naming a new school, as the submission stores one."""
-
-    return {
-        "_id": oid,
-        "saison_id": ACTIVE_SAISON,
-        "eingereicht_am": "2026-01-01",
-        "status": status,
-        "team_id": None,
-        "schule": {
-            "team_name": f"Bewerberschule {oid}",
-            "full_name": f"Bewerberschule {oid}",
-            "shorthand": str(oid)[-4:],
-            "schulform": None,
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": _kontakte(trainer=dict(trainer)),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-01-15",
-        "bestaetigungen": compose_bestaetigungen(hashes={slot: hash_token(f"{oid}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-01"),
-    }
+    return bewerbung_document(
+        oid,
+        saison_id=ACTIVE_SAISON,
+        status=status,
+        schule=f"Bewerberschule {oid}",
+        kontakte=_kontakte(trainer=dict(trainer)),
+        eingereicht_am="2026-01-01",
+        bestaetigungsfrist="2026-01-15",
+    )
 
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    return {
-        "_id": oid,
-        "name": name,
-        "schule": None,
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550202", "email": email},
-        "inactive_since": None,
-        "einwilligung": {**EINWILLIGUNG, "bestaetigt_am": STAMP},
-        **fields,
-    }
+    return schiedsrichter_document(
+        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "bestaetigt_am": STAMP}, **fields}
+    )
 
 
 def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **fields: Any) -> dict[str, Any]:
     """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it, through their composers."""
 
-    document = {
-        "_id": oid,
-        **compose_registrierung(
-            saison_id=ACTIVE_SAISON,
-            team_id=TEAM_OIDS[0],
-            einladung_id=ObjectId(),
-            vorname="Rita",
-            nachname="Registriert",
-            email=email,
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(str(oid)), today="2026-01-02", frist="2026-01-09"),
-            today="2026-01-02",
-        ),
-        "idempotenz_schluessel": str(oid),
-        "idempotenz_fingerabdruck": "f" * 64,
-    }
-    if confirmed:
-        document.update(
-            compose_confirmation_update(
-                geburtsdatum="2009-05-04",
-                umfang="intern",
-                medien=False,
-                text_version="2026-09",
-                today="2026-01-03",
-                am="2026-01-03T08:00:00+00:00",
-            )["$set"]
-        )
+    bestaetigt = (
+        compose_confirmation_update(
+            geburtsdatum="2009-05-04", umfang="intern", medien=False, text_version="2026-09", today="2026-01-03", am="2026-01-03T08:00:00+00:00"
+        )["$set"]
+        if confirmed
+        else None
+    )
+    document = registrierung_document(
+        oid,
+        email=email,
+        saison_id=ACTIVE_SAISON,
+        team_id=TEAM_OIDS[0],
+        vorname="Rita",
+        nachname="Registriert",
+        eingereicht_am="2026-01-02",
+        bestaetigt=bestaetigt,
+    )
 
     return {**document, **fields}
 

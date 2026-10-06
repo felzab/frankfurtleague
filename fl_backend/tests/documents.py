@@ -13,11 +13,17 @@ Invariants:
 
 import copy
 from collections.abc import Mapping
+from datetime import date, timedelta
 from typing import Any, Final
 
 from bson import ObjectId
 
+from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
+from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
+from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -193,3 +199,159 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
         "inactive_since": None,
         **fields,
     }
+
+
+# --- A person's OWN records, as the sign-in gate and the account page read them. The address, the stamps
+# and every label a case asserts are passed at the call.
+
+
+def eigene_einwilligung_document(*, text_version: str, bestaetigt_am: str, **fields: Any) -> dict[str, Any]:
+    """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media."""
+
+    return {
+        "umfang": "kader_oeffentlich",
+        "erteilt_von": "volljaehrig",
+        "datum": bestaetigt_am,
+        "bestaetigt_am": bestaetigt_am,
+        "text_version": text_version,
+        "medien": False,
+        **fields,
+    }
+
+
+def schiedsrichter_document(
+    schiedsrichter_id: Any, *, email: str, name: str, default_payment: int, einwilligung: Mapping[str, Any] | None, **fields: Any
+) -> dict[str, Any]:
+    """One referee row, `name` unique across the collection (`app/core/constraints.py :: uniq_schiedsrichter_name`)."""
+
+    return {
+        "_id": schiedsrichter_id,
+        "name": name,
+        "schule": None,
+        "default_payment": default_payment,
+        "kontakt": {"telefon": "+49 69 5550202", "email": email},
+        "inactive_since": None,
+        "geburtsdatum": None,
+        "einwilligung": None if einwilligung is None else dict(einwilligung),
+        **fields,
+    }
+
+
+def kontaktsitz_document(
+    email: str, *, vorname: str, text_version: str, bestaetigt_am: str | None, geburtsdatum: str | None = None, **einwilligung: Any
+) -> dict[str, Any]:
+    """One contact seat at a given address, confirmed by its own person where `bestaetigt_am` is set; `einwilligung` its choices."""
+
+    return {
+        "vorname": vorname,
+        "nachname": f"{vorname}-Mustermann",
+        "email": email,
+        "telefon": "+49 69 5550101",
+        "geburtsdatum": geburtsdatum,
+        "einwilligung": {
+            "umfang": "kontaktdaten",
+            "erfasst_von": "person",
+            "text_version": text_version,
+            "datum": "2026-09-01",
+            "bestaetigt_am": bestaetigt_am,
+            **einwilligung,
+        },
+    }
+
+
+def kontakte_document(**seats: Any) -> dict[str, Any]:
+    """A block of three seats, each empty unless named, and no seat held twice unless `trainer_ist_zugleich` says so."""
+
+    return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_ist_zugleich": None, **seats}
+
+
+def bewerbung_document(
+    bewerbung_id: ObjectId,
+    *,
+    saison_id: str,
+    status: str,
+    schule: str,
+    kontakte: Mapping[str, Any],
+    eingereicht_am: str = "2026-09-01",
+    bestaetigungsfrist: str = "2026-09-15",
+) -> dict[str, Any]:
+    """An application naming a new school, as the submission stores one, a live link minted for each seat."""
+
+    return {
+        "_id": bewerbung_id,
+        "saison_id": saison_id,
+        "eingereicht_am": eingereicht_am,
+        "status": status,
+        "team_id": None,
+        "schule": {
+            "team_name": schule,
+            "full_name": f"{schule}-Schule",
+            "shorthand": str(bewerbung_id)[-4:],
+            "schulform": None,
+            "address": dict(ADDRESS),
+            "website_url": None,
+        },
+        "kontakte": dict(kontakte),
+        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "wunschgegner": None,
+        "entscheidung": None,
+        "bestaetigungsfrist": bestaetigungsfrist,
+        "bestaetigungen": compose_bestaetigungen(
+            hashes={seat: hash_token(f"{bewerbung_id}-{seat}") for seat in KONTAKT_ROLLEN}, today=eingereicht_am
+        ),
+    }
+
+
+def registrierung_document(
+    registrierung_id: ObjectId,
+    *,
+    email: str,
+    saison_id: str,
+    team_id: Any,
+    vorname: str,
+    nachname: str,
+    eingereicht_am: str,
+    position: str | None = "Mittelfeld",
+    nummer: str | None = "17",
+    stufe: str | None = "Q1",
+    bestaetigt: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """A registration as its submission stores it, and where `bestaetigt` is a confirmation's `$set`, as that leaves it."""
+
+    document = {
+        "_id": registrierung_id,
+        **compose_registrierung(
+            saison_id=saison_id,
+            team_id=team_id,
+            einladung_id=ObjectId(),
+            vorname=vorname,
+            nachname=nachname,
+            email=email,
+            position=position,
+            nummer=nummer,
+            stufe=stufe,
+            bestaetigung=compose_bestaetigung(
+                token_hash=hash_token(str(registrierung_id)),
+                today=eingereicht_am,
+                frist=(date.fromisoformat(eingereicht_am) + timedelta(days=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)).isoformat(),
+            ),
+            today=eingereicht_am,
+        ),
+        "idempotenz_schluessel": str(registrierung_id),
+        "idempotenz_fingerabdruck": "f" * 64,
+    }
+
+    return {**document, **(bestaetigt or {})}
+
+
+def registrierung_bestaetigt(
+    seite: Seite, *, geburtsdatum: str, today: str, am: str, umfang: str | None = None, medien: bool | None = None
+) -> dict[str, Any]:
+    """The `$set` a pupil's confirmation on `seite` writes under its running label, the choices on the new pupil's page alone."""
+
+    return dict(
+        compose_confirmation_update(
+            geburtsdatum=geburtsdatum, umfang=umfang, medien=medien, text_version=LAUFENDE_FASSUNGEN[seite], today=today, am=am
+        )["$set"]
+    )
