@@ -16,7 +16,7 @@ here="${BASH_SOURCE[0]%/*}"
 
 # The path is absolute: a relative one resolves inside the agent's worktree, whose copy is as old as
 # its fork, and agents resumed after a definition changed read that stale copy as current.
-definition="${CLAUDE_PROJECT_DIR:-$(cd "${here}/.." && pwd)}/.claude/agents/${type}.md"
+definition="${CLAUDE_PROJECT_DIR:-$(cd "${here}/../.." && pwd)}/.claude/agents/${type}.md"
 
 # Factual statements rather than instructions, as the hooks documentation asks of additionalContext.
 text="This agent's standing definition is the file ${definition} as it is on disk now; a copy of .claude/agents/${type}.md inside the agent's own worktree can be older. Where that file differs from the definition this agent started with, the file binds."

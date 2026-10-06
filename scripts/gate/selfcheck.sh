@@ -1040,6 +1040,11 @@ process.exit(said.hookEventName === "SubagentStart" && absolute && /own worktree
 ' "$definition_said" "$definition_type" 2>/dev/null; then info "definition hook: ${definition_type} — told its definition file by absolute path"
     else note_fail "definition hook: ${definition_type} must be told the project directory's .claude/agents/${definition_type}.md, and that its worktree's copy can be older, as JSON, got '${definition_said:0:200}'"; fi
   done
+  # With no project directory the hook falls back to its own checkout, which must name a file that exists.
+  definition_said="$(printf '{"hook_event_name":"SubagentStart","agent_type":"implementer"}' | (unset CLAUDE_PROJECT_DIR; bash "$DEFINITION_HOOK") 2>&1)"
+  if [[ "$definition_said" == *"${REPO_ROOT}/.claude/agents/implementer.md as it is on disk"* ]]; then
+    info "definition hook: no project directory — told its own checkout's file"
+  else note_fail "definition hook: with no project directory it must name ${REPO_ROOT}/.claude/agents/implementer.md, got '${definition_said:0:200}'"; fi
   for definition_case in \
     'a built-in agent|{"hook_event_name":"SubagentStart","agent_type":"Explore"}' \
     'a path in the type|{"hook_event_name":"SubagentStart","agent_type":"../settings"}' \
