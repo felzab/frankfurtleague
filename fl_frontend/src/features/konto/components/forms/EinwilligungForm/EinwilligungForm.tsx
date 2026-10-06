@@ -15,9 +15,9 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite, focusSlot } from "@/shared/utils/focusAfterWrite";
 
-import { WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
+import { EINTRAG_GEAENDERT, MEDIEN_ZU_JUNG, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
 
-import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { FLEinwilligung, FLEinwilligungStand } from "@/features/spieler/schemas";
 import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas";
 import type { ActionFailure } from "@/shared/types/types";
 import type { Key } from "@heroui/react/rac";
@@ -39,10 +39,19 @@ const OHNE_WHATSAPP: SitzUmfang = "kontaktdaten";
  */
 export type EinwilligungWahl = { readonly umfang: PersonUmfang | SitzUmfang; readonly medien: boolean };
 
-// A record carries `umfang`'s chips or `whatsapp`'s switch, as its scope is a person's or a seat's.
+/** One press: the one choice it moves, and the value it moves it to. */
+type Wahl = { readonly wahl: "umfang"; readonly wert: PersonUmfang | SitzUmfang } | { readonly wahl: "medien"; readonly wert: boolean };
+
+/** Whether a press moves its choice to the wider value, which is the grant: a withdrawal is never closed. */
+const istGrant = (wahl: Wahl): boolean =>
+  wahl.wahl === "medien" ? wahl.wert : wahl.wert === "kader_oeffentlich" || wahl.wert === MIT_WHATSAPP;
+
+/** Whether the record already holds the press's value, which a press then keeps rather than grants. */
+const hält = (gehalten: EinwilligungWahl, wahl: Wahl): boolean => gehalten[wahl.wahl] === wahl.wert;
+
 /**
- * The words one control shows, every slot already filled. A name is a string because it is the
- * control's accessible name; a paragraph is a node because it may carry the privacy link.
+ * The words one control shows, every slot already filled: `umfang`'s chips or `whatsapp`'s switch, as the
+ * scope is a person's or a seat's. A name is a string because it is a control's accessible name.
  */
 export type EinwilligungWorte = {
   /** The label the words below belong to, posted back with every press so the record names what was on screen. */
@@ -50,26 +59,20 @@ export type EinwilligungWorte = {
   readonly umfang?: { readonly frage: string; readonly optionen: Readonly<Record<PersonUmfang, string>>; readonly absatz: ReactNode };
   readonly whatsapp?: { readonly schalter: string; readonly absatz: ReactNode };
   readonly medien: { readonly schalter: string; readonly absatz: ReactNode };
-  /** Why a record offers a withdrawal alone where its person would look for a grant too, read with each switch. */
+  /** Why a record offers a withdrawal alone where its person would look for a grant too, read with every control. */
   readonly nurWiderruf?: string;
-  /** What a change takes effect from, and that a record granting no panel takes a withdrawal alone. */
+  /** What a change takes effect from. */
   readonly widerruf: ReactNode;
 };
 
-/**
- * Each choice's stand as the backend last served it, echoed unchanged: a press from a page another
- * press has moved since is refused rather than undoing that press.
- */
-export type EinwilligungStand = { readonly umfang: string | null; readonly medien: string | null };
-
 /** What a press sends: the whole record's choices, so moving one never resets the other. */
-export type EinwilligungAntwort<W extends EinwilligungWahl = EinwilligungWahl, S extends EinwilligungStand = EinwilligungStand> = W & {
+export type EinwilligungAntwort<W extends EinwilligungWahl = EinwilligungWahl> = W & {
   readonly text_version: string;
-  readonly nachweis_stand: S;
+  readonly nachweis_stand: FLEinwilligungStand;
 };
 
 /** A landed press's answer carries the stand it left, which the next press sends. */
-type Gespeichert<S> = { readonly success: true; readonly nachweis_stand: S };
+type Gespeichert = { readonly success: true; readonly nachweis_stand: FLEinwilligungStand };
 
 /**
  * One grant switch, closed where the record admits no grant and never left out, as its paragraph names it
@@ -86,7 +89,7 @@ function GrantSchalter({
   name: string;
   an: boolean;
   geschlossen: boolean;
-  beschreibung: string;
+  beschreibung: string | undefined;
   onChange: (an: boolean) => void;
 }) {
   const panel = formPanel();
@@ -114,7 +117,7 @@ function GrantSchalter({
  * through this one component, so the pupil's, the referee's, a seat's and a registration's cannot drift
  * apart in wording or behaviour (`docs/frontend/spec.md :: I891`).
  */
-export function EinwilligungForm<W extends EinwilligungWahl, S extends EinwilligungStand>({
+export function EinwilligungForm<W extends EinwilligungWahl>({
   worte,
   gespeichert,
   nachweisStand,
@@ -126,13 +129,13 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
   /** The record as the page read it; the controls show it again once a press has been answered. */
   gespeichert: W;
   /** The stand the page was served with the record. */
-  nachweisStand: S;
+  nachweisStand: FLEinwilligungStand;
   /** The backend's verdict on the person's age; a media consent already given stays withdrawable without it. */
   medienAngeboten: boolean;
   /** Whether the record admits a grant; one that grants no panel takes a withdrawal alone, which is never closed. */
   erteilbar: boolean;
   /** Typed by the record's own payload, so a field its write's mirror gains fails the page that binds it. */
-  speichereAction: (antwort: EinwilligungAntwort<W, S>) => Promise<Gespeichert<S> | ActionFailure>;
+  speichereAction: (antwort: EinwilligungAntwort<W>) => Promise<Gespeichert | ActionFailure>;
 }) {
   const router = useRouter();
   const frageId = useId();
@@ -140,28 +143,46 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
   const whatsappAbsatzId = useId();
   const medienAbsatzId = useId();
   const nurWiderrufId = useId();
-  const widerrufId = useId();
 
   // Shown until the press's answer re-reads the page: the action's spine refreshes it after a landed
   // write, and a refused one falls back to what the page last read.
   const [wahl, setWahl] = useOptimistic(gespeichert);
 
   // The record and stand the backend holds as far as the page knows: the read's, then each landed press's.
-  const gehalten = useRef({ wahl: gespeichert, stand: nachweisStand });
+  const gehalten = useRef<{ wahl: W; stand: FLEinwilligungStand }>({ wahl: gespeichert, stand: nachweisStand });
   const vorige = useRef<Promise<unknown>>(Promise.resolve());
   useEffect(() => {
     gehalten.current = { wahl: gespeichert, stand: nachweisStand };
   }, [gespeichert, nachweisStand]);
 
+  // The one rule every control is closed by (`docs/frontend/spec.md :: I892`): a grant is closed where the
+  // record admits none and does not already hold it, the media consent also below the age the backend names.
+  const zu = (wahl_: Wahl, gehaltenWahl: EinwilligungWahl): boolean =>
+    istGrant(wahl_) && !hält(gehaltenWahl, wahl_) && (!erteilbar || (wahl_.wahl === "medien" && !medienAngeboten));
+
+  // Why a closed grant is closed, said where a press would otherwise go out and be refused.
+  const grund = (wahl_: Wahl): string =>
+    !erteilbar ? (worte.nurWiderruf ?? EINTRAG_GEAENDERT) : wahl_.wahl === "medien" ? MEDIEN_ZU_JUNG : EINTRAG_GEAENDERT;
+
+  // Every control on a withdraw-only record is read with its reason, a closed one and an open one alike.
+  const beschreibung = (...eigene: string[]): string | undefined => {
+    const ids = [...eigene, ...(worte.nurWiderruf === undefined ? [] : [nurWiderrufId])];
+    return ids.length === 0 ? undefined : ids.join(" ");
+  };
+
   // One press at a time, each the held record plus its own change: built from the screen, a press after
   // a refused grant would carry the grant along, and one sent unanswered a stand that press moves.
-  const waehle = (aenderung: Partial<EinwilligungWahl>): void => {
+  const waehle = (aenderung: Wahl): void => {
     // Read at the press: a withdrawal can close the switch it was pressed on (`docs/frontend/spec.md :: I536`).
     const landung = focusAfterWrite();
     startTransition(async () => {
-      setWahl((gezeigt) => ({ ...gezeigt, ...aenderung }));
-      const press = vorige.current.then(async () => {
-        const naechste: W = { ...gehalten.current.wahl, ...aenderung };
+      setWahl((gezeigt) => ({ ...gezeigt, [aenderung.wahl]: aenderung.wert }));
+      const press = vorige.current.then(async (): Promise<Gespeichert | ActionFailure> => {
+        // Judged against the record as the last landed press left it: a withdrawal still on its way
+        // leaves the switch open on screen, and a grant after it would be refused.
+        if (zu(aenderung, gehalten.current.wahl)) return { success: false, error: grund(aenderung) };
+
+        const naechste: W = { ...gehalten.current.wahl, [aenderung.wahl]: aenderung.wert };
         const answer = await speichereAction({
           ...naechste,
           text_version: worte.textVersion,
@@ -180,20 +201,21 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
     });
   };
 
-  // What a closed grant is described by beyond its own paragraph: the record's reason for taking a
-  // withdrawal alone, or the closing paragraph saying which records do.
-  const grundIds = (absatzId: string, geschlossen: boolean): string =>
-    [absatzId, ...(worte.nurWiderruf === undefined ? (geschlossen && !erteilbar ? [widerrufId] : []) : [nurWiderrufId])].join(" ");
-
-  // The stored record, never the pressed value, decides whether a grant is closed: a switch just turned
-  // off stays open until the page is read again (`docs/frontend/spec.md :: I892`).
-  const whatsappGeschlossen = !erteilbar && gespeichert.umfang !== MIT_WHATSAPP;
-  const medienGeschlossen = !(erteilbar && medienAngeboten) && !gespeichert.medien;
-
   const { umfang, whatsapp } = worte;
+  const whatsappWahl: Wahl = { wahl: "umfang", wert: MIT_WHATSAPP };
+  const medienWahl: Wahl = { wahl: "medien", wert: true };
 
   return (
     <div className="flex w-full flex-col gap-y-6">
+      {/* Once, ahead of every control it explains, and outside each control's own slot. */}
+      {worte.nurWiderruf !== undefined && (
+        <p
+          id={nurWiderrufId}
+          className={ABSATZ_CLASSES}>
+          {worte.nurWiderruf}
+        </p>
+      )}
+
       {umfang !== undefined && (
         <div className="flex w-full flex-col gap-y-3">
           <p
@@ -213,25 +235,19 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
             onSelectionChange={(keys: Set<Key>) => {
               const [picked] = [...keys].map(String);
               const gewaehlt = UMFANG_REIHENFOLGE.find((option) => option === picked);
-              if (gewaehlt !== undefined && gewaehlt !== wahl.umfang) waehle({ umfang: gewaehlt });
+              if (gewaehlt !== undefined && gewaehlt !== wahl.umfang) waehle({ wahl: "umfang", wert: gewaehlt });
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
-            {UMFANG_REIHENFOLGE.map((option) => {
-              // The wider publication is the grant: closed on a record granting no panel, unless the
-              // record holds it, and the other chip then withdraws it.
-              const geschlossen = !erteilbar && option === "kader_oeffentlich" && gespeichert.umfang !== option;
-
-              return (
-                <ToggleButton
-                  key={option}
-                  id={option}
-                  isDisabled={geschlossen}
-                  aria-describedby={geschlossen ? (worte.nurWiderruf === undefined ? widerrufId : nurWiderrufId) : undefined}
-                  className={OPTION_CHIP_CLASSES}>
-                  {umfang.optionen[option]}
-                </ToggleButton>
-              );
-            })}
+            {UMFANG_REIHENFOLGE.map((option) => (
+              <ToggleButton
+                key={option}
+                id={option}
+                isDisabled={zu({ wahl: "umfang", wert: option }, gespeichert)}
+                aria-describedby={beschreibung()}
+                className={OPTION_CHIP_CLASSES}>
+                {umfang.optionen[option]}
+              </ToggleButton>
+            ))}
           </ToggleButtonGroup>
           <p
             id={umfangAbsatzId}
@@ -248,9 +264,9 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
           <GrantSchalter
             name={whatsapp.schalter}
             an={wahl.umfang === MIT_WHATSAPP}
-            geschlossen={whatsappGeschlossen}
-            beschreibung={grundIds(whatsappAbsatzId, whatsappGeschlossen)}
-            onChange={(an) => waehle({ umfang: an ? MIT_WHATSAPP : OHNE_WHATSAPP })}
+            geschlossen={zu(whatsappWahl, gespeichert)}
+            beschreibung={beschreibung(whatsappAbsatzId)}
+            onChange={(an) => waehle({ wahl: "umfang", wert: an ? MIT_WHATSAPP : OHNE_WHATSAPP })}
           />
           <p
             id={whatsappAbsatzId}
@@ -266,29 +282,18 @@ export function EinwilligungForm<W extends EinwilligungWahl, S extends Einwillig
         <GrantSchalter
           name={worte.medien.schalter}
           an={wahl.medien}
-          geschlossen={medienGeschlossen}
-          beschreibung={grundIds(medienAbsatzId, medienGeschlossen)}
-          onChange={(medien) => waehle({ medien: medien })}
+          geschlossen={zu(medienWahl, gespeichert)}
+          beschreibung={beschreibung(medienAbsatzId)}
+          onChange={(medien) => waehle({ wahl: "medien", wert: medien })}
         />
         <p
           id={medienAbsatzId}
           className={ABSATZ_CLASSES}>
           {worte.medien.absatz}
         </p>
-        {worte.nurWiderruf !== undefined && (
-          <p
-            id={nurWiderrufId}
-            className={ABSATZ_CLASSES}>
-            {worte.nurWiderruf}
-          </p>
-        )}
       </div>
 
-      <p
-        id={widerrufId}
-        className={ABSATZ_CLASSES}>
-        {worte.widerruf}
-      </p>
+      <p className={ABSATZ_CLASSES}>{worte.widerruf}</p>
     </div>
   );
 }

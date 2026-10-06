@@ -59,6 +59,15 @@ describe("the account page's controls drawn from the served wording", () => {
     assert.throws(() => spielerWorte(publishedLaufendeFassung("bestaetigung_spieler"), SPIELER_UMFANG_FRAGE));
   });
 
+  /* Every seat's two switches carry the same served words, so only their names tell a screen reader which
+     choice a press moves: the registry's two names must differ. */
+  it("names a seat's WhatsApp switch and its media switch apart", () => {
+    const worte = sitzWorte(publishedLaufendeFassung("konto_kontakt"), { team_name: "Lessing Lions", saison_id: "2526" });
+
+    assert.ok(worte.whatsapp !== undefined, "a seat is offered no WhatsApp switch");
+    assert.notEqual(worte.whatsapp.schalter, worte.medien.schalter);
+  });
+
   /* Each record's reason for taking a withdrawal alone is its label's own paragraph, shown beside that
      record and no other: a pending registration's sentence on a retired pupil's record misstates why. */
   it("hands each record the reason its label gives for taking a withdrawal alone, and an active record none", () => {

@@ -295,7 +295,7 @@ const { bestaetigteWorte } = await import("./components/forms/EinwilligungForm/k
 const { FLKontoEinwilligungenResponseSchema } = await import("./schemas.ts");
 
 /** One withdraw-only reason as the account page's running wording for `seite` serves it. */
-const reason = (seite: "konto_spieler" | "konto_kontakt", schluessel: string): string =>
+const reason = (seite: "konto_spieler" | "konto_schiedsrichter" | "konto_kontakt", schluessel: string): string =>
   publishedLaufendeFassung(seite).absaetze_nach_schluessel?.[schluessel] ?? assert.fail(`${seite} serves no ${schluessel}`);
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
@@ -561,20 +561,29 @@ describe("the account page's consent section", () => {
      beside an active pupil's record, or a past season's beside a live seat, misstates the record. */
   it("shows a withdraw-only reason beside its own record alone", async () => {
     setSubject(OHNE_FUNKTION);
-    answeringKonto({ spieler: SPIELER, sitze: [SITZ] });
+    answeringKonto({ spieler: SPIELER, schiedsrichter: [SCHIEDSRICHTER], sitze: [SITZ] });
     const aktiv = await sectionText();
     for (const [seite, schluessel] of [
       ["konto_spieler", "nurWiderrufNichtAktiv"],
       ["konto_spieler", "nurWiderrufBisAufnahme"],
+      ["konto_schiedsrichter", "nurWiderrufNichtAktiv"],
       ["konto_kontakt", "nurWiderrufVorbei"],
       ["konto_kontakt", "nurWiderrufBisZusage"],
     ] as const) {
       assert.ok(!aktiv.includes(reason(seite, schluessel)), `an active record carries ${schluessel}`);
     }
 
-    answeringKonto({ spieler: { ...SPIELER, erteilbar: false }, sitze: [{ ...SITZ, erteilbar: false }] });
+    answeringKonto({
+      spieler: { ...SPIELER, erteilbar: false },
+      schiedsrichter: [{ ...SCHIEDSRICHTER, erteilbar: false }],
+      sitze: [{ ...SITZ, erteilbar: false }],
+    });
     const vorbei = await sectionText();
     assert.ok(vorbei.includes(reason("konto_spieler", "nurWiderrufNichtAktiv")), "a retired pupil's record does not say why it only withdraws");
+    assert.ok(
+      vorbei.includes(reason("konto_schiedsrichter", "nurWiderrufNichtAktiv")),
+      "a retired referee's record does not say why it only withdraws",
+    );
     assert.ok(vorbei.includes(reason("konto_kontakt", "nurWiderrufVorbei")), "a past season's seat does not say why it only withdraws");
     assert.ok(!vorbei.includes(reason("konto_spieler", "nurWiderrufBisAufnahme")), "a retired pupil is told about a registration");
   });

@@ -6,15 +6,16 @@ import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
+import type { FLEinwilligungStand } from "@/features/spieler/schemas.ts";
 import type { ActionFailure } from "@/shared/types/types.ts";
-import type { EinwilligungAntwort, EinwilligungStand, EinwilligungWahl, EinwilligungWorte } from "./EinwilligungForm.tsx";
+import type { EinwilligungAntwort, EinwilligungWahl, EinwilligungWorte } from "./EinwilligungForm.tsx";
 
 const { raised } = doubleToasts();
 const { track, answered } = answersInFlight();
@@ -54,12 +55,12 @@ const SITZ_GESPEICHERT: EinwilligungWahl = { umfang: "kontaktdaten", medien: fal
 const GESPEICHERT: EinwilligungWahl = { umfang: "kader_oeffentlich", medien: false };
 
 /** The stand the page was served, which a press echoes. */
-const STAND: EinwilligungStand = { umfang: "2026-09-01T10:00:00+02:00", medien: null };
+const STAND: FLEinwilligungStand = { umfang: "2026-09-01T10:00:00+02:00", medien: null };
 
 /** The stand a landed press leaves, which the next press sends. */
-const NEUER_STAND: EinwilligungStand = { umfang: "2026-09-01T10:00:00+02:00", medien: "2026-10-04T09:30:00+02:00" };
+const NEUER_STAND: FLEinwilligungStand = { umfang: "2026-09-01T10:00:00+02:00", medien: "2026-10-04T09:30:00+02:00" };
 
-type Antwort = { success: true; nachweis_stand: EinwilligungStand } | ActionFailure;
+type Antwort = { success: true; nachweis_stand: FLEinwilligungStand } | ActionFailure;
 
 /** Every press the form sent, in order. */
 const sent: EinwilligungAntwort[] = [];
@@ -107,6 +108,13 @@ function describedBy(control: Element): HTMLElement {
   assert.equal(ids.length, 1, `the control is described by ${String(ids.length)} elements`);
   return document.getElementById(ids[0] ?? "") ?? assert.fail("the description names no element on the page");
 }
+
+/** The text of every element a control's `aria-describedby` names, in its order. */
+const beschriebenVon = (control: Element): (string | null | undefined)[] =>
+  (control.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
+
+/** A withdraw-only record's reason, written for the suite. */
+const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen.";
 
 /** Whether `first` comes before `second` in the document, which is the order a screen reader and the tab key read. */
 const precedes = (first: Node, second: Node): boolean => (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
@@ -314,15 +322,15 @@ describe("when the media switch is offered", () => {
 /* A record granting no panel (a retired pupil or referee, a past season's seat) takes a withdrawal and
    never a grant, so the page offers no press the backend refuses. */
 describe("on a record that takes a withdrawal alone", () => {
-  it("closes the wider publication and says why on the chip", () => {
-    renderForm({ gespeichert: { umfang: "intern", medien: false }, erteilbar: false });
+  /* One rule describes every control of a withdraw-only record by its reason, a closed chip and the open
+     one beside it alike: the reason is why the open chip is the only press. */
+  it("closes the wider publication, and reads every chip with the record's reason", () => {
+    renderForm({ worte: { ...WORTE, nurWiderruf: NUR_WIDERRUF }, gespeichert: { umfang: "intern", medien: false }, erteilbar: false });
 
     const chip = screen.getByRole("radio", { name: "Vorname und Initiale" });
-    assert.ok(
-      chip.hasAttribute("disabled") || chip.getAttribute("aria-disabled") === "true",
-      "a grant is offered on a record granting no panel",
-    );
-    assert.equal(describedBy(chip).textContent, WORTE.widerruf);
+    assert.ok(geschlossen(chip), "a grant is offered on a record granting no panel");
+    assert.equal(describedBy(chip).textContent, NUR_WIDERRUF);
+    assert.equal(describedBy(screen.getByRole("radio", { name: "Nur Nummer und Position" })).textContent, NUR_WIDERRUF);
   });
 
   it("keeps a wider publication the record holds withdrawable", async () => {
@@ -334,29 +342,34 @@ describe("on a record that takes a withdrawal alone", () => {
     assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
   });
 
-  /* Where a person would look for a grant and finds none, the switch they can press says why. */
-  it("reads the reason a record takes a withdrawal alone with the switch, after its paragraph", () => {
-    const nurWiderruf = "Hier kannst Du nur widerrufen.";
-    renderForm({
-      worte: { ...SITZ_WORTE, nurWiderruf },
+  /* Where a person would look for a grant and finds none, the switch they can press says why, the
+     reason standing once ahead of every control rather than inside one control's slot. */
+  it("reads the reason a record takes a withdrawal alone with the switch, after its paragraph, and shows it once ahead of the controls", () => {
+    const { container } = renderForm({
+      worte: { ...SITZ_WORTE, nurWiderruf: NUR_WIDERRUF },
       gespeichert: { umfang: "kontaktdaten", medien: true },
       erteilbar: false,
       medienAngeboten: false,
     });
 
     const schalter = screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter });
-    const beschrieben = (schalter.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
-    assert.deepEqual(beschrieben, [SITZ_WORTE.medien.absatz, nurWiderruf]);
+    assert.deepEqual(beschriebenVon(schalter), [SITZ_WORTE.medien.absatz, NUR_WIDERRUF]);
+    assert.equal(screen.getAllByText(NUR_WIDERRUF).length, 1, "the reason stands more than once");
+    const grund = screen.getByText(NUR_WIDERRUF);
+    assert.ok(precedes(grund, screen.getByRole("switch", { name: SITZ_WORTE.whatsapp?.schalter })), "the reason stands after a control");
+    assert.ok(grund.closest("[data-focus-slot]") === null, "the reason sits inside one control's slot");
+    assert.ok(container.contains(grund));
   });
 
   it("closes an off media switch whatever the age allows, saying why, and keeps an on one withdrawable", async () => {
-    const aus = renderForm({ gespeichert: { umfang: "intern", medien: false }, erteilbar: false });
+    const aus = renderForm({
+      worte: { ...WORTE, nurWiderruf: NUR_WIDERRUF },
+      gespeichert: { umfang: "intern", medien: false },
+      erteilbar: false,
+    });
     const zu = screen.getByRole("switch", { name: WORTE.medien.schalter });
     assert.ok(geschlossen(zu), "a grant is offered on a record granting no panel");
-    assert.deepEqual(
-      (zu.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent),
-      [WORTE.medien.absatz, WORTE.widerruf],
-    );
+    assert.deepEqual(beschriebenVon(zu), [WORTE.medien.absatz, NUR_WIDERRUF]);
     aus.unmount();
 
     const { user } = renderForm({ gespeichert: { umfang: "intern", medien: true }, erteilbar: false });
@@ -370,14 +383,28 @@ describe("on a record that takes a withdrawal alone", () => {
 /* A seat's WhatsApp scope is a grant like the media consent: closed where the seat admits none unless
    the seat holds it, and then withdrawable. The two switches are told apart by their own names. */
 describe("a contact seat's WhatsApp switch", () => {
-  it("names the two switches by their own words, and the two names differ", () => {
+  /* That the served names differ is the registry's, held in `kontoWorte.test.ts`; here each switch takes its own. */
+  it("names each switch by its own words and describes it by its own paragraph", () => {
     renderForm({ worte: SITZ_WORTE, gespeichert: SITZ_GESPEICHERT });
 
     const whatsapp = screen.getByRole("switch", { name: SITZ_WORTE.whatsapp?.schalter });
     const medien = screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter });
     assert.ok(whatsapp !== medien, "one switch carries both names");
-    assert.notEqual(SITZ_WORTE.whatsapp?.schalter, SITZ_WORTE.medien.schalter);
     assert.equal(describedBy(whatsapp).textContent, SITZ_WORTE.whatsapp?.absatz);
+  });
+
+  /* The WhatsApp choice is read before the media choice, as the confirmation pages ask them. */
+  it("reaches the WhatsApp switch and then the media switch from the keyboard, in document order", async () => {
+    const { user } = renderForm({ worte: SITZ_WORTE, gespeichert: SITZ_GESPEICHERT });
+
+    const whatsapp = screen.getByRole("switch", { name: SITZ_WORTE.whatsapp?.schalter });
+    const medien = screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter });
+    assert.ok(precedes(whatsapp, medien), "the media switch stands above the WhatsApp switch");
+
+    await user.tab();
+    assert.ok(document.activeElement === whatsapp, "the first stop is not the WhatsApp switch");
+    await user.tab();
+    assert.ok(document.activeElement === medien, "the second stop is not the media switch");
   });
 
   it("closes the WhatsApp grant on a seat admitting none, and keeps a held one withdrawable", async () => {
@@ -397,5 +424,39 @@ describe("a contact seat's WhatsApp switch", () => {
     await act(answered);
 
     assert.deepEqual(sent, [{ umfang: "kontaktdaten", medien: false, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
+  });
+});
+
+/* A withdrawal on its way leaves the switch open on screen, the record unread, so a grant pressed after it
+   would be refused: it is judged against the record the withdrawal leaves, and goes nowhere, saying why. */
+describe("a grant pressed while a withdrawal on a withdraw-only record is on its way", () => {
+  it("sends the withdrawal alone and says why the grant is not sent", async () => {
+    let release: () => void = () => undefined;
+    held = new Promise((resolve) => {
+      release = resolve;
+    });
+    const { user } = renderForm({
+      worte: { ...SITZ_WORTE, nurWiderruf: NUR_WIDERRUF },
+      gespeichert: { umfang: "kontaktdaten", medien: true },
+      erteilbar: false,
+      medienAngeboten: false,
+    });
+
+    await user.click(screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter }));
+    await user.click(screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter }));
+    held = null;
+    release();
+    await act(answered);
+
+    assert.deepEqual(sent, [{ umfang: "kontaktdaten", medien: false, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ variant, title, description }) => [variant, title, description]),
+        [
+          ["success", WAHL_GESPEICHERT, undefined],
+          ["danger", WAHL_NICHT_GESPEICHERT, NUR_WIDERRUF],
+        ],
+      ),
+    );
   });
 });

@@ -58,6 +58,7 @@ const { RegistrierungenView } = await import("@/features/registrierungen/compone
 const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
+const { patchRegistrierungEinwilligungAction } = await import("@/features/registrierungen/personActions.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -608,7 +609,7 @@ const KONTO_TITEL = "Als Ansprechperson: Bewerbung für Goethe-Gymnasium, Saison
  * A pending application's seat on the account page, as the read serves it: withdraw-only, so a
  * withdrawal closes the switch it was pressed on once the page is read again.
  */
-const kontoBewerbung = (medien: boolean) =>
+const kontoBewerbung = (medien: boolean, whatsapp = false) =>
   h(EinwilligungPanel, {
     eintraege: [
       {
@@ -626,13 +627,52 @@ const kontoBewerbung = (medien: boolean) =>
             nurWiderruf: "Hier kannst Du nur zurücknehmen.",
             widerruf: "Jede Änderung gilt ab dem Speichern.",
           },
-          gespeichert: { umfang: "kontaktdaten" as const, medien: medien },
+          gespeichert: { umfang: whatsapp ? ("kontaktdaten_whatsapp" as const) : ("kontaktdaten" as const), medien: medien },
           nachweisStand: { umfang: null, medien: null },
           medienAngeboten: false,
           erteilbar: false,
-          // Through the doubled export, typed as the panel's slot takes every record's control.
+          // Through the doubled export; the panel's slot erases the record's own payload type, so the
+          // production `.bind` does not type-check here.
           speichereAction: (antwort: Parameters<Parameters<typeof EinwilligungForm>[0]["speichereAction"]>[0]) =>
             patchBewerbungEinwilligungAction(BEWERBUNG_ID, antwort as Parameters<typeof patchBewerbungEinwilligungAction>[1]),
+        }),
+      },
+    ],
+  });
+
+const REGISTRIERUNG_ID = "68c1f0a2b3c4d5e6f7a8b952";
+const REGISTRIERUNG_TITEL = "Registrierung: SG Alpha, Saison 2026";
+
+/** A pending registration on the account page: withdraw-only, its scope chips beside its media switch. */
+const kontoRegistrierung = (medien: boolean) =>
+  h(EinwilligungPanel, {
+    eintraege: [
+      {
+        id: `registrierung-${REGISTRIERUNG_ID}`,
+        titel: REGISTRIERUNG_TITEL,
+        bestaetigt: null,
+        control: h(EinwilligungForm, {
+          worte: {
+            textVersion: "konto-test-1",
+            umfang: {
+              frage: "Was darf von Deinem Namen auf der Website stehen?",
+              optionen: { kader_oeffentlich: "Vorname und Initiale", intern: "Nur Nummer und Position" },
+              absatz: "Was auf der Website steht.",
+            },
+            medien: {
+              schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+              absatz: "Fotos nur mit Deiner Erlaubnis.",
+            },
+            nurWiderruf: "Hier kannst Du nur zurücknehmen.",
+            widerruf: "Jede Änderung gilt ab dem Speichern.",
+          },
+          gespeichert: { umfang: "intern" as const, medien: medien },
+          nachweisStand: { umfang: null, medien: null },
+          medienAngeboten: false,
+          erteilbar: false,
+          // For `kontoBewerbung`'s reason.
+          speichereAction: (antwort: Parameters<Parameters<typeof EinwilligungForm>[0]["speichereAction"]>[0]) =>
+            patchRegistrierungEinwilligungAction(REGISTRIERUNG_ID, antwort as Parameters<typeof patchRegistrierungEinwilligungAction>[1]),
         }),
       },
     ],
@@ -1164,6 +1204,28 @@ const LANDINGS: Record<string, Landing> = {
     press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen." })),
     after: () => kontoBewerbung(false),
     lands: () => heading(KONTO_TITEL),
+  },
+  "an application seat's WhatsApp withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchBewerbungEinwilligungAction: { success: true, message: "Gespeichert.", nachweis_stand: { umfang: "x".repeat(64), medien: null } },
+    },
+    before: () => kontoBewerbung(false, true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf mich auch über WhatsApp erreichen." })),
+    after: () => kontoBewerbung(false, false),
+    lands: () => heading(KONTO_TITEL),
+  },
+  "a pending registration's media withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchRegistrierungEinwilligungAction: {
+        success: true,
+        message: "Gespeichert.",
+        nachweis_stand: { umfang: null, medien: "x".repeat(64) },
+      },
+    },
+    before: () => kontoRegistrierung(true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen." })),
+    after: () => kontoRegistrierung(false),
+    lands: () => heading(REGISTRIERUNG_TITEL),
   },
   "a registration's decline, the last row, on the queue's heading": {
     before: () => registrierungen([REG_LENA]),
