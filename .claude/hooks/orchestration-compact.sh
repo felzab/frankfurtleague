@@ -30,6 +30,7 @@ named="${registers[0]}"
 for register in "${registers[@]:1}"; do named+=", and ${register}"; done
 
 # Factual statements rather than instructions, as the hooks documentation asks of additionalContext.
+
 # Compaction is documented to re-attach a skill's latest invocation, yet a coordinator that
 # re-invoked the edited skill got its first copy back: the file on disk is named as the current core.
 text="This session coordinates the agent fleet recorded in ${named}. Its orchestration core is .claude/skills/orchestration/SKILL.md as it is on disk; a copy of the skill re-attached after a compaction can be older than that file. Its resume point is in that register."

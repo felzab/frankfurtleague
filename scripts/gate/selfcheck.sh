@@ -1026,9 +1026,8 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     else note_fail "writer-tools hook: ${tools_case%%|*} must exit 0 silently, got '${tools_said:0:200}'"; fi
   done
 
-  # Every spawned or resumed agent with a definition file is told that file binds as it is on disk,
-  # by the checkout's absolute path: the copy in its own worktree is as old as its fork. A Windows
-  # project directory's backslashes must still leave parseable JSON.
+  # Every spawned or resumed agent with a definition file is told that file binds, by the checkout's
+  # absolute path, its worktree's copy being as old as its fork; a Windows path must still parse.
   DEFINITION_HOOK="${REPO_ROOT}/.claude/hooks/agent-definition.sh"
   check_hook_matcher "${REPO_ROOT}/.claude/settings.json" SubagentStart agent-definition.sh implementer driving-reauditor researcher cold-auditor
   for definition_type in implementer driving-reauditor researcher cold-auditor; do
