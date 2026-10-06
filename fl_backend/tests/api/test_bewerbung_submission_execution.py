@@ -832,6 +832,8 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.response.status_code == 201
         assert submitted.response.json()["eingereicht_am"] == TODAY
         assert submitted.stored == 1
+        # The floor under the keyless press's count of none: a count reading no key would answer none here too.
+        assert submitted.keyed == 1
 
     def test_no_key_reaches_none_of_it(self, mongo_replica_set_url: str):
         """Public here means no SESSION, never no key: a bearer token is checked before the body is parsed."""
