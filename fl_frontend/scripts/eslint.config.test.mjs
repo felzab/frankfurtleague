@@ -102,7 +102,7 @@ const BANS = [
   ["transition-rewrap", /wrap it in another `startTransition`/],
   ["toast-failure", /Hand an action's failure to `appToast\.failure`/],
   ["uncached-read", /This module caches no read/],
-  ["caller-read", /A read made for its caller is never cached/],
+  ["caller-read", /A function reading for its caller directly/],
   ["tag-drop", /Declare a write's cache tags with `invalidatesOnWrite`/],
   ["route-tag-drop", /Hand a route's cache tags to its spine/],
   ["declare-first", /Declare a write's first cache tags before/],
