@@ -18,11 +18,11 @@ from fastapi.routing import APIRoute
 from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, gedrosselt, get_drossel, sekunden_bis_tagesende, tagesende
 from app.core.exceptions import DrosselungException
 from app.core.recording import AktorFunktion
-from app.core.security import PERSON_ACTOR_BINDERS, SAFE_METHODS
+from app.core.security import PERSON_ACTOR_BINDERS
 from app.main import RefusalDriver, _dependency_calls, dependency_refusals
 from tests.core.app_source import application, declared
 
-from .test_actor_binding import ROUTES_BY_OPERATION, binds_a_person
+from .test_actor_binding import ROUTES_BY_OPERATION, SAFE_METHODS, binds_a_person
 from .test_admin_guard import strip_convertors
 from .test_drosselung_execution import CONSENTS, COUNTED_ON_EVERY_CALL, Consent
 

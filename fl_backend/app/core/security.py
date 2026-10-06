@@ -116,9 +116,6 @@ ACTOR_TOKEN_REFUSED = "REQ-AUTH-007"
 PERSON_BARRED = "REQ-AUTH-008"
 CONFIRMATION_REQUIRED = "REQ-AUTH-009"
 
-# The methods that record nothing (`tests/api/test_actor_binding.py` splits its write inventory by them).
-SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-
 
 def get_actor_token_key(request: Request) -> ActorTokenKey:
     """The key the application was built with (`app/main.py :: create_app`), its `kid` computed there once."""

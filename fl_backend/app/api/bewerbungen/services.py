@@ -405,7 +405,7 @@ def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKo
 
     # `medien` written false rather than left off: nobody filling a seat for another person may give
     # that person's media consent.
-    block = {
+    return {
         "umfang": "kontaktdaten",
         "text_version": text_version,
         "datum": today,
@@ -413,8 +413,6 @@ def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKo
         "medien": False,
         "eingetragen_von": eingetragen_von,
     }
-
-    return block
 
 
 # Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen
@@ -1053,8 +1051,6 @@ def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
 
 
 def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> KontaktSeite:
-    """The page an application's seat opens."""
-
     einwilligung = _einwilligung_of(bewerbung_raw.get("kontakte"), seat)
 
     # Before `eingetragen_von`: the submission stamps its own day on every seat it writes, and a reseat the
@@ -1074,8 +1070,6 @@ def antwort_seite(*, seiten: Sequence[KontaktSeite], verwaltet: KontaktSeite) ->
 
 
 def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence[str]) -> KontaktSeite:
-    """The page an application's link opens for the seats its answer writes."""
-
     return antwort_seite(
         seiten=[bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=seat) for seat in seats], verwaltet="bestaetigung_kontakt_verwaltung"
     )

@@ -976,8 +976,6 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
 
 
 def kontakte_fassungen_genannt(*, kontakte: Mapping[str, Any] | None) -> dict[str, str]:
-    """The label each seat of a contacts save names, keyed by seat."""
-
     seats = {slot: kontakte.get(slot) for slot in KONTAKT_ROLLEN} if kontakte is not None else {}
 
     return {slot: str(seat["einwilligung"]["text_version"]) for slot, seat in seats.items() if isinstance(seat, Mapping)}
@@ -1048,14 +1046,6 @@ def compose_kontakt_bestaetigung(*, token_hash: str, today: str) -> dict[str, An
     return {"token_hash": token_hash, "verschickt_am": today, "frist": bestaetigungsfrist_from(today=today), "abgelehnt_am": None}
 
 
-def in_declaration_order(seats: Iterable[str]) -> list[FLKontaktRolle]:
-    """The named seats in the order the block declares them, each once."""
-
-    named = set(seats)
-
-    return [rolle for rolle in KONTAKT_ROLLEN if rolle in named]
-
-
 def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
     """Each person the block seats, as the filled seats they hold, the Trainer beside the seat `trainer_ist_zugleich` names.
 
@@ -1070,9 +1060,7 @@ def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
         if slot == zugleich:
             continue
 
-        held: tuple[FLKontaktRolle, ...] = (
-            (slot, *in_declaration_order([zugleich])) if slot == "trainer" and isinstance(zugleich, str) else (slot,)
-        )
+        held: tuple[FLKontaktRolle, ...] = (slot, zugleich) if slot == "trainer" and zugleich in KONTAKT_ROLLEN else (slot,)
         filled: tuple[FLKontaktRolle, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
         if filled:
             people.append(filled)
@@ -1165,8 +1153,6 @@ def voids_a_live_link(*, stored_kontakte: Any, stored_bestaetigungen: Any, besta
 
 
 def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
-    """The stored link block with the minted seats replaced, every other seat as it stood."""
-
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
 
     return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_ROLLEN}

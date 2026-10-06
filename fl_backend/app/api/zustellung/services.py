@@ -70,8 +70,6 @@ def traeger_halter(raw: Mapping[str, Any], traeger: str) -> tuple[Any, str]:
 
 
 def zustellung_pfad(traeger: str) -> str:
-    """The dotted path a carrier's delivery state sits at."""
-
     return f"{traeger}.{ZUSTELLUNG_FELD}"
 
 
