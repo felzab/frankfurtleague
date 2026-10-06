@@ -25,6 +25,7 @@ import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActionRequest, doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answer,
@@ -353,17 +354,7 @@ answerReadsWith((endpoint, schema, params) => {
       shorthand: "SA",
       full_name: "Sportgemeinschaft Alpha",
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [
-        {
-          saison_id: "2526",
-          gruppe: "A",
-          austritt: null,
-          trikot_farbe: null,
-          kontakte: storedBlock,
-          bestaetigungen: null,
-          kontakte_stand: "9f2c",
-        },
-      ],
+      memberships: [membershipAnswer({ kontakte: storedBlock, kontakte_stand: "9f2c" })],
     });
     return answer(schema, endpoint, { teams: [club] });
   }
