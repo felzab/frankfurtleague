@@ -261,7 +261,7 @@ const DRIVES: Record<string, Drive[]> = {
     {
       render: () => strip(false),
       reach: async (user) => {
-        await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Clara Meier korrigieren" }));
+        await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Clara Meier" }));
         const box = screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
         await user.clear(box);
         await user.type(box, "clara@neu.example");
@@ -274,7 +274,7 @@ const DRIVES: Record<string, Drive[]> = {
     {
       render: () => strip(true),
       reach: async (user) => {
-        await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+        await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
         await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
         await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
         await user.type(screen.getByRole("textbox", { name: "Telefon" }), "069 7654321");
@@ -315,7 +315,7 @@ const DRIVES: Record<string, Drive[]> = {
           } as never),
           { search: "saison_id=2026" },
         ),
-      press: "Schiedsrichter Anna Körner reaktivieren",
+      press: "Reaktivieren: Schiedsrichter Anna Körner",
       asks: unanswered,
     })),
   ],

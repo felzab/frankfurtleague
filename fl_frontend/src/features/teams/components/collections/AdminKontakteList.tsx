@@ -121,7 +121,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
           holds somebody to copy. */}
       <RowActionCopy
         label="Kontaktdaten kopieren"
-        ariaLabel={`Kontaktdaten von ${row.teamName} kopieren`}
+        subject={row.teamName}
         onPress={() => void handleCopyKontakte(row)}
       />
       {/* A link and not a press: all three seats are edited together on the club's own contacts page,
@@ -129,7 +129,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
       <RowActionLink
         href={withSaisonId(`/bereich/admin/kontakte/${row.teamId}`, selectedSaisonId)}
         label="Kontakte bearbeiten"
-        ariaLabel={`Kontakte von ${row.teamName} bearbeiten`}>
+        subject={row.teamName}>
         <Pencil
           className="size-4.5"
           aria-hidden="true"

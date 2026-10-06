@@ -157,7 +157,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
       ),
     );
 
-    await user.click(screen.getByRole("button", { name: "Passkey vom 1. September 2026 umbenennen" }));
+    await user.click(screen.getByRole("button", { name: "Umbenennen: Passkey vom 1. September 2026" }));
     await user.clear(screen.getByRole("textbox", { name: "Name" }));
     await user.click(screen.getByRole("button", { name: "Speichern" }));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
@@ -247,7 +247,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
     );
     calls.length = 0;
 
-    await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+    await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
     await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
     await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
     await user.type(screen.getByRole("textbox", { name: "Telefon" }), "069 7654321");

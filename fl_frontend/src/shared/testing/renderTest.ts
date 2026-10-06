@@ -183,14 +183,13 @@ const spokenWords = (text: string): string[] =>
     .filter(Boolean);
 
 /**
- * Whether `name` holds `label`'s words as one run, in order: the rule axe-core's `label-content-name-mismatch` reads,
- * stricter than the criterion's text, which names words interspersed or reordered only as a potential future failure.
+ * Whether `name` starts with `label`'s words, in order: W3C's best practice for WCAG 2.5.3, stricter than the run
+ * anywhere in the name that axe-core's `label-content-name-mismatch` accepts.
  */
-function holdsLabelInName(name: string, label: string): boolean {
-  const wanted = spokenWords(label);
+function startsWithLabel(name: string, label: string): boolean {
   const held = spokenWords(name);
 
-  return held.some((_, from) => wanted.every((word, offset) => held[from + offset] === word)) || wanted.length === 0;
+  return spokenWords(label).every((word, at) => held[at] === word);
 }
 
 function closingDiv(html: string, from: number): number {
@@ -254,8 +253,8 @@ export function refusalWrappers(html: string): RefusalWrapper[] {
 
     // Refused here rather than left to each panel test: speech input finds the one tab stop by the words on screen
     // (WCAG 2.5.3), and every panel test reads its refusals through this reader. An icon-only control has no words.
-    if (!holdsLabelInName(name, words))
-      throw new Error(`a refusal named „${name}“ covers a control reading „${words}“, which its name does not contain`);
+    if (!startsWithLabel(name, words))
+      throw new Error(`a refusal named „${name}“ covers a control reading „${words}“, which its name does not start with`);
 
     return [
       {

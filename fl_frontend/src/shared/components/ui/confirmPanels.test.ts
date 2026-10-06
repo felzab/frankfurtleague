@@ -334,7 +334,7 @@ const PANELS: Record<string, Arming[]> = {
           }),
         ),
       // Its name, which carries the visible „Löschen“ and names the card.
-      resting: "Passkey „YubiKey 5“ löschen",
+      resting: "Löschen: Passkey „YubiKey 5“",
     },
   ],
   [M.andereAbmelden]: [
@@ -541,8 +541,8 @@ const PANELS: Record<string, Arming[]> = {
     },
   ],
   [M.registrierungen]: [
-    { render: registrierungenList, resting: "Lena Meier aufnehmen" },
-    { render: registrierungenList, resting: "Registrierung von Lena Meier ablehnen" },
+    { render: registrierungenList, resting: "Aufnehmen: Lena Meier" },
+    { render: registrierungenList, resting: "Ablehnen: Registrierung von Lena Meier" },
   ],
 };
 

@@ -8,6 +8,7 @@ import { Popover } from "@heroui/react/popover";
 import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
+import { benannt } from "@/shared/utils/benannt";
 import { countFacetOptions, isFacetOptionReachable, offeredOptions } from "@/shared/utils/facets";
 
 import { countBadge } from "./badges";
@@ -94,7 +95,7 @@ function FacetCell<TItem>({
         {picked.length > 0 && (
           <Button
             variant="ghost"
-            aria-label={`${facet.label} zurücksetzen`}
+            aria-label={benannt("Zurücksetzen", facet.label)}
             onPress={onClear}
             className="h-full shrink-0 cursor-pointer fluid-xxs leading-none font-bold text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:text-foreground">
             Zurücksetzen

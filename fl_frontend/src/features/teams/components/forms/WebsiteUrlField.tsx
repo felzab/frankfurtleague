@@ -13,6 +13,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { TextField } from "@/shared/components/ui/TextField";
 import { ExternalUrlSchema } from "@/shared/schemas";
+import { benannt } from "@/shared/utils/benannt";
 
 import type { ReactNode } from "react";
 
@@ -50,7 +51,7 @@ export function WebsiteUrlField({
   const openLink = (
     <a
       {...(isFollowable && value !== null ? { href: value, target: "_blank", rel: "noopener noreferrer" } : { "aria-disabled": true })}
-      aria-label="Website in neuem Tab öffnen"
+      aria-label={benannt("Link in neuem Tab öffnen", "Website")}
       className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
         isFollowable ? "cursor-pointer text-foreground-muted hover:text-brand" : "cursor-not-allowed text-foreground-muted/40"
       }`}>
@@ -95,7 +96,7 @@ export function WebsiteUrlField({
           <Hint
             mode="refusal"
             reason="Erst eine gültige Adresse eingeben"
-            label="Website in neuem Tab öffnen">
+            label={benannt("Link in neuem Tab öffnen", "Website")}>
             {openLink}
           </Hint>
         )}

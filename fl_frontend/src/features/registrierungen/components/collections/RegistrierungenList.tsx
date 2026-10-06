@@ -26,6 +26,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -194,7 +195,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               // Closed rather than hidden: the control names what this row is waiting for.
               reason={registrierung.aufnehmbar ? null : NOCH_NICHT_BESTAETIGT}
               resting="Aufnehmen"
-              restingName={`${name} aufnehmen`}
+              restingName={benannt("Aufnehmen", name)}
               armed={gewaffnet}
               running="Nimmt auf..."
               icon={
@@ -240,7 +241,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               confirm={ablehnung}
               reason={null}
               resting="Ablehnen"
-              restingName={`Registrierung von ${name} ablehnen`}
+              restingName={benannt("Ablehnen", `Registrierung von ${name}`)}
               armed="Ja, ablehnen"
               running="Lehnt ab..."
               icon={
