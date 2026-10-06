@@ -98,9 +98,8 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
 });
 
 describe("a press of the address change's link nobody can tell landed", () => {
-  /* No answer came back. A send saves nothing, so its title names the link it may have sent, and its
-     repair says sending again is safe; a second discard of a change already gone is refused, so the
-     page, reloaded, decides. */
+  /* No answer came back. A send saves nothing, so its title names the link, and sending again is safe;
+     a second discard of a change already gone is refused, so the page, reloaded, decides. */
   const arms: Record<string, { control: string; title: string; repair: string }> = {
     send: {
       control: ADRESSWECHSEL_ERNEUT,
