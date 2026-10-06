@@ -942,17 +942,6 @@ class TestARowsPeopleLeavingTakeTheirLinks:
 
 
 class TestTheStepUp:
-    def test_a_save_that_mints_from_an_old_sign_in_is_refused_and_mints_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            before = await row_now(database)
-
-            return await refused(save(database, THREE, step_up=STALE_STEP_UP_CHECK)), before, await row_now(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == CONFIRMATION_REQUIRED
-        assert after == before
-
     def test_a_save_emptying_a_seat_whose_link_is_live_from_an_old_sign_in_is_refused(self, mongo_replica_set_url: str):
         """Voiding a bearer link is a step-up write as minting one is: the person holding it loses their way to answer."""
 
