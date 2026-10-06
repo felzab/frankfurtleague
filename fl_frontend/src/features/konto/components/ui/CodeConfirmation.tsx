@@ -9,6 +9,7 @@ import { sendeBestaetigungscodeAction } from "@/features/konto/actions";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useAnsweredActionState } from "@/shared/hooks/useAnsweredActionState";
+import { edgeRefusedSend } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { ActionResult } from "@/shared/types/types";
@@ -18,6 +19,14 @@ const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 
 /** What a right code does here: it confirms the reader, who is already signed in. */
 const BESTAETIGEN = { rest: "Bestätigen", pending: "Bestätigt..." };
+
+// A plain failure, never `unansweredAction`'s, whose toast asks whether something was saved.
+/**
+ * A send whose answer never arrived: whether a code left is unknown, and a second send is safe either
+ * way, a new code replacing the one before.
+ */
+const CODE_OHNE_ANTWORT =
+  "Wir wissen nicht, ob der Code verschickt wurde. Prüfe die Verbindung und fordere ihn erneut an; ein neuer Code ersetzt einen früheren.";
 
 /** The code half's own refusal: a code that signed in an account other than the page's. */
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
@@ -36,9 +45,13 @@ export function CodeConfirmation({
   istInhaber: () => Promise<boolean>;
   onConfirmed: () => void;
 }) {
-  // Wrapped, the action taking no argument: the address is the session's, never one the page posts.
+  // Wrapped, the action taking no argument: the address is the session's, never one the page posts. Every
+  // rejection is answered here: one reaching the route's boundary would replace the whole account page.
   const [state, formAction, isSending] = useAnsweredActionState(
-    async (): Promise<ActionResult | undefined> => sendeBestaetigungscodeAction(),
+    async (): Promise<ActionResult | undefined> =>
+      sendeBestaetigungscodeAction().catch(
+        (rejection: unknown) => edgeRefusedSend(rejection) ?? { success: false as const, error: CODE_OHNE_ANTWORT },
+      ),
     undefined,
   );
   // Counted at the press, so a resend starts the code step over, as the sign-in's own form does.

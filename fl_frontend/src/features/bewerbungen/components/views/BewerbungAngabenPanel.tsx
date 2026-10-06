@@ -3,6 +3,8 @@ import Link from "next/link";
 import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
+import { Beleg } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { eingetragenVonLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -22,6 +24,10 @@ import type { ReactNode } from "react";
 const NOT_RECORDED = "Nicht angegeben";
 
 /** A value the school did not fill in, in the one grade every empty field here takes. */
+// The contacts editor's words for a seat's WhatsApp scope, so one seat reads alike on both administrator screens.
+const WHATSAPP_ERLAUBT = "erlaubt";
+const WHATSAPP_NICHT_ERLAUBT = "nicht erlaubt";
+
 function Leer() {
   return <span className="text-foreground-muted italic">{NOT_RECORDED}</span>;
 }
@@ -208,6 +214,25 @@ export function BewerbungAngabenPanel({
                       {(stand === null || stand.stand.art === "bestaetigt") &&
                         person.einwilligung.text_version !== "" &&
                         ` (Fassung ${person.einwilligung.text_version})`}
+                    </Angabe>
+                    {/* The person's own two choices, each with the act it stands on, as the contacts editor
+                        reads them out: the person withdraws either on the account page while the
+                        application is pending, and the administrator deciding it reads what stands. */}
+                    <Angabe label="WhatsApp">
+                      {person.einwilligung.umfang === "kontaktdaten_whatsapp" ? WHATSAPP_ERLAUBT : WHATSAPP_NICHT_ERLAUBT}
+                      <Beleg
+                        nachweis={person.einwilligung.nachweis.umfang}
+                        bestaetigtAm={person.einwilligung.bestaetigt_am}
+                        textVersion={person.einwilligung.text_version}
+                      />
+                    </Angabe>
+                    <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
+                      {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+                      <Beleg
+                        nachweis={person.einwilligung.nachweis.medien}
+                        bestaetigtAm={person.einwilligung.bestaetigt_am}
+                        textVersion={person.einwilligung.text_version}
+                      />
                     </Angabe>
                   </dl>
                 )}

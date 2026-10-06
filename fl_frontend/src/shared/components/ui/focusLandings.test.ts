@@ -55,6 +55,9 @@ const { FormGruppenSwapSection } = await import("@/features/saisons/components/f
 const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
 const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
 const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
+const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
+const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
+const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -598,6 +601,43 @@ const REG_MIA = registrierung("68c1f0a2b3c4d5e6f7a8b942", "Mia", "Schmidt");
 const registrierungen = (rows: readonly ReturnType<typeof registrierung>[]) =>
   h(RegistrierungenView, { registrierungen: rows, adresse: { team_id: TEAM_A, saison_id: "2026" }, unvollstaendig: null });
 
+const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b951";
+const KONTO_TITEL = "Als Ansprechperson: Bewerbung für Goethe-Gymnasium, Saison 2026";
+
+/**
+ * A pending application's seat on the account page, as the read serves it: withdraw-only, so a
+ * withdrawal closes the switch it was pressed on once the page is read again.
+ */
+const kontoBewerbung = (medien: boolean) =>
+  h(EinwilligungPanel, {
+    eintraege: [
+      {
+        id: `bewerbung-${BEWERBUNG_ID}`,
+        titel: KONTO_TITEL,
+        bestaetigt: null,
+        control: h(EinwilligungForm, {
+          worte: {
+            textVersion: "konto-test-1",
+            whatsapp: { schalter: "Die Liga darf mich auch über WhatsApp erreichen.", absatz: "WhatsApp nur mit Deiner Erlaubnis." },
+            medien: {
+              schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+              absatz: "Fotos nur mit Deiner Erlaubnis.",
+            },
+            nurWiderruf: "Hier kannst Du nur zurücknehmen.",
+            widerruf: "Jede Änderung gilt ab dem Speichern.",
+          },
+          gespeichert: { umfang: "kontaktdaten" as const, medien: medien },
+          nachweisStand: { umfang: null, medien: null },
+          medienAngeboten: false,
+          erteilbar: false,
+          // Through the doubled export, typed as the panel's slot takes every record's control.
+          speichereAction: (antwort: Parameters<Parameters<typeof EinwilligungForm>[0]["speichereAction"]>[0]) =>
+            patchBewerbungEinwilligungAction(BEWERBUNG_ID, antwort as Parameters<typeof patchBewerbungEinwilligungAction>[1]),
+        }),
+      },
+    ],
+  });
+
 const LANDINGS: Record<string, Landing> = {
   "a venue row's reactivation, on the retirement replacing it": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
@@ -1115,6 +1155,15 @@ const LANDINGS: Record<string, Landing> = {
     press: (user) => pressTwice(user, { resting: "Aufnehmen: Lena Meier", armed: "Ja, aufnehmen" }),
     after: () => registrierungen([REG_MIA]),
     lands: () => screen.getByRole("button", { name: "Aufnehmen: Mia Schmidt" }),
+  },
+  "an application seat's media withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchBewerbungEinwilligungAction: { success: true, message: "Gespeichert.", nachweis_stand: { umfang: null, medien: "x".repeat(64) } },
+    },
+    before: () => kontoBewerbung(true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen." })),
+    after: () => kontoBewerbung(false),
+    lands: () => heading(KONTO_TITEL),
   },
   "a registration's decline, the last row, on the queue's heading": {
     before: () => registrierungen([REG_LENA]),

@@ -12,26 +12,44 @@ const { setSubject } = doubleActionRequest({ session: null, subject: person({ si
 const { answerWith, calls } = doubleApiAnswers();
 
 const { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } = await import("./personActions.ts");
-const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, MEDIEN_ZU_JUNG, SEITE_VERALTET, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
-  await import("@/features/konto/einwilligung.ts");
+const {
+  BEWERBUNG_NICHT_MEHR_OFFEN,
+  EINTRAG_GEAENDERT,
+  mapBewerbungEinwilligungRefusal,
+  mapEigeneEinwilligungRefusal,
+  MEDIEN_ZU_JUNG,
+  SEITE_VERALTET,
+  WAHL_GESPEICHERT,
+  ZUSTIMMEN_MORGEN,
+} = await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung";
-const WAHL = { medien: true, text_version: "2026-10-konto-kontakt", nachweis_stand: { medien: null } };
+// Both choices on every press, the scope unchanged beside the media grant.
+const WAHL = {
+  umfang: "kontaktdaten_whatsapp" as const,
+  medien: true,
+  text_version: "2026-10-konto-kontakt",
+  nachweis_stand: { umfang: "9f2c1e7a4b5d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071", medien: null },
+};
 const LANDED = {
   acknowledged: 1,
   team_id: SITZ.team_id,
   saison_id: SITZ.saison_id,
   rollen: ["trainer"],
+  umfang: "kontaktdaten_whatsapp",
   medien: true,
   // Moved by the press, so an answer echoing the sent stand would not pass for this one.
-  nachweis_stand: { medien: "2026-10-04T09:30:00+02:00" },
+  nachweis_stand: {
+    umfang: "9f2c1e7a4b5d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071",
+    medien: "1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a",
+  },
 };
 
 /** Every invalidation the write made, by the export it called and what it handed it. */
 const invalidations = () => cacheCalls.map(({ name, args }) => [name, ...args]);
 
-describe("a seat holder's own media consent write", () => {
-  it("sends the media choice and the account page's label to the row's path, and refreshes the page", async () => {
+describe("a seat holder's own consent write", () => {
+  it("sends both choices and the account page's label to the row's path, and refreshes the page", async () => {
     answerWith(() => Promise.resolve(LANDED));
     calls.length = 0;
 
@@ -41,7 +59,7 @@ describe("a seat holder's own media consent write", () => {
     assert.deepEqual(requestsOf(calls), [
       { endpoint: `/teams/${SITZ.team_id}/saisons/${SITZ.saison_id}/person/einwilligung`, method: "PATCH", body: WAHL },
     ]);
-    // No public read serves a seat's media choice: the spine's refresh is the page's whole re-read.
+    // No public read serves a seat's choices: the spine's refresh is the page's whole re-read.
     assert.deepEqual(invalidations(), [["refresh"]]);
   });
 
@@ -66,7 +84,7 @@ describe("a seat holder's own media consent write", () => {
   });
 
   for (const [code, status, words] of [
-    ["REQ-FUNKTION-001", 403, EINTRAG_WEG],
+    ["REQ-FUNKTION-001", 403, EINTRAG_GEAENDERT],
     ["REQ-EINWILLIGUNG-001", 409, SEITE_VERALTET],
     ["REQ-EINWILLIGUNG-002", 422, MEDIEN_ZU_JUNG],
   ] as const) {
@@ -84,14 +102,27 @@ describe("a seat holder's own media consent write", () => {
 
 const BEWERBUNG_ID = "6890a1b2c3d4e5f607181001";
 const BEWERBUNG_OPERATION = "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung";
-const WIDERRUF = { medien: false, text_version: "2026-10-konto-kontakt", nachweis_stand: { medien: "2026-09-01T10:00:00+02:00" } };
+// The WhatsApp scope withdrawn beside a media consent left standing: a withdrawal of one choice alone.
+const WIDERRUF = {
+  umfang: "kontaktdaten" as const,
+  medien: true,
+  text_version: "2026-10-konto-kontakt",
+  nachweis_stand: {
+    umfang: "9f2c1e7a4b5d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071",
+    medien: "1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a",
+  },
+};
 const WIDERRUFEN = {
   acknowledged: 1,
   bewerbung_id: BEWERBUNG_ID,
   rollen: ["ansprechperson"],
-  medien: false,
+  umfang: "kontaktdaten",
+  medien: true,
   // Moved by the press, so an answer echoing the sent stand would not pass for this one.
-  nachweis_stand: { medien: "2026-10-04T09:30:00+02:00" },
+  nachweis_stand: {
+    umfang: "1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a",
+    medien: "1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a",
+  },
 };
 
 describe("a seat holder's withdrawal on a pending application", () => {
@@ -110,21 +141,18 @@ describe("a seat holder's withdrawal on a pending application", () => {
     assert.deepEqual(invalidations(), [["refresh"]]);
   });
 
-  /* The endpoint takes `false` alone, so a grant is refused before the network, in the payload's own words. */
-  it("refuses a grant and a malformed application before the backend", async () => {
+  it("refuses a malformed application before the backend", async () => {
     setSubject(person());
     calls.length = 0;
 
-    const grant = await patchBewerbungEinwilligungAction(BEWERBUNG_ID, { ...WIDERRUF, medien: true });
     const malformed = await patchBewerbungEinwilligungAction("kein-id", WIDERRUF);
 
-    assert.equal(grant.success, false);
     assert.equal(malformed.success, false);
     assert.deepEqual(calls, [], "a refused press reached the backend");
   });
 
   for (const [code, status, words] of [
-    ["REQ-FUNKTION-001", 403, EINTRAG_WEG],
+    ["REQ-FUNKTION-001", 403, BEWERBUNG_NICHT_MEHR_OFFEN],
     ["REQ-EINWILLIGUNG-001", 409, SEITE_VERALTET],
     ["REQ-EINWILLIGUNG-003", 409, SEITE_VERALTET],
   ] as const) {
@@ -159,7 +187,7 @@ describe("what a seat holder's consent writes answer a refusal with", () => {
       operation: BEWERBUNG_OPERATION,
       refuseWith: answerWith,
       act: () => patchBewerbungEinwilligungAction(BEWERBUNG_ID, WIDERRUF),
-      mapped: mapEigeneEinwilligungRefusal,
+      mapped: mapBewerbungEinwilligungRefusal,
     });
   });
 

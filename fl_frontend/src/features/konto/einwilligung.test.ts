@@ -5,10 +5,14 @@ import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import {
-  EINTRAG_WEG,
+  BEWERBUNG_NICHT_MEHR_OFFEN,
+  EINTRAG_GEAENDERT,
+  mapBewerbungEinwilligungRefusal,
   mapEigeneEinwilligungRefusal,
   mapEinwilligungWahlRefusal,
+  mapRegistrierungEinwilligungRefusal,
   MEDIEN_ZU_JUNG,
+  REGISTRIERUNG_NICHT_MEHR_OFFEN,
   SEITE_VERALTET,
   ZUSTIMMEN_MORGEN,
 } from "./einwilligung.ts";
@@ -48,10 +52,34 @@ describe("the consent writes' one mapper", () => {
     assert.equal(mapEinwilligungWahlRefusal(new Error("network")), null);
   });
 
-  /* The shared answer to a lost Funktion names a team, which a pupil's or a referee's record has none of. */
-  it("words a pupil's or a referee's lost record itself, and the rest as the shared mapper does", () => {
-    assert.deepEqual(mapEigeneEinwilligungRefusal(refusedOn(PUPIL_WRITE, "REQ-FUNKTION-001", 403)), { error: EINTRAG_WEG });
+  /* The shared answer to a lost Funktion names a team, which these records have none of; and the code
+     answers a refused grant there too, so neither cause alone is named. */
+  it("words a record admitting a grant by both causes the code answers, and the rest as the shared mapper does", () => {
+    assert.deepEqual(mapEigeneEinwilligungRefusal(refusedOn(PUPIL_WRITE, "REQ-FUNKTION-001", 403)), { error: EINTRAG_GEAENDERT });
     assert.deepEqual(mapEigeneEinwilligungRefusal(refusedOn(PUPIL_WRITE, "REQ-EINWILLIGUNG-001", 409)), { error: SEITE_VERALTET });
     assert.equal(mapEigeneEinwilligungRefusal(refusedOn(PUPIL_WRITE, "REQ-AUTH-008", 403)), null);
   });
+
+  /* A withdraw-only record's page offers no grant, so the code there answers the record alone: not
+     pending, its own sentence, whatever else the shared mapper words alike. */
+  for (const [art, operation, mapper, words] of [
+    [
+      "a pending application's seats",
+      "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung",
+      mapBewerbungEinwilligungRefusal,
+      BEWERBUNG_NICHT_MEHR_OFFEN,
+    ],
+    [
+      "a pending registration",
+      "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung",
+      mapRegistrierungEinwilligungRefusal,
+      REGISTRIERUNG_NICHT_MEHR_OFFEN,
+    ],
+  ] as const) {
+    it(`words ${art} not pending any more by that record, and the rest as the shared mapper does`, () => {
+      assert.deepEqual(mapper(refusedOn(operation, "REQ-FUNKTION-001", 403)), { error: words });
+      assert.deepEqual(mapper(refusedOn(operation, "REQ-EINWILLIGUNG-003", 409)), { error: SEITE_VERALTET });
+      assert.equal(mapper(refusedOn(operation, "REQ-AUTH-008", 403)), null);
+    });
+  }
 });

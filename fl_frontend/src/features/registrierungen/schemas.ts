@@ -8,7 +8,14 @@ import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 // The season slice's own mirror rather than a second enum: two copies of one published set drift,
 // and the invite read answers the same three members the season's own read does.
 import { FLSaisonStatusSchema } from "@/features/saisons/schemas";
-import { FLPostSaisonSpielerPayloadSchema, FLSpielerPositionSchema, FLSpielerStufeSchema } from "@/features/spieler/schemas";
+import {
+  FLEinwilligungSchema,
+  FLEinwilligungStandSchema,
+  FLPostSaisonSpielerPayloadSchema,
+  FLSpielerPositionSchema,
+  FLSpielerSelbstEinwilligungPayloadSchema,
+  FLSpielerStufeSchema,
+} from "@/features/spieler/schemas";
 import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -337,3 +344,27 @@ export const FLRegistrierungAblehnungResponseSchema = BaseAPIResponseSchema.exte
   grund: FLRegistrierungAblehnungsgrundSchema.nullable(),
 });
 export type FLRegistrierungAblehnungResponse = z.infer<typeof FLRegistrierungAblehnungResponseSchema>;
+
+/**
+ * Mirrors `FLRegistrierungEinwilligung`: a pending registration's consent block, each choice and `datum`
+ * null where its pupil was asked none, a returning pupil's page asking no choice.
+ */
+export const FLRegistrierungEinwilligungSchema = FLEinwilligungSchema.extend({
+  umfang: FLEinwilligungSchema.shape.umfang.nullable(),
+  // Null where nobody was asked, never `false`: a returning pupil's media answer stands on their own record.
+  medien: z.boolean().nullable(),
+});
+export type FLRegistrierungEinwilligung = z.infer<typeof FLRegistrierungEinwilligungSchema>;
+
+/** The pupil's payload, as the backend publishes one declaration under both names: the two controls cannot drift. */
+export const FLRegistrierungSelbstEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema;
+export type FLRegistrierungSelbstEinwilligungPayload = z.infer<typeof FLRegistrierungSelbstEinwilligungPayloadSchema>;
+
+/** Mirrors `FLRegistrierungSelbstEinwilligungResponse`: the registration's block as the withdrawal left it. */
+export const FLRegistrierungSelbstEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
+  registrierung_id: CustomObjectIdStringSchema,
+  einwilligung: FLRegistrierungEinwilligungSchema,
+  // The stand this press left, which the page's next press sends.
+  nachweis_stand: FLEinwilligungStandSchema,
+});
+export type FLRegistrierungSelbstEinwilligungResponse = z.infer<typeof FLRegistrierungSelbstEinwilligungResponseSchema>;

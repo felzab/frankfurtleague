@@ -364,12 +364,14 @@ export const FLSchiedsrichterKontextSchema = z.object({
 });
 export type FLSchiedsrichterKontext = z.infer<typeof FLSchiedsrichterKontextSchema>;
 
-/** Mirrors `FLSchiedsrichterSelbst`, the person tier's own read: no fee and no link bookkeeping, which are the administration's. */
+/** Mirrors `FLSchiedsrichterSelbst`, the person tier's own read: no link bookkeeping, which is the administration's. */
 export const FLSchiedsrichterSelbstSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
   name: z.string(),
   schule: z.string().nullable(),
   kontakt: FLKontaktSchema,
+  // `default_payment`, served because the referee's confirmation page lists the fee among what is stored.
+  honorar: z.number().int(),
   geburtsdatum: CustomDateStringSchema.nullable(),
   inactive_since: CustomDateStringSchema.nullable(),
   // Never null here, for the reason the pupil's own read gives (`FLSpielerSelbstSchema`).
