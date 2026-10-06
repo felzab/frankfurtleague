@@ -34,6 +34,12 @@ export function buildRefusal({ reason, repair, where }: RefusalParts): string {
 export const LADE_NEU_UND_VERSUCHE_ES_ERNEUT = "Lade die Seite neu und versuche es erneut";
 
 /**
+ * The reload alone as a `repair`, where what the page shows has moved and the press cannot pass again:
+ * period-free, since `buildRefusal` closes the sentence it ends.
+ */
+export const LADE_DIE_SEITE_NEU = "Lade die Seite neu";
+
+/**
  * The detail under a failure nothing can name a cause for. The way out alone, because every call
  * site raises it beneath a title already saying the save did not happen.
  */

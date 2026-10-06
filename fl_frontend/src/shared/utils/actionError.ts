@@ -8,7 +8,7 @@ import {
   RolledBackError,
 } from "@/core/errors";
 
-import { buildRefusal, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
 
 import type { SentRequest } from "@/core/errors";
@@ -62,7 +62,7 @@ export const AENDERUNG_STEHT_WEITERHIN = "Die Änderung steht weiterhin.";
  * An admin editor's answer to a `REQ-VAL-001` no rendered control takes, which only a page older than
  * the running API can send: a retry resends the refused body, and a reload fetches the page that fits.
  */
-const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: "Lade die Seite neu" });
+const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: LADE_DIE_SEITE_NEU });
 
 /**
  * Whether the API refused the request, which every mapper asks before reading the code: a 4xx, at

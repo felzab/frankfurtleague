@@ -6,7 +6,7 @@ import { logger } from "@/core/logging";
 
 import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
 import { FORBIDDEN_BY_REFUSAL, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
-import { buildRefusal } from "./refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "./refusal";
 
 import type { AdminRefusal } from "@/core/auth";
 import type { NextRequest } from "next/server";
@@ -21,7 +21,7 @@ const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seit
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 
-const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
+const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: LADE_DIE_SEITE_NEU });
 
 /**
  * The sentence an action turned away for the same reason is answered, and that the change stands: one

@@ -1,7 +1,7 @@
 import { isRecordMissing } from "@/core/errors";
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -115,7 +115,7 @@ export function mapAdresswechselRefusal(error: unknown): string | null {
 
 const KEIN_ADRESSWECHSEL = buildRefusal({
   reason: "Für diese Person wartet keine neue E-Mail-Adresse mehr auf Bestätigung",
-  repair: "Lade die Seite neu",
+  repair: LADE_DIE_SEITE_NEU,
 });
 
 /** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */

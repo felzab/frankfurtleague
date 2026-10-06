@@ -1,7 +1,7 @@
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { mapAlreadyEnteredRefusal } from "@/features/teams/refusals";
 import { isRefusal } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import { BEWERBUNG_VERALTET } from "./utils";
 
@@ -27,7 +27,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
       return {
         error: buildRefusal({
           reason: "Über diese Bewerbung ist schon entschieden worden, und eine Entscheidung wird einmal getroffen",
-          repair: "Lade die Seite neu",
+          repair: LADE_DIE_SEITE_NEU,
         }),
       };
     case "REQ-BEWERBUNG-002":
@@ -59,7 +59,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
       return {
         error: buildRefusal({
           reason: "Nicht jede Kontaktperson dieser Bewerbung hat ihren Eintrag bestätigt",
-          repair: "Lade die Seite neu",
+          repair: LADE_DIE_SEITE_NEU,
         }),
       };
     // `REQ-ENTER-001` to `-003` open with the sentence
@@ -125,14 +125,14 @@ export function mapEinwilligungErneutRefusal(error: unknown): string | null {
     case "REQ-BEWERBUNG-001":
       return buildRefusal({
         reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
-        repair: "Lade die Seite neu",
+        repair: LADE_DIE_SEITE_NEU,
       });
     // Answered, declined, or a seat an application from before the workflow holds: one sentence for
     // all three, because the control is offered from a page whose state has since moved.
     case "REQ-BEWERBUNG-011":
       return buildRefusal({
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
-        repair: "Lade die Seite neu",
+        repair: LADE_DIE_SEITE_NEU,
       });
     // Not the repairs' sentence: this control has no address box to type another address into, so it
     // names the correction beside it, whose label the strip shows.
@@ -146,7 +146,7 @@ export function mapEinwilligungErneutRefusal(error: unknown): string | null {
 /** Both administrative repairs answer `REQ-BEWERBUNG-001` with this: a decided application's contact block is what the decision was taken against. */
 const ANGABEN_STEHEN_FEST = buildRefusal({
   reason: "Über diese Bewerbung ist schon entschieden worden, und ihre Angaben stehen damit fest",
-  repair: "Lade die Seite neu",
+  repair: LADE_DIE_SEITE_NEU,
 });
 
 /** `REQ-BEWERBUNG-014` from either repair, worded as the submission words the same collision. */
@@ -165,7 +165,7 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
       return {
         error: buildRefusal({
           reason: "Für diese Rolle hat die Person inzwischen selbst geantwortet, und danach wird ihre Adresse nicht mehr geändert",
-          repair: "Lade die Seite neu",
+          repair: LADE_DIE_SEITE_NEU,
         }),
       };
     // Under the field rather than over the panel: the box holding the refused address is the one
@@ -192,7 +192,7 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
       return {
         error: buildRefusal({
           reason: "Neu besetzt wird nur eine Rolle, deren Person selbst widersprochen hat, und für diese Rolle gilt das nicht mehr",
-          repair: "Lade die Seite neu",
+          repair: LADE_DIE_SEITE_NEU,
         }),
       };
     case "REQ-BEWERBUNG-014":
