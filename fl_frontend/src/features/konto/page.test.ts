@@ -470,32 +470,62 @@ describe("the account page's consent section", () => {
     assert.deepEqual([control?.erteilbar, control?.medienAngeboten, control?.nachweisStand], [false, false, BEWERBUNG_SITZ.nachweis_stand]);
   });
 
-  /* A control sending another record's stand would be refused as a stale page on every press, or pass
-     a check meant for a different record. */
-  it("hands each control the stand its own record was served with", async () => {
-    setSubject(OHNE_FUNKTION);
-    const stand = (tag: string) => ({ umfang: null, medien: tag.repeat(64) });
-    answeringKonto({
-      spieler: { ...SPIELER, nachweis_stand: stand("1") },
-      schiedsrichter: [{ ...SCHIEDSRICHTER, nachweis_stand: stand("2") }],
-      registrierungen: [{ ...REGISTRIERUNG, nachweis_stand: stand("4") }],
-      sitze: [{ ...SITZ, nachweis_stand: stand("3") }],
-      bewerbungen: [{ ...BEWERBUNG_SITZ, nachweis_stand: stand("5") }],
+  /* What each control shows and presses from is its own record's, as served: a stored choice shown
+     inverted is sent as a grant on the next press of the other control, and a stand from another record
+     is refused as a stale page. Run twice, each value flipped, so a constant at any call site fails one. */
+  for (const gekippt of [false, true]) {
+    it(`hands each control its own record's choices, verdicts and stand${gekippt ? ", every value flipped" : ""}`, async () => {
+      setSubject(OHNE_FUNKTION);
+      const stand = (tag: string) => ({ umfang: null, medien: tag.repeat(64) });
+      // Within one run each kind differs from the next, so a value taken from another record shows too.
+      const ja = (wert: boolean): boolean => wert !== gekippt;
+      const person = ja(true) ? "intern" : "kader_oeffentlich";
+      const sitz = ja(true) ? "kontaktdaten" : "kontaktdaten_whatsapp";
+      answeringKonto({
+        spieler: {
+          ...SPIELER,
+          einwilligung: { ...SPIELER.einwilligung, umfang: person, medien: ja(true) },
+          erteilbar: ja(false),
+          medien_angeboten: ja(true),
+          nachweis_stand: stand("1"),
+        },
+        schiedsrichter: [
+          {
+            ...SCHIEDSRICHTER,
+            einwilligung: { ...SCHIEDSRICHTER.einwilligung, umfang: ja(false) ? "intern" : "kader_oeffentlich", medien: ja(false) },
+            erteilbar: ja(true),
+            medien_angeboten: ja(false),
+            nachweis_stand: stand("2"),
+          },
+        ],
+        registrierungen: [{ ...REGISTRIERUNG, umfang: person, medien: ja(false), nachweis_stand: stand("4") }],
+        sitze: [{ ...SITZ, umfang: sitz, medien: ja(true), erteilbar: ja(false), medien_angeboten: ja(false), nachweis_stand: stand("3") }],
+        bewerbungen: [
+          { ...BEWERBUNG_SITZ, umfang: ja(false) ? "kontaktdaten" : "kontaktdaten_whatsapp", medien: ja(false), nachweis_stand: stand("5") },
+        ],
+      });
+
+      const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+
+      assert.deepEqual(
+        panel.props.eintraege.map(({ id, control }) => [
+          id.split("-")[0],
+          control?.props.gespeichert,
+          control?.props.erteilbar,
+          control?.props.medienAngeboten,
+          control?.props.nachweisStand,
+        ]),
+        [
+          ["spieler", { umfang: person, medien: ja(true) }, ja(false), ja(true), stand("1")],
+          ["schiedsrichter", { umfang: ja(false) ? "intern" : "kader_oeffentlich", medien: ja(false) }, ja(true), ja(false), stand("2")],
+          // A pending registration and an application's seat take a withdrawal alone, whatever is served.
+          ["registrierung", { umfang: person, medien: ja(false) }, false, false, stand("4")],
+          ["sitz", { umfang: sitz, medien: ja(true) }, ja(false), ja(false), stand("3")],
+          ["bewerbung", { umfang: ja(false) ? "kontaktdaten" : "kontaktdaten_whatsapp", medien: ja(false) }, false, false, stand("5")],
+        ],
+      );
     });
-
-    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
-
-    assert.deepEqual(
-      panel.props.eintraege.map(({ id, control }) => [id.split("-")[0], control?.props.nachweisStand]),
-      [
-        ["spieler", stand("1")],
-        ["schiedsrichter", stand("2")],
-        ["registrierung", stand("4")],
-        ["sitz", stand("3")],
-        ["bewerbung", stand("5")],
-      ],
-    );
-  });
+  }
 
   /* Each record's ids are strings and its payload the same shape, so a control bound to another record's
      id, or to another kind's action, type-checks and sends its press to a record that refuses it. */
