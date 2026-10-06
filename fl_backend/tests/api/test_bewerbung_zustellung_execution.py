@@ -7,14 +7,13 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.schemas import FLBewerbungZustellungAngenommenPayload, FLBewerbungZustellungEreignisPayload
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, kontaktperson_document
+from tests.documents import kontaktperson_document
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -49,29 +48,18 @@ def kontakte() -> dict[str, Any]:
 
 
 def application(**overrides: Any) -> dict[str, Any]:
-    return {
-        "_id": BEWERBUNG_OID,
-        "saison_id": SAISON_ID,
-        "eingereicht_am": MAILED_ON,
-        "status": "eingereicht",
-        "team_id": None,
-        "schule": {
-            "team_name": "Zorbanax",
-            "full_name": "Zorbanax-Gesamtschule",
-            "shorthand": "ZX",
-            "schulform": "gesamtschule",
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": kontakte(),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-04-12",
-        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"first-{seat}") for seat in KONTAKT_ROLLEN}, today=MAILED_ON),
-        **overrides,
-    }
+    stored = documents.bewerbung_document(
+        BEWERBUNG_OID,
+        SAISON_ID,
+        "eingereicht",
+        kontakte=kontakte(),
+        eingereicht_am=MAILED_ON,
+        bestaetigungsfrist="2026-04-12",
+        schule=documents.neue_schule_document("Zorbanax", "ZX", full_name="Zorbanax-Gesamtschule", schulform="gesamtschule"),
+        link_prefix="first",
+    )
+
+    return {**stored, **overrides}
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

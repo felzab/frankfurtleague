@@ -15,9 +15,10 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, kontaktperson_document
+from tests.documents import kontaktperson_document
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -33,7 +34,8 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607960001")
 
 SCHOOL_NAME = "Zorbanax"
 
-RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_ROLLEN}
+RAW_PREFIX = "raw-token-for"
+RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_ROLLEN}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -54,29 +56,18 @@ def paired_kontakte(**overrides: Any) -> dict[str, Any]:
 
 
 def bewerbung_document(**overrides: Any) -> dict[str, Any]:
-    return {
-        "_id": BEWERBUNG_OID,
-        "saison_id": SAISON_ID,
-        "eingereicht_am": "2026-03-20",
-        "status": "eingereicht",
-        "team_id": None,
-        "schule": {
-            "team_name": SCHOOL_NAME,
-            "full_name": f"{SCHOOL_NAME}-Gesamtschule",
-            "shorthand": "ZX",
-            "schulform": "gesamtschule",
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": paired_kontakte(),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-04-03",
-        "bestaetigungen": compose_bestaetigungen(hashes=HASHES, today="2026-03-20"),
-        **overrides,
-    }
+    stored = documents.bewerbung_document(
+        BEWERBUNG_OID,
+        SAISON_ID,
+        "eingereicht",
+        kontakte=paired_kontakte(),
+        eingereicht_am="2026-03-20",
+        bestaetigungsfrist="2026-04-03",
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        link_prefix=RAW_PREFIX,
+    )
+
+    return {**stored, **overrides}
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

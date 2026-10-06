@@ -164,19 +164,31 @@ def bewerbung_document(
     *,
     kontakte: Mapping[str, Any],
     eingereicht_am: str,
-    bestaetigungsfrist: str,
+    bestaetigungsfrist: str | None = None,
     team_id: Any = None,
     schule: Mapping[str, Any] | None = None,
     link_prefix: str | None = None,
     verschickt_am: str | None = None,
     **fields: Any,
 ) -> dict[str, Any]:
-    """An application as the submission stores it: `team_id` for a school the league holds, `schule` for one it does not.
+    """A stored application, its school an existing club by `team_id` or a new one in `schule`.
 
-    Each seat's raw token is `<link_prefix>-<seat>`, minted on `verschickt_am`; by default the id and the submission's day.
+    Each link is minted from `<link_prefix>-<seat>` on `verschickt_am`, by default the id and the submission day.
+    Without `bestaetigungsfrist` it predates the confirmation flow.
     """
 
     prefix = str(bewerbung_id) if link_prefix is None else link_prefix
+    bestaetigung = (
+        {}
+        if bestaetigungsfrist is None
+        else {
+            "wunschgegner": None,
+            "bestaetigungsfrist": bestaetigungsfrist,
+            "bestaetigungen": compose_bestaetigungen(
+                hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=verschickt_am or eingereicht_am
+            ),
+        }
+    )
 
     return {
         "_id": bewerbung_id,
@@ -188,12 +200,8 @@ def bewerbung_document(
         "kontakte": dict(kontakte),
         "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
         "entscheidung": None,
-        "bestaetigungsfrist": bestaetigungsfrist,
-        "bestaetigungen": compose_bestaetigungen(
-            hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=verschickt_am or eingereicht_am
-        ),
+        **bestaetigung,
         **fields,
     }
 
