@@ -12,7 +12,7 @@ export const FLAktorMitAdresseZeileSchema = z.object({
   email_gesperrt: z.boolean(),
 });
 
-/** A signed-in person, named by a pseudonym and the Funktion the write was authorised under, and never by an address. */
+/** A signed-in person, named by a pseudonym and the kind of person the write was made as, and never by an address. */
 export const FLAktorPersonSchema = z.object({
   kind: z.enum(["person_session"]),
   pseudonym: z.string(),
