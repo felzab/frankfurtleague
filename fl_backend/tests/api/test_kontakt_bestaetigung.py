@@ -698,19 +698,25 @@ class TestTheLinkConfirms:
             pytest.param("stellvertretung", "trainer", id="the seat they also hold confirmed, the Trainer's not"),
         ],
     )
-    def test_a_half_confirmed_pair_confirms_only_the_seat_its_link_was_minted_for(self, mongo_replica_set_url: str, confirmed: str, newly: str):
-        """The earlier answer stands: its stamp, its date and its scope are the person's own, given on another day."""
+    def test_a_half_confirmed_pair_offers_and_confirms_only_the_seat_its_link_was_minted_for(
+        self, mongo_replica_set_url: str, confirmed: str, newly: str
+    ):
+        """The page names what the press writes: no second seat, and the floor of the one seat the link answers.
+
+        The earlier answer stands: its stamp, its date and its scope are the person's own, given on another day.
+        """
 
         before = {**STORED_UNCONFIRMED, confirmed: stored("Ida", bestaetigt_am="2026-03-20"), newly: stored("Lea")}
         spent = compose_kontakt_bestaetigung(token_hash=hash_token("the-link-already-answered"), today="2026-03-10")
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, PAIRED)
+            view = await ansicht(database, response.bestaetigungen[0].token)
             await answer(database, response.bestaetigungen[0].token)
 
-            return response, await row_now(database)
+            return response, view, await row_now(database)
 
-        response, row = on_a_league(
+        response, view, row = on_a_league(
             mongo_replica_set_url,
             body,
             kontakte=before,
@@ -718,38 +724,10 @@ class TestTheLinkConfirms:
         )
 
         assert [mint.rollen for mint in response.bestaetigungen] == [[newly]]
+        assert (view.rolle, view.zugleich_rolle, view.mindestalter) == (newly, None, SEAT_MIN_AGE_YEARS[newly])
         held = row["kontakte"][confirmed]
         assert (held["einwilligung"]["bestaetigt_am"], held["einwilligung"]["umfang"]) == ("2026-03-20", "kontaktdaten")
         assert row["kontakte"][newly]["einwilligung"]["bestaetigt_am"] == TODAY, "the press confirmed nothing, so this case proves nothing"
-
-    @pytest.mark.parametrize(
-        ("confirmed", "newly"),
-        [
-            pytest.param("trainer", "stellvertretung", id="the Trainer confirmed, the seat they come to hold not"),
-            pytest.param("stellvertretung", "trainer", id="the seat they also hold confirmed, the Trainer's not"),
-        ],
-    )
-    def test_a_half_confirmed_pair_s_view_offers_only_the_seat_its_link_was_minted_for(
-        self, mongo_replica_set_url: str, confirmed: str, newly: str
-    ):
-        """The page names what the press writes: no second seat, and the floor of the one seat the link answers."""
-
-        before = {**STORED_UNCONFIRMED, confirmed: stored("Ida", bestaetigt_am="2026-03-20"), newly: stored("Lea")}
-        spent = compose_kontakt_bestaetigung(token_hash=hash_token("the-link-already-answered"), today="2026-03-10")
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            response = await save(database, PAIRED)
-
-            return await ansicht(database, response.bestaetigungen[0].token)
-
-        view = on_a_league(
-            mongo_replica_set_url,
-            body,
-            kontakte=before,
-            row_fields={"bestaetigungen": {seat: spent if seat == confirmed else None for seat in SEATS}},
-        )
-
-        assert (view.rolle, view.zugleich_rolle, view.mindestalter) == (newly, None, SEAT_MIN_AGE_YEARS[newly])
 
     def test_a_widerspruch_empties_the_seat_records_it_and_redacts_the_rows_log(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
