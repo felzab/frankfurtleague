@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
@@ -531,16 +532,7 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: {
-    umfang: "kontaktdaten",
-    erfasst_von: "person",
-    text_version: "2025-08",
-    datum: "2025-09-01",
-    bestaetigt_am: "2025-09-02",
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
 });
 
 const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({

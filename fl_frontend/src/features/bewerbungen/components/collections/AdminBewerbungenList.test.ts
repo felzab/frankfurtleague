@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -23,16 +24,7 @@ function person(vorname: string, nachname: string, email: string, bestaetigtAm: 
     email: email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: {
-      umfang: "kontaktdaten",
-      erfasst_von: "administrativ",
-      text_version: "kontakte-1",
-      datum: "2026-05-01",
-      bestaetigt_am: bestaetigtAm,
-      medien: false,
-      eingetragen_von: null,
-      nachweis: { umfang: null, medien: null },
-    },
+    einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "kontakte-1", datum: "2026-05-01", bestaetigt_am: bestaetigtAm }),
   };
 }
 

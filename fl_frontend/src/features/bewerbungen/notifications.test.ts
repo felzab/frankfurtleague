@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { FLKontaktperson } from "../teams/schemas.ts";
@@ -91,16 +92,7 @@ function person(email: string): FLKontaktperson {
     email: email,
     telefon: "0151 12345678",
     geburtsdatum: "1990-04-01",
-    einwilligung: {
-      umfang: "kontaktdaten",
-      erfasst_von: "person",
-      text_version: "v1",
-      datum: "2026-04-01",
-      bestaetigt_am: "2026-04-02",
-      medien: false,
-      eingetragen_von: null,
-      nachweis: { umfang: null, medien: null },
-    },
+    einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "v1", datum: "2026-04-01", bestaetigt_am: "2026-04-02" }),
   };
 }
 

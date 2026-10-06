@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
@@ -416,16 +417,7 @@ const SEAT_ROWS = KONTAKT_ROLLEN.map(({ value }, index): AdminBewerbungRow => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: {
-      umfang: "kontaktdaten",
-      erfasst_von: "person",
-      text_version: "2026-08",
-      datum: "2026-08-01",
-      bestaetigt_am: null,
-      medien: false,
-      eingetragen_von: null,
-      nachweis: { umfang: null, medien: null },
-    },
+    einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
   };
 
   return {

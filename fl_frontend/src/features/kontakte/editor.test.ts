@@ -23,6 +23,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActionRequest, doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answer,
@@ -97,16 +98,7 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: {
-    umfang: "kontaktdaten",
-    erfasst_von: "person",
-    text_version: "1",
-    datum: "2026-03-12",
-    bestaetigt_am: "2026-03-14",
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */

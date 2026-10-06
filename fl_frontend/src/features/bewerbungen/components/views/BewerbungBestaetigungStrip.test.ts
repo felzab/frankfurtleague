@@ -18,6 +18,7 @@ import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/sch
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { toFieldErrors } from "@/shared/utils/validation.ts";
 
@@ -58,16 +59,12 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null = nu
   email: email,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  }),
 });
 
 const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };

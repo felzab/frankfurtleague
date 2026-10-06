@@ -7,6 +7,7 @@ import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { toActionErrorResult, unansweredAction } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
@@ -254,16 +255,7 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: {
-        umfang: "kontaktdaten",
-        erfasst_von: "person",
-        text_version: FORM_LABEL,
-        datum: "2026-09-01",
-        bestaetigt_am: null,
-        medien: false,
-        eingetragen_von: null,
-        nachweis: { umfang: null, medien: null },
-      },
+      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer_ist_zugleich: null,

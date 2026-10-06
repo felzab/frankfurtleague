@@ -13,6 +13,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
@@ -363,16 +364,12 @@ const kontaktperson = (vorname: string, email: string | null, bestaetigtAm: stri
   email: email ?? `${vorname.toLowerCase()}@schule.example`,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  }),
 });
 const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 const OFFENE_BESTAETIGUNGEN = { ansprechperson: SITZ, stellvertretung: SITZ, trainer: { ...SITZ, abgelehnt_am: "2026-09-03" } };

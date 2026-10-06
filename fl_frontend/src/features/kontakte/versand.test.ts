@@ -6,6 +6,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -83,14 +84,7 @@ const sitz = (vorname: string, email: string) => ({
 const gespeichert = (vorname: string, email: string) => ({
   ...sitz(vorname, email),
   geburtsdatum: null,
-  einwilligung: {
-    ...sitz(vorname, email).einwilligung,
-    erfasst_von: "administrativ" as const,
-    bestaetigt_am: null,
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, erfasst_von: "administrativ", bestaetigt_am: null }),
 });
 
 const BLOCK = {

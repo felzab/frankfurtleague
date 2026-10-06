@@ -16,6 +16,7 @@ import ts from "typescript";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
@@ -121,16 +122,7 @@ const PERSON = (vorname: string, email: string) => ({
   email,
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: {
-    umfang: "kontaktdaten" as const,
-    erfasst_von: "person" as const,
-    text_version: "1",
-    datum: "2026-03-12",
-    bestaetigt_am: "2026-03-14",
-    medien: false,
-    eingetragen_von: null,
-    nachweis: { umfang: null, medien: null },
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
 const TEAM_B = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "SG Beta", shorthand: "SB" };
@@ -184,16 +176,7 @@ const staende = async () => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: {
-      umfang: "kontaktdaten" as const,
-      erfasst_von: "administrativ" as const,
-      text_version: "1",
-      datum: "2026-09-01",
-      bestaetigt_am: null,
-      medien: false,
-      eingetragen_von: null,
-      nachweis: { umfang: null, medien: null },
-    },
+    einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "1", datum: "2026-09-01", bestaetigt_am: null }),
   });
   const offen = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 
