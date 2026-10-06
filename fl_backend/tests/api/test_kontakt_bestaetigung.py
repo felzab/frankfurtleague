@@ -62,6 +62,7 @@ from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import InterleavedCollection
 from tests.records import record_collections
+from tests.whole_database import every_collection_as_text
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -374,10 +375,6 @@ async def refused(call: Awaitable[Any]) -> str:
         await call
 
     return refusal.value.error_code
-
-
-async def every_collection_as_text(database: AsyncDatabase) -> str:
-    return "".join([str(await database[name].find({}).to_list(length=None)) for name in await database.list_collection_names()])
 
 
 async def seats_of(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> list[tuple[str, str]]:
