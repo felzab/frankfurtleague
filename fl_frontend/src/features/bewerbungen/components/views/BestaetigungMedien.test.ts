@@ -123,6 +123,7 @@ describe("the media switch, offered from the media age alone", () => {
             acknowledged: 1,
             zustand: "gueltig",
             quelle: "bewerbung",
+            zeile: null,
             saison_id: "2026",
             schule: "Lessing-Kolleg",
             rolle: "trainer",

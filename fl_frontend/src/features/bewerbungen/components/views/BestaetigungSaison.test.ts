@@ -35,6 +35,7 @@ const ANSICHT = {
   acknowledged: 1 as const,
   zustand: "gueltig" as const,
   quelle: "saison" as const,
+  zeile: "offen" as const,
   saison_id: "2627",
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson" as const,

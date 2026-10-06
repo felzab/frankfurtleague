@@ -47,6 +47,8 @@ import {
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
 
+import type { KontaktZeile } from "@/core/kontaktEmail";
+
 /**
  * Mirrors `FLBewerbungStatus`. `eingereicht` is the only state a submission arrives in; the other two
  * are the triage's, and the two triage endpoints are the only writers of either.
@@ -626,6 +628,12 @@ export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEi
  * What a link is told before any press: school, season, seat and first name, and nothing else of
  * the person. The surname never travels, so a leaked link learns no name to look anything up against.
  */
+/**
+ * Mirrors `FLKontaktZeile` — the season row's state a link was minted on or is read against, which fixes
+ * what its page takes. An ended season outranks a team that left it.
+ */
+export const FLKontaktZeileSchema = z.enum(["offen", "saison_vorbei", "ausgetreten"] as const satisfies readonly KontaktZeile[]);
+
 export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
   // unknown token has nothing to answer with and reaches the page as a 409.
@@ -633,6 +641,8 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   // Which record the token opened: an application's seat, or a seat an administrator typed onto a
   // team's season row, whose reader applied for nothing.
   quelle: z.enum(["bewerbung", "saison"]),
+  // A season row's state, which names the one cause a closed row's page states; null on an application's link.
+  zeile: FLKontaktZeileSchema.nullable(),
   saison_id: z.string(),
   schule: z.string(),
   rolle: FLKontaktRolleSchema,
