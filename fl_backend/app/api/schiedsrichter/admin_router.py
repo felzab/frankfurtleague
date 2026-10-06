@@ -47,6 +47,7 @@ from app.api.schiedsrichter.services import (
     first_stamped,
     owes_reactivation_mint,
     save_asks_an_address_change,
+    save_drops_a_pending_address,
     save_moves_the_link,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
@@ -171,9 +172,11 @@ async def patch_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     sperrliste: SperrlisteLookup,
+    aktionen_collection: AktionenCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLPatchSchiedsrichterResponse:
     """
     Update a referee, then update the embedded name on every Spiel that uses them.
@@ -188,8 +191,10 @@ async def patch_schiedsrichter(
     and the typed one is held as a pending change until its own mailbox confirms it, the save
     answering `adresswechsel` with that link and the address it replaces, for the caller to mail the
     link to the new address and a notice to the stored one. Retired or not: the record is theirs
-    either way. A new pending change replaces an earlier one, whose link stops working; a save
-    leaving the address alone leaves a pending change standing. Its consent is never asked again.
+    either way. A new pending change replaces an earlier one, whose link stops working, and where it
+    names another mailbox the earlier address goes from the action log as a decline's does
+    (`docs/backend/spec.md :: I_NEW_KREF_4`); a save leaving the address alone leaves a pending change
+    standing. Its consent is never asked again.
 
     **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
     collected for a role nobody gives them. Their old link is retired all the same, and the
@@ -217,9 +222,10 @@ async def patch_schiedsrichter(
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
-            projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
+            projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1, f"{ADRESSWECHSEL_FELD}.email": 1},
             session=session,
         )
+        verwirft = save_drops_a_pending_address(stored=stored, payload_email=email)
         if save_moves_the_link(stored=stored, payload_email=email) or save_asks_an_address_change(stored=stored, payload_email=email):
             refuse_unconfirmed()
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, token_hash=token_hash, today=today)
@@ -238,6 +244,16 @@ async def patch_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
+
+        if verwirft:
+            # After the patch, for the decline's reason: it reaches the pre-image this save just filed,
+            # which still holds the address it replaced.
+            await patch_many_in_db(
+                collection=aktionen_collection,
+                db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
+                update=build_redaction_update(at=log_stamp(germany_now)),
+                session=session,
+            )
 
         fan_out = await patch_many_in_db(
             collection=spiele_collection,
@@ -553,18 +569,23 @@ async def einladen_adresswechsel(
 async def delete_adresswechsel(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
+    aktionen_collection: AktionenCollection,
     db: DBClient,
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterWriteResponse:
     """
     Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.
 
-    Nothing is mailed. 404 where the referee holds no pending change, and for an id no referee holds, the ghost's included.
+    **The address goes from the action log too** (`docs/backend/spec.md :: I_NEW_KREF_4`): every image the log holds of this
+    referee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one
+    carrying an address nobody proved. Nothing is mailed. 404 where the referee holds no pending change, and for an id no
+    referee holds, the ghost's included.
     """
 
     async def discard_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
         # The filter is the judgement, as the registration link's revocation's is: `patch_one_in_db`
         # answers a miss with the 404, so no read stands between finding the change and removing it.
-        return await patch_one_in_db(
+        updated = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter=build_pending_adresswechsel_filter(schiedsrichter_id),
             update={"$unset": {ADRESSWECHSEL_FELD: ""}},
@@ -572,7 +593,18 @@ async def delete_adresswechsel(
             return_document=ReturnDocument.AFTER,
         )
 
-    # A transaction over one update, so the write and the log row recording it land together.
+        # LAST, for the contact's Widerspruch's reason: it reaches the pre-image the patch above
+        # just filed, which still holds the discarded address.
+        await patch_many_in_db(
+            collection=aktionen_collection,
+            db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
+            update=build_redaction_update(at=log_stamp(germany_now)),
+            session=session,
+        )
+
+        return updated
+
+    # One transaction, so the write, the log row recording it and the redaction land together.
     async with transaction_session(db) as session:
         updated_document_raw = await session.with_transaction(discard_the_change)
 

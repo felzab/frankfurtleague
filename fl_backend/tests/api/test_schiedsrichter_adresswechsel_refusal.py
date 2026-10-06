@@ -32,6 +32,7 @@ from app.api.schiedsrichter.services import (
     compose_einwilligung,
     compose_korrektur_update,
     save_asks_an_address_change,
+    save_drops_a_pending_address,
     save_moves_the_link,
 )
 from app.core.collections import Collection
@@ -90,6 +91,25 @@ class TestWhichSaveAsksTheNewMailbox:
         assert not (save_asks_an_address_change(stored=stored, payload_email=NEW) and save_moves_the_link(stored=stored, payload_email=NEW))
 
 
+class TestWhichSaveDropsAPendingAddress:
+    """Only a save typing another mailbox over a pending one drops an address nobody proved, which the log then loses."""
+
+    @pytest.mark.parametrize(
+        ("pending", "payload_email", "drops"),
+        [
+            pytest.param("anna@neu.example", NEW, True, id="another-mailbox"),
+            # One mailbox: a domain has no case (RFC 5321 §2.4), so the re-mint keeps the address.
+            pytest.param(NEW, "anna.neu@EXAMPLE.com", False, id="same-mailbox"),
+            pytest.param("anna@neu.example", STORED, False, id="address-on-file-kept"),
+            pytest.param(None, NEW, False, id="nothing-pending"),
+        ],
+    )
+    def test_it_is_a_save_naming_another_mailbox(self, pending: str | None, payload_email: str, drops: bool):
+        stored = {**stored_row(einwilligung=confirmed()), **({} if pending is None else {ADRESSWECHSEL_FELD: {"email": pending}})}
+
+        assert save_drops_a_pending_address(stored=stored, payload_email=payload_email) is drops
+
+
 class TestTheSaveOnAConfirmedReferee:
     def test_the_stored_address_stays_in_whichever_spelling_it_was_stored(self):
         update, minted = compose_korrektur_update(
@@ -140,20 +160,28 @@ class TestWhatALeakedLinkLearns:
     def test_the_answer_echoes_the_press_alone(self):
         assert set(FLSchiedsrichterAdresswechselResponse.model_fields) - {"acknowledged"} == {"antwort"}
 
-    def test_the_read_projects_no_hash_and_no_stored_address(self):
+    def test_the_read_projects_no_hash_and_of_the_contact_the_address_alone(self):
+        """The two addresses are read for the ban list, the response model being what keeps them off the answer."""
+
         projected = set(ADRESSWECHSEL_ANSICHT_FIELDS)
 
         assert f"{ADRESSWECHSEL_FELD}.token_hash" not in projected
-        assert not any(path.startswith("kontakt") for path in projected)
+        assert {path for path in projected if path.startswith("kontakt")} == {"kontakt.email"}
 
 
 class TestTheState:
+    """Ranked as the press refuses a confirmation: `-009`, then `-003`, then `-010`."""
+
     def test_a_ban_ranks_ahead_of_the_deadline(self):
-        assert adresswechsel_zustand_of(wechsel={"frist": "2026-01-01"}, today=TODAY, gesperrt=True) == "gesperrt"
+        assert adresswechsel_zustand_of(wechsel={"frist": "2026-01-01"}, today=TODAY, gesperrt=True, ersetzte_gesperrt=True) == "gesperrt"
 
     @pytest.mark.parametrize(("frist", "zustand"), [(TODAY, "gueltig"), ("2026-03-31", "abgelaufen"), (None, "abgelaufen")])
     def test_the_last_valid_day_is_the_deadline_itself(self, frist: Any, zustand: str):
-        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False) == zustand
+        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False, ersetzte_gesperrt=False) == zustand
+
+    @pytest.mark.parametrize(("frist", "zustand"), [(TODAY, "nicht_bestaetigbar"), ("2026-03-31", "abgelaufen")])
+    def test_a_ban_on_the_replaced_address_ranks_behind_the_deadline(self, frist: str, zustand: str):
+        assert adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False, ersetzte_gesperrt=True) == zustand
 
 
 class TestTheLookups:

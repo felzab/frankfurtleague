@@ -51,8 +51,17 @@ const BODY = {
   default_payment: 20,
 };
 
+/** What the editor sends: those values, and whether the save being undone left a new address waiting. */
+const REQUEST = { ...BODY, adresswechsel_gespeichert: false };
+
 /** The referee as the replay stored it, which every answer below echoes. */
 const STORED = { ...BODY, inactive_since: null, geburtsdatum: null, einwilligung: null, bestaetigung: null, adresswechsel: null };
+
+/** A change still waiting on its mailbox after the replay, which writes the fields back and leaves it standing. */
+const WARTEND = {
+  ...STORED,
+  adresswechsel: { email: "neu@example.de", verschickt_am: "2026-10-01", frist: "2026-10-15", zustellung: null },
+};
 
 function aRequest(body: unknown, headers: Record<string, string> = {}) {
   return { headers: new Headers(headers), json: async () => body } as unknown as Parameters<typeof POST>[0];
@@ -64,7 +73,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<{ success: b
 
 describe("the referee save's undo", () => {
   it("replays the stored values and drops the fixture cache", async () => {
-    const answer = await bodyOf(aRequest(BODY));
+    const answer = await bodyOf(aRequest(REQUEST));
 
     assert.equal(answer.success, true);
     const { id, ...stored } = BODY;
@@ -85,7 +94,7 @@ describe("the referee save's undo", () => {
       }),
     );
 
-    const answer = await bodyOf(aRequest(BODY));
+    const answer = await bodyOf(aRequest(REQUEST));
 
     assert.equal(answer.success, true);
     assert.deepEqual(
@@ -108,7 +117,7 @@ describe("the referee save's undo", () => {
       }),
     );
 
-    const answer = await bodyOf(aRequest(BODY));
+    const answer = await bodyOf(aRequest(REQUEST));
 
     assert.deepEqual(
       mail.sent.map(({ to }) => to),
@@ -131,7 +140,7 @@ describe("the referee save's undo", () => {
       }),
     );
 
-    const answer = await bodyOf(aRequest(BODY));
+    const answer = await bodyOf(aRequest(REQUEST));
 
     assert.equal(answer.success, true);
     assert.equal(answer.warn, true);
@@ -139,7 +148,7 @@ describe("the referee save's undo", () => {
   });
 
   it("mails nothing where the replay minted nothing", async () => {
-    await bodyOf(aRequest(BODY));
+    await bodyOf(aRequest(REQUEST));
 
     assert.deepEqual(mail.sent, []);
   });
@@ -148,7 +157,7 @@ describe("the referee save's undo", () => {
     const answers = await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
       refuse: (code) => answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code))),
-      press: () => bodyOf(aRequest(BODY)),
+      press: () => bodyOf(aRequest(REQUEST)),
     });
 
     assert.match(answers.get("REQ-SCHIEDSRICHTER-007") ?? "", /Sperrliste/, "the blocked address is worded as something else");
@@ -160,13 +169,36 @@ describe("the referee save's undo", () => {
       Promise.resolve({ acknowledged: 0, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
     );
 
-    const answer = await bodyOf(aRequest(BODY));
+    const answer = await bodyOf(aRequest(REQUEST));
 
     assert.deepEqual(answer, unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten."));
   });
 
+  /* The discard is the editor's control, so an undo of the save that typed the address says it still waits. */
+  it("says the new address still waits where the undone save was the one that left it", async () => {
+    answerWith(() =>
+      Promise.resolve({ acknowledged: 1, updated_document: WARTEND, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
+    );
+
+    const answer = await bodyOf(aRequest({ ...REQUEST, adresswechsel_gespeichert: true }));
+
+    assert.equal(answer.success, true);
+    assert.match(answer.message ?? "", /Die neue E-Mail-Adresse wartet weiter auf Bestätigung/);
+  });
+
+  it("says nothing of a waiting address where the undone save moved something else", async () => {
+    answerWith(() =>
+      Promise.resolve({ acknowledged: 1, updated_document: WARTEND, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
+    );
+
+    const answer = await bodyOf(aRequest(REQUEST));
+
+    assert.equal(answer.success, true);
+    assert.doesNotMatch(answer.message ?? "", /wartet weiter/);
+  });
+
   it("turns a cross-site caller away without replaying anything", async () => {
-    await bodyOf(aRequest(BODY, { "sec-fetch-site": "cross-site" }));
+    await bodyOf(aRequest(REQUEST, { "sec-fetch-site": "cross-site" }));
 
     assert.deepEqual(calls, []);
   });

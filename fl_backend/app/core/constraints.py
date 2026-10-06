@@ -846,7 +846,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "inactive_since": _INACTIVE_SINCE,
                 # The confirmation bookkeeping a message to this referee is recorded against
                 # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`: the ghost and
-                # a row never minted a link carry none, and correcting a retired referee's address
+                # a row never minted a link carry none, and correcting an unconfirmed retired referee's address
                 # removes it (`app/api/schiedsrichter/services.py :: compose_korrektur_update`).
                 "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
                 # A delivery carrier too. Out of `required`: only a confirmed referee whose address

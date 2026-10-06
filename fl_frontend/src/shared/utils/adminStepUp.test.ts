@@ -419,13 +419,18 @@ describe("an administrator write the server holds to the step-up window", () => 
 
 const ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
 
-/** A referee's undo body, the save's payload with its address set to `email`. */
+/**
+ * A referee's undo body as the editor sends it: the save's payload with its address set to `email`, and
+ * the route's own word on whether the undone save left a new address waiting, as the kontakte drive
+ * carries its route's `kontakte_stand`.
+ */
 const refereeReplay = (email: string) => ({
   id: REFEREE_ID,
   name: "Anna Körner",
   schule: null,
   default_payment: 20,
   kontakt: { telefon: null, email },
+  adresswechsel_gespeichert: false,
 });
 
 /**
