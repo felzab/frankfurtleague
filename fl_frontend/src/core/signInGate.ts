@@ -17,8 +17,9 @@ const PAYLOAD_REFUSED = "REQ-VAL-001";
 // React's `cache`, never `"use cache"`, which would hand one request's grant to another: the guards
 // and the switcher of one render share one read, and outside a render nothing is kept.
 /**
- * One folded mailbox's records, ban and grant, every caller reading them through this one call. Throws
- * on every backend failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
+ * One folded mailbox's records, ban and grant, every reader but the sign-in gate taking them through this
+ * one call: the gate, a passkey enrolment's included, reads `lookUpAnmeldung`. Throws on every backend
+ * failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
  */
 export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession["subjekt"]> => {
   const payload: FLSubjektPayload = { email: email };
