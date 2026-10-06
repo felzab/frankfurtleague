@@ -211,7 +211,8 @@ async def annehmen_bewerbung(
             # re-read off no session, which sees `eingereicht` anyway.
             db_filter={"_id": bewerbung_id, "status": "eingereicht"},
             # `team_id` too: a new school's application named none until this write, and without it
-            # nothing joins the accepted application to the club it produced.
+            # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
+            # only the season row's copy moves after.
             update={"$set": {"status": "angenommen", "team_id": team_id, "entscheidung": _entscheidung(today=today, von=von, grund=None)}},
             session=session,
             return_document=ReturnDocument.AFTER,
