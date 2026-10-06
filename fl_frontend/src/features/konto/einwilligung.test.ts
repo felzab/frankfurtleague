@@ -7,6 +7,7 @@ import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import {
   BEWERBUNG_NICHT_MEHR_OFFEN,
   EINTRAG_WEG,
+  EINWILLIGUNG_WAHL_SAETZE,
   mapBewerbungEinwilligungRefusal,
   mapEigeneEinwilligungRefusal,
   mapRegistrierungEinwilligungRefusal,
@@ -59,15 +60,21 @@ const EIGENE_WEITERE = [
 ];
 
 describe("the consent writes' mappers", () => {
-  /* A shared code no consent write publishes is a sentence nobody can be shown. */
-  it("answers no shared code that no consent write publishes", () => {
+  /* A code the mappers word that no consent write publishes is a sentence nobody can be shown: read off
+     the mappers' own set, never this suite's table. */
+  it("words no shared code that no consent write publishes", () => {
     const veroeffentlicht = new Set(
       [...MAPPERS.map(([, operation]) => operation), ...EIGENE_WEITERE].flatMap((operation) => [...codesOf(operation)]),
     );
     assert.deepEqual(
-      GETEILT.map(([code]) => code).filter((code) => !veroeffentlicht.has(code)),
+      Object.keys(EINWILLIGUNG_WAHL_SAETZE).filter((code) => !veroeffentlicht.has(code)),
       [],
     );
+  });
+
+  /* The table below asks each worded code's sentence, so a code the mappers gain is asked too. */
+  it("asks every code the mappers share", () => {
+    assert.deepEqual(GETEILT.map(([code]) => code).sort(), Object.keys(EINWILLIGUNG_WAHL_SAETZE).sort());
   });
 
   for (const [art, operation, mapper, eintragWeg] of MAPPERS) {
