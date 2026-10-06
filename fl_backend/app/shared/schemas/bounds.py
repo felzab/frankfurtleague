@@ -170,8 +170,8 @@ ENROLMENT_WINDOW_MINUTES: Final = 5
 STEP_UP_WINDOW_HOURS: Final = 2
 
 # The ceilings below assume a person-lane write persists at most 10 KB, its action-log row included:
-# one person at the highest then takes over a year to reach the 3.5 GB storage alert. A redesigned log
-# keeps that bound.
+# one person at the highest then takes over a year to reach the storage alert
+# (`docs/ops/runbooks.md :: 19-the-databases-storage-alert`). A redesigned log keeps that bound.
 
 # A signed-in person's counted writes per German day, by Funktion, each about three to five times its
 # kind's busiest legitimate day (`docs/backend/spec.md :: I614`). A pupil's is the first visit: two

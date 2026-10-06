@@ -26,7 +26,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [16. The secret files](#16-the-secret-files)                                                                                                    | What each holds, and how each machine makes its own            |
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                                    | What `pnpm install` fetches, and what a bare `node` still runs |
-| [19. The database's storage alert](#19-the-databases-storage-alert)                                                                             | What fills the tier unseen, and the one alert that shows it    |
+| [19. The database's storage alert](#19-the-databases-storage-alert)                                                                             | What fills the tier unseen, and the two alerts that show it    |
 
 ---
 
@@ -1522,24 +1522,37 @@ of the line keeps every security flaw fixed since.
 
 ## 19. The database's storage alert
 
-**Nothing in this repository watches how full the database is, and the production tier stops at a
-hard limit**: 5 GB of documents and indexes together, past which every write fails, so the
-application shows it as every save failing at once. What keeps one person from filling it is the
-daily write ceiling (`docs/backend/spec.md :: I614`, its numbers
-`fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two siblings), sized
-so that no one person writing 10 KB a write at their ceiling every day reaches the alert below within
-a year. The alert shows the rest: many people at once, the action log's own growth, or counts that
-stopped expiring.
+**Nothing in this repository watches how full the database is, and the production tier has a hard
+limit**: 5 GB of documents and indexes together. What a write meets past it is unverified: MongoDB's
+page on the limit states the size and not the behaviour, so plan for every save failing at once.
+What keeps one person from filling it is the daily write ceiling (`docs/backend/spec.md :: I614`,
+its numbers `fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two
+siblings), sized so that no one person writing 10 KB a write at their ceiling every day reaches the
+first alert below within a year. The alerts show the rest: many people at once, the action log's own
+growth, or counts that stopped expiring.
+
+**No alert on a Flex cluster reads the limit's own measure at a threshold we choose.** The one size
+condition it takes a threshold on, `DB Data Size is`, reads documents alone, so it is set low enough
+to leave the indexes room, and the fixed alert reading both stays on behind it:
 
 1. In the Atlas console's alert settings for the project, add an alert on `DB Data Size is` above
-   3.5 GB, notifying the league's own address. Atlas's built-in `Flex metric outside threshold`
-   fires only past 4 GB, too close to the limit to act on.
-2. Read the alert back in the console's list of alert settings.
+   2 GB, notifying the league's own address. It fires ahead of step 2's alert as long as the
+   indexes stay smaller than the documents.
+2. Add an alert on `Flex metric outside threshold`, notifying the same address, which Atlas does not
+   set for a new project. It reads documents and indexes together and fires past 4 GB: it is the one
+   alert on the limit's own measure, so it is the backstop where the indexes outgrow the documents,
+   and never the warning, since it leaves a fifth of the limit.
+3. Read both back in the console's list of alert settings.
 
-Both names and both figures are copied from MongoDB's Atlas documentation on alert conditions and on
-Flex limitations, which move without us; read 2026-10-07.
+The condition names and figures are copied from MongoDB's Atlas documentation, which moves without
+us; read 2026-10-07:
 
-**When it fires, find the collection that grew**, from the cluster's collection sizes in the Atlas
-console. `drosselung` holds one row per person, kind of person and day, which its TTL index removes
-(`docs/backend/spec.md :: I619`), so a large one there is the TTL monitor stopping rather than people
-writing.
+- the conditions and what each measures: https://www.mongodb.com/docs/atlas/reference/alert-conditions/
+- the limit and what it counts: https://www.mongodb.com/docs/atlas/reference/flex-limitations/
+- the alerts a new project gets: https://www.mongodb.com/docs/atlas/configure-alerts/
+
+**When either fires, find the collection that grew**, from the cluster's collection and index sizes
+in the Atlas console. `drosselung` holds one row per person, kind of person and day, which its TTL
+index removes (`docs/backend/spec.md :: I619`), so a large one there is the TTL monitor stopping
+rather than people writing. Indexes larger than the documents put step 1's alert behind step 2's:
+lower its threshold below 4 GB times the documents' share of documents and indexes.
