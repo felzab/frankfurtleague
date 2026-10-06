@@ -291,9 +291,12 @@ describe("what the security section tells its reader", () => {
 const { answerReadsWith, EMPTIEST_ANSWER, renderPage } = await import("@/shared/testing/pageHarness.ts");
 const { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
 const { FESTE_WERTE } = await import("@/features/bewerbungen/components/ui/Gefuellt.tsx");
-const { bestaetigteWorte, NUR_WIDERRUF_BIS_AUFNAHME, NUR_WIDERRUF_BIS_ZUSAGE } =
-  await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
+const { bestaetigteWorte } = await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
 const { FLKontoEinwilligungenResponseSchema } = await import("./schemas.ts");
+
+/** One withdraw-only reason as the account page's running wording for `seite` serves it. */
+const reason = (seite: "konto_spieler" | "konto_kontakt", schluessel: string): string =>
+  publishedLaufendeFassung(seite).absaetze_nach_schluessel?.[schluessel] ?? assert.fail(`${seite} serves no ${schluessel}`);
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
 
@@ -475,12 +478,12 @@ describe("the account page's consent section", () => {
 
     const text = await sectionText();
     assert.ok(text.includes("Als Ansprechperson: Bewerbung für Goethe-Gymnasium, Saison 2627"), text);
-    assert.ok(text.includes(NUR_WIDERRUF_BIS_ZUSAGE), "the seat does not say why it only withdraws");
+    assert.ok(text.includes(reason("konto_kontakt", "nurWiderrufBisZusage")), "the seat does not say why it only withdraws");
     assert.equal(await disclosures(), 1);
 
     const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
     const [eintrag] = panel.props.eintraege;
-    const control = eintrag?.control.props;
+    const control = eintrag?.control?.props;
     assert.deepEqual([control?.erteilbar, control?.medienAngeboten, control?.nachweisStand], [false, false, BEWERBUNG_SITZ.nachweis_stand]);
   });
 
@@ -500,7 +503,7 @@ describe("the account page's consent section", () => {
     const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
 
     assert.deepEqual(
-      panel.props.eintraege.map(({ id, control }) => [id.split("-")[0], control.props.nachweisStand]),
+      panel.props.eintraege.map(({ id, control }) => [id.split("-")[0], control?.props.nachweisStand]),
       [
         ["spieler", stand("1")],
         ["schiedsrichter", stand("2")],
@@ -528,16 +531,52 @@ describe("the account page's consent section", () => {
 
     const text = await sectionText();
     assert.ok(text.includes("Registrierung: Lessing Lions, Saison 2627"), text);
-    assert.ok(text.includes(NUR_WIDERRUF_BIS_AUFNAHME), "the registration does not say why it only withdraws");
+    assert.ok(text.includes(reason("konto_spieler", "nurWiderrufBisAufnahme")), "the registration does not say why it only withdraws");
     for (const wert of ["Nele Brandt", "14.02.2008", "Mittelfeld", "Q1"])
       assert.ok(text.includes(wert), `the registration's stored „${wert}“ is not shown`);
 
     const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
-    const control = panel.props.eintraege[0]?.control.props;
+    const control = panel.props.eintraege[0]?.control?.props;
     assert.deepEqual(
       [control?.erteilbar, control?.medienAngeboten, control?.gespeichert],
       [false, false, { umfang: "kader_oeffentlich", medien: true }],
     );
+  });
+
+  /* A returning pupil's registration asks no choice: their own record holds the choices, so the entry
+     shows what the registration stores and offers no control a press there would be refused at. */
+  it("lists a returning pupil's registration with its stored data and no control", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, umfang: null, medien: null }] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Registrierung: Lessing Lions, Saison 2627"), text);
+    for (const wert of ["Nele Brandt", "14.02.2008"]) assert.ok(text.includes(wert), `the registration's stored „${wert}“ is not shown`);
+
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+    assert.equal(panel.props.eintraege[0]?.control, undefined, "a choiceless registration is offered a control");
+  });
+
+  /* Each reason stands beside the record its cause holds and no other: a pending registration's sentence
+     beside an active pupil's record, or a past season's beside a live seat, misstates the record. */
+  it("shows a withdraw-only reason beside its own record alone", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ spieler: SPIELER, sitze: [SITZ] });
+    const aktiv = await sectionText();
+    for (const [seite, schluessel] of [
+      ["konto_spieler", "nurWiderrufNichtAktiv"],
+      ["konto_spieler", "nurWiderrufBisAufnahme"],
+      ["konto_kontakt", "nurWiderrufVorbei"],
+      ["konto_kontakt", "nurWiderrufBisZusage"],
+    ] as const) {
+      assert.ok(!aktiv.includes(reason(seite, schluessel)), `an active record carries ${schluessel}`);
+    }
+
+    answeringKonto({ spieler: { ...SPIELER, erteilbar: false }, sitze: [{ ...SITZ, erteilbar: false }] });
+    const vorbei = await sectionText();
+    assert.ok(vorbei.includes(reason("konto_spieler", "nurWiderrufNichtAktiv")), "a retired pupil's record does not say why it only withdraws");
+    assert.ok(vorbei.includes(reason("konto_kontakt", "nurWiderrufVorbei")), "a past season's seat does not say why it only withdraws");
+    assert.ok(!vorbei.includes(reason("konto_spieler", "nurWiderrufBisAufnahme")), "a retired pupil is told about a registration");
   });
 
   /* The stamped words promise the person sees what is stored: the pupil's and the referee's records show

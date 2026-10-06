@@ -11,18 +11,19 @@ import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { EinwilligungForm } from "./EinwilligungForm";
 
 /**
- * One consent record on the account page: its stored data, its control, and the words its person
- * confirmed. The control comes rendered, each record typing its own choices and its own write.
+ * One record on the account page: its stored data, its control, and the words its person confirmed. The
+ * control comes rendered, each record typing its own choices and its own write.
  */
 export type EinwilligungEintrag = {
   readonly id: string;
   /** Names the record, so a person holding several reads which one each control moves. */
   readonly titel: string;
-  /** The record's stored data, read-only; absent on a seat, whose data its team's page shows. */
+  /** The record's stored data, read-only; absent on every seat, a pending application's included, which serves none. */
   readonly angaben?: ReactNode;
   /** The confirmed wording, read-only; `null` where the record names none the registry holds. */
   readonly bestaetigt: ReactNode;
-  readonly control: ReactElement<ComponentProps<typeof EinwilligungForm>>;
+  /** Absent on a record holding no choice of its own, a returning pupil's registration: its data stands alone. */
+  readonly control?: ReactElement<ComponentProps<typeof EinwilligungForm>>;
 };
 
 /** The words a person agreed to, apart from the control's own: a press changes the choice, never what was agreed. */

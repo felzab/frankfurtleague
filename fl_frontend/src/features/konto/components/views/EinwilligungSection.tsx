@@ -17,14 +17,13 @@ import { EinwilligungPanel } from "../forms/EinwilligungForm/EinwilligungPanel";
 import {
   bestaetigteWorte,
   bewerbungTitel,
-  bewerbungWorte,
-  NUR_WIDERRUF_BIS_AUFNAHME,
-  personWorte,
   registrierungTitel,
   schiedsrichterTitel,
+  schiedsrichterWorte,
   sitzTitel,
   sitzWorte,
   SPIELER_TITEL,
+  spielerWorte,
 } from "../forms/EinwilligungForm/kontoWorte";
 
 import type { EinwilligungEintrag } from "../forms/EinwilligungForm/EinwilligungPanel";
@@ -67,7 +66,8 @@ export async function EinwilligungSection() {
       }),
       control: (
         <EinwilligungForm
-          worte={personWorte(await getLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE)}
+          // Withdraw-only where the pupil is not active, with the reason their label gives for it.
+          worte={spielerWorte(await getLaufendeFassung("konto_spieler"), SPIELER_UMFANG_FRAGE, spieler.erteilbar ? undefined : "nichtAktiv")}
           gespeichert={{ umfang: spieler.einwilligung.umfang, medien: spieler.einwilligung.medien }}
           nachweisStand={spieler.nachweis_stand}
           medienAngeboten={spieler.medien_angeboten}
@@ -92,7 +92,7 @@ export async function EinwilligungSection() {
         }),
         control: (
           <EinwilligungForm
-            worte={personWorte(fassung, SCHIEDSRICHTER_UMFANG_FRAGE)}
+            worte={schiedsrichterWorte(fassung, SCHIEDSRICHTER_UMFANG_FRAGE, !eintrag.erteilbar)}
             gespeichert={{ umfang: eintrag.einwilligung.umfang, medien: eintrag.einwilligung.medien }}
             nachweisStand={eintrag.nachweis_stand}
             medienAngeboten={eintrag.medien_angeboten}
@@ -117,17 +117,22 @@ export async function EinwilligungSection() {
           ...registrierung.kontext,
           minAlter: String(REGISTRIERUNG_MIN_ALTER),
         }),
-        control: (
-          <EinwilligungForm
-            worte={{ ...personWorte(fassung, SPIELER_UMFANG_FRAGE), nurWiderruf: NUR_WIDERRUF_BIS_AUFNAHME }}
-            gespeichert={{ umfang: registrierung.umfang, medien: registrierung.medien }}
-            nachweisStand={registrierung.nachweis_stand}
-            // Withdraw-only: a grant on a pending registration waits on its team's admission.
-            medienAngeboten={false}
-            erteilbar={false}
-            speichereAction={patchRegistrierungEinwilligungAction.bind(null, registrierung.registrierung_id)}
-          />
-        ),
+        // A returning pupil's registration asks no choice: its data stands alone, their record holding the choices.
+        ...(registrierung.umfang === null || registrierung.medien === null
+          ? {}
+          : {
+              control: (
+                <EinwilligungForm
+                  worte={spielerWorte(fassung, SPIELER_UMFANG_FRAGE, "bisAufnahme")}
+                  gespeichert={{ umfang: registrierung.umfang, medien: registrierung.medien }}
+                  nachweisStand={registrierung.nachweis_stand}
+                  // Withdraw-only: a grant on a pending registration waits on its team's admission.
+                  medienAngeboten={false}
+                  erteilbar={false}
+                  speichereAction={patchRegistrierungEinwilligungAction.bind(null, registrierung.registrierung_id)}
+                />
+              ),
+            }),
       });
     }
   }
@@ -148,7 +153,8 @@ export async function EinwilligungSection() {
         }),
         control: (
           <EinwilligungForm
-            worte={sitzWorte(fassung, sitz)}
+            // Withdraw-only on a past season or a withdrawn team, with the reason the label gives for it.
+            worte={sitzWorte(fassung, sitz, sitz.erteilbar ? undefined : "vorbei")}
             gespeichert={{ umfang: sitz.umfang, medien: sitz.medien }}
             nachweisStand={sitz.nachweis_stand}
             medienAngeboten={sitz.medien_angeboten}
@@ -175,7 +181,7 @@ export async function EinwilligungSection() {
         }),
         control: (
           <EinwilligungForm
-            worte={bewerbungWorte(fassung, bewerbung)}
+            worte={sitzWorte(fassung, { team_name: bewerbung.schule, saison_id: bewerbung.saison_id }, "bisZusage")}
             gespeichert={{ umfang: bewerbung.umfang, medien: bewerbung.medien }}
             nachweisStand={bewerbung.nachweis_stand}
             // Withdraw-only: a grant on a pending application is its confirmation page's alone.

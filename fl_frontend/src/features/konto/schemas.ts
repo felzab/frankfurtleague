@@ -74,9 +74,9 @@ export const FLKontoBewerbungSitzEinwilligungSchema = z.object({
 export type FLKontoBewerbungSitzEinwilligung = z.infer<typeof FLKontoBewerbungSitzEinwilligungSchema>;
 
 /**
- * Mirrors `FLKontoRegistrierungEinwilligung`: one pending registration its pupil confirmed with a choice,
- * its stored data beside it. Withdraw-only until admitted, so no `erteilbar`; one carrying no choice is
- * never served, so both are set.
+ * Mirrors `FLKontoRegistrierungEinwilligung`: one pending registration its pupil confirmed, its stored data
+ * beside it. Withdraw-only until admitted, so no `erteilbar`; a returning pupil's asks no choice, so both
+ * are null and the page offers no control.
  */
 export const FLKontoRegistrierungEinwilligungSchema = z.object({
   registrierung_id: CustomObjectIdStringSchema,
@@ -86,8 +86,8 @@ export const FLKontoRegistrierungEinwilligungSchema = z.object({
   saison_id: z.string(),
   // For `FLKontoSitzEinwilligungSchema`'s reason.
   bestaetigt_text_version: z.string().nullable(),
-  umfang: FLEinwilligungSchema.shape.umfang,
-  medien: z.boolean(),
+  umfang: FLEinwilligungSchema.shape.umfang.nullable(),
+  medien: z.boolean().nullable(),
   nachweis_stand: FLEinwilligungStandSchema,
   kontext: FLSpielerKontextSchema,
   vorname: z.string(),
