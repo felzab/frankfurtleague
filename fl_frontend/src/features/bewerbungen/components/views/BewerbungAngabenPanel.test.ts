@@ -92,31 +92,37 @@ describe("the panel a triage decision is taken from", () => {
   }
 
   /* The person may withdraw either choice on the account page while the application is pending, so the
-     administrator deciding it reads both as they stand, each with the act it stands on. */
-  it("reads out a pending seat's WhatsApp scope and media consent, each with its act", () => {
-    const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
-    assert.ok(ansprechperson !== null);
-    const html = markup({
-      status: "eingereicht",
-      kontakte: {
-        ...BEWERBUNG.kontakte,
-        ansprechperson: {
-          ...ansprechperson,
-          einwilligung: {
-            ...ansprechperson.einwilligung,
-            umfang: "kontaktdaten_whatsapp",
-            medien: true,
-            bestaetigt_am: "2026-08-02",
-            nachweis: { umfang: { am: "2026-08-02T08:00:00+00:00", text_version: "2026-08", erteilt_zuvor: null }, medien: null },
+     administrator deciding it reads both as they stand, each with the act it stands on. Both arms: a
+     readout saying „erlaubt“ for every seat would have the league write to or publish someone who said no. */
+  for (const [umfang, medien, whatsappWorte, medienWorte] of [
+    ["kontaktdaten_whatsapp", true, "erlaubt", "Fotos, Videos und Interviews zugesagt"],
+    ["kontaktdaten", false, "nicht erlaubt", "Nicht zugesagt"],
+  ] as const) {
+    it(`reads out a pending seat's WhatsApp scope „${whatsappWorte}“ and media consent „${medienWorte}“, each with its act`, () => {
+      const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+      assert.ok(ansprechperson !== null);
+      const html = markup({
+        status: "eingereicht",
+        kontakte: {
+          ...BEWERBUNG.kontakte,
+          ansprechperson: {
+            ...ansprechperson,
+            einwilligung: {
+              ...ansprechperson.einwilligung,
+              umfang: umfang,
+              medien: medien,
+              bestaetigt_am: "2026-08-02",
+              nachweis: { umfang: { am: "2026-08-02T08:00:00+00:00", text_version: "2026-08", erteilt_zuvor: null }, medien: null },
+            },
           },
         },
-      },
-    });
+      });
 
-    assert.match(textOf(factLine(html, "WhatsApp")), /^erlaubt/);
-    assert.match(textOf(factLine(html, "Medien")), /^Fotos, Videos und Interviews zugesagt/);
-    assert.notEqual(textOf(factLine(html, "WhatsApp")), "erlaubt", "the WhatsApp scope stands on no act");
-  });
+      assert.ok(textOf(factLine(html, "WhatsApp"), " ").startsWith(`${whatsappWorte} `), textOf(factLine(html, "WhatsApp"), " "));
+      assert.ok(textOf(factLine(html, "Medien")).startsWith(medienWorte), textOf(factLine(html, "Medien")));
+      assert.notEqual(textOf(factLine(html, "WhatsApp")), whatsappWorte, "the WhatsApp scope stands on no act");
+    });
+  }
 
   /* A decided application's copy is frozen: the seats' choices move on the team's row from then on, so
      the copy read out in the present tense would contradict them for as long as it is kept. */

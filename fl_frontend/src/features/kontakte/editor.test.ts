@@ -1260,6 +1260,18 @@ describe("the contact person's own two choices", () => {
       html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt; zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1"),
       "the media choice reads without its own act",
     );
+  });
+
+  /* The other arm of each: a readout saying „erlaubt“ for every seat would have the league write to
+     someone on WhatsApp who never allowed it. */
+  it("reads a seat that allows no WhatsApp as not allowed, and a given media consent as given", () => {
+    const html = sectionMarkup({ ...BLOCK, trainer: { ...ADA, einwilligung: { ...ADA.einwilligung, umfang: "kontaktdaten", medien: true } } });
+
+    assert.match(html, />WhatsApp<[\s\S]*?value="nicht erlaubt"/, "a seat allowing no WhatsApp reads otherwise");
+    assert.ok(
+      new RegExp(`>${EINWILLIGUNG_MEDIEN_FRAGE}<[\\s\\S]*?value="${EINWILLIGUNG_MEDIEN_LABELS.erteilt}"`).test(html),
+      "a given media consent reads otherwise",
+    );
     assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a choice never moved does not stand on its confirmation");
   });
 });
