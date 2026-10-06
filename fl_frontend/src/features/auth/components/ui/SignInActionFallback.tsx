@@ -6,9 +6,9 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { reloadDocument } from "@/shared/utils/documentNavigation";
 
 /**
- * React parses a server action's answer before any application code runs, so a rejected send reaches
- * the boundary carrying nothing of the response: no status, no body. That the answer was not ours is
- * all this can say.
+ * A rejected send reaches the boundary before any application code runs, as an error with no status,
+ * its message Next's own or an edge's `text/plain` body. This reads neither: that the answer was not
+ * ours is all it can say.
  */
 export function SignInActionFallback() {
   return (
