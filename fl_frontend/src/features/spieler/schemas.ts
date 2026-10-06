@@ -363,31 +363,15 @@ export const FLSpielerKontextSchema = z.object({
 });
 export type FLSpielerKontext = z.infer<typeof FLSpielerKontextSchema>;
 
-/** Mirrors `FLSpielerSelbst`, the person tier's own read: the whole surname, because the reader is the person it names. */
+/**
+ * Mirrors `FLSpielerSelbst`, the person tier's own read of the stored data: the whole surname, because
+ * the reader is the person it names. Its consent is the account page's entry's, which extends it.
+ */
 export const FLSpielerSelbstSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
   vorname: z.string().nonempty(),
   nachname: z.string().nullable(),
   geburtsdatum: CustomDateStringSchema.nullable(),
-  inactive_since: CustomDateStringSchema.nullable(),
-  // Never null here: the read serves confirmed records alone, an unconfirmed one holding nothing to withdraw.
-  einwilligung: FLEinwilligungSchema,
-  // The label whose words the account page shows beside the control: the backend names which stored
-  // label the person confirmed, so the page never decides it from the record's shape.
-  bestaetigt_text_version: z.string().nullable(),
-  // What the consent press sends back as its precondition, so a press from a page another tab has
-  // since moved is refused rather than undoing that tab's choice.
-  nachweis_stand: FLEinwilligungStandSchema,
-  kontext: FLSpielerKontextSchema,
-  // The backend's verdicts, never recomputed here: a second clock or a second reading of a panel would
-  // offer a press the write refuses.
-  erteilbar: z.boolean(),
-  medien_angeboten: z.boolean(),
-  // The floor the record's confirmation page named, served as every seat entry's is, so the two tiers
-  // cannot name different ages.
-  mindestalter: z.number().int(),
-  // The media floor its words name, served as the participation floor is.
-  medien_mindestalter: z.number().int(),
   kader: z.array(FLSpielerSelbstKaderZeileSchema),
 });
 export type FLSpielerSelbst = z.infer<typeof FLSpielerSelbstSchema>;
