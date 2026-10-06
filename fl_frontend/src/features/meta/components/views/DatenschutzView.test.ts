@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "6. Oktober 2026", digest: "12bde230de2e27b909d64f4b98ac1b8af25c5dd360b4125cc60b729c29148a62" } as const;
+const FASSUNG = { stand: "6. Oktober 2026", digest: "afde28f7b72523df7159e6baff8bd910a8d140c846eb1a15fa1918164f5ac532" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -194,6 +194,28 @@ describe("the privacy notice's retention table", () => {
       "Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt " +
         `${inWorten(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem ` +
         "Eintrag gelöscht",
+    );
+  });
+
+  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed. */
+  it("gives a referee's unconfirmed new address its retention and the removal once its link has lapsed", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
+          "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+      ),
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag " +
+        "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
+        " löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
+    );
+  });
+
+  /* Two addresses are in play, so the sentence names the one the notice of the change goes to rather than a „sie“ fitting both. */
+  it("says the address on file stays in force and is the one told of a confirmed referee's address change", () => {
+    rendert(
+      "Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den " +
+        "Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen " +
+        "Hinweis auf die Änderung.",
     );
   });
 

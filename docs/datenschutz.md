@@ -399,9 +399,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   and its own `payment` under the ghost: that is the league's record of the match, not of the
   person. A person who officiates again is entered as a new referee.
 - **A referee's pending new address goes with that referee's erasure, and its own holder's request
-  is answered by removing it alone.** Until it confirms, that mailbox owns nothing of the row, so
+  is answered by removing it.** Until it confirms, that mailbox owns nothing of the row, so
   its holder is not the person the referee's erasure is about: the link's own decline or
-  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address and nothing else. `POST /kontakte/erasure` reaches no referee row, a pending address included.
+  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address and empties every
+  image the action log holds of the referee, since every write on the row while the change stood, a
+  re-send included, filed one carrying it (`docs/backend/spec.md :: I_NEW_KREF_4`); the referee's own
+  earlier images go with them, the price a contact person's Widerspruch already pays. A save
+  replacing the pending address with another mailbox's empties them the same way, the replaced
+  address being one nobody proved either. `POST /kontakte/erasure` reaches no referee row, a pending
+  address included.
 - **An erasure keyed on an email address names what it reaches.** Every seat the address holds is
   its one person's (the entry below), and each is listed for confirmation before the write — by name
   and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather than inferred on
@@ -516,11 +522,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   controller holds the key that recomputes it from the address.
 - **A signed-in person's writes are counted per day under the same pseudonym, and the count
   outlives an erasure until that day ends.** The daily write ceiling
-  (`docs/glossary.md :: Drosselung`) keeps one row per Funktion, pseudonym and German day, holding a number and no
+  (`docs/glossary.md :: Drosselung`) keeps one row per kind of person the write was made as, pseudonym and German day, holding a number and no
   address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
   at that day's German midnight, plus the monitor's lag, and no erasure reaches it before then
   (`docs/backend/spec.md :: I837`). **The ceiling's first refusal of a day also leaves one line in
-  the application log**, naming the Funktion and the pseudonym's prefix the action-log page shows,
+  the application log**, naming the kind of person and the pseudonym's prefix the action-log page shows,
   never an address (`fl_backend/app/core/drosselung.py :: get_drossel`,
   `docs/backend/spec.md :: I835`). That line is kept as every application-log line is, by size while
   the container runs and for thirty days in the copy each deploy takes
@@ -662,13 +668,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE`), and each
   new one replaces the whole block, the delivery state of the message the old link went out in
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
-- **A confirmed referee's pending new address has no clock**: it stands beside the referee's row
-  until its holder confirms or declines it, an administrator replaces or discards it, or the
-  referee is erased with it (`fl_backend/app/core/domain.py :: FIELD_POLICIES`). Its link lasts the
-  confirmation link's fourteen days and a re-send restarts them
-  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`); a lapsed change is
-  marked as lapsed to the administrator rather than removed, a sweep being machinery for a row this
-  rare. Ruled 2026-10-04.
+- **A confirmed referee's pending new address stands until its holder confirms or declines it, an
+  administrator replaces or discards it, or the referee is erased with it, and once its link has
+  lapsed the yearly deletion removes it** (`fl_backend/app/core/domain.py :: FIELD_POLICIES`): the
+  address may be a stranger's, typed in by mistake, who never asked to be stored. Its link lasts
+  the confirmation link's fourteen days and a re-send restarts them
+  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`). The yearly deletion is
+  not built yet, so until it is a lapsed change stands, marked as lapsed to the administrator, who
+  can discard it; the published notice already states the removal
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.

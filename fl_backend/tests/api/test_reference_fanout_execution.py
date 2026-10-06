@@ -1,5 +1,7 @@
 from collections.abc import Awaitable, Callable, Iterable, Mapping
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -22,6 +24,8 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_reference_fanout_test")
 
+# The instant a redaction stamps, which the endpoint reads from `get_germany_now`.
+NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 
 
@@ -275,8 +279,10 @@ async def rename_the_referee(
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
+        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 

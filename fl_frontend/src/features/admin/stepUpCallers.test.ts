@@ -370,7 +370,7 @@ const DRIVES: Record<string, Drive[]> = {
     { render: () => refereeEditor(true), reach: retype("Telefon", "069 7654321"), press: "Speichern", asks: false },
   ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: einladeAdresswechselAction": [
-    { render: () => adresswechselPanel(), press: "Link erneut senden", asks: true },
+    { render: () => adresswechselPanel(), press: "Link erneut senden: Neue E-Mail-Adresse", asks: true },
   ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: verwirfAdresswechselAction": [
     { render: () => adresswechselPanel(), press: "Änderung verwerfen", asks: true },

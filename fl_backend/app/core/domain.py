@@ -923,8 +923,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "it creates, and onto one it matches renews it, each choice only where the registration set it later, and not at "
         "all where the returning pupil's page asked none "
         "(`app/api/registrierungen/services.py :: compose_person_update`). Its two choices, `umfang` and `medien`, are "
-        "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration, "
-        "which an admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
+        "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration and "
+        "a withdrawal they made on it through `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which an "
+        "admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
         "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
         "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
         "evidence (`docs/backend/spec.md :: I869`)",
@@ -1160,9 +1161,11 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "no payload carries the block. Four controls replace it WHOLE, each answering the raw token once -- every "
         "create, the save that corrects an unconfirmed live referee's address, the reactivation of an unconfirmed referee, and "
-        "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting a RETIRED referee's address "
-        "removes it and mints nothing, so the link a replaced block held stops working at once "
-        "and the delivery state of the message it went out in goes with it. `POST /zustellung`, `POST /zustellung/angenommen` "
+        "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting an unconfirmed RETIRED "
+        "referee's address removes it and mints nothing, so the link a replaced block held stops working at once "
+        "and the delivery state of the message it went out in goes with it. A confirmed referee's address moves through "
+        "`POST /schiedsrichter/adresswechsel` instead, whose confirmation removes that delivery state alone. "
+        "`POST /zustellung`, `POST /zustellung/angenommen` "
         "and `POST /zustellung/abgewiesen` write that delivery state under it on the system key alone, each applying only where "
         "the report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
         "to state a delivery state is a "
@@ -2027,6 +2030,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
     ),
     Rule(
+        code="REQ-SCHIEDSRICHTER-010",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /schiedsrichter/adresswechsel",
+        aggregate="Schiedsrichter",
+        summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
+        implemented_by="app.api.schiedsrichter.services.find_ersetzte_adresse_gesperrt_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestAChangeReplacingABarredAddress",
+    ),
+    Rule(
         code="REQ-SQUAD-001",
         status=HTTPStatus.CONFLICT,
         operation=(
@@ -2604,6 +2616,22 @@ RULES: tuple[Rule, ...] = (
         summary="a press on the account page answers the consent evidence its page was served, never evidence moved since",
         implemented_by="app.api.konto.services.find_nachweis_stand_refusal",
         tested_by="tests/api/test_spieler_selbst.py::TestAStalePage",
+    ),
+    Rule(
+        code="REQ-EINWILLIGUNG-004",
+        status=HTTPStatus.FORBIDDEN,
+        operation=(
+            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+        ),
+        aggregate="Spieler",
+        summary=(
+            "a press grants a choice only on a record of its person granting a panel; a retired record, a past season's or a "
+            "withdrawn team's seat, a pending application's seat and a pending registration take a withdrawal alone"
+        ),
+        implemented_by="app.api.konto.services.find_erteilung_refusal",
+        tested_by="tests/api/test_konto_einwilligung.py::TestARecordNotHeld",
     ),
 )
 

@@ -382,8 +382,10 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
+        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
     assert saved.adresswechsel is not None, "the seeded referee's address change minted no link"
@@ -393,8 +395,10 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         antwort_data=FLSchiedsrichterAdresswechselPayload(token=saved.adresswechsel.token, antwort="bestaetigt"),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
+        germany_now=NOW,
     )
 
 
@@ -713,8 +717,10 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spiele_collection=database[Collection.SPIELE],
                     sperrliste=ban_list(database),
+                    aktionen_collection=database[Collection.AKTIONEN],
                     db=client,
                     today=TODAY,
+                    germany_now=NOW,
                     refuse_unconfirmed=FRESH_STEP_UP_CHECK,
                 )
             elif press == "delete":
