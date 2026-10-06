@@ -22,6 +22,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, FLEinwilligungWahl, compose_beleg, ist_erteilt, nachweis_stand_of
+from app.shared.schemas.bounds import REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
 KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
@@ -202,6 +203,7 @@ def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: st
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
+        "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
         "kader": row["kader"],
         "kontext": {
             "vorname": row["vorname"],
@@ -228,6 +230,7 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
+        "mindestalter": SCHIEDSRICHTER_MIN_AGE_YEARS,
         # The one stored name, cut as the referee's confirmation page cut it.
         "kontext": {"vorname": vorname_of(row.get("name"))},
     }
@@ -497,6 +500,7 @@ def compose_registrierungen_selbst(
                 "bestaetigt_text_version": block.get("text_version"),
                 "umfang": block.get("umfang"),
                 "medien": ist_erteilt("medien", block.get("medien")) if traegt_wahlen(block) else None,
+                "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 "kontext": {
                     "vorname": row["vorname"],
