@@ -104,9 +104,17 @@ describe("an address link send nobody can tell landed", () => {
     toasts.length = 0;
     answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
     render(
-      underNext(h(FormAdresswechselSection, { schiedsrichterId: "6890a1b2c3d4e5f607800001", adresswechsel: OFFEN, isDirty: false }), {
-        router: nextRouter(),
-      }),
+      underNext(
+        h(FormAdresswechselSection, {
+          schiedsrichterId: "6890a1b2c3d4e5f607800001",
+          adresswechsel: OFFEN,
+          istAbgelaufen: false,
+          isDirty: false,
+        }),
+        {
+          router: nextRouter(),
+        },
+      ),
     );
 
     await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT }));
