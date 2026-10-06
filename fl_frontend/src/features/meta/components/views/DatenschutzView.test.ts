@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "6. Oktober 2026", digest: "9db40250f619af003f18974759275a8c935c350899b3a9e66276333ec6a191f8" } as const;
+const FASSUNG = { stand: "6. Oktober 2026", digest: "830a258917742077b1939aa848b2c2921ce01424319b81c51ff0a575957d8f8c" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -446,17 +446,19 @@ describe("the privacy notice's account of the site's own protection", () => {
   });
 
   it("gives a person's daily count its clock, and says it holds no address", () => {
-    const frist = ANGABEN.get("Tageszähler einer angemeldeten Person, je Funktion") ?? "";
+    const frist = ANGABEN.get("Tageszähler einer angemeldeten Person, je Personengruppe") ?? "";
 
     // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I837`), and per kind of person a write is made as, never per mailbox.
     assert.ok(frist.startsWith("Bis kurz nach Mitternacht des Tages, den er zählt."), frist);
     assert.ok(
       frist.includes(
-        "wie oft Du in dieser Funktion an dem Tag etwas ändern wolltest, darunter auch Änderungen, die danach noch abgewiesen wurden",
+        "wie oft Du in dieser Personengruppe an dem Tag etwas ändern wolltest, darunter auch Änderungen, die danach noch abgewiesen wurden",
       ),
       frist,
     );
     assert.ok(frist.includes("unter einem unlesbaren Schlüssel statt Deiner Adresse"), frist);
+    // A Funktion is one record, and a person holding two seats holds one counter for them.
+    assert.ok(!frist.includes("Funktion"), frist);
   });
 });
 
