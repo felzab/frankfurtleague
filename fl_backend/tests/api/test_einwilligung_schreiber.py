@@ -1,4 +1,5 @@
 import ast
+import functools
 from collections.abc import Callable, Iterator, Mapping
 from copy import deepcopy
 from pathlib import Path
@@ -15,7 +16,7 @@ from app.api.teams.services import compose_kontakte_at_entry, compose_kontakte_h
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, ist_erteilt
-from tests.core.app_source import api_routes, application
+from tests.core.app_source import api_routes, application, parsed
 
 # Every write stamping a consent label, enumerated BY HAND rather than read off the routes: the case
 # below holds this list to what the application serves, so a new writer fails by its name until it
@@ -408,20 +409,22 @@ def _touches_a_block(function: ast.AST) -> bool:
     return False
 
 
-def _block_composers() -> set[str]:
-    """Every function under `app` the markers above find, keyed as the three sets key one. A projection's `1` is no write."""
+@functools.cache
+def _block_composers() -> frozenset[str]:
+    """Every function under `app` the markers above find, keyed as the three sets key one. A projection's `1` is no write.
+
+    Read once a process and shared, so frozen: a set one caller reshaped would be the next caller's answer.
+    """
 
     found: set[str] = set()
     for path in APP.rglob("*.py"):
-        functions = [
-            node for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
+        functions = [node for node in ast.walk(parsed(path)) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)]
         touching = {node.name for node in functions if _touches_a_block(node)}
         # A function composing through a helper of its own module composes too, so extracting a helper hides no writer.
         while grown := {node.name for node in functions if node.name not in touching and _calls_one_of(node, touching)}:
             touching |= grown
         found |= {f"{path.relative_to(APP.parent).as_posix()}::{name}" for name in touching}
-    return found
+    return frozenset(found)
 
 
 def _calls_one_of(function: ast.AST, names: set[str]) -> bool:
