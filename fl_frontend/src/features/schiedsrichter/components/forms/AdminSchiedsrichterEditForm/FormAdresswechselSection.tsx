@@ -22,6 +22,7 @@ import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { benannt } from "@/shared/utils/benannt";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
@@ -33,7 +34,11 @@ import type { FLSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/sc
 const ABGELAUFEN_LABEL = "abgelaufen";
 export const ADRESSWECHSEL_WARTET = "Neue Adresse wartet auf Bestätigung";
 export const ADRESSWECHSEL_ABGELAUFEN = "Die Bestätigungsfrist ist abgelaufen.";
-export const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
+/**
+ * The re-send's accessible name, its link named as the contacts editor names each seat's: the consent
+ * panel on the same page holds a „Link erneut senden“ of its own, for another link.
+ */
+export const ADRESSWECHSEL_ERNEUT = benannt("Link erneut senden", "Neue E-Mail-Adresse");
 export const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
 
 /**
@@ -128,13 +133,14 @@ export function FormAdresswechselSection({
               type="button"
               isPending={laeuft === "senden"}
               isDisabled={laeuft !== null}
+              aria-label={ADRESSWECHSEL_ERNEUT}
               onPress={() => void schreibe("senden")}
               className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
               <PaperPlane
                 className="size-3.5"
                 aria-hidden="true"
               />
-              <span>{laeuft === "senden" ? stepUp.running("Sendet...") : ADRESSWECHSEL_ERNEUT}</span>
+              <span>{laeuft === "senden" ? stepUp.running("Sendet...") : "Link erneut senden"}</span>
             </Button>
           </FocusSlot>
           <FocusSlot name="adresswechsel-verwerfen">

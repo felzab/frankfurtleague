@@ -6,6 +6,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { render, screen } from "@testing-library/react";
+
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -45,7 +47,20 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
     assert.match(shown, /anna@neu\.example/);
     assert.match(shown, /01\.10\.2026/);
     assert.match(shown, /31\.12\.2099/);
-    assert.ok(shown.includes(ADRESSWECHSEL_ERNEUT) && shown.includes(ADRESSWECHSEL_VERWERFEN), "a control is missing");
+    assert.ok(shown.includes(ADRESSWECHSEL_VERWERFEN), "the discard is missing");
+  });
+
+  /* The consent panel on the same page holds a „Link erneut senden“ for its own link, so this one is named for its link. */
+  it("names its re-send for the link it sends, the visible words staying the consent panel's", () => {
+    render(
+      underNext(h(FormAdresswechselSection, { schiedsrichterId: "6890a1b2c3d4e5f607800001", adresswechsel: OFFEN, isDirty: false }), {
+        router: nextRouter(),
+      }),
+    );
+
+    const erneut = screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT });
+    assert.equal(ADRESSWECHSEL_ERNEUT, "Link erneut senden: Neue E-Mail-Adresse");
+    assert.equal(erneut.textContent.trim(), "Link erneut senden");
   });
 
   /* No clock removes a lapsed change, so a past date alone would read as a deadline still running. */
