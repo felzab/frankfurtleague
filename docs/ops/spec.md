@@ -661,12 +661,12 @@ them only once `scripts/ops/deploy.sh :: compare_pulled_pair` accepts the pair, 
 back what they named before its pull (`:: put_latest_back`), since an `up` reaching the application
 recreates it from whatever they name.
 
-**No tag deploys a build from before the secret files**, refused before either tag moves
-(`scripts/ops/deploy.sh :: check_pin_reads_secret_files`): that build was released with another
-compose file, edge and preflight, and this checkout's would run it as the automatic rollback does,
-an accepted limit of an outage and never a choice. It is deployed from its own commit
-([`runbooks.md`](runbooks.md) §16), and the rollback that restores one says so rather than naming
-its tag.
+**No tag deploys a build from before the frontend's boot check**: its image does not know
+`BOOT_CHECK`, so the preflight's one-off frontend would serve rather than end, and the deploy would
+wait on it with nothing recreated. Nothing in the script asks an image's age: every such image is
+deleted from the registry, so a pin's pull refuses before either tag moves, and the automatic
+rollback, which restores the running build by id and runs no preflight, is the one way such a
+build is served again ([`runbooks.md`](runbooks.md) §1).
 
 **The checkers are python, and one kernel is what makes their answers comparable** —
 `scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). **The interpreter floor

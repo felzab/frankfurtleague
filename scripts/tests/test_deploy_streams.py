@@ -913,90 +913,19 @@ def test_each_script_names_the_deployment_its_frontend_is_judged_as(script: Path
     assert re.search(rf'\ncheck_frontend_boot_config "[^"]*" {deployment} ', text), script.name
 
 
-# --- a pin to a build from before the secret files --------------------------------------------------------
+# --- what the rollback tells the operator ---------------------------------------------------------------
 
-PIN_CHECK: Final = "\n".join(
-    (
-        _assignment("SECRET_FILES_READER_CHECK"),
-        _lifted("reads_secret_files"),
-        _lifted("check_pin_reads_secret_files"),
-        'PIN="sha-0123abc"',
-        "check_pin_reads_secret_files",
-        "echo pin-judged",
-    )
-)
+ADVICE: Final = "\n".join((_lifted("rollback_advice"), "rollback_advice"))
 
 
-def test_a_pin_from_before_the_secret_files_is_refused_before_either_tag_moves() -> None:
-    code, output, fixture = _run(PIN_CHECK, FL_DEPLOY_RUN_RC="3")
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-
-    assert code == 2, output
-    assert "pin-judged" not in output, output
-    assert "docs/ops/runbooks.md §16" in output, output
-    assert "neither :latest tag has moved" in output, output
-    assert argv[: argv.index("python") - 1] == ["run", "--rm", "--pull", "never", "--network", "none"], argv
-    assert argv[argv.index("python") - 1].endswith("/frankfurtleague-backend:sha-0123abc"), argv
-
-
-@pytest.mark.parametrize(("rc", "advisory"), [("0", False), ("125", True)])
-def test_a_pin_that_reads_them_or_could_not_be_asked_goes_on(rc: str, advisory: bool) -> None:
-    code, output, _ = _run(PIN_CHECK, FL_DEPLOY_RUN_RC=rc, FL_DEPLOY_RUN_SAYS="Error" if advisory else "")
+@pytest.mark.parametrize(("pin", "named"), [("sha-0123abc", "./scripts/ops/deploy.sh sha-0123abc"), ("", "./scripts/ops/deploy.sh <tag>")])
+def test_the_rollback_names_the_tag_it_restored_or_asks_for_one(pin: str, named: str) -> None:
+    """The registry's `:latest` still names the failed build, so a bare re-run would fetch it again."""
+    code, output, _ = _run(f'PREV_PIN="{pin}"\n{ADVICE}')
 
     assert code == 0, output
-    assert "pin-judged" in output, output
-    assert ("could not be asked" in output) == advisory, output
-
-
-def test_the_pin_is_judged_after_the_pair_and_before_the_tags_move() -> None:
-    text = DEPLOY.read_text(encoding="utf-8")
-    pinned = text[text.index('step "Pinning to ${PIN}"') :]
-
-    assert pinned.index("compare_pulled_pair") < pinned.index("\n  check_pin_reads_secret_files\n") < pinned.index("docker tag")
-
-
-# A backend of the case's own: an `app.core.config` without `read_secrets`, as a build from before the files carries.
-READER: Final = """mkdir -p old/app/core empty
-printf 'def get_config():\\n    pass\\n' > old/app/core/config.py
-for where in "{backend}" old empty; do
-  reader_rc=0
-  PYTHONPATH="$where" "$(venv_python)" -c "$SECRET_FILES_READER_CHECK" || reader_rc=$?
-  printf 'reader=%s\\n' "$reader_rc"
-done
-"""
-
-
-def test_the_program_tells_a_backend_from_before_the_files_from_one_it_cannot_ask() -> None:
-    """Run for real: this tree's backend reads them, one without `read_secrets` predates them, and no module is no answer."""
-    body = _assignment("SECRET_FILES_READER_CHECK") + "\n" + READER.format(backend=(REPO_ROOT / "fl_backend").as_posix())
-    code, output, _ = _run(body)
-
-    assert code == 0, output
-    assert re.findall(r"reader=(\d+)", output) == ["0", "3", "4"], output
-
-
-ADVICE: Final = "\n".join(
-    (
-        _assignment("SECRET_FILES_READER_CHECK"),
-        _lifted("reads_secret_files"),
-        _lifted("rollback_advice"),
-        'PREV_PIN="sha-0123abc"',
-        'PREV_BE_IMG="sha256:restored"',
-        "rollback_advice",
-    )
-)
-
-
-@pytest.mark.parametrize(("rc", "by_tag"), [("0", True), ("3", False), ("125", True)])
-def test_the_rollback_names_a_tag_only_for_a_build_this_checkout_deploys_by_one(rc: str, by_tag: bool) -> None:
-    """A tag the restored build cannot be deployed by is no way back to it; an unasked image keeps the tag."""
-    code, output, fixture = _run(ADVICE, FL_DEPLOY_RUN_RC=rc)
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-
-    assert code == 0, output
-    assert ("./scripts/ops/deploy.sh sha-0123abc" in output) == by_tag, output
-    assert ("docs/ops/runbooks.md §16" in output) != by_tag, output
-    assert "sha256:restored" in argv, argv
+    assert named in output, output
+    assert "DO NOT re-run this" in output, output
 
 
 # --- a credential's line in an environment file -------------------------------------------------------------

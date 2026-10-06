@@ -124,17 +124,14 @@ the machine is outside the repository. What it does tell you:
   pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/ops/deploy.sh <tag>`,
   the tag the rollback names — until a good build is published. Nothing is put back where the pull left
   `:latest` naming the images that were already running: restoring them would restore the build that
-  just failed, and the script says so instead ([`spec.md`](spec.md) §4). **A deploy by tag to a build
-  from before the secret files is refused by this checkout whatever the environment files hold**,
-  before either tag moves (`scripts/ops/deploy.sh :: check_pin_reads_secret_files`), and a rollback
-  restoring such a build names §16's steps rather than its tag: that build is deployed from its own
-  commit.
-- **Before a deploy by tag to a build from before the bot check, put `#` in front of the
-  `TURNSTILE_SITE_KEY` line in `fl_frontend/.env`.** That build's frontend declares no such name, and
-  its preflight refuses the file naming it, before anything is recreated
-  (`scripts/ops/deploy.sh :: check_frontend_env_names`). Rolling forward removes the `#` again: the
-  newer build requires the line. The automatic rollback restores images by id and runs no preflight,
-  so it needs neither step.
+  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
+- **Never deploy by tag a build from before the frontend's boot check.** Its image does not know
+  `BOOT_CHECK`, so the preflight's one-off frontend serves instead of ending, and the deploy waits on
+  it with nothing recreated until Ctrl-C. Every such image is deleted from the registry, where the
+  pull of its tag refuses before anything moves. **The automatic rollback is not a deploy by tag**: it
+  restores the running build by image id and runs no preflight, so the first deploy of a build
+  carrying the check can still fall back to the build before it. Then publish a fixed build rather
+  than deploying the restored one by the tag the script names.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
   contact seat that build re-staffed, once the current build is back.** That build's contacts editor
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
@@ -1363,8 +1360,7 @@ editor, never through a shell command that echoes it.
 
 **No line in either package file names a value a secret file holds**: the deploy and `local.sh`
 refuse one before compose reads the file ([`spec.md`](spec.md) §1.5). Delete such a line in an
-editor, never with `cat`. Keep each value's password-manager entry: a rollback by hand to a build
-from before the files puts the lines back, as below.
+editor, never with `cat`.
 
 **On the server, each file is owned by the user that reads it** ([`spec.md`](spec.md) §1.2): a new
 value is written without ever existing under another owner or mode, and without passing through the
@@ -1429,36 +1425,6 @@ Ed25519, naming the path: where that path is not `/run/secrets/fl_actor_signing_
 handed the `ACTOR_TOKEN_PUBLIC_KEY` line alone, judges the pair: an `ACTOR_TOKEN_PUBLIC_KEY` that is
 missing, malformed or not the key's public half. Each refusal names the fault and never a value, and
 the remedy is to run the command above again.
-
-**A deploy by tag to a build from before the secret files is refused by this checkout**, whatever
-the environment files hold and before either tag moves: that build was released with another
-compose file, edge and preflight than this checkout's, and runs under these only as the automatic
-rollback's accepted limit: the rollback a failed health wait makes restores images and reads no
-environment file, so an image from before the files finds none of the lines it reads and refuses
-its boot, and that rollback names these steps rather than the restored build's tag. To roll back
-across that release by hand, on the server at the checkout root:
-
-1. `git checkout <commit>`, the older build's own commit, so the deploy script, the compose file and
-   nginx's configuration are the ones that build was released with.
-2. Put each value back as the line that build reads, from its file, printing nothing — for the
-   backend's database URI,
-   `{ printf 'MONGODB_URI='; sudo cat secrets/backend_mongodb_uri; echo; } >> fl_backend/.env`, and
-   the same shape for every other line into the package file of the service that reads it, the
-   three internal keys into both.
-3. `./scripts/ops/deploy.sh sha-<commit>`.
-
-Rolling forward undoes each step before deploying: check out the newer commit and delete the lines
-again, which its preflight refuses, then deploy.
-
-**A build from before the actor token takes a step more**, and every build published before the
-secret files is one, the two arriving in one release. Its backend's settings forbid a name they do
-not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that line in
-`fl_backend/.env` into a comment by putting `#` in front of it, and `TURNSTILE_SITE_KEY` in
-`fl_frontend/.env` the same way, every such build coming from before the bot check too (§1); its
-frontend also requires an
-`ALLOWED_ADMIN_EMAILS` line in `fl_frontend/.env`, put back from the password manager. Rolling
-forward restores the `ACTOR_TOKEN_PUBLIC_KEY` and `TURNSTILE_SITE_KEY` lines and deletes the `ALLOWED_ADMIN_EMAILS` one, which
-the newer deploy refuses.
 
 ## 17. Clearing an address's code lock
 
