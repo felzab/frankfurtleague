@@ -1,5 +1,3 @@
-import { revalidateTag } from "next/cache";
-
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { patchSchiedsrichter } from "@/features/schiedsrichter/mutations";
 import { describeLinkMail, mailSchiedsrichterLink } from "@/features/schiedsrichter/notifications";
@@ -46,9 +44,7 @@ export async function POST(request: NextRequest) {
       return { cost: describeLinkMail(mint.email, versand) };
     },
     // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
-    invalidate: () => {
-      revalidateTag("spiele", { expire: 0 });
-    },
+    tags: () => ["spiele"],
     // The replay is a save, its mint judged as the save's own action judges one: without this the route
     // is a second door to that save with no step-up (`docs/frontend/spec.md :: I432`).
     stepUp: async (payload) => {

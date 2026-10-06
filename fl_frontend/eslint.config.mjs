@@ -1116,6 +1116,15 @@ const SOURCE_BANS = [
     exempt: ["src/shared/utils/adminMutation.ts"],
   },
   {
+    // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
+    // write may stand, where a drop of its own after the answer misses a lost one.
+    selector:
+      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], MemberExpression[property.name=/^revalidate(?:Tag|Path)$/])',
+    message:
+      "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts, an undo route's `tags` under fl_frontend/src/shared/utils/undoRoute.ts.",
+    exempt: ["src/shared/utils/publicRoute.ts", "src/shared/utils/undoRoute.ts"],
+  },
+  {
     // Per function, so a module caching a public read beside a caller's own is held too, which the
     // module list below cannot do.
     // Anchored on the directive: esquery's `:has` takes no chained child combinator.

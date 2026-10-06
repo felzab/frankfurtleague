@@ -164,7 +164,7 @@ async function shownBySpines(
       mutationName: "protocolCoverage",
       schema: z.object({}),
       restore: () => Promise.reject(refusal),
-      invalidate: () => undefined,
+      tags: () => [],
     });
 
     return {

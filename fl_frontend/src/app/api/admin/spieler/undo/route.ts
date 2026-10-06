@@ -1,5 +1,3 @@
-import { revalidateTag } from "next/cache";
-
 import { z } from "zod";
 
 import { patchSaisonSpieler, patchSpieler } from "@/features/spieler/mutations";
@@ -57,8 +55,6 @@ export async function POST(request: NextRequest) {
 
       return {};
     },
-    invalidate: () => {
-      revalidateTag("spieler", { expire: 0 });
-    },
+    tags: () => ["spieler"],
   });
 }

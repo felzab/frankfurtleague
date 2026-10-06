@@ -104,6 +104,7 @@ const BANS = [
   ["uncached-read", /This module caches no read/],
   ["caller-read", /A read made for its caller is never cached/],
   ["tag-drop", /Declare a write's cache tags with `invalidatesOnWrite`/],
+  ["route-tag-drop", /Hand a route's cache tags to its spine/],
   ["logged-error", /Hand `logger\.error` `undefined`/],
   ["unknown-class", /^Unknown class detected/],
   ["class-order", /^Incorrect class order/],
