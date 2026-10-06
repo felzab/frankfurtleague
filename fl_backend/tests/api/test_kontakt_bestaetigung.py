@@ -1047,7 +1047,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
 
         view, answered = on_a_league(mongo_replica_set_url, body)
 
-        assert (view.quelle, view.schule, view.rolle) == ("bewerbung", TEAM_NAME, "trainer")
+        assert (view.quelle, view.schule, view.rolle, view.zeile) == ("bewerbung", TEAM_NAME, "trainer", None)
         assert (answered.quelle, answered.ergebnis) == ("bewerbung", "bestaetigt")
 
 
@@ -1126,23 +1126,33 @@ class TestALinkOutlivingItsSeason:
     """A link minted while the season ran asks no consent once it has ended or the team left it (`docs/backend/spec.md :: I935`)."""
 
     async def closed(self, database: AsyncDatabase, how: str) -> None:
-        if how == "past":
+        if how in ("past", "both"):
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
-        else:
+        if how in ("austritt", "both"):
             await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, ITS_TEAM_LEFT)
 
-    @pytest.mark.parametrize("how", [pytest.param("past", id="the season ended"), pytest.param("austritt", id="the team left")])
-    def test_its_view_offers_a_widerspruch_alone_and_its_refused_consent_writes_nothing(self, mongo_replica_set_url: str, how: str):
+    @pytest.mark.parametrize(
+        ("how", "zeile"),
+        [
+            pytest.param("past", "saison_vorbei", id="the season ended"),
+            pytest.param("austritt", "ausgetreten", id="the team left"),
+            # The season's end is what the page names: no team is still in a season that is over.
+            pytest.param("both", "saison_vorbei", id="the team left a season that has since ended"),
+        ],
+    )
+    def test_its_view_offers_a_widerspruch_alone_and_its_refused_consent_writes_nothing(self, mongo_replica_set_url: str, how: str, zeile: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             token = (await save(database, THREE)).bestaetigungen[0].token
+            open_view = await ansicht(database, token)
             await self.closed(database, how)
             before = await row_now(database)
 
-            return await ansicht(database, token), await refused(answer(database, token)), before, await row_now(database)
+            return open_view, await ansicht(database, token), await refused(answer(database, token)), before, await row_now(database)
 
-        view, code, before, after = on_a_league(mongo_replica_set_url, body)
+        open_view, view, code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert view.zustand == "saison_vorbei"
+        assert open_view.zeile == "offen"
+        assert (view.zustand, view.zeile) == ("saison_vorbei", zeile)
         assert code == KONTAKT_SAISON_VORBEI
         assert after == before
 
