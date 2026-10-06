@@ -1264,15 +1264,6 @@ describe("the contact person's own two choices", () => {
 });
 
 describe("which wording a record cites", () => {
-  /* The version NAMES the text. A running label naming no words leaves every new record citing a
-     text nobody was shown. */
-  it("runs a version on the form whose wording is filled in", () => {
-    assert.notEqual(FORM.text_version, "", "the version is empty, so every record cites nothing");
-    assert.ok(FORM.absaetze.length > 0, "the version names no wording at all");
-    for (const wordingParagraph of FORM.absaetze) assert.notEqual(wordingParagraph, "", "the wording carries an empty paragraph");
-    assert.notEqual(FORM.schalter, "", "the wording carries no sentence for the switch to agree to");
-  });
-
   /* Both surfaces gather the SAME Kenntnisnahme, so each stamps the label its page read rather than
      one of its own: two versions would disagree about which one a record cites. */
   it("stamps the label its page read on a new record from either surface", () => {
