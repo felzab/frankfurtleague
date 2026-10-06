@@ -15,7 +15,7 @@ const { setSubject } = doubleActionRequest({ session: null, subject: person({ si
 const { answerWith, calls } = doubleApiAnswers();
 
 const { deleteKaderZeileAction, patchKaderZeileAction } = await import("./personActions.ts");
-const { SITZ_WEG, unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { SITZ_WEG, outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 
 const PATCH_OPERATION = "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}";
 const DELETE_OPERATION = "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}";
@@ -182,7 +182,7 @@ describe("a pupil's own consent write", () => {
 
     const answer = await patchSpielerEinwilligungAction(WAHL);
 
-    assert.deepEqual(answer, unansweredAction());
+    assert.deepEqual(answer, outcomeUnknown());
     assert.deepEqual(invalidations(), [["updateTag", "spieler"], ["refresh"]]);
   });
 

@@ -53,7 +53,7 @@ const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 
 const aRefusal = (serverErrorCode: string, statusCode = 409) =>
   new APIBadStatusError({
@@ -304,7 +304,7 @@ describe("the contacts save that seats new people", () => {
     save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"])]);
     mail.answerWith(() => "lost");
 
-    assert.deepEqual(await patchSaisonTeamKontakteAction(PAYLOAD), unansweredAction());
+    assert.deepEqual(await patchSaisonTeamKontakteAction(PAYLOAD), outcomeUnknown());
   });
 });
 

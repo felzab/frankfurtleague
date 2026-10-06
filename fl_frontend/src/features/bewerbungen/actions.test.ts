@@ -8,7 +8,7 @@ import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { toActionErrorResult, unansweredAction } from "@/shared/utils/actionError.ts";
+import { outcomeUnknown, toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
@@ -909,7 +909,7 @@ describe("the re-sent confirmation link", () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
-    assert.deepEqual(await einwilligungErneutSendenAction(ERNEUT), unansweredAction());
+    assert.deepEqual(await einwilligungErneutSendenAction(ERNEUT), outcomeUnknown());
   });
 
   /* Outside production every send is withheld, and a refusal there offers a retry no repeat of the

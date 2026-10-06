@@ -7,7 +7,7 @@ import { logger } from "@/core/logging";
 import { declareWriteTags, requestWriteSent, requestWriteTags } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
-import { unansweredAction, ZUGANG_WEG } from "./actionError";
+import { outcomeUnknown, ZUGANG_WEG } from "./actionError";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
@@ -124,7 +124,7 @@ async function runGuarded<S, T extends { success: boolean }>(
     if (writeOutcomeUnknown()) {
       logger.error(`${guard.lane} mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
-      return { forbidden: false, answer: unansweredAction(), wrote: wrote, tags: tags };
+      return { forbidden: false, answer: outcomeUnknown(), wrote: wrote, tags: tags };
     }
 
     return { forbidden: false, answer: answer, wrote: wrote, tags: tags };

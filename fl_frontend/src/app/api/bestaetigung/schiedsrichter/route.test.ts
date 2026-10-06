@@ -25,7 +25,7 @@ doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: 
 
 const { POST } = await import("./route.ts");
 const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
 /** The label the backend runs on this page, off the registry it generated. */
@@ -177,7 +177,7 @@ describe("the referee's confirmation handler", () => {
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.deepEqual(answer.body, unansweredAction());
+    assert.deepEqual(answer.body, outcomeUnknown());
     assert.deepEqual(tags, [["spiele", { expire: 0 }]]);
   });
 
