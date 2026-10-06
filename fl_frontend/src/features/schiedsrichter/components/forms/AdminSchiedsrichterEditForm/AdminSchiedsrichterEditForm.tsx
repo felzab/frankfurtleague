@@ -23,6 +23,7 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { unansweredAction } from "@/shared/utils/actionError";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { fieldStatus } from "@/shared/utils/draftStatus";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -277,21 +278,28 @@ export function AdminSchiedsrichterEditForm({
             onFieldLeft={validateFields}
           />
 
-          <FormKontaktSection
-            kontakt={kontakt}
-            onChange={setKontakt}
-            onFieldLeft={validateFields}
-          />
-
-          {/* Beside the address it would replace, and only while one waits: the box above still holds
-              the address in force, which an administrator would otherwise read as a save that failed. */}
-          {schiedsrichter.adresswechsel !== null && (
-            <FormAdresswechselSection
-              schiedsrichterId={schiedsrichter.id}
-              adresswechsel={schiedsrichter.adresswechsel}
-              isDirty={isDirty}
+          {/* One place for the address and its waiting change, laid out as if absent: a discard takes the
+              change's panel away, and the focus lands on the contact panel's heading rather than the page's
+              (`docs/frontend/spec.md :: I536`). */}
+          <div
+            className="contents"
+            {...focusSection("kontakt")}>
+            <FormKontaktSection
+              kontakt={kontakt}
+              onChange={setKontakt}
+              onFieldLeft={validateFields}
             />
-          )}
+
+            {/* Beside the address it would replace, and only while one waits: the box above still holds
+                the address in force, which an administrator would otherwise read as a save that failed. */}
+            {schiedsrichter.adresswechsel !== null && (
+              <FormAdresswechselSection
+                schiedsrichterId={schiedsrichter.id}
+                adresswechsel={schiedsrichter.adresswechsel}
+                isDirty={isDirty}
+              />
+            )}
+          </div>
 
           <FormHonorarSection
             defaultPayment={defaultPayment}

@@ -1103,6 +1103,22 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => screen.getByRole("button", { name: "Link erneut senden" }),
   },
+  /* The discard takes its own panel away, so the focus lands on the contact panel beside it, which stays. */
+  "a referee's waiting address discarded, on the contact panel's heading": {
+    before: () =>
+      h(AdminSchiedsrichterEditView, {
+        istFassungBekannt: true,
+        schiedsrichter: {
+          ...SR_RECORD,
+          adresswechsel: { email: "pia@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null },
+        },
+        inactiveSince: null,
+      }),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
+    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
+    remount: true,
+    lands: () => heading(/^Kontakt/),
+  },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
