@@ -365,9 +365,10 @@ describe("what the registration's answer page tells a pupil who got no mail", ()
     await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
     await act(fetchMock.answered);
 
-    const panel = await screen.findByRole("status");
-    const worte = panel.textContent;
+    // Waited for by its heading: a query for the one status would throw on a second before the assertion names it.
+    await screen.findByRole("heading", { name: "Deine Registrierung ist eingegangen" });
     assertOwnPanel(document.body.innerHTML, /registriere Dich einfach erneut/, "eingegangen");
+    const worte = screen.getByRole("status").textContent;
 
     assert.match(worte, new RegExp(String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)), "the answer page states no deadline, or one of its own");
     assert.match(worte, /registriere Dich einfach erneut/, "the answer page offers no way back from a mistyped address");

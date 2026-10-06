@@ -118,6 +118,65 @@ function unserialisableProps(file: string, text: string): string[] {
   });
 }
 
+/** Whether `node` sits in a type, where a client export is erased rather than sent. */
+function inType(node: ts.Node): boolean {
+  for (let at: ts.Node | undefined = node.parent; at !== undefined; at = at.parent) if (ts.isTypeNode(at)) return true;
+  return false;
+}
+
+/**
+ * Whether a client export's use is one React serves from the server: rendered as a tag, a member of one
+ * included, or handed on whole as a prop. A call or a read meets a reference, not the value.
+ */
+function isRendered(use: ts.Node): boolean {
+  let top = use;
+  while (ts.isPropertyAccessExpression(top.parent) && top.parent.expression === top) top = top.parent;
+  const parent = top.parent;
+
+  if ((ts.isJsxOpeningElement(parent) || ts.isJsxSelfClosingElement(parent) || ts.isJsxClosingElement(parent)) && parent.tagName === top)
+    return true;
+  return ts.isJsxExpression(parent) && ts.isJsxAttribute(parent.parent) && parent.expression === top;
+}
+
+/** Each use a server module makes of a value it imports from a `"use client"` module, other than rendering it. */
+function clientValuesUsed(file: string, text: string, sources: ReadonlyMap<string, string>): string[] {
+  const source = parseModule(file, text);
+  const bound = new Map<string, string>();
+
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const clause = statement.importClause;
+    if (clause === undefined || clause.isTypeOnly) continue;
+
+    const target = resolveSpecifier(statement.moduleSpecifier.text, file, sources);
+    const targetText = target === null ? undefined : sources.get(target);
+    if (target === null || targetText === undefined || !declaresClient(parseModule(target, targetText))) continue;
+
+    if (clause.name !== undefined) bound.set(clause.name.text, target);
+    const bindings = clause.namedBindings;
+    if (bindings !== undefined && ts.isNamespaceImport(bindings)) bound.set(bindings.name.text, target);
+    else for (const element of bindings?.elements ?? []) if (!element.isTypeOnly) bound.set(element.name.text, target);
+  }
+  if (bound.size === 0) return [];
+
+  const found: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node)) return;
+    if (ts.isIdentifier(node) && bound.has(node.text) && !inType(node) && !isRendered(node)) {
+      const isMemberName = ts.isPropertyAccessExpression(node.parent) && node.parent.name === node;
+      const isKey = ts.isPropertyAssignment(node.parent) && node.parent.name === node;
+      if (!isMemberName && !isKey) {
+        const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+        found.push(`${file}:${String(line)} ${node.text} from ${bound.get(node.text) ?? ""}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+
+  return found;
+}
+
 const SOURCES = new Map(
   filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 250).map((file) => [rel(file), readFileSync(file, "utf8")]),
 );
@@ -195,5 +254,50 @@ describe("what a Server Component hands a HeroUI element", () => {
     const handing = SERVER_MODULES_USING_HEROUI.flatMap(([file, text]) => unserialisableProps(file, text));
 
     assert.deepEqual(handing, [], `these hand a HeroUI element a function from a Server Component:\n  ${handing.join("\n  ")}`);
+  });
+});
+
+/** A client module's exports as a server module meets them, each beside the import it arrives through. */
+const CLIENT_EXPORT_SAMPLE = new Map([
+  [
+    "features/view.tsx",
+    '"use client";\nexport function View() { return null; }\nexport function startOf() { return 1; }\nexport const LABEL = "x";',
+  ],
+  ["features/plain.ts", "export function startOf() { return 1; }"],
+]);
+const usesIn = (page: string): string[] => clientValuesUsed("app/page.tsx", page, new Map([...CLIENT_EXPORT_SAMPLE, ["app/page.tsx", page]]));
+
+describe("what a server module takes from a client module", () => {
+  /* Each shape a use arrives in: the toolchain types and builds every one, and the page answers 500
+     at request time ("Attempted to call startOf() from the server"), which a test rendering the view
+     itself never meets. */
+  it("is read out of a module whichever way the export is used", () => {
+    const view = 'import { View, startOf, LABEL } from "@/features/view.tsx";\n';
+
+    assert.equal(usesIn(`${view}const s = startOf();`).length, 1, "a call reads as rendered");
+    assert.equal(usesIn(`${view}const s = LABEL.length;`).length, 1, "a read of a constant reads as rendered");
+    assert.equal(usesIn('import * as V from "@/features/view.tsx";\nconst s = V.startOf();').length, 1, "a namespaced call reads as rendered");
+    assert.deepEqual(usesIn(`${view}const c = <View />;`), [], "a rendered tag reads as a call");
+    assert.deepEqual(usesIn(`${view}const c = <Shell body={View} />;`), [], "a client export handed on as a prop reads as a call");
+    assert.deepEqual(
+      usesIn('import { startOf } from "@/features/plain.ts";\nconst s = startOf();'),
+      [],
+      "a plain module's export reads as a client one",
+    );
+    assert.deepEqual(usesIn('import type { View } from "@/features/view.tsx";\nlet v: typeof View;'), [], "a type import reads as a value");
+  });
+
+  it("is judged over a population the walk actually found", () => {
+    assert.ok([...SOURCES.keys()].filter((file) => !CLIENT.has(file)).length > 100, "the walk found few server modules");
+  });
+
+  /* The defect this exists for: the referee's address page called its view's `startOf` on the server,
+     and every link it opened answered 500. */
+  it("is only ever rendered or handed on, never called or read", () => {
+    const taking = [...SOURCES]
+      .filter(([file]) => !CLIENT.has(file) && !file.startsWith("shared/testing/"))
+      .flatMap(([file, text]) => clientValuesUsed(file, text, SOURCES));
+
+    assert.deepEqual(taking, [], `these call or read a client module's export on the server:\n  ${taking.join("\n  ")}`);
   });
 });
