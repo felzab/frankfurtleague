@@ -20,6 +20,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeKontaktFassung, laufendeSchiedsrichterFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
@@ -33,7 +34,7 @@ const fetchMock = doubleFetch();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SchiedsrichterBestaetigungView } = await import("./SchiedsrichterBestaetigungView.tsx");
-const { AdresseGesperrt } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
+const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
 
 const TOKEN = "abc123";
@@ -165,6 +166,24 @@ describe("the referee's confirmation page", () => {
   it("announces every panel that replaces the form", () => {
     for (const zustand of ["bestaetigt", "abgelaufen", "ungueltig", "unlesbar"] as const) {
       assert.match(markup({ zustand }), /role="status"/, `the ${zustand} panel is announced to nobody`);
+    }
+  });
+
+  // A second panel beside a state's own tells the reader two outcomes, which each case above misses.
+  it("shows each state's own panel and no other", () => {
+    const [unlesbar = ""] = resultPanels(renderTree(h(LinkUnlesbar, {})));
+    assert.match(unlesbar, /gerade nicht prüfen/, "the shared panel no longer says the link went unchecked");
+    const dead = "Dieser Link ist ungültig oder abgelaufen.";
+
+    for (const [start, eigenes] of [
+      [OFFEN, null],
+      [{ zustand: "bestaetigt" }, "Dieser Eintrag ist schon bestätigt."],
+      [{ zustand: "abgelaufen" }, dead],
+      [{ zustand: "ungueltig" }, dead],
+      [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
+      [{ zustand: "unlesbar" }, unlesbar],
+    ] satisfies [SchiedsrichterBestaetigungStart, string | null][]) {
+      assertOwnPanel(markup(start), eigenes, start.zustand);
     }
   });
 });
@@ -370,10 +389,10 @@ describe("the address the confirmation page opened under", () => {
 describe("what a refused press does to the page", () => {
   /* The link died between the open and the press: the handler answers a state, and the page swaps
      the form for that panel rather than raising a toast over a form nobody can submit again. */
-  for (const [zustand, ueberschrift] of [
-    ["ungueltig", "Link ungültig"],
-    ["abgelaufen", "Link ungültig"],
-    ["bestaetigt", "Schon erledigt"],
+  for (const [zustand, ueberschrift, eigenes] of [
+    ["ungueltig", "Link ungültig", "Dieser Link ist ungültig oder abgelaufen."],
+    ["abgelaufen", "Link ungültig", "Dieser Link ist ungültig oder abgelaufen."],
+    ["bestaetigt", "Schon erledigt", "Dieser Eintrag ist schon bestätigt."],
   ] as const) {
     it(`swaps the form for the ${zustand} panel`, async () => {
       answerEveryFetch({ success: false, zustand: zustand });
@@ -389,6 +408,7 @@ describe("what a refused press does to the page", () => {
 
       // Found rather than got: the panel renders after the handler's answer, which is awaited above.
       assert.ok(await screen.findByRole("heading", { name: ueberschrift }), "the page kept the form the press cannot use again");
+      assertOwnPanel(document.body.innerHTML, eigenes, zustand);
       assert.ok(screen.queryByRole("button", { name: "Eintrag bestätigen" }) === null);
       assert.deepEqual(toasts, [], "a dead link was reported as a toast over a dead form");
     });
