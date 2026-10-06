@@ -265,6 +265,12 @@ def link_is_over(*, frist: Any, today: str) -> bool:
     return not isinstance(frist, str) or frist < today
 
 
+def frist_abgelaufen(block: Any, *, today: str) -> bool:
+    """Whether a link block a row holds has passed its deadline: `link_is_over` over a block that exists."""
+
+    return isinstance(block, Mapping) and link_is_over(frist=block.get("frist"), today=today)
+
+
 def frist_of(bestaetigung: Any) -> Any:
     return bestaetigung.get("frist") if isinstance(bestaetigung, Mapping) else None
 

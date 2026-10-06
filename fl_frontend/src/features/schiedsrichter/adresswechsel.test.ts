@@ -23,7 +23,7 @@ const client = doubleApiAnswers(async ({ endpoint, method }: ApiCall) => {
   const answer = endpoint.startsWith("/zustellung/")
     ? { acknowledged: 1, angewendet: true }
     : method === undefined
-      ? { acknowledged: 1, schiedsrichter: stored() }
+      ? { acknowledged: 1, schiedsrichter: stored(), bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false }
       : endpoint.endsWith("/adresswechsel/einladen")
         ? resend()
         : method === "DELETE"

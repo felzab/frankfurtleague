@@ -27,10 +27,10 @@ const { ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET, For
 
 const OFFEN: FLSchiedsrichterAdresswechsel = { email: "anna@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
 
-const words = (adresswechsel: FLSchiedsrichterAdresswechsel): string =>
+const words = (adresswechsel: FLSchiedsrichterAdresswechsel, istAbgelaufen = false): string =>
   textOf(
     renderTree(
-      underNext(h(FormAdresswechselSection, { schiedsrichterId: "6890a1b2c3d4e5f607800001", adresswechsel, isDirty: false }), {
+      underNext(h(FormAdresswechselSection, { schiedsrichterId: "6890a1b2c3d4e5f607800001", adresswechsel, istAbgelaufen, isDirty: false }), {
         router: nextRouter(),
       }),
     ),
@@ -53,9 +53,17 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
   /* The consent panel on the same page holds a „Link erneut senden“ for its own link, so this one is named for its link. */
   it("names its re-send for the link it sends, the visible words staying the consent panel's", () => {
     render(
-      underNext(h(FormAdresswechselSection, { schiedsrichterId: "6890a1b2c3d4e5f607800001", adresswechsel: OFFEN, isDirty: false }), {
-        router: nextRouter(),
-      }),
+      underNext(
+        h(FormAdresswechselSection, {
+          schiedsrichterId: "6890a1b2c3d4e5f607800001",
+          adresswechsel: OFFEN,
+          istAbgelaufen: false,
+          isDirty: false,
+        }),
+        {
+          router: nextRouter(),
+        },
+      ),
     );
 
     const erneut = screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT });
@@ -65,11 +73,17 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
 
   /* No clock removes a lapsed change, so a past date alone would read as a deadline still running. */
   it("says a lapsed link is lapsed, beside its date", () => {
-    const shown = words({ ...OFFEN, frist: "2020-01-01" });
+    const shown = words({ ...OFFEN, frist: "2020-01-01" }, true);
 
     // Once, beside the date, as the consent link's panel marks its own.
     assert.equal(shown.split("abgelaufen").length - 1, 1, "the lapse is said other than once");
     assert.match(shown, /01\.01\.2020 abgelaufen/);
+  });
+
+  /* The read judges the deadline by the backend's own rule, so this browser's day decides nothing. */
+  it("marks the lapse by the read's judgement alone, never by the date it shows", () => {
+    assert.doesNotMatch(words({ ...OFFEN, frist: "2020-01-01" }, false), /abgelaufen/);
+    assert.match(words({ ...OFFEN, frist: "2099-12-31" }, true), /abgelaufen/);
   });
 
   it("wears the delivery register's own chip where the link's message was refused", () => {

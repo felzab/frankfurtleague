@@ -74,7 +74,12 @@ const stored = (email: string | null, name: string | null = "Anna Meier") => ({
   adresswechsel: null,
 });
 
-const withRow = (email: string | null, name?: string | null) => () => ({ acknowledged: 1, schiedsrichter: stored(email, name) });
+const withRow = (email: string | null, name?: string | null) => () => ({
+  acknowledged: 1,
+  schiedsrichter: stored(email, name),
+  bestaetigung_abgelaufen: false,
+  adresswechsel_abgelaufen: false,
+});
 
 /** A link minted for `email`, as each minting write answers it. */
 const minted = (email: string) => ({ token: "abc", frist: "2026-10-05", email });

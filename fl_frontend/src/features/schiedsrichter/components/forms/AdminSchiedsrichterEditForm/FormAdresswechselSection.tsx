@@ -24,7 +24,6 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
-import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -48,10 +47,13 @@ export const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
 export function FormAdresswechselSection({
   schiedsrichterId,
   adresswechsel,
+  istAbgelaufen,
   isDirty,
 }: {
   schiedsrichterId: string;
   adresswechsel: FLSchiedsrichterAdresswechsel;
+  /** The read's judgement of the deadline: a lapsed change stands until it is removed, so the date alone reads as running. */
+  istAbgelaufen: boolean;
   /** The editor's unsaved typing, which either write re-keys the editor over. */
   isDirty: boolean;
 }) {
@@ -61,8 +63,6 @@ export function FormAdresswechselSection({
   const panel = formPanel();
 
   const zustellung = adresswechsel.zustellung === null ? null : ZUSTELLUNG_CHIP[adresswechsel.zustellung.stand];
-  // No clock removes a lapsed change, so the date alone would read as a deadline still running.
-  const istAbgelaufen = adresswechsel.frist < getGermanTodayStr();
 
   // Both writes mint or void a link to an address, so both step up (`docs/frontend/spec.md :: I432`).
   const schreibe = async (art: "senden" | "verwerfen") => {

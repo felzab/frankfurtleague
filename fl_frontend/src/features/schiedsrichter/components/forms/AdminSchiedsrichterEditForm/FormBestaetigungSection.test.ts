@@ -58,6 +58,7 @@ const PROPS: Props = {
   hatAdresse: true,
   isRetired: false,
   bestaetigung: null,
+  istAbgelaufen: false,
   einwilligung: null,
   istFassungBekannt: true,
   geburtsdatum: null,
@@ -228,19 +229,25 @@ describe("what the panel says about a link nobody answered", () => {
   /* A date an administrator reads as a deadline says nothing once it is past, and the one thing to
      do about it is the control in this same panel. */
   it("marks a deadline that has gone by", () => {
-    const shown = words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" } });
+    const shown = words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" }, istAbgelaufen: true });
 
     assert.match(shown, /abgelaufen/);
   });
 
   it("marks nothing while the link still works", () => {
-    assert.doesNotMatch(words({ bestaetigung: { ...BLOCK, frist: "2999-01-01" } }), /abgelaufen/);
+    assert.doesNotMatch(words({ bestaetigung: { ...BLOCK, frist: "2999-01-01" }, istAbgelaufen: false }), /abgelaufen/);
+  });
+
+  /* The read judges the deadline by the backend's own rule, so this browser's day decides nothing. */
+  it("marks the lapse by the read's judgement alone, never by the date it shows", () => {
+    assert.doesNotMatch(words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" }, istAbgelaufen: false }), /abgelaufen/);
+    assert.match(words({ bestaetigung: { ...BLOCK, frist: "2999-01-01" }, istAbgelaufen: true }), /abgelaufen/);
   });
 
   /* A confirmed referee needs no live link, so a lapsed deadline beside their answer would report a
      state that costs them nothing. */
   it("marks no lapse on a referee who already answered", () => {
-    const shown = words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" }, einwilligung: BESTAETIGT });
+    const shown = words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" }, istAbgelaufen: true, einwilligung: BESTAETIGT });
 
     assert.doesNotMatch(shown, /abgelaufen/);
   });

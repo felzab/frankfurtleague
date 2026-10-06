@@ -206,7 +206,7 @@ const refereeEditor = (answered: boolean) =>
   underNext(
     h(AdminSchiedsrichterEditForm, {
       istFassungBekannt: true,
-      schiedsrichter: { ...retiredReferee(answered), inactive_since: undefined },
+      schiedsrichter: { ...retiredReferee(answered), inactive_since: undefined, abgelaufen: { bestaetigung: false, adresswechsel: false } },
       isRetired: false,
       pageHeader: { title: "Anna Körner" },
     } as never),
@@ -219,6 +219,7 @@ const adresswechselPanel = () =>
     h(FormAdresswechselSection, {
       schiedsrichterId: REFEREE_ID,
       adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-09-01", frist: "2099-12-31", zustellung: null },
+      istAbgelaufen: false,
       isDirty: false,
     }),
     { router: nextRouter() },
@@ -305,6 +306,7 @@ const DRIVES: Record<string, Drive[]> = {
             hatAdresse: true,
             isRetired: false,
             bestaetigung: null,
+            istAbgelaufen: false,
             einwilligung: null,
             geburtsdatum: null,
             isDirty: false,
@@ -324,6 +326,7 @@ const DRIVES: Record<string, Drive[]> = {
             hatAdresse: true,
             isRetired: false,
             bestaetigung: { verschickt_am: "2026-09-21", erinnert_am: null, frist: "2099-12-31", zustellung: null },
+            istAbgelaufen: false,
             einwilligung: null,
             geburtsdatum: null,
             isDirty: false,
@@ -355,7 +358,11 @@ const DRIVES: Record<string, Drive[]> = {
         underNext(
           h(AdminSchiedsrichterEditView, {
             istFassungBekannt: true,
-            schiedsrichter: { ...retiredReferee(!unanswered), inactive_since: undefined },
+            schiedsrichter: {
+              ...retiredReferee(!unanswered),
+              inactive_since: undefined,
+              abgelaufen: { bestaetigung: false, adresswechsel: false },
+            },
             inactiveSince: "2026-01-10",
           } as never),
           { search: "saison_id=2526" },

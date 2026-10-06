@@ -24,6 +24,7 @@ const RECORD = {
   einwilligung: null,
   bestaetigung: null,
   adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
 const view = (props: { name: string | null; inactiveSince: string | null }): string =>

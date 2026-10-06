@@ -31,7 +31,6 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
-import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -59,18 +58,15 @@ export const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung")
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
 
 /** What the last link reached, where one has gone out at all. */
-function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsrichterBestaetigung; istBestaetigt: boolean }) {
+function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLSchiedsrichterBestaetigung; offenUndAbgelaufen: boolean }) {
   const zustellung = bestaetigung.zustellung === null ? null : ZUSTELLUNG_CHIP[bestaetigung.zustellung.stand];
-  // A date an administrator reads as a deadline says nothing once it is past, and the answer
-  // („einen neuen schicken“) is the control in this same panel.
-  const istAbgelaufen = !istBestaetigt && bestaetigung.frist < getGermanTodayStr();
 
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Link gesendet am">{formatSpielDatum(bestaetigung.verschickt_am)}</Angabe>
       <Angabe label="Gültig bis">
         {formatSpielDatum(bestaetigung.frist)}
-        {istAbgelaufen && <LinkAbgelaufen />}
+        {offenUndAbgelaufen && <LinkAbgelaufen />}
       </Angabe>
       {/* A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
           rather than a day that went missing. */}
@@ -145,6 +141,7 @@ export function FormBestaetigungSection({
   hatAdresse,
   isRetired,
   bestaetigung,
+  istAbgelaufen,
   einwilligung,
   istFassungBekannt,
   geburtsdatum,
@@ -155,6 +152,8 @@ export function FormBestaetigungSection({
   hatAdresse: boolean;
   isRetired: boolean;
   bestaetigung: FLSchiedsrichterBestaetigung | null;
+  /** The read's judgement of the link's deadline, never this browser's day. */
+  istAbgelaufen: boolean;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label, resolved by the page through the words read. */
   istFassungBekannt: boolean | null;
@@ -233,7 +232,9 @@ export function FormBestaetigungSection({
         ) : (
           <LinkStand
             bestaetigung={bestaetigung}
-            istBestaetigt={istBestaetigt}
+            // A date an administrator reads as a deadline says nothing once it is past, and the
+            // answer („einen neuen schicken“) is the control in this same panel; an answered link's says nothing at all.
+            offenUndAbgelaufen={!istBestaetigt && istAbgelaufen}
           />
         )}
 

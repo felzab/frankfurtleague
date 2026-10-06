@@ -2214,7 +2214,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "get": {
         "summary": "One Schiedsrichter",
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).",
+        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether each link's deadline has passed today, by the rule its own press refuses on, so the\neditor marks a lapsed link without reading a day of its own.",
         "operationId": "get_schiedsrichter_by_id_api_v0_schiedsrichter__schiedsrichter_id__get",
         "security": [
           {
@@ -20587,11 +20587,21 @@
           },
           "schiedsrichter": {
             "$ref": "#/components/schemas/FLSchiedsrichter"
+          },
+          "bestaetigung_abgelaufen": {
+            "type": "boolean",
+            "title": "Bestaetigung Abgelaufen"
+          },
+          "adresswechsel_abgelaufen": {
+            "type": "boolean",
+            "title": "Adresswechsel Abgelaufen"
           }
         },
         "type": "object",
         "required": [
-          "schiedsrichter"
+          "schiedsrichter",
+          "bestaetigung_abgelaufen",
+          "adresswechsel_abgelaufen"
         ],
         "title": "FLSchiedsrichterSingleResponse"
       },

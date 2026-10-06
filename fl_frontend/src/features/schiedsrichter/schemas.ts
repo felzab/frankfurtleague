@@ -166,6 +166,9 @@ export type FLSchiedsrichterListResponse = z.infer<typeof FLSchiedsrichterListRe
 
 export const FLSchiedsrichterSingleResponseSchema = BaseAPIResponseSchema.extend({
   schiedsrichter: FLSchiedsrichterSchema,
+  // The backend's judgement of each link's deadline today, so the editor reads no day of its own.
+  bestaetigung_abgelaufen: z.boolean(),
+  adresswechsel_abgelaufen: z.boolean(),
 });
 export type FLSchiedsrichterSingleResponse = z.infer<typeof FLSchiedsrichterSingleResponseSchema>;
 
