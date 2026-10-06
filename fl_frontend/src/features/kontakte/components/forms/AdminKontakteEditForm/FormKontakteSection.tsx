@@ -51,9 +51,9 @@ import type { KontakteBanner } from "./banners";
  */
 const NOCH_OFFEN = "Noch offen";
 
-/** The two words the contact confirmation's receipt answers a choice with, so both surfaces say it alike. */
-const ERLAUBT = "erlaubt";
-const NICHT_ERLAUBT = "nicht erlaubt";
+/** The two words the contact confirmation's receipt answers a choice with, so every surface says it alike. */
+export const ERLAUBT = "erlaubt";
+export const NICHT_ERLAUBT = "nicht erlaubt";
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 
 /**
