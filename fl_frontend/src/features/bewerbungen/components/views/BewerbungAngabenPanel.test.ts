@@ -99,6 +99,32 @@ describe("the panel a triage decision is taken from", () => {
     });
   }
 
+  /* The person may withdraw either choice on the account page while the application is pending, so the
+     administrator deciding it reads both as they stand, each with the act it stands on. */
+  it("reads out a seat's WhatsApp scope and media consent, each with its act", () => {
+    const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+    assert.ok(ansprechperson !== null);
+    const html = markup({
+      kontakte: {
+        ...BEWERBUNG.kontakte,
+        ansprechperson: {
+          ...ansprechperson,
+          einwilligung: {
+            ...ansprechperson.einwilligung,
+            umfang: "kontaktdaten_whatsapp",
+            medien: true,
+            bestaetigt_am: "2026-08-02",
+            nachweis: { umfang: { am: "2026-08-02T08:00:00+00:00", text_version: "2026-08", erteilt_zuvor: null }, medien: null },
+          },
+        },
+      },
+    });
+
+    assert.match(textOf(factLine(html, "WhatsApp")), /^erlaubt/);
+    assert.match(textOf(factLine(html, "Medien")), /^Fotos, Videos und Interviews zugesagt/);
+    assert.notEqual(textOf(factLine(html, "WhatsApp")), "erlaubt", "the WhatsApp scope stands on no act");
+  });
+
   /* An acceptance writes the created club's id back onto the application, so a decided new-school
      application carries a school AND a club. A guard on the school arm drops the link on exactly
      those. */
