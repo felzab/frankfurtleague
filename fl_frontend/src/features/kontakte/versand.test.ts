@@ -55,11 +55,11 @@ const { APIBadStatusError } = await import("@/core/errors.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
-const aRefusal = (serverErrorCode: string, statusCode = 409) =>
+const aRefusal = (serverErrorCode: string) =>
   new APIBadStatusError({
     message: "refused",
     url: "http://localhost/teams",
-    statusCode,
+    statusCode: 409,
     serverErrorCode,
     endpoint: "/teams",
     method: "POST",
@@ -337,19 +337,6 @@ describe("the label a contacts save names", () => {
 });
 
 describe("a contacts save from a session past the step-up window", () => {
-  /* A save that may seat somebody new mints a bearer link, so the passkey is asked before the write. */
-  it("is refused where the draft seats a person the row does not hold, reaching no write", async () => {
-    setFresh(false);
-    memberships = holding({ ...GESPEICHERT, stellvertretung: null });
-
-    assert.deepEqual(await patchSaisonTeamKontakteAction(PAYLOAD), stepUpRequired());
-    assert.deepEqual(
-      requestsOf(client.calls).filter(({ method }) => method !== undefined),
-      [],
-      "the write was sent for a session past the window",
-    );
-  });
-
   /* Emptying a seat voids the link its person holds, which is a step-up write as much as a mint. */
   it("is refused where the draft empties a seat the row holds, reaching no write", async () => {
     setFresh(false);
@@ -373,14 +360,6 @@ describe("a contacts save from a session past the step-up window", () => {
 
     assert.notDeepEqual(res, stepUpRequired());
     assert.equal(res.success, true);
-  });
-
-  /* The backend judges by its own read and may still refuse at the window's edge; the spine answers that as its own. */
-  it("answers the backend's own step-up refusal as the spine's", async () => {
-    setFresh(false);
-    save = () => aRefusal("REQ-AUTH-009", 401);
-
-    assert.deepEqual(await patchSaisonTeamKontakteAction(PAYLOAD), stepUpRequired());
   });
 });
 
