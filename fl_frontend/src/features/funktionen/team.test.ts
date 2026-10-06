@@ -178,6 +178,36 @@ describe("what a person meets at an address they hold no seat on", () => {
     }
   });
 
+  /* A lost seat alone answers the forbidden panel: a page reading every other failure as one tells a
+     seat holder whose backend fell over that they hold no seat there. */
+  it("throws a failed read from every team page to the area's boundary, never answering it as a lost seat", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    const props = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526", spieler_id: LENA }), searchParams: Promise.resolve({}) };
+
+    for (const file of TEAM_PAGES) {
+      const { default: Page } = (await import(pathToFileURL(file).href)) as { default: (props: unknown) => ReactNode };
+      const failure = new APIBadStatusError({
+        message: "failed",
+        url: "http://backend/api/v0/any",
+        statusCode: 500,
+        endpoint: "/any",
+        method: "GET",
+        readOnly: true,
+        traceId: "0",
+      });
+      answerReadsWith(() => {
+        throw failure;
+      });
+      try {
+        const { thrown } = await callPage(Page, props);
+
+        assert.deepEqual(thrown, [failure], `${path.relative(TEAM_DIR, file)} answers a failed read as something other than a failure`);
+      } finally {
+        answerReadsWith(EMPTIEST_ANSWER);
+      }
+    }
+  });
+
   /* Next runs a nested layout whatever the area's layout renders in its stead, as it runs a page: one
      reading before it checks the seat puts that read's data in the payload beside the forbidden panel. */
   it("reads nothing from any team layout at an address held by nobody there", async () => {

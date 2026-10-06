@@ -50,7 +50,7 @@ function request(origin: string | null, read: { body: number }, method = "POST")
 
 /**
  * The spine driven: what it answered, and whether anything past its guard ran — a trace opened, a body
- * read, the handler itself. Every route carrying the guard is `fl_frontend/src/core/requestSpines.test.ts`'s population.
+ * read, the handler itself. Every route carrying the guard is `fl_frontend/src/app/requestSpines.test.ts`'s population.
  */
 async function answerFor(origin: string | null): Promise<{ status: number; body: { success: boolean; error?: string }; didWork: boolean }> {
   spineTraces = 0;

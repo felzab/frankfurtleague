@@ -1188,7 +1188,7 @@ const SCOPED_BANS = [
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
     {
-      files: ["src/app/**/route.ts"],
+      files: ["src/app/**/route.{ts,tsx}"],
       selector: inLiteral("REQ-EINLADUNG"),
       message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
     },
