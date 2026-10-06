@@ -15,14 +15,14 @@ import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
-import type { SchiedsrichterAdresswechselStart } from "./SchiedsrichterAdresswechselView.tsx";
+import type { SchiedsrichterAdresswechselStart } from "@/features/schiedsrichter/adresswechselStart.ts";
 
 const { raised: toasts } = doubleToasts();
 const fetchMock = doubleFetch();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE, SchiedsrichterAdresswechselView, startOf } =
-  await import("./SchiedsrichterAdresswechselView.tsx");
+const { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE, SchiedsrichterAdresswechselView } = await import("./SchiedsrichterAdresswechselView.tsx");
+const { startOf } = await import("@/features/schiedsrichter/adresswechselStart.ts");
 const { LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 
 const OFFEN: SchiedsrichterAdresswechselStart = { zustand: "gueltig", vorname: "Anna", frist: "2026-10-15", token: "abc123" };
