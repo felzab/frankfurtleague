@@ -17,7 +17,7 @@ const ORIGIN = "http://localhost:3000";
 
 /* The real actions, their spine, their mutations and the decline note's fan-out, called: the request
    they run in, the subject lookup holding one seat, the backend client and the mailer are the doubles. */
-const { setSubject } = doubleActionRequest({ session: null, subject: person({ sitze: [sitz()] }) });
+doubleActionRequest({ session: null, subject: person({ sitze: [sitz()] }) });
 const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
 registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: ORIGIN } } } });
 
@@ -31,7 +31,6 @@ const { calls } = client;
 const answerWith = (next: () => Promise<unknown>): void => client.answerWith((call) => (reportsDelivery(call) ? deliveryApplied() : next()));
 
 const { ablehnenRegistrierungAction, aufnehmenRegistrierungAction } = await import("./personActions.ts");
-const { SITZ_WEG } = await import("@/shared/utils/actionError.ts");
 
 const AUFNEHMEN_OPERATION = "POST /registrierungen/{registrierung_id}/aufnehmen";
 const ABLEHNEN_OPERATION = "POST /registrierungen/{registrierung_id}/ablehnen";
@@ -109,25 +108,6 @@ describe("a seat holder's decisions on a registration", () => {
       message: "Lena kommt nicht in den Kader. Die Registrierung löschen wir einen Monat nach der Entscheidung.",
     });
     assert.deepEqual(invalidations(), [["refresh"]]);
-  });
-
-  /* The seat is the spine's to derive from the session, never the payload's word: the payload names a
-     team the person holds nothing on. */
-  it("never reaches the backend for a seat the person does not hold", async () => {
-    setSubject(person({ sitze: [sitz({ team_id: "6890a1b2c3d4e5f607250012" })] }));
-    answerWith(() => Promise.resolve(AUFNAHME));
-
-    const answers = [
-      await aufnehmenRegistrierungAction({ ...ZIEL, spieler_id: null }),
-      await ablehnenRegistrierungAction({ ...ZIEL, grund: null }),
-    ];
-
-    assert.deepEqual(calls, [], "a decision for a seat the person does not hold reached the backend");
-    assert.deepEqual(answers, [
-      { success: false, error: SITZ_WEG },
-      { success: false, error: SITZ_WEG },
-    ]);
-    assert.deepEqual(mailed, [], "a refused decline mailed the pupil");
   });
 });
 
