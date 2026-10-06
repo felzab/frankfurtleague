@@ -36,13 +36,18 @@ describe("the account page's controls drawn from the served wording", () => {
     assert.equal(gerendert(worte.widerruf), sections.widerruf);
   });
 
-  it("fills a seat's team and season into its paragraph and its title", () => {
-    const sitz = { team_name: "Lessing Lions", saison_id: "2526" };
-    const worte = sitzWorte(publishedLaufendeFassung("konto_kontakt"), sitz);
+  /* A seat's scope is no publication choice: a WhatsApp switch named by the registry's control, its own
+     paragraph beside it, where a person's record carries chips. */
+  it("fills a seat's team and season into both switches' paragraphs and its title", () => {
+    const fassung = publishedLaufendeFassung("konto_kontakt");
+    const sitz = { rollen: ["ansprechperson", "trainer"] as const, team_name: "Lessing Lions", saison_id: "2526" };
+    const worte = sitzWorte(fassung, sitz);
 
     assert.equal(worte.umfang, undefined);
+    assert.equal(worte.whatsapp?.schalter, fassung.bedienelemente.kontaktdaten_whatsapp);
+    assert.ok(gerendert(worte.whatsapp?.absatz).includes("für Lessing Lions in der Saison 2526"));
     assert.ok(gerendert(worte.medien.absatz).includes("für Lessing Lions in der Saison 2526"));
-    assert.equal(sitzTitel(sitz), "Fotos, Videos und Interviews: Lessing Lions, Saison 2526");
+    assert.equal(sitzTitel(sitz), "Als Ansprechperson und Trainerin oder Trainer: Lessing Lions, Saison 2526");
   });
 
   /* A wording missing a section is a registry fault: a blank paragraph would describe a control by nothing. */

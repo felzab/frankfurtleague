@@ -13,7 +13,7 @@ const { setSubject } = doubleActionRequest({ session: null, subject: person({ sc
 const { answerWith, calls } = doubleApiAnswers();
 
 const { patchSchiedsrichterEinwilligungAction } = await import("./personActions.ts");
-const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, MEDIEN_ZU_JUNG, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
+const { EINTRAG_GEAENDERT, mapEigeneEinwilligungRefusal, MEDIEN_ZU_JUNG, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
   await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung";
@@ -80,7 +80,7 @@ describe("a referee's own consent write", () => {
   });
 
   for (const [code, status, words] of [
-    ["REQ-FUNKTION-001", 403, EINTRAG_WEG],
+    ["REQ-FUNKTION-001", 403, EINTRAG_GEAENDERT],
     ["REQ-EINWILLIGUNG-002", 422, MEDIEN_ZU_JUNG],
   ] as const) {
     it(`answers ${code} in the account page's words and drops nothing`, async () => {

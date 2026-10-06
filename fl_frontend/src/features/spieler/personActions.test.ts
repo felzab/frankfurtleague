@@ -109,7 +109,8 @@ describe("what each squad write answers a refusal with", () => {
 });
 
 const { patchSpielerEinwilligungAction } = await import("./personActions.ts");
-const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } = await import("@/features/konto/einwilligung.ts");
+const { EINTRAG_GEAENDERT, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
+  await import("@/features/konto/einwilligung.ts");
 
 const EINWILLIGUNG_OPERATION = "PATCH /spieler/selbst/einwilligung";
 const WAHL = {
@@ -185,13 +186,13 @@ describe("a pupil's own consent write", () => {
     assert.deepEqual(invalidations(), [["updateTag", "spieler"], ["refresh"]]);
   });
 
-  it("answers the backend's lost record in words naming no team, and drops nothing", async () => {
+  it("answers the backend's lost record, or a grant it no longer admits, in words naming no team, and drops nothing", async () => {
     setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
     answerWith(() => Promise.reject(refusedOn(EINWILLIGUNG_OPERATION, "REQ-FUNKTION-001", 403)));
 
     const answer = await patchSpielerEinwilligungAction(WAHL);
 
-    assert.deepEqual(answer, { success: false, error: EINTRAG_WEG, fieldErrors: undefined });
+    assert.deepEqual(answer, { success: false, error: EINTRAG_GEAENDERT, fieldErrors: undefined });
     assert.deepEqual(invalidations(), [], "a refused write dropped a cache or refreshed the page");
   });
 });
