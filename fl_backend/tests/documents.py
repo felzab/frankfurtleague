@@ -244,8 +244,13 @@ def registrierung_document(
     return {**document, **fields}
 
 
-def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **fields: Any) -> dict[str, Any]:
-    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it."""
+def kontaktperson_document(
+    vorname: str, *, bestaetigt_am: str | None = None, einwilligung: Mapping[str, Any] | None = None, **fields: Any
+) -> dict[str, Any]:
+    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
+
+    `einwilligung` holds the record's keys a case sets itself, its label and choices among them, laid over the seat's own.
+    """
 
     return {
         "vorname": vorname,
@@ -259,6 +264,7 @@ def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": bestaetigt_am,
+            **(einwilligung or {}),
         },
         **fields,
     }
@@ -333,28 +339,6 @@ def schiedsrichter_document(
         "geburtsdatum": None,
         "einwilligung": None if einwilligung is None else dict(einwilligung),
         **fields,
-    }
-
-
-def kontaktsitz_document(
-    email: str, *, vorname: str, text_version: str, bestaetigt_am: str | None, geburtsdatum: str | None = None, **einwilligung: Any
-) -> dict[str, Any]:
-    """One contact seat at a given address, confirmed by its own person where `bestaetigt_am` is set; `einwilligung` its choices."""
-
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": email,
-        "telefon": "+49 69 5550101",
-        "geburtsdatum": geburtsdatum,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": text_version,
-            "datum": "2026-09-01",
-            "bestaetigt_am": bestaetigt_am,
-            **einwilligung,
-        },
     }
 
 
