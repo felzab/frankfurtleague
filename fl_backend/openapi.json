@@ -25735,5 +25735,11 @@
         }
       }
     }
-  }
+  },
+  "x-fl-protocol-families": [
+    "AUTH",
+    "DROSSELUNG",
+    "ROUTE",
+    "VAL"
+  ]
 }

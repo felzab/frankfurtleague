@@ -247,7 +247,9 @@ selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and doe
 recorded reason covering no handler is a finding, as is a metered exact match standing without its
 trailing-slash twin, and a location construct the checker cannot place refuses rather than reading
 as coverage — a path two exact matches declare included, which nginx refuses outright and which
-would otherwise leave one of the two standing for both. **An exact-match location names something
+would otherwise leave one of the two standing for both. A named location an `error_page` of the same
+level sends to answers no request URI, so it is read as no route; one nothing sends to refuses, and so
+does an `error_page` naming a location nobody declares. **An exact-match location names something
 this repository answers or it is a finding too**: a route handler's URL, a page's, a metadata
 convention's, or a path recorded at `scripts/checks/check_public_routes.py :: ELSEWHERE`, which the
 liveness probe is the one entry of — a block the walk cannot place otherwise outlives the file that
@@ -350,7 +352,8 @@ reads that message as a press that wrote nothing
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
 handler's caller reads the status alone, and a page load past the connection ceiling shows the
 sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
-file, and its security headers.
+file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
+compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way.
 
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
