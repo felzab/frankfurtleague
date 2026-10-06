@@ -855,29 +855,20 @@ NOTHING was asked of compose or of either service."
 SIGNING_KEY_FILE="secrets/fl_actor_signing_key"
 SIGNING_KEY_MOUNT="/run/secrets/fl_actor_signing_key"
 
-# The frontend's own reading of the key, by its own user (uid 1001, mode 400): `ACTOR_SIGNING_KEY_FILE`
-# over the default `$1`, as `fl_frontend/src/core/config.ts` reads it. Exit 3 names the fault, never
-# a value.
-# shellcheck disable=SC2016  # node's template literals
+# `ACTOR_SIGNING_KEY_FILE` over the mount `$1`, as the frontend reads the key. Whether it is usable is
+# the boot's to refuse (`check_frontend_boot_config`, asked first), so a failed read is an advisory.
+# Exit 3 names the fault, never a value.
 ACTOR_KEY_CHECK='
 process.on("uncaughtException", (error) => { console.error(error.name); process.exit(4); });
 const { readFileSync } = require("node:fs");
-const { createPrivateKey, createPublicKey } = require("node:crypto");
+const { createPublicKey } = require("node:crypto");
 const { parseEnv } = require("node:util");
 const refuse = (line) => { console.error(line); process.exit(3); };
-const named = process.env.ACTOR_SIGNING_KEY_FILE;
-let pem;
-try { pem = readFileSync(named ?? process.argv[1]); } catch (error) {
-  if (named === undefined) refuse(`the signing key could not be read by the frontend user (${error.code})`);
-  refuse(`the frontend reads its signing key at ${JSON.stringify(named)}, which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there (${error.code}); the stack mounts the key at ${process.argv[1]}`);
-}
-let key;
-try { key = createPrivateKey(pem); } catch { refuse("the signing key file holds no private key in PEM"); }
-if (key.asymmetricKeyType !== "ed25519") refuse(`the signing key is ${key.asymmetricKeyType}, not Ed25519`);
+const signing = readFileSync(process.env.ACTOR_SIGNING_KEY_FILE ?? process.argv[1]);
 const published = parseEnv(readFileSync(0, "utf8")).ACTOR_TOKEN_PUBLIC_KEY;
 if (published === undefined) refuse("ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env");
 if (!/^[A-Za-z0-9_-]{43}$/.test(published) || Buffer.from(published, "base64url").length !== 32) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the base64url of 32 bytes");
-if (createPublicKey(key).export({ format: "jwk" }).x !== published) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key");
+if (createPublicKey(signing).export({ format: "jwk" }).x !== published) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key");
 '
 
 # The lines of `fl_backend/.env` the pair check is handed, as `node:util :: parseEnv` finds the name.
@@ -898,9 +889,8 @@ ${standing}"
   said="$(MSYS_NO_PATHCONV=1 "$@" node -e "$ACTOR_KEY_CHECK" "$SIGNING_KEY_MOUNT" <<<"$lines" 2>&1)" || rc=$?
   if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
   if (( rc == 3 )); then
-    refuse "the actor token's key pair would not work, and the line above says why. Where it names
-ACTOR_SIGNING_KEY_FILE, delete that line from fl_frontend/.env; otherwise generate the pair again and
-put each half where docs/ops/runbooks.md §16 says.
+    refuse "the actor token's key pair would not work, and the line above says why: generate the pair again
+and put each half where docs/ops/runbooks.md §16 says.
 ${standing}"
   elif (( rc )); then
     # An advisory, as each environment reader's is: the running stack never runs this check.

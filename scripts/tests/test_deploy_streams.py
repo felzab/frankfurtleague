@@ -591,36 +591,6 @@ def test_the_key_is_read_where_the_environment_names_it_rather_than_at_the_mount
             "ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env",
             id="no-public-half",
         ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 other.pem env.txt',
-            "absent.pem",
-            "the signing key could not be read by the frontend user (ENOENT)",
-            id="unreadable-key",
-        ),
-        pytest.param(
-            "node -e \"$PAIR_JS\" ed25519 other.pem env.txt\nprintf 'not a key\\n' > key.pem",
-            "key.pem",
-            "the signing key file holds no private key in PEM",
-            id="no-key-in-the-file",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" x25519 key.pem env.txt',
-            "key.pem",
-            "the signing key is x25519, not Ed25519",
-            id="not-a-signing-key",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key',
-            "key.pem",
-            "which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there (ENOENT)",
-            id="a-dev-path-the-environment-names-over-a-good-mount",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=',
-            "key.pem",
-            "which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there",
-            id="an-empty-path-the-frontend-s-config-refuses",
-        ),
     ],
 )
 def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, key: str, said: str) -> None:
@@ -629,6 +599,21 @@ def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, k
 
     assert "check=3" in output, output
     assert said in output, output
+
+
+@pytest.mark.parametrize(
+    ("setup", "key"),
+    [
+        pytest.param('node -e "$PAIR_JS" ed25519 other.pem env.txt', "absent.pem", id="absent"),
+        pytest.param("node -e \"$PAIR_JS\" ed25519 other.pem env.txt\nprintf 'not a key\\n' > key.pem", "key.pem", id="no-key-in-the-file"),
+        pytest.param('node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=', "key.pem", id="an-empty-path"),
+    ],
+)
+def test_a_key_the_check_cannot_read_is_no_verdict_on_the_pair(setup: str, key: str) -> None:
+    """The frontend's boot refuses such a key before this check runs (`fl_frontend/src/instrumentation.test.ts`), so here it is the advisory."""
+    output = _judged(setup, key, "env.txt")
+
+    assert "check=4" in output, output
 
 
 KEY_CHECK: Final = 'check_actor_key "NOTHING has been recreated." docker compose -f docker-compose.yml run --rm --no-deps -T frontend'

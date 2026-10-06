@@ -1422,13 +1422,13 @@ Then put the private half in place, from the same shell, which still holds `$t`:
   finished until `aktionen` has been read for every `berechtigungen` write since the leak, and every
   grant nobody can account for is revoked in the Playground.
 
-`deploy.sh` and `local.sh` refuse a missing key file before anything starts. They then have the
-frontend service's own container, started as the stack starts it and handed the
-`ACTOR_TOKEN_PUBLIC_KEY` line alone, judge the pair: a key it cannot read where its environment
-points it, a key that is not Ed25519, or an `ACTOR_TOKEN_PUBLIC_KEY` that is missing, malformed or
-not its public half. Each refusal names the fault and never a value. The remedy is to run the command
-above again, or, where the refusal names `ACTOR_SIGNING_KEY_FILE`, to delete that line from
-`fl_frontend/.env`.
+`deploy.sh` and `local.sh` refuse a missing key file before anything starts. The frontend's boot,
+run as §1 says, then refuses a key it cannot read where its environment points it or one that is not
+Ed25519, naming the path: where that path is not `/run/secrets/fl_actor_signing_key`, delete the
+`ACTOR_SIGNING_KEY_FILE` line from `fl_frontend/.env`. Last, the frontend service's own container,
+handed the `ACTOR_TOKEN_PUBLIC_KEY` line alone, judges the pair: an `ACTOR_TOKEN_PUBLIC_KEY` that is
+missing, malformed or not the key's public half. Each refusal names the fault and never a value, and
+the remedy is to run the command above again.
 
 **A deploy by tag to a build from before the secret files is refused by this checkout**, whatever
 the environment files hold and before either tag moves: that build was released with another
