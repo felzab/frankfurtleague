@@ -31,6 +31,9 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: "postSchiedsrichterBestaetigung",
     run: async () => {
+      // Ahead of the fixture read joining this record, which will serve the referee's name by its scope:
+      // the cached fixture list is dropped wherever the answer may stand, and nowhere a write was not sent.
+      invalidatesOnWrite("spiele");
       const body: unknown = await request.json().catch(() => null);
 
       const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse(body);
