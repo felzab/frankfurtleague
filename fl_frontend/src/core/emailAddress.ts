@@ -28,10 +28,10 @@ const EMAIL_ATOM = "[a-zA-Z0-9_!#$%&'*+\\-/=?^`{|}~]+";
 const EMAIL_LOCAL_PART_REGEX = new RegExp(`^${EMAIL_ATOM}(?:\\.${EMAIL_ATOM})*$`);
 
 /**
- * Exclusions enumerated rather than allowances united (I226): a union of two classes needs the
- * `v` flag, which `package.json`'s browserslist refuses at `safari >= 16.4`.
+ * Read before `new URL`, which reads a slash or colon as path or port, answering a host nobody typed.
+ * Exclusions, not united allowances (I226): a union needs the `v` flag, which the browserslist refuses at
+ * `safari >= 16.4`.
  */
-/** Read before `new URL` below, which would take a slash or a colon here for a path or a port and answer a host nobody typed. */
 const EMAIL_HOST_CHARS_REGEX = /^[^\p{Z}\p{C}!"#$%&'()*+,/:;<=>?@[\]\\^_`{|}~]+$/u;
 
 /** RFC 1123 2.1's letter-digit-hyphen label, which is the clause that refuses `person@ab-.de`. */

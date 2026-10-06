@@ -331,6 +331,23 @@ describe("what the press sends", () => {
 
     assert.deepEqual(sent, [{ token: TOKEN, geburtsdatum: "1990-01-01", umfang: "intern", medien: false, text_version: FASSUNG }]);
   });
+
+  /* The receipt reads the media consent in the words every confirmation page shares (`medienZeile`), so
+     this page cannot drift to a wording of its own. */
+  it("reads the stored media consent back in the receipt's shared row", async () => {
+    answerEveryFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
+
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard("01011990");
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+    const zeile = await screen.findByText("Fotos, Videos und Interviews");
+    assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
+  });
 });
 
 describe("what a link to a barred address opens on", () => {
