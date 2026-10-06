@@ -183,7 +183,11 @@ async def resend(
 
 async def discard(database: AsyncDatabase, client: AsyncMongoClient, *, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID) -> Any:
     return await delete_adresswechsel(
-        schiedsrichter_id=schiedsrichter_id, schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], db=client
+        schiedsrichter_id=schiedsrichter_id,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        germany_now=NOW,
     )
 
 
@@ -201,8 +205,10 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         antwort_data=FLSchiedsrichterAdresswechselPayload.model_validate({"token": token, "antwort": antwort}),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=today,
+        germany_now=NOW,
     )
 
 
@@ -228,6 +234,16 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
     assert found is not None, "the referee this case seeded is gone"
 
     return found
+
+
+async def holding_the_address(database: AsyncDatabase, email: str) -> list[str]:
+    """Every collection still holding this address anywhere in a document, the action log's images included."""
+
+    holding = []
+    for name in await database.list_collection_names():
+        holding += [name async for document in database[name].find({}) if email in str(document)]
+
+    return holding
 
 
 async def refused_code(call: Awaitable[Any]) -> str:
@@ -456,6 +472,18 @@ class TestTheDecline:
         assert ADRESSWECHSEL_FELD not in row
         assert row["kontakt"]["email"] == EMAIL
 
+    def test_the_whole_database_holds_the_disowned_address_nowhere_afterwards(self, mongo_replica_set_url: str):
+        """The re-send and the decline each file an image carrying the address, which the decline's redaction reaches."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
+            resent = await resend(database, client)
+            await answer(database, client, resent.adresswechsel.token, "abgelehnt")
+
+            return await holding_the_address(database, NEW_EMAIL)
+
+        assert on_a_league(mongo_replica_set_url, body) == []
+
 
 class TestTheView:
     def test_it_answers_the_first_name_the_state_and_the_deadline(self, mongo_replica_set_url: str):
@@ -555,6 +583,16 @@ class TestTheDiscard:
 
         assert on_a_league(mongo_replica_set_url, body) == "not found"
 
+    def test_the_whole_database_holds_the_discarded_address_nowhere_afterwards(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
+            await resend(database, client)
+            await discard(database, client)
+
+            return await holding_the_address(database, NEW_EMAIL)
+
+        assert on_a_league(mongo_replica_set_url, body) == []
+
 
 class TestTheDeliveryState:
     def test_a_report_on_the_address_link_lands_on_its_block_and_not_on_the_consent_links(self, mongo_replica_set_url: str):
@@ -613,10 +651,6 @@ class TestTheErasure:
                 germany_now=NOW,
             )
 
-            holding = []
-            for name in await database.list_collection_names():
-                holding += [name async for document in database[name].find({}) if NEW_EMAIL in str(document)]
-
-            return holding
+            return await holding_the_address(database, NEW_EMAIL)
 
         assert on_a_league(mongo_replica_set_url, body) == []
