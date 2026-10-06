@@ -6,6 +6,9 @@
 import { existsSync, globSync } from "node:fs";
 import path from "node:path";
 
+/** The exit of a run refused before any file ran, apart from a run that failed. */
+export const REFUSED = 2;
+
 /**
  * A pattern's wildcard. Brackets and parentheses are left out: Next's route folders spell them in
  * named paths, which are matched literally and as the runner's glob alike below.
@@ -13,13 +16,29 @@ import path from "node:path";
 const WILDCARD = /[*?{]/;
 
 /**
- * Each named path the run found nothing at, which the runner drops silently wherever another argument
- * matched. The arguments are `process.argv` past the executable: the runner's own options never reach it.
+ * Why a run over `named` is refused, or `null` (`docs/frontend/spec.md` §1.9). A wildcard matching
+ * nothing stays free: the `test` script's own patterns hold several.
  */
-const unmatched = () =>
-  process.argv
-    .slice(1)
-    .filter((argument) => !WILDCARD.test(argument) && !existsSync(path.resolve(argument)) && globSync(argument).length === 0);
+export function refusalOf(named) {
+  if (named.length === 0) {
+    return "test:base was named no path: it would run every test file, the database tier among them. Name the files, or run a tier's script.";
+  }
+
+  return (
+    named
+      .filter((argument) => !WILDCARD.test(argument) && !existsSync(path.resolve(argument)) && globSync(argument).length === 0)
+      .map((argument) => `${argument} matched no file: the run named it and would run nothing for it.`)
+      .join("\n") || null
+  );
+}
+
+// At load, before the runner starts a file: `--import` reaches only the files it starts, and this
+// process's `process.argv` past the executable is the named list, never the runner's options.
+const refusal = refusalOf(process.argv.slice(1));
+if (refusal !== null) {
+  process.stderr.write(`✖ ${refusal.replaceAll("\n", "\n✖ ")}\n`);
+  process.exit(REFUSED);
+}
 
 /**
  * A file that never summarises its run ended early or declared nothing. One whose tests are all
@@ -45,14 +64,10 @@ export default async function* caseCountReporter(source) {
   }
 
   const empty = [...finished].filter((file) => (ran.get(file) ?? 0) === 0 && !reasoned.has(file)).sort();
-  const missing = unmatched();
-  if (empty.length === 0 && missing.length === 0) return;
+  if (empty.length === 0) return;
 
   // The runner leaves the exit code alone on a run it counts as passed, so this one stands.
   process.exitCode = 1;
-  for (const named of missing) {
-    yield `✖ ${named} matched no file: the run named it and ran nothing for it\n`;
-  }
   for (const file of empty) {
     yield `✖ ${path.relative(process.cwd(), file)} ran no case: it declares none, skips each without a reason, marks each todo, a filter left each out, or its process ended before one reported\n`;
   }

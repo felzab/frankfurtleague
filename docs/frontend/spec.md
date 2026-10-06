@@ -1018,16 +1018,18 @@ supplies the database URI a module reads past it** (`fl_frontend/package.json`),
 graph reaches that gate renders — a form through its slice's actions module, and every field panel
 that form composes. That environment is the base script's own, so every runner of the suite inherits
 it by invoking `pnpm test` or `pnpm run test:db` rather than spelling it — the gate's
-`scripts/gate/verify.sh :: do_unit_tests` and CI alike. Run bare, `test:base` takes Node's whole
-default set, the db tier's `*.db.test.*` files among it, so it is never run without a tier's
-patterns.
+`scripts/gate/verify.sh :: do_unit_tests` and CI alike. `test:base` is run with a tier's patterns
+or with named files, and refuses to run bare (below).
 
 **A test file that runs no case fails the run, by name**: node:test counts it a pass, whether it
 declares none or its process ends while it is imported. `fl_frontend/scripts/case-count-reporter.mjs`
 is the reporter `test:base` loads beside the spec reporter to refuse it, so a reporter added on the
-command line names its own destination too. It refuses a named path that matches no file the same
-way, which node:test drops in silence wherever another argument matched; a wildcard matching
-nothing stays free, the `test` script's patterns holding several. A file whose suite or cases are all skipped stands only
+command line names its own destination too. **A run naming no path, or a path matching no file, is
+refused before any file starts**, at exit 2: named nothing, node:test runs its whole default set,
+the database tier among it, and it drops an unmatched path in silence wherever another matched. The
+reporter refuses at load, being the one module the runner's own process loads (`--import` reaches
+only the files it starts); a wildcard matching nothing stays free, the `test` script's patterns
+holding several. A file whose suite or cases are all skipped stands only
 where a skip names its reason, `{ skip: "…" }`: a bare `describe.skip` or `it.skip` fails it as
 running no case, and a todo case counts as none, its failure failing nothing. **A subset is run by
 naming its files**, never by filtering the whole suite: a name pattern, a skip pattern or `only` over
