@@ -1129,7 +1129,7 @@ const LANDINGS: Record<string, Landing> = {
         inactiveSince: null,
       }),
     remount: true,
-    lands: () => screen.getByRole("button", { name: "Link erneut senden" }),
+    lands: () => screen.getByRole("button", { name: "Link erneut senden: Bestätigung" }),
   },
   /* The discard takes its own panel away, so the focus lands on the contact panel beside it, which stays. */
   "a referee's waiting address discarded, on the contact panel's heading": {

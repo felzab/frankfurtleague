@@ -30,7 +30,7 @@ const { calls, answerWith, answered } = doubleActions({
 const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { FormBestaetigungSection } = await import("./FormBestaetigungSection.tsx");
+const { BESTAETIGUNG_ERNEUT, FormBestaetigungSection } = await import("./FormBestaetigungSection.tsx");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -148,6 +148,15 @@ describe("what the editor shows about a referee's own confirmation", () => {
 
   /* The record is the person's own answer, so a control here would offer an administrator a write
      that is not theirs. */
+  /* The address change's panel on the same page holds a „Link erneut senden“ of its own, so this one is named for its link. */
+  it("names its re-send for its own link, the visible words staying the same", () => {
+    render(panel({ bestaetigung: BLOCK, einwilligung: null }));
+
+    const erneut = screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT });
+    assert.equal(BESTAETIGUNG_ERNEUT, "Link erneut senden: Bestätigung");
+    assert.equal(erneut.textContent.trim(), "Link erneut senden");
+  });
+
   it("renders a confirmed record as facts with no control that could change it", () => {
     const { container } = render(panel({ bestaetigung: BLOCK, einwilligung: BESTAETIGT, geburtsdatum: "1990-01-01" }));
 
@@ -156,7 +165,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
       // The one press this panel carries mails a link, and on a confirmed referee it is closed, so
       // the refusal overlay names it a second time; nothing here writes the record.
       screen.getAllByRole("button").map((control) => control.getAttribute("aria-label") ?? control.textContent),
-      ["Hinweis zur Bestätigung", "Link erneut senden", "Link erneut senden"],
+      ["Hinweis zur Bestätigung", BESTAETIGUNG_ERNEUT, BESTAETIGUNG_ERNEUT],
     );
   });
 
@@ -263,7 +272,7 @@ describe("the control that sends the link", () => {
   it("keeps the retired row's press closed", () => {
     render(panel({ isRetired: true, bestaetigung: BLOCK }));
 
-    closedControl("Link erneut senden", /Reaktiviere den Eintrag/);
+    closedControl(BESTAETIGUNG_ERNEUT, /Reaktiviere den Eintrag/);
   });
 
   /* The endpoint refuses a second link for a person who has confirmed, there being no page left for
@@ -271,14 +280,14 @@ describe("the control that sends the link", () => {
   it("closes on a referee who already answered", () => {
     render(panel({ bestaetigung: BLOCK, einwilligung: BESTAETIGT }));
 
-    closedControl("Link erneut senden", /schon bestätigt/);
+    closedControl(BESTAETIGUNG_ERNEUT, /schon bestätigt/);
   });
 
   it("sends the referee's id and nothing else", async () => {
     answerWith(() => Promise.resolve({ success: true, message: "gesendet" }));
     render(panel({ bestaetigung: BLOCK }));
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
 
     assert.deepEqual(calls, [{ action: "einladeSchiedsrichterAction", payload: { id: SCHIEDSRICHTER_ID } }]);
     // Its answer lands inside this case, or its toast is the next case's first.
@@ -290,7 +299,7 @@ describe("the control that sends the link", () => {
     answerWith(() => Promise.resolve({ success: false, error: "Diese Person ist stillgelegt" }));
     render(panel({ bestaetigung: BLOCK }));
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
     await act(answered);
 
     await waitFor(() =>
@@ -317,7 +326,7 @@ describe("the control that sends the link", () => {
       answerWith(answer);
       render(panel({ bestaetigung: BLOCK }));
 
-      await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+      await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
       await act(answered);
 
       await waitFor(() =>
@@ -346,7 +355,7 @@ describe("the control that sends the link", () => {
       const { unmount } = render(underNext(h(FormBestaetigungSection, { ...PROPS, bestaetigung: BLOCK }), { router }));
       const before = toasts.length;
 
-      await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+      await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
       // Read once every arm's answer has landed, each raising its one toast.
       await act(answered);
       await waitFor(() => assert.equal(toasts.length, before + 1, `the ${arm} send was answered nowhere`));

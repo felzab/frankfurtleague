@@ -30,6 +30,7 @@ import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { benannt } from "@/shared/utils/benannt";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
@@ -47,6 +48,12 @@ const LINK_ABGELAUFEN_TINT: PillTone = "warning";
 export function LinkAbgelaufen() {
   return <span className={`${labelBadge(LINK_ABGELAUFEN_TINT)} ms-2 h-7 shrink-0`}>{LINK_ABGELAUFEN_LABEL}</span>;
 }
+
+/**
+ * The re-send's accessible name, its link named for this panel as the address change's panel names its
+ * own: a confirmed referee's editor can show both re-sends, each for another link.
+ */
+export const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung");
 
 /** Closed on a person who answered: the endpoint refuses a second link, there being no page left to open. */
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
@@ -162,6 +169,7 @@ export function FormBestaetigungSection({
 
   const istBestaetigt = einwilligung?.bestaetigt_am != null;
   const sendeLabel = bestaetigung === null ? "Bestätigungslink senden" : "Link erneut senden";
+  const sendeName = bestaetigung === null ? sendeLabel : BESTAETIGUNG_ERNEUT;
 
   // In the order the endpoint raises them, so the sentence names the first thing to repair rather
   // than the one an administrator would fix second.
@@ -258,11 +266,12 @@ export function FormBestaetigungSection({
             <Hint
               mode="refusal"
               reason={verweigerung}
-              label={sendeLabel}>
+              label={sendeName}>
               <Button
                 type="button"
                 isPending={sendet}
                 isDisabled={verweigerung !== null}
+                aria-label={sendeName}
                 onPress={() => void sende()}
                 className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
                 <PaperPlane

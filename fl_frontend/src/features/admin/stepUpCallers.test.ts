@@ -314,6 +314,25 @@ const DRIVES: Record<string, Drive[]> = {
       press: "Bestätigungslink senden",
       asks: true,
     },
+    // The re-send, by the name it carries beside the address change's own.
+    {
+      render: () =>
+        underNext(
+          h(FormBestaetigungSection, {
+            istFassungBekannt: true,
+            schiedsrichterId: REFEREE_ID,
+            hatAdresse: true,
+            isRetired: false,
+            bestaetigung: { verschickt_am: "2026-09-21", erinnert_am: null, frist: "2099-12-31", zustellung: null },
+            einwilligung: null,
+            geburtsdatum: null,
+            isDirty: false,
+          }),
+          { router: nextRouter() },
+        ),
+      press: "Link erneut senden: Bestätigung",
+      asks: true,
+    },
   ],
   "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx :: reactivateSchiedsrichterAction": [
     ...[true, false].map((unanswered) => ({
