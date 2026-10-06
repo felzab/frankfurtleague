@@ -43,6 +43,8 @@ const SITZ_WORTE: EinwilligungWorte = {
   textVersion: WORTE.textVersion,
   whatsapp: {
     schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+    an: "kontaktdaten_whatsapp",
+    aus: "kontaktdaten",
     absatz: "Über WhatsApp erreichen wir Dich nur, wenn Du es erlaubst.",
   },
   medien: WORTE.medien,

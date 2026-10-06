@@ -7,8 +7,8 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { ComponentProps, ReactElement, ReactNode } from "react";
-import type { EinwilligungForm } from "./EinwilligungForm";
+import type { ReactElement, ReactNode } from "react";
+import type { EinwilligungFormProps, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
 
 /**
  * One record on the account page: its stored data, its control, and the words its person confirmed. The
@@ -26,8 +26,11 @@ export type EinwilligungEintrag = {
   readonly angaben?: ReactNode;
   /** The confirmed wording, read-only; `null` where the record names none the registry holds. */
   readonly bestaetigt: ReactNode;
-  /** Absent on a record holding no choice of its own, a returning pupil's registration: its data stands alone. */
-  readonly control?: ReactElement<ComponentProps<typeof EinwilligungForm>>;
+  /**
+   * Absent on a record holding no choice of its own, a returning pupil's registration: its data stands alone.
+   * A person's or a seat's, each at its own scope, never one taking both.
+   */
+  readonly control?: ReactElement<EinwilligungFormProps<PersonUmfang>> | ReactElement<EinwilligungFormProps<SitzUmfang>>;
 };
 
 /** The words a person agreed to, apart from the control's own: a press changes the choice, never what was agreed. */

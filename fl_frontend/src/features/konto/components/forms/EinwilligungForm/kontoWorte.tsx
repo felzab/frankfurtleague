@@ -7,7 +7,7 @@ import type { GekeyteFassung } from "@/core/einwilligungSeiten";
 import type { FLEinwilligungFassung } from "@/core/schemas";
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 import type { Slots } from "@/shared/utils/stampedSlots";
-import type { EinwilligungWorte } from "./EinwilligungForm";
+import type { EinwilligungWorte, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
 
 // Each list is its page's whole set, as `fl_frontend/src/core/einwilligungSeiten.ts` keeps the
 // confirmation pages': a served map missing a key or holding one more is refused, never rendered with a gap.
@@ -40,7 +40,7 @@ function personWorte(
   frage: string,
   eintrag: MedienBoden,
   nurWiderruf: string | undefined,
-): EinwilligungWorte {
+): EinwilligungWorte<PersonUmfang> {
   const werte: Slots = { medienMinAlter: String(eintrag.medien_mindestalter) };
   const { absaetze } = gekeyt;
 
@@ -60,7 +60,12 @@ export type SpielerGrund = "nichtAktiv" | "bisAufnahme";
  * The control's words for a pupil's record or pending registration, from the account page's running
  * wording for pupils. `frage` is the kind's own question, which the registry does not stamp.
  */
-export function spielerWorte(fassung: FLEinwilligungFassung, frage: string, eintrag: MedienBoden, grund?: SpielerGrund): EinwilligungWorte {
+export function spielerWorte(
+  fassung: FLEinwilligungFassung,
+  frage: string,
+  eintrag: MedienBoden,
+  grund?: SpielerGrund,
+): EinwilligungWorte<PersonUmfang> {
   const gekeyt = gekeyteFassung(fassung, SPIELER_ABSATZ_SCHLUESSEL, UMFANG_SCHLUESSEL);
   const nurWiderruf =
     grund === undefined ? undefined : grund === "nichtAktiv" ? gekeyt.absaetze.nurWiderrufNichtAktiv : gekeyt.absaetze.nurWiderrufBisAufnahme;
@@ -74,7 +79,7 @@ export function schiedsrichterWorte(
   frage: string,
   eintrag: MedienBoden,
   nichtAktiv: boolean,
-): EinwilligungWorte {
+): EinwilligungWorte<PersonUmfang> {
   const gekeyt = gekeyteFassung(fassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG_SCHLUESSEL);
 
   return personWorte(gekeyt, frage, eintrag, nichtAktiv ? gekeyt.absaetze.nurWiderrufNichtAktiv : undefined);
@@ -88,7 +93,7 @@ export function sitzWorte(
   fassung: FLEinwilligungFassung,
   sitz: MedienBoden & { readonly team_name: string; readonly saison_id: string },
   grund?: SitzGrund,
-): EinwilligungWorte {
+): EinwilligungWorte<SitzUmfang> {
   const gekeyt = gekeyteFassung(fassung, SITZ_ABSATZ_SCHLUESSEL, SITZ_UMFANG_SCHLUESSEL);
   const werte: Slots = { medienMinAlter: String(sitz.medien_mindestalter), team: sitz.team_name, saison: sitz.saison_id };
   const nurWiderruf =
@@ -96,7 +101,12 @@ export function sitzWorte(
 
   return {
     textVersion: gekeyt.textVersion,
-    whatsapp: { schalter: gekeyt.bedienelemente.kontaktdaten_whatsapp, absatz: absatz(gekeyt.absaetze.whatsapp, werte) },
+    whatsapp: {
+      schalter: gekeyt.bedienelemente.kontaktdaten_whatsapp,
+      an: "kontaktdaten_whatsapp",
+      aus: "kontaktdaten",
+      absatz: absatz(gekeyt.absaetze.whatsapp, werte),
+    },
     medien: { schalter: gekeyt.schalter, absatz: absatz(gekeyt.absaetze.medien, werte) },
     ...(nurWiderruf === undefined ? {} : { nurWiderruf: nurWiderruf }),
     widerruf: absatz(gekeyt.absaetze.widerruf, werte),

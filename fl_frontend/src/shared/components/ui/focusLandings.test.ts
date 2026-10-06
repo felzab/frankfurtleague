@@ -604,10 +604,16 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
         id: `bewerbung-${BEWERBUNG_ID}`,
         titel: KONTO_TITEL,
         bestaetigt: null,
-        control: h(EinwilligungForm, {
+        // Instantiated at the seat's scope: `h` infers no component's type parameter.
+        control: h(EinwilligungForm<Parameters<typeof patchBewerbungEinwilligungAction>[1]["umfang"]>, {
           worte: {
             textVersion: "konto-test-1",
-            whatsapp: { schalter: "Die Liga darf mich auch über WhatsApp erreichen.", absatz: "WhatsApp nur mit Deiner Erlaubnis." },
+            whatsapp: {
+              schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+              an: "kontaktdaten_whatsapp",
+              aus: "kontaktdaten",
+              absatz: "WhatsApp nur mit Deiner Erlaubnis.",
+            },
             medien: {
               schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
               absatz: "Fotos nur mit Deiner Erlaubnis.",
@@ -619,10 +625,8 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
           nachweisStand: { umfang: null, medien: null },
           medienAngeboten: false,
           erteilbar: false,
-          // Through the doubled export; the panel's slot erases the record's own payload type, so the
-          // production `.bind` does not type-check here.
-          speichereAction: (antwort: Parameters<Parameters<typeof EinwilligungForm>[0]["speichereAction"]>[0]) =>
-            patchBewerbungEinwilligungAction(BEWERBUNG_ID, antwort as Parameters<typeof patchBewerbungEinwilligungAction>[1]),
+          // Through the doubled export, bound as the page binds it.
+          speichereAction: patchBewerbungEinwilligungAction.bind(null, BEWERBUNG_ID),
         }),
       },
     ],
@@ -639,7 +643,8 @@ const kontoRegistrierung = (medien: boolean) =>
         id: `registrierung-${REGISTRIERUNG_ID}`,
         titel: REGISTRIERUNG_TITEL,
         bestaetigt: null,
-        control: h(EinwilligungForm, {
+        // For `kontoBewerbung`'s reason, at the registration's scope.
+        control: h(EinwilligungForm<Parameters<typeof patchRegistrierungEinwilligungAction>[1]["umfang"]>, {
           worte: {
             textVersion: "konto-test-1",
             umfang: {
@@ -658,9 +663,7 @@ const kontoRegistrierung = (medien: boolean) =>
           nachweisStand: { umfang: null, medien: null },
           medienAngeboten: false,
           erteilbar: false,
-          // For `kontoBewerbung`'s reason.
-          speichereAction: (antwort: Parameters<Parameters<typeof EinwilligungForm>[0]["speichereAction"]>[0]) =>
-            patchRegistrierungEinwilligungAction(REGISTRIERUNG_ID, antwort as Parameters<typeof patchRegistrierungEinwilligungAction>[1]),
+          speichereAction: patchRegistrierungEinwilligungAction.bind(null, REGISTRIERUNG_ID),
         }),
       },
     ],

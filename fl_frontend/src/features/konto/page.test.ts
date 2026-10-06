@@ -512,7 +512,9 @@ describe("the account page's consent section", () => {
     const antwort = { umfang: "intern" as const, medien: false, text_version: "2026-10-konto", nachweis_stand: { umfang: null, medien: null } };
     actionCalls.length = 0;
 
-    for (const { control } of panel.props.eintraege) await control?.props.speichereAction(antwort);
+    // One press for every kind, which no single scope types: the doubles record it whatever its scope.
+    for (const { control } of panel.props.eintraege)
+      await (control?.props.speichereAction as ((sent: unknown) => Promise<unknown>) | undefined)?.(antwort);
 
     assert.deepEqual(
       actionCalls.map(({ action, payload }) => [action, ...(payload as unknown[]).slice(0, -1)]),
