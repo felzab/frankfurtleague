@@ -19,40 +19,13 @@ from pathlib import Path
 
 import pytest
 
-from tests.core.app_source import handed_callbacks, parsed
+from tests.core.app_source import DRIVER_WRITES, REMOVAL_HELPERS, WRITE_HELPERS, handed_callbacks, parsed
 
 APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 
-# The crud helpers AND the driver methods they wrap, so a later write taken straight to the driver
-# is counted the same as one through the chokepoint.
-WRITE_HELPERS = frozenset(
-    {
-        "anchor_in_db",
-        "patch_one_in_db",
-        "patch_many_in_db",
-        "post_one_to_db",
-        "post_many_to_db",
-        "delete_many_from_db",
-        "erase_many_from_db",
-        "set_inactive_since",
-        "insert_live",
-    }
-)
-DRIVER_WRITE_METHODS = frozenset(
-    {
-        "insert_one",
-        "insert_many",
-        "update_one",
-        "update_many",
-        "replace_one",
-        "delete_one",
-        "delete_many",
-        "find_one_and_update",
-        "find_one_and_replace",
-        "find_one_and_delete",
-        "bulk_write",
-    }
-)
+# The crud helpers, their removals included, AND the driver methods they wrap, so a later write
+# taken straight to the driver is counted the same as one through the chokepoint.
+WRITE_SITES = WRITE_HELPERS | REMOVAL_HELPERS | DRIVER_WRITES
 UNSWEPT_MODULES = frozenset({"app/core/crud.py", "app/core/recording.py", "app/core/drosselung.py"})
 HTTP_METHODS = frozenset({"get", "post", "patch", "put", "delete"})
 
@@ -117,7 +90,7 @@ class _ModuleCollector(ast.NodeVisitor):
             record = self.stack[-1]
             if name == "with_transaction":
                 record.opens_transaction = True
-            elif name in WRITE_HELPERS or name in DRIVER_WRITE_METHODS:
+            elif name in WRITE_SITES:
                 record.write_sites.append((name, node.lineno))
             else:
                 record.callees.add(name)
