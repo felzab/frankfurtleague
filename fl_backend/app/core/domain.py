@@ -923,8 +923,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "it creates, and onto one it matches renews it, each choice only where the registration set it later, and not at "
         "all where the returning pupil's page asked none "
         "(`app/api/registrierungen/services.py :: compose_person_update`). Its two choices, `umfang` and `medien`, are "
-        "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration, "
-        "which an admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
+        "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration and "
+        "a withdrawal they made on it through `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which an "
+        "admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
         "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
         "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
         "evidence (`docs/backend/spec.md :: I869`)",
@@ -2615,6 +2616,22 @@ RULES: tuple[Rule, ...] = (
         summary="a press on the account page answers the consent evidence its page was served, never evidence moved since",
         implemented_by="app.api.konto.services.find_nachweis_stand_refusal",
         tested_by="tests/api/test_spieler_selbst.py::TestAStalePage",
+    ),
+    Rule(
+        code="REQ-EINWILLIGUNG-004",
+        status=HTTPStatus.FORBIDDEN,
+        operation=(
+            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+        ),
+        aggregate="Spieler",
+        summary=(
+            "a press grants a choice only on a record of its person granting a panel; a retired record, a past season's or a "
+            "withdrawn team's seat, a pending application's seat and a pending registration take a withdrawal alone"
+        ),
+        implemented_by="app.api.konto.services.find_erteilung_refusal",
+        tested_by="tests/api/test_konto_einwilligung.py::TestARecordNotHeld",
     ),
 )
 

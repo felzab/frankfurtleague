@@ -324,9 +324,6 @@ NOT_DRIVEN_HERE: Final = frozenset(
         # Builders the writes above call.
         "app/api/bewerbungen/services.py::compose_einwilligung",
         "app/api/schiedsrichter/services.py::compose_einwilligung",
-        "app/api/konto/services.py::_person_wahl",
-        "app/api/konto/services.py::_sitz_wahl",
-        "app/api/konto/services.py::_sitz_wahlen",
         # Readers: a served body, or the record a seat's person keeps.
         "app/api/konto/services.py::compose_spieler_selbst",
         "app/api/konto/services.py::compose_schiedsrichter_selbst",
@@ -334,6 +331,9 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/konto/services.py::compose_bewerbungssitze_selbst",
         "app/api/konto/services.py::compose_registrierungen_selbst",
         "app/api/konto/services.py::_sitz_wahlen_gehalten",
+        # The row's choices as the read serves them, and the ones a seat press changed against it.
+        "app/api/konto/services.py::sitz_wahlen_der_zeile",
+        "app/api/konto/services.py::geaenderte_sitz_wahlen",
         "app/api/teams/services.py::_confirmation_held_by",
         "app/api/teams/services.py::kontakte_fassungen_gehalten",
         # Writers at their routes, each through a composer classed above, and each driven by its own
@@ -347,9 +347,7 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/registrierungen/selbst_router.py::patch_einwilligung",
         "app/api/registrierungen/selbst_router.py::write",
         "app/api/teams/person_router.py::patch_einwilligung",
-        "app/api/teams/person_router.py::write",
         "app/api/bewerbungen/person_router.py::patch_einwilligung",
-        "app/api/bewerbungen/person_router.py::write",
         # No record at all: a confirmation page's paragraphs keyed by the choice they ask for, and the
         # contacts token's projection of a read.
         "app/shared/einwilligung.py::_mit_medien",

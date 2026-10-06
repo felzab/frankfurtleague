@@ -45,6 +45,7 @@ from app.core.exception_handlers import stores_nothing
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.einwilligung_nachweis import ist_erteilt
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 
 # A router of its own beside the public submission and the administrator's read: the token is the
@@ -122,7 +123,7 @@ async def get_bestaetigung_ansicht(
         geburtsdatum=shown_back.get("geburtsdatum"),
         umfang=einwilligung.get("umfang"),
         # A confirmed record stored before the media question carries no `medien`, which reads as off.
-        medien=bool(einwilligung.get("medien")) if shown_back else None,
+        medien=ist_erteilt("medien", einwilligung.get("medien")) if shown_back else None,
     )
 
 
