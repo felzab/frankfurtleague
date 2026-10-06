@@ -16,7 +16,7 @@ from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # A module of its own, for `app/api/spieler/selbst_router.py`'s reason: `app/api/registrierungen/person_router.py`
@@ -71,7 +71,6 @@ async def patch_einwilligung(
         # Withdraw-only: a pending registration grants no panel to answer a grant against.
         await press_widerruf(
             bloecke=[gespeichert],
-            wahlen=WAHLEN,
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
             text_version=einwilligung_data.text_version,
@@ -99,7 +98,7 @@ async def patch_einwilligung(
             {
                 "registrierung_id": row["_id"],
                 "einwilligung": einwilligung,
-                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung], wahlen=WAHLEN),
+                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
             }
         )
 

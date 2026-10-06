@@ -22,7 +22,7 @@ from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_n
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The person lane's binder, as `app/api/teams/person_router.py` declares it and for its reason.
@@ -52,7 +52,8 @@ async def patch_einwilligung(
     WITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the
     account page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for
     every seat the person holds there, each choice moving only where it differs from the application as the page
-    served it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is counted against the person's ceiling.
+    served it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is
+    counted against the person's ceiling.
 
     Refuses, in this order: an application that is decided or holds no confirmed seat of the address
     (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the
@@ -78,7 +79,6 @@ async def patch_einwilligung(
         # Withdraw-only: nothing on an application grants a panel to answer a grant against.
         await press_widerruf(
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
-            wahlen=WAHLEN,
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
             text_version=einwilligung_data.text_version,
@@ -111,7 +111,7 @@ async def patch_einwilligung(
                 "bewerbung_id": bewerbung_id,
                 "rollen": rollen,
                 **sitz_wahlen_der_zeile(bloecke),
-                "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=WAHLEN),
+                "nachweis_stand": nachweis_stand_of(bloecke=bloecke),
             }
         )
 

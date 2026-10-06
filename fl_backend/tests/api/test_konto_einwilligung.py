@@ -28,7 +28,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
-from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, nachweis_stand_of
+from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
@@ -1023,9 +1023,7 @@ class TestAPendingApplicationsSeats:
             "rollen": ["trainer", "ansprechperson"],
             "umfang": "kontaktdaten",
             "medien": False,
-            "nachweis_stand": nachweis_stand_of(
-                bloecke=[after[PENDING_OID][slot]["einwilligung"] for slot in ("trainer", "ansprechperson")], wahlen=WAHLEN
-            ),
+            "nachweis_stand": nachweis_stand_of(bloecke=[after[PENDING_OID][slot]["einwilligung"] for slot in ("trainer", "ansprechperson")]),
         }
         for slot in ("trainer", "ansprechperson"):
             einwilligung = after[PENDING_OID][slot]["einwilligung"]
@@ -1203,7 +1201,7 @@ def _registrierung_body(database_row: Mapping[str, Any], **gewaehlt: Any) -> dic
         "umfang": block["umfang"],
         "medien": block["medien"],
         "text_version": LAUFENDE_FASSUNGEN["konto_spieler"],
-        "nachweis_stand": nachweis_stand_of(bloecke=[block], wahlen=WAHLEN),
+        "nachweis_stand": nachweis_stand_of(bloecke=[block]),
         **gewaehlt,
     }
 
@@ -1229,7 +1227,7 @@ class TestAPendingRegistration:
             "registrierung_id": str(REGISTRIERUNG_OWN),
             # As the read model serves the stored block, every declared field spelled.
             "einwilligung": FLRegistrierungEinwilligung.model_validate(einwilligung).model_dump(mode="json"),
-            "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung], wahlen=WAHLEN),
+            "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
         }
         assert (einwilligung["umfang"], einwilligung[NACHWEIS]["umfang"]) == (
             "intern",

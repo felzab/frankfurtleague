@@ -27,7 +27,6 @@ DarfErteilen = Callable[[], Awaitable[bool]]
 async def _vor_der_erteilung(
     *,
     bloecke: Sequence[Mapping[str, Any]],
-    wahlen: Sequence[FLEinwilligungWahl],
     gewaehlt: Mapping[FLEinwilligungWahl, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
@@ -36,7 +35,7 @@ async def _vor_der_erteilung(
 ) -> bool:
     """The steps every kind shares, the stale page, a grant the record may not take and the label; whether the press grants."""
 
-    refuse(find_nachweis_stand_refusal(erwartet=nachweis_stand, bloecke=bloecke, wahlen=wahlen))
+    refuse(find_nachweis_stand_refusal(erwartet=nachweis_stand, bloecke=bloecke))
 
     erteilt = any(erteilt_etwas(gespeichert=block, gewaehlt=gewaehlt) for block in bloecke)
     if erteilt:
@@ -51,7 +50,6 @@ async def press_einwilligung(
     *,
     bloecke: Sequence[Mapping[str, Any]],
     geburtsdaten: Sequence[Any],
-    wahlen: Sequence[FLEinwilligungWahl],
     gewaehlt: Mapping[FLEinwilligungWahl, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
@@ -67,7 +65,6 @@ async def press_einwilligung(
 
     erteilt = await _vor_der_erteilung(
         bloecke=bloecke,
-        wahlen=wahlen,
         gewaehlt=gewaehlt,
         nachweis_stand=nachweis_stand,
         text_version=text_version,
@@ -86,7 +83,6 @@ async def press_einwilligung(
 async def press_widerruf(
     *,
     bloecke: Sequence[Mapping[str, Any]],
-    wahlen: Sequence[FLEinwilligungWahl],
     gewaehlt: Mapping[FLEinwilligungWahl, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
@@ -96,7 +92,6 @@ async def press_widerruf(
 
     await _vor_der_erteilung(
         bloecke=bloecke,
-        wahlen=wahlen,
         gewaehlt=gewaehlt,
         nachweis_stand=nachweis_stand,
         text_version=text_version,

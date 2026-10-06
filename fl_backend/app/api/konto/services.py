@@ -118,16 +118,14 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
     )
 
 
-def find_nachweis_stand_refusal(
-    *, erwartet: Mapping[str, Any], bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligungWahl]
-) -> WriteRefusal | None:
+def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequence[Any]) -> WriteRefusal | None:
     """`REQ-EINWILLIGUNG-003`: a choice's evidence moved since the page was served.
 
     Refused rather than merged: a stale page sends the other choice as it last saw it, and taking that
     would re-grant what the person withdrew elsewhere.
     """
 
-    if dict(erwartet) == nachweis_stand_of(bloecke=bloecke, wahlen=wahlen):
+    if dict(erwartet) == nachweis_stand_of(bloecke=bloecke):
         return None
 
     return WriteRefusal(
@@ -185,7 +183,7 @@ def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: st
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
-        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]], wahlen=WAHLEN),
+        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         "kader": row["kader"],
@@ -211,7 +209,7 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
-        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]], wahlen=WAHLEN),
+        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         # The one stored name, cut as the referee's confirmation page cut it.
@@ -305,7 +303,7 @@ def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
     bloecke = [seat["einwilligung"] for seat in held]
 
-    return {**sitz_wahlen_der_zeile(bloecke), "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=WAHLEN)}
+    return {**sitz_wahlen_der_zeile(bloecke), "nachweis_stand": nachweis_stand_of(bloecke=bloecke)}
 
 
 def compose_sitze_selbst(
@@ -459,7 +457,7 @@ def compose_registrierungen_selbst(
                 "umfang": block["umfang"],
                 # A block confirmed before the field existed is off, as on every record.
                 "medien": bool(block.get("medien", False)),
-                "nachweis_stand": nachweis_stand_of(bloecke=[block], wahlen=WAHLEN),
+                "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 "kontext": {
                     "vorname": row["vorname"],
                     "team": None if team is None else team.get("name"),

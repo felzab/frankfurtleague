@@ -36,7 +36,7 @@ from app.core.drosselung import Drossel
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The person lane's binder, as `app/api/registrierungen/person_router.py` declares it and for its reason.
@@ -115,10 +115,10 @@ async def patch_einwilligung(
 
     One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
     differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
-    other slot of the row and no other row is written, each choice moving with its own evidence and leaving the other standing; a press moving no
-    seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien` to `true`) is taken on a row of an
-    `active` or `future` season its team has not left; a withdrawal on any row the person confirmed a seat on, a past
-    season's included.
+    other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
+    other standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`
+    to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
+    person confirmed a seat on, a past season's included.
 
     Refuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a
     `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
@@ -151,7 +151,6 @@ async def patch_einwilligung(
         await press_einwilligung(
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
             geburtsdaten=[sitz.get("geburtsdatum") for sitz in sitze.values()],
-            wahlen=WAHLEN,
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
             text_version=einwilligung_data.text_version,
@@ -188,7 +187,7 @@ async def patch_einwilligung(
                 "saison_id": saison_id,
                 "rollen": rollen,
                 **sitz_wahlen_der_zeile(bloecke),
-                "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=WAHLEN),
+                "nachweis_stand": nachweis_stand_of(bloecke=bloecke),
             }
         )
 

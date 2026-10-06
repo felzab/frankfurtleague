@@ -36,7 +36,7 @@ from app.core.drosselung import Drossel
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 
 # A module of its own: `app/api/spieler/person_router.py` binds the `kontakt` Funktion at ROUTER level
 # (`docs/backend/spec.md :: I41`), and a second binder on one of its routes would record these writes
@@ -140,7 +140,6 @@ async def patch_einwilligung(
         await press_einwilligung(
             bloecke=[gespeichert],
             geburtsdaten=[row.get("geburtsdatum")],
-            wahlen=WAHLEN,
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
             text_version=einwilligung_data.text_version,
@@ -168,7 +167,7 @@ async def patch_einwilligung(
         einwilligung = gespeichert if updated is None else updated["einwilligung"]
 
         return FLSpielerSelbstEinwilligungResponse.model_validate(
-            {"spieler_id": row["_id"], "einwilligung": einwilligung, "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung], wahlen=WAHLEN)}
+            {"spieler_id": row["_id"], "einwilligung": einwilligung, "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung])}
         )
 
     async with transaction_session(db) as session:
