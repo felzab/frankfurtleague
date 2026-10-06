@@ -2,9 +2,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-# The delivery state is the application slice's declaration, stored at every home the register names
-# (`app/api/zustellung/services.py :: ZIEL_PFADE`).
-from app.api.bewerbungen.schemas import FLBewerbungZustellung
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.spieler.schemas import (
     SQUAD_NUMMER_PATTERN,
@@ -30,6 +27,9 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
+
+# Shared by every home the register names (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read

@@ -4,7 +4,7 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
-from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations
+from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
@@ -853,11 +853,44 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
                 # ADMIN-only, unlike `build_team_pipeline`'s join, so the contact records are in --
                 # they are what the club editor edits. Still an allow-list, so the next field added
                 # to the junction reaches this read only when somebody names it.
-                "pipeline": [{"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "austritt": 1, "trikot_farbe": 1, "kontakte": 1}}],
+                "pipeline": [
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "saison_id": 1,
+                            "gruppe": 1,
+                            "austritt": 1,
+                            "trikot_farbe": 1,
+                            "kontakte": 1,
+                            "bestaetigungen": 1,
+                        }
+                    },
+                    # Each link's state and never its hash, which only the link's own lookup reads. Unset
+                    # rather than projected field by field: a sub-path projection drops a null seat's key.
+                    {"$unset": [f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_ROLLEN]},
+                ],
                 "as": "memberships",
             }
         },
         {"$sort": {"name": 1}},
+    ]
+
+
+def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> list[dict[str, Any]]:
+    """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`)."""
+
+    def judged(bestaetigungen: Any) -> Any:
+        if not isinstance(bestaetigungen, Mapping):
+            return bestaetigungen
+
+        return {
+            seat: {**link, "abgelaufen": saison_link_is_over(frist=link.get("frist"), today=today)} if isinstance(link, Mapping) else link
+            for seat, link in bestaetigungen.items()
+        }
+
+    return [
+        {**team, "memberships": [{**row, "bestaetigungen": judged(row.get("bestaetigungen"))} for row in team.get("memberships", [])]}
+        for team in teams_raw
     ]
 
 

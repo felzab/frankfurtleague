@@ -236,9 +236,30 @@ async def funktionen_of(
     if folded == "":
         raise ValueError("funktionen_of was asked about an empty identifier")
 
-    subjekt = await find_subjekt_in_session(folded, records, session=session)
+    return _nur_mit_panel(await find_subjekt_in_session(folded, records, session=session))
 
+
+def _nur_mit_panel(subjekt: FLSubjekt) -> FLSubjekt:
     return subjekt.model_copy(update={"sitze": [sitz for sitz in subjekt.sitze if grants_a_panel(sitz.saison_status)]})
+
+
+async def funktionen_aus(
+    identifier: str,
+    *,
+    seat_rows: Rows,
+    referee_rows: Rows,
+    pupil_rows: Rows,
+    saisons_collection: AsyncCollection,
+    session: AsyncClientSession,
+) -> FLSubjekt:
+    """`funktionen_of`'s answer over rows a caller already read through the subject's own selections, so none is read twice.
+
+    The rows must carry what `_judged` reads: each seat row's `austritt`, `name` and seats, and each person's stamp and retirement.
+    """
+
+    return _nur_mit_panel(
+        await _judged(identifier, seat_rows, referee_rows, pupil_rows, saisons_collection=saisons_collection, session=session)
+    )
 
 
 async def refuse_without_a_seat(

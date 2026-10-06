@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field
 
 from app.api.bewerbungen.schemas import FLKontaktRolle
-from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
-from app.api.spieler.schemas import FLEinwilligungUmfang, FLSpielerKontext, FLSpielerPosition, FLSpielerSelbst, FLSpielerStufe
+from app.api.schiedsrichter.schemas import FLSchiedsrichterKontext, FLSchiedsrichterSelbst
+from app.api.spieler.schemas import FLEinwilligung, FLEinwilligungUmfang, FLSpielerKontext, FLSpielerPosition, FLSpielerSelbst, FLSpielerStufe
 from app.api.teams.schemas import FLKontaktKenntnisnahmeUmfang
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
@@ -17,6 +17,40 @@ class FLSitzKontext(BaseModel):
     # The club's own name, today; null where its document is gone.
     schule: str | None
     saison: str
+
+
+class FLKontoSpielerEinwilligung(FLSpielerSelbst):
+    """The pupil's record on the account page: its stored data and the consent the page moves."""
+
+    inactive_since: CustomOptionalDateString
+    # Required: only a confirmed record is served, so the block is always there.
+    einwilligung: FLEinwilligung
+    # The block's `text_version` under the name the page reads it by: the words shown read-only beside the
+    # control are the ones confirmed, never an account-page press's.
+    bestaetigt_text_version: str | None
+    # What the consent PATCH echoes back, computed by the function its precondition compares with.
+    nachweis_stand: FLEinwilligungStand
+    # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
+    erteilbar: bool
+    medien_angeboten: bool
+    # The floors the record's confirmation page named, so the page fills its words from the rule.
+    mindestalter: int
+    medien_mindestalter: int
+    kontext: FLSpielerKontext
+
+
+class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst):
+    """One referee record on the account page, for `FLKontoSpielerEinwilligung`'s reasons."""
+
+    inactive_since: CustomOptionalDateString
+    einwilligung: FLEinwilligung
+    bestaetigt_text_version: str | None
+    nachweis_stand: FLEinwilligungStand
+    erteilbar: bool
+    medien_angeboten: bool
+    mindestalter: int
+    medien_mindestalter: int
+    kontext: FLSchiedsrichterKontext
 
 
 class FLSitzBestaetigt(BaseModel):
@@ -111,8 +145,8 @@ class FLKontoEinwilligungenResponse(BaseAPIResponse):
     The referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.
     """
 
-    spieler: FLSpielerSelbst | None
-    schiedsrichter: list[FLSchiedsrichterSelbst]
+    spieler: FLKontoSpielerEinwilligung | None
+    schiedsrichter: list[FLKontoSchiedsrichterEinwilligung]
     sitze: list[FLKontoSitzEinwilligung]
     # Withdraw-only on the page: nothing on an application grants a panel to answer a grant against.
     bewerbungen: list[FLKontoBewerbungSitzEinwilligung]

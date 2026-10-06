@@ -11,11 +11,9 @@ from app.api.identitaet.services import ist_eigener_spieler, may_grant_on_spiele
 from app.api.konto.crud import press_einwilligung
 from app.api.konto.services import (
     KONTO_SEITE_SPIELER,
-    build_kontext_teams_pipeline,
     compose_person_move,
     compose_spieler_selbst,
     find_eigener_eintrag_refusal,
-    kontext_zeile,
 )
 from app.api.spieler.schemas import (
     FLSpielerSelbstEinwilligungPayload,
@@ -28,7 +26,6 @@ from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     SpielerCollection,
-    TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -48,46 +45,22 @@ router = APIRouter(
 
 
 @router.get("", response_model=FLSpielerSelbstResponse, summary="A signed-in pupil's own record")
-async def get_selbst(
-    identifier: SpielerIdentifier,
-    spieler_collection: SpielerCollection,
-    records: SubjektLookup,
-    teams_collection: TeamsCollection,
-    db: DBClient,
-    today: str = Depends(get_german_date_str),
-) -> FLSpielerSelbstResponse:
+async def get_selbst(identifier: SpielerIdentifier, spieler_collection: SpielerCollection) -> FLSpielerSelbstResponse:
     """
-    Answer the signed-in address's own pupil record with every squad row it holds.
+    Answer the signed-in address's own pupil record's stored data with every squad row it holds.
 
-    PERSON TIER: the whole surname, the birthdate and the consent record, never masked, and never the sign-in address
-    itself. A retired record is served too, its consent being the person's to withdraw; `erteilbar` says whether a
-    grant is admitted on it, and `medien_angeboten` whether the media consent may be switched on.
+    PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired
+    record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
 
     Refuses an address holding no confirmed pupil record (`REQ-FUNKTION-001`).
     """
 
-    # A snapshot, so every record is answered as of one moment; never a transaction, which a read
-    # writing nothing has no conflict to retry for.
-    async with db.start_session(snapshot=True) as session:
-        rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_selbst_pupil_pipeline(identifier), session=session)
-        row = rows[0] if rows else None
-        refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
-        assert row is not None
+    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_selbst_pupil_pipeline(identifier))
+    row = rows[0] if rows else None
+    refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
+    assert row is not None
 
-        subjekt = await funktionen_of(identifier, records, session=session)
-
-        zeile = kontext_zeile(row)
-        teams = await aggregate_many_from_db(
-            collection=teams_collection, pipeline=build_kontext_teams_pipeline([] if zeile is None else [zeile["team_id"]]), session=session
-        )
-
-        return FLSpielerSelbstResponse.model_validate(
-            {
-                "spieler": compose_spieler_selbst(
-                    row, erteilbar=may_grant_on_spieler(subjekt, row["_id"]), today=today, team=teams[0] if teams else None
-                )
-            }
-        )
+    return FLSpielerSelbstResponse.model_validate({"spieler": compose_spieler_selbst(row)})
 
 
 @router.patch(

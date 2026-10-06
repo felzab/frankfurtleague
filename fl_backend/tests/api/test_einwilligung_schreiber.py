@@ -325,8 +325,8 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/bewerbungen/services.py::compose_einwilligung",
         "app/api/schiedsrichter/services.py::compose_einwilligung",
         # Readers: a served body, or the record a seat's person keeps.
-        "app/api/konto/services.py::compose_spieler_selbst",
-        "app/api/konto/services.py::compose_schiedsrichter_selbst",
+        "app/api/konto/services.py::compose_spieler_konto",
+        "app/api/konto/services.py::compose_schiedsrichter_konto",
         "app/api/konto/services.py::compose_sitze_selbst",
         "app/api/konto/services.py::compose_bewerbungssitze_selbst",
         "app/api/konto/services.py::compose_registrierungen_selbst",

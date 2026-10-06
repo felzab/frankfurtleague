@@ -167,14 +167,7 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
 
 
 async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_selbst(
-        identifier=FOLDED_EMAIL,
-        spieler_collection=database[Collection.SPIELER],
-        records=record_collections(database),
-        teams_collection=database[Collection.TEAMS],
-        db=client,
-        today=TODAY,
-    )
+    return await get_selbst(identifier=FOLDED_EMAIL, spieler_collection=database[Collection.SPIELER])
 
 
 async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:

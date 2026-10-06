@@ -17,6 +17,7 @@ from app.api.bewerbungen.schemas import FLBewerbungenFilterParams, FLBewerbungSa
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet import router as identitaet_router
 from app.api.identitaet.schemas import FLAnmeldung, FLSubjekt, FLSubjektPayload
+from app.api.konto import router as konto_router
 from app.core.collections import Collection
 from tests.bans import ban_list
 from tests.records import record_collections
@@ -400,3 +401,30 @@ class TestTheListsGatheredReads:
         every_read = {*get_args(FLBewerbungStatus), *get_args(FLBewerbungSaisonbezug), "dubletten"}
         assert (type(failed), str(failed)) == (ConnectionError, f"the {failing} read failed")
         assert sorted(cancelled) == sorted(every_read - {failing}), "a read was left running past the queue's answer"
+
+
+class TestTheAccountReadsReads:
+    def test_each_record_collection_is_read_once(self, monkeypatch: pytest.MonkeyPatch):
+        """The Funktionen the page judges a grant by come from the rows the read already holds, never a second read of them."""
+
+        reads = _Reads()
+        monkeypatch.setattr(konto_router, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        snapshot = object()
+
+        asyncio.run(
+            konto_router.get_einwilligungen(
+                identifier=IDENTIFIER,
+                spieler_collection=cast(Any, SPIELER),
+                schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),
+                saison_teams_collection=cast(Any, SAISON_TEAMS),
+                teams_collection=cast(Any, "teams"),
+                bewerbungen_collection=cast(Any, BEWERBUNGEN),
+                registrierungen_collection=cast(Any, REGISTRIERUNGEN),
+                records=RECORDS,
+                db=cast(Any, SimpleNamespace(start_session=lambda **_: nullcontext(snapshot))),
+                today="2026-10-03",
+            )
+        )
+
+        assert [reads.issued.count(name) for name in (SPIELER, SCHIEDSRICHTER, SAISON_TEAMS)] == [1, 1, 1]

@@ -43,6 +43,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # Spelled rather than derived: a `Literal`'s members must be literal expressions for a type checker
 # to read them. `tests/api/test_reference_models.py` holds the spelling to one naming rule, so
@@ -241,10 +242,7 @@ class FLSaisonTeamKontakte(BaseModel):
 
 
 class FLSaisonTeamBestaetigung(BaseModel):
-    """One seat's confirmation link as the season row stores it -- and NO `token_hash`, the raw document key the link's lookup alone reads.
-
-    The row's declared shape for the drift check; no read serves it.
-    """
+    """One seat's confirmation link as the season row stores it -- and NO `token_hash`, the raw document key the link's lookup alone reads."""
 
     verschickt_am: CustomDateString
     # STORED rather than derived from `verschickt_am` and the bound: raising the bound would otherwise
@@ -252,10 +250,8 @@ class FLSaisonTeamBestaetigung(BaseModel):
     frist: CustomDateString
     # Beside the slot rather than inside it: a Widerspruch EMPTIES the slot, and a marker in there would go with it.
     abgelehnt_am: CustomOptionalDateString
-    # Defaulted: a fresh link knows nothing yet about its message. A mapping, the record's model
-    # (`app/api/bewerbungen/schemas.py :: FLBewerbungZustellung`) living in a slice that imports this
-    # one; the drift check reaches the record at its own path.
-    zustellung: dict[str, Any] | None = None
+    # Defaulted: a fresh link knows nothing yet about its message.
+    zustellung: FLBewerbungZustellung | None = None
 
 
 class FLSaisonTeamBestaetigungen(BaseModel):
@@ -264,6 +260,20 @@ class FLSaisonTeamBestaetigungen(BaseModel):
     trainer: FLSaisonTeamBestaetigung | None
     ansprechperson: FLSaisonTeamBestaetigung | None
     stellvertretung: FLSaisonTeamBestaetigung | None
+
+
+class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung):
+    """One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."""
+
+    # Judged on the read by the rule the seat's press refuses on, at the server's date, so no client
+    # compares `frist` to a clock of its own; a read model, since nothing stores it.
+    abgelaufen: bool
+
+
+class FLSaisonTeamBestaetigungenAnsicht(BaseModel):
+    trainer: FLSaisonTeamBestaetigungAnsicht | None
+    ansprechperson: FLSaisonTeamBestaetigungAnsicht | None
+    stellvertretung: FLSaisonTeamBestaetigungAnsicht | None
 
 
 def _project_seat(value: Any) -> Any:
@@ -523,6 +533,8 @@ class FLTeamMembership(BaseModel):
     # either field existed would otherwise 500 the whole admin club list.
     trikot_farbe: FLTrikotFarbe | None = None
     kontakte: FLSaisonTeamKontakte | None = None
+    # Each seat's link as the editor shows it, the referee editor's twin; defaulted for `kontakte`'s reason.
+    bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | None = None
 
     @computed_field
     @property
