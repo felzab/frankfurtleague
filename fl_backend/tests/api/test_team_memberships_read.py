@@ -1,10 +1,11 @@
 import json
+from collections.abc import Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
 
-from app.api.bewerbungen.services import hash_token
+from app.api.bewerbungen.services import find_saison_frist_refusal, hash_token
 from app.api.teams.admin_router import get_team_memberships
 from app.api.teams.schemas import FLTeamMembership, FLTeamsMembershipsResponse
 from app.api.teams.services import build_team_memberships_pipeline, compose_kontakt_bestaetigung
@@ -59,13 +60,11 @@ class TestTheResponseModel:
 DATABASE_NAME = worker_database("fl_team_memberships_test")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607990001")
 ZUSTELLUNG = {"nachricht_id": "msg-trainer", "stand": "zugestellt", "grund": None, "am": "2026-03-02T09:00:00.000000+00:00"}
+TODAY = "2026-03-01"
 
 
-@pytest.mark.db
-def test_each_seats_link_is_served_by_its_state_and_never_by_its_hash(mongo_replica_set_url: str):
-    """The contacts editor shows each seat's link as the referee editor shows the referee's: sent, due and delivered."""
-
-    trainer_link = {**compose_kontakt_bestaetigung(token_hash=hash_token("trainer-link"), today="2026-03-01"), "zustellung": ZUSTELLUNG}
+def read_the_links(mongo_replica_set_url: str, bestaetigungen: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]:
+    """The pipeline's raw rows and the read's served seat links, over one club holding two seats on one season row."""
 
     async def run() -> Any:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
@@ -82,21 +81,52 @@ def test_each_seats_link_is_served_by_its_state_and_never_by_its_hash(mongo_repl
                         "stellvertretung": None,
                         "trainer_ist_zugleich": None,
                     },
-                    bestaetigungen={"trainer": trainer_link, "ansprechperson": None, "stellvertretung": None},
+                    bestaetigungen={"stellvertretung": None, **bestaetigungen},
                 )
             )
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_memberships_pipeline())
-            return roh, await get_team_memberships(teams_collection=database[Collection.TEAMS])
+            return roh, await get_team_memberships(teams_collection=database[Collection.TEAMS], today=TODAY)
 
     roh, response = on_the_seed_loop(run())
     [membership] = response.teams[0].memberships
-    served = membership.model_dump(mode="json")["bestaetigungen"]
+
+    return roh, membership.model_dump(mode="json")["bestaetigungen"]
+
+
+@pytest.mark.db
+def test_each_seats_link_is_served_by_its_state_and_never_by_its_hash(mongo_replica_set_url: str):
+    """The contacts editor shows each seat's link as the referee editor shows the referee's: sent, due and delivered."""
+
+    trainer_link = {**compose_kontakt_bestaetigung(token_hash=hash_token("trainer-link"), today=TODAY), "zustellung": ZUSTELLUNG}
+    roh, served = read_the_links(mongo_replica_set_url, {"trainer": trainer_link, "ansprechperson": None})
 
     assert served == {
-        "trainer": {"verschickt_am": "2026-03-01", "frist": trainer_link["frist"], "abgelehnt_am": None, "zustellung": ZUSTELLUNG},
+        "trainer": {
+            "verschickt_am": TODAY,
+            "frist": trainer_link["frist"],
+            "abgelehnt_am": None,
+            "zustellung": ZUSTELLUNG,
+            "abgelaufen": False,
+        },
         "ansprechperson": None,
         "stellvertretung": None,
     }
     # Twice: the read drops the hash, and the model declares none, so neither alone carries it to the wire.
     assert "token_hash" not in json.dumps(roh, default=str)
     assert "token_hash" not in json.dumps(served)
+
+
+@pytest.mark.db
+def test_a_link_reads_as_lapsed_exactly_where_its_press_refuses(mongo_replica_set_url: str):
+    """Its deadline's own day still answers, the day after does not: the read and the press judge one rule at one date."""
+
+    def link(name: str, frist: str) -> dict[str, Any]:
+        return {**compose_kontakt_bestaetigung(token_hash=hash_token(name), today="2026-02-01"), "frist": frist}
+
+    _, served = read_the_links(
+        mongo_replica_set_url, {"trainer": link("due-today", TODAY), "ansprechperson": link("due-yesterday", "2026-02-28")}
+    )
+    seats = [served["trainer"], served["ansprechperson"]]
+
+    assert [seat["abgelaufen"] for seat in seats] == [False, True]
+    assert [find_saison_frist_refusal(frist=seat["frist"], today=TODAY) is not None for seat in seats] == [False, True]

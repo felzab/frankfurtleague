@@ -75,6 +75,7 @@ from app.api.teams.services import (
     kontakte_fassungen_genannt,
     links_owed,
     mint_answer,
+    mit_abgelaufen,
     seats_one_link_answers,
     voids_a_live_link,
 )
@@ -160,7 +161,7 @@ async def _rewrite_the_outgoing_clubs_sides(
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
 @router.get("/memberships", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
-async def get_team_memberships(teams_collection: TeamsCollection) -> FLTeamsMembershipsResponse:
+async def get_team_memberships(teams_collection: TeamsCollection, today: str = Depends(get_german_date_str)) -> FLTeamsMembershipsResponse:
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
@@ -171,7 +172,7 @@ async def get_team_memberships(teams_collection: TeamsCollection) -> FLTeamsMemb
         collection=teams_collection, pipeline=build_team_memberships_pipeline(), collation=GERMAN_COLLATION
     )
 
-    return FLTeamsMembershipsResponse(teams=FLTeamWithMembershipsListAdapter.validate_python(teams_raw))
+    return FLTeamsMembershipsResponse(teams=FLTeamWithMembershipsListAdapter.validate_python(mit_abgelaufen(teams_raw, today=today)))
 
 
 # Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped

@@ -4,7 +4,7 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
-from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations
+from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
@@ -873,6 +873,24 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
             }
         },
         {"$sort": {"name": 1}},
+    ]
+
+
+def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> list[dict[str, Any]]:
+    """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`)."""
+
+    def judged(bestaetigungen: Any) -> Any:
+        if not isinstance(bestaetigungen, Mapping):
+            return bestaetigungen
+
+        return {
+            seat: {**link, "abgelaufen": saison_link_is_over(frist=link.get("frist"), today=today)} if isinstance(link, Mapping) else link
+            for seat, link in bestaetigungen.items()
+        }
+
+    return [
+        {**team, "memberships": [{**row, "bestaetigungen": judged(row.get("bestaetigungen"))} for row in team.get("memberships", [])]}
+        for team in teams_raw
     ]
 
 

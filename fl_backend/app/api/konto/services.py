@@ -257,6 +257,8 @@ def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
+                # Read by the Funktionen the page judges a grant by, which come from these rows.
+                "austritt": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
                 **{f"bestaetigungen.{slot}.verschickt_am": 1 for slot in KONTAKT_ROLLEN},
             }
