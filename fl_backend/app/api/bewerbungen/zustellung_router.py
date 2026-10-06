@@ -12,7 +12,8 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellungResponse,
     FLKontaktRolle,
 )
-from app.api.bewerbungen.services import KONTAKT_SEATS, compose_zustellung_update, zustellung_event_applies, zustellung_send_applies
+from app.api.bewerbungen.services import compose_zustellung_update, zustellung_event_applies, zustellung_send_applies
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection, DBClient
@@ -30,13 +31,13 @@ router = APIRouter(
 
 # Every seat this write may reach, ONLY the fields it judges: the block holds three people's names,
 # addresses and telephone numbers, and none of them decides anything here.
-ZUSTELLUNG_FIELDS: Mapping[str, int] = {f"bestaetigungen.{seat}.zustellung": 1 for seat in KONTAKT_SEATS}
+ZUSTELLUNG_FIELDS: Mapping[str, int] = {f"bestaetigungen.{seat}.zustellung": 1 for seat in KONTAKT_ROLLEN}
 
 
 def _in_declaration_order(rollen: Sequence[FLKontaktRolle]) -> list[FLKontaktRolle]:
     """The named seats deduplicated, so a repeated one is answered once and the answer reads the same for any spelling of the request."""
 
-    return sorted(set(rollen), key=KONTAKT_SEATS.index)
+    return sorted(set(rollen), key=KONTAKT_ROLLEN.index)
 
 
 async def _apply(

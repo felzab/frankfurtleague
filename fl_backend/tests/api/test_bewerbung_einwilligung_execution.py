@@ -20,7 +20,6 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_DECIDED,
     BEWERBUNG_TOKEN_PAST_DEADLINE,
     BEWERBUNG_TOKEN_UNKNOWN,
-    KONTAKT_SEATS,
     SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
     compose_bestaetigungen,
@@ -29,6 +28,7 @@ from app.api.bewerbungen.services import (
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -58,7 +58,7 @@ CLUB_NAME = "Adler"
 SCHOOL_NAME = "Zorbanax"
 
 # The raw tokens the seeded links carry, and what the database holds for each.
-RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_SEATS}
+RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_ROLLEN}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 # What each of the two contact pages stamps today; an answer names the one its view answered.
@@ -72,7 +72,7 @@ A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
 
 
 def _seat_paths(block: str, *leaves: str) -> set[str]:
-    return {f"{block}.{seat}.{leaf}" for seat in KONTAKT_SEATS for leaf in leaves}
+    return {f"{block}.{seat}.{leaf}" for seat in KONTAKT_ROLLEN for leaf in leaves}
 
 
 # What each handler resolves off the document its token filter found. Reached from the HANDLERS
@@ -321,7 +321,7 @@ class TestWhatALinkOpens:
 
         view, document = on_a_league(mongo_replica_set_url, body, documents=[paired])
 
-        stamped = {seat for seat in KONTAKT_SEATS if document["kontakte"][seat]["einwilligung"]["bestaetigt_am"] == TODAY}
+        stamped = {seat for seat in KONTAKT_ROLLEN if document["kontakte"][seat]["einwilligung"]["bestaetigt_am"] == TODAY}
         assert stamped == {view.rolle, view.zugleich_rolle}
 
     def test_a_picked_clubs_application_names_the_club(self, mongo_replica_set_url: str):
@@ -748,7 +748,7 @@ class TestADecline:
         assert document["kontakte"]["stellvertretung"] is None
         assert document["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
         assert (response.ergebnis, response.geburtsdatum, response.medien) == ("abgelehnt", None, False)
-        assert response.ausstehend == list(KONTAKT_SEATS)
+        assert response.ausstehend == list(KONTAKT_ROLLEN)
         assert (view.zustand, view.vorname, view.text_version) == ("abgelehnt", None, None)
 
     def test_every_log_image_holding_the_person_is_emptied_and_stamped(self, mongo_replica_set_url: str):
@@ -852,7 +852,7 @@ class TestNoHashReachesAnAdminRead:
 
         one, many, document = on_a_league(mongo_replica_set_url, body, documents=[reminded])
 
-        assert all(document["bestaetigungen"][seat]["token_hash"] == HASHES[seat] for seat in KONTAKT_SEATS)
+        assert all(document["bestaetigungen"][seat]["token_hash"] == HASHES[seat] for seat in KONTAKT_ROLLEN)
         assert document["bestaetigungen"]["trainer"]["token_hash_zuvor"] == erinnert_hash
         for rendered in (one, many):
             assert "token_hash" not in rendered

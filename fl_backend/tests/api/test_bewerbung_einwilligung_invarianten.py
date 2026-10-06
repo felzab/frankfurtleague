@@ -3,8 +3,9 @@ from typing import Any
 
 import pytest
 
-from app.api.bewerbungen.services import KONTAKT_SEATS, compose_decline_update
-from app.api.kontakte.services import KONTAKT_SLOTS, build_clearing_update
+from app.api.bewerbungen.services import compose_decline_update
+from app.api.kontakte.services import build_clearing_update
+from app.api.teams.schemas import KONTAKT_ROLLEN
 
 TODAY = "2026-04-01"
 
@@ -19,7 +20,7 @@ class TestASlotAndItsBookkeepingMoveTogether:
     Nothing else empties a slot, so these two composers are where that state would come from.
     """
 
-    @pytest.mark.parametrize("seats", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_SEATS])
+    @pytest.mark.parametrize("seats", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
     def test_a_decline_stamps_the_entry_of_every_seat_it_empties(self, seats: tuple[str, ...]):
         update = written(compose_decline_update(seats=seats, today=TODAY))
 
@@ -27,7 +28,7 @@ class TestASlotAndItsBookkeepingMoveTogether:
             assert update[f"kontakte.{seat}"] is None
             assert update[f"bestaetigungen.{seat}.abgelehnt_am"] == TODAY
 
-    @pytest.mark.parametrize("slots", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_SLOTS])
+    @pytest.mark.parametrize("slots", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
     def test_an_erasure_over_an_application_nulls_the_entry_beside_every_slot(self, slots: tuple[str, ...]):
         update = written(build_clearing_update(slots, bestaetigungen=True))
 
@@ -38,6 +39,6 @@ class TestASlotAndItsBookkeepingMoveTogether:
     def test_an_erasure_finding_no_block_moves_no_bookkeeping(self):
         """The flag's other side: a junction row and an application stored before the flow have no entry to null."""
 
-        update = written(build_clearing_update(KONTAKT_SLOTS))
+        update = written(build_clearing_update(KONTAKT_ROLLEN))
 
-        assert set(update) == {f"kontakte.{slot}" for slot in KONTAKT_SLOTS}
+        assert set(update) == {f"kontakte.{slot}" for slot in KONTAKT_ROLLEN}

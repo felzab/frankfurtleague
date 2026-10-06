@@ -14,11 +14,12 @@ from bson import ObjectId
 
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLSubjektSitz
-from app.api.kontakte.services import KONTAKT_SLOTS, rows_possibly_naming
+from app.api.kontakte.services import rows_possibly_naming
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import build_selbst_referee_filter
 from app.api.spieler.services import build_selbst_pupil_filter
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
@@ -40,7 +41,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "team_id": 1,
                 "name": 1,
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "einwilligung.bestaetigt_am")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.bestaetigt_am")},
             }
         },
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
@@ -74,7 +75,7 @@ def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_eigene_bewerbung_filter(identifier)},
-        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SLOTS for field in ("email", "einwilligung.bestaetigt_am")}},
+        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.bestaetigt_am")}},
     ]
 
 
@@ -103,7 +104,7 @@ def seats_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[tup
     return [
         (row, slot)
         for row in rows
-        for slot in KONTAKT_SLOTS
+        for slot in KONTAKT_ROLLEN
         if folds_to(((row.get("kontakte") or {}).get(slot) or {}).get("email"), identifier)
     ]
 
@@ -119,7 +120,7 @@ def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:
 
 
 def eigene_sitze(row: Mapping[str, Any], identifier: str) -> list[str]:
-    """The slots of one season row or application whose confirmed person is this address, in `KONTAKT_SLOTS` order."""
+    """The slots of one season row or application whose confirmed person is this address, in `KONTAKT_ROLLEN` order."""
 
     return [slot for gefunden, slot in seats_naming([row], identifier) if seat_is_confirmed(gefunden, slot)]
 

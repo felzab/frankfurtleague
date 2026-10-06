@@ -27,6 +27,7 @@ from app.api.sperrliste.services import withheld_actor
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.schemas import (
+    KONTAKT_ROLLEN,
     FLKontaktEinladenResponse,
     FLKontaktMint,
     FLKontaktZeile,
@@ -52,7 +53,6 @@ from app.api.teams.schemas import (
     FLTeamWriteResponse,
 )
 from app.api.teams.services import (
-    KONTAKT_ROLLEN,
     build_gruppen,
     build_team_memberships_pipeline,
     build_team_pipeline,

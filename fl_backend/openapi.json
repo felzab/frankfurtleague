@@ -22990,7 +22990,7 @@
           "sitze"
         ],
         "title": "FLTeamSitzeResponse",
-        "description": "A team's three seats in one season, in the order `app/api/kontakte/services.py :: KONTAKT_SLOTS` reads them."
+        "description": "A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them."
       },
       "FLTeamStatistik": {
         "properties": {

@@ -10,7 +10,6 @@ from pydantic import BaseModel, ValidationError
 from app.api.bewerbungen import sweep_router
 from app.api.bewerbungen.schemas import DELETIONS_LISTED_PER_PASS, FLBewerbungSweepAngekuendigtPayload, FLBewerbungSweepLoeschenPayload
 from app.api.bewerbungen.services import (
-    KONTAKT_SEATS,
     TOKEN_HASH_FIELDS,
     ZUSTELLUNG_ABGEWIESEN,
     acceptance_erasure_is_due,
@@ -33,6 +32,7 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.bewerbungen.sweep_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import refuse_a_stalled_page
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
@@ -47,7 +47,7 @@ MAILED_ON_THE_MARK = "2026-03-29"
 MAILED_A_DAY_SHORT = "2026-03-30"
 MAILED_A_DAY_PAST = "2026-03-28"
 
-HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_SEATS}
+HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_ROLLEN}
 
 
 def kontakte(**overrides: Any) -> dict[str, Any]:
@@ -200,7 +200,7 @@ class TestTheReminderMark:
         assert reminder_seats(bewerbung_raw=stored, today=TODAY) == []
 
     def test_every_open_seat_at_its_mark_is_listed_in_declaration_order(self):
-        assert reminder_seats(bewerbung_raw=application(), today=TODAY) == list(KONTAKT_SEATS)
+        assert reminder_seats(bewerbung_raw=application(), today=TODAY) == list(KONTAKT_ROLLEN)
 
     @pytest.mark.parametrize("stand", sorted(ZUSTELLUNG_ABGEWIESEN))
     def test_a_seat_the_provider_refuses_is_not_chased(self, stand: str):
@@ -229,7 +229,7 @@ class TestOneMessagePerMailbox:
             trainer=kontaktperson_document("Ida"), ansprechperson=kontaktperson_document("Ida"), trainer_ist_zugleich="ansprechperson"
         )
 
-        assert group_seats_by_mailbox(kontakte=block, seats=KONTAKT_SEATS) == [
+        assert group_seats_by_mailbox(kontakte=block, seats=KONTAKT_ROLLEN) == [
             ("ida@example.com", ["trainer", "ansprechperson"]),
             ("stellan@example.com", ["stellvertretung"]),
         ]
@@ -255,7 +255,7 @@ class TestOneMessagePerMailbox:
         assert len(group_seats_by_mailbox(kontakte=block, seats=("ansprechperson", "stellvertretung"))) == 2
 
     def test_a_seat_without_an_address_is_left_out(self):
-        assert group_seats_by_mailbox(kontakte=kontakte(trainer=None), seats=KONTAKT_SEATS) == [
+        assert group_seats_by_mailbox(kontakte=kontakte(trainer=None), seats=KONTAKT_ROLLEN) == [
             ("ansgar@example.com", ["ansprechperson"]),
             ("stellan@example.com", ["stellvertretung"]),
         ]
@@ -287,7 +287,7 @@ class TestWhatAReminderWrites:
     def test_the_lookup_and_the_seat_match_either_hash(self):
         """A reader still looking at the first email is not punished by the chase: both hashes open the seat."""
 
-        assert len(build_token_filter(token_hash="x")["$or"]) == len(KONTAKT_SEATS) * len(TOKEN_HASH_FIELDS)
+        assert len(build_token_filter(token_hash="x")["$or"]) == len(KONTAKT_ROLLEN) * len(TOKEN_HASH_FIELDS)
 
         reminded = application(
             bestaetigungen=bestaetigungen(trainer={**bestaetigungen()["trainer"], "token_hash": "fresh", "token_hash_zuvor": HASHES["trainer"]})
@@ -311,7 +311,7 @@ class TestTheFourteenDayClock:
         assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=bestaetigungsfrist), today=TODAY) == due
 
     def test_an_application_every_seat_confirmed_waits_for_the_triage_instead(self):
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_ROLLEN})
 
         assert not deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY)
 
@@ -319,7 +319,7 @@ class TestTheFourteenDayClock:
     def test_an_erased_or_declined_seat_counts_as_outstanding(self, emptied: str):
         """The whole clock's reach: such an application can never complete, so this is the only way it leaves."""
 
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_ROLLEN})
         stamped[emptied] = None
 
         assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY)
@@ -327,7 +327,7 @@ class TestTheFourteenDayClock:
     def test_a_seat_stamped_empty_counts_as_outstanding(self):
         """Otherwise an application nobody can accept outlives its deadline for the length of the season."""
 
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_ROLLEN})
         stamped["trainer"] = kontaktperson_document("Trainer", bestaetigt_am="")
 
         assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY)
