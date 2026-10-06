@@ -75,7 +75,7 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   }
   if (endpoint.startsWith("/schiedsrichter/")) {
     return method === undefined
-      ? { acknowledged: 1, schiedsrichter: referee() }
+      ? { acknowledged: 1, schiedsrichter: referee(), bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false }
       : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null };
   }
   if (endpoint.endsWith("/spielplan")) {
@@ -420,9 +420,8 @@ describe("an administrator write the server holds to the step-up window", () => 
 const ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
 
 /**
- * A referee's undo body as the editor sends it: the save's payload with its address set to `email`, and
- * the route's own word on whether the undone save left a new address waiting, as the kontakte drive
- * carries its route's `kontakte_stand`.
+ * A referee's undo body as the editor sends it: the save's payload, its address `email`, and the
+ * route's own field, as the kontakte drive carries its route's `kontakte_stand`.
  */
 const refereeReplay = (email: string) => ({
   id: REFEREE_ID,

@@ -7,10 +7,16 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterListResponse,
     FLSchiedsrichterSingleResponse,
 )
-from app.api.schiedsrichter.services import build_real_referees_filter, build_referee_filter
+from app.api.schiedsrichter.services import (
+    ADRESSWECHSEL_FELD,
+    BESTAETIGUNG_FELD,
+    build_real_referees_filter,
+    build_referee_filter,
+    frist_abgelaufen,
+)
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import SchiedsrichterCollection
+from app.core.dependencies import SchiedsrichterCollection, get_german_date_str
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
@@ -65,14 +71,22 @@ async def get_schiedsrichter(
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
+    today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterSingleResponse:
     """Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
 
     Deactivated ones included -- a historical match references them by id. The ghost answers 404, as
     does an id whose referee has been erased: the document is gone
     (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+
+    Answers whether each link's deadline has passed today, by the rule its own press refuses on, so the
+    editor marks a lapsed link without reading a day of its own.
     """
 
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
 
-    return FLSchiedsrichterSingleResponse(schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw))
+    return FLSchiedsrichterSingleResponse(
+        schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
+        bestaetigung_abgelaufen=frist_abgelaufen(schiedsrichter_raw.get(BESTAETIGUNG_FELD), today=today),
+        adresswechsel_abgelaufen=frist_abgelaufen(schiedsrichter_raw.get(ADRESSWECHSEL_FELD), today=today),
+    )

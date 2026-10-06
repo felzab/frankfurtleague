@@ -1,10 +1,11 @@
 import "server-only";
 
-import { APINetworkError, MailSendError } from "@/core/errors";
+import { MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { MailBarredError, MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
+import { MailRecipientError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { markOutcomeUnknown } from "@/core/requestScope";
+import { versandAusfallOf } from "@/core/versandAusfall";
 
 import { meldeZielZustellungAbgewiesen, meldeZielZustellungAngenommen } from "./mutations";
 import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
@@ -71,19 +72,6 @@ export function linkVersandOf({ delivered, withheld, gesperrt }: Pick<ZielMailOu
   if (gesperrt > 0) return "gesperrt";
 
   return withheld.length > 0 ? "zurueckgehalten" : "fehlgeschlagen";
-}
-
-/**
- * How one unsent message ended, `ungewiss` having broken off unanswered so the provider may have taken
- * it. The one reading of a send's failure, for the fan-out below and a message sent alone, so neither drifts.
- */
-export type VersandAusfall = "gesperrt" | "zurueckgehalten" | "ungewiss" | "fehlgeschlagen";
-
-export function versandAusfallOf(reason: unknown): VersandAusfall {
-  if (reason instanceof MailBarredError) return "gesperrt";
-  if (reason instanceof MailWithheldError) return "zurueckgehalten";
-
-  return reason instanceof APINetworkError ? "ungewiss" : "fehlgeschlagen";
 }
 
 /** One message as its builder composed it, without the envelope the fan-out fills in. */

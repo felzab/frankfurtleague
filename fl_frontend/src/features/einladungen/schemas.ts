@@ -5,9 +5,9 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 // serving both flows (`fl_backend/app/api/bewerbungen/services.py :: mint_token`); a literal beside
 // it is compared by nothing.
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
-import { FLBewerbungZustellungSchema, FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
+import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, FLBewerbungZustellungSchema } from "@/shared/schemas";
 
 /**
  * Which team's invite, in a season. Both ids travel in the PATH on the wire; they are carried here

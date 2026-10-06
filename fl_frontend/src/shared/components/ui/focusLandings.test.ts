@@ -163,6 +163,7 @@ const schiedsrichter = (id: string, name: string, inactive_since: string | null)
   einwilligung: null,
   bestaetigung: null,
   adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 });
 const SR_A = "68c1f0a2b3c4d5e6f7a8b921";
 const SR_B = "68c1f0a2b3c4d5e6f7a8b922";
@@ -238,7 +239,8 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
     saison: {
       saisonId: "2026",
       saisonStatus: "future" as const,
-      membership: gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+      membership:
+        gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
     },
     today: "2026-09-14",
     gruppeLocked: locked,
@@ -457,7 +459,7 @@ const kontakteEditor = (kontakte: Kontakte | null) =>
       saison: {
         saisonId: "2026",
         saisonStatus: "active",
-        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" },
+        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" },
       },
     }),
   });
@@ -1172,7 +1174,7 @@ const LANDINGS: Record<string, Landing> = {
         inactiveSince: null,
       }),
     remount: true,
-    lands: () => screen.getByRole("button", { name: "Link erneut senden" }),
+    lands: () => screen.getByRole("button", { name: "Link erneut senden: Bestätigung" }),
   },
   /* The discard takes its own panel away, so the focus lands on the contact panel beside it, which stays. */
   "a referee's waiting address discarded, on the contact panel's heading": {

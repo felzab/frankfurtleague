@@ -14,6 +14,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
+import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { eingetragenVonLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
@@ -46,7 +47,7 @@ import { mapKontakteRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
-import type { FLAustritt, FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { FLAustritt, FLKontaktperson, FLSaisonTeamBestaetigungenAnsicht, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { AdminKontakteRow, AdminKontaktSeat, TeamSaisonMembership } from "@/features/teams/types";
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
@@ -185,11 +186,17 @@ const editorTree = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): str
 /** The application form's running words, off the registry the backend generated, as the page reads them. */
 const FORM = publishedLaufendeFassung("bewerbung");
 
-const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true, nimmtLinks = true): ReactNode =>
+const sectionElement = (
+  kontakte: FLSaisonTeamKontakte | null,
+  isMember = true,
+  nimmtLinks = true,
+  bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null = null,
+): ReactNode =>
   h(FormKontakteSection, {
     laufendesLabel: FORM.text_version,
     value: kontakte,
     stored: kontakte,
+    bestaetigungen,
     teamId: "507f1f77bcf86cd799439011",
     saisonId: "2526",
     nimmtLinks,
@@ -224,7 +231,7 @@ const viewElement = (
     saison: {
       saisonId: "2526",
       saisonStatus,
-      membership: hasRow ? { gruppe: "A", austritt, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" } : null,
+      membership: hasRow ? { gruppe: "A", austritt, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" } : null,
     },
   });
 
@@ -346,7 +353,17 @@ answerReadsWith((endpoint, schema, params) => {
       shorthand: "SA",
       full_name: "Sportgemeinschaft Alpha",
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [{ saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: storedBlock, kontakte_stand: "9f2c" }],
+      memberships: [
+        {
+          saison_id: "2526",
+          gruppe: "A",
+          austritt: null,
+          trikot_farbe: null,
+          kontakte: storedBlock,
+          bestaetigungen: null,
+          kontakte_stand: "9f2c",
+        },
+      ],
     });
     return answer(schema, endpoint, { teams: [club] });
   }
@@ -774,6 +791,7 @@ describe("the editor's shape", () => {
       austritt: null,
       trikot_farbe: null,
       kontakte: BLOCK_EMPTY,
+      bestaetigungen: null,
       kontakte_stand: "9f2c",
     });
 
@@ -909,7 +927,7 @@ describe("the way in and out of the editor", () => {
           saison: {
             saisonId: "2526",
             saisonStatus: "active",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, kontakte_stand: "9f2c" },
+            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, bestaetigungen: null, kontakte_stand: "9f2c" },
           },
           today: "2026-03-01",
           gruppeLocked: false,
@@ -1252,6 +1270,42 @@ describe("the contact person's own two choices", () => {
       "the media choice reads without its own act",
     );
     assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a choice never moved does not stand on its confirmation");
+  });
+});
+
+/* Each seat shows its link's state as the referee editor shows the referee's, by ruling. */
+describe("what each seat shows of its confirmation link", () => {
+  const LINK = { verschickt_am: "2026-09-21", frist: "2026-10-05", abgelehnt_am: null, zustellung: null, abgelaufen: false };
+  const markup = (bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null): string =>
+    editorTree(sectionElement(BLOCK, true, true, bestaetigungen), BLOCK);
+
+  it("reads out the sent day, the deadline and the delivery on the seat its link went to", () => {
+    const html = markup({
+      trainer: { ...LINK, zustellung: { nachricht_id: "m1", stand: "unzustellbar", grund: null, am: "2026-09-21T10:00:00Z" } },
+      ansprechperson: null,
+      stellvertretung: null,
+    });
+
+    assert.equal(html.split(">Link gesendet am<").length - 1, 1, "the readout stands on a seat its link did not go to, or on none");
+    assert.match(html, />Link gesendet am<[\s\S]*?21\.09\.2026[\s\S]*?>Gültig bis<[\s\S]*?05\.10\.2026/);
+    assert.ok(html.includes(ZUSTELLUNG_CHIP.unzustellbar?.label ?? "-"), "the refused delivery is not named");
+  });
+
+  it("names nothing to report where the delivery is not one to act on", () => {
+    assert.match(markup({ trainer: LINK, ansprechperson: LINK, stellvertretung: LINK }), /Nichts zu melden/);
+  });
+
+  /* The read judges the deadline by the seat's own rule, so this browser's day decides nothing. */
+  it("marks a lapse by the read's judgement alone, never by the date it shows", () => {
+    const lapse = (frist: string, abgelaufen: boolean) =>
+      markup({ trainer: { ...LINK, frist, abgelaufen }, ansprechperson: null, stellvertretung: null });
+
+    assert.doesNotMatch(lapse("2020-01-01", false), />abgelaufen</);
+    assert.match(lapse("2099-12-31", true), />abgelaufen</);
+  });
+
+  it("reads out no link on a row that stores none", () => {
+    assert.doesNotMatch(markup(null), />Link gesendet am</);
   });
 });
 

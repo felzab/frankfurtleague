@@ -70,6 +70,7 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
           laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
           value: kontakte,
           stored: kontakte,
+          bestaetigungen: null,
           teamId: "507f1f77bcf86cd799439011",
           saisonId: "2526",
           nimmtLinks: true,
@@ -109,7 +110,9 @@ answerReadsWith((endpoint, schema, params) => {
       shorthand: "SA",
       full_name: "Sportgemeinschaft Alpha",
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [{ saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, kontakte_stand: "9f2c" }],
+      memberships: [
+        { saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, bestaetigungen: null, kontakte_stand: "9f2c" },
+      ],
     });
     return answer(schema, endpoint, { teams: [club] });
   }

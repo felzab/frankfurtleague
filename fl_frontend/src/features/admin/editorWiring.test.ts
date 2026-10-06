@@ -150,6 +150,7 @@ const SCHIEDSRICHTER = {
   einwilligung: null,
   bestaetigung: null,
   adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
 const SPIELER = { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null };
@@ -209,7 +210,9 @@ const teamProps = (over: { inactiveSince?: string; isMember?: boolean; locked?: 
     saisonId: "2026",
     saisonStatus: "future" as const,
     membership:
-      over.isMember === false ? null : { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+      over.isMember === false
+        ? null
+        : { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
   },
   today: "2026-09-14",
   gruppeLocked: over.locked ?? false,
@@ -360,6 +363,7 @@ const EDITORS: Record<string, Editor> = {
                 trainer: PERSON("Ada", "ada@example.org", "069 333"),
                 trainer_ist_zugleich: null,
               },
+              bestaetigungen: null,
               kontakte_stand: "stand",
             },
           },

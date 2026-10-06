@@ -2,10 +2,10 @@
 
 import { endSessionsOfAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
-import { APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { MailWithheldError, sendSperreNotice } from "@/core/mail";
+import { sendSperreNotice } from "@/core/mail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
+import { versandAusfallOf } from "@/core/versandAusfall";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -67,7 +67,9 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
   } catch (failed) {
     // Filed by a deployment that mails nothing, which the mailer's own line records: no failure, and
     // nobody to tell by hand.
-    if (failed instanceof MailWithheldError) return ZURUECKGEHALTEN;
+    // The ban's own notice passes the ban list, so the one reading never answers `gesperrt` here.
+    const ausfall = versandAusfallOf(failed);
+    if (ausfall === "zurueckgehalten") return ZURUECKGEHALTEN;
 
     // The NAME alone: a failure on this path routinely carries the address, and
     // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and a stack in full.
@@ -77,7 +79,7 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
     });
     // A connection broken after the send left may be a message the provider accepted, as the fan-outs
     // settle it. Only the notice is unclear: the ban's own write was acknowledged, so the press saved.
-    return failed instanceof APINetworkError ? BENACHRICHTIGUNG_UNKLAR : NICHT_BENACHRICHTIGT;
+    return ausfall === "ungewiss" ? BENACHRICHTIGUNG_UNKLAR : NICHT_BENACHRICHTIGT;
   }
 }
 

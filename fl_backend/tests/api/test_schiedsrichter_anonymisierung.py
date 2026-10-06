@@ -645,6 +645,7 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
                 await get_schiedsrichter_by_id(
                     schiedsrichter_id=schiedsrichter_id,
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                    today=TODAY,
                 )
                 answers.append("answered")
             except DocumentNotFoundException:

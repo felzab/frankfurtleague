@@ -304,6 +304,10 @@ class FLSchiedsrichterWriteResponse(BaseAPIResponse):
 
 class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     schiedsrichter: FLSchiedsrichter
+    # Whether each link's deadline has passed today, judged by the rule its press refuses on, so the
+    # editor reads no day of its own; false where the row holds no such link.
+    bestaetigung_abgelaufen: bool
+    adresswechsel_abgelaufen: bool
 
 
 class FLSchiedsrichterKontext(BaseModel):

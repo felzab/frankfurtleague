@@ -33,6 +33,8 @@ import {
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
+  FLBewerbungZustellstandSchema,
+  FLBewerbungZustellungSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
@@ -110,28 +112,6 @@ export const FLBewerbungEntscheidungZeileSchema = z.object({
   grund: z.string().nullable(),
 });
 export type FLBewerbungEntscheidungZeile = z.infer<typeof FLBewerbungEntscheidungZeileSchema>;
-
-/**
- * Mirrors `FLBewerbungZustellstand`. **Orthogonal to `Stand`**, which is what the PERSON did: a seat
- * can have confirmed from an address an earlier link bounced at, and folding the two would lose it.
- */
-export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
-  error: "Diesen Zustellstand gibt es nicht.",
-});
-export type FLBewerbungZustellstand = z.infer<typeof FLBewerbungZustellstandSchema>;
-
-/** Mirrors `FLBewerbungZustellung` — what became of the last message sent to one seat. */
-export const FLBewerbungZustellungSchema = z.object({
-  // The provider's own id for that message. An event naming another one is about a message a
-  // re-send has already replaced, and marking this seat from it would grade the wrong link.
-  nachricht_id: z.string(),
-  stand: FLBewerbungZustellstandSchema,
-  // The provider's stable token, never its prose, which quotes the recipient's address.
-  grund: z.string().nullable(),
-  // Not `CustomDateStringSchema`: an instant, and the key an out-of-order event is judged against.
-  am: z.string(),
-});
-export type FLBewerbungZustellung = z.infer<typeof FLBewerbungZustellungSchema>;
 
 /**
  * Mirrors one seat's confirmation history. No `token_hash`: the credential is written as a raw

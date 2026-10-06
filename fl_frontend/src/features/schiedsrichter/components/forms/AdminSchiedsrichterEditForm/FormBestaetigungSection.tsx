@@ -7,7 +7,7 @@ import PaperPlane from "@gravity-ui/icons/PaperPlane";
 
 import { Button } from "@heroui/react/button";
 
-import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { einladeSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import {
   SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS,
@@ -19,7 +19,6 @@ import {
 import { Beleg, Fassung, KeinTag } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
-import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -30,55 +29,40 @@ import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { getGermanTodayStr } from "@/shared/utils/date";
+import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { PillTone } from "@/shared/components/ui/badges";
 
-/** Beside the deadline rather than in the right-hand cluster, which is about the delivery. */
-const LINK_ABGELAUFEN_LABEL = "abgelaufen";
-const LINK_ABGELAUFEN_TINT: PillTone = "warning";
-
-/** A lapsed link's mark beside its deadline, in this panel and the address change's, so one state is one word in both. */
-export function LinkAbgelaufen() {
-  return <span className={`${labelBadge(LINK_ABGELAUFEN_TINT)} ms-2 h-7 shrink-0`}>{LINK_ABGELAUFEN_LABEL}</span>;
-}
+/**
+ * The re-send's accessible name, its link named for this panel as the address change's panel names its
+ * own: a confirmed referee's editor can show both re-sends, each for another link.
+ */
+export const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung");
 
 /** Closed on a person who answered: the endpoint refuses a second link, there being no page left to open. */
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
 
 /** What the last link reached, where one has gone out at all. */
-function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsrichterBestaetigung; istBestaetigt: boolean }) {
-  const zustellung = bestaetigung.zustellung === null ? null : ZUSTELLUNG_CHIP[bestaetigung.zustellung.stand];
-  // A date an administrator reads as a deadline says nothing once it is past, and the answer
-  // („einen neuen schicken“) is the control in this same panel.
-  const istAbgelaufen = !istBestaetigt && bestaetigung.frist < getGermanTodayStr();
-
+function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLSchiedsrichterBestaetigung; offenUndAbgelaufen: boolean }) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
-      <Angabe label="Link gesendet am">{formatSpielDatum(bestaetigung.verschickt_am)}</Angabe>
-      <Angabe label="Gültig bis">
-        {formatSpielDatum(bestaetigung.frist)}
-        {istAbgelaufen && <LinkAbgelaufen />}
-      </Angabe>
-      {/* A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
-          rather than a day that went missing. */}
-      <Angabe label="Erinnert am">
-        {bestaetigung.erinnert_am === null ? <KeinTag>Keine Erinnerung</KeinTag> : formatSpielDatum(bestaetigung.erinnert_am)}
-      </Angabe>
-      <Angabe label="Zustellung">
-        {/* `null` covers accepted and delivered alike: the chip exists for what an administrator can
-            act on, and the delivery register spells the one word for a blocked address. */}
-        {zustellung === null ? (
-          <KeinTag>Nichts zu melden</KeinTag>
-        ) : (
-          <span className={`${labelBadge(zustellung.tone)} h-7 shrink-0`}>{zustellung.label}</span>
-        )}
-      </Angabe>
+      <LinkStandAngaben
+        verschicktAm={bestaetigung.verschickt_am}
+        frist={bestaetigung.frist}
+        istAbgelaufen={offenUndAbgelaufen}
+        zustellung={bestaetigung.zustellung}
+        vorZustellung={
+          // A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
+          // rather than a day that went missing.
+          <Angabe label="Erinnert am">
+            {bestaetigung.erinnert_am === null ? <KeinTag>Keine Erinnerung</KeinTag> : formatSpielDatum(bestaetigung.erinnert_am)}
+          </Angabe>
+        }
+      />
     </dl>
   );
 }
@@ -138,6 +122,7 @@ export function FormBestaetigungSection({
   hatAdresse,
   isRetired,
   bestaetigung,
+  istAbgelaufen,
   einwilligung,
   istFassungBekannt,
   geburtsdatum,
@@ -148,6 +133,8 @@ export function FormBestaetigungSection({
   hatAdresse: boolean;
   isRetired: boolean;
   bestaetigung: FLSchiedsrichterBestaetigung | null;
+  /** The read's judgement of the link's deadline, never this browser's day. */
+  istAbgelaufen: boolean;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label, resolved by the page through the words read. */
   istFassungBekannt: boolean | null;
@@ -162,6 +149,7 @@ export function FormBestaetigungSection({
 
   const istBestaetigt = einwilligung?.bestaetigt_am != null;
   const sendeLabel = bestaetigung === null ? "Bestätigungslink senden" : "Link erneut senden";
+  const sendeName = bestaetigung === null ? sendeLabel : BESTAETIGUNG_ERNEUT;
 
   // In the order the endpoint raises them, so the sentence names the first thing to repair rather
   // than the one an administrator would fix second.
@@ -221,7 +209,9 @@ export function FormBestaetigungSection({
         ) : (
           <LinkStand
             bestaetigung={bestaetigung}
-            istBestaetigt={istBestaetigt}
+            // A date an administrator reads as a deadline says nothing once it is past, and the
+            // answer („einen neuen schicken“) is the control in this same panel; an answered link's says nothing at all.
+            offenUndAbgelaufen={!istBestaetigt && istAbgelaufen}
           />
         )}
 
@@ -254,11 +244,12 @@ export function FormBestaetigungSection({
             <Hint
               mode="refusal"
               reason={verweigerung}
-              label={sendeLabel}>
+              label={sendeName}>
               <Button
                 type="button"
                 isPending={sendet}
                 isDisabled={verweigerung !== null}
+                aria-label={sendeName}
                 onPress={() => void sende()}
                 className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
                 <PaperPlane
