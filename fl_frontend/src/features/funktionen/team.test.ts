@@ -10,6 +10,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleSubjectLookup } from "@/shared/testing/actionDoubles.ts";
