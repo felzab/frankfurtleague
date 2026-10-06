@@ -10,7 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SPIELER
+from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, ERTEILUNG_NICHT_ZUGELASSEN, KONTO_SEITE_SPIELER
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbstEinwilligungPayload
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungPayload
 from app.core.collections import Collection
@@ -353,7 +353,7 @@ class TestARetiredRecord:
 
         response, before, after, _ = served(mongo_replica_set_url, _press(RETIRED, _payload(medien=True), before=withdrawn_earlier))
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert after == before
 
 

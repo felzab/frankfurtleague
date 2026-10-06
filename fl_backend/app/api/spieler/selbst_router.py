@@ -115,7 +115,7 @@ async def patch_einwilligung(
 
     Refuses, in this order: an address holding no confirmed pupil record (`REQ-FUNKTION-001`); a `nachweis_stand`
     other than the record's own, either choice having moved since the page was served (`REQ-EINWILLIGUNG-003`); a
-    grant on a retired record (`REQ-FUNKTION-001`); a `text_version` naming no version of the account page's pupil
+    grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of the account page's pupil
     control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where
     the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a
     grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a

@@ -2606,6 +2606,22 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.konto.services.find_nachweis_stand_refusal",
         tested_by="tests/api/test_spieler_selbst.py::TestAStalePage",
     ),
+    Rule(
+        code="REQ-EINWILLIGUNG-004",
+        status=HTTPStatus.FORBIDDEN,
+        operation=(
+            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+        ),
+        aggregate="Spieler",
+        summary=(
+            "a press grants a choice only on a record of its person granting a panel; a retired record, a past season's or a "
+            "withdrawn team's seat, a pending application's seat and a pending registration take a withdrawal alone"
+        ),
+        implemented_by="app.api.konto.services.find_erteilung_refusal",
+        tested_by="tests/api/test_konto_einwilligung.py::TestARecordNotHeld",
+    ),
 )
 
 

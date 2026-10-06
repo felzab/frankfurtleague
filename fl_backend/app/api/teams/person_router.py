@@ -122,7 +122,7 @@ async def patch_einwilligung(
 
     Refuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a
     `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
-    (`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-FUNKTION-001`); a `text_version` naming no
+    (`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-EINWILLIGUNG-004`); a `text_version` naming no
     version of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);
     `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
     missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`),

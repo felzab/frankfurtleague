@@ -279,8 +279,8 @@ pending application's seat. A withdrawal reaches every confirmed record of the a
 | PATCH  | `/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`  | One record's `umfang` and `medien` (I971), refused as the pupil's                                                                                                           |
 | GET    | `/konto/einwilligungen`                                    | Every confirmed consent record of the address, empty where it holds none, never refused (I973); pending applications' seats (I996) and registrations too (I_NEW_KONTO-BE_3) |
 | PATCH  | `/teams/{team_id}/saisons/{saison_id}/person/einwilligung` | `umfang` and `medien` on every seat the address holds on that row (I975), refused as the pupil's                                                                            |
-| PATCH  | `/bewerbungen/{bewerbung_id}/person/einwilligung`          | Withdraws `umfang` and `medien` on every seat the address holds on a pending application (I996); `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-001` and `-003` refuse               |
-| PATCH  | `/registrierungen/selbst/{registrierung_id}/einwilligung`  | Withdraws `umfang` and `medien` on the pupil's own confirmed pending registration (I_NEW_KONTO-BE_3); `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-001` and `-003` refuse          |
+| PATCH  | `/bewerbungen/{bewerbung_id}/person/einwilligung`          | Withdraws `umfang` and `medien` on every seat the address holds on a pending application (I996); `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-001`, `-003` and `-004` refuse       |
+| PATCH  | `/registrierungen/selbst/{registrierung_id}/einwilligung`  | Withdraws `umfang` and `medien` on the pupil's own confirmed pending registration (I_NEW_KONTO-BE_3); `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-001`, `-003` and `-004` refuse  |
 
 #### `system` router — mixed guards
 

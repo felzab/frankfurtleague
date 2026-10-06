@@ -57,7 +57,7 @@ async def patch_einwilligung(
 
     Refuses, in this order: an application that is decided or holds no confirmed seat of the address
     (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the
-    page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-FUNKTION-001`); and a `text_version`
+    page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a `text_version`
     naming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.
     """
 
