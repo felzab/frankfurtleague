@@ -8,6 +8,8 @@ export async function plantedAfterAnswer(write: () => Promise<void>): Promise<vo
   revalidatePath("/");
   nextCache.revalidateTag("spieler", { expire: 0 }); // expect: route-tag-drop
   nextCache.revalidatePath("/"); // expect: route-tag-drop
+  nextCache["revalidateTag"]("spieler", { expire: 0 }); // expect: route-tag-drop
+  nextCache["revalidatePath"]("/"); // expect: route-tag-drop
 }
 
 // The route's own tags, handed to its spine; a name merely holding the word is no call.
