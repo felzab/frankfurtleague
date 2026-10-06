@@ -56,10 +56,13 @@ describe("the referee's address page", () => {
   });
 
   /* A dead link may have been forwarded, so no panel past the open one names anybody. */
-  it("says an unknown link is void and names nobody", () => {
+  /* The commonest way here is reopening the link after confirming, so the panel never says the old address still holds. */
+  it("says an unknown link is void in words true after a confirmation too, and names nobody", () => {
     const shown = words({ zustand: "ungueltig" });
 
-    assert.match(shown, /ungültig oder abgelaufen/);
+    assert.match(shown, /Dieser Link ist ungültig/);
+    assert.match(shown, /Hast Du die neue Adresse schon bestätigt, gilt sie bereits; sonst gilt die bisherige weiter/);
+    assert.doesNotMatch(shown, /Deine bisherige Adresse gilt weiter/);
     assert.doesNotMatch(shown, /Anna/);
   });
 

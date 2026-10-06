@@ -275,15 +275,19 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
         </>
       )}
 
+      {/* Words true however the link died: the commonest way here is reopening it after a confirmation,
+          which already moved the address, and a decline, a newer link or a discard left the old one. */}
       {stand.zustand === "ungueltig" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
           <p className={ABSATZ_CLASSES}>
-            Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage, und ein neuer ersetzt
-            jeden früheren.
+            Dieser Link ist ungültig: Er wurde schon beantwortet oder durch einen neueren ersetzt, oder die Änderung gibt es nicht mehr.
           </p>
-          <p className={ABSATZ_CLASSES}>Deine bisherige Adresse gilt weiter. Fragen jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>
+            Hast Du die neue Adresse schon bestätigt, gilt sie bereits; sonst gilt die bisherige weiter. Fragen jederzeit per E-Mail an{" "}
+            {KONTAKT_EMAIL}.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
