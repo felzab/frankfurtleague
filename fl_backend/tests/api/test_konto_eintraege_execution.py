@@ -18,7 +18,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.identitaet.crud import find_eigene_eintraege
-from app.api.registrierungen.services import compose_ablehnung_update, compose_bestaetigung, compose_confirmation_update, compose_registrierung
+from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -28,7 +28,7 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, saison_document, saison_team_document, spieler_document, team_document
+from tests.documents import ADDRESS, registrierung_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -168,37 +168,31 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
 def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaetigung_spieler", vorname: str = "Wiltrudis") -> dict[str, Any]:
     """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
 
-    document: dict[str, Any] = {
-        "_id": oid,
-        **compose_registrierung(
-            saison_id=ACTIVE,
-            team_id=TEAMS[3],
-            einladung_id=ObjectId(),
-            vorname=vorname,
-            nachname="Ehrenpreis",
-            email=email,
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(str(oid)), today="2026-09-20", frist="2026-09-27"),
-            today="2026-09-20",
-        ),
-        "idempotenz_schluessel": str(oid),
-        "idempotenz_fingerabdruck": "f" * 64,
-    }
-    if seite is not None:
-        choices = {"umfang": "kader_oeffentlich", "medien": True} if seite == "bestaetigung_spieler" else {"umfang": None, "medien": None}
-        document.update(
-            compose_confirmation_update(
-                geburtsdatum="2008-05-09",
-                text_version=LAUFENDE_FASSUNGEN[seite],
-                today="2026-09-21",
-                am="2026-09-21T08:00:00+00:00",
-                **choices,
-            )["$set"]
-        )
+    choices = {"umfang": "kader_oeffentlich", "medien": True} if seite == "bestaetigung_spieler" else {"umfang": None, "medien": None}
 
-    return document
+    return registrierung_document(
+        oid,
+        email,
+        saison_id=ACTIVE,
+        team_id=TEAMS[3],
+        vorname=vorname,
+        nachname="Ehrenpreis",
+        token=str(oid),
+        eingereicht_am="2026-09-20",
+        frist="2026-09-27",
+        position="Mittelfeld",
+        nummer="17",
+        stufe="Q1",
+        bestaetigt=None
+        if seite is None
+        else {
+            "geburtsdatum": "2008-05-09",
+            "text_version": LAUFENDE_FASSUNGEN[seite],
+            "today": "2026-09-21",
+            "am": "2026-09-21T08:00:00+00:00",
+            **choices,
+        },
+    )
 
 
 async def _seed(database: AsyncDatabase) -> None:

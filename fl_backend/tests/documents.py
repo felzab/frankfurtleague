@@ -17,6 +17,8 @@ from typing import Any, Final
 
 from bson import ObjectId
 
+from app.api.bewerbungen.services import hash_token
+from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from tests.config import build_test_config
 
@@ -137,6 +139,52 @@ def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fiel
         "inactive_since": None,
         **fields,
     }
+
+
+def registrierung_document(
+    registrierung_id: Any,
+    email: str,
+    *,
+    saison_id: str,
+    team_id: Any,
+    vorname: str,
+    nachname: str,
+    token: str,
+    eingereicht_am: str,
+    frist: str,
+    position: str | None = None,
+    nummer: str | None = None,
+    stufe: str | None = None,
+    bestaetigt: Mapping[str, Any] | None = None,
+    **fields: Any,
+) -> dict[str, Any]:
+    """A registration as the submission leaves it and, given `bestaetigt`, as its pupil's own confirmation then does, through their composers.
+
+    `token` is the raw link its hash is minted from; `bestaetigt` the confirmation composer's keywords.
+    """
+
+    document = {
+        "_id": registrierung_id,
+        **compose_registrierung(
+            saison_id=saison_id,
+            team_id=team_id,
+            einladung_id=ObjectId(),
+            vorname=vorname,
+            nachname=nachname,
+            email=email,
+            position=position,
+            nummer=nummer,
+            stufe=stufe,
+            bestaetigung=compose_bestaetigung(token_hash=hash_token(token), today=eingereicht_am, frist=frist),
+            today=eingereicht_am,
+        ),
+        "idempotenz_schluessel": str(registrierung_id),
+        "idempotenz_fingerabdruck": "f" * 64,
+    }
+    if bestaetigt is not None:
+        document.update(compose_confirmation_update(**bestaetigt)["$set"])
+
+    return {**document, **fields}
 
 
 def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **fields: Any) -> dict[str, Any]:

@@ -23,7 +23,7 @@ from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung
 from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SCHIEDSRICHTER
 from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
-from app.api.registrierungen.services import compose_ablehnung_update, compose_bestaetigung, compose_confirmation_update, compose_registrierung
+from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -33,7 +33,15 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, spieler_document, team_document
+from tests.documents import (
+    ADDRESS,
+    registrierung_document,
+    saison_document,
+    saison_team_document,
+    spiel_document,
+    spieler_document,
+    team_document,
+)
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
@@ -1135,39 +1143,33 @@ REGISTRIERUNG_GRANT = {"am": "2026-09-21T08:00:00+00:00", "text_version": LAUFEN
 def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaetigung_spieler", **choices: Any) -> dict[str, Any]:
     """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
 
-    document: dict[str, Any] = {
-        "_id": oid,
-        **compose_registrierung(
-            saison_id=ACTIVE_SAISON,
-            team_id=TEAM_A_OID,
-            einladung_id=ObjectId(),
-            vorname="Ortrud",
-            nachname="Zwiebelmayer",
-            email=email,
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(str(oid)), today="2026-09-20", frist="2026-09-27"),
-            today="2026-09-20",
-        ),
-        "idempotenz_schluessel": str(oid),
-        "idempotenz_fingerabdruck": "f" * 64,
-    }
-    if seite is not None:
-        gewaehlt = (
-            {"umfang": "kader_oeffentlich", "medien": True, **choices} if seite == "bestaetigung_spieler" else {"umfang": None, "medien": None}
-        )
-        document.update(
-            compose_confirmation_update(
-                geburtsdatum=SEVENTEEN_BIRTHDATE,
-                text_version=LAUFENDE_FASSUNGEN[seite],
-                today="2026-09-21",
-                am=REGISTRIERUNG_GRANT["am"],
-                **gewaehlt,
-            )["$set"]
-        )
+    gewaehlt = (
+        {"umfang": "kader_oeffentlich", "medien": True, **choices} if seite == "bestaetigung_spieler" else {"umfang": None, "medien": None}
+    )
 
-    return document
+    return registrierung_document(
+        oid,
+        email,
+        saison_id=ACTIVE_SAISON,
+        team_id=TEAM_A_OID,
+        vorname="Ortrud",
+        nachname="Zwiebelmayer",
+        token=str(oid),
+        eingereicht_am="2026-09-20",
+        frist="2026-09-27",
+        position="Mittelfeld",
+        nummer="17",
+        stufe="Q1",
+        bestaetigt=None
+        if seite is None
+        else {
+            "geburtsdatum": SEVENTEEN_BIRTHDATE,
+            "text_version": LAUFENDE_FASSUNGEN[seite],
+            "today": "2026-09-21",
+            "am": REGISTRIERUNG_GRANT["am"],
+            **gewaehlt,
+        },
+    )
 
 
 async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:

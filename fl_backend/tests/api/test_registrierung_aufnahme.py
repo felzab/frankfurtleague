@@ -32,9 +32,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_SCHON_IM_KADER,
     REGISTRIERUNG_STUFE_NICHT_ERLAUBT,
     REGISTRIERUNG_UNBESTAETIGT,
-    compose_bestaetigung,
     compose_confirmation_update,
-    compose_registrierung,
 )
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
@@ -199,41 +197,38 @@ def registrierung_document(
     nachname: str = "Okonkwo-Brandt",
     geburtsdatum: str = GEBURTSDATUM,
     token: str = TOKEN,
+    position: str | None = "Mittelfeld",
+    nummer: str | None = "17",
+    stufe: str | None = "Q1",
     **fields: Any,
 ) -> dict[str, Any]:
-    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it, through their composers."""
+    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it."""
 
-    document = {
-        "_id": ObjectId(),
-        **compose_registrierung(
-            saison_id=saison_id,
-            team_id=team_id,
-            einladung_id=ObjectId(),
-            vorname=vorname,
-            nachname=nachname,
-            email=email,
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(token), today="2026-03-30", frist="2026-04-06"),
-            today="2026-03-30",
-        ),
-        "idempotenz_schluessel": str(ObjectId()),
-        "idempotenz_fingerabdruck": "f" * 64,
-    }
-    if confirmed:
-        document.update(
-            compose_confirmation_update(
-                geburtsdatum=geburtsdatum,
-                umfang="intern",
-                medien=False,
-                text_version="2026-09",
-                today="2026-03-31",
-                am="2026-03-31T08:00:00+00:00",
-            )["$set"]
-        )
-
-    return {**document, **fields}
+    return documents.registrierung_document(
+        ObjectId(),
+        email,
+        saison_id=saison_id,
+        team_id=team_id,
+        vorname=vorname,
+        nachname=nachname,
+        token=token,
+        eingereicht_am="2026-03-30",
+        frist="2026-04-06",
+        position=position,
+        nummer=nummer,
+        stufe=stufe,
+        bestaetigt=None
+        if not confirmed
+        else {
+            "geburtsdatum": geburtsdatum,
+            "umfang": "intern",
+            "medien": False,
+            "text_version": "2026-09",
+            "today": "2026-03-31",
+            "am": "2026-03-31T08:00:00+00:00",
+        },
+        **fields,
+    )
 
 
 async def seed(database: AsyncDatabase, document: Mapping[str, Any]) -> ObjectId:

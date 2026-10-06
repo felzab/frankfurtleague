@@ -16,7 +16,6 @@ from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLAnmeldungResponse, FLSubjektPayload
 from app.api.identitaet.services import eigene_eintraege
-from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -27,7 +26,16 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, EINWILLIGUNG, ban_document, kontaktperson_document, saison_document, saison_team_document, spieler_document
+from tests.documents import (
+    ADDRESS,
+    EINWILLIGUNG,
+    ban_document,
+    kontaktperson_document,
+    registrierung_document,
+    saison_document,
+    saison_team_document,
+    spieler_document,
+)
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -139,39 +147,33 @@ def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
 
 
 def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **fields: Any) -> dict[str, Any]:
-    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it, through their composers."""
+    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it."""
 
-    document = {
-        "_id": oid,
-        **compose_registrierung(
-            saison_id=ACTIVE_SAISON,
-            team_id=TEAM_OIDS[0],
-            einladung_id=ObjectId(),
-            vorname="Rita",
-            nachname="Registriert",
-            email=email,
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(str(oid)), today="2026-01-02", frist="2026-01-09"),
-            today="2026-01-02",
-        ),
-        "idempotenz_schluessel": str(oid),
-        "idempotenz_fingerabdruck": "f" * 64,
-    }
-    if confirmed:
-        document.update(
-            compose_confirmation_update(
-                geburtsdatum="2009-05-04",
-                umfang="intern",
-                medien=False,
-                text_version="2026-09",
-                today="2026-01-03",
-                am="2026-01-03T08:00:00+00:00",
-            )["$set"]
-        )
-
-    return {**document, **fields}
+    return registrierung_document(
+        oid,
+        email,
+        saison_id=ACTIVE_SAISON,
+        team_id=TEAM_OIDS[0],
+        vorname="Rita",
+        nachname="Registriert",
+        token=str(oid),
+        eingereicht_am="2026-01-02",
+        frist="2026-01-09",
+        position="Mittelfeld",
+        nummer="17",
+        stufe="Q1",
+        bestaetigt=None
+        if not confirmed
+        else {
+            "geburtsdatum": "2009-05-04",
+            "umfang": "intern",
+            "medien": False,
+            "text_version": "2026-09",
+            "today": "2026-01-03",
+            "am": "2026-01-03T08:00:00+00:00",
+        },
+        **fields,
+    )
 
 
 async def _seed(database: AsyncDatabase) -> None:

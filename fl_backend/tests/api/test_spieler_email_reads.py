@@ -8,7 +8,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.crud import find_anmeldung, find_subjekt
 from app.api.konto.router import get_einwilligungen
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
@@ -18,7 +17,6 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAufnehmenPayload,
     FLRegistrierungBestaetigungAnsichtPayload,
 )
-from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
 from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
@@ -76,30 +74,25 @@ async def seed(database: AsyncDatabase) -> ObjectId:
     )
     registrierung_id = ObjectId()
     await database[Collection.REGISTRIERUNGEN].insert_one(
-        {
-            "_id": registrierung_id,
-            **compose_registrierung(
-                saison_id=SAISON_ID,
-                team_id=TEAM_OID,
-                einladung_id=ObjectId(),
-                vorname="Thessaly",
-                nachname="Okonkwo-Brandt",
-                email="Thessaly.Okonkwo@beispielschule.de",
-                position=None,
-                nummer=None,
-                stufe=None,
-                bestaetigung=compose_bestaetigung(token_hash=hash_token(TOKEN), today="2026-03-30", frist="2026-04-06"),
-                today="2026-03-30",
-            ),
-            **compose_confirmation_update(
-                geburtsdatum="2009-05-04",
-                umfang="intern",
-                medien=False,
-                text_version="2026-09",
-                today="2026-03-31",
-                am="2026-03-31T08:00:00+00:00",
-            )["$set"],
-        }
+        documents.registrierung_document(
+            registrierung_id,
+            "Thessaly.Okonkwo@beispielschule.de",
+            saison_id=SAISON_ID,
+            team_id=TEAM_OID,
+            vorname="Thessaly",
+            nachname="Okonkwo-Brandt",
+            token=TOKEN,
+            eingereicht_am="2026-03-30",
+            frist="2026-04-06",
+            bestaetigt={
+                "geburtsdatum": "2009-05-04",
+                "umfang": "intern",
+                "medien": False,
+                "text_version": "2026-09",
+                "today": "2026-03-31",
+                "am": "2026-03-31T08:00:00+00:00",
+            },
+        )
     )
 
     return registrierung_id
