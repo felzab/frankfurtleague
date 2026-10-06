@@ -1477,6 +1477,26 @@ describe("the result panel each state of the contact's confirmation page shows",
       assertOwnPanel(renderMarkup(BestaetigungView, { start }), eigenes, start.zustand);
     }
   });
+
+  it("shows the saved objection's own panel and no other once the objection is answered", async () => {
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: true, ergebnis: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false })),
+      ),
+    );
+    const user = userEvent.setup();
+    const { unmount } = render(
+      h(BestaetigungView, { start: { zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token", fassung: KONTAKT } }),
+    );
+
+    await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(fetchMock.answered);
+    await screen.findByRole("heading", { name: "Widerspruch gespeichert" });
+    const html = document.body.innerHTML;
+    unmount();
+
+    assertOwnPanel(html, "Deine Angaben haben wir aus der Bewerbung entfernt", "widersprochen-neu");
+  });
 });
 
 describe("the address the confirmation page opened under", () => {

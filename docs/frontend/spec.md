@@ -1102,6 +1102,11 @@ while every panel test reading it stays green, and
 also stands in the panel's flow is `fl_frontend/src/shared/testing/closedControl.ts :: isInTheFlow`'s
 question, which §1.14 answers per closure.
 
+**Every state case of a page a token link opens goes through
+`fl_frontend/src/shared/testing/resultPanels.ts :: assertOwnPanel`**, which holds the state's render
+to exactly one result panel, its own: a case asserting only that the state's words appear passes a
+second panel shown beside them.
+
 **A component reading a Next client context renders under `renderTree` with that context's provider,
 which `next/navigation` does not export** — `useSearchParams` answers `null` without one and throws
 where a parameter is read, and `useRouter` throws for a router nothing has mounted.
