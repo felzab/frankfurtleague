@@ -28,7 +28,7 @@ import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
-import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "./publicSubmit.ts";
+import { EDGE_RATE_LIMIT_STATUS, postPublicForm, UNKLAR_TITEL } from "./publicSubmit.ts";
 
 import type { ReactNode } from "react";
 
@@ -482,25 +482,52 @@ describe("where each public form's write is transported", () => {
      that ruled the write out: a form writing on its own tells the visitor something else. */
   for (const [name, form] of Object.entries(FORMS)) {
     it(`${name} posts once to its own route, and passes on the shared helper's reading of the edge's refusal`, async () => {
-      const posted: string[] = [];
-      transportiert((url, init) => {
-        if (init.method !== "POST") return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
-
-        posted.push(url);
-        return Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/plain" } }));
-      });
-      raised.length = 0;
-
-      render(form.render());
-      await form.submit(userEvent.setup());
-      await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+      const { posted, shown } = await unanswered(form, () =>
+        Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/plain" } })),
+      );
 
       assert.deepEqual(posted, [form.route], `${name} posted somewhere other than once to its own route`);
       assert.deepEqual(
-        raised.filter((toast) => toast.variant === "danger").map((toast) => toast.description),
+        shown.map(({ description }) => description),
         [ZU_VIELE_VERSUCHE],
         `${name} told the visitor something other than the shared helper's sentence for the edge's rate limit`,
+      );
+      // The refusal ruled the write out, so its title is the form's own failure, never the unclear one.
+      assert.notEqual(shown[0]?.title, UNKLAR_TITEL, `${name} titles a write the edge refused as one of unknown outcome`);
+    });
+
+    /* A lost answer may have written, so its title is the one every public form gives an unknown
+       outcome: a form titling both arms alike tells one of them something false. */
+    it(`${name} titles an answer lost in transport as of unknown outcome`, async () => {
+      const { shown } = await unanswered(form, () => Promise.reject(new TypeError("Failed to fetch")));
+
+      // The title alone: a form whose resend cannot land twice says so in its own sentence.
+      assert.deepEqual(
+        shown.map(({ title }) => title),
+        [UNKLAR_TITEL],
+        `${name} titles a press nobody can tell landed as something other than of unknown outcome`,
       );
     });
   }
 });
+
+/** One submit of `form` whose POST `post` answers, every other request answered as a success. */
+async function unanswered(
+  form: PublicForm,
+  post: () => Promise<Response>,
+): Promise<{ posted: string[]; shown: { title: unknown; description: unknown }[] }> {
+  const posted: string[] = [];
+  transportiert((url, init) => {
+    if (init.method !== "POST") return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
+
+    posted.push(url);
+    return post();
+  });
+  raised.length = 0;
+
+  render(form.render());
+  await form.submit(userEvent.setup());
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+  return { posted, shown: raised.filter((toast) => toast.variant === "danger").map(({ title, description }) => ({ title, description })) };
+}
