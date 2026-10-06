@@ -276,7 +276,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   the address on file in force and holds the new one beside it with a link of its own, which
   confirms the mailbox and asks no consent again, and tells the address on file that a change was
   asked without naming the new one; until its holder answers, the new address reaches
-  nothing of the referee's (`docs/backend/spec.md :: I_NEW_KONTO-REF_2`). A referee who has not yet
+  nothing of the referee's (`docs/backend/spec.md :: I_NEW_KREF_2`). A referee who has not yet
   confirmed holds no record an address could reach, so theirs is still replaced at once and the
   fresh consent link goes to it (`fl_backend/app/api/schiedsrichter/services.py :: save_moves_the_link`).
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,

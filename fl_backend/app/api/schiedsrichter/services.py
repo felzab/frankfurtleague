@@ -482,7 +482,7 @@ def compose_korrektur_update(
 
     if save_asks_an_address_change(stored=stored, payload_email=payload_email):
         # The stored address stays in force until the typed one is confirmed by its own mailbox
-        # (`docs/backend/spec.md :: I_NEW_KONTO-REF_1`); everything else the save carries lands now.
+        # (`docs/backend/spec.md :: I_NEW_KREF_1`); everything else the save carries lands now.
         kontakt = {**payload["kontakt"], "email": (stored.get("kontakt") or {}).get("email")}
         wechsel = compose_adresswechsel(email=payload_email, token_hash=token_hash, today=today)
 
@@ -514,7 +514,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
 
 # --- The ADDRESS CHANGE of a confirmed referee: the typed address waits in a block no person's read
 # keys on, so the stored address keeps the record and the sign-in until the new mailbox confirms
-# (`docs/backend/spec.md :: I_NEW_KONTO-REF_2`).
+# (`docs/backend/spec.md :: I_NEW_KREF_2`).
 
 # The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
 ADRESSWECHSEL_FELD: Final = "adresswechsel"

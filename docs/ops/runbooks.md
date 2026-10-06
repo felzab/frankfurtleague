@@ -628,7 +628,7 @@ as them.
 - **A referee who HAS confirmed, retired or not.** Enter the new address in the referee editor. The
   save keeps the address on file and holds the new one as a pending change with a link of its own;
   the address moves only once its holder confirms there, so until then the referee still signs in,
-  and is written to, at the address on file (`docs/backend/spec.md :: I_NEW_KONTO-REF_1`). A pending
+  and is written to, at the address on file (`docs/backend/spec.md :: I_NEW_KREF_1`). A pending
   change waits with no clock: re-send its link when it lapses, or discard it when the request turns
   out to be wrong. Their consent link is not re-minted — the record is already given.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
