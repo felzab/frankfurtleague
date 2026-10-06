@@ -319,12 +319,12 @@ class TestTheSaveOnAConfirmedReferee:
             await resend(database, client)
             await save(database, client, email=THIRD_EMAIL)
 
-            return await every_collection_as_text(database)
+            return await where_held(database, NEW_EMAIL, THIRD_EMAIL)
 
-        whole = on_a_league(mongo_replica_set_url, body)
+        held = on_a_league(mongo_replica_set_url, body)
 
-        assert NEW_EMAIL not in whole
-        assert THIRD_EMAIL in whole, "the scan read nothing the replacing save wrote"
+        assert held[NEW_EMAIL] == []
+        assert held[THIRD_EMAIL] != [], "the scan read nothing the replacing save wrote"
 
     def test_a_barred_new_address_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -551,9 +551,9 @@ class TestTheDecline:
             resent = await resend(database, client)
             await answer(database, client, resent.adresswechsel.token, "abgelehnt")
 
-            return await every_collection_as_text(database)
+            return await where_held(database, NEW_EMAIL)
 
-        assert NEW_EMAIL not in on_a_league(mongo_replica_set_url, body)
+        assert on_a_league(mongo_replica_set_url, body) == {NEW_EMAIL: []}
 
 
 class TestTheView:
@@ -660,9 +660,9 @@ class TestTheDiscard:
             await resend(database, client)
             await discard(database, client)
 
-            return await every_collection_as_text(database)
+            return await where_held(database, NEW_EMAIL)
 
-        assert NEW_EMAIL not in on_a_league(mongo_replica_set_url, body)
+        assert on_a_league(mongo_replica_set_url, body) == {NEW_EMAIL: []}
 
 
 class TestTheDeliveryState:
