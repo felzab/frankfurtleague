@@ -162,9 +162,10 @@ export interface SchiedsrichterAdresswechselData {
   fristText: string;
 }
 
-// For the holder of a mailbox an administrator mistyped: the decline on the page removes the address,
-// and ignoring the message leaves it unproved, which is the same safe end.
-const adresseIgnorierSatz = "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“ oder ignoriere diese E-Mail.";
+// For the holder of a mailbox an administrator mistyped. No „ignoriere“: ignoring leaves the address
+// stored, and the page takes the decline past the link's deadline too.
+const adresseIgnorierSatz =
+  "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“, auch wenn der Link schon abgelaufen ist; wir entfernen sie dann sofort.";
 
 /**
  * The link to a confirmed referee's new address. It asks nothing but whether the mailbox is theirs:

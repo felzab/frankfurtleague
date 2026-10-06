@@ -16,6 +16,9 @@ export type SchiedsrichterAnsicht = { zustand: "gueltig"; ansicht: Schiedsrichte
 /** Every state an address link can be in but open. No `bestaetigt`: an answer removes what the link opens. */
 export type AdresswechselLinkZustand = "abgelaufen" | "ungueltig" | "gesperrt";
 
+/** The states whose link the backend still takes the decline through, so the page keeps its token. */
+export type AdresswechselNurAblehnbar = Extract<AdresswechselLinkZustand, "abgelaufen">;
+
 export type AdresswechselAnsicht = { zustand: "gueltig"; vorname: string; frist: string } | { zustand: AdresswechselLinkZustand };
 
 // The three admin-only blocks are out: a fixture's held referee and a just-created one are each
