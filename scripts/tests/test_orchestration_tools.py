@@ -408,7 +408,7 @@ LIVE: Final = (
 
 
 def _fleet(tmp_path: Path, messages_file: bool = True) -> tuple[Path, Path, Path]:
-    """A plans directory holding this session's register, its briefs folder and one agent's messages file."""
+    """A plans directory holding the sending session's register, its briefs folder and one agent's messages file."""
     briefs = tmp_path / "plans" / "prog" / "scratch" / "briefs"
     briefs.mkdir(parents=True)
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))

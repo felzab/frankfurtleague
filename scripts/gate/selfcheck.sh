@@ -1012,9 +1012,10 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     messages_home="${SELFCHECK_TMP}/messages-home"
     messages_briefs="${messages_home}/.claude/plans/programme/briefs"
     mkdir -p "$messages_briefs"
-    # Python opens the register's path as written, so it is spelled the way the platform's own tools spell it.
+    # Python opens the register's path as written, so a native program spells it: node resolves its
+    # argument as the platform's own tools do.
     printf '# Agent register\n\nCoordinator session id: probe-1\nBriefs: %s\n\n## Live agents\n\n| Agent | Status |\n| --- | --- |\n| WORKER | RUNNING |\n' \
-      "$(cygpath -m "$messages_briefs" 2>/dev/null || printf '%s' "$messages_briefs")" > "${messages_home}/.claude/plans/programme/REGISTER-one.md"
+      "$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]))' "$messages_briefs")" > "${messages_home}/.claude/plans/programme/REGISTER-one.md"
     printf '# WORKER\n' > "${messages_briefs}/WORKER-messages.md"
     messages_drive() { # $1 payload — prints the exit status and what the hook said
       local rc=0 out
