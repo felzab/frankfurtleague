@@ -1,0 +1,5 @@
+// Linted as src/shared/utils/publicRoute.ts.
+// The public route spine drops the tags a route declared, and every other ban still reaches it, the action-only drop included.
+import { revalidateTag, updateTag } from "next/cache"; // expect: tag-drop
+export const DROP = (tag: string): void => void [revalidateTag(tag, { expire: 0 }), updateTag(tag)];
+export const GAP = "flex gap-5"; // expect: gap
