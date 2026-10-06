@@ -16,7 +16,7 @@ from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungP
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, nachweis_stand_of
+from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
@@ -114,7 +114,7 @@ def _einwilligung(**fields: Any) -> dict[str, Any]:
 
 
 # What a page served that record echoes.
-EARLIER_STAND = nachweis_stand_of(bloecke=[{**_einwilligung(), NACHWEIS: EARLIER_EVIDENCE}], wahlen=WAHLEN)
+EARLIER_STAND = nachweis_stand_of(bloecke=[{**_einwilligung(), NACHWEIS: EARLIER_EVIDENCE}])
 
 
 def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
@@ -490,7 +490,7 @@ class TestAStalePage:
         assert served_stand == EARLIER_STAND
         assert response.status_code == 200, response.text
         # The answer's own stand is what a next press from the same page echoes: the moved choice's alone moved.
-        assert response.json()["nachweis_stand"] == nachweis_stand_of(bloecke=[after[PUPIL_OID]["einwilligung"]], wahlen=WAHLEN)
+        assert response.json()["nachweis_stand"] == nachweis_stand_of(bloecke=[after[PUPIL_OID]["einwilligung"]])
         assert response.json()["nachweis_stand"]["medien"] == EARLIER_STAND["medien"]
         assert response.json()["nachweis_stand"]["umfang"] != EARLIER_STAND["umfang"]
 

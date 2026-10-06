@@ -8,7 +8,13 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligungResponse
 from app.api.identitaet.services import eigene_sitze
 from app.api.konto.crud import press_widerruf
-from app.api.konto.services import KONTO_SEITE_KONTAKT, compose_sitz_move, find_eigener_eintrag_refusal
+from app.api.konto.services import (
+    KONTO_SEITE_KONTAKT,
+    compose_sitz_move,
+    find_eigener_eintrag_refusal,
+    geaenderte_sitz_wahlen,
+    sitz_wahlen_der_zeile,
+)
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
@@ -16,7 +22,7 @@ from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_n
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The person lane's binder, as `app/api/teams/person_router.py` declares it and for its reason.
@@ -45,8 +51,9 @@ async def patch_einwilligung(
 
     WITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the
     account page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for
-    every seat the person holds there; no other seat, field or document is written, and a press moving no seat
-    writes nothing. Nothing is counted against the person's ceiling.
+    every seat the person holds there, each choice moving only where it differs from the application as the page
+    served it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is
+    counted against the person's ceiling.
 
     Refuses, in this order: an application that is decided or holds no confirmed seat of the address
     (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the
@@ -54,7 +61,7 @@ async def patch_einwilligung(
     naming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.
     """
 
-    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
 
     async def write(session: AsyncClientSession) -> FLBewerbungPersonEinwilligungResponse:
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
@@ -67,11 +74,11 @@ async def patch_einwilligung(
         refuse(find_eigener_eintrag_refusal(gehalten=bool(rollen)))
         assert bewerbung is not None
         sitze = {slot: bewerbung["kontakte"][slot] for slot in rollen}
+        gewaehlt = geaenderte_sitz_wahlen(bloecke=[sitz["einwilligung"] for sitz in sitze.values()], gedrueckt=gedrueckt)
 
         # Withdraw-only: nothing on an application grants a panel to answer a grant against.
         await press_widerruf(
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
-            wahlen=WAHLEN,
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
             text_version=einwilligung_data.text_version,
@@ -96,14 +103,15 @@ async def patch_einwilligung(
             )
         )
         kontakte = bewerbung["kontakte"] if updated is None else updated["kontakte"]
+        bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
 
+        # For `app/api/teams/person_router.py :: patch_einwilligung`'s reason.
         return FLBewerbungPersonEinwilligungResponse.model_validate(
             {
                 "bewerbung_id": bewerbung_id,
                 "rollen": rollen,
-                "umfang": einwilligung_data.umfang,
-                "medien": einwilligung_data.medien,
-                "nachweis_stand": nachweis_stand_of(bloecke=[kontakte[slot]["einwilligung"] for slot in rollen], wahlen=WAHLEN),
+                **sitz_wahlen_der_zeile(bloecke),
+                "nachweis_stand": nachweis_stand_of(bloecke=bloecke),
             }
         )
 

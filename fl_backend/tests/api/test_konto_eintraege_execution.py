@@ -16,9 +16,8 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.identitaet.crud import find_eigene_eintraege
-from app.api.registrierungen.services import compose_ablehnung_update, compose_bestaetigung, compose_confirmation_update, compose_registrierung
+from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -28,7 +27,19 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, saison_document, saison_team_document, spieler_document, team_document
+from tests.documents import (
+    bewerbung_document,
+    eigene_einwilligung_document,
+    kontakte_document,
+    kontaktsitz_document,
+    registrierung_bestaetigt,
+    registrierung_document,
+    saison_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spieler_document,
+    team_document,
+)
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -80,6 +91,7 @@ EXPECTED: dict[str, set[tuple[str, str]]] = {
         ("sitze", f"{TEAMS[2]}/{ACTIVE}"),
         ("bewerbungen", str(BEWERBUNG_PENDING)),
         ("registrierungen", str(REGISTRIERUNG_NEW)),
+        ("registrierungen", str(REGISTRIERUNG_RETURNING)),
     },
     KAETHE: {("schiedsrichter", str(REFEREE_KAETHE)), ("registrierungen", str(REGISTRIERUNG_KAETHE))},
     NIEMAND: set(),
@@ -91,114 +103,57 @@ def _person(email: str) -> SignedActor:
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": "2026-09-02",
-        "bestaetigt_am": "2026-09-02",
-        "text_version": "2026-09-schiedsrichterseite-3",
-        "medien": False,
-        **fields,
-    }
+    return eigene_einwilligung_document(text_version="2026-09-schiedsrichterseite-3", bestaetigt_am="2026-09-02", **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    return {
-        "_id": referee_id,
-        "name": name,
-        "schule": "Lessing-Gymnasium",
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550202", "email": email},
-        "inactive_since": None,
-        "geburtsdatum": "2000-05-09",
-        "einwilligung": _einwilligung(),
-        **fields,
-    }
+    return schiedsrichter_document(
+        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "geburtsdatum": "2000-05-09", **fields}
+    )
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03") -> dict[str, Any]:
-    return {
-        "vorname": "Wiltrudis",
-        "nachname": "Ehrenpreis",
-        "email": email,
-        "telefon": "+49 69 5550101",
-        "geburtsdatum": "2000-05-09",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "2026-09-bestaetigungsseite-6",
-            "datum": "2026-09-01",
-            "bestaetigt_am": bestaetigt_am,
-            "medien": True,
-        },
-    }
+    return kontaktsitz_document(
+        email,
+        vorname="Wiltrudis",
+        text_version="2026-09-bestaetigungsseite-6",
+        bestaetigt_am=bestaetigt_am,
+        geburtsdatum="2000-05-09",
+        medien=True,
+    )
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
-    return {"trainer": None, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None, **seats}
+    return kontakte_document(**seats)
 
 
 def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "_id": oid,
-        "saison_id": ACTIVE,
-        "eingereicht_am": "2026-09-01",
-        "status": status,
-        "team_id": None,
-        "schule": {
-            "team_name": f"Schule {oid}",
-            "full_name": f"Schule {oid}",
-            "shorthand": "SW",
-            "schulform": None,
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": kontakte,
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-09-15",
-        "bestaetigungen": compose_bestaetigungen(
-            hashes={seat: hash_token(f"{oid}-{seat}") for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-09-01"
-        ),
-    }
+    return bewerbung_document(oid, saison_id=ACTIVE, status=status, schule=f"Schule {oid}", kontakte=kontakte)
 
 
 def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaetigung_spieler", vorname: str = "Wiltrudis") -> dict[str, Any]:
     """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
 
-    document: dict[str, Any] = {
-        "_id": oid,
-        **compose_registrierung(
-            saison_id=ACTIVE,
-            team_id=TEAMS[3],
-            einladung_id=ObjectId(),
-            vorname=vorname,
-            nachname="Ehrenpreis",
-            email=email,
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(str(oid)), today="2026-09-20", frist="2026-09-27"),
-            today="2026-09-20",
-        ),
-        "idempotenz_schluessel": str(oid),
-        "idempotenz_fingerabdruck": "f" * 64,
-    }
-    if seite is not None:
-        choices = {"umfang": "kader_oeffentlich", "medien": True} if seite == "bestaetigung_spieler" else {"umfang": None, "medien": None}
-        document.update(
-            compose_confirmation_update(
-                geburtsdatum="2008-05-09",
-                text_version=LAUFENDE_FASSUNGEN[seite],
-                today="2026-09-21",
-                am="2026-09-21T08:00:00+00:00",
-                **choices,
-            )["$set"]
-        )
+    gewaehlt: dict[str, Any] = {"umfang": "kader_oeffentlich", "medien": True} if seite == "bestaetigung_spieler" else {}
+    bestaetigt = (
+        None
+        if seite is None
+        else registrierung_bestaetigt(seite, geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
+    )
 
-    return document
+    return registrierung_document(
+        oid,
+        email=email,
+        saison_id=ACTIVE,
+        team_id=TEAMS[3],
+        vorname=vorname,
+        nachname="Ehrenpreis",
+        eingereicht_am="2026-09-20",
+        position="Mittelfeld",
+        nummer="17",
+        stufe="Q1",
+        bestaetigt=bestaetigt,
+    )
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -304,7 +259,7 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
     response = on_the_seed_loop(run())
 
     assert response.status_code == 200, response.text
-    [entry] = response.json()["registrierungen"]
+    [entry] = [entry for entry in response.json()["registrierungen"] if entry["registrierung_id"] == str(REGISTRIERUNG_NEW)]
     assert {key: value for key, value in entry.items() if key != "nachweis_stand"} == {
         "registrierung_id": str(REGISTRIERUNG_NEW),
         "team_id": str(TEAMS[3]),

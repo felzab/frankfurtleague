@@ -20,7 +20,7 @@ from app.core.exceptions import DrosselungException
 from app.core.recording import AktorFunktion
 from app.core.security import PERSON_ACTOR_BINDERS
 from app.main import RefusalDriver, _dependency_calls, dependency_refusals
-from tests.core.app_source import application, declared
+from tests.core.app_source import application, declared, module_of, resolve_callee
 
 from .test_actor_binding import ROUTES_BY_OPERATION, SAFE_METHODS, binds_a_person
 from .test_admin_guard import strip_convertors
@@ -104,6 +104,11 @@ def test_a_route_counts_one_way_and_after_its_binder(path: str, method: str):
         assert binders and binders[0] < calls.index(gedrosselt), f"{method} {path} counts before its binder names the person"
 
 
+def _calls(function: ast.AST, name: str) -> bool:
+    return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == name for node in ast.walk(function))
+
+
+# Handed on one level and no further: a consent press hands it to `app/api/konto/crud.py :: press_einwilligung`.
 @pytest.mark.parametrize(
     ("path", "method"), [operation for operation in PERSON_LANE_WRITES if drossel_parameters(ROUTES_BY_OPERATION[operation])]
 )
@@ -112,19 +117,17 @@ def test_a_handler_taking_the_count_calls_it(path: str, method: str):
 
     route = ROUTES_BY_OPERATION[(path, method)]
     [parameter] = drossel_parameters(route)
-    called = [
-        node
-        for node in ast.walk(declared(route.endpoint))
-        if isinstance(node, ast.Call)
-        and (
-            (isinstance(node.func, ast.Name) and node.func.id == parameter)
-            # Or handed on, as a consent press hands it to `app/api/konto/crud.py :: press_einwilligung`;
-            # the case below drives each such grant to its one unit.
-            or any(isinstance(keyword.value, ast.Name) and keyword.value.id == parameter for keyword in node.keywords)
-        )
-    ]
+    endpoint = declared(route.endpoint)
 
-    assert called, f"{method} {path} takes `{parameter}` and neither calls it nor hands it on"
+    assert _calls(endpoint, parameter) or any(
+        _calls(callee, keyword.arg)
+        for call in ast.walk(endpoint)
+        if isinstance(call, ast.Call)
+        for keyword in call.keywords
+        if keyword.arg is not None and isinstance(keyword.value, ast.Name) and keyword.value.id == parameter
+        for callee, _ in [resolve_callee(call, (endpoint,), module_of(route.endpoint)) or (None, None)]
+        if callee is not None
+    ), f"{method} {path} takes `{parameter}` and neither calls it nor hands it to a function that does"
 
 
 def test_the_execution_suite_drives_exactly_the_operations_the_count_is_published_on():

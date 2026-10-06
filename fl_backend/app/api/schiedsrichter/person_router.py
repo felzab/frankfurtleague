@@ -34,7 +34,7 @@ from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # A person's own router, apart from the admin one and the confirmation one, each binding its own actor
@@ -139,7 +139,6 @@ async def patch_einwilligung(
         await press_einwilligung(
             bloecke=[gespeichert],
             geburtsdaten=[row.get("geburtsdatum")],
-            wahlen=WAHLEN,
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
             text_version=einwilligung_data.text_version,
@@ -170,7 +169,7 @@ async def patch_einwilligung(
             {
                 "schiedsrichter_id": schiedsrichter_id,
                 "einwilligung": einwilligung,
-                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung], wahlen=WAHLEN),
+                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
             }
         )
 

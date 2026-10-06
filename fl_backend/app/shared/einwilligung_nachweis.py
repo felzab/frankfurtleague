@@ -113,15 +113,17 @@ def _am_of(block: Mapping[str, Any], wahl: FLEinwilligungWahl) -> datetime | Non
     return datetime.fromisoformat(beleg["am"]) if isinstance(beleg, Mapping) and isinstance(beleg.get("am"), str) else None
 
 
-def nachweis_stand_of(*, bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligungWahl]) -> dict[str, str | None]:
+def nachweis_stand_of(*, bloecke: Sequence[Any]) -> dict[str, str | None]:
     """Per choice, a digest of each block's value and evidence; null where none carries evidence.
+
+    Every choice, never a subset: a press moves both, so a stand judged on one would let the other move unseen.
 
     Never the evidence's instant, stamped to the second: a page served between two acts in one second
     would re-grant what the second withdrew.
     """
 
     stand: dict[str, str | None] = {}
-    for wahl in wahlen:
+    for wahl in WAHLEN:
         gesetzt = [[block.get(wahl), _nachweis_of(block, wahl)] for block in bloecke if isinstance(block, Mapping)]
         if all(beleg is None for _, beleg in gesetzt):
             stand[wahl] = None
