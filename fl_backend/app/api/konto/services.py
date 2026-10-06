@@ -48,19 +48,6 @@ def _bewegt(gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any)
     return wert != (bool(gespeichert.get("medien", False)) if wahl == "medien" else gespeichert.get(wahl))
 
 
-# --- The MOVE, one composer per kind of block, every key a literal path: a key built in a loop reads to
-# `fl_backend/tests/core/test_duplicate_key_publication.py` as every field, publishing a 409 no press can produce.
-
-
-def _person_wahl(*, gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any, am: str, text_version: str) -> dict[str, Any]:
-    return {
-        f"einwilligung.{wahl}": wert,
-        f"einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
-            gespeichert=gespeichert, wahl=wahl, wert=wert, am=am, text_version=text_version, stamp=log_stamp
-        ),
-    }
-
-
 def compose_person_move(
     *, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
 ) -> dict[str, dict[str, Any]] | None:
@@ -70,58 +57,21 @@ def compose_person_move(
     `text_version`: the press's label is its evidence's.
     """
 
-    umfang = "umfang" in gewaehlt and _bewegt(gespeichert, "umfang", gewaehlt["umfang"])
-    medien = "medien" in gewaehlt and _bewegt(gespeichert, "medien", gewaehlt["medien"])
-    if not (umfang or medien):
+    bewegt: list[FLEinwilligungWahl] = [wahl for wahl in WAHLEN if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])]
+    if not bewegt:
         return None
 
     return {
         "$set": {
-            **(
-                _person_wahl(gespeichert=gespeichert, wahl="umfang", wert=gewaehlt["umfang"], am=am, text_version=text_version)
-                if umfang
-                else {}
-            ),
-            **(
-                _person_wahl(gespeichert=gespeichert, wahl="medien", wert=gewaehlt["medien"], am=am, text_version=text_version)
-                if medien
-                else {}
-            ),
+            **{f"einwilligung.{wahl}": gewaehlt[wahl] for wahl in bewegt},
+            **{
+                f"einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
+                    gespeichert=gespeichert, wahl=wahl, wert=gewaehlt[wahl], am=am, text_version=text_version, stamp=log_stamp
+                )
+                for wahl in bewegt
+            },
         }
     }
-
-
-def _sitz_wahl(*, slot: str, gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any, am: str, text_version: str) -> dict[str, Any]:
-    return {
-        f"kontakte.{slot}.einwilligung.{wahl}": wert,
-        f"kontakte.{slot}.einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
-            gespeichert=gespeichert, wahl=wahl, wert=wert, am=am, text_version=text_version, stamp=log_stamp
-        ),
-    }
-
-
-def _sitz_wahlen(
-    *, slot: str, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
-) -> dict[str, Any]:
-    umfang = "umfang" in gewaehlt and _bewegt(gespeichert, "umfang", gewaehlt["umfang"])
-    medien = "medien" in gewaehlt and _bewegt(gespeichert, "medien", gewaehlt["medien"])
-
-    return {
-        **(
-            _sitz_wahl(slot=slot, gespeichert=gespeichert, wahl="umfang", wert=gewaehlt["umfang"], am=am, text_version=text_version)
-            if umfang
-            else {}
-        ),
-        **(
-            _sitz_wahl(slot=slot, gespeichert=gespeichert, wahl="medien", wert=gewaehlt["medien"], am=am, text_version=text_version)
-            if medien
-            else {}
-        ),
-    }
-
-
-# Unpacked rather than looped over, for the move's reason above: a fourth slot fails here at import.
-_ERSTER_SITZ, _ZWEITER_SITZ, _DRITTER_SITZ = KONTAKT_ROLLEN
 
 
 def compose_sitz_move(
@@ -129,25 +79,26 @@ def compose_sitz_move(
 ) -> dict[str, dict[str, Any]] | None:
     """The update moving every held seat's block of one row or application, `sitze` keyed by slot; `None` where none moves."""
 
-    gesetzt = {
-        **(
-            _sitz_wahlen(slot=_ERSTER_SITZ, gespeichert=sitze[_ERSTER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
-            if _ERSTER_SITZ in sitze
-            else {}
-        ),
-        **(
-            _sitz_wahlen(slot=_ZWEITER_SITZ, gespeichert=sitze[_ZWEITER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
-            if _ZWEITER_SITZ in sitze
-            else {}
-        ),
-        **(
-            _sitz_wahlen(slot=_DRITTER_SITZ, gespeichert=sitze[_DRITTER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
-            if _DRITTER_SITZ in sitze
-            else {}
-        ),
-    }
+    bewegt: list[tuple[str, FLEinwilligungWahl]] = [
+        (slot, wahl)
+        for slot, gespeichert in sitze.items()
+        for wahl in WAHLEN
+        if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])
+    ]
+    if not bewegt:
+        return None
 
-    return {"$set": gesetzt} if gesetzt else None
+    return {
+        "$set": {
+            **{f"kontakte.{slot}.einwilligung.{wahl}": gewaehlt[wahl] for slot, wahl in bewegt},
+            **{
+                f"kontakte.{slot}.einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
+                    gespeichert=sitze[slot], wahl=wahl, wert=gewaehlt[wahl], am=am, text_version=text_version, stamp=log_stamp
+                )
+                for slot, wahl in bewegt
+            },
+        }
+    }
 
 
 def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
