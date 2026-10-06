@@ -119,21 +119,14 @@ describe("the bot check on a code request", () => {
     return { answer: answer, sent: signIns > before };
   }
 
+  /* Beside `fl_frontend/src/app/botCheckCoverage.test.ts`, which holds the check asked first, this is the
+     one case reading the address the refusal echoes back. */
   it("refuses a press carrying no token, sends nothing and asks Cloudflare nothing", async () => {
     const { answer, sent } = await pressed(aPress(null));
 
     assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
     assert.equal(sent, false, "a code was asked for past a refused check");
     assert.deepEqual(siteverify.asked(), []);
-  });
-
-  it("refuses a press whose token Cloudflare judged, and sends nothing", async () => {
-    siteverify.judges(false);
-
-    const { answer, sent } = await pressed(aPress(TEST_TOKEN));
-
-    assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
-    assert.equal(sent, false);
   });
 
   it("sends past the test key's token, asked of Cloudflare with the test secret", async () => {
