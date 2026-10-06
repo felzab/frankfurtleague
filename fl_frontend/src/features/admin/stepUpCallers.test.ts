@@ -15,7 +15,7 @@ import ts from "typescript";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile, serverActionModules } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
@@ -104,8 +104,11 @@ function importedStepUpWrites(file: string): string[] {
   return found;
 }
 
-/** Every module importing a step-up write, and the writes it imports. */
-const CALLERS = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name) && name !== "actions.ts", 200)
+const ACTION_MODULES: ReadonlySet<string> = new Set(serverActionModules(20));
+
+/** Every module importing a step-up write, and the writes it imports: a server action module is the write, never its caller. */
+const CALLERS = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+  .filter((file) => !ACTION_MODULES.has(file))
   .map((file) => [path.relative(SRC, file).split(path.sep).join("/"), importedStepUpWrites(file).sort()] as const)
   .filter(([, writes]) => writes.length > 0);
 
