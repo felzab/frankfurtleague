@@ -137,3 +137,5 @@ not one.>
 - An agent owns every path in its brief until its report lands.
 - Open a worktree row at dispatch and close it when the worktree and its branch are gone.
 - Write a standing action's whole brief when you queue it, and tick it only on evidence it went out.
+  A live agent waiting on a landing is a standing action too, its trigger naming that branch: read
+  the table after every landing.
