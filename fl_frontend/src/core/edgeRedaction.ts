@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -12,12 +13,8 @@ function armAlternations(arms: string): string[][] {
     .map((line) => [...line.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((treffer) => (treffer[1] ?? "").split("|")));
 }
 
-// In `core` rather than `shared/testing`: `core`'s own tests call it, and
-// `eslint.config.mjs :: LAYER_BOUNDARY` lets nothing there reach `shared`. It reads the tree off
-// disk, so `:: TEST_ONLY` keeps production code out.
-
 /** The query-parameter names the edge redacts in EVERY arm of its map. */
-export function redactedParameterNames(): string[] {
+function redactedParameterNames(): string[] {
   const config = readFileSync(EDGE_CONFIG, "utf8");
   const block = config.slice(config.indexOf("map $request_uri $credential_free_uri {"));
   const [erste, ...weitere] = armAlternations(block.slice(0, block.indexOf("}")));
@@ -25,6 +22,22 @@ export function redactedParameterNames(): string[] {
   // The intersection rather than the union: the first arm keeps the path and replaces the query
   // alone, so a name only the arms below it hold costs every access line its path.
 
-  // Empty where the map was read as having no arm at all, which each caller's own floor reports.
+  // Empty where the map was read as having no arm at all, which the floor below reports.
   return erste === undefined ? [] : erste.filter((name) => weitere.every((arm) => arm.includes(name)));
+}
+
+// In `core` rather than `shared/testing`: `core`'s own tests call it, and
+// `eslint.config.mjs :: LAYER_BOUNDARY` lets nothing there reach `shared`. It reads the tree off
+// disk, so `:: TEST_ONLY` keeps production code out.
+/**
+ * Fails unless `link` carries its credential in a parameter the edge redacts. The name is the whole of
+ * what the edge matches on (`docs/logging/spec.md :: L11`), so any other writes the credential into the
+ * access line and the referer.
+ */
+export function assertRedactedAtTheEdge(link: string): void {
+  const redacted = redactedParameterNames();
+  const name = /\?(\w+)=/.exec(link)?.[1] ?? "";
+
+  assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
+  assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
 }
