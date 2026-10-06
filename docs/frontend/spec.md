@@ -325,8 +325,11 @@ known-address request in twenty exceeds it by design, and it costs every sign-in
 application code runs, whether its action id is another build's (§1.12) or an edge answered the POST
 with anything but a Flight stream ([`docs/ops/spec.md`](../ops/spec.md) I177), and the boundary keeps
 the card standing while the panel alone answers the send, where a route-segment `error.tsx` would
-replace the page. **Nothing of the response reaches the panel** — a rejected server action arrives
-carrying no status and no body — so it says the answer was not ours and names no cause, and its
+replace the page. **The panel reads nothing of the response**: no status reaches the boundary, only
+an error whose message is Next's own or, for an answer of 400 or above typed `text/plain`, that
+answer's body
+(`fl_frontend/node_modules/next/dist/client/components/router-reducer/reducers/server-action-reducer.js :: fetchServerAction`),
+so it says the answer was not ours and names no cause, and its
 press loads the page again rather than resetting the boundary: a reset sends nothing, and the next
 press would send the same stale action id, where a new document carries the running build's ids and
 meets any challenge on its navigation. **Nothing else about a
