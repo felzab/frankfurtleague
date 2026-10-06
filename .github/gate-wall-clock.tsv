@@ -11,7 +11,10 @@
 # growth would never appear in any single report.
 #
 # Seconds: the median first-step-to-last-step span over the completed main push runs the row's own
-# stamp counts, which is the one place the population is written.
+# stamp counts, which is the one place the population is written. A stamp counts at least ten
+# completed main runs, drawn from both classes of runner GitHub hands a job: one tree's span differs
+# between the two, so a population of one class sets a reference and a budget the other breaks. A
+# row whose stamp counts fewer is due a re-cut.
 # Floor: how far a 12-run median moves at p95, in percent of the reference beside it rather than in
 # seconds -- that same population reshuffled and re-cut into two windows of twelve, rounded up to a
 # whole percent, and whole runs resampled rather than single jobs, because a slow runner slows every
