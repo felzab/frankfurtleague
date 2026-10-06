@@ -889,3 +889,20 @@ describe("the ceiling on the confirmation link's own token", () => {
     }
   });
 });
+
+describe("the label a confirmation's answer names", () => {
+  /* The endpoint refuses an empty label, so the page refuses it first, in German, rather than sending a
+     body the endpoint answers with a code no box can carry. */
+  it("is refused empty or blank, as the endpoint refuses it", () => {
+    const antwort = { token: "kein-echtes-token", antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false };
+
+    for (const text_version of ["", "   "]) {
+      const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...antwort, text_version });
+      assert.deepEqual(
+        parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
+        [["text_version", "Deine Antwort nennt keine Fassung der Hinweise. Bitte öffne den Link noch einmal aus Deiner E-Mail."]],
+        JSON.stringify(text_version),
+      );
+    }
+  });
+});

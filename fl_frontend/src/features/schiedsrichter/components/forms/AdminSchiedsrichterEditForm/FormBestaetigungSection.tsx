@@ -14,10 +14,10 @@ import {
   SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE,
   SCHIEDSRICHTER_EINLADEN_STILLGELEGT,
   SCHIEDSRICHTER_KORREKTUR_HINWEIS,
-  SCHIEDSRICHTER_MEDIEN_LABELS,
   SCHIEDSRICHTER_UMFANG_LABELS,
 } from "@/features/schiedsrichter/constants";
-import { beschreibeNachweis } from "@/features/spieler/nachweis";
+import { Beleg, Fassung, KeinTag } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
@@ -38,7 +38,6 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { ReactNode } from "react";
 
 /** Beside the deadline rather than in the right-hand cluster, which is about the delivery. */
 const LINK_ABGELAUFEN_LABEL = "abgelaufen";
@@ -46,45 +45,6 @@ const LINK_ABGELAUFEN_TINT: PillTone = "warning";
 
 /** Closed on a person who answered: the endpoint refuses a second link, there being no page left to open. */
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
-
-/** The act a choice stands on, under its value: the confirmation's day and label are another act's. */
-function Beleg({ children }: { children: ReactNode }) {
-  return <span className="block muted-meta">{children}</span>;
-}
-
-/** Its own grade, so a day the record does not carry never reads as one somebody wrote down. */
-function KeinTag({ children }: { children: ReactNode }) {
-  return <span className="text-foreground-muted italic">{children}</span>;
-}
-
-/**
- * A stored label names a label of the backend's registry, so one the registry does not hold is a
- * record citing words nobody can produce, and a bare key renders the two alike.
- */
-function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean | null }) {
-  if (textVersion === null) return <KeinTag>Nicht erfasst</KeinTag>;
-
-  // `null` where the registry's read failed: the key stands, and the check says it was not made.
-  if (istBekannt === null) {
-    return (
-      <>
-        {textVersion} <KeinTag>Nicht geprüft</KeinTag>
-      </>
-    );
-  }
-
-  // Beside the key rather than instead of it: whoever repairs the mismatch needs the key that
-  // resolved to nothing.
-  if (!istBekannt) {
-    return (
-      <>
-        {textVersion} <KeinTag>Unbekannte Fassung</KeinTag>
-      </>
-    );
-  }
-
-  return textVersion;
-}
 
 /** What the last link reached, where one has gone out at all. */
 function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsrichterBestaetigung; istBestaetigt: boolean }) {
@@ -132,17 +92,25 @@ function EinwilligungStand({
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Veröffentlichung">
         {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}
-        <Beleg>{beschreibeNachweis(einwilligung.nachweis.umfang, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
+        <Beleg
+          nachweis={einwilligung.nachweis.umfang}
+          bestaetigtAm={einwilligung.bestaetigt_am}
+          textVersion={einwilligung.text_version}
+        />
       </Angabe>
-      <Angabe label="Medien">
-        {einwilligung.medien ? SCHIEDSRICHTER_MEDIEN_LABELS.erteilt : SCHIEDSRICHTER_MEDIEN_LABELS.nicht_erteilt}
-        <Beleg>{beschreibeNachweis(einwilligung.nachweis.medien, einwilligung.bestaetigt_am, einwilligung.text_version)}</Beleg>
+      <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
+        {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+        <Beleg
+          nachweis={einwilligung.nachweis.medien}
+          bestaetigtAm={einwilligung.bestaetigt_am}
+          textVersion={einwilligung.text_version}
+        />
       </Angabe>
       <Angabe label="Bestätigt am">
         {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}
       </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
-      <Angabe label="Fassung der Bestätigung">
+      <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
         <Fassung
           textVersion={einwilligung.text_version}
           istBekannt={istFassungBekannt}

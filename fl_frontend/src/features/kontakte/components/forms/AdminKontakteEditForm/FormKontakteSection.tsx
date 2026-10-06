@@ -8,10 +8,10 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
-import { FASSUNG_UNLESBAR } from "@/core/einwilligungSeiten";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
-import { beschreibeNachweis } from "@/features/spieler/nachweis";
+import { Beleg } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { eingetragenVonLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
@@ -32,6 +32,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
 import { FormKontaktErasure } from "./FormKontaktErasure";
@@ -504,7 +505,7 @@ function KontaktpersonInputs({
             name={`kontakte.${rolle}.einwilligung.text_version`}
             value={person.einwilligung.text_version}
             onChange={() => undefined}>
-            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Fassung</FieldLabel>
+            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_FASSUNG_FRAGE}</FieldLabel>
             {/* Read-only in BOTH directions: a new record is stamped with the current wording's version,
                 and a stored one keeps the version it was given, or the record would cite a text this
                 person never saw. */}
@@ -538,22 +539,26 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>WhatsApp</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <p className="muted-hint">
-              {beschreibeNachweis(person.einwilligung.nachweis.umfang, person.einwilligung.bestaetigt_am, person.einwilligung.text_version)}
-            </p>
+            <Beleg
+              nachweis={person.einwilligung.nachweis.umfang}
+              bestaetigtAm={person.einwilligung.bestaetigt_am}
+              textVersion={person.einwilligung.text_version}
+            />
           </div>
 
           <div className="flex flex-col gap-y-1">
             <TextField
               isReadOnly
-              value={person.einwilligung.medien ? ERLAUBT : NICHT_ERLAUBT}
+              value={person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
               onChange={() => undefined}>
-              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Fotos, Videos und Interviews</FieldLabel>
+              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <p className="muted-hint">
-              {beschreibeNachweis(person.einwilligung.nachweis.medien, person.einwilligung.bestaetigt_am, person.einwilligung.text_version)}
-            </p>
+            <Beleg
+              nachweis={person.einwilligung.nachweis.medien}
+              bestaetigtAm={person.einwilligung.bestaetigt_am}
+              textVersion={person.einwilligung.text_version}
+            />
           </div>
         </div>
       </div>

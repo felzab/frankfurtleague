@@ -331,10 +331,18 @@ describe("what the public application page reads while its window runs", () => {
 
 describe("the admin application page over a registry it cannot read", () => {
   const ADMIN_PROPS = { params: Promise.resolve({ bewerbung_id: "6890a1b2c3d4e5f607181001" }), searchParams: Promise.resolve({}) };
-  const adminBody = async (seiten?: Error) => {
+  /** The page's props with the registry answering `seiten`, an `Error` failing its read. */
+  const adminBody = async (seiten?: unknown) => {
     answers = new Map<string, unknown>(seiten === undefined ? [] : [["/einwilligung/seiten", seiten]]);
 
     return ((await pageBody(AdminBewerbungPage, ADMIN_PROPS)) as ReactElement<{ neubesetzung: unknown }>).props;
+  };
+
+  /** The registry as the backend runs it, with `laufend` over its labels. */
+  const registryWith = (laufend: Record<string, string>): unknown => {
+    const registry = einwilligungAnswer("/einwilligung/seiten") as { laufende_fassungen: Record<string, string> };
+
+    return { acknowledged: 1, laufende_fassungen: { ...registry.laufende_fassungen, ...laufend } };
   };
 
   /* The reseat alone needs the registry's words, so its failure closes the reseat and leaves the
@@ -345,5 +353,36 @@ describe("the admin application page over a registry it cannot read", () => {
 
   it("hands the view the reseat's label and words where the registry answers", async () => {
     assert.notEqual((await adminBody()).neubesetzung, null, "a readable registry closed the reseat");
+  });
+
+  /* Words whose keys are not the reseat's own are a broken contract, never a failed read: keyed
+     inside the read's settling, the reseat would close in silence on a page nobody can repair. */
+  it("lets words the reseat cannot key reach the error boundary", async () => {
+    const fremd = publishedLaufendeFassung("bestaetigung_spieler").text_version;
+
+    await assert.rejects(
+      adminBody(registryWith({ bestaetigung_kontakt_verwaltung: fremd })),
+      { name: "ZodError" },
+      "the page absorbed words it holds no keys for",
+    );
+  });
+
+  /* A registry answering against what this page was built for: only a deploy repairs it, so it reaches
+     the error boundary, which logs it, never a closed reseat. */
+  it("lets a registry breaking its contract reach the error boundary", async () => {
+    const registry = einwilligungAnswer("/einwilligung/seiten") as { laufende_fassungen: Record<string, string> };
+    const ohneFormular = Object.fromEntries(Object.entries(registry.laufende_fassungen).filter(([seite]) => seite !== "bewerbung"));
+
+    await assert.rejects(
+      adminBody({ acknowledged: 1, laufende_fassungen: ohneFormular }),
+      { name: "ContractBreakError" },
+      "no label for the form",
+    );
+    await assert.rejects(
+      adminBody(registryWith({ bestaetigung_kontakt_verwaltung: "2026-01-nirgends" })),
+      { name: "ContractBreakError" },
+      "a label serving no words",
+    );
+    await assert.rejects(adminBody({ acknowledged: 1 }), { name: "APIMalformedDataError" }, "an answer off its schema");
   });
 });

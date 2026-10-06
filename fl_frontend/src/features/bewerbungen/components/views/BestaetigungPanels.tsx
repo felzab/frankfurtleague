@@ -60,7 +60,7 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
 
 /**
  * The label-over-value pair the admin application page sets its stored facts in
- * (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Angabe`),
+ * (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Angabe`),
  * spelled once so the banner and the receipt cannot drift into two type scales.
  */
 const ANGABE_LABEL_CLASSES = "fluid-xxs font-bold text-foreground-muted";

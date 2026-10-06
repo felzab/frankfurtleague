@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { SCHIEDSRICHTER_KORREKTUR_HINWEIS } from "@/features/schiedsrichter/constants.ts";
+import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -77,6 +78,17 @@ afterEach(() => {
 });
 
 describe("what the editor shows about a referee's own confirmation", () => {
+  /* The pupil's, the referee's and a contact seat's readouts give the one consent one wording. */
+  it("names the media consent in the admin readouts' one wording", () => {
+    const overrides = { einwilligung: { ...BESTAETIGT, medien: true } };
+    // The rows' own names, read off the markup: the act under each choice names a label too.
+    const rows = [...renderTree(panel(overrides)).matchAll(/<dt\b[^>]*>([^<]*)<\/dt>/g)].map((found) => found[1]);
+
+    assert.ok(rows.includes(EINWILLIGUNG_MEDIEN_FRAGE), "the media consent's row reads under a name of its own");
+    assert.ok(rows.includes(EINWILLIGUNG_FASSUNG_FRAGE), "the stored label's row reads under a name of its own");
+    assert.ok(words(overrides).includes(EINWILLIGUNG_MEDIEN_LABELS.erteilt), "the media consent reads in a wording of its own");
+  });
+
   /* The account page moves one choice and leaves the confirmation's day and label standing, so a
      choice read beside those alone would claim the referee decided it on the confirmation day. */
   it("reads each choice with the act it stands on, a withdrawal naming the grant it ended", () => {
