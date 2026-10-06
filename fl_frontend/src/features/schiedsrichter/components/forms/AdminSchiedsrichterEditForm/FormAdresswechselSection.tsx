@@ -21,13 +21,12 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_ERNEUT_OHNE_ANTWORT, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import { LinkAbgelaufen } from "./FormBestaetigungSection";
 
@@ -64,22 +63,17 @@ export function FormAdresswechselSection({
   // No clock removes a lapsed change, so the date alone would read as a deadline still running.
   const istAbgelaufen = adresswechsel.frist < getGermanTodayStr();
 
-  // Both writes mint or void a link to an address, so both step up (`docs/frontend/spec.md :: I432`).
+  // Both writes mint or void a link to an address.
   const schreibe = async (art: "senden" | "verwerfen") => {
-    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
-
     const landing = focusAfterWrite();
-    setLaeuft(art);
-    if (!(await stepUp.confirm(true))) {
-      setLaeuft(null);
-      return;
-    }
-
-    // Awaited outside a transition, for the consent link's re-send's reason.
-    const res = await (art === "senden" ? einladeAdresswechselAction : verwirfAdresswechselAction)({ id: schiedsrichterId }).catch(
-      rejectedWrite(router, LINK_ERNEUT_OHNE_ANTWORT),
-    );
-    setLaeuft(null);
+    const res = await pressLinkWrite({
+      isDirty,
+      stepUp,
+      router,
+      pending: (running) => setLaeuft(running ? art : null),
+      write: () => (art === "senden" ? einladeAdresswechselAction : verwirfAdresswechselAction)({ id: schiedsrichterId }),
+    });
+    if (res === null) return;
 
     if (!res.success) {
       appToast.failure(art === "senden" ? "Link nicht gesendet" : "Änderung nicht verworfen", res);

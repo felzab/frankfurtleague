@@ -20,7 +20,7 @@ const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } 
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
-const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the refusal is worded at the floor the link's read answers, the one it was minted under. */
 const MINDESTALTER = 16;
@@ -114,8 +114,8 @@ describe("what one refused confirmation asks the referee's page to show", () => 
   });
 
   it("answers nothing for a code it does not word, so the caller reports a failure rather than a state", async () => {
-    assert.equal(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-SPERRLISTE-001", 409), floor), null);
-    assert.equal(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "SRV-UNKNOWN-001", 500), floor), null);
+    assert.equal(await mapSchiedsrichterBestaetigungRefusal(unpublishedOn(BESTAETIGUNG_OPERATION, "REQ-SPERRLISTE-001", 409), floor), null);
+    assert.equal(await mapSchiedsrichterBestaetigungRefusal(unpublishedOn(BESTAETIGUNG_OPERATION, "SRV-UNKNOWN-001", 500), floor), null);
     assert.equal(await mapSchiedsrichterBestaetigungRefusal(new Error("network"), floor), null);
   });
 });
@@ -131,11 +131,11 @@ describe("what one refused link read asks the page to show", () => {
   });
 
   it("leaves anything but a refusal to the page's own failed-read state", () => {
-    assert.equal(mapSchiedsrichterAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "", 503)), null);
-    assert.equal(mapSchiedsrichterAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "DB-COMMON-001", 404)), null);
+    assert.equal(mapSchiedsrichterAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 503)), null);
+    assert.equal(mapSchiedsrichterAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "DB-COMMON-001", 404)), null);
     assert.equal(mapSchiedsrichterAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-AUTH-002")), null);
     // A route the API does not serve is met mid-deploy, while the referee's link is still live.
-    assert.equal(mapSchiedsrichterAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-ROUTE-001", 404)), null);
+    assert.equal(mapSchiedsrichterAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-ROUTE-001", 404)), null);
     // A body the API could not read judged no token, the page having encoded whatever the link held.
     assert.equal(mapSchiedsrichterAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-002")), null);
     assert.equal(mapSchiedsrichterAnsichtRefusal(new Error("network")), null);

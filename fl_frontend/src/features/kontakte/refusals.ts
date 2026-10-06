@@ -1,7 +1,7 @@
 import { BEWERBUNG_VERALTET } from "@/features/bewerbungen/utils";
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 /**
  * The re-send's refusal, or `null` when the refusal is something else. The editor offers the press
@@ -15,7 +15,7 @@ export function mapEinladenRefusal(error: unknown): string | null {
     case "REQ-KONTAKT-002":
       return buildRefusal({
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
-        repair: "Lade die Seite neu",
+        repair: LADE_DIE_SEITE_NEU,
       });
     case "REQ-KONTAKT-003":
       return SPERRLISTE_ADRESSE_GESPERRT;
