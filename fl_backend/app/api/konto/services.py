@@ -32,6 +32,7 @@ KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 _FASSUNG_ORT: Final = "einwilligung"
 
 EINWILLIGUNG_STAND_VERALTET: Final = "REQ-EINWILLIGUNG-003"
+ERTEILUNG_NICHT_ZUGELASSEN: Final = "REQ-EINWILLIGUNG-004"
 
 
 def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any]) -> bool:
@@ -98,6 +99,22 @@ def compose_sitz_move(
             },
         }
     }
+
+
+def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:
+    """`REQ-EINWILLIGUNG-004`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
+
+    Its own code, not `REQ-FUNKTION-001`'s: the record was found, so naming the cause hides nothing.
+    """
+
+    if zugelassen:
+        return None
+
+    return WriteRefusal(
+        error_code=ERTEILUNG_NICHT_ZUGELASSEN,
+        status=HTTPStatus.FORBIDDEN,
+        message="this record takes a withdrawal alone: no grant is admitted on it here",
+    )
 
 
 def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:

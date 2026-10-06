@@ -21,7 +21,7 @@ from app.api.bewerbungen.services import compose_bestaetigungen, hash_token, min
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung, FLSitzBestaetigt
-from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SCHIEDSRICHTER
+from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, ERTEILUNG_NICHT_ZUGELASSEN, KONTO_SEITE_SCHIEDSRICHTER
 from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
@@ -373,7 +373,7 @@ class TestARecordNotHeld:
         withdrawn, granted, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after[RETIRED_OID]["einwilligung"]["umfang"], after[RETIRED_OID]["einwilligung"]["medien"]) == ("intern", False)
 
 
@@ -655,7 +655,7 @@ class TestTheSeatsMediaChoice:
 
         assert withdrawn.status_code == 200, withdrawn.text
         assert sorted(withdrawn.json()["rollen"]) == ["ansprechperson", "trainer"]
-        assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         for slot in ("trainer", "ansprechperson"):
             seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
             assert (seat["medien"], seat[NACHWEIS]) == (False, {"medien": SEAT_WITHDRAWAL})
@@ -763,7 +763,7 @@ class TestTheSeatsWhatsAppChoice:
         withdrawn, granted, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert after == before
 
     def test_a_live_re_grant_is_taken_and_counted_as_the_contact_persons(self, mongo_replica_set_url: str):
@@ -1057,7 +1057,7 @@ class TestAPendingApplicationsSeats:
 
         response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after, counted) == (before, 0)
 
     def test_a_whatsapp_withdrawal_reaches_every_seat_the_person_holds_there(self, mongo_replica_set_url: str):
@@ -1217,7 +1217,7 @@ class TestAPendingRegistration:
 
         response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after, counted) == (before, 0)
 
     @pytest.mark.parametrize(

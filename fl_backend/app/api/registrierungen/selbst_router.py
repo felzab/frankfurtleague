@@ -53,7 +53,7 @@ async def patch_einwilligung(
 
     Refuses, in this order: an id that is no pending registration of this address, confirmed by its pupil and carrying
     their choices (`REQ-FUNKTION-001`); a `nachweis_stand` other than the registration's own, either choice having
-    moved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-FUNKTION-001`); and a
+    moved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a
     `text_version` naming no version of the account page's pupil control (`REQ-EINWILLIGUNG-001`). Each refusal writes
     nothing.
     """

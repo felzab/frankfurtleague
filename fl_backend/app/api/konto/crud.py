@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 from app.api.einwilligung.services import find_selbst_medien_refusal
-from app.api.konto.services import erteilt_etwas, find_eigener_eintrag_refusal, find_konto_fassung_refusal, find_nachweis_stand_refusal
+from app.api.konto.services import erteilt_etwas, find_erteilung_refusal, find_konto_fassung_refusal, find_nachweis_stand_refusal
 from app.core.crud import refuse
 from app.core.drosselung import Drosseln
 from app.shared.einwilligung import Seite
@@ -39,7 +39,7 @@ async def _vor_der_erteilung(
 
     erteilt = any(erteilt_etwas(gespeichert=block, gewaehlt=gewaehlt) for block in bloecke)
     if erteilt:
-        refuse(find_eigener_eintrag_refusal(gehalten=darf_erteilen is not None and await darf_erteilen()))
+        refuse(find_erteilung_refusal(zugelassen=darf_erteilen is not None and await darf_erteilen()))
 
     refuse(find_konto_fassung_refusal(seite=seite, text_version=text_version, erteilt=erteilt))
 
