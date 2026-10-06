@@ -1254,7 +1254,9 @@ class TestAPendingRegistration:
         assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
         assert after == before
 
-    def test_the_read_lists_the_own_registration_alone(self, mongo_replica_set_url: str):
+    def test_the_read_lists_the_confirmed_pending_registrations_and_no_other(self, mongo_replica_set_url: str):
+        """A returning pupil's is served for its stored data, its choices null: nothing on it to press."""
+
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database)
             return await http.get(KONTO_PATH, headers=_person(IDENTIFIER))
@@ -1262,7 +1264,17 @@ class TestAPendingRegistration:
         response = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
-        assert [entry["registrierung_id"] for entry in response.json()["registrierungen"]] == [str(REGISTRIERUNG_OWN)]
+        entries = {entry["registrierung_id"]: entry for entry in response.json()["registrierungen"]}
+        assert sorted(entries) == sorted([str(REGISTRIERUNG_OWN), str(REGISTRIERUNG_RETURNING)])
+        returning = entries[str(REGISTRIERUNG_RETURNING)]
+        assert (returning["umfang"], returning["medien"], returning["nachweis_stand"]) == (None, None, {"umfang": None, "medien": None})
+        assert (returning["nummer"], returning["position"], returning["stufe"], returning["geburtsdatum"]) == (
+            "17",
+            "Mittelfeld",
+            "Q1",
+            SEVENTEEN_BIRTHDATE,
+        )
+        assert (entries[str(REGISTRIERUNG_OWN)]["umfang"], entries[str(REGISTRIERUNG_OWN)]["medien"]) == ("kader_oeffentlich", True)
 
 
 async def _seats_disagreeing(database: AsyncDatabase) -> None:

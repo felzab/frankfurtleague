@@ -15,7 +15,7 @@ from bson import ObjectId
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_possibly_naming
-from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, traegt_wahlen
+from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import build_selbst_referee_filter
 from app.api.spieler.services import build_selbst_pupil_filter
@@ -82,7 +82,7 @@ def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 def build_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every pending registration that may be the address's; read for the sign-in alone, no panel standing on one.
 
-    The whole consent record rides along: whether it carries a choice is part of the judgement.
+    The whole consent record rides along: whether its pupil confirmed it is part of the judgement.
     """
 
     return [{"$match": build_eigene_registrierung_filter(identifier)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
@@ -136,16 +136,12 @@ def ist_eigener_schiedsrichter(row: Mapping[str, Any], identifier: str) -> bool:
 
 
 def ist_eigene_registrierung(row: Mapping[str, Any], identifier: str) -> bool:
-    """A pending registration its pupil confirmed, carrying a choice: one carrying none leaves nothing on it to change.
+    """A pending registration its pupil confirmed, a returning pupil's carrying no choice among them: its stored data is served.
 
     The status is judged here as well as selected on, for the caller reaching a row by its id.
     """
 
-    einwilligung = row.get("einwilligung")
-
-    return (
-        row.get("status") == SUBMITTED and folds_to(row.get("email"), identifier) and is_confirmed(einwilligung) and traegt_wahlen(einwilligung)
-    )
+    return row.get("status") == SUBMITTED and folds_to(row.get("email"), identifier) and is_confirmed(row.get("einwilligung"))
 
 
 EintragArt = Literal["spieler", "schiedsrichter", "sitze", "bewerbungen", "registrierungen"]

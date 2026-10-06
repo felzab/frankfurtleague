@@ -15,7 +15,7 @@ from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.schemas import FLSubjektSitz
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat, ist_eigene_registrierung
 from app.api.kontakte.services import rows_possibly_naming
-from app.api.registrierungen.services import build_eigene_registrierung_filter
+from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.api.schiedsrichter.services import vorname_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
@@ -405,7 +405,7 @@ def compose_bewerbungssitze_selbst(
     return eintraege
 
 
-# --- The pending registrations a pupil confirmed with their choices: withdraw-only until the admission.
+# --- The pending registrations a pupil confirmed: withdraw-only until the admission, a returning pupil's read-only.
 
 
 def build_selbst_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -438,7 +438,7 @@ def build_selbst_registrierung_pipeline(identifier: str) -> list[Mapping[str, An
 def compose_registrierungen_selbst(
     rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
-    """One entry per pending registration of this address its pupil confirmed with their choices."""
+    """One entry per pending registration of this address its pupil confirmed; a returning pupil's serves no choice and offers no control."""
 
     eintraege = []
     for row in rows:
@@ -453,8 +453,8 @@ def compose_registrierungen_selbst(
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
                 "bestaetigt_text_version": block.get("text_version"),
-                "umfang": block["umfang"],
-                "medien": ist_erteilt("medien", block.get("medien")),
+                "umfang": block.get("umfang"),
+                "medien": ist_erteilt("medien", block.get("medien")) if traegt_wahlen(block) else None,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 "kontext": {
                     "vorname": row["vorname"],

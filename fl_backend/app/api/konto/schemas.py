@@ -68,10 +68,7 @@ class FLKontoBewerbungSitzEinwilligung(BaseModel):
 
 
 class FLKontoRegistrierungEinwilligung(BaseModel):
-    """One pending registration its pupil confirmed with their choices, which the account page may only withdraw.
-
-    A returning pupil's registration is never one: it carries no choice, its person's own record standing.
-    """
+    """One pending registration its pupil confirmed: its choices to withdraw, and what it stores."""
 
     registrierung_id: CustomObjectId
     team_id: CustomObjectId
@@ -79,8 +76,10 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     team_name: str | None
     saison_id: str
     bestaetigt_text_version: str | None
-    umfang: FLEinwilligungUmfang
-    medien: bool
+    # Both null on a returning pupil's registration, which asked none: the page shows its stored data
+    # and offers no consent control, the person's own record holding their choices.
+    umfang: FLEinwilligungUmfang | None
+    medien: bool | None
     nachweis_stand: FLEinwilligungStand
     # What the pupil's confirmation page filled its words with, read today.
     kontext: FLSpielerKontext

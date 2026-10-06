@@ -9,6 +9,7 @@ from app.api.identitaet.services import ist_eigene_registrierung
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal
 from app.api.registrierungen.schemas import FLRegistrierungSelbstEinwilligungPayload, FLRegistrierungSelbstEinwilligungResponse
+from app.api.registrierungen.services import traegt_wahlen
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import DBClient, RegistrierungenCollection, get_germany_now
@@ -64,7 +65,12 @@ async def patch_einwilligung(
         row = await registrierungen_collection.find_one(
             {"_id": registrierung_id}, projection={"status": 1, "email": 1, "einwilligung": 1}, session=session
         )
-        refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigene_registrierung(row, identifier)))
+        # A returning pupil's is the address's own and holds no choice to withdraw, its person's own record holding them.
+        refuse(
+            find_eigener_eintrag_refusal(
+                gehalten=row is not None and ist_eigene_registrierung(row, identifier) and traegt_wahlen(row["einwilligung"])
+            )
+        )
         assert row is not None
         gespeichert = row["einwilligung"]
 

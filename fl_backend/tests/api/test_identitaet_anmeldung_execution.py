@@ -285,6 +285,9 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(PFEIFE_AKTIV, ("schiedsrichter", PFEIFE_AKTIV_OID), id="a live referee"),
             pytest.param(PFEIFE_RUHESTAND, ("schiedsrichter", PFEIFE_RUHESTAND_OID), id="a retired referee"),
             pytest.param(REGISTRIERT, ("registrierungen", REGISTRIERUNG_OID), id="a registration confirmed with a choice"),
+            pytest.param(
+                REGISTRIERT_OHNE_WAHL, ("registrierungen", REGISTRIERUNG_OHNE_WAHL_OID), id="a returning pupil's registration, asking no choice"
+            ),
         ],
     )
     def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, eintrag: tuple[str, Any]):
@@ -307,7 +310,6 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(GEIST, id="the placeholder referee"),
             pytest.param(REGISTRIERT_ABGELEHNT, id="a declined registration"),
             pytest.param(REGISTRIERT_OFFEN, id="an unconfirmed registration"),
-            pytest.param(REGISTRIERT_OHNE_WAHL, id="a registration confirmed with no choice"),
             pytest.param(NIEMAND, id="nothing at all"),
         ],
     )

@@ -60,8 +60,8 @@ async def get_einwilligungen(
 
     The seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;
     `bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;
-    `registrierungen` one per pending registration its pupil confirmed with their choices, withdraw-only alike until
-    the admission. A returning pupil's registration carries no choice and is not served: their own record is.
+    `registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission; a
+    returning pupil's asked no choice, so it serves its stored data with both choices null and offers nothing to press.
 
     PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
     `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's

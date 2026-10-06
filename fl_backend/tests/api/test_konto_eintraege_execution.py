@@ -91,6 +91,7 @@ EXPECTED: dict[str, set[tuple[str, str]]] = {
         ("sitze", f"{TEAMS[2]}/{ACTIVE}"),
         ("bewerbungen", str(BEWERBUNG_PENDING)),
         ("registrierungen", str(REGISTRIERUNG_NEW)),
+        ("registrierungen", str(REGISTRIERUNG_RETURNING)),
     },
     KAETHE: {("schiedsrichter", str(REFEREE_KAETHE)), ("registrierungen", str(REGISTRIERUNG_KAETHE))},
     NIEMAND: set(),
@@ -258,7 +259,7 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
     response = on_the_seed_loop(run())
 
     assert response.status_code == 200, response.text
-    [entry] = response.json()["registrierungen"]
+    [entry] = [entry for entry in response.json()["registrierungen"] if entry["registrierung_id"] == str(REGISTRIERUNG_NEW)]
     assert {key: value for key, value in entry.items() if key != "nachweis_stand"} == {
         "registrierung_id": str(REGISTRIERUNG_NEW),
         "team_id": str(TEAMS[3]),
