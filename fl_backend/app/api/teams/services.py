@@ -1048,14 +1048,6 @@ def compose_kontakt_bestaetigung(*, token_hash: str, today: str) -> dict[str, An
     return {"token_hash": token_hash, "verschickt_am": today, "frist": bestaetigungsfrist_from(today=today), "abgelehnt_am": None}
 
 
-def in_declaration_order(seats: Iterable[str]) -> list[FLKontaktRolle]:
-    """The named seats in the order the block declares them, each once."""
-
-    named = set(seats)
-
-    return [rolle for rolle in KONTAKT_ROLLEN if rolle in named]
-
-
 def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
     """Each person the block seats, as the filled seats they hold, the Trainer beside the seat `trainer_ist_zugleich` names.
 
@@ -1070,9 +1062,7 @@ def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
         if slot == zugleich:
             continue
 
-        held: tuple[FLKontaktRolle, ...] = (
-            (slot, *in_declaration_order([zugleich])) if slot == "trainer" and isinstance(zugleich, str) else (slot,)
-        )
+        held: tuple[FLKontaktRolle, ...] = (slot, zugleich) if slot == "trainer" and zugleich in KONTAKT_ROLLEN else (slot,)
         filled: tuple[FLKontaktRolle, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
         if filled:
             people.append(filled)
