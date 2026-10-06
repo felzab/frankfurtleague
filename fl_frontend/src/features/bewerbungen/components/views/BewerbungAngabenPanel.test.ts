@@ -126,12 +126,14 @@ describe("the panel a triage decision is taken from", () => {
 
   /* A decided application's copy is frozen: the seats' choices move on the team's row from then on, so
      the copy read out in the present tense would contradict them for as long as it is kept. */
-  it("reads out no choice on a decided application", () => {
-    const html = markup({ status: "angenommen" });
+  for (const status of ["angenommen", "abgelehnt"] as const) {
+    it(`reads out no choice on an application ${status}`, () => {
+      const html = markup({ status: status });
 
-    assert.equal(factLine(html, "WhatsApp"), "", "a decided application reads out a frozen WhatsApp scope");
-    assert.equal(factLine(html, "Medien"), "", "a decided application reads out a frozen media consent");
-  });
+      assert.equal(factLine(html, "WhatsApp"), "", "a decided application reads out a frozen WhatsApp scope");
+      assert.equal(factLine(html, "Medien"), "", "a decided application reads out a frozen media consent");
+    });
+  }
 
   /* An acceptance writes the created club's id back onto the application, so a decided new-school
      application carries a school AND a club. A guard on the school arm drops the link on exactly
