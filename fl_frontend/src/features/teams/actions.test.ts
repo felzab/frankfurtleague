@@ -5,7 +5,7 @@ import { APINetworkError } from "@/core/errors.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { unansweredAction } from "@/shared/utils/actionError.ts";
+import { outcomeUnknown } from "@/shared/utils/actionError.ts";
 
 import {
   mapAlreadyEnteredRefusal,
@@ -205,7 +205,7 @@ describe("a club created whose entry into the season is refused", () => {
 
       const result = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
 
-      assert.deepEqual(result, unansweredAction(), failure.name);
+      assert.deepEqual(result, outcomeUnknown(), failure.name);
       assert.deepEqual(
         cacheCalls,
         [

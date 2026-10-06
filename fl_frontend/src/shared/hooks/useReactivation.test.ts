@@ -19,7 +19,7 @@ const { raised } = doubleToasts();
 /* `await import`, never a static import beside the double: the hook below reaches the toast module,
    and a static import would have resolved the real one before the hook above registered. */
 const { useReactivation } = await import("./useReactivation.ts");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 
 function Probe({ answer }: { answer: () => Promise<ActionResult> }): ReturnType<typeof h> {
   const { isReactivating, reactivate } = useReactivation({ action: answer, noun: "Team" });
@@ -84,7 +84,7 @@ describe("what a reactivation tells the reader", () => {
     // Found by its resting label, which comes back only once the transition holding the rejection is over.
     await screen.findByRole("button", { name: "Reaktivieren" });
 
-    const { error, outcome } = unansweredAction();
+    const { error, outcome } = outcomeUnknown();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
       [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
