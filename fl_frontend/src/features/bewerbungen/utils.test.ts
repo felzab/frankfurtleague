@@ -4,9 +4,8 @@ import { describe, it } from "node:test";
 import { parseDate } from "@internationalized/date";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
-import { APIBadStatusError } from "@/core/errors";
 import { TEAM_FACETS } from "@/features/teams/facets";
-import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -391,19 +390,6 @@ const SUBMIT_OPERATION = "POST /bewerbungen";
 const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
 const ANSICHT_OPERATION = "POST /bewerbungen/einwilligung/ansicht";
 
-/** One refusal as the client sees it: a 409 carrying the code, which is the whole of what it maps on. */
-const badStatus = (statusCode: number, serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://backend/api/v0/bewerbungen",
-    statusCode: statusCode,
-    serverErrorCode: serverErrorCode,
-    endpoint: "/bewerbungen",
-    method: "POST",
-    readOnly: false,
-    traceId: "0123456789abcdef",
-  });
-
 /**
  * `code` as `operation` refuses with it, asserted published there first: an arm kept for a code the
  * backend stopped publishing fails here rather than passing on a refusal nothing sends.
@@ -457,16 +443,16 @@ describe("what a submission's refusal is shown as", () => {
   });
 
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
-    assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999", 409)), null);
+    assert.equal(mapBewerbungSubmitRefusal(unpublishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999", 409)), null);
     assert.equal(mapBewerbungSubmitRefusal(new Error("boom")), null);
     // A write answered with a 5xx may have landed, which no refusal's words may deny.
-    assert.equal(mapBewerbungSubmitRefusal(badStatus(500, "REQ-BEWERBUNG-005")), null);
+    assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-005", 500)), null);
   });
 
   /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
   it("answers a code alike at whatever status its rule answers with", () => {
     for (const code of ["REQ-BEWERBUNG-005", "REQ-BEWERBUNG-015"]) {
-      assert.deepEqual(mapBewerbungSubmitRefusal(badStatus(422, code)), refusal(code), code);
+      assert.deepEqual(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code)), refusal(code), code);
     }
   });
 });
@@ -728,7 +714,7 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   it("reads every refusal as the panel that names nobody", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(publishedOn(ANSICHT_OPERATION, "REQ-BEWERBUNG-009")), "ungueltig");
     for (const status of [409, 404, 410]) {
-      assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", status)), "ungueltig", String(status));
+      assert.equal(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", status)), "ungueltig", String(status));
     }
   });
 
@@ -741,7 +727,7 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
      void on a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the caller", () => {
-    assert.equal(mapEinwilligungAnsichtRefusal(badStatus(500, "")), null);
+    assert.equal(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 500)), null);
     assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
   });
 
@@ -752,7 +738,7 @@ describe("mapEinwilligungAnsichtRefusal", () => {
       [404, "REQ-ROUTE-001"],
       [405, "REQ-ROUTE-002"],
     ] as const) {
-      assert.equal(mapEinwilligungAnsichtRefusal(badStatus(status, code)), null, code);
+      assert.equal(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, code, status)), null, code);
     }
     assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-002")), null);
   });

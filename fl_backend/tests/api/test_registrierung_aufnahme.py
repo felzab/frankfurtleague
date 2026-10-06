@@ -43,7 +43,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.einwilligung_nachweis import WAHLEN, nachweis_stand_of
+from app.shared.einwilligung_nachweis import nachweis_stand_of
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -759,7 +759,7 @@ class TestThePersonAnAdmissionNames:
                         "umfang": "intern",
                         "medien": False,
                         "text_version": KONTO_LABEL,
-                        "nachweis_stand": nachweis_stand_of(bloecke=[bestaetigt], wahlen=WAHLEN),
+                        "nachweis_stand": nachweis_stand_of(bloecke=[bestaetigt]),
                     }
                 ),
                 identifier=FOLDED_EMAIL,

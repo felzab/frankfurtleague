@@ -15,13 +15,14 @@ from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.schemas import FLSubjektSitz
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat, ist_eigene_registrierung
 from app.api.kontakte.services import rows_possibly_naming
-from app.api.registrierungen.services import build_eigene_registrierung_filter
+from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.api.schiedsrichter.services import vorname_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
-from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, FLEinwilligungWahl, compose_beleg, ist_erteilt, nachweis_stand_of
+from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, compose_wahlen, ist_erteilt, nachweis_stand_of
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
 KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"
@@ -32,6 +33,7 @@ KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 _FASSUNG_ORT: Final = "einwilligung"
 
 EINWILLIGUNG_STAND_VERALTET: Final = "REQ-EINWILLIGUNG-003"
+ERTEILUNG_NICHT_ZUGELASSEN: Final = "REQ-EINWILLIGUNG-004"
 
 
 def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any]) -> bool:
@@ -44,21 +46,7 @@ def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwill
 
 
 def _bewegt(gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any) -> bool:
-    # A stored record carrying no `medien` predates the field and is off.
-    return wert != (bool(gespeichert.get("medien", False)) if wahl == "medien" else gespeichert.get(wahl))
-
-
-# --- The MOVE, one composer per kind of block, every key a literal path: a key built in a loop reads to
-# `fl_backend/tests/core/test_duplicate_key_publication.py` as every field, publishing a 409 no press can produce.
-
-
-def _person_wahl(*, gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any, am: str, text_version: str) -> dict[str, Any]:
-    return {
-        f"einwilligung.{wahl}": wert,
-        f"einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
-            gespeichert=gespeichert, wahl=wahl, wert=wert, am=am, text_version=text_version, stamp=log_stamp
-        ),
-    }
+    return wert != (ist_erteilt("medien", gespeichert.get("medien")) if wahl == "medien" else gespeichert.get(wahl))
 
 
 def compose_person_move(
@@ -70,58 +58,20 @@ def compose_person_move(
     `text_version`: the press's label is its evidence's.
     """
 
-    umfang = "umfang" in gewaehlt and _bewegt(gespeichert, "umfang", gewaehlt["umfang"])
-    medien = "medien" in gewaehlt and _bewegt(gespeichert, "medien", gewaehlt["medien"])
-    if not (umfang or medien):
+    bewegt: list[FLEinwilligungWahl] = [wahl for wahl in WAHLEN if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])]
+    if not bewegt:
         return None
 
     return {
-        "$set": {
-            **(
-                _person_wahl(gespeichert=gespeichert, wahl="umfang", wert=gewaehlt["umfang"], am=am, text_version=text_version)
-                if umfang
-                else {}
-            ),
-            **(
-                _person_wahl(gespeichert=gespeichert, wahl="medien", wert=gewaehlt["medien"], am=am, text_version=text_version)
-                if medien
-                else {}
-            ),
-        }
+        "$set": compose_wahlen(
+            pfad="einwilligung",
+            gespeichert=gespeichert,
+            gesetzt={wahl: gewaehlt[wahl] for wahl in bewegt},
+            am=am,
+            text_version=text_version,
+            stamp=log_stamp,
+        )
     }
-
-
-def _sitz_wahl(*, slot: str, gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any, am: str, text_version: str) -> dict[str, Any]:
-    return {
-        f"kontakte.{slot}.einwilligung.{wahl}": wert,
-        f"kontakte.{slot}.einwilligung.{NACHWEIS}.{wahl}": compose_beleg(
-            gespeichert=gespeichert, wahl=wahl, wert=wert, am=am, text_version=text_version, stamp=log_stamp
-        ),
-    }
-
-
-def _sitz_wahlen(
-    *, slot: str, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
-) -> dict[str, Any]:
-    umfang = "umfang" in gewaehlt and _bewegt(gespeichert, "umfang", gewaehlt["umfang"])
-    medien = "medien" in gewaehlt and _bewegt(gespeichert, "medien", gewaehlt["medien"])
-
-    return {
-        **(
-            _sitz_wahl(slot=slot, gespeichert=gespeichert, wahl="umfang", wert=gewaehlt["umfang"], am=am, text_version=text_version)
-            if umfang
-            else {}
-        ),
-        **(
-            _sitz_wahl(slot=slot, gespeichert=gespeichert, wahl="medien", wert=gewaehlt["medien"], am=am, text_version=text_version)
-            if medien
-            else {}
-        ),
-    }
-
-
-# Unpacked rather than looped over, for the move's reason above: a fourth slot fails here at import.
-_ERSTER_SITZ, _ZWEITER_SITZ, _DRITTER_SITZ = KONTAKT_ROLLEN
 
 
 def compose_sitz_move(
@@ -129,25 +79,36 @@ def compose_sitz_move(
 ) -> dict[str, dict[str, Any]] | None:
     """The update moving every held seat's block of one row or application, `sitze` keyed by slot; `None` where none moves."""
 
-    gesetzt = {
-        **(
-            _sitz_wahlen(slot=_ERSTER_SITZ, gespeichert=sitze[_ERSTER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
-            if _ERSTER_SITZ in sitze
-            else {}
-        ),
-        **(
-            _sitz_wahlen(slot=_ZWEITER_SITZ, gespeichert=sitze[_ZWEITER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
-            if _ZWEITER_SITZ in sitze
-            else {}
-        ),
-        **(
-            _sitz_wahlen(slot=_DRITTER_SITZ, gespeichert=sitze[_DRITTER_SITZ], gewaehlt=gewaehlt, am=am, text_version=text_version)
-            if _DRITTER_SITZ in sitze
-            else {}
-        ),
-    }
+    gesetzt: dict[str, Any] = {}
+    for slot, gespeichert in sitze.items():
+        gesetzt.update(
+            compose_wahlen(
+                pfad=f"kontakte.{slot}.einwilligung",
+                gespeichert=gespeichert,
+                gesetzt={wahl: gewaehlt[wahl] for wahl in WAHLEN if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])},
+                am=am,
+                text_version=text_version,
+                stamp=log_stamp,
+            )
+        )
 
     return {"$set": gesetzt} if gesetzt else None
+
+
+def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:
+    """`REQ-EINWILLIGUNG-004`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
+
+    Its own code, not `REQ-FUNKTION-001`'s: the record was found, so naming the cause hides nothing.
+    """
+
+    if zugelassen:
+        return None
+
+    return WriteRefusal(
+        error_code=ERTEILUNG_NICHT_ZUGELASSEN,
+        status=HTTPStatus.FORBIDDEN,
+        message="this record takes a withdrawal alone: no grant is admitted on it here",
+    )
 
 
 def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
@@ -167,16 +128,14 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
     )
 
 
-def find_nachweis_stand_refusal(
-    *, erwartet: Mapping[str, Any], bloecke: Sequence[Any], wahlen: Sequence[FLEinwilligungWahl]
-) -> WriteRefusal | None:
+def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequence[Any]) -> WriteRefusal | None:
     """`REQ-EINWILLIGUNG-003`: a choice's evidence moved since the page was served.
 
     Refused rather than merged: a stale page sends the other choice as it last saw it, and taking that
     would re-grant what the person withdrew elsewhere.
     """
 
-    if dict(erwartet) == nachweis_stand_of(bloecke=bloecke, wahlen=wahlen):
+    if dict(erwartet) == nachweis_stand_of(bloecke=bloecke):
         return None
 
     return WriteRefusal(
@@ -234,9 +193,11 @@ def compose_spieler_selbst(row: Mapping[str, Any], *, erteilbar: bool, today: st
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
-        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]], wahlen=WAHLEN),
+        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
+        "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
+        "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
         "kader": row["kader"],
         "kontext": {
             "vorname": row["vorname"],
@@ -260,9 +221,11 @@ def compose_schiedsrichter_selbst(row: Mapping[str, Any], *, erteilbar: bool, to
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
         "bestaetigt_text_version": row["einwilligung"].get("text_version"),
-        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]], wahlen=WAHLEN),
+        "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
+        "mindestalter": SCHIEDSRICHTER_MIN_AGE_YEARS,
+        "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
         # The one stored name, cut as the referee's confirmation page cut it.
         "kontext": {"vorname": vorname_of(row.get("name"))},
     }
@@ -324,13 +287,62 @@ def _sitz_schule(
     return bewerbung_schule(bewerbung_raw=bewerbung, club_name=(teams.get(row["team_id"]) or {}).get("name"))
 
 
-def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    bloecke = [seat["einwilligung"] for seat in held]
+def sitz_wahlen_der_zeile(bloecke: Sequence[Mapping[str, Any]]) -> dict[FLEinwilligungWahl, Any]:
+    """Each choice as the account page serves one person's seats on a row: on where any held seat's is, so a withdrawal stays offered.
+
+    One person's seats on a row may disagree, each seat's link being answered on its own.
+    """
 
     return {
         "umfang": "kontaktdaten_whatsapp" if any(ist_erteilt("umfang", block.get("umfang")) for block in bloecke) else "kontaktdaten",
         "medien": any(ist_erteilt("medien", block.get("medien")) for block in bloecke),
-        "nachweis_stand": nachweis_stand_of(bloecke=bloecke, wahlen=WAHLEN),
+    }
+
+
+def geaenderte_sitz_wahlen(
+    *, bloecke: Sequence[Mapping[str, Any]], gedrueckt: Mapping[FLEinwilligungWahl, Any]
+) -> dict[FLEinwilligungWahl, Any]:
+    """The choices a seat press changed against the row its page served; one sent back as shown is no grant and no move.
+
+    On seats answered apart, moving it would grant one what was never pressed.
+    """
+
+    gezeigt = sitz_wahlen_der_zeile(bloecke)
+
+    return {wahl: wert for wahl, wert in gedrueckt.items() if wert != gezeigt[wahl]}
+
+
+def _sitz_wahlen_gehalten(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    bloecke = [seat["einwilligung"] for seat in held]
+
+    return {**sitz_wahlen_der_zeile(bloecke), "nachweis_stand": nachweis_stand_of(bloecke=bloecke)}
+
+
+def bestaetigungsgruppen(kontakte: Mapping[str, Any], rollen: Sequence[str]) -> list[list[str]]:
+    """The held slots grouped by the confirmation each answered, one group per label and day, in `rollen` order.
+
+    A seat's link is answered on its own, so one person's two seats may stand on two pages and two floors.
+    """
+
+    gruppen: dict[tuple[Any, Any], list[str]] = {}
+    for slot in rollen:
+        block = kontakte[slot]["einwilligung"]
+        gruppen.setdefault((block.get("text_version"), block.get("bestaetigt_am")), []).append(slot)
+
+    return list(gruppen.values())
+
+
+def _bestaetigt(kontakte: Mapping[str, Any], gruppe: Sequence[str], *, team: str, schule: str | None, saison: str) -> dict[str, Any]:
+    """One confirmation a person gave on a row: its roles, its words, the floor its page named and what filled them."""
+
+    block = kontakte[gruppe[0]]["einwilligung"]
+
+    return {
+        "rollen": list(gruppe),
+        "text_version": block.get("text_version"),
+        "bestaetigt_am": block.get("bestaetigt_am"),
+        "mindestalter": mindestalter_for(gruppe),
+        "kontext": {"vorname": kontakte[gruppe[0]].get("vorname"), "team": team, "schule": schule, "saison": saison},
     }
 
 
@@ -361,18 +373,20 @@ def compose_sitze_selbst(
                 "team_name": row["name"],
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
-                "bestaetigt_text_version": held[0]["einwilligung"].get("text_version"),
                 **_sitz_wahlen_gehalten(held),
-                "mindestalter": mindestalter_for(rollen),
+                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
                 "medien_angeboten": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
                 "erteilbar": holds_a_seat(sitze_mit_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
-                # The first held slot's, as `rollen` orders them: one person holding two answers by one name.
-                "kontext": {
-                    "vorname": held[0].get("vorname"),
-                    "team": row["name"],
-                    "schule": _sitz_schule(row, rollen[0], teams=teams, bewerbungen=bewerbungen),
-                    "saison": row["saison_id"],
-                },
+                "bestaetigt": [
+                    _bestaetigt(
+                        row["kontakte"],
+                        gruppe,
+                        team=row["name"],
+                        schule=_sitz_schule(row, gruppe[0], teams=teams, bewerbungen=bewerbungen),
+                        saison=row["saison_id"],
+                    )
+                    for gruppe in bestaetigungsgruppen(row["kontakte"], rollen)
+                ],
             }
         )
 
@@ -418,23 +432,20 @@ def compose_bewerbungssitze_selbst(
                 "schule": schule,
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
-                "bestaetigt_text_version": held[0]["einwilligung"].get("text_version"),
                 **_sitz_wahlen_gehalten(held),
-                "mindestalter": mindestalter_for(rollen),
+                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
                 # `{team}` is the school too: an application names no season row.
-                "kontext": {
-                    "vorname": held[0].get("vorname"),
-                    "team": schule,
-                    "schule": schule,
-                    "saison": row["saison_id"],
-                },
+                "bestaetigt": [
+                    _bestaetigt(row["kontakte"], gruppe, team=schule, schule=schule, saison=row["saison_id"])
+                    for gruppe in bestaetigungsgruppen(row["kontakte"], rollen)
+                ],
             }
         )
 
     return eintraege
 
 
-# --- The pending registrations a pupil confirmed with their choices: withdraw-only until the admission.
+# --- The pending registrations a pupil confirmed: withdraw-only until the admission, a returning pupil's read-only.
 
 
 def build_selbst_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -467,7 +478,7 @@ def build_selbst_registrierung_pipeline(identifier: str) -> list[Mapping[str, An
 def compose_registrierungen_selbst(
     rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
-    """One entry per pending registration of this address its pupil confirmed with their choices."""
+    """One entry per pending registration of this address its pupil confirmed; a returning pupil's serves no choice and offers no control."""
 
     eintraege = []
     for row in rows:
@@ -482,10 +493,11 @@ def compose_registrierungen_selbst(
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
                 "bestaetigt_text_version": block.get("text_version"),
-                "umfang": block["umfang"],
-                # A block confirmed before the field existed is off, as on every record.
-                "medien": bool(block.get("medien", False)),
-                "nachweis_stand": nachweis_stand_of(bloecke=[block], wahlen=WAHLEN),
+                "umfang": block.get("umfang"),
+                "medien": ist_erteilt("medien", block.get("medien")) if traegt_wahlen(block) else None,
+                "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
+                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
+                "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 "kontext": {
                     "vorname": row["vorname"],
                     "team": None if team is None else team.get("name"),

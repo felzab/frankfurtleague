@@ -32,7 +32,7 @@ doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.t
 const siteverify = doubleSiteverify();
 
 const { POST } = await import("./route.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { MAIL_ABGEWIESEN, mapRegistrierungSubmitRefusal } = await import("@/features/registrierungen/utils.ts");
 const { REGISTRIERUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
@@ -52,18 +52,8 @@ const GESCHRIEBEN = {
   saison_id: "2026",
 };
 
-/** One refused answer as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (statusCode: number, serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/registrierungen",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/registrierungen",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** One refused write as the client raises it, at the status the document publishes its code under. */
+const aRefusal = (serverErrorCode: string) => refusedOn("POST /registrierungen", serverErrorCode);
 
 /** The body a browser sends, with nothing added. */
 const gueltigerKoerper = { token: TOKEN, vorname: "Mira", nachname: "Kern", email: ADRESSE, position: null, nummer: null, stufe: "Q1" };
@@ -124,7 +114,7 @@ describe("the registration handler", () => {
   });
 
   it("mails nothing where the write was refused", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-008");
+    schreibAntwort = () => aRefusal("REQ-REGISTRIERUNG-008");
 
     await bodyOf(aRequest(gueltigerKoerper));
 
@@ -134,18 +124,18 @@ describe("the registration handler", () => {
   /* The squad filled between the page loading and the press: the pupil is told so in the slice's
      own banner, never the generic failure. */
   it("answers a 409 with the refusal its slice maps", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-008");
+    schreibAntwort = () => aRefusal("REQ-REGISTRIERUNG-008");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.deepEqual(answer.body, { success: false, ...mapRegistrierungSubmitRefusal(aRefusal(409, "REQ-REGISTRIERUNG-008")) });
+    assert.deepEqual(answer.body, { success: false, ...mapRegistrierungSubmitRefusal(aRefusal("REQ-REGISTRIERUNG-008")) });
     assert.ok((answer.body as { error?: string }).error, "the mapped refusal carries no sentence");
   });
 
   /* The unique index's refusal, which no mapper here words: the shared reader's sentence is written
      for an administrator about an entry they can open, which a visitor has none of. */
   it("tells the visitor their details are on file where the unique index refuses them", async () => {
-    schreibAntwort = () => aRefusal(409, "DB-COMMON-002");
+    schreibAntwort = () => aRefusal("DB-COMMON-002");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -156,7 +146,7 @@ describe("the registration handler", () => {
   /* The same key over other details: the mark titles the press as the first one having arrived, and
      no box rides with it, so the panel keeps the key that first press is stored under. */
   it("carries the mark that the first press stands, and no box, on the changed replay's refusal", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-011");
+    schreibAntwort = () => aRefusal("REQ-REGISTRIERUNG-011");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const body = answer.body as { success: boolean; schonAngekommen?: boolean; fieldErrors?: unknown; unplacedError?: unknown };

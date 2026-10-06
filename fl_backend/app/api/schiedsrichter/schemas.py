@@ -335,6 +335,10 @@ class FLSchiedsrichterSelbst(BaseModel):
     # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     erteilbar: bool
     medien_angeboten: bool
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    mindestalter: int
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
+    medien_mindestalter: int
     kontext: FLSchiedsrichterKontext
 
 

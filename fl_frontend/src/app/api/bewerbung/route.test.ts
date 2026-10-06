@@ -32,7 +32,7 @@ const siteverify = doubleSiteverify();
 const { POST } = await import("./route.ts");
 const { BEWERBUNG_VERALTET, bewerbungPayload, buildEmptyBewerbungDraft } = await import("@/features/bewerbungen/utils.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 const { mapBewerbungSubmitRefusal } = await import("@/features/bewerbungen/utils.ts");
@@ -151,18 +151,8 @@ describe("the application handler's submission key", () => {
   });
 });
 
-/** One refused write as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://backend/api/v0/bewerbungen",
-    statusCode: 409,
-    serverErrorCode,
-    endpoint: "/bewerbungen",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** One refused write as the client raises it, at the status the document publishes its code under. */
+const aRefusal = (serverErrorCode: string) => refusedOn("POST /bewerbungen", serverErrorCode);
 
 describe("the application handler's refused write", () => {
   /* The window shut between the page loading and the press: the answer is the slice's own banner,

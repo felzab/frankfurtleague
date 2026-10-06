@@ -15,6 +15,7 @@ const { ADMIN_FORBIDDEN, invalidatesOnWrite, runAdminMutation, runAdminRouteWrit
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
 
 /** A body that sends a write before it answers, as a call through the API client records one. */
@@ -247,16 +248,8 @@ describe("the refresh an admin write owes the page", () => {
   /* An undo replaying a step-up write meets the backend's own window as an action does: answered in other
      words, the admin is sent to a retry the same window refuses (`docs/frontend/spec.md :: I493`). */
   it("answers the backend's refusal for want of a confirmation as the step-up refusal, refreshing nothing", async () => {
-    const refused = new APIBadStatusError({
-      url: "http://api/x",
-      endpoint: "/x",
-      traceId: "a".repeat(32),
-      message: "refused",
-      statusCode: 403,
-      serverErrorCode: "REQ-AUTH-009",
-      method: "PATCH",
-      readOnly: false,
-    });
+    // The contacts save, one of the step-up writes an undo replays.
+    const refused = refusedOn("PATCH /teams/{team_id}/saisons/{saison_id}/kontakte", "REQ-AUTH-009");
 
     const answer = await runAdminRouteWrite(
       "probeRoute",

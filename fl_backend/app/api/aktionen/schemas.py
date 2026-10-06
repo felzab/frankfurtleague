@@ -61,7 +61,7 @@ def _served_prefix(pseudonym: str) -> str:
 
 
 class FLAktorPerson(BaseModel):
-    """A signed-in person, named by a pseudonym and the Funktion the write was authorised under.
+    """A signed-in person, named by a pseudonym and the kind of person the write was made as.
 
     Mirrors `app/core/recording.py :: PersonActor`, and carries no address.
     """

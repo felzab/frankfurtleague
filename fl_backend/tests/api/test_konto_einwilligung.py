@@ -20,25 +20,31 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token, mindestalter_for
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung
-from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_SCHIEDSRICHTER
+from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung, FLSitzBestaetigt
+from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, ERTEILUNG_NICHT_ZUGELASSEN, KONTO_SEITE_SCHIEDSRICHTER
 from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
-from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, nachweis_stand_of
+from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
+    eigene_einwilligung_document,
+    kontakte_document,
+    kontaktperson_document,
     neue_schule_document,
+    registrierung_bestaetigt,
     registrierung_document,
     saison_document,
     saison_team_document,
+    schiedsrichter_document,
     spiel_document,
     spieler_document,
     team_document,
@@ -97,30 +103,14 @@ SEVENTEEN_BIRTHDATE = "2008-10-04"
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": "2026-09-02",
-        "bestaetigt_am": "2026-09-02",
-        "text_version": CONFIRMATION_LABEL,
-        "medien": False,
-        **fields,
-    }
+    return eigene_einwilligung_document(text_version=CONFIRMATION_LABEL, bestaetigt_am="2026-09-02", **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     # A name per referee: `app/core/constraints.py :: uniq_schiedsrichter_name` indexes it.
-    return {
-        "_id": referee_id,
-        "name": name,
-        "schule": "Lessing-Gymnasium",
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550202", "email": email},
-        "inactive_since": None,
-        "geburtsdatum": ADULT_BIRTHDATE,
-        "einwilligung": _einwilligung(),
-        **fields,
-    }
+    return schiedsrichter_document(
+        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "geburtsdatum": ADULT_BIRTHDATE, **fields}
+    )
 
 
 def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
@@ -131,6 +121,11 @@ def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
 
 # `NOW` in UTC, as evidence spells its instant.
 AM = "2026-10-03T10:00:00+00:00"
+
+# A century ahead, for every case reading the day's count back: the TTL monitor deletes a count whose day
+# has ended, so under `NOW` one may be gone, and a case asserting none was spent would pass.
+COUNTED_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+COUNTED_AM = "2126-10-03T10:00:00+00:00"
 
 
 def _running_label() -> str:
@@ -157,25 +152,18 @@ def _person(email: str) -> SignedActor:
 def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03", **einwilligung: Any) -> dict[str, Any]:
     """One contact seat, confirmed by its own person unless the caller says otherwise."""
 
-    return {
-        "vorname": "Ortrud",
-        "nachname": "Zwiebelmayer",
-        "email": email,
-        "telefon": "+49 69 5550101",
-        "geburtsdatum": ADULT_BIRTHDATE,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": SEAT_LABEL,
-            "datum": "2026-09-01",
-            "bestaetigt_am": bestaetigt_am,
-            **einwilligung,
-        },
-    }
+    return kontaktperson_document(
+        "Ortrud",
+        bestaetigt_am=bestaetigt_am,
+        email=email,
+        telefon="+49 69 5550101",
+        geburtsdatum=ADULT_BIRTHDATE,
+        einwilligung={"erfasst_von": "person", "text_version": SEAT_LABEL, "datum": "2026-09-01", **einwilligung},
+    )
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
-    return {"trainer": None, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None, **seats}
+    return kontakte_document(**seats)
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -228,11 +216,11 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
-def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]]) -> T:
+def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]], *, now: datetime = NOW) -> T:
     async def _run() -> T:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
             await _seed(database)
-            async with app_client(url, config=CONFIG, now=NOW) as http:
+            async with app_client(url, config=CONFIG, now=now) as http:
                 return await steps(http, database)
 
     return on_the_seed_loop(_run())
@@ -242,7 +230,7 @@ async def _records(database: AsyncDatabase) -> dict[Any, Any]:
     return {row["_id"]: row async for row in database[Collection.SCHIEDSRICHTER].find({}, {"einwilligung": 1})}
 
 
-@pytest.mark.parametrize("model", [FLKontoSitzEinwilligung, FLKontoBewerbungSitzEinwilligung])
+@pytest.mark.parametrize("model", [FLKontoSitzEinwilligung, FLKontoBewerbungSitzEinwilligung, FLSitzBestaetigt])
 def test_a_seat_entry_names_at_least_one_role_and_publishes_the_floor(model: type[BaseModel]):
     """The page parses `rollen` as non-empty, and a contract compared past its bounds would not see the backend serve `[]`."""
 
@@ -391,7 +379,7 @@ class TestARecordNotHeld:
         withdrawn, granted, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after[RETIRED_OID]["einwilligung"]["umfang"], after[RETIRED_OID]["einwilligung"]["medien"]) == ("intern", False)
 
 
@@ -542,14 +530,18 @@ class TestTheAccountPagesRead:
         assert (body["spieler"]["spieler_id"], body["spieler"]["erteilbar"]) == (str(PUPIL_OID), True)
         assert [(record["schiedsrichter_id"], record["honorar"]) for record in body["schiedsrichter"]] == [(str(REFEREE_OID), 20)]
         assert [
-            (sitz["team_name"], sitz["saison_id"], sorted(sitz["rollen"]), sitz["medien"], sitz["erteilbar"], sitz["bestaetigt_text_version"])
-            for sitz in body["sitze"]
+            (sitz["team_name"], sitz["saison_id"], sorted(sitz["rollen"]), sitz["medien"], sitz["erteilbar"]) for sitz in body["sitze"]
         ] == [
-            (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True, SEAT_LABEL),
-            (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False, SEAT_LABEL),
+            (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True),
+            (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False),
         ]
         assert all(sitz["medien_angeboten"] for sitz in body["sitze"])
-        assert [sitz["kontext"] for sitz in body["sitze"]] == [
+        # Both seats of the past row answered one page: one confirmation, both roles, under the seat label.
+        assert [[(eintrag["rollen"], eintrag["text_version"]) for eintrag in sitz["bestaetigt"]] for sitz in body["sitze"]] == [
+            [(["stellvertretung"], SEAT_LABEL)],
+            [(["trainer", "ansprechperson"], SEAT_LABEL)],
+        ]
+        assert [sitz["bestaetigt"][0]["kontext"] for sitz in body["sitze"]] == [
             {
                 "vorname": "Ortrud",
                 "team": ROW_NAME_B,
@@ -563,6 +555,12 @@ class TestTheAccountPagesRead:
                 "saison": PAST_SAISON,
             },
         ]
+        # Each record's floor as its own confirmation page names it, as the seats serve theirs.
+        assert (body["spieler"]["mindestalter"], body["schiedsrichter"][0]["mindestalter"]) == (
+            REGISTRIERUNG_MIN_ALTER_JAHRE,
+            SCHIEDSRICHTER_MIN_AGE_YEARS,
+        )
+        assert {entry["medien_mindestalter"] for entry in [body["spieler"], *body["schiedsrichter"], *body["sitze"]]} == {MEDIEN_MIN_AGE_YEARS}
         # A pupil with no squad row names nothing but themselves; the referee's one name is cut to its first part.
         assert body["spieler"]["kontext"] == {"vorname": "Ortrud", "team": None, "schule": None, "saison": None}
         assert body["schiedsrichter"][0]["kontext"] == {"vorname": "Ortrud"}
@@ -669,7 +667,7 @@ class TestTheSeatsMediaChoice:
 
         assert withdrawn.status_code == 200, withdrawn.text
         assert sorted(withdrawn.json()["rollen"]) == ["ansprechperson", "trainer"]
-        assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         for slot in ("trainer", "ansprechperson"):
             seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
             assert (seat["medien"], seat[NACHWEIS]) == (False, {"medien": SEAT_WITHDRAWAL})
@@ -777,7 +775,7 @@ class TestTheSeatsWhatsAppChoice:
         withdrawn, granted, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (granted.status_code, granted.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert after == before
 
     def test_a_live_re_grant_is_taken_and_counted_as_the_contact_persons(self, mongo_replica_set_url: str):
@@ -793,7 +791,7 @@ class TestTheSeatsWhatsAppChoice:
             )
             return granted, counted_after_withdrawal, [row async for row in database[Collection.DROSSELUNG].find({})], await _rows(database)
 
-        granted, counted_after_withdrawal, counted, after = served(mongo_replica_set_url, steps)
+        granted, counted_after_withdrawal, counted, after = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert granted.status_code == 200, granted.text
         assert after[(TEAM_B_OID, ACTIVE_SAISON)]["stellvertretung"]["einwilligung"]["umfang"] == "kontaktdaten_whatsapp"
@@ -898,7 +896,7 @@ class TestTheWordsAreFilledAsTheirPageFilledThem:
 
         assert (konto.status_code, bewerbung.status_code, saison.status_code) == (200, 200, 200), (bewerbung.text, saison.text)
         eintraege = {(entry["team_id"], entry["saison_id"]): entry for entry in konto.json()["sitze"]}
-        kontexte = {key: entry["kontext"] for key, entry in eintraege.items()}
+        kontexte = {key: entry["bestaetigt"][0]["kontext"] for key, entry in eintraege.items()}
 
         for (team_id, saison_id), page in (((TEAM_A_OID, PAST_SAISON), bewerbung.json()), ((TEAM_B_OID, ACTIVE_SAISON), saison.json())):
             kontext = kontexte[(str(team_id), saison_id)]
@@ -980,12 +978,19 @@ class TestAPendingApplicationsSeats:
                 "schule": PENDING_SCHULE,
                 "saison_id": ACTIVE_SAISON,
                 "rollen": ["trainer", "ansprechperson"],
-                "bestaetigt_text_version": SEAT_LABEL,
                 "umfang": "kontaktdaten",
                 "medien": True,
                 "nachweis_stand": {"umfang": None, "medien": None},
-                "mindestalter": mindestalter_for(["trainer", "ansprechperson"]),
-                "kontext": {"vorname": "Ortrud", "team": PENDING_SCHULE, "schule": PENDING_SCHULE, "saison": ACTIVE_SAISON},
+                "bestaetigt": [
+                    {
+                        "rollen": ["trainer", "ansprechperson"],
+                        "text_version": SEAT_LABEL,
+                        "bestaetigt_am": "2026-09-03",
+                        "mindestalter": mindestalter_for(["trainer", "ansprechperson"]),
+                        "kontext": {"vorname": "Ortrud", "team": PENDING_SCHULE, "schule": PENDING_SCHULE, "saison": ACTIVE_SAISON},
+                    }
+                ],
+                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
             }
         ]
 
@@ -1005,9 +1010,7 @@ class TestAPendingApplicationsSeats:
             "rollen": ["trainer", "ansprechperson"],
             "umfang": "kontaktdaten",
             "medien": False,
-            "nachweis_stand": nachweis_stand_of(
-                bloecke=[after[PENDING_OID][slot]["einwilligung"] for slot in ("trainer", "ansprechperson")], wahlen=WAHLEN
-            ),
+            "nachweis_stand": nachweis_stand_of(bloecke=[after[PENDING_OID][slot]["einwilligung"] for slot in ("trainer", "ansprechperson")]),
         }
         for slot in ("trainer", "ansprechperson"):
             einwilligung = after[PENDING_OID][slot]["einwilligung"]
@@ -1063,9 +1066,9 @@ class TestAPendingApplicationsSeats:
             response = await http.patch(_application_path(PENDING_OID), json=body, headers=_person(IDENTIFIER))
             return response, before, await _application_docs(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        response, before, after, counted = served(mongo_replica_set_url, steps)
+        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after, counted) == (before, 0)
 
     def test_a_whatsapp_withdrawal_reaches_every_seat_the_person_holds_there(self, mongo_replica_set_url: str):
@@ -1078,7 +1081,7 @@ class TestAPendingApplicationsSeats:
             response = await http.patch(_application_path(PENDING_OID), json=_withdrawal(medien=True), headers=_person(IDENTIFIER))
             return response, await _application_docs(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        response, after, counted = served(mongo_replica_set_url, steps)
+        response, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert response.status_code == 200, response.text
         for slot in ("trainer", "ansprechperson"):
@@ -1086,7 +1089,7 @@ class TestAPendingApplicationsSeats:
             assert (einwilligung["umfang"], einwilligung["medien"], einwilligung[NACHWEIS]) == (
                 "kontaktdaten",
                 True,
-                {"umfang": SEAT_WITHDRAWAL},
+                {"umfang": {**SEAT_WITHDRAWAL, "am": COUNTED_AM}},
             )
         assert counted == 0
 
@@ -1117,8 +1120,11 @@ REGISTRIERUNG_GRANT = {"am": "2026-09-21T08:00:00+00:00", "text_version": LAUFEN
 def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaetigung_spieler", **choices: Any) -> dict[str, Any]:
     """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
 
-    gewaehlt = (
-        {"umfang": "kader_oeffentlich", "medien": True, **choices} if seite == "bestaetigung_spieler" else {"umfang": None, "medien": None}
+    gewaehlt = {"umfang": "kader_oeffentlich", "medien": True, **choices} if seite == "bestaetigung_spieler" else {}
+    bestaetigt = (
+        None
+        if seite is None
+        else registrierung_bestaetigt(seite, geburtsdatum=SEVENTEEN_BIRTHDATE, today="2026-09-21", am=REGISTRIERUNG_GRANT["am"], **gewaehlt)
     )
 
     return registrierung_document(
@@ -1134,15 +1140,7 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
-        bestaetigt=None
-        if seite is None
-        else {
-            "geburtsdatum": SEVENTEEN_BIRTHDATE,
-            "text_version": LAUFENDE_FASSUNGEN[seite],
-            "today": "2026-09-21",
-            "am": REGISTRIERUNG_GRANT["am"],
-            **gewaehlt,
-        },
+        bestaetigt=bestaetigt,
     )
 
 
@@ -1179,7 +1177,7 @@ def _registrierung_body(database_row: Mapping[str, Any], **gewaehlt: Any) -> dic
         "umfang": block["umfang"],
         "medien": block["medien"],
         "text_version": LAUFENDE_FASSUNGEN["konto_spieler"],
-        "nachweis_stand": nachweis_stand_of(bloecke=[block], wahlen=WAHLEN),
+        "nachweis_stand": nachweis_stand_of(bloecke=[block]),
         **gewaehlt,
     }
 
@@ -1196,7 +1194,7 @@ class TestAPendingRegistration:
             response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        response, before, after, counted = served(mongo_replica_set_url, steps)
+        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
         assert response.status_code == 200, response.text
         einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
@@ -1205,11 +1203,11 @@ class TestAPendingRegistration:
             "registrierung_id": str(REGISTRIERUNG_OWN),
             # As the read model serves the stored block, every declared field spelled.
             "einwilligung": FLRegistrierungEinwilligung.model_validate(einwilligung).model_dump(mode="json"),
-            "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung], wahlen=WAHLEN),
+            "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
         }
         assert (einwilligung["umfang"], einwilligung[NACHWEIS]["umfang"]) == (
             "intern",
-            {"am": AM, "text_version": LAUFENDE_FASSUNGEN["konto_spieler"], "erteilt_zuvor": REGISTRIERUNG_GRANT},
+            {"am": COUNTED_AM, "text_version": LAUFENDE_FASSUNGEN["konto_spieler"], "erteilt_zuvor": REGISTRIERUNG_GRANT},
         )
         stood = before[REGISTRIERUNG_OWN]["einwilligung"]
         # The other choice, its evidence, the days and the label the pupil confirmed all stand.
@@ -1233,9 +1231,9 @@ class TestAPendingRegistration:
             response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database), await database[Collection.DROSSELUNG].count_documents({})
 
-        response, before, after, counted = served(mongo_replica_set_url, steps)
+        response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after, counted) == (before, 0)
 
     @pytest.mark.parametrize(
@@ -1287,7 +1285,9 @@ class TestAPendingRegistration:
         assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
         assert after == before
 
-    def test_the_read_lists_the_own_registration_alone(self, mongo_replica_set_url: str):
+    def test_the_read_lists_the_confirmed_pending_registrations_and_no_other(self, mongo_replica_set_url: str):
+        """A returning pupil's is served for its stored data, its choices null: nothing on it to press."""
+
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database)
             return await http.get(KONTO_PATH, headers=_person(IDENTIFIER))
@@ -1295,4 +1295,179 @@ class TestAPendingRegistration:
         response = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
-        assert [entry["registrierung_id"] for entry in response.json()["registrierungen"]] == [str(REGISTRIERUNG_OWN)]
+        entries = {entry["registrierung_id"]: entry for entry in response.json()["registrierungen"]}
+        assert sorted(entries) == sorted([str(REGISTRIERUNG_OWN), str(REGISTRIERUNG_RETURNING)])
+        returning = entries[str(REGISTRIERUNG_RETURNING)]
+        assert (returning["umfang"], returning["medien"], returning["nachweis_stand"]) == (None, None, {"umfang": None, "medien": None})
+        assert (returning["nummer"], returning["position"], returning["stufe"], returning["geburtsdatum"]) == (
+            "17",
+            "Mittelfeld",
+            "Q1",
+            SEVENTEEN_BIRTHDATE,
+        )
+        assert (entries[str(REGISTRIERUNG_OWN)]["umfang"], entries[str(REGISTRIERUNG_OWN)]["medien"]) == ("kader_oeffentlich", True)
+
+
+async def _seats_disagreeing(database: AsyncDatabase) -> None:
+    """The asker's two seats on each row answered apart: WhatsApp on the first and off on the second, media on both.
+
+    Each seat's link is minted and answered on its own, so a stored row may hold this.
+    """
+
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"team_id": TEAM_A_OID, "saison_id": PAST_SAISON}, {"$set": {"kontakte.trainer.einwilligung.umfang": "kontaktdaten_whatsapp"}}
+    )
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
+        {
+            "$set": {
+                "kontakte.stellvertretung.einwilligung.umfang": "kontaktdaten_whatsapp",
+                "kontakte.ansprechperson": _seat(REFEREE_STORED, medien=True),
+            }
+        },
+    )
+
+
+async def _as_the_page_was_served(http: AsyncClient, team_id: ObjectId, saison_id: str, **pressed: Any) -> dict[str, Any]:
+    """A press echoing the entry the account read served for this row, `pressed` the choices the person changed."""
+
+    served_entries = (await http.get(KONTO_PATH, headers=_person(IDENTIFIER))).json()["sitze"]
+    [entry] = [entry for entry in served_entries if (entry["team_id"], entry["saison_id"]) == (str(team_id), saison_id)]
+
+    return {
+        "umfang": entry["umfang"],
+        "medien": entry["medien"],
+        "text_version": SEAT_RUNNING_LABEL,
+        "nachweis_stand": entry["nachweis_stand"],
+        **pressed,
+    }
+
+
+@pytest.mark.db
+class TestSeatsAnsweredApart:
+    """A press moves the choices its person changed on the page, never the other choice the page showed as the row's."""
+
+    def test_a_past_seasons_media_withdrawal_is_taken_and_leaves_each_seats_whatsapp_answer(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _seats_disagreeing(database)
+            body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, medien=False)
+            response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
+            return body, response, await _rows(database)
+
+        body, response, after = served(mongo_replica_set_url, steps)
+
+        assert body["umfang"] == "kontaktdaten_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
+        assert response.status_code == 200, response.text
+        row = after[(TEAM_A_OID, PAST_SAISON)]
+        assert [(row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
+            ("kontaktdaten_whatsapp", False),
+            ("kontaktdaten", False),
+        ]
+        assert all(set(row[slot]["einwilligung"][NACHWEIS]) == {"medien"} for slot in ("trainer", "ansprechperson"))
+
+    def test_a_running_seasons_media_withdrawal_grants_no_whatsapp_and_counts_nothing(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _seats_disagreeing(database)
+            body = await _as_the_page_was_served(http, TEAM_B_OID, ACTIVE_SAISON, medien=False)
+            response = await http.patch(_seat_path(TEAM_B_OID, ACTIVE_SAISON), json=body, headers=_person(IDENTIFIER))
+            return body, response, await _rows(database), await database[Collection.DROSSELUNG].count_documents({})
+
+        body, response, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
+
+        assert body["umfang"] == "kontaktdaten_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
+        assert response.status_code == 200, response.text
+        row = after[(TEAM_B_OID, ACTIVE_SAISON)]
+        assert [
+            (row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("stellvertretung", "ansprechperson")
+        ] == [
+            ("kontaktdaten_whatsapp", False),
+            ("kontaktdaten", False),
+        ]
+        assert counted == 0
+
+    def test_a_whatsapp_withdrawal_reaches_the_seat_that_held_it_alone(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _seats_disagreeing(database)
+            body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, umfang="kontaktdaten")
+            response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
+            return response, await _rows(database)
+
+        response, after = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        row = after[(TEAM_A_OID, PAST_SAISON)]
+        assert [(row[slot]["einwilligung"]["umfang"], row[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
+            ("kontaktdaten", True),
+            ("kontaktdaten", True),
+        ]
+        assert (set(row["trainer"]["einwilligung"][NACHWEIS]), NACHWEIS in row["ansprechperson"]["einwilligung"]) == ({"umfang"}, False)
+
+    def test_the_answer_serves_the_row_as_the_next_read_serves_it(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await _seats_disagreeing(database)
+            body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, medien=False)
+            response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
+            again = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON)
+            return response, again
+
+        response, again = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        answer = response.json()
+        assert (answer["umfang"], answer["medien"], answer["nachweis_stand"]) == (again["umfang"], again["medien"], again["nachweis_stand"])
+
+
+@pytest.mark.db
+def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsapp_answer(mongo_replica_set_url: str):
+    """The application's seat press takes the same repair, a split there being stored data rather than an answer the API takes."""
+
+    async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+        await _applications(database)
+        await database[Collection.BEWERBUNGEN].update_one(
+            {"_id": PENDING_OID}, {"$set": {"kontakte.trainer.einwilligung.umfang": "kontaktdaten_whatsapp"}}
+        )
+        [entry] = (await http.get(KONTO_PATH, headers=_person(IDENTIFIER))).json()["bewerbungen"]
+        body = {"umfang": entry["umfang"], "medien": False, "text_version": SEAT_RUNNING_LABEL, "nachweis_stand": entry["nachweis_stand"]}
+        response = await http.patch(_application_path(PENDING_OID), json=body, headers=_person(IDENTIFIER))
+        return entry, response, await _application_docs(database)
+
+    entry, response, after = served(mongo_replica_set_url, steps)
+
+    assert entry["umfang"] == "kontaktdaten_whatsapp", "the page did not show the application's WhatsApp as on, so this case proves nothing"
+    assert response.status_code == 200, response.text
+    seats = after[PENDING_OID]
+    assert [(seats[slot]["einwilligung"]["umfang"], seats[slot]["einwilligung"]["medien"]) for slot in ("trainer", "ansprechperson")] == [
+        ("kontaktdaten_whatsapp", False),
+        ("kontaktdaten", False),
+    ]
+
+
+@pytest.mark.db
+def test_seats_confirmed_apart_are_served_as_their_own_confirmations(mongo_replica_set_url: str):
+    """A Trainer confirmed before taking a second seat answered a page for that role alone, at that role's floor."""
+
+    later_label = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
+
+    async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+        await database[Collection.SAISON_TEAMS].update_one(
+            {"team_id": TEAM_A_OID, "saison_id": PAST_SAISON},
+            {
+                "$set": {
+                    "kontakte.ansprechperson.einwilligung.text_version": later_label,
+                    "kontakte.ansprechperson.einwilligung.bestaetigt_am": "2026-09-10",
+                }
+            },
+        )
+        return await http.get(KONTO_PATH, headers=_person(IDENTIFIER))
+
+    response = served(mongo_replica_set_url, steps)
+
+    assert response.status_code == 200, response.text
+    [eintrag] = [sitz for sitz in response.json()["sitze"] if sitz["saison_id"] == PAST_SAISON]
+    assert [
+        (gegeben["rollen"], gegeben["text_version"], gegeben["bestaetigt_am"], gegeben["mindestalter"]) for gegeben in eintrag["bestaetigt"]
+    ] == [
+        (["trainer"], SEAT_LABEL, "2026-09-03", mindestalter_for(["trainer"])),
+        (["ansprechperson"], later_label, "2026-09-10", mindestalter_for(["ansprechperson"])),
+    ]
+    assert mindestalter_for(["trainer"]) < mindestalter_for(["trainer", "ansprechperson"]), "the floors agree, so this case proves nothing"

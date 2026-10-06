@@ -34,7 +34,7 @@ from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # A person's own router, apart from the admin one and the confirmation one, each binding its own actor
@@ -111,7 +111,7 @@ async def patch_einwilligung(
 
     Refuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a
     `nachweis_stand` other than the record's own, either choice having moved since the page was served
-    (`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-FUNKTION-001`); a `text_version` naming no version of
+    (`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of
     the account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);
     `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
     (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which
@@ -139,7 +139,6 @@ async def patch_einwilligung(
         await press_einwilligung(
             bloecke=[gespeichert],
             geburtsdaten=[row.get("geburtsdatum")],
-            wahlen=WAHLEN,
             gewaehlt=gewaehlt,
             nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
             text_version=einwilligung_data.text_version,
@@ -170,7 +169,7 @@ async def patch_einwilligung(
             {
                 "schiedsrichter_id": schiedsrichter_id,
                 "einwilligung": einwilligung,
-                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung], wahlen=WAHLEN),
+                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
             }
         )
 

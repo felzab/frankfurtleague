@@ -21,6 +21,7 @@ from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -243,8 +244,13 @@ def registrierung_document(
     return {**document, **fields}
 
 
-def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **fields: Any) -> dict[str, Any]:
-    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it."""
+def kontaktperson_document(
+    vorname: str, *, bestaetigt_am: str | None = None, einwilligung: Mapping[str, Any] | None = None, **fields: Any
+) -> dict[str, Any]:
+    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
+
+    `einwilligung` holds the record's keys a case sets itself, its label and choices among them, laid over the seat's own.
+    """
 
     return {
         "vorname": vorname,
@@ -258,6 +264,7 @@ def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": bestaetigt_am,
+            **(einwilligung or {}),
         },
         **fields,
     }
@@ -296,4 +303,61 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
         "nummer": None,
         "inactive_since": None,
         **fields,
+    }
+
+
+# --- A person's OWN records, as the sign-in gate and the account page read them. The address, the stamps
+# and every label a case asserts are passed at the call.
+
+
+def eigene_einwilligung_document(*, text_version: str, bestaetigt_am: str, **fields: Any) -> dict[str, Any]:
+    """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media."""
+
+    return {
+        "umfang": "kader_oeffentlich",
+        "erteilt_von": "volljaehrig",
+        "datum": bestaetigt_am,
+        "bestaetigt_am": bestaetigt_am,
+        "text_version": text_version,
+        "medien": False,
+        **fields,
+    }
+
+
+def schiedsrichter_document(
+    schiedsrichter_id: Any, *, email: str, name: str, default_payment: int, einwilligung: Mapping[str, Any] | None, **fields: Any
+) -> dict[str, Any]:
+    """One referee row, `name` unique across the collection (`app/core/constraints.py :: uniq_schiedsrichter_name`)."""
+
+    return {
+        "_id": schiedsrichter_id,
+        "name": name,
+        "schule": None,
+        "default_payment": default_payment,
+        "kontakt": {"telefon": "+49 69 5550202", "email": email},
+        "inactive_since": None,
+        "geburtsdatum": None,
+        "einwilligung": None if einwilligung is None else dict(einwilligung),
+        **fields,
+    }
+
+
+def kontakte_document(**seats: Any) -> dict[str, Any]:
+    """A block of three seats, each empty unless named, and no seat held twice unless `trainer_ist_zugleich` says so."""
+
+    return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_ist_zugleich": None, **seats}
+
+
+def registrierung_bestaetigt(
+    seite: Seite, *, geburtsdatum: str, today: str, am: str, umfang: str | None = None, medien: bool | None = None
+) -> dict[str, Any]:
+    """`registrierung_document`'s `bestaetigt` for a pupil's confirmation on `seite`, under that page's running label."""
+
+    return {
+        "geburtsdatum": geburtsdatum,
+        "umfang": umfang,
+        "medien": medien,
+        "text_version": LAUFENDE_FASSUNGEN[seite],
+        "today": today,
+        "am": am,
     }

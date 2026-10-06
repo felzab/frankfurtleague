@@ -24,7 +24,8 @@ const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint)
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
-const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
+const { APINetworkError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
@@ -46,18 +47,9 @@ const ANSICHT = {
 
 const GESCHRIEBEN = { acknowledged: 1, vorname: "Anna", umfang: "intern" as const, medien: false, bestaetigt_am: HEUTE };
 
-/** One refused answer as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (statusCode: number, serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/schiedsrichter/bestaetigung",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/schiedsrichter/bestaetigung",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** The answer the handler writes, and the view it reads back where the write refused. */
+const WRITE_OPERATION = "POST /schiedsrichter/bestaetigung";
+const VIEW_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 
 /** The body a browser sends, naming the label the page rendered. */
 const gueltigerKoerper = {
@@ -115,7 +107,7 @@ describe("the referee's confirmation handler", () => {
   /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
      it posts words other than those the backend runs, and only the mail's link reopens the page on them. */
   it("answers the backend's refusal of the label with the sentence that reopens the link", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-EINWILLIGUNG-001");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-EINWILLIGUNG-001");
 
     const answer = await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
 
@@ -182,7 +174,7 @@ describe("the referee's confirmation handler", () => {
   });
 
   it("drops nothing where the write was refused", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-004");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-004");
 
     await bodyOf(aRequest(gueltigerKoerper));
 
@@ -193,12 +185,12 @@ describe("the referee's confirmation handler", () => {
      error would leave a dead link looking like a mistyped one. */
   for (const [code, zustand, zurueckgelesen] of [
     // The administrator re-sent while the page stood open, so the token matches no stored hash.
-    ["REQ-SCHIEDSRICHTER-002", "ungueltig", () => aRefusal(409, "REQ-SCHIEDSRICHTER-002")],
+    ["REQ-SCHIEDSRICHTER-002", "ungueltig", () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002")],
     ["REQ-SCHIEDSRICHTER-003", "abgelaufen", () => ({ ...ANSICHT, zustand: "abgelaufen" })],
     ["REQ-SCHIEDSRICHTER-004", "bestaetigt", () => ({ ...ANSICHT, zustand: "bestaetigt" })],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel, without waiting on a second read`, async () => {
-      schreibAntwort = () => aRefusal(409, code);
+      schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
       leseAntwort = zurueckgelesen;
 
       const answer = await bodyOf(aRequest(gueltigerKoerper));
@@ -211,7 +203,7 @@ describe("the referee's confirmation handler", () => {
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live —
      and the ONLY one that pays for a second read, the sentence naming a number. */
   it("puts the age refusal on the date the person typed, reading the floor once", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-005");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const body = answer.body as { success: boolean; fieldErrors?: Record<string, string>; zustand?: string };
@@ -225,7 +217,7 @@ describe("the referee's confirmation handler", () => {
   /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
      form behind. */
   it("answers a barred address with the barred panel, in place of the form", async () => {
-    schreibAntwort = () => aRefusal(403, "REQ-SCHIEDSRICHTER-009");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-009");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -234,8 +226,8 @@ describe("the referee's confirmation handler", () => {
   });
 
   it("leaves the age refusal unworded where the floor cannot be read", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-005");
-    leseAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-002");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
+    leseAntwort = () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 

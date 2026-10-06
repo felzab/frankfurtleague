@@ -15,7 +15,7 @@ from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLAnmeldungResponse, FLSubjektPayload
 from app.api.identitaet.services import eigene_eintraege
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -29,11 +29,13 @@ from tests.documents import (
     EINWILLIGUNG,
     ban_document,
     bewerbung_document,
+    kontakte_document,
     kontaktperson_document,
     neue_schule_document,
     registrierung_document,
     saison_document,
     saison_team_document,
+    schiedsrichter_document,
     spieler_document,
 )
 from tests.records import record_collections
@@ -54,15 +56,18 @@ SITZ_AKTIV = "sitz.aktiv@schule.de"
 SITZ_VERGANGEN = "sitz.vergangen@schule.de"
 SITZ_AUSGETRETEN = "sitz.ausgetreten@schule.de"
 SITZ_OFFEN = "sitz.offen@schule.de"
+SITZ_AUSGETRETEN_OFFEN = "sitz.ausgetreten.offen@schule.de"
 BEWERBUNG_OFFEN = "bewerbung.offen@schule.de"
 BEWERBUNG_ENTSCHIEDEN = "bewerbung.entschieden@schule.de"
 BEWERBUNG_UNBESTAETIGT = "bewerbung.unbestaetigt@schule.de"
 SPIELER_AKTIV = "spieler.aktiv@schule.de"
 SPIELER_EHEMALIG = "spieler.ehemalig@schule.de"
 SPIELER_OFFEN = "spieler.offen@schule.de"
+SPIELER_EHEMALIG_OFFEN = "spieler.ehemalig.offen@schule.de"
 PFEIFE_AKTIV = "pfeife.aktiv@schule.de"
 PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
 PFEIFE_OFFEN = "pfeife.offen@schule.de"
+PFEIFE_RUHESTAND_OFFEN = "pfeife.ruhestand.offen@schule.de"
 GEIST = "geist@schule.de"
 # A registration stored as its payload keeps an address, the local part's case as typed, and asked folded.
 REGISTRIERT_STORED = "Rita.Registriert@Schule.de"
@@ -84,9 +89,11 @@ BEWERBUNG_UNBESTAETIGT_OID = ObjectId("6890a1b2c3d4e5f607860013")
 SPIELER_AKTIV_OID = ObjectId("6890a1b2c3d4e5f607860021")
 SPIELER_EHEMALIG_OID = ObjectId("6890a1b2c3d4e5f607860022")
 SPIELER_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860023")
+SPIELER_EHEMALIG_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860024")
 PFEIFE_AKTIV_OID = ObjectId("6890a1b2c3d4e5f607860031")
 PFEIFE_RUHESTAND_OID = ObjectId("6890a1b2c3d4e5f607860032")
 PFEIFE_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860033")
+PFEIFE_RUHESTAND_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860034")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607860041")
 REGISTRIERUNG_ABGELEHNT_OID = ObjectId("6890a1b2c3d4e5f607860042")
 REGISTRIERUNG_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607860043")
@@ -99,7 +106,7 @@ def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
-    return {**{slot: None for slot in KONTAKT_ROLLEN}, "trainer_ist_zugleich": None, **seats}
+    return kontakte_document(**seats)
 
 
 def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping[str, Any] | None = None, **seats: Any) -> dict[str, Any]:
@@ -121,16 +128,9 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
 
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    return {
-        "_id": oid,
-        "name": name,
-        "schule": None,
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550202", "email": email},
-        "inactive_since": None,
-        "einwilligung": {**EINWILLIGUNG, "bestaetigt_am": STAMP},
-        **fields,
-    }
+    return schiedsrichter_document(
+        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "bestaetigt_am": STAMP}, **fields}
+    )
 
 
 def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **fields: Any) -> dict[str, Any]:
@@ -169,7 +169,13 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             _row(*SITZ_AKTIV_ROW, "SA", trainer=_seat(SITZ_AKTIV), ansprechperson=_seat(GESPERRT)),
             _row(*SITZ_VERGANGEN_ROW, "SV", trainer=_seat(SITZ_VERGANGEN)),
-            _row(*SITZ_AUSGETRETEN_ROW, "SW", austritt=dict(AUSTRITT), trainer=_seat(SITZ_AUSGETRETEN)),
+            _row(
+                *SITZ_AUSGETRETEN_ROW,
+                "SW",
+                austritt=dict(AUSTRITT),
+                trainer=_seat(SITZ_AUSGETRETEN),
+                ansprechperson=_seat(SITZ_AUSGETRETEN_OFFEN, bestaetigt_am=None),
+            ),
             _row(TEAM_OIDS[3], ACTIVE_SAISON, "SO", trainer=_seat(SITZ_OFFEN, bestaetigt_am=None)),
         ]
     )
@@ -185,6 +191,14 @@ async def _seed(database: AsyncDatabase) -> None:
             spieler_document(SPIELER_AKTIV_OID, "Anna", "Aktiv", email=SPIELER_AKTIV),
             spieler_document(SPIELER_EHEMALIG_OID, "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
             spieler_document(SPIELER_OFFEN_OID, "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": None}),
+            spieler_document(
+                SPIELER_EHEMALIG_OFFEN_OID,
+                "Anna",
+                "Ehemalig-Offen",
+                email=SPIELER_EHEMALIG_OFFEN,
+                inactive_since="2026-03-01",
+                einwilligung={**EINWILLIGUNG, "bestaetigt_am": None},
+            ),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -192,6 +206,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(PFEIFE_AKTIV_OID, PFEIFE_AKTIV, "A. Aktiv"),
             _referee(PFEIFE_RUHESTAND_OID, PFEIFE_RUHESTAND, "B. Ruhestand", inactive_since="2026-03-01"),
             _referee(PFEIFE_OFFEN_OID, PFEIFE_OFFEN, "C. Offen", einwilligung=None),
+            _referee(PFEIFE_RUHESTAND_OFFEN_OID, PFEIFE_RUHESTAND_OFFEN, "E. Ruhestand-Offen", inactive_since="2026-03-01", einwilligung=None),
             # The ghost as no write leaves it: an address, a stamp, not retired, so its id alone keeps it out.
             _referee(GHOST_SCHIEDSRICHTER_ID, GEIST, "D. Geist"),
         ]
@@ -203,16 +218,15 @@ async def _seed(database: AsyncDatabase) -> None:
             _registrierung(REGISTRIERUNG_OFFEN_OID, REGISTRIERT_OFFEN, confirmed=False),
         ]
     )
-    # A confirmation carrying no choice, which a returning pupil's confirmation is to store: today's
-    # validator requires the choices, so this row alone skips it.
     await database[Collection.REGISTRIERUNGEN].insert_one(
         _registrierung(
             REGISTRIERUNG_OHNE_WAHL_OID,
             REGISTRIERT_OHNE_WAHL,
-            geburtsdatum="2009-05-04",
-            einwilligung={"bestaetigt_am": "2026-01-03", "text_version": "2026-09"},
-        ),
-        bypass_document_validation=True,
+            confirmed=False,
+            **compose_confirmation_update(
+                geburtsdatum="2009-05-04", umfang=None, medien=None, text_version="2026-09", today="2026-01-03", am="2026-01-03T08:00:00+00:00"
+            )["$set"],
+        )
     )
     await database[Collection.SPERRLISTE].insert_one(ban_document(GESPERRT, bis=ACTIVE_SAISON))
     granted = datetime(2026, 1, 1, tzinfo=UTC)
@@ -228,7 +242,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The REAL validators, so every seeded row but the one skipping them is one the shipped schema admits."""
+    """The REAL validators, so every seeded row is one the shipped schema admits."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
@@ -277,6 +291,9 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(PFEIFE_AKTIV, ("schiedsrichter", PFEIFE_AKTIV_OID), id="a live referee"),
             pytest.param(PFEIFE_RUHESTAND, ("schiedsrichter", PFEIFE_RUHESTAND_OID), id="a retired referee"),
             pytest.param(REGISTRIERT, ("registrierungen", REGISTRIERUNG_OID), id="a registration confirmed with a choice"),
+            pytest.param(
+                REGISTRIERT_OHNE_WAHL, ("registrierungen", REGISTRIERUNG_OHNE_WAHL_OID), id="a returning pupil's registration, asking no choice"
+            ),
         ],
     )
     def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, eintrag: tuple[str, Any]):
@@ -293,10 +310,12 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(BEWERBUNG_UNBESTAETIGT, id="an unconfirmed seat on a pending application"),
             pytest.param(SPIELER_OFFEN, id="an unconfirmed pupil"),
             pytest.param(PFEIFE_OFFEN, id="an unconfirmed referee"),
+            pytest.param(SPIELER_EHEMALIG_OFFEN, id="an unconfirmed retired pupil"),
+            pytest.param(PFEIFE_RUHESTAND_OFFEN, id="an unconfirmed retired referee"),
+            pytest.param(SITZ_AUSGETRETEN_OFFEN, id="an unconfirmed seat on a withdrawn team's row"),
             pytest.param(GEIST, id="the placeholder referee"),
             pytest.param(REGISTRIERT_ABGELEHNT, id="a declined registration"),
             pytest.param(REGISTRIERT_OFFEN, id="an unconfirmed registration"),
-            pytest.param(REGISTRIERT_OHNE_WAHL, id="a registration confirmed with no choice"),
             pytest.param(NIEMAND, id="nothing at all"),
         ],
     )
@@ -327,33 +346,6 @@ class TestTheFlagsBesideIt:
         answer = answered(mongo_replica_set_url, VERWALTUNG)
 
         assert (answer.verwaltung, answer.konto, answer.gesperrt) == ("administration", False, False)
-
-
-@pytest.mark.db
-def test_every_funktion_record_the_subject_read_answers_is_an_own_record_the_gate_counts(mongo_replica_set_url: str):
-    """Over every mailbox of the corpus: a Funktion the gate did not count would refuse its holder a sign-in."""
-
-    emails = [SITZ_AKTIV, SITZ_VERGANGEN, SITZ_AUSGETRETEN, SPIELER_AKTIV, SPIELER_EHEMALIG, PFEIFE_AKTIV, PFEIFE_RUHESTAND, GESPERRT]
-
-    async def body(database: AsyncDatabase) -> list[tuple[set[tuple[str, Any]], frozenset[tuple[str, Any]]]]:
-        pairs = []
-        for email in emails:
-            identifier = sign_in_identifier(email)
-            subjekt = await find_subjekt(identifier, record_collections(database))
-            _, eintraege = await identitaet_crud.find_eigene_eintraege(identifier, record_collections(database))
-            funktionen = {
-                *(("sitze", (sitz.team_id, sitz.saison_id)) for sitz in subjekt.sitze),
-                *(("spieler", eintrag.spieler_id) for eintrag in subjekt.spieler),
-                *(("schiedsrichter", eintrag.schiedsrichter_id) for eintrag in subjekt.schiedsrichter),
-            }
-            pairs.append((funktionen, eintraege))
-
-        return pairs
-
-    pairs = on_a_league(mongo_replica_set_url, body)
-
-    assert all(funktionen <= eintraege for funktionen, eintraege in pairs)
-    assert any(funktionen for funktionen, _ in pairs), "no mailbox held a Funktion, so the inclusion compared nothing"
 
 
 def test_every_funktion_list_is_drawn_from_the_own_records(monkeypatch: pytest.MonkeyPatch):

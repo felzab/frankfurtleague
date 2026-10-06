@@ -23,16 +23,22 @@ from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
+    eigene_einwilligung_document,
+    kontakte_document,
+    kontaktperson_document,
     neue_schule_document,
+    registrierung_bestaetigt,
     registrierung_document,
     saison_document,
     saison_team_document,
+    schiedsrichter_document,
     spieler_document,
     team_document,
 )
@@ -87,6 +93,7 @@ EXPECTED: dict[str, set[tuple[str, str]]] = {
         ("sitze", f"{TEAMS[2]}/{ACTIVE}"),
         ("bewerbungen", str(BEWERBUNG_PENDING)),
         ("registrierungen", str(REGISTRIERUNG_NEW)),
+        ("registrierungen", str(REGISTRIERUNG_RETURNING)),
     },
     KAETHE: {("schiedsrichter", str(REFEREE_KAETHE)), ("registrierungen", str(REGISTRIERUNG_KAETHE))},
     NIEMAND: set(),
@@ -98,51 +105,28 @@ def _person(email: str) -> SignedActor:
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": "2026-09-02",
-        "bestaetigt_am": "2026-09-02",
-        "text_version": "2026-09-schiedsrichterseite-3",
-        "medien": False,
-        **fields,
-    }
+    return eigene_einwilligung_document(text_version="2026-09-schiedsrichterseite-3", bestaetigt_am="2026-09-02", **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    return {
-        "_id": referee_id,
-        "name": name,
-        "schule": "Lessing-Gymnasium",
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550202", "email": email},
-        "inactive_since": None,
-        "geburtsdatum": "2000-05-09",
-        "einwilligung": _einwilligung(),
-        **fields,
-    }
+    return schiedsrichter_document(
+        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "geburtsdatum": "2000-05-09", **fields}
+    )
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03") -> dict[str, Any]:
-    return {
-        "vorname": "Wiltrudis",
-        "nachname": "Ehrenpreis",
-        "email": email,
-        "telefon": "+49 69 5550101",
-        "geburtsdatum": "2000-05-09",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "2026-09-bestaetigungsseite-6",
-            "datum": "2026-09-01",
-            "bestaetigt_am": bestaetigt_am,
-            "medien": True,
-        },
-    }
+    return kontaktperson_document(
+        "Wiltrudis",
+        bestaetigt_am=bestaetigt_am,
+        email=email,
+        telefon="+49 69 5550101",
+        geburtsdatum="2000-05-09",
+        einwilligung={"erfasst_von": "person", "text_version": "2026-09-bestaetigungsseite-6", "datum": "2026-09-01", "medien": True},
+    )
 
 
 def _kontakte(**seats: Any) -> dict[str, Any]:
-    return {"trainer": None, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None, **seats}
+    return kontakte_document(**seats)
 
 
 def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -160,7 +144,12 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
 def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaetigung_spieler", vorname: str = "Wiltrudis") -> dict[str, Any]:
     """A registration as its composers leave it; `seite` the confirmation page its pupil answered, `None` for none yet."""
 
-    choices = {"umfang": "kader_oeffentlich", "medien": True} if seite == "bestaetigung_spieler" else {"umfang": None, "medien": None}
+    gewaehlt: dict[str, Any] = {"umfang": "kader_oeffentlich", "medien": True} if seite == "bestaetigung_spieler" else {}
+    bestaetigt = (
+        None
+        if seite is None
+        else registrierung_bestaetigt(seite, geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
+    )
 
     return registrierung_document(
         oid,
@@ -175,15 +164,7 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
-        bestaetigt=None
-        if seite is None
-        else {
-            "geburtsdatum": "2008-05-09",
-            "text_version": LAUFENDE_FASSUNGEN[seite],
-            "today": "2026-09-21",
-            "am": "2026-09-21T08:00:00+00:00",
-            **choices,
-        },
+        bestaetigt=bestaetigt,
     )
 
 
@@ -290,7 +271,7 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
     response = on_the_seed_loop(run())
 
     assert response.status_code == 200, response.text
-    [entry] = response.json()["registrierungen"]
+    [entry] = [entry for entry in response.json()["registrierungen"] if entry["registrierung_id"] == str(REGISTRIERUNG_NEW)]
     assert {key: value for key, value in entry.items() if key != "nachweis_stand"} == {
         "registrierung_id": str(REGISTRIERUNG_NEW),
         "team_id": str(TEAMS[3]),
@@ -299,6 +280,8 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "bestaetigt_text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
         "umfang": "kader_oeffentlich",
         "medien": True,
+        "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
+        "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
         "kontext": {"vorname": "Wiltrudis", "team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",

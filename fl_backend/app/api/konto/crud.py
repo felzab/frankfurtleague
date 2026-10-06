@@ -13,11 +13,11 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 from app.api.einwilligung.services import find_selbst_medien_refusal
-from app.api.konto.services import erteilt_etwas, find_eigener_eintrag_refusal, find_konto_fassung_refusal, find_nachweis_stand_refusal
+from app.api.konto.services import erteilt_etwas, find_erteilung_refusal, find_konto_fassung_refusal, find_nachweis_stand_refusal
 from app.core.crud import refuse
 from app.core.drosselung import Drosseln
 from app.shared.einwilligung import Seite
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, ist_erteilt
 
 # Whether the record the press found may take a grant, asked only of a press granting something: the
 # read behind it is the Funktion lookup, and a withdrawal needs none.
@@ -27,7 +27,6 @@ DarfErteilen = Callable[[], Awaitable[bool]]
 async def _vor_der_erteilung(
     *,
     bloecke: Sequence[Mapping[str, Any]],
-    wahlen: Sequence[FLEinwilligungWahl],
     gewaehlt: Mapping[FLEinwilligungWahl, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
@@ -36,11 +35,11 @@ async def _vor_der_erteilung(
 ) -> bool:
     """The steps every kind shares, the stale page, a grant the record may not take and the label; whether the press grants."""
 
-    refuse(find_nachweis_stand_refusal(erwartet=nachweis_stand, bloecke=bloecke, wahlen=wahlen))
+    refuse(find_nachweis_stand_refusal(erwartet=nachweis_stand, bloecke=bloecke))
 
     erteilt = any(erteilt_etwas(gespeichert=block, gewaehlt=gewaehlt) for block in bloecke)
     if erteilt:
-        refuse(find_eigener_eintrag_refusal(gehalten=darf_erteilen is not None and await darf_erteilen()))
+        refuse(find_erteilung_refusal(zugelassen=darf_erteilen is not None and await darf_erteilen()))
 
     refuse(find_konto_fassung_refusal(seite=seite, text_version=text_version, erteilt=erteilt))
 
@@ -51,7 +50,6 @@ async def press_einwilligung(
     *,
     bloecke: Sequence[Mapping[str, Any]],
     geburtsdaten: Sequence[Any],
-    wahlen: Sequence[FLEinwilligungWahl],
     gewaehlt: Mapping[FLEinwilligungWahl, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
@@ -67,15 +65,15 @@ async def press_einwilligung(
 
     erteilt = await _vor_der_erteilung(
         bloecke=bloecke,
-        wahlen=wahlen,
         gewaehlt=gewaehlt,
         nachweis_stand=nachweis_stand,
         text_version=text_version,
         seite=seite,
         darf_erteilen=darf_erteilen,
     )
+    medien = ist_erteilt("medien", gewaehlt.get("medien"))
     for block, geburtsdatum in zip(bloecke, geburtsdaten, strict=True):
-        refuse(find_selbst_medien_refusal(gespeichert=block, medien=gewaehlt.get("medien") is True, geburtsdatum=geburtsdatum, today=today))
+        refuse(find_selbst_medien_refusal(gespeichert=block, medien=medien, geburtsdatum=geburtsdatum, today=today))
 
     # Last, so a press another rule refuses spends nothing; and a grant alone, so taking a consent back
     # stays as easy as giving it was (Art. 7(3) DSGVO).
@@ -86,7 +84,6 @@ async def press_einwilligung(
 async def press_widerruf(
     *,
     bloecke: Sequence[Mapping[str, Any]],
-    wahlen: Sequence[FLEinwilligungWahl],
     gewaehlt: Mapping[FLEinwilligungWahl, Any],
     nachweis_stand: Mapping[str, Any],
     text_version: str,
@@ -96,7 +93,6 @@ async def press_widerruf(
 
     await _vor_der_erteilung(
         bloecke=bloecke,
-        wahlen=wahlen,
         gewaehlt=gewaehlt,
         nachweis_stand=nachweis_stand,
         text_version=text_version,
