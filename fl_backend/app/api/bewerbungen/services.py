@@ -405,7 +405,7 @@ def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKo
 
     # `medien` written false rather than left off: nobody filling a seat for another person may give
     # that person's media consent.
-    block = {
+    return {
         "umfang": "kontaktdaten",
         "text_version": text_version,
         "datum": today,
@@ -413,8 +413,6 @@ def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKo
         "medien": False,
         "eingetragen_von": eingetragen_von,
     }
-
-    return block
 
 
 # Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen
