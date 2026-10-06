@@ -21,6 +21,7 @@ import {
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
+import { totStand } from "@/features/schiedsrichter/adresswechselStart";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -28,30 +29,11 @@ import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import type { AdresswechselAnsicht, AdresswechselLinkZustand, AdresswechselNurAblehnbar } from "@/features/schiedsrichter/types";
+import type { SchiedsrichterAdresswechselStart } from "@/features/schiedsrichter/adresswechselStart";
+import type { AdresswechselLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 
 type Antwort = "bestaetigt" | "abgelehnt";
-
-/** What the page opens on. The token rides only with a link a press can still spend, for the consent page's reason. */
-export type SchiedsrichterAdresswechselStart =
-  | { zustand: "gueltig"; vorname: string; frist: string; token: string }
-  | { zustand: AdresswechselNurAblehnbar; token: string }
-  | { zustand: Exclude<AdresswechselLinkZustand, AdresswechselNurAblehnbar> | "unlesbar" };
-
-const NUR_ABLEHNBAR: readonly AdresswechselLinkZustand[] = ["abgelaufen", "nicht_bestaetigbar"] satisfies readonly AdresswechselNurAblehnbar[];
-
-const istNurAblehnbar = (zustand: AdresswechselLinkZustand): zustand is AdresswechselNurAblehnbar => NUR_ABLEHNBAR.includes(zustand);
-
-/** A dead link's state, the token kept where the backend still takes the decline through it. */
-function totStand(zustand: AdresswechselLinkZustand, token: string): SchiedsrichterAdresswechselStart {
-  return istNurAblehnbar(zustand) ? { zustand: zustand, token: token } : { zustand: zustand };
-}
-
-/** What the page opens on for what the read answered. */
-export function startOf(gelesen: AdresswechselAnsicht, token: string): SchiedsrichterAdresswechselStart {
-  return gelesen.zustand === "gueltig" ? { ...gelesen, token: token } : totStand(gelesen.zustand, token);
-}
 
 type Stand = SchiedsrichterAdresswechselStart | { zustand: Antwort };
 

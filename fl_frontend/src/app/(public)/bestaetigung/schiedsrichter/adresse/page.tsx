@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { SchiedsrichterAdresswechselView, startOf } from "@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView";
+import { startOf } from "@/features/schiedsrichter/adresswechselStart";
+import { SchiedsrichterAdresswechselView } from "@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView";
 import { getSchiedsrichterAdresswechselAnsicht } from "@/features/schiedsrichter/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
 
-import type { SchiedsrichterAdresswechselStart } from "@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView";
+import type { SchiedsrichterAdresswechselStart } from "@/features/schiedsrichter/adresswechselStart";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
