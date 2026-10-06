@@ -1,13 +1,17 @@
+// The harness that compiles `.tsx`, which Node strips no JSX from: a `route.tsx` is as much a handler,
+// and this sweep sits in `app/` because core may not load the harness.
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { registerDoubles } from "./exportingModule.ts";
-import { doubleSendMail } from "./mailDouble.ts";
-import { routeHandlerFiles } from "./treeWalk.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
+import { doubleSendMail } from "@/core/mailDouble.ts";
+import { routeHandlerFiles } from "@/core/treeWalk.ts";
 
-const APP_DIR = path.resolve(import.meta.dirname, "..", "app");
+const APP_DIR = import.meta.dirname;
 
 const inert = (): undefined => undefined;
 
