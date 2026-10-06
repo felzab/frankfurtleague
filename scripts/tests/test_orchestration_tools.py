@@ -472,9 +472,17 @@ def _hooked(root: Path) -> list[str]:
     return log.read_bytes().decode("utf-8").splitlines() if log.exists() else []
 
 
+def _land(root: Path, branch: str = "agent") -> subprocess.CompletedProcess[str]:
+    """The landing run from the session's checkout against the register beside it, written the first time."""
+    register = root.parent / "REGISTER-s.md"
+    if not register.exists():
+        _register(root.parent)
+    return _run("land", str(register), branch, cwd=root)
+
+
 def _stopped_clean(root: Path, head: str, code: int, branch: str = "agent") -> str:
     """A landing that stopped with `code`, leaving no merge in progress, no change and the session branch where it was."""
-    done = _run("land", branch, cwd=root)
+    done = _land(root, branch)
     assert done.returncode == code, (done.returncode, done.stderr)
     assert "Traceback" not in done.stderr
     assert git(root, "status", "--porcelain") == "" and not (root / ".git" / "MERGE_HEAD").exists()
@@ -488,7 +496,7 @@ def test_a_finished_branch_lands_whole_as_one_merge_through_the_hooks(tmp_path: 
     _agent_commit(root, "Docs: A note", NOTE)
     tip = _agent_commit(root, "Docs: Another file", {"other.txt": "new\n"})
     hooked = len(_hooked(root))
-    done = _run("land", "agent", cwd=root)
+    done = _land(root)
     assert done.returncode == 0, done.stderr
     assert done.stdout.startswith("landed agent as")
     assert git(root, "log", "-1", "--format=%P").split() == [start, tip]
@@ -496,12 +504,26 @@ def test_a_finished_branch_lands_whole_as_one_merge_through_the_hooks(tmp_path: 
     assert _hooked(root)[hooked:] == ["Merge branch 'agent'"]
 
 
+def test_a_landing_closes_the_routed_rows_its_commits_name(tmp_path: Path) -> None:
+    """Routes went out by message and fixers closed items, and the ledger fell hundreds of rows behind."""
+    root = _repo(tmp_path)
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n\nF3 three\n\nF11 eleven\n"))
+    ledger.route(register, "FIXER", ["A-F1", "A-F2", "A-F11"])
+    _agent_commit(root, "Docs: A note\n\nFixes A-F11 and A-F3.", NOTE)
+    done = _land(root)
+    assert done.returncode == 0, done.stderr
+    merge = git(root, "rev-parse", "--short", "HEAD")
+    assert f"FIXED A-F11 by {merge}" in done.stdout and "not ROUTED, so left as they stand: A-F3" in done.stdout
+    assert _status(register, "A-F11") == [f"FIXED ({merge})", "was FIXER"]
+    assert _status(register, "A-F1") == ["ROUTED", "FIXER"] and _status(register, "A-F3")[0] == "OPEN"
+
+
 def test_a_branch_the_session_already_holds_is_nothing_to_land(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", NOTE)
-    assert _run("land", "agent", cwd=root).returncode == 0
+    assert _land(root).returncode == 0
     head = git(root, "rev-parse", "HEAD")
-    again = _run("land", "agent", cwd=root)
+    again = _land(root)
     assert again.returncode == 0 and "nothing to land" in again.stdout
     assert git(root, "rev-parse", "HEAD") == head
 
@@ -509,7 +531,7 @@ def test_a_branch_the_session_already_holds_is_nothing_to_land(tmp_path: Path) -
 def test_a_merge_touching_the_backend_regenerates_a_stale_document(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2'})
-    done = _run("land", "agent", cwd=root)
+    done = _land(root)
     assert done.returncode == 0, done.stderr
     assert "(regenerated openapi.json; type-checked fl_backend)" in done.stdout
     assert git(root, "show", "HEAD:fl_backend/openapi.json") == '{"a": 2, "b": 1}'
@@ -520,7 +542,7 @@ def test_a_generated_document_conflict_is_answered_by_regenerating_it(tmp_path: 
     root = _repo(tmp_path)
     _agent_commit(root, "Backend: The extra grows", {"fl_backend/app/extra.txt": '"b": 2', "fl_backend/openapi.json": '{"a": 1, "b": 2}\n'})
     _session_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2', "fl_backend/openapi.json": '{"a": 2, "b": 1}\n'})
-    done = _run("land", "agent", cwd=root)
+    done = _land(root)
     assert done.returncode == 0, done.stderr
     assert git(root, "show", "HEAD:fl_backend/openapi.json") == '{"a": 2, "b": 2}'
 
@@ -529,7 +551,7 @@ def test_a_spec_table_conflict_lands_merged_by_row_key(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A row", {"docs/spec.md": TABLE_HEAD + "| I1 | one |\n| I3 | three |\n"})
     _session_commit(root, "Docs: The session's row", {"docs/spec.md": TABLE_HEAD + "| I1 | one |\n| I2 | two |\n"})
-    done = _run("land", "agent", cwd=root)
+    done = _land(root)
     assert done.returncode == 0, done.stderr
     assert "merged by row key: docs/spec.md: ADD I3 after I2" in done.stdout
     landed = git(root, "show", "HEAD:docs/spec.md")
@@ -604,7 +626,7 @@ def test_a_merge_commit_the_hooks_refuse_aborts_the_merge(tmp_path: Path) -> Non
 
 def _refused(root: Path, branch: str = "agent") -> str:
     head = git(root, "rev-parse", "HEAD")
-    done = _run("land", branch, cwd=root)
+    done = _land(root, branch)
     assert done.returncode == 2, (done.returncode, done.stderr)
     assert git(root, "rev-parse", "HEAD") == head, "a refused landing committed something"
     return done.stderr
@@ -669,7 +691,7 @@ def test_git_failing_during_the_merge_is_its_own_exit(
 
     monkeypatch.setattr(land, "git", add_fails)
     monkeypatch.chdir(root)
-    code = land.main(["agent"])
+    code = land.main([str(_register(tmp_path)), "agent"])
     said = capsys.readouterr().err
     assert code == 7, said
     assert "planted" in said and git(root, "rev-parse", "HEAD") == head

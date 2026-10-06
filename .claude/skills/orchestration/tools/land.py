@@ -5,9 +5,10 @@ worktree, and the merge commit takes git's own message, which `commit-msg` leave
 in a generated document is answered by regenerating it from the merged code, one inside a markdown
 table by row key where a column names one row, and any other aborts the merge and goes back to the
 agent. A merge touching `fl_backend/` regenerates both documents either way: two branches each
-carrying a current document can merge cleanly into one that is not.
+carrying a current document can merge cleanly into one that is not. Each findings-ledger row the
+merged commits name that is ROUTED closes as FIXED by the merge.
 
-    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <branch>
+    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <register> <branch>
 
 `EXITS` gives each exit; every stop past the refusals leaves the merge aborted and the tree clean.
 """
@@ -23,6 +24,7 @@ from pathlib import Path
 from typing import Final
 
 # Run as a script, python seeds this file's own directory on the path.
+import ledger
 from merge_rows import merge_file
 
 # Each document beside the module that writes it, run from `fl_backend` by the interpreter running
@@ -152,8 +154,12 @@ def type_check(root: Path, touched: list[str]) -> list[str]:
     return checked
 
 
-def land(branch: str) -> int:
+def land(register: Path, branch: str) -> int:
     root = Path(git("rev-parse", "--show-toplevel").strip())
+    try:
+        rows = ledger.row_ids(register)
+    except (ValueError, OSError) as unreadable:
+        raise Stop(2, f"the register's findings ledger cannot be read: {unreadable}") from None
     preflight(branch)
     if _ok("merge-base", "--is-ancestor", branch, "HEAD"):
         print(f"nothing to land: the session branch already holds {branch}")
@@ -194,17 +200,26 @@ def land(branch: str) -> int:
     notes = [f"regenerated {', '.join(Path(document).name for document in moved)}"] if moved else []
     notes += [f"merged by row key: {'; '.join(merged)}"] if merged else []
     notes += [f"type-checked {', '.join(checked)}"] if checked else []
-    print(f"landed {branch} as {git('rev-parse', '--short', 'HEAD').strip()}" + (f" ({'; '.join(notes)})" if notes else ""))
+    merge = git("rev-parse", "--short", "HEAD").strip()
+    print(f"landed {branch} as {merge}" + (f" ({'; '.join(notes)})" if notes else ""))
+    # By exact id, and only a ROUTED row: an OPEN row nobody was given stays for the coordinator to judge.
+    bodies = git("log", "--format=%B", "HEAD^1..HEAD^2")
+    named = sorted(row for row in rows if re.search(rf"(?<![\w-]){re.escape(row)}(?![\w-])", bodies))
+    closed = ledger.close(register, named, merge)
+    for row in closed:
+        print(f"FIXED {row} by {merge}")
+    if unclosed := sorted(set(named) - set(closed)):
+        print(f"named by the merged commits and not ROUTED, so left as they stand: {', '.join(unclosed)}")
     return 0
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 1:
+    if len(argv) != 2:
         print(__doc__, file=sys.stderr)
         print("\n".join(f"  exit {code}: {meaning}" for code, meaning in EXITS.items()), file=sys.stderr)
         return 2
     try:
-        return land(argv[0])
+        return land(Path(argv[0]), argv[1])
     except Stop as stop:
         for line in stop.lines:
             print(line, file=sys.stderr)
