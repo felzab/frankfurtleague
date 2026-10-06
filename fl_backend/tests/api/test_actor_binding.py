@@ -411,7 +411,7 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"),
 ]
 
-# Split by the methods `app/core/security.py` names as recording nothing, since a read binding no actor
+# Split by the methods `SAFE_METHODS` names as recording nothing, since a read binding no actor
 # misattributes no row; the guard itself exempts none (`TestTheGuardExemptsNoMethod`).
 MUTATIONS = sorted(
     operation
