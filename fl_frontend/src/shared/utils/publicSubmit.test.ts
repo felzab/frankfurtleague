@@ -2,6 +2,8 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
@@ -9,7 +11,9 @@ import { act, createElement as h } from "react";
 import { parseDate } from "@internationalized/date";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
+import ts from "typescript";
 
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import {
@@ -37,7 +41,11 @@ doubleTurnstile();
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { BewerbungForm } = await import("@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx");
 const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
+const { BestaetigungSaisonVorbei } = await import("@/features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx");
 const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
+const { JA_MEINE_ADRESSE, SchiedsrichterAdresswechselView } =
+  await import("@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx");
+const { CodeStep } = await import("@/features/auth/components/forms/CodeStep.tsx");
 const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
 const { BEWERBUNG_SEATS } = await import("@/features/bewerbungen/constants.ts");
@@ -230,6 +238,8 @@ async function typeInto(user: User, box: HTMLElement, value: string): Promise<vo
 }
 
 type PublicForm = {
+  /** The module calling `postPublicForm`, below `src/`, which the caller reader below matches against. */
+  module: string;
   /** The route the form's write is addressed to. */
   route: string;
   render: () => ReactNode;
@@ -242,6 +252,7 @@ const SCHOOL_ID = "68d0f2a4c1e2b3a4d5e6f708";
 /** Every public form a visitor can submit, each named as this file reports it. */
 const FORMS: Record<string, PublicForm> = {
   "the application form": {
+    module: "features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
     route: "/api/bewerbung",
     render: () =>
       h(BewerbungForm, {
@@ -275,6 +286,7 @@ const FORMS: Record<string, PublicForm> = {
   },
   // The objection, which the panel sends with no field filled in.
   "the confirmation panel": {
+    module: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
     route: "/api/bestaetigung/kontakt",
     render: () =>
       h(BestaetigungFormPanel, {
@@ -290,7 +302,34 @@ const FORMS: Record<string, PublicForm> = {
       }),
     submit: (user) => pressTwice(user, { resting: "Ich möchte nicht eingetragen sein", armed: /Widerspruch/ }),
   },
+  // A link whose season ended, which takes the Widerspruch alone.
+  "the season-over confirmation page": {
+    module: "features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx",
+    route: "/api/bestaetigung/kontakt",
+    render: () =>
+      h(BestaetigungSaisonVorbei, {
+        ansicht: {
+          acknowledged: 1,
+          zustand: "saison_vorbei",
+          quelle: "saison",
+          zeile: "saison_vorbei",
+          saison_id: "2026",
+          schule: "Lessing-Kolleg",
+          rolle: "ansprechperson",
+          zugleich_rolle: null,
+          vorname: "Mira",
+          text_version: laufendeKontaktFassung().textVersion,
+          laufende_fassung: laufendeKontaktFassung().textVersion,
+          mindestalter: 18,
+          medien_mindestalter: 18,
+        },
+        token: "kein-echtes-token",
+        onAbschluss: () => undefined,
+      }),
+    submit: (user) => pressTwice(user, { resting: "Ich möchte nicht eingetragen sein", armed: /Widerspruch/ }),
+  },
   "the referee's confirmation page": {
+    module: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
     route: "/api/bestaetigung/schiedsrichter",
     render: () =>
       h(SchiedsrichterBestaetigungView, {
@@ -316,7 +355,31 @@ const FORMS: Record<string, PublicForm> = {
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
     },
   },
+  "the referee's address page": {
+    module: "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
+    route: "/api/bestaetigung/schiedsrichter/adresse",
+    render: () =>
+      h(SchiedsrichterAdresswechselView, { start: { zustand: "gueltig", vorname: "Anna", frist: "2026-10-05", token: "kein-echtes-token" } }),
+    submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
+  },
+  // The sixth digit sends the check by itself.
+  "the sign-in code step": {
+    module: "features/auth/components/forms/CodeStep.tsx",
+    route: "/api/signin/code",
+    render: () =>
+      h(CodeStep, {
+        address: "vorstand@example.org",
+        message: "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.",
+        hint: "Ein Hinweis dieser Seite.",
+        submitLabel: { rest: "Weiter", pending: "Läuft..." },
+        isSending: false,
+        onResend: () => undefined,
+        onSignedIn: () => undefined,
+      }),
+    submit: (user) => user.type(screen.getByLabelText("Code aus der E-Mail"), "048213"),
+  },
   "the registration form": {
+    module: "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
     route: "/api/registrierung",
     render: () =>
       h(RegistrierungFormPanel, {
@@ -344,6 +407,7 @@ const FORMS: Record<string, PublicForm> = {
     },
   },
   "the pupil's confirmation page": {
+    module: "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
     route: "/api/bestaetigung/spieler",
     render: () =>
       h(SpielerBestaetigungView, {
@@ -377,7 +441,43 @@ const FORMS: Record<string, PublicForm> = {
   },
 };
 
+const SRC = path.resolve(import.meta.dirname, "..", "..");
+const PUBLIC_SUBMIT = path.join(SRC, "shared", "utils", "publicSubmit");
+
+/** Whether `file` imports `postPublicForm`, or the module whole, read off its syntax tree. */
+function importsPostPublicForm(file: string): boolean {
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+  return source.statements.some((statement) => {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) return false;
+    const specifier = statement.moduleSpecifier.text;
+    const resolved = specifier.startsWith("@/") ? path.join(SRC, specifier.slice(2)) : path.resolve(path.dirname(file), specifier);
+    if (resolved.replace(/\.ts$/, "") !== PUBLIC_SUBMIT) return false;
+
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings !== undefined && ts.isNamespaceImport(bindings)) return true;
+    return bindings?.elements.some((element) => (element.propertyName ?? element.name).text === "postPublicForm") ?? false;
+  });
+}
+
+/** Every production module calling `postPublicForm`, below `src/`, read off the tree. */
+const CALLERS = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+  .filter((file) => importsPostPublicForm(file))
+  .map((file) => path.relative(SRC, file).split(path.sep).join("/"))
+  .sort();
+
 describe("where each public form's write is transported", () => {
+  /* The sweep below drives what `FORMS` names, so a caller left out of it answers the edge's refusal
+     however it likes with nothing failing. */
+  it("drives every module that calls the shared helper", () => {
+    assert.deepEqual(
+      CALLERS,
+      Object.values(FORMS)
+        .map(({ module }) => module)
+        .sort(),
+    );
+  });
+
   /* Only `postPublicForm` reads the edge's rate limit, answered in nginx's own sentence, as a refusal
      that ruled the write out: a form writing on its own tells the visitor something else. */
   for (const [name, form] of Object.entries(FORMS)) {
