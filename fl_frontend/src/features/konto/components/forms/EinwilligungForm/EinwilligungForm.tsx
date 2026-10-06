@@ -15,7 +15,7 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite, focusSlot } from "@/shared/utils/focusAfterWrite";
 
-import { EINTRAG_GEAENDERT, MEDIEN_ZU_JUNG, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
+import { MEDIEN_ZU_JUNG, NUR_WIDERRUF, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
 
 import type { FLEinwilligung, FLEinwilligungStand } from "@/features/spieler/schemas";
 import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas";
@@ -160,9 +160,9 @@ export function EinwilligungForm<W extends EinwilligungWahl>({
   const zu = (wahl_: Wahl, gehaltenWahl: EinwilligungWahl): boolean =>
     istGrant(wahl_) && !hält(gehaltenWahl, wahl_) && (!erteilbar || (wahl_.wahl === "medien" && !medienAngeboten));
 
-  // Why a closed grant is closed, said where a press would otherwise go out and be refused.
-  const grund = (wahl_: Wahl): string =>
-    !erteilbar ? (worte.nurWiderruf ?? EINTRAG_GEAENDERT) : wahl_.wahl === "medien" ? MEDIEN_ZU_JUNG : EINTRAG_GEAENDERT;
+  // Why a closed grant is closed, said where a press would otherwise go out and be refused: on a record
+  // admitting a grant, only the media consent below the age closes.
+  const grund = (): string => (erteilbar ? MEDIEN_ZU_JUNG : (worte.nurWiderruf ?? NUR_WIDERRUF));
 
   // Every control on a withdraw-only record is read with its reason, a closed one and an open one alike.
   const beschreibung = (...eigene: string[]): string | undefined => {
@@ -180,7 +180,7 @@ export function EinwilligungForm<W extends EinwilligungWahl>({
       const press = vorige.current.then(async (): Promise<Gespeichert | ActionFailure> => {
         // Judged against the record as the last landed press left it: a withdrawal still on its way
         // leaves the switch open on screen, and a grant after it would be refused.
-        if (zu(aenderung, gehalten.current.wahl)) return { success: false, error: grund(aenderung) };
+        if (zu(aenderung, gehalten.current.wahl)) return { success: false, error: grund() };
 
         const naechste: W = { ...gehalten.current.wahl, [aenderung.wahl]: aenderung.wert };
         const answer = await speichereAction({

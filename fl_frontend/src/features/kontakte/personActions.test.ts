@@ -14,7 +14,7 @@ const { answerWith, calls } = doubleApiAnswers();
 const { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } = await import("./personActions.ts");
 const {
   BEWERBUNG_NICHT_MEHR_OFFEN,
-  EINTRAG_GEAENDERT,
+  EINTRAG_WEG,
   mapBewerbungEinwilligungRefusal,
   mapEigeneEinwilligungRefusal,
   MEDIEN_ZU_JUNG,
@@ -84,7 +84,7 @@ describe("a seat holder's own consent write", () => {
   });
 
   for (const [code, status, words] of [
-    ["REQ-FUNKTION-001", 403, EINTRAG_GEAENDERT],
+    ["REQ-FUNKTION-001", 403, EINTRAG_WEG],
     ["REQ-EINWILLIGUNG-001", 409, SEITE_VERALTET],
     ["REQ-EINWILLIGUNG-002", 422, MEDIEN_ZU_JUNG],
   ] as const) {
