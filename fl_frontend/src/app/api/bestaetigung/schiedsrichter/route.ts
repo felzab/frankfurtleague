@@ -31,15 +31,15 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: "postSchiedsrichterBestaetigung",
     run: async () => {
+      // Ahead of the fixture read joining this record, which will serve the referee's name by its scope:
+      // the cached fixture list is dropped wherever the answer may stand, and nowhere a write was not sent.
+      invalidatesOnWrite("spiele");
       const body: unknown = await request.json().catch(() => null);
 
       const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
 
-      // Ahead of the fixture read joining this record, which will serve the referee's name by its scope:
-      // the cached fixture list is dropped wherever the answer may stand.
-      invalidatesOnWrite("spiele");
       let antwort;
       try {
         antwort = await postSchiedsrichterBestaetigung(parsed.data);

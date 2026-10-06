@@ -1,0 +1,26 @@
+// Linted as src/features/spieler/actions.ts.
+import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
+
+declare function write(): Promise<{ saison_id: string }>;
+declare function invalidateSpieler(): void;
+
+export async function plantedAfterWrite(): Promise<void> {
+  await write();
+  invalidatesOnWrite("spieler"); // expect: declare-first
+}
+
+export async function plantedHelperAfterWrite(): Promise<void> {
+  try {
+    await write();
+  } catch {
+    return;
+  }
+  invalidateSpieler(); // expect: declare-first
+}
+
+// The first declaration ahead of the write; a tag known only from the answer is declared after it.
+export async function declaredFirst(): Promise<void> {
+  invalidatesOnWrite("teams");
+  const answer = await write();
+  invalidatesOnWrite(`teams:saison_id:${answer.saison_id}`);
+}
