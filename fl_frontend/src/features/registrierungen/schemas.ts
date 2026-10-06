@@ -8,8 +8,13 @@ import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 // The season slice's own mirror rather than a second enum: two copies of one published set drift,
 // and the invite read answers the same three members the season's own read does.
 import { FLSaisonStatusSchema } from "@/features/saisons/schemas";
-import { FLPostSaisonSpielerPayloadSchema, FLSpielerPositionSchema, FLSpielerStufeSchema } from "@/features/spieler/schemas";
-import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
+import {
+  FLPostSaisonSpielerPayloadSchema,
+  FLSpielerPositionSchema,
+  FLSpielerStufeSchema,
+  LinkAntwortTextVersionSchema,
+} from "@/features/spieler/schemas";
+import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -155,12 +160,7 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   medien: z.boolean().nullable(),
   // The version this page rendered, never the one a later reader would be shown: the record has
   // to cite the words the confirming person read.
-  text_version: z
-    .string()
-    .trim()
-    .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-      error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
+  text_version: LinkAntwortTextVersionSchema,
 });
 export type FLRegistrierungBestaetigungPayload = z.infer<typeof FLRegistrierungBestaetigungPayloadSchema>;
 
