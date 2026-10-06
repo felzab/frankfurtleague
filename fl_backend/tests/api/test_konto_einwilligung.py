@@ -38,7 +38,7 @@ from tests.documents import (
     bewerbung_document,
     eigene_einwilligung_document,
     kontakte_document,
-    kontaktsitz_document,
+    kontaktperson_document,
     neue_schule_document,
     registrierung_bestaetigt,
     registrierung_document,
@@ -152,8 +152,13 @@ def _person(email: str) -> SignedActor:
 def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03", **einwilligung: Any) -> dict[str, Any]:
     """One contact seat, confirmed by its own person unless the caller says otherwise."""
 
-    return kontaktsitz_document(
-        email, vorname="Ortrud", text_version=SEAT_LABEL, bestaetigt_am=bestaetigt_am, geburtsdatum=ADULT_BIRTHDATE, **einwilligung
+    return kontaktperson_document(
+        "Ortrud",
+        bestaetigt_am=bestaetigt_am,
+        email=email,
+        telefon="+49 69 5550101",
+        geburtsdatum=ADULT_BIRTHDATE,
+        einwilligung={"erfasst_von": "person", "text_version": SEAT_LABEL, "datum": "2026-09-01", **einwilligung},
     )
 
 
