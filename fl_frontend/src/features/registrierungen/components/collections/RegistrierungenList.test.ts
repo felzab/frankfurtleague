@@ -101,8 +101,8 @@ describe("a pending row without a number", () => {
     try {
       const { markup } = await renderedPage();
 
-      assert.ok(markup.includes('<span class="sr-only">Keine Nummer</span>'), "the empty chip says nothing a screen reader reads");
-      assert.doesNotMatch(markup, /aria-label="Keine Nummer"/, "the empty chip is named by an aria-label again");
+      assert.ok(markup.includes('<span class="sr-only">Ohne Nummer</span>'), "the empty chip says nothing a screen reader reads");
+      assert.doesNotMatch(markup, /aria-label="Ohne Nummer"/, "the empty chip is named by an aria-label again");
     } finally {
       answerReadsWith(EMPTIEST_ANSWER);
     }

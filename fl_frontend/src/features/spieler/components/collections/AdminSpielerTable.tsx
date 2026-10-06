@@ -11,6 +11,7 @@ import { Table } from "@heroui/react/table";
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
 import {
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  OHNE_NUMMER,
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
   rolleLabel,
   SPIELER_CRUD_COPY,
@@ -182,7 +183,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
       {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
-      {spieler.selected?.nummer ?? <span className="sr-only">Keine Nummer</span>}
+      {spieler.selected?.nummer ?? <span className="sr-only">{OHNE_NUMMER}</span>}
     </span>
   );
 

@@ -669,6 +669,15 @@ describe("the account page's consent section", () => {
     assert.equal(panel.props.eintraege[0]?.control, undefined, "a choiceless registration is offered a control");
   });
 
+  /* An empty shirt number reads as the squad lists word it: one wording for it on every page. */
+  it("names a registration's empty shirt number in the squad lists' words", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, nummer: null }] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Rückennummer Ohne Nummer"), text);
+  });
+
   /* Each reason stands beside the record its cause holds and no other: a pending registration's sentence
      beside an active pupil's record, or a past season's beside a live seat, misstates the record. */
   it("shows a withdraw-only reason beside its own record alone", async () => {

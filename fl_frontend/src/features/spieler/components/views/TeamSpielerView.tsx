@@ -10,7 +10,7 @@ import { card } from "@/shared/components/ui/card";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { istNameZurueckgehalten, KADER_LEER, spielerAnzeigename, spielerInitialen } from "../../constants";
+import { istNameZurueckgehalten, KADER_LEER, OHNE_NUMMER, spielerAnzeigename, spielerInitialen } from "../../constants";
 
 import type { FLSpielerPublic } from "../../schemas";
 
@@ -94,7 +94,7 @@ export function TeamSpielerView({
 
                   {/* §1.12 names an absent value in words, so this cell says which value the player has none of. */}
                   <Table.Cell className="w-1 px-1 py-4 text-center muted-meta lg:px-4">
-                    {spielerData.nummer ? <span className="font-mono">{spielerData.nummer}</span> : "Ohne Nummer"}
+                    {spielerData.nummer ? <span className="font-mono">{spielerData.nummer}</span> : OHNE_NUMMER}
                   </Table.Cell>
 
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">

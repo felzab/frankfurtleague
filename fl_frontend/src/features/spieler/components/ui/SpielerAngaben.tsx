@@ -7,14 +7,14 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { ausgetragenSeit, kaderName, rolleLabel } from "../../constants";
+import { ausgetragenSeit, kaderName, OHNE_NUMMER, rolleLabel } from "../../constants";
 
 import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas";
 
 /** One squad row, linked to the squad where everyone reads it rather than repeated here. */
 function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {
   const fakten = [
-    zeile.nummer === null ? "Ohne Nummer" : `Nummer ${zeile.nummer}`,
+    zeile.nummer === null ? OHNE_NUMMER : `Nummer ${zeile.nummer}`,
     zeile.position ?? "Ohne Position",
     ...(zeile.stufe === null ? [] : [zeile.stufe]),
     ...(zeile.rolle === null ? [] : [rolleLabel(zeile.rolle)]),
