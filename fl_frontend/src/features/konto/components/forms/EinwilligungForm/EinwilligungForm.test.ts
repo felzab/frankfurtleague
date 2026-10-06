@@ -21,7 +21,7 @@ const { raised } = doubleToasts();
 const { track, answered } = answersInFlight();
 
 const { EinwilligungForm } = await import("./EinwilligungForm.tsx");
-const { SEITE_VERALTET, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } = await import("../../../einwilligung.ts");
+const { MEDIEN_ZU_JUNG, SEITE_VERALTET, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } = await import("../../../einwilligung.ts");
 
 /** Words written for the suite rather than read from the registry: the component renders whatever it is handed. */
 const WORTE: EinwilligungWorte = {
@@ -431,7 +431,7 @@ describe("a contact seat's WhatsApp switch", () => {
 
 /* A withdrawal on its way leaves the switch open on screen, the record unread, so a grant pressed after it
    would be refused: it is judged against the record the withdrawal leaves, and goes nowhere, saying why. */
-describe("a grant pressed while a withdrawal on a withdraw-only record is on its way", () => {
+describe("a grant pressed while a withdrawal is on its way, on a record the grant is closed on", () => {
   it("sends the withdrawal alone and says why the grant is not sent", async () => {
     let release: () => void = () => undefined;
     held = new Promise((resolve) => {
@@ -457,6 +457,33 @@ describe("a grant pressed while a withdrawal on a withdraw-only record is on its
         [
           ["success", WAHL_GESPEICHERT, undefined],
           ["danger", WAHL_NICHT_GESPEICHERT, NUR_WIDERRUF],
+        ],
+      ),
+    );
+  });
+
+  /* A record that admits grants closes the media switch below the age: withdrawn there, the consent
+     cannot be given again by a press queued behind the withdrawal, and the press says why. */
+  it("sends a withdrawal on a granting record alone where the age closes the media switch, saying why", async () => {
+    let release: () => void = () => undefined;
+    held = new Promise((resolve) => {
+      release = resolve;
+    });
+    const { user } = renderForm({ gespeichert: { umfang: "intern", medien: true }, erteilbar: true, medienAngeboten: false });
+
+    await user.click(screen.getByRole("switch", { name: WORTE.medien.schalter }));
+    await user.click(screen.getByRole("switch", { name: WORTE.medien.schalter }));
+    held = null;
+    release();
+    await act(answered);
+
+    assert.deepEqual(sent, [{ umfang: "intern", medien: false, text_version: WORTE.textVersion, nachweis_stand: STAND }]);
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ variant, title, description }) => [variant, title, description]),
+        [
+          ["success", WAHL_GESPEICHERT, undefined],
+          ["danger", WAHL_NICHT_GESPEICHERT, MEDIEN_ZU_JUNG],
         ],
       ),
     );
