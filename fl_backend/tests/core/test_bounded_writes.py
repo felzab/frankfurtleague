@@ -189,10 +189,6 @@ JUDGED_BESIDE_THE_ANCHOR: dict[str, frozenset[str]] = {
 }
 
 
-def _names_the_anchor_field(node: ast.AST) -> bool:
-    return isinstance(node, ast.Constant) and node.value == ANCHOR_FIELD
-
-
 def _places_spelling_the_anchor_field() -> list[str]:
     """By the field alone, never off the registry below: an anchor written past the helper is found whatever shape its write takes."""
 
@@ -200,7 +196,7 @@ def _places_spelling_the_anchor_field() -> list[str]:
         f"{path.relative_to(BACKEND_ROOT).as_posix()}:{node.lineno}"
         for path in sorted(APP_ROOT.rglob("*.py"))
         for node in ast.walk(parsed(path))
-        if isinstance(node, ast.Constant) and _names_the_anchor_field(node)
+        if isinstance(node, ast.Constant) and node.value == ANCHOR_FIELD
     ]
 
 

@@ -35,10 +35,11 @@ const SiteverifyAnswerSchema = z.object({ success: z.boolean(), "error-codes": z
 export const PRUEFUNG_GESTOERT = "Die Prüfung, ob Du ein Mensch bist, ist gerade gestört. Versuche es später erneut.";
 
 /**
- * One answer of Cloudflare's: its error codes, an empty list where it passed the token; the status of a request
- * it refused unread; or `null` where none arrived.
+ * One answer of Cloudflare's: its status and error codes, an empty list where it passed the token; the status
+ * of a request it refused naming no code; or `null` where none arrived.
  */
-type Answer = { readonly passed: boolean; readonly codes: readonly string[] } | { readonly refusedStatus: number } | null;
+type Answer =
+  { readonly passed: boolean; readonly codes: readonly string[]; readonly status: number } | { readonly refusedStatus: number } | null;
 
 /** Too many requests is Cloudflare declining to answer, not judging ours. */
 const TOO_MANY_REQUESTS = 429;
@@ -53,11 +54,18 @@ function unjudged(meta: LogMeta): null {
 /** Asks Cloudflare once; `null`, with its one log line, where no readable answer arrived. */
 async function ask(request: string, signal: AbortSignal): Promise<Answer> {
   let body: unknown;
+  let status: number;
   try {
     const response = await fetch(SITEVERIFY_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: request, signal });
-    // A 4xx is Cloudflare answering that our request is wrong, which every later one repeats; a 5xx is it failing.
-    if (response.status >= 400 && response.status < 500 && response.status !== TOO_MANY_REQUESTS) return { refusedStatus: response.status };
-    if (!response.ok) return unjudged({ status: response.status });
+    status = response.status;
+    // A 4xx is Cloudflare refusing our request, which every later one repeats; a 5xx is it failing. Cloudflare
+    // names a wrong secret or a malformed request in a 400's codes, read where its body parses.
+    if (status >= 400 && status < 500 && status !== TOO_MANY_REQUESTS) {
+      const refusal = SiteverifyAnswerSchema.safeParse(await response.json().catch(() => null));
+      const codes = refusal.success ? refusal.data["error-codes"] : [];
+      return codes.length > 0 ? { passed: false, codes: codes, status: status } : { refusedStatus: status };
+    }
+    if (!response.ok) return unjudged({ status: status });
     body = await response.json();
   } catch (failed) {
     // The NAME alone: an `AbortError` is the bound, anything else the network or a body that is no JSON.
@@ -67,7 +75,7 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
   const answer = SiteverifyAnswerSchema.safeParse(body);
   if (!answer.success) return unjudged({ name: "UnreadableAnswer" });
 
-  return { passed: answer.data.success, codes: answer.data["error-codes"] };
+  return { passed: answer.data.success, codes: answer.data["error-codes"], status: status };
 }
 
 /**
@@ -95,7 +103,11 @@ export async function turnstileRefusal(token: string | null): Promise<string | n
     }
     if (answer.passed) return null;
     if (answer.codes.some((code) => OURS.has(code))) {
-      logger.error("turnstile.request_refused", undefined, { error_code: "FE-TURNSTILE-002", codes: answer.codes.join(", ") });
+      logger.error("turnstile.request_refused", undefined, {
+        error_code: "FE-TURNSTILE-002",
+        codes: answer.codes.join(", "),
+        status: answer.status,
+      });
       return PRUEFUNG_GESTOERT;
     }
     if (theirsAlone(answer)) return unjudged({ codes: answer.codes.join(", ") });

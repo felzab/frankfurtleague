@@ -4,8 +4,8 @@ import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
-  FLMedienStandPayloadSchema,
-  FLMedienStandSchema,
+  FLEinwilligungStandPayloadSchema,
+  FLEinwilligungStandSchema,
   FLSpielerSelbstEinwilligungPayloadSchema,
   LinkAntwortTextVersionSchema,
 } from "@/features/spieler/schemas";
@@ -20,6 +20,7 @@ import {
 import { kontaktePersonenRegeln } from "@/features/teams/kontaktePersonen";
 import {
   FLGruppenNamesSchema,
+  FLKontaktKenntnisnahmeSchema,
   FLSaisonTeamKontakteSchema,
   FLSchulformSchema,
   FLTrainerZugleichSchema,
@@ -785,14 +786,16 @@ export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema
 export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungPersonEinwilligungPayload`: a seat holder's withdrawal of their media consent on a
- * pending application, from the account page. Withdraw-only, a grant being the confirmation page's;
- * the application travels in the path.
+ * Mirrors `SitzEinwilligungPayload`, which the backend publishes as this and as
+ * `FLSaisonTeamPersonEinwilligungPayload`: a seat holder's two choices from the account page. A pending
+ * application's seats take a withdrawal alone, which the backend judges; the page offers no grant there.
  */
 export const FLBewerbungPersonEinwilligungPayloadSchema = z.object({
-  medien: z.literal(false, { error: "Hier kannst Du die Einwilligung nur widerrufen. Lade die Seite neu." }),
+  // Both choices on every press, so moving one never leaves the other judged by nothing.
+  umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: "Diese Wahl kennen wir nicht. Lade die Seite neu." }),
+  medien: z.boolean(),
   text_version: FLSpielerSelbstEinwilligungPayloadSchema.shape.text_version,
-  nachweis_stand: FLMedienStandPayloadSchema,
+  nachweis_stand: FLEinwilligungStandPayloadSchema,
 });
 export type FLBewerbungPersonEinwilligungPayload = z.infer<typeof FLBewerbungPersonEinwilligungPayloadSchema>;
 
@@ -800,8 +803,9 @@ export type FLBewerbungPersonEinwilligungPayload = z.infer<typeof FLBewerbungPer
 export const FLBewerbungPersonEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
   bewerbung_id: CustomObjectIdStringSchema,
   rollen: z.array(FLKontaktRolleSchema),
-  medien: z.literal(false),
-  nachweis_stand: FLMedienStandSchema,
+  umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
+  medien: z.boolean(),
+  nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLBewerbungPersonEinwilligungResponse = z.infer<typeof FLBewerbungPersonEinwilligungResponseSchema>;
 

@@ -80,6 +80,19 @@ describe("the widget a form renders", () => {
       ["dark"],
     );
   });
+
+  /* The old widget's token went with it, so a press before the new one mints waits for that token. */
+  it("waits on the new widget's token after a theme toggle, rather than answering at once", async () => {
+    render(h(ThemeProvider, { attribute: "class", defaultTheme: "light", enableSystem: false }, h(Formular), h(Umschalter)));
+    turnstile.mintsAtOnce(false);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dunkel" }));
+    });
+
+    assert.equal(await pressed(), undefined, "the press was answered before the new widget minted");
+    const minted = await act(async () => turnstile.mint());
+    assert.deepEqual(answers, [{ token: minted }]);
+  });
 });
 
 describe("a press's token", () => {

@@ -11,9 +11,9 @@ from app.api.einwilligung.router import get_fassung, get_seiten
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, find_fassung_refusal
 from app.core.config import API_VERSION
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.main import create_app
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
-from tests.config import BASE_AUTH, build_test_config
+from tests.config import BASE_AUTH
+from tests.core.app_source import application
 from tests.einwilligung_document import DOCUMENT_PATH, DRIFT_REPAIR, REGENERATE, build_document, read_document
 from tests.openapi_document import describe_drift
 
@@ -124,7 +124,7 @@ class TestTheWordsRead:
 
 # Over HTTP, as a caller meets them: the handler cases above skip the response model's
 # serialisation and the failure body.
-CLIENT = TestClient(create_app(build_test_config()), raise_server_exceptions=False)
+CLIENT = TestClient(application(), raise_server_exceptions=False)
 PREFIX = f"/api/v{API_VERSION}/einwilligung"
 
 

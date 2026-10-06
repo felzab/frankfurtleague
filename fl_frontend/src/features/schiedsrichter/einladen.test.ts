@@ -43,7 +43,7 @@ const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsricht
 const { describeLinkMail } = await import("./notifications.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
-const { FELD_ABGELEHNT, unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { FELD_ABGELEHNT, outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
@@ -149,7 +149,7 @@ describe("the re-send the editor's panel presses", () => {
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   /* Judged before the mint: a round trip to be told what the panel can already see is one nobody
@@ -230,7 +230,7 @@ describe("what the create tells the administrator", () => {
 
     const res = await postSchiedsrichterAction(ENTWURF);
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   /* The cleared box submits `null`: refused on that box in German, before the endpoint is reached,
@@ -338,7 +338,7 @@ describe("what the save hands the editor about the message it sent", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   it("hands over no sentence where the save minted nothing", async () => {
@@ -385,7 +385,7 @@ describe("the reactivation of an unanswered referee", () => {
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   it("mails nothing where the row came back unasked", async () => {

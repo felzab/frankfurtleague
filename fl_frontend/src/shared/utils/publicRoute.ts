@@ -5,7 +5,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentErr
 import { logger } from "@/core/logging";
 import { requestWriteSent, requestWriteTags } from "@/core/requestScope";
 
-import { isRuleRefusal, refusedFailure, unansweredAction } from "./actionError";
+import { isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
 import { UNHANDLED_FIELD_REFUSAL, UNKNOWN_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
@@ -76,7 +76,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
 
     if (writeOutcomeUnknown()) {
       logger.error(`Public route of unknown outcome: ${routeName}`, undefined, { error_code: "FE-NET-001" });
-      answer = unansweredAction();
+      answer = outcomeUnknown();
     }
 
     // Wherever the write may stand, a lost answer included, as the action spine drops them. `{ expire: 0 }`:
