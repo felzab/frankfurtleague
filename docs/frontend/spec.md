@@ -491,7 +491,7 @@ the 403 counts only where it carries the route's envelope, an edge challenge ans
 **Every undo replay can be refused on the way back**, and each answers in German out of
 its own replay table, held in the slice's refusals module because a route module may export only its handlers
 (`fl_frontend/src/features/spiele/refusals.ts :: PAARUNGEN_REPLAY_REFUSALS` among them), every row a code the replayed
-endpoint publishes (`fl_frontend/src/shared/testing/undoRoutes.ts :: assertEachRowPublished`): the replay meets the rules the save met, so a span another tab has
+endpoint publishes (`fl_frontend/src/app/refusalCoverage.test.ts :: "words only codes one of its replayed operations publishes"`): the replay meets the rules the save met, so a span another tab has
 since narrowed comes back from the matchday's as a refusal. **A refusal reports the change as still
 standing only where the replay is one write**: a replay that commits in parts words the half that
 went back instead. **`fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest` therefore

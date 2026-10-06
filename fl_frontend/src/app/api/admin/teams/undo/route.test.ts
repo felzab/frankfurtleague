@@ -3,20 +3,12 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import {
-  assertEachRefusalCloses,
-  assertEachRowPublished,
-  doubleRouteRequest,
-  revalidatedTags,
-  unacknowledged,
-  undo,
-} from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /* The real route and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers(({ endpoint }) => Promise.resolve(replayed(endpoint, 1)));
 const { POST } = await import("./route.ts");
-const { TEAM_REPLAY_REFUSALS } = await import("@/features/teams/refusals.ts");
 
 /** What `fl_frontend/src/features/teams/mutations.ts :: patchTeam` sends, as the backend's own routes spell it. */
 const CLUB_OPERATION = "PATCH /teams/{team_id}";
@@ -114,11 +106,5 @@ describe("the team save's undo", () => {
       await undo(POST, { club: CLUB, saison: SAISON }),
       unacknowledged("Nur die Stammdaten wurden zurückgesetzt. Prüfe die Saison-Zugehörigkeit."),
     );
-  });
-});
-
-describe("the replay table against the replayed endpoint", () => {
-  it("words only codes the replayed endpoint publishes", () => {
-    assertEachRowPublished(TEAM_REPLAY_REFUSALS, CLUB_OPERATION, JUNCTION_OPERATION);
   });
 });

@@ -5,13 +5,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
-import {
-  assertEachRefusalCloses,
-  assertEachRowPublished,
-  doubleRouteRequest,
-  revalidatedTags,
-  unacknowledged,
-} from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -45,7 +39,6 @@ const answerWith = (next: () => Promise<unknown>): void =>
   client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(REPORTED) : next()));
 
 const { POST } = await import("./route.ts");
-const { SCHIEDSRICHTER_REPLAY_REFUSALS } = await import("@/features/schiedsrichter/refusals.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
@@ -189,11 +182,5 @@ describe("the referee save's undo", () => {
     await bodyOf(aRequest(BODY, { "sec-fetch-site": "cross-site" }));
 
     assert.deepEqual(calls, []);
-  });
-});
-
-describe("the replay table against the replayed endpoint", () => {
-  it("words only codes the replayed endpoint publishes", () => {
-    assertEachRowPublished(SCHIEDSRICHTER_REPLAY_REFUSALS, REPLAY_OPERATION);
   });
 });
