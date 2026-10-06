@@ -90,11 +90,13 @@ export const FLKontoRegistrierungEinwilligungSchema = z.object({
   // Null where the team the registration names is gone.
   team_name: z.string().nullable(),
   saison_id: z.string(),
-  // For `FLKontoSitzEinwilligungSchema`'s reason.
+  // For `FLSpielerSelbstSchema`'s reason.
   bestaetigt_text_version: z.string().nullable(),
   umfang: FLEinwilligungSchema.shape.umfang.nullable(),
   medien: z.boolean().nullable(),
   nachweis_stand: FLEinwilligungStandSchema,
+  // For `FLSpielerSelbstSchema`'s reason.
+  mindestalter: z.number().int(),
   kontext: FLSpielerKontextSchema,
   vorname: z.string(),
   nachname: z.string(),

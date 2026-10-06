@@ -8,6 +8,7 @@ import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionD
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { schiedsrichterSelbst, spielerSelbst } from "@/shared/testing/selbstFixtures.ts";
 
 import type { SubjectSession } from "@/core/subject.ts";
 import type { EinwilligungEintrag } from "./components/forms/EinwilligungForm/EinwilligungPanel.tsx";
@@ -345,47 +346,9 @@ const BEWERBUNG_SITZ = {
   ],
 };
 
-const EINWILLIGUNG = {
-  umfang: "kader_oeffentlich",
-  erteilt_von: "volljaehrig",
-  datum: "2026-09-01",
-  bestaetigt_am: "2026-09-01",
-  text_version: "2026-09-spielerseite-3",
-  medien: false,
-  nachweis: { umfang: null, medien: null },
-};
+const SPIELER = spielerSelbst();
 
-/** A pupil confirmed on the pupil's page, the registration's team, school and season served. */
-const SPIELER = {
-  spieler_id: "6890a1b2c3d4e5f607390031",
-  vorname: "Alina",
-  nachname: "Fischer",
-  geburtsdatum: "2008-05-02",
-  inactive_since: null,
-  einwilligung: EINWILLIGUNG,
-  bestaetigt_text_version: "2026-09-spielerseite-3",
-  nachweis_stand: { umfang: null, medien: null },
-  kontext: { vorname: "Alina", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
-  erteilbar: true,
-  medien_angeboten: true,
-  kader: [],
-};
-
-const SCHIEDSRICHTER = {
-  schiedsrichter_id: "6890a1b2c3d4e5f607390041",
-  name: "Mara Okafor",
-  schule: null,
-  kontakt: { telefon: null, email: "mara@example.org" },
-  honorar: 25,
-  geburtsdatum: "2007-03-01",
-  inactive_since: null,
-  einwilligung: { ...EINWILLIGUNG, text_version: "2026-09-schiedsrichterseite-3" },
-  bestaetigt_text_version: "2026-09-schiedsrichterseite-3",
-  nachweis_stand: { umfang: null, medien: null },
-  kontext: { vorname: "Mara" },
-  erteilbar: true,
-  medien_angeboten: true,
-};
+const SCHIEDSRICHTER = schiedsrichterSelbst();
 
 /** A pupil's pending registration, confirmed with both choices on the new pupil's page. */
 const REGISTRIERUNG = {
@@ -397,6 +360,7 @@ const REGISTRIERUNG = {
   umfang: "kader_oeffentlich",
   medien: true,
   nachweis_stand: { umfang: null, medien: null },
+  mindestalter: 16,
   kontext: { vorname: "Nele", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2627" },
   vorname: "Nele",
   nachname: "Brandt",
@@ -528,12 +492,19 @@ describe("the account page's consent section", () => {
 
   /* The floor is the read's, over every seat held on the row: a page reckoning it from the roles itself
      would name another age the day the backend's rule moves. */
-  it("names the floor the read serves for a seat in the words its person confirmed", async () => {
-    setSubject(OHNE_FUNKTION);
-    answeringKonto({ sitze: [{ ...SITZ, bestaetigt: [{ ...SITZ.bestaetigt[0], mindestalter: 21 }] }] });
+  for (const [art, konto] of [
+    ["a pupil", { spieler: { ...SPIELER, mindestalter: 21 } }],
+    ["a referee", { schiedsrichter: [{ ...SCHIEDSRICHTER, mindestalter: 21 }] }],
+    ["a pending registration", { registrierungen: [{ ...REGISTRIERUNG, mindestalter: 21 }] }],
+    ["a seat", { sitze: [{ ...SITZ, bestaetigt: [{ ...SITZ.bestaetigt[0], mindestalter: 21 }] }] }],
+  ] as const) {
+    it(`names the floor the read serves for ${art} in the words its person confirmed`, async () => {
+      setSubject(OHNE_FUNKTION);
+      answeringKonto(konto);
 
-    assert.ok((await sectionText()).includes("mindestens 21 Jahre"), "the seat's confirmed words name a floor of the page's own");
-  });
+      assert.ok((await sectionText()).includes("mindestens 21 Jahre"), "the confirmed words name a floor of the page's own");
+    });
+  }
 
   /* A Trainer who took the Ansprechperson seat later confirmed twice, each seat under its own words and
      floor: one block per confirmation, each headed by its own roles, never one block naming both seats

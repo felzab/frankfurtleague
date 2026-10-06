@@ -23,6 +23,7 @@ import {
   steps,
 } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
+import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
 
 import type { SubjectSession } from "@/core/subject.ts";
 import type { ReactNode } from "react";
@@ -278,29 +279,7 @@ describe("the way back from the account page", () => {
 });
 
 /** One referee row as the own-data read serves it; the read's emptiest answer would hold none to show. */
-const SCHIEDSRICHTER_SELBST = {
-  schiedsrichter_id: TEAM_A,
-  name: "Mara Okafor",
-  schule: null,
-  kontakt: { telefon: null, email: "mara@example.org" },
-  honorar: 25,
-  geburtsdatum: "2007-03-01",
-  inactive_since: null,
-  einwilligung: {
-    umfang: "intern",
-    erteilt_von: "volljaehrig",
-    datum: "2026-09-01",
-    bestaetigt_am: "2026-09-01",
-    text_version: "2026-09-schiedsrichterseite-3",
-    medien: false,
-    nachweis: { umfang: null, medien: null },
-  },
-  bestaetigt_text_version: "2026-09-schiedsrichterseite-3",
-  nachweis_stand: { umfang: null, medien: null },
-  kontext: { vorname: "Mara" },
-  erteilbar: true,
-  medien_angeboten: true,
-};
+const SCHIEDSRICHTER_SELBST = { ...schiedsrichterSelbst(), schiedsrichter_id: TEAM_A };
 
 describe("the referee's page", () => {
   /* The person tier's own read, and no other: the page shows the referee their own data. */

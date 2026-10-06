@@ -9,35 +9,20 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
 
 import type { FLSchiedsrichterSelbst } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SchiedsrichterSelbstView } = await import("./SchiedsrichterSelbstView.tsx");
+const { FLSchiedsrichterSelbstSchema } = await import("../../schemas.ts");
 
-const SCHIEDSRICHTERIN: FLSchiedsrichterSelbst = {
-  schiedsrichter_id: "6890a1b2c3d4e5f607390041",
-  name: "Mara Okafor",
+// The school and the phone filled, so each of the panel's rows shows a stored value.
+const SCHIEDSRICHTERIN: FLSchiedsrichterSelbst = FLSchiedsrichterSelbstSchema.parse({
+  ...schiedsrichterSelbst(),
   schule: "Lessing-Gymnasium",
   kontakt: { telefon: "069 1234567", email: "mara@example.org" },
-  honorar: 25,
-  geburtsdatum: "2007-03-01",
-  inactive_since: null,
-  einwilligung: {
-    umfang: "intern",
-    erteilt_von: "volljaehrig",
-    datum: "2026-09-01",
-    bestaetigt_am: "2026-09-01",
-    text_version: "2026-09-schiedsrichterseite-3",
-    medien: false,
-    nachweis: { umfang: null, medien: null },
-  },
-  bestaetigt_text_version: "2026-09-schiedsrichterseite-3",
-  nachweis_stand: { umfang: null, medien: null },
-  kontext: { vorname: "Mara" },
-  erteilbar: true,
-  medien_angeboten: true,
-};
+});
 
 const renderView = (schiedsrichter: readonly FLSchiedsrichterSelbst[] = [SCHIEDSRICHTERIN]) =>
   render(underNext(h(SchiedsrichterSelbstView, { schiedsrichter })));

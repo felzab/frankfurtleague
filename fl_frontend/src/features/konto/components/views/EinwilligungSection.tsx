@@ -3,10 +3,10 @@ import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ABLEHNEN_LABEL, rollenLangform } from "@/features/bewerbungen/constants";
 import { patchBewerbungEinwilligungAction, patchSitzEinwilligungAction } from "@/features/kontakte/personActions";
 import { RegistrierungAngaben } from "@/features/registrierungen/components/ui/RegistrierungAngaben";
-import { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER, SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
+import { MEDIEN_MIN_ALTER, SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants";
 import { patchRegistrierungEinwilligungAction } from "@/features/registrierungen/personActions";
 import { SchiedsrichterAngaben } from "@/features/schiedsrichter/components/ui/SchiedsrichterAngaben";
-import { SCHIEDSRICHTER_MIN_ALTER, SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants";
+import { SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants";
 import { patchSchiedsrichterEinwilligungAction } from "@/features/schiedsrichter/personActions";
 import { SpielerAngaben } from "@/features/spieler/components/ui/SpielerAngaben";
 import { patchSpielerEinwilligungAction } from "@/features/spieler/personActions";
@@ -98,7 +98,7 @@ export async function EinwilligungSection() {
       bestaetigt: await bestaetigt(spieler.bestaetigt_text_version, {
         ...KONSTANTEN,
         ...spieler.kontext,
-        minAlter: String(REGISTRIERUNG_MIN_ALTER),
+        minAlter: String(spieler.mindestalter),
       }),
       control: (
         <EinwilligungForm
@@ -124,7 +124,7 @@ export async function EinwilligungSection() {
         bestaetigt: await bestaetigt(eintrag.bestaetigt_text_version, {
           ...KONSTANTEN,
           ...eintrag.kontext,
-          minAlter: String(SCHIEDSRICHTER_MIN_ALTER),
+          minAlter: String(eintrag.mindestalter),
         }),
         control: (
           <EinwilligungForm
@@ -151,7 +151,7 @@ export async function EinwilligungSection() {
         bestaetigt: await bestaetigt(registrierung.bestaetigt_text_version, {
           ...KONSTANTEN,
           ...registrierung.kontext,
-          minAlter: String(REGISTRIERUNG_MIN_ALTER),
+          minAlter: String(registrierung.mindestalter),
         }),
         // A returning pupil's registration asks no choice: its data stands alone, their record holding the choices.
         ...(registrierung.umfang === null || registrierung.medien === null

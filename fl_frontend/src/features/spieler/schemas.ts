@@ -383,6 +383,9 @@ export const FLSpielerSelbstSchema = z.object({
   // offer a press the write refuses.
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),
+  // The floor the record's confirmation page named, served as every seat entry's is, so the two tiers
+  // cannot name different ages.
+  mindestalter: z.number().int(),
   kader: z.array(FLSpielerSelbstKaderZeileSchema),
 });
 export type FLSpielerSelbst = z.infer<typeof FLSpielerSelbstSchema>;
