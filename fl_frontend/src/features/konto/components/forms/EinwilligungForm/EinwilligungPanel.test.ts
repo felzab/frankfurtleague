@@ -61,7 +61,7 @@ describe("the account page's consent section", () => {
   it("heads the section once and names each record under it, one control per record", () => {
     renderPanel([eintrag("a", "Erster Eintrag", null), eintrag("b", "Zweiter Eintrag", null)]);
 
-    assert.equal(screen.getAllByRole("heading", { level: 2, name: "Deine Einwilligung" }).length, 1);
+    assert.equal(screen.getAllByRole("heading", { level: 2, name: "Deine Einträge" }).length, 1);
     assert.deepEqual(
       screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
       ["Erster Eintrag", "Zweiter Eintrag"],

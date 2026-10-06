@@ -1,6 +1,6 @@
 import Pencil from "@gravity-ui/icons/Pencil";
 
-import { ausgetragenSeit, kaderName, NUMMER_DOPPELT, rolleLabel } from "@/features/spieler/constants";
+import { ausgetragenSeit, kaderName, NUMMER_DOPPELT, OHNE_NUMMER, rolleLabel } from "@/features/spieler/constants";
 import {
   IDENTITY_HEAD_CLASSES,
   IDENTITY_LINE_CLASSES,
@@ -27,8 +27,8 @@ export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderZeile[]
       className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
         zeile.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
       }`}>
-      {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role; the pupil's own page's words. */}
-      {zeile.nummer ?? <span className="sr-only">Ohne Nummer</span>}
+      {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
+      {zeile.nummer ?? <span className="sr-only">{OHNE_NUMMER}</span>}
     </span>
   );
 

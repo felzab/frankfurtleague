@@ -108,7 +108,7 @@ describe("the stored consent panel", () => {
     assert.ok(words(ERTEILT).includes(FASSUNG), "the stored wording label is not shown");
     // The label is the registry key rather than a sentence, so an absent one renders as blank
     // unless the panel words it — and a blank cell reads as a record nobody has finished filling.
-    assert.ok(words(UEBERNOMMEN).includes("Nicht erfasst"), "a record citing no wording renders an empty cell");
+    assert.ok(words(UEBERNOMMEN).includes("Nicht hinterlegt"), "a record citing no wording renders an empty cell");
   });
 
   it("marks a label the wording registry answers with nothing, beside the key itself", () => {

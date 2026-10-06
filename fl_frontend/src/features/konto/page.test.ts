@@ -409,7 +409,7 @@ describe("the account page's consent section", () => {
     const text = await sectionText();
     const konto = publishedLaufendeFassung("konto_kontakt");
 
-    assert.ok(text.includes("Deine Einwilligung"));
+    assert.ok(text.includes("Deine Einträge"));
     assert.ok(text.includes("Als Stellvertretung und Trainerin oder Trainer: Lessing Lions, Saison 2526"), text);
     assert.ok(text.includes(konto.schalter), "the seat's media switch is not named by the account page's words");
     assert.ok(
@@ -642,7 +642,7 @@ describe("the account page's consent section", () => {
     answeringKonto({ registrierungen: [REGISTRIERUNG] });
 
     const text = await sectionText();
-    assert.ok(text.includes("Registrierung: Lessing Lions, Saison 2627"), text);
+    assert.ok(text.includes("Als Spielerin oder Spieler: Registrierung für Lessing Lions, Saison 2627"), text);
     assert.ok(text.includes(reason("konto_spieler", "nurWiderrufBisAufnahme")), "the registration does not say why it only withdraws");
     for (const wert of ["Nele Brandt", "14.02.2008", "Mittelfeld", "Q1"])
       assert.ok(text.includes(wert), `the registration's stored „${wert}“ is not shown`);
@@ -662,11 +662,28 @@ describe("the account page's consent section", () => {
     answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, umfang: null, medien: null }] });
 
     const text = await sectionText();
-    assert.ok(text.includes("Registrierung: Lessing Lions, Saison 2627"), text);
+    assert.ok(text.includes("Als Spielerin oder Spieler: Registrierung für Lessing Lions, Saison 2627"), text);
     for (const wert of ["Nele Brandt", "14.02.2008"]) assert.ok(text.includes(wert), `the registration's stored „${wert}“ is not shown`);
 
     const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
     assert.equal(panel.props.eintraege[0]?.control, undefined, "a choiceless registration is offered a control");
+  });
+
+  it("titles a registration whose team is gone by its season alone", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, team_name: null }] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Als Spielerin oder Spieler: Registrierung für die Saison 2627"), text);
+  });
+
+  /* An empty shirt number reads as the squad lists word it: one wording for it on every page. */
+  it("names a registration's empty shirt number in the squad lists' words", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, nummer: null }] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Rückennummer Ohne Nummer"), text);
   });
 
   /* Each reason stands beside the record its cause holds and no other: a pending registration's sentence

@@ -114,7 +114,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
   });
 
   it("says in words where the record cites no label, and shows a known one as its key", () => {
-    assert.equal(fassungRow({ einwilligung: { ...BESTAETIGT, text_version: null } }), "Nicht erfasst");
+    assert.equal(fassungRow({ einwilligung: { ...BESTAETIGT, text_version: null } }), "Nicht hinterlegt");
     assert.equal(fassungRow({ einwilligung: BESTAETIGT }), String(BESTAETIGT.text_version));
   });
 
@@ -177,6 +177,10 @@ describe("what the editor shows about a referee's own confirmation", () => {
     assert.match(shown, /Nicht zugesagt/, "the media answer is not shown");
     assert.match(shown, /2026-09-schiedsrichterseite/, "the stamped wording is not named");
     assert.match(shown, /01\.01\.1990/, "the birthdate the same press wrote is not shown");
+  });
+
+  it("says in words where the record holds no birthdate", () => {
+    assert.match(words({ bestaetigung: BLOCK, einwilligung: BESTAETIGT, geburtsdatum: null }), /Geburtsdatum Nicht hinterlegt/);
   });
 
   /* A live row with no confirmed record is withheld, which is the fact an administrator reading an empty
@@ -324,7 +328,7 @@ describe("the control that sends the link", () => {
     // No answer came back, so the control's own repair names the connection.
     thrown: {
       answer: () => Promise.reject(new TypeError("Failed to fetch")),
-      repair: "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+      repair: "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
     },
     answered: { answer: () => Promise.resolve({ success: false, error: ANSWERED, outcome: "unknown" }), repair: ANSWERED },
   };

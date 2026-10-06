@@ -178,8 +178,8 @@ export const sitzBestaetigungZeile = (bestaetigung: {
     ? `Als ${rollenLangform(bestaetigung.rollen)}`
     : `Als ${rollenLangform(bestaetigung.rollen)}, bestätigt am ${formatSpielDatum(bestaetigung.bestaetigt_am)}`;
 
-/** A pending registration's record title; its team gone, the season alone names it. */
+/** A pending registration's record title, under the pupil's; its team gone, the season alone names it. */
 export const registrierungTitel = (registrierung: { readonly team_name: string | null; readonly saison_id: string }): string =>
   registrierung.team_name === null
-    ? `Registrierung: Saison ${registrierung.saison_id}`
-    : `Registrierung: ${registrierung.team_name}, Saison ${registrierung.saison_id}`;
+    ? `${SPIELER_TITEL}: Registrierung für die Saison ${registrierung.saison_id}`
+    : `${SPIELER_TITEL}: Registrierung für ${registrierung.team_name}, Saison ${registrierung.saison_id}`;

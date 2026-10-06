@@ -21,10 +21,12 @@ const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 const BESTAETIGEN = { rest: "Bestätigen", pending: "Bestätigt..." };
 
 /**
- * A send whose answer never arrived: whether a code left is unknown, and a second send is safe either
- * way, a new code replacing the one before. The title says what is unknown, a send saving nothing.
+ * A send whose answer never arrived: a second is safe whether a code left or not, a new one replacing
+ * it, and the reload comes first (`docs/frontend/spec.md` §1.12). The title says what is unknown, a
+ * send saving nothing.
  */
-const CODE_ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und fordere den Code erneut an. Ein neuer Code ersetzt einen, der schon rausging.";
+const CODE_ERNEUT_OHNE_ANTWORT =
+  "Prüfe die Verbindung, lade die Seite neu und fordere den Code erneut an. Ein neuer Code ersetzt einen, der schon rausging.";
 const CODE_UNKLAR = "Unklar, ob der Code verschickt wurde";
 
 /** The code half's own refusal: a code that signed in an account other than the page's. */

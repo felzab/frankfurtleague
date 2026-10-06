@@ -327,7 +327,7 @@
     "2026-10-bestaetigungsseite-7": {
       "text_version": "2026-10-bestaetigungsseite-7",
       "seite": "bestaetigung_kontakt",
-      "gilt_ab": "2026-10-03",
+      "gilt_ab": "2026-10-06",
       "absaetze": [
         "Für die Schule {schule} wurde eine Bewerbung um die Teilnahme an der Saison {saison} der Frankfurt League eingereicht. Darin bist Du als {rolle} eingetragen. Die Person, die die Bewerbung abgeschickt hat, hat dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst hören möchten, dass es stimmt.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse und Deine Telefonnummer. Wir brauchen sie, um das Team dieser Schule während der Saison zu erreichen, also für Spielansetzungen, Absagen, Rückfragen und die Entscheidung über die Bewerbung.",
@@ -391,7 +391,7 @@
     "2026-10-bestaetigungsseite-verwaltung": {
       "text_version": "2026-10-bestaetigungsseite-verwaltung",
       "seite": "bestaetigung_kontakt_verwaltung",
-      "gilt_ab": "2026-10-03",
+      "gilt_ab": "2026-10-06",
       "absaetze": [
         "Die Verwaltung der Frankfurt League hat Dich für die Schule {schule} in der Saison {saison} als {rolle} eingetragen und dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst hören möchten, dass es stimmt.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse und Deine Telefonnummer. Wir brauchen sie, um das Team dieser Schule während der Saison zu erreichen, also für Spielansetzungen, Absagen, Rückfragen und die Entscheidung über die Bewerbung.",
@@ -455,7 +455,7 @@
     "2026-10-bestaetigungsseite-saison": {
       "text_version": "2026-10-bestaetigungsseite-saison",
       "seite": "bestaetigung_kontakt_saison",
-      "gilt_ab": "2026-10-03",
+      "gilt_ab": "2026-10-06",
       "absaetze": [
         "Die Verwaltung der Frankfurt League hat Dich für das Team {schule} in der Saison {saison} als {rolle} eingetragen und dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst hören möchten, dass es stimmt.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse und Deine Telefonnummer. Wir brauchen sie, um Dein Team während der Saison zu erreichen, also für Spielansetzungen, Absagen und Rückfragen.",
@@ -768,7 +768,7 @@
     "2026-10-spielerseite-4": {
       "text_version": "2026-10-spielerseite-4",
       "seite": "bestaetigung_spieler",
-      "gilt_ab": "2026-10-03",
+      "gilt_ab": "2026-10-06",
       "absaetze": [
         "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
@@ -821,7 +821,7 @@
     "2026-10-spielerseite-wiederkehrend": {
       "text_version": "2026-10-spielerseite-wiederkehrend",
       "seite": "bestaetigung_spieler_wiederkehrend",
-      "gilt_ab": "2026-10-03",
+      "gilt_ab": "2026-10-06",
       "absaetze": [
         "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position, Deine Stufe und Dein Geburtsdatum. Mit Deiner E-Mail-Adresse hast Du ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
@@ -869,7 +869,7 @@
     "2026-10-konto-spieler": {
       "text_version": "2026-10-konto-spieler",
       "seite": "konto_spieler",
-      "gilt_ab": "2026-10-03",
+      "gilt_ab": "2026-10-06",
       "absaetze": [
         "Hier entscheidest Du, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mit „intern“ stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am Mitspielen ändert diese Wahl nichts.",
         "Unabhängig davon entscheidest Du ab {medienMinAlter} Jahren, ob Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Bist Du jünger, ist dieser Schalter aus und lässt sich nicht einschalten.",
@@ -896,7 +896,7 @@
     "2026-10-konto-schiedsrichter": {
       "text_version": "2026-10-konto-schiedsrichter",
       "seite": "konto_schiedsrichter",
-      "gilt_ab": "2026-10-03",
+      "gilt_ab": "2026-10-06",
       "absaetze": [
         "Hier entscheidest Du, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste Teil Deines Namens und vom nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da. Mit „intern“ steht dort „anonym“. Am Leiten von Spielen ändert diese Wahl nichts.",
         "Unabhängig davon entscheidest Du ab {medienMinAlter} Jahren, ob Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Bist Du jünger, ist dieser Schalter aus und lässt sich nicht einschalten.",
@@ -921,7 +921,7 @@
     "2026-10-konto-kontakt": {
       "text_version": "2026-10-konto-kontakt",
       "seite": "konto_kontakt",
-      "gilt_ab": "2026-10-03",
+      "gilt_ab": "2026-10-06",
       "absaetze": [
         "Ob wir Dich für {team} in der Saison {saison} auch über WhatsApp erreichen dürfen, entscheidest Du hier. Ist der Schalter an, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Ist er aus, erreichen wir Dich per E-Mail und, wenn es eilt, telefonisch.",
         "Die Liga veröffentlicht manchmal Fotos und Videos von Spieltagen, auf denen auch Kontaktpersonen eines Teams zu sehen sind, und führt Interviews. Ab {medienMinAlter} Jahren entscheidest Du hier für {team} in der Saison {saison}, ob Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden dürfen. Deine Kontaktdaten werden davon nicht berührt und nirgends veröffentlicht.",

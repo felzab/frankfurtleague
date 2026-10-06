@@ -18,7 +18,7 @@ import {
 } from "@/features/schiedsrichter/constants";
 import { Beleg, Fassung, KeinTag } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
-import { Angabe } from "@/shared/components/ui/Angabe";
+import { Angabe, NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -107,7 +107,7 @@ function EinwilligungStand({
       </Angabe>
       {/* Beside the record because the same press wrote it, and on no field of this form: the person
           enters it themselves and no admin payload carries it. */}
-      <Angabe label="Geburtsdatum">{geburtsdatum === null ? <KeinTag>Nicht erfasst</KeinTag> : formatSpielDatum(geburtsdatum)}</Angabe>
+      <Angabe label="Geburtsdatum">{geburtsdatum === null ? <KeinTag>{NICHT_HINTERLEGT}</KeinTag> : formatSpielDatum(geburtsdatum)}</Angabe>
     </dl>
   );
 }

@@ -50,7 +50,7 @@ describe("the contact seat's link control", () => {
         [
           [
             "Unklar, ob der Link verschickt wurde",
-            "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+            "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
             "unknown",
           ],
         ],

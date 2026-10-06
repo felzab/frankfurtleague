@@ -162,8 +162,8 @@ describe("a Spieler row without a number", () => {
   it("says so in text a screen reader reads, and nowhere in an aria-label", () => {
     const html = table([STILLGELEGT, AUSGETRAGEN]);
 
-    assert.ok(html.includes('<span class="sr-only">Keine Nummer</span>'), "the empty chip says nothing a screen reader reads");
-    assert.doesNotMatch(html, /aria-label="Keine Nummer"/, "the empty chip is named by an aria-label again");
+    assert.ok(html.includes('<span class="sr-only">Ohne Nummer</span>'), "the empty chip says nothing a screen reader reads");
+    assert.doesNotMatch(html, /aria-label="Ohne Nummer"/, "the empty chip is named by an aria-label again");
     assert.ok(textOf(html).includes("7"), "the numbered row lost its number, so the empty one is compared against nothing");
   });
 });

@@ -1,4 +1,5 @@
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
+import { NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
 
 import type { FLEinwilligungNachweis } from "@/features/spieler/schemas";
 import type { ReactNode } from "react";
@@ -29,7 +30,7 @@ export function Beleg({
  * record citing words nobody can produce, and a bare key renders the two alike.
  */
 export function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean | null }) {
-  if (textVersion === null) return <KeinTag>Nicht erfasst</KeinTag>;
+  if (textVersion === null) return <KeinTag>{NICHT_HINTERLEGT}</KeinTag>;
 
   // `null` where the registry's read failed: the key stands, and the check says it was not made.
   if (istBekannt === null) {

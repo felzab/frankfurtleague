@@ -35,7 +35,7 @@ describe("appToast.failure", () => {
   /* A send saves nothing, so „gespeichert“ misstates what is unknown there: the site's own title for
      an unknown outcome stands in, and never over an outcome that is known. */
   it("raises the site's own unknown title where it names one, and only where the outcome is unknown", () => {
-    const error = "Prüfe die Verbindung und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
+    const error = "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
     appToast.failure("Link nicht gesendet", { error, outcome: "unknown" }, "Unklar, ob der Link verschickt wurde");
     appToast.failure("Link nicht gesendet", { error: "Der Link wurde nicht gesendet." }, "Unklar, ob der Link verschickt wurde");
 

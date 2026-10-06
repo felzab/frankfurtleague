@@ -40,7 +40,7 @@ const BESTAETIGT_TITEL = "Was Du bestätigt hast";
 const ANGABEN_TITEL = "Deine Angaben";
 
 /**
- * The account page's „Deine Einwilligung“ section, one control per record the person holds. Nothing
+ * The account page's „Deine Einträge“ section, one control per record the person holds. Nothing
  * where they hold none: the page is every signed-in person's, most of whom hold no consent.
  */
 export function EinwilligungPanel({ eintraege }: { eintraege: readonly EinwilligungEintrag[] }) {
@@ -52,7 +52,7 @@ export function EinwilligungPanel({ eintraege }: { eintraege: readonly Einwillig
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
-          title="Deine Einwilligung"
+          title="Deine Einträge"
         />
       </div>
       <div className={panel.body()}>

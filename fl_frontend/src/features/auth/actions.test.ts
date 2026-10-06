@@ -151,7 +151,7 @@ describe("the sign-in boundary's panel", () => {
   it("says the website cannot be reached, and offers the way back", async () => {
     const { SignInActionFallback } = await import("./components/ui/SignInActionFallback.tsx");
 
-    const text = textOf(renderMarkup(SignInActionFallback, { onRetry: () => undefined }));
+    const text = textOf(renderMarkup(SignInActionFallback, {}));
 
     assert.ok(text.includes("Die Website ist gerade nicht erreichbar."), text);
     assert.match(text, /Erneut versuchen/);
@@ -160,6 +160,6 @@ describe("the sign-in boundary's panel", () => {
   it("is announced, because it arrives on a press rather than standing there from first paint", async () => {
     const { SignInActionFallback } = await import("./components/ui/SignInActionFallback.tsx");
 
-    assert.match(renderMarkup(SignInActionFallback, { onRetry: () => undefined }), /role="alert"/);
+    assert.match(renderMarkup(SignInActionFallback, {}), /role="alert"/);
   });
 });

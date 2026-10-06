@@ -636,7 +636,7 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
   });
 
 const REGISTRIERUNG_ID = "68c1f0a2b3c4d5e6f7a8b952";
-const REGISTRIERUNG_TITEL = "Registrierung: SG Alpha, Saison 2026";
+const REGISTRIERUNG_TITEL = "Als Spielerin oder Spieler: Registrierung für SG Alpha, Saison 2026";
 
 /** A pending registration on the account page: withdraw-only, its scope chips beside its media switch. */
 const kontoRegistrierung = (medien: boolean) =>
