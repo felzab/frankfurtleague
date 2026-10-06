@@ -39,8 +39,6 @@ def get_record_collections(
     bewerbungen_collection: Annotated[AsyncCollection, Depends(get_bewerbungen_collection)],
     registrierungen_collection: Annotated[AsyncCollection, Depends(get_registrierungen_collection)],
 ) -> RecordCollections:
-    """The request's handles on every collection a mailbox's records sit in."""
-
     return RecordCollections(
         saison_teams_collection=saison_teams_collection,
         saisons_collection=saisons_collection,

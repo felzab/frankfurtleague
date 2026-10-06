@@ -976,8 +976,6 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
 
 
 def kontakte_fassungen_genannt(*, kontakte: Mapping[str, Any] | None) -> dict[str, str]:
-    """The label each seat of a contacts save names, keyed by seat."""
-
     seats = {slot: kontakte.get(slot) for slot in KONTAKT_ROLLEN} if kontakte is not None else {}
 
     return {slot: str(seat["einwilligung"]["text_version"]) for slot, seat in seats.items() if isinstance(seat, Mapping)}
@@ -1155,8 +1153,6 @@ def voids_a_live_link(*, stored_kontakte: Any, stored_bestaetigungen: Any, besta
 
 
 def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
-    """The stored link block with the minted seats replaced, every other seat as it stood."""
-
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
 
     return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_ROLLEN}

@@ -1051,8 +1051,6 @@ def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
 
 
 def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> KontaktSeite:
-    """The page an application's seat opens."""
-
     einwilligung = _einwilligung_of(bewerbung_raw.get("kontakte"), seat)
 
     # Before `eingetragen_von`: the submission stamps its own day on every seat it writes, and a reseat the
@@ -1072,8 +1070,6 @@ def antwort_seite(*, seiten: Sequence[KontaktSeite], verwaltet: KontaktSeite) ->
 
 
 def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence[str]) -> KontaktSeite:
-    """The page an application's link opens for the seats its answer writes."""
-
     return antwort_seite(
         seiten=[bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat=seat) for seat in seats], verwaltet="bestaetigung_kontakt_verwaltung"
     )

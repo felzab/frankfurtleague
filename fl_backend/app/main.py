@@ -255,8 +255,6 @@ PROTOCOL_FAMILIES_EXTENSION = "x-fl-protocol-families"
 
 
 def refusal_family(code: str) -> str:
-    """`REQ-AUTH-001`'s `AUTH`."""
-
     return code.split("-")[1]
 
 
