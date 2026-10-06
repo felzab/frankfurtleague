@@ -20,6 +20,7 @@ const SCHIEDSRICHTERIN: FLSchiedsrichterSelbst = {
   name: "Mara Okafor",
   schule: "Lessing-Gymnasium",
   kontakt: { telefon: "069 1234567", email: "mara@example.org" },
+  honorar: 25,
   geburtsdatum: "2007-03-01",
   inactive_since: null,
   einwilligung: {
@@ -43,11 +44,13 @@ const renderView = (schiedsrichter: readonly FLSchiedsrichterSelbst[] = [SCHIEDS
 
 describe("a referee's own page", () => {
   /* The person tier's read, read by the person it names: the whole name and their own contact details. */
-  it("shows the whole name, the school, the contact details and the birthdate under one panel heading", () => {
+  /* The fee among them: the referee's confirmation page lists it as stored, so the page shows it. */
+  it("shows the whole name, the school, the contact details, the birthdate and the fee under one panel heading", () => {
     renderView();
 
     assert.equal(screen.getAllByRole("heading", { level: 2, name: "Deine Angaben" }).length, 1);
-    for (const wert of ["Mara Okafor", "Lessing-Gymnasium", "mara@example.org", "069 1234567", "01.03.2007"]) {
+    // The fee with a plain space: the matcher folds the node's whitespace, the formatter's no-break space among it, and never its own.
+    for (const wert of ["Mara Okafor", "Lessing-Gymnasium", "mara@example.org", "069 1234567", "01.03.2007", "25,00 €"]) {
       assert.ok(screen.getByText(wert), `the page does not show „${wert}“`);
     }
   });

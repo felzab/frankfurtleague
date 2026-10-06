@@ -60,6 +60,7 @@ from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import InterleavedCollection
+from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.whole_database import every_collection_as_text
 from tests.worker import worker_database
@@ -1202,35 +1203,28 @@ class TestARolloverInsideTheConsentPress:
 class TestTheLinkLookupWalksAnIndex:
     """Strangers drive both lookups a link press makes, so neither may scan its collection.
 
-    Read off the server's profiler through the handler, as `tests/api/test_spieler_email_reads.py` reads
-    the address lookups: a filter rebuilt without its index goes red here.
+    Each lookup the handler sends is explained by the server (`tests/plans.py`): a filter rebuilt
+    without its index goes red here.
     """
 
     def test_every_token_lookup_plans_an_index_scan(self, mongo_replica_set_url: str):
         lookups = (Collection.BEWERBUNGEN, Collection.SAISON_TEAMS)
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            response = await save(database, THREE)
-            await database.command("profile", 2)
-            try:
-                await ansicht(database, response.bestaetigungen[0].token)
-            finally:
-                await database.command("profile", 0)
-            profiled = (
-                await database["system.profile"].find({"ns": {"$in": [f"{DATABASE_NAME}.{name}" for name in lookups]}}).to_list(length=None)
+            token = (await save(database, THREE)).bestaetigungen[0].token
+            _, plans = await plans_of_sent_reads(
+                mongo_replica_set_url,
+                database,
+                lambda watched, _client: ansicht(watched, token),
+                lambda collection, command: collection in lookups and "$or" in (command.get("filter") or {}),
             )
-            await database.drop_collection("system.profile")
 
-            return [
-                (entry["ns"], str(entry.get("planSummary")))
-                for entry in profiled
-                if "$or" in ((entry.get("command") or {}).get("filter") or {})
-            ]
+            return plans
 
-        plans = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+        plans = on_a_league(mongo_replica_set_url, body)
 
-        # The premise: a lookup the profiler never saw would pass the next line vacuously.
-        assert sorted(ns.rsplit(".", 1)[1] for ns, _ in plans) == sorted(str(name) for name in lookups), plans
+        # The premise: a lookup the handler never sent would pass the next line vacuously.
+        assert sorted(collection for collection, _ in plans) == sorted(str(name) for name in lookups), plans
         assert all("IXSCAN" in plan and "COLLSCAN" not in plan for _, plan in plans), plans
 
 

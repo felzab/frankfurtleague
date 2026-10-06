@@ -80,7 +80,7 @@ export const AKTOR_HERKUNFT: Record<FLAktor["kind"], AktionHerkunft> = {
   public: "public",
 };
 
-/** The word a signed-in person's row names the Funktion by, beside the start of their pseudonym. */
+/** The word naming, on a signed-in person's row, the kind of person the write was made as, beside the start of their pseudonym. */
 export const AKTOR_FUNKTION_LABELS: Record<FLAktorPerson["funktion"], string> = {
   kontakt: "Kontakt",
   spieler: "Spieler",

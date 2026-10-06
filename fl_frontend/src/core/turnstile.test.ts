@@ -86,9 +86,11 @@ describe("the bot check's verdict on a submission", () => {
 describe("a request of ours Cloudflare refuses", () => {
   /* A wrong, expired or rotated secret, or a request shape of ours: let through, it would switch the check
      off on every form with nothing but a log line saying so. */
+  /* Answered as Cloudflare answers them, at 400: posted with its published dummy secrets, every request fault
+     came back 400 and every judgement of a token 200. */
   for (const code of ["missing-input-secret", "invalid-input-secret", "bad-request"]) {
-    it(`refuses the submission on ${code}, with a sentence of its own and one line naming no token`, async () => {
-      answers = [judged([code])];
+    it(`refuses the submission on ${code}, with a sentence of its own and one line naming the code and no token`, async () => {
+      answers = [() => json({ success: false, "error-codes": [code] }, 400)];
 
       assert.equal(await turnstileRefusal(TEST_TOKEN), PRUEFUNG_GESTOERT);
       assert.equal(asked.length, 1, "a request Cloudflare refused was asked again");
@@ -96,15 +98,15 @@ describe("a request of ours Cloudflare refuses", () => {
         logs.map(({ message }) => message),
         ["turnstile.request_refused"],
       );
-      assert.match(logs[0]?.meta ?? "", /"error_code":"FE-TURNSTILE-002"/);
+      assert.match(logs[0]?.meta ?? "", new RegExp(`"error_code":"FE-TURNSTILE-002","codes":"${code}","status":400`));
       assert.ok(!logs[0]?.meta.includes(TEST_TOKEN), "the line carried the token");
     });
   }
 
-  /* A 4xx is Cloudflare answering that our request is wrong, which no retry and no visitor repairs. */
+  /* A 4xx naming no code is still Cloudflare answering that our request is wrong, which no retry repairs. */
   for (const status of [400, 403]) {
-    it(`refuses the submission on a ${String(status)}, with that sentence and one line naming the status`, async () => {
-      answers = [() => json({}, status)];
+    it(`refuses the submission on a ${String(status)} naming no code, with that sentence and one line naming the status`, async () => {
+      answers = [() => new Response("<html>", { status: status })];
 
       assert.equal(await turnstileRefusal(TEST_TOKEN), PRUEFUNG_GESTOERT);
       assert.equal(asked.length, 1, "a request Cloudflare refused was asked again");

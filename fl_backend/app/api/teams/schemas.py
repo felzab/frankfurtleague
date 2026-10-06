@@ -398,7 +398,7 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         the rule above has already held the two blocks equal.
         """
 
-        seats = [seat for seat in ("trainer", "ansprechperson", "stellvertretung") if seat != self.trainer_ist_zugleich]
+        seats = [seat for seat in KONTAKT_ROLLEN if seat != self.trainer_ist_zugleich]
         people: list[_KontaktpersonWritablePayload] = [person for seat in seats if (person := getattr(self, seat)) is not None]
 
         # On the sign-in fold: two seats one sign-in reaches are one identity, and `casefold` would

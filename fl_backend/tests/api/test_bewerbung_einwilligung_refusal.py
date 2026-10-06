@@ -93,6 +93,8 @@ def application(**overrides: Any) -> dict[str, Any]:
 
 
 class TestTheSeatSpellings:
+    """`seat_named` answers a seat's own spelling and nothing else, the block's other key included."""
+
     @pytest.mark.parametrize("value", [*KONTAKT_ROLLEN, "trainer_ist_zugleich", "", None, 7])
     def test_only_a_seat_is_named(self, value: Any):
         assert seat_named(value) == (value if value in KONTAKT_ROLLEN else None)

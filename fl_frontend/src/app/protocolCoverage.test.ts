@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import z from "zod";
 
+import { PROTOCOL_FAMILIES } from "@/core/errors.ts";
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
@@ -26,11 +27,15 @@ const { handleUndoRequest } = await import("@/shared/utils/undoRoute.ts");
 /** The shared reader's words for a request the running API cannot take, which a slice's own mapper may word first. */
 const EINZELNE_ANGABEN_ABGELEHNT = "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.";
 
+/** The router answers it where no operation matched, so no operation publishes a code of it. */
+const ROUTE_FAMILY = "ROUTE";
+
 /**
- * The classes whose codes `fl_frontend/src/core/errors.ts :: isRefusalCode` hands no slice mapper. Never `REQ-ROUTE-`:
- * the router answers it where no operation matched, so no operation publishes it.
+ * The families whose codes `fl_frontend/src/core/errors.ts :: isRefusalCode` hands no slice mapper, read off its list
+ * so a family added there is asked here.
  */
-const SPINE_CLASSES = /^REQ-(?:AUTH|VAL|DROSSELUNG)-/;
+const SPINE_FAMILIES = PROTOCOL_FAMILIES.filter((family) => family !== ROUTE_FAMILY);
+const SPINE_CODE = new RegExp(`^REQ-(?:${SPINE_FAMILIES.join("|")})-`);
 
 /** A code of the same class the backend declares nowhere, answered as a code no reader names is. */
 const unclaimedBeside = (code: string): string => code.replace(/\d{3}$/, "000");
@@ -108,7 +113,7 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
 type Published = { readonly operation: string; readonly code: string; readonly status: number; readonly tier: KeyTier | null };
 
 const PUBLISHED: readonly Published[] = publishedOperations().flatMap(({ operation, declaration, answers }) =>
-  answers.filter(({ code }) => SPINE_CLASSES.test(code)).map(({ code, status }) => ({ operation, code, status, tier: keyTierOf(declaration) })),
+  answers.filter(({ code }) => SPINE_CODE.test(code)).map(({ code, status }) => ({ operation, code, status, tier: keyTierOf(declaration) })),
 );
 
 /** RFC 9110's safe methods, which no write spine sends: a read hands every failure to its page's error boundary. */
@@ -202,6 +207,13 @@ describe("every published credential, request-validation and day-ceiling code ag
       [],
       "an answer for a code the document does not publish",
     );
+  });
+
+  /* A stale exclusion would leave the families asked above as they were while one of them went unasked. */
+  it("leaves out only the routing family, which the protocol holds and no operation publishes", () => {
+    assert.ok(PROTOCOL_FAMILIES.includes(ROUTE_FAMILY), `${ROUTE_FAMILY} is no longer a protocol family`);
+    const routing = publishedOperations().flatMap(({ answers }) => answers.filter(({ code }) => code.startsWith(`REQ-${ROUTE_FAMILY}-`)));
+    assert.deepEqual(routing, [], "an operation publishes a routing code, which no case here asks about");
   });
 
   it("publishes a code nobody is shown on the system tier alone", () => {

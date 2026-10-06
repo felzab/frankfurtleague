@@ -267,3 +267,8 @@ import { useActionState as reactActionState } from "react"; // expect: action-st
 declare const React: { useActionState: unknown };
 export const ACTION_STATE_TAKEN = [reactActionState, React.useActionState]; // expect: action-state
 export const ACTION_STATE_NAMED = "useActionState"; // expect: action-state
+export const ACTION_STATE_TEMPLATE = `useActionState`; // expect: action-state
+import { useFormState as domFormState } from "react-dom"; // expect: action-state
+declare const ReactDOM: { useFormState: unknown };
+export const FORM_STATE_TAKEN = [domFormState, ReactDOM.useFormState]; // expect: action-state
+export const FORM_STATE_NAMED = "useFormState"; // expect: action-state

@@ -290,13 +290,19 @@ class PersonsRunningARivalBeforeTheInsert(InterleavedCollection):
 
 
 async def decline(
-    database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: Any, *, grund: Any = None, identifier: str = ANNA
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    registrierung_id: Any,
+    *,
+    grund: Any = None,
+    identifier: str = ANNA,
+    registrierungen: Any = None,
 ) -> Any:
     return await ablehnen(
         registrierung_id=registrierung_id,
         ablehnung_data=FLRegistrierungAblehnenPayload(grund=grund),
         identifier=identifier,
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         records=record_collections(database),
         db=client,
@@ -1097,7 +1103,37 @@ class TestEverySeatActsAlike:
         assert after == before
 
 
+class RegistrationsRunningARivalAfterTheirRead(InterleavedCollection):
+    """`registrierungen` with a rival run once just after the decline read the pending registration, before it writes."""
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        await self.run_the_rival()
+
+        return found
+
+
 class TestTheDecline:
+    def test_a_rival_decision_landing_after_its_read_makes_it_retry_and_miss(self, mongo_replica_set_url: str):
+        """The rival's decision stands: the decline's write conflicts with it, and the retry's read finds nothing pending."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            registrierung_id = await seed(database, registrierung_document())
+
+            async def the_rival_declines() -> None:
+                await decline(database, client, registrierung_id, grund="andere_person", identifier=THEO)
+
+            registrierungen = RegistrationsRunningARivalAfterTheirRead(database[Collection.REGISTRIERUNGEN], the_rival_declines)
+            with pytest.raises(DocumentNotFoundException):
+                await decline(database, client, registrierung_id, registrierungen=registrierungen)
+
+            return registrierungen.passes, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
+
+        passes, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert stored is not None and stored["entscheidung"] == {"getroffen_am": TODAY, "von": THEO, "grund": "andere_person"}
+        assert passes == 2, "one read is a decline that wrote over the rival's decision without a retry"
+
     @pytest.mark.parametrize("grund", [None, "andere_person"])
     def test_it_writes_the_state_and_the_decision_and_nothing_else(self, mongo_replica_set_url: str, grund: str | None):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

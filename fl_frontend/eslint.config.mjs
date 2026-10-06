@@ -533,14 +533,20 @@ const PASSKEY_DELETION = {
 };
 
 /**
- * React's `useActionState` hands an action's rejection to the nearest error boundary, which reads nothing
- * of it, the edge's own 429 included. The hook the codebase takes it through answers that one.
+ * React's `useActionState`, and react-dom's `useFormState` it renamed, hand an action's rejection to the nearest
+ * error boundary, which reads nothing of it, the edge's own 429 included. The hook the codebase takes it through
+ * answers that one.
  */
+const ACTION_STATE_HOOKS = "/^(?:useActionState|useFormState)$/";
 const ACTION_STATE_BAN = {
-  selector:
-    'ImportSpecifier[imported.name="useActionState"], MemberExpression[property.name="useActionState"], Literal[value="useActionState"]',
+  selector: [
+    `ImportSpecifier[imported.name=${ACTION_STATE_HOOKS}]`,
+    `MemberExpression[property.name=${ACTION_STATE_HOOKS}]`,
+    `Literal[value=${ACTION_STATE_HOOKS}]`,
+    `TemplateElement[value.cooked=${ACTION_STATE_HOOKS}]`,
+  ].join(", "),
   message:
-    "Take `useActionState` through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I838).",
+    "Take `useActionState`, or react-dom's `useFormState`, through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I838).",
   exempt: ["src/shared/hooks/useAnsweredActionState.ts"],
 };
 
@@ -1126,7 +1132,7 @@ const SOURCE_BANS = [
     // The spine alone drops a tag, wherever a write may stand: one dropped after an awaited write is
     // never reached by a write whose answer was lost.
     selector:
-      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], MemberExpression[property.name="updateTag"])',
+      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], MemberExpression[property.name="updateTag"], MemberExpression[computed=true][property.value="updateTag"])',
     message:
       "Declare a write's cache tags with `invalidatesOnWrite` before the write: fl_frontend/src/shared/utils/adminMutation.ts drops them, a lost answer included (docs/frontend/spec.md :: I894).",
     exempt: ["src/shared/utils/adminMutation.ts"],
@@ -1142,7 +1148,7 @@ const SOURCE_BANS = [
     // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
     // write may stand, where a drop of its own after the answer misses a lost one.
     selector:
-      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], MemberExpression[property.name=/^revalidate(?:Tag|Path)$/])',
+      ':matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], MemberExpression[property.name=/^revalidate(?:Tag|Path)$/], MemberExpression[computed=true][property.value=/^revalidate(?:Tag|Path)$/])',
     message:
       "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts, an undo route's `tags` under fl_frontend/src/shared/utils/undoRoute.ts.",
     exempt: ["src/shared/utils/publicRoute.ts", "src/shared/utils/undoRoute.ts"],

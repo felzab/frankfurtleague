@@ -20,11 +20,17 @@ const { EinwilligungPanel } = await import("./EinwilligungPanel.tsx");
 const { EinwilligungForm } = await import("./EinwilligungForm.tsx");
 
 /** Pressed by no case: the panel's own suite reads what it lays out, and the control's presses are its own suite's. */
-const speichereAction = () => Promise.resolve({ success: true as const, nachweis_stand: { medien: null } });
+const speichereAction = () => Promise.resolve({ success: true as const, nachweis_stand: { umfang: null, medien: null } });
 
-const eintrag = (id: string, titel: string, bestaetigt: EinwilligungEintrag["bestaetigt"]): EinwilligungEintrag => ({
+const eintrag = (
+  id: string,
+  titel: string,
+  bestaetigt: EinwilligungEintrag["bestaetigt"],
+  angaben?: EinwilligungEintrag["angaben"],
+): EinwilligungEintrag => ({
   id: id,
   titel: titel,
+  ...(angaben === undefined ? {} : { angaben: angaben }),
   bestaetigt: bestaetigt,
   control: h(EinwilligungForm, {
     worte: {
@@ -32,8 +38,8 @@ const eintrag = (id: string, titel: string, bestaetigt: EinwilligungEintrag["bes
       medien: { schalter: `Fotos von mir (${titel})`, absatz: "Fotos kannst Du hier zurücknehmen." },
       widerruf: "Jede Änderung gilt ab dem Speichern.",
     },
-    gespeichert: { medien: false },
-    nachweisStand: { medien: null },
+    gespeichert: { umfang: "intern", medien: false },
+    nachweisStand: { umfang: null, medien: null },
     medienAngeboten: true,
     erteilbar: true,
     speichereAction: speichereAction,
@@ -86,6 +92,20 @@ describe("the account page's consent section", () => {
     const region = document.getElementById(trigger.getAttribute("aria-controls") ?? "") ?? assert.fail("the disclosure controls no region");
     assert.ok(within(region).getByText("Die Worte, denen zugestimmt wurde."));
     assert.equal(within(region).queryAllByRole("switch").length, 0, "the confirmed words carry a control");
+  });
+
+  /* The stamped words promise the person sees what is stored: a record's stored data stands under its
+     own heading, a rung under the record's title, and a record serving none heads nothing. */
+  it("shows a record's stored data under its own heading, and none for a record serving none", () => {
+    renderPanel([
+      eintrag("a", "Erster Eintrag", null, h("dl", null, h("dt", null, "Name"), h("dd", null, "Alina Fischer"))),
+      eintrag("b", "Zweiter Eintrag", null),
+    ]);
+
+    const [erste, zweite] = [screen.getByRole("group", { name: "Erster Eintrag" }), screen.getByRole("group", { name: "Zweiter Eintrag" })];
+    assert.ok(within(erste).getByRole("heading", { level: 4, name: "Deine Angaben" }));
+    assert.ok(within(erste).getByText("Alina Fischer"));
+    assert.equal(within(zweite).queryAllByRole("heading", { name: "Deine Angaben" }).length, 0, "a record serving no data heads some");
   });
 
   it("offers no disclosure for a record whose confirmed wording the registry does not hold", () => {

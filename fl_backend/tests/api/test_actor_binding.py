@@ -41,7 +41,6 @@ from app.core.security import (
     MISSING_ACTOR,
     PERSON_ACTOR_BINDERS,
     PERSON_BARRED,
-    SAFE_METHODS,
     STEP_UP_WINDOW_S,
     BanLookup,
     GrantLookup,
@@ -78,6 +77,10 @@ ROUTE_TEMPLATE = "/api/v0/teams/{team_id}"
 READ_PATH = "/api/v0/aktionen"
 
 ACTOR = "admin@example.com"
+
+# The methods that record nothing, which every write inventory here and in
+# `tests/api/test_drosselung.py` leaves out.
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 # The one route the two exemptions below name, spelled once.
 PUBLIC_WRITE_PATH = "/api/v0/bewerbungen"

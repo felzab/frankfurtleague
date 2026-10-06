@@ -59,7 +59,7 @@ const { raised } = doubleToasts();
 const fetchMock = doubleFetch();
 
 const { SicherheitPanel } = await import("./SicherheitPanel.tsx");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { LETZTER_PASSKEY } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
 const { refusalWrappers } = await import("@/shared/testing/renderTest.ts");
 
@@ -470,7 +470,7 @@ describe("adding a passkey", () => {
     await waitFor(() => assert.equal(raised.length, 1));
     assert.deepEqual(
       [raised[0]?.title, raised[0]?.description, raised[0]?.options?.outcome],
-      ["Unklar, ob es gespeichert wurde", unansweredAction().error, "unknown"],
+      ["Unklar, ob es gespeichert wurde", outcomeUnknown().error, "unknown"],
     );
   });
 });

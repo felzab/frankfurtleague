@@ -1026,8 +1026,6 @@ def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, 
 
 
 def compose_ablehnung_update(*, von: str, grund: Any, today: str) -> Mapping[str, Any]:
-    """The decline: the state and the decision, and nothing else of the row moves."""
-
     return {"$set": {"status": DECLINED, "entscheidung": {"getroffen_am": today, "von": von, "grund": grund}}}
 
 

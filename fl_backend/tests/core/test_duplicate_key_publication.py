@@ -655,20 +655,30 @@ def _filled(scope: Mapping[str, Values], declaration: Declaration, module: Modul
     return result
 
 
+@functools.cache
+def _assignments(declaration: Declaration) -> tuple[tuple[str, ast.expr], ...]:
+    """Read once a declaration: the trace reads one under every binding of its arguments it meets."""
+
+    return tuple(
+        [
+            (target.id, node.value)
+            for node in ast.walk(declaration)
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        ]
+        + [
+            (node.target.id, node.value)
+            for node in ast.walk(declaration)
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None
+        ]
+    )
+
+
 def _local_scope(declaration: Declaration, bound: Mapping[str, Values], module: ModuleType) -> dict[str, Values]:
     """What each name inside `declaration` can hold, closures included, whatever order it is assigned in."""
 
-    assignments = [
-        (target.id, node.value)
-        for node in ast.walk(declaration)
-        if isinstance(node, ast.Assign)
-        for target in node.targets
-        if isinstance(target, ast.Name)
-    ] + [
-        (node.target.id, node.value)
-        for node in ast.walk(declaration)
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None
-    ]
+    assignments = _assignments(declaration)
 
     scope = _filled(bound, declaration, module)
     # One pass per assignment is enough for a chain of them to settle, each pass starting over so
@@ -677,7 +687,11 @@ def _local_scope(declaration: Declaration, bound: Mapping[str, Values], module: 
         settled = dict(bound)
         for name, value in assignments:
             settled[name] = _distinct(iter((*settled.get(name, ()), *_values(value, scope, module))))
-        scope = _filled(settled, declaration, module)
+        settled = _filled(settled, declaration, module)
+        # Settled: every later pass would read this same scope and answer it again.
+        if settled == scope:
+            break
+        scope = settled
 
     return scope
 
@@ -867,6 +881,13 @@ def _write_at(call: ast.Call, chain: tuple[Declaration, ...], path: Path, scope:
     return Write(target.name, collections, site, chooses_id, kind="through", inner=tuple(_writes(target, target_path, bound, set())))
 
 
+@functools.cache
+def _nested(declaration: Declaration) -> frozenset[int]:
+    """Read once a declaration, as `_assignments` is."""
+
+    return frozenset(id(node) for node in ast.walk(declaration) if node is not declaration)
+
+
 def _writes(declaration: Declaration, path: Path, bound: Mapping[str, Values], seen: set[tuple[Any, ...]]) -> Iterator[Write]:
     """Every write `declaration` reaches, a `app/core/crud.py` helper or the driver's own, each helper followed with its arguments bound.
 
@@ -876,7 +897,7 @@ def _writes(declaration: Declaration, path: Path, bound: Mapping[str, Values], s
 
     module = _module(path)
     scope = _local_scope(declaration, bound, module)
-    nested = {id(node) for node in ast.walk(declaration) if node is not declaration}
+    nested = _nested(declaration)
 
     for chain, call in scoped_calls(declaration, (declaration,)):
         write = _write_at(call, chain, path, scope, module)

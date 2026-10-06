@@ -26,6 +26,7 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -197,10 +198,9 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
     )
 
 
-def names_an_address(entry: Mapping[str, Any]) -> bool:
-    """Whether a profiled `spieler` operation matched on a stored address, rather than on an id or on no address at all."""
+def names_an_address(command: Mapping[str, Any]) -> bool:
+    """Whether a `spieler` find or aggregate matches on a stored address, rather than on an id or on no address at all."""
 
-    command = entry.get("command") or {}
     stages = [stage.get("$match", {}) for stage in command.get("pipeline", [])]
     filters = [command.get("filter") or {}, *stages]
 
@@ -208,22 +208,20 @@ def names_an_address(entry: Mapping[str, Any]) -> bool:
 
 
 def plans_reading_addresses(url: str, reader: Reader) -> tuple[Any, ObjectId, list[str]]:
-    """The reader's answer, the seeded registration's id, and the plan of every `spieler` operation the reader matched on an address."""
+    """The reader's answer, the seeded registration's id, and the server's plan for every `spieler` read it sent matching an address."""
 
     async def _run() -> tuple[Any, ObjectId, list[str]]:
-        # `mutates_schema`: the profiler writes `system.profile`, a namespace the next case's clear must not meet.
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=True) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             invalidate_saison_cache()
             registrierung_id = await seed(database)
-            await database.command("profile", 2)
-            try:
-                answer = await reader(database, client, registrierung_id)
-            finally:
-                await database.command("profile", 0)
-            profiled = await database["system.profile"].find({"ns": f"{DATABASE_NAME}.{Collection.SPIELER}"}).to_list(length=None)
-            await database.drop_collection("system.profile")
+            answer, plans = await plans_of_sent_reads(
+                url,
+                database,
+                lambda watched, client: reader(watched, client, registrierung_id),
+                lambda collection, command: collection == Collection.SPIELER and names_an_address(command),
+            )
 
-            return answer, registrierung_id, [str(entry.get("planSummary")) for entry in profiled if names_an_address(entry)]
+            return answer, registrierung_id, [plan for _, plan in plans]
 
     return on_the_seed_loop(_run())
 
@@ -231,8 +229,8 @@ def plans_reading_addresses(url: str, reader: Reader) -> tuple[Any, ObjectId, li
 class TestEveryAddressReadUsesTheIndex:
     """`uniq_spieler_email` is partial on `$type: "string"`, which an equality alone does not imply.
 
-    Driven through each caller and read off the profiler: a call site dropping the term goes red here
-    where a builder's own case would not.
+    Driven through each caller, its address reads explained: a call site dropping the term goes red
+    here where a builder's own case would not.
     """
 
     @pytest.mark.parametrize(
@@ -252,12 +250,12 @@ class TestEveryAddressReadUsesTheIndex:
     def test_the_plan_walks_the_unique_index(self, mongo_replica_set_url: str, reader: Reader):
         answer, registrierung_id, plans = plans_reading_addresses(mongo_replica_set_url, reader)
 
-        # The pending read asks `spieler` only for a confirmed row it served, so an empty profile there is
-        # either a read that served nothing or a profiler that missed it; this names which.
+        # The pending read asks `spieler` for a person only for a confirmed row it served, so a read
+        # serving none skips the lookup this case is for; this names that rather than an empty list.
         if reader is the_pending_read:
             served = [row.registrierung_id for row in answer.registrierungen if row.aufnehmbar]
             assert served == [registrierung_id], f"the pending read served {served}, not the seeded confirmed row"
 
-        # The premise: a reader the profiler never saw matching an address would pass the next line vacuously.
+        # The premise: a reader sending no address read would pass the next line vacuously.
         assert plans
         assert all("IXSCAN { email: 1 }" in plan for plan in plans), plans

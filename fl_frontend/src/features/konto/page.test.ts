@@ -291,13 +291,15 @@ describe("what the security section tells its reader", () => {
 const { answerReadsWith, EMPTIEST_ANSWER, renderPage } = await import("@/shared/testing/pageHarness.ts");
 const { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
 const { FESTE_WERTE } = await import("@/features/bewerbungen/components/ui/Gefuellt.tsx");
-const { bestaetigteWorte, NUR_WIDERRUF_BIS_ZUSAGE, sitzMindestalter } = await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
+const { bestaetigteWorte, NUR_WIDERRUF_BIS_AUFNAHME, NUR_WIDERRUF_BIS_ZUSAGE } =
+  await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
+const { FLKontoEinwilligungenResponseSchema } = await import("./schemas.ts");
 
 const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
 
 /**
- * A Trainer who is also the Stellvertretung, confirmed on the contact page. The read names the Trainer's
- * seat first, so a floor read off that one seat states the Trainer's 16 where the contact page asked 18.
+ * A Trainer who is also the Stellvertretung, confirmed on the contact page. The floor is the read's, 18
+ * over both seats, where a floor taken from the Trainer's seat alone would say 16.
  */
 const SITZ = {
   team_id: SITZ_TEAM_ID,
@@ -305,8 +307,10 @@ const SITZ = {
   saison_id: "2526",
   rollen: ["stellvertretung", "trainer"],
   bestaetigt_text_version: "2026-09-bestaetigungsseite-6",
-  nachweis_stand: { medien: null },
-  kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526", rolle: "trainer" },
+  umfang: "kontaktdaten_whatsapp",
+  nachweis_stand: { umfang: null, medien: null },
+  mindestalter: 18,
+  kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
   medien: false,
   medien_angeboten: true,
   erteilbar: true,
@@ -319,9 +323,11 @@ const BEWERBUNG_SITZ = {
   saison_id: "2627",
   rollen: ["ansprechperson"],
   bestaetigt_text_version: "2026-09-bestaetigungsseite-6",
+  umfang: "kontaktdaten",
   medien: true,
-  nachweis_stand: { medien: "2026-09-01T10:00:00+02:00" },
-  kontext: { vorname: "Erika", team: "Goethe", schule: "Goethe-Gymnasium", saison: "2627", rolle: "ansprechperson" },
+  nachweis_stand: { umfang: null, medien: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90" },
+  mindestalter: 18,
+  kontext: { vorname: "Erika", team: "Goethe", schule: "Goethe-Gymnasium", saison: "2627" },
 };
 
 const EINWILLIGUNG = {
@@ -355,6 +361,7 @@ const SCHIEDSRICHTER = {
   name: "Mara Okafor",
   schule: null,
   kontakt: { telefon: null, email: "mara@example.org" },
+  honorar: 25,
   geburtsdatum: "2007-03-01",
   inactive_since: null,
   einwilligung: { ...EINWILLIGUNG, text_version: "2026-09-schiedsrichterseite-3" },
@@ -365,11 +372,30 @@ const SCHIEDSRICHTER = {
   medien_angeboten: true,
 };
 
+/** A pupil's pending registration, confirmed with both choices on the new pupil's page. */
+const REGISTRIERUNG = {
+  registrierung_id: "6890a1b2c3d4e5f607390051",
+  team_id: SITZ_TEAM_ID,
+  team_name: "Lessing Lions",
+  saison_id: "2627",
+  bestaetigt_text_version: "2026-09-spielerseite-3",
+  umfang: "kader_oeffentlich",
+  medien: true,
+  nachweis_stand: { umfang: null, medien: null },
+  kontext: { vorname: "Nele", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2627" },
+  vorname: "Nele",
+  nachname: "Brandt",
+  geburtsdatum: "2008-02-14",
+  nummer: "7",
+  position: "Mittelfeld",
+  stufe: "Q1",
+};
+
 /** The section's reads answered: the consent words off the backend's generated registry, the person's records as given. */
 function answeringKonto(konto: Record<string, unknown>): void {
   answerReadsWith((endpoint, schema, params) => {
     if (endpoint === "/konto/einwilligungen")
-      return { acknowledged: 1, spieler: null, schiedsrichter: [], sitze: [], bewerbungen: [], ...konto };
+      return { acknowledged: 1, spieler: null, schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], ...konto };
     return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
   });
 }
@@ -398,8 +424,12 @@ describe("the account page's consent section", () => {
     const konto = publishedLaufendeFassung("konto_kontakt");
 
     assert.ok(text.includes("Deine Einwilligung"));
-    assert.ok(text.includes("Fotos, Videos und Interviews: Lessing Lions, Saison 2526"));
-    assert.ok(text.includes(konto.schalter), "the seat's switch is not named by the account page's words");
+    assert.ok(text.includes("Als Stellvertretung und Trainerin oder Trainer: Lessing Lions, Saison 2526"), text);
+    assert.ok(text.includes(konto.schalter), "the seat's media switch is not named by the account page's words");
+    assert.ok(
+      text.includes(konto.bedienelemente.kontaktdaten_whatsapp ?? assert.fail("no WhatsApp control")),
+      "the seat offers no WhatsApp switch",
+    );
     assert.equal(await disclosures(), 1);
   });
 
@@ -413,6 +443,7 @@ describe("the account page's consent section", () => {
     ],
     ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
     ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", FESTE_WERTE.loeschung, FESTE_WERTE.kontakt]],
+    ["a registering pupil", { registrierungen: [REGISTRIERUNG] }, ["Lessing Lions", "Lessing-Gymnasium", "Nele"]],
   ] as const) {
     it(`fills every slot of ${art}'s confirmed words from the record`, async () => {
       setSubject(OHNE_FUNKTION);
@@ -443,7 +474,7 @@ describe("the account page's consent section", () => {
     answeringKonto({ bewerbungen: [BEWERBUNG_SITZ] });
 
     const text = await sectionText();
-    assert.ok(text.includes("Fotos, Videos und Interviews: Bewerbung für Goethe-Gymnasium, Saison 2627"), text);
+    assert.ok(text.includes("Als Ansprechperson: Bewerbung für Goethe-Gymnasium, Saison 2627"), text);
     assert.ok(text.includes(NUR_WIDERRUF_BIS_ZUSAGE), "the seat does not say why it only withdraws");
     assert.equal(await disclosures(), 1);
 
@@ -457,11 +488,13 @@ describe("the account page's consent section", () => {
      a check meant for a different record. */
   it("hands each control the stand its own record was served with", async () => {
     setSubject(OHNE_FUNKTION);
-    const stand = (tag: string) => ({ umfang: null, medien: `2026-10-0${tag}T09:00:00+02:00` });
+    const stand = (tag: string) => ({ umfang: null, medien: tag.repeat(64) });
     answeringKonto({
       spieler: { ...SPIELER, nachweis_stand: stand("1") },
       schiedsrichter: [{ ...SCHIEDSRICHTER, nachweis_stand: stand("2") }],
-      sitze: [{ ...SITZ, nachweis_stand: { medien: stand("3").medien } }],
+      registrierungen: [{ ...REGISTRIERUNG, nachweis_stand: stand("4") }],
+      sitze: [{ ...SITZ, nachweis_stand: stand("3") }],
+      bewerbungen: [{ ...BEWERBUNG_SITZ, nachweis_stand: stand("5") }],
     });
 
     const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
@@ -471,14 +504,72 @@ describe("the account page's consent section", () => {
       [
         ["spieler", stand("1")],
         ["schiedsrichter", stand("2")],
-        ["sitz", { medien: stand("3").medien }],
+        ["registrierung", stand("4")],
+        ["sitz", stand("3")],
+        ["bewerbung", stand("5")],
       ],
     );
   });
 
-  it("names the highest floor any seat held asks, as the contact page judged the person", () => {
-    assert.equal(sitzMindestalter(["trainer"]), 16);
-    assert.equal(sitzMindestalter(["trainer", "ansprechperson"]), 18);
+  /* The floor is the read's, over every seat held on the row: a page reckoning it from the roles itself
+     would name another age the day the backend's rule moves. */
+  it("names the floor the read serves for a seat in the words its person confirmed", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ sitze: [{ ...SITZ, mindestalter: 21 }] });
+
+    assert.ok((await sectionText()).includes("mindestens 21 Jahre"), "the seat's confirmed words name a floor of the page's own");
+  });
+
+  /* A pending registration takes a withdrawal alone until its team admits it, and says so; its press is
+     the registration's own write. */
+  it("lists a pending registration as a withdrawal alone, saying why, with its stored data", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [REGISTRIERUNG] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Registrierung: Lessing Lions, Saison 2627"), text);
+    assert.ok(text.includes(NUR_WIDERRUF_BIS_AUFNAHME), "the registration does not say why it only withdraws");
+    for (const wert of ["Nele Brandt", "14.02.2008", "Mittelfeld", "Q1"])
+      assert.ok(text.includes(wert), `the registration's stored „${wert}“ is not shown`);
+
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+    const control = panel.props.eintraege[0]?.control.props;
+    assert.deepEqual(
+      [control?.erteilbar, control?.medienAngeboten, control?.gespeichert],
+      [false, false, { umfang: "kader_oeffentlich", medien: true }],
+    );
+  });
+
+  /* The stamped words promise the person sees what is stored: the pupil's and the referee's records show
+     their data, the referee's fee among it. */
+  it("shows the stored data of a pupil's and a referee's record", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ spieler: SPIELER, schiedsrichter: [SCHIEDSRICHTER] });
+
+    const text = await sectionText();
+    // The server's markup spells the fee's no-break space as an entity, which the text helper leaves standing.
+    for (const wert of ["Alina Fischer", "02.05.2008", "Mara Okafor", "mara@example.org", "25,00&nbsp;€"]) {
+      assert.ok(text.includes(wert), `the stored „${wert}“ is not shown`);
+    }
+  });
+
+  /* Read off the mirror rather than listed here: a list the read gains with no renderer would otherwise
+     be served and silently dropped (`docs/frontend/spec.md :: I_NEW_KFE_1`). */
+  it("renders every served list, one labelled group per record", async () => {
+    setSubject(OHNE_FUNKTION);
+    const FIXTURES: Record<string, unknown> = {
+      spieler: SPIELER,
+      schiedsrichter: [SCHIEDSRICHTER],
+      sitze: [SITZ],
+      bewerbungen: [BEWERBUNG_SITZ],
+      registrierungen: [REGISTRIERUNG],
+    };
+    const listen = Object.keys(FLKontoEinwilligungenResponseSchema.shape).filter((key) => key !== "acknowledged");
+    assert.deepEqual(listen.toSorted(), Object.keys(FIXTURES).toSorted(), "the read serves a list this case holds no record for");
+    answeringKonto(FIXTURES);
+
+    const html = await renderPage(underNext(h(EinwilligungSection)));
+    assert.equal([...html.matchAll(/aria-labelledby="einwilligung-/g)].length, listen.length, "a served list renders no group of its own");
   });
 
   /* A slot nothing maps, a page naming one the section never fills, fails the render loudly. */
