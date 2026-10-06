@@ -393,8 +393,9 @@ async def ablehnen(
 
         await patch_one_in_db(
             collection=registrierungen_collection,
-            # The status again, as the second lock: a decision landing after the read conflicts with this write.
-            db_filter={"_id": registrierung_id, "status": registrierung_raw["status"]},
+            # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
+            # read finds nothing pending (`TestTheDecline`), so no status term is reached.
+            db_filter={"_id": registrierung_id},
             update=compose_ablehnung_update(von=identifier, grund=ablehnung_data.grund, today=today),
             session=session,
             return_document=ReturnDocument.BEFORE,
