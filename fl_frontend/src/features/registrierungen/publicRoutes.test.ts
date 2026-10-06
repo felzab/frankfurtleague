@@ -952,7 +952,7 @@ describe("the returning pupil's confirmation page", () => {
     assert.ok(!STANDING.includes('role="radiogroup"'), "the returning page offers the publication scopes");
     assert.ok(!STANDING.includes('name="umfang"') && !STANDING.includes('name="medien"'), "the returning page renders a choice's control");
     assert.ok(text.includes(WIEDERKEHREND.bedienelemente.intern), "the stored scope is not shown in its label's words");
-    assert.match(text, /Fotos und Videos\s*erlaubt/, "the stored media answer is not shown");
+    assert.match(text, /Fotos, Videos und Interviews\s*erlaubt/, "the stored media answer is not shown");
     assert.ok(STANDING.includes(`href="${KONTO_HREF}"`), "the page names no way to the account page, where the choices are changed");
   });
 
@@ -995,7 +995,7 @@ describe("the returning pupil's confirmation page", () => {
     const { panel } = await gedrueckt();
 
     assert.ok(panel.includes(WIEDERKEHREND.bedienelemente.intern), "the answer panel drops the standing scope");
-    assert.match(panel, /Fotos und Videos\s*erlaubt/, "the answer panel drops the standing media answer");
+    assert.match(panel, /Fotos, Videos und Interviews\s*erlaubt/, "the answer panel drops the standing media answer");
   });
 });
 
