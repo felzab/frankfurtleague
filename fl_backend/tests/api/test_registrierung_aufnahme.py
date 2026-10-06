@@ -529,10 +529,10 @@ class TestTheSquadCap:
         assert after == before
 
     def test_a_rival_admission_landing_inside_takes_the_last_place(self, mongo_replica_set_url: str):
-        """The rival commits after this admission counted the squad's free place and before its anchor write.
+        """The rival commits after this admission read the season, before its anchor write and its count.
 
-        Forced, as `fl_backend/tests/api/test_capacity_isolation.py` forces the cap: the anchor conflicts,
-        the retry counts the rival's row, and the cap refuses.
+        The count reads the earlier snapshot, so it misses the rival's row: the anchor conflicts, the retry
+        counts the row, and the cap refuses.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
