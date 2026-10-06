@@ -466,8 +466,8 @@ getting it wrong repoints history silently. **A typed name is a weaker key than 
 same argument binds harder here: matching on a name has to propose a candidate rather than resolve
 one, and the resolution belongs to somebody who can be wrong out loud. The confirmation page shows a
 returning pupil their stored birthdate and consent only where its bounded read at their address finds exactly
-one row carrying their name (`fl_backend/app/api/registrierungen/services.py :: sole_person`), which presents
-a match and resolves none. `ist_nachnominiert` is the field that already records a squad entry arriving after the season
+one row carrying their name and a record they confirmed (`fl_backend/app/api/registrierungen/services.py :: seite_of`),
+which presents a match and resolves none. `ist_nachnominiert` is the field that already records a squad entry arriving after the season
 began, derived at the squad row's create from whether the first matchday's `beginn` has come rather than asked
 (`fl_backend/app/api/spieltage/crud.py :: nachnominierung_laeuft_in`), and a registration admitted
 into a running season is precisely that case: the admission derives the marker on the squad row it

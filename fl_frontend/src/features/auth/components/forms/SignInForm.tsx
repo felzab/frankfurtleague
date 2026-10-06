@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { startTransition, useEffect, useRef, useState, useTransition } from "react";
 import { catchError } from "next/error";
 
 import { Button } from "@heroui/react/button";
@@ -9,6 +9,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { Separator } from "@heroui/react/separator";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { Form } from "@/shared/components/ui/Form";
@@ -16,6 +17,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { TextField } from "@/shared/components/ui/TextField";
+import { useAnsweredActionState } from "@/shared/hooks/useAnsweredActionState";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useTurnstile } from "@/shared/hooks/useTurnstile";
@@ -38,9 +40,8 @@ const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 
 const ANMELDEN = { rest: "Anmelden", pending: "Meldet an..." };
 
-/** A check that did not load, naming the passkey, which signs in without it. */
-const PRUEFUNG_NICHT_GELADEN =
-  "Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, oder melde Dich mit einem Passkey an.";
+/** A check that did not load, naming the passkey, which signs in without it, beside the league's address. */
+const PRUEFUNG_NICHT_GELADEN = `Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, melde Dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`;
 
 /**
  * Next's own boundary rather than a hand-written class: a class catches every throw, a framework
@@ -89,7 +90,7 @@ function SignInPanel({
   next: string;
   siteKey: string;
 }) {
-  const [state, formAction, isDispatching] = useActionState(handleSignIn, undefined);
+  const [state, formAction, isDispatching] = useAnsweredActionState(handleSignIn, undefined);
   const humanCheck = useTurnstile(siteKey, PRUEFUNG_NICHT_GELADEN);
   // The press waits for the bot check's token before the send is dispatched, and is a send all along.
   const [isAwaitingToken, startAwaitingToken] = useTransition();

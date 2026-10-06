@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { person } from "@/core/subjectFixtures.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 /* The real action, its spine and its mutation, called: the request it runs in, the subject lookup and
    the backend client are the doubles. */
@@ -13,7 +13,8 @@ const { setSubject } = doubleActionRequest({ session: null, subject: person({ sc
 const { answerWith, calls } = doubleApiAnswers();
 
 const { patchSchiedsrichterEinwilligungAction } = await import("./personActions.ts");
-const { EINTRAG_WEG, MEDIEN_ZU_JUNG, WAHL_GESPEICHERT } = await import("@/features/konto/einwilligung.ts");
+const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, MEDIEN_ZU_JUNG, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
+  await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung";
 const WAHL = {
@@ -92,4 +93,31 @@ describe("a referee's own consent write", () => {
       assert.deepEqual(invalidations(), [], "a refused write dropped a cache or refreshed the page");
     });
   }
+});
+
+/* Every code the document publishes, through the consent writes' one mapper: an action consulting it
+   for the lost record alone would answer the rest in the shared fallback's words. */
+describe("what a referee's own consent write answers a refusal with", () => {
+  it("answers every published refusal of the referee's write through the consent mapper", async () => {
+    setSubject(person({ schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER_ID }] }));
+    await assertEachAnswered({
+      operation: OPERATION,
+      refuseWith: answerWith,
+      act: () => patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, WAHL),
+      mapped: mapEigeneEinwilligungRefusal,
+    });
+  });
+
+  /* A grant past the day's ceiling is told that withdrawing still goes through, where the spine's own
+     sentence would not say so (`docs/frontend/spec.md :: I836`). */
+  it("answers a referee's grant past the day's ceiling with the withdrawal still open", async () => {
+    setSubject(person({ schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER_ID }] }));
+    answerWith(() => Promise.reject(refusedOn(OPERATION, "REQ-DROSSELUNG-001")));
+
+    assert.deepEqual(await (() => patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, WAHL))(), {
+      success: false,
+      error: ZUSTIMMEN_MORGEN,
+      fieldErrors: undefined,
+    });
+  });
 });

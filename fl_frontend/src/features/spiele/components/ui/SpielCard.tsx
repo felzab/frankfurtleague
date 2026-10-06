@@ -10,6 +10,7 @@ import { Button } from "@heroui/react/button";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { benannt } from "@/shared/utils/benannt";
 
 import { computeSpielStatus, ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
@@ -76,7 +77,7 @@ export function SpielCard({
             <IconTooltip label="Spiel bearbeiten">
               <Link
                 href={adminEditHref}
-                aria-label={`Spiel Nr. ${spielData.spiel_nr} bearbeiten`}
+                aria-label={benannt("Spiel bearbeiten", `Spiel Nr. ${spielData.spiel_nr}`)}
                 /* The brand fill rather than `bg-muted`, and the only difference from the info button
                    beside it: same box, same radius, same position, so no layout moves. */
                 className={BRAND_ICON_BUTTON_CLASSES}>

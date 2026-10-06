@@ -6,7 +6,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, assertEachRowPublished, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /** The stored block the press replays, and the token the save left, as the editor builds them. */
@@ -208,7 +208,7 @@ describe("the contacts save's undo", () => {
   /* No cached read holds a contact person, so an invalidation here would clear what the replay never moved. */
   it("clears no cached read, whether the replay lands or is refused", async () => {
     await undo(POST, BODY);
-    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, DUPLICATE_KEY)));
+    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-KONTAKT-003")));
     await undo(POST, BODY);
 
     assert.deepEqual(cacheCalls, []);

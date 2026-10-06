@@ -1,11 +1,8 @@
 import { connection } from "next/server";
 
-import { funktionenOf } from "@/core/funktionen";
-import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
 import { TeamStartView } from "@/features/funktionen/components/views/TeamStartView";
 import { getTeamSitze } from "@/features/funktionen/queries";
-import { requireSubjectSession, requireTeamSeats } from "@/features/funktionen/resolvers";
-import { isFunktionLost } from "@/shared/utils/actionError";
+import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -16,20 +13,13 @@ export default async function TeamStartPage({ params }: NextPageProps<{ team_id:
   if (seats === null) return null;
 
   const { team_id, saison_id } = await params;
-  let sitze;
-  try {
-    ({ sitze } = await getTeamSitze(team_id, saison_id));
-  } catch (error) {
-    // The seat went between the page's own check and the backend's: answered as the shell answers a
-    // seat not held, and every other failure is the area's boundary's.
-    if (!isFunktionLost(error)) throw error;
-    return <TeamForbiddenPanel funktionen={funktionenOf(await requireSubjectSession()).funktionen} />;
-  }
+  const read = await readAsSeatHolder(() => getTeamSitze(team_id, saison_id));
+  if ("forbidden" in read) return read.forbidden;
 
   return (
     <TeamStartView
       seats={seats}
-      sitze={sitze}
+      sitze={read.data.sitze}
     />
   );
 }

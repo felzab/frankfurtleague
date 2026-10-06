@@ -12,6 +12,7 @@ from pymongo.errors import OperationFailure
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
+from app.api.registrierungen.services import compose_confirmation_update
 from app.api.teams.schemas import FLGruppenNames
 from app.core.collections import Collection
 from app.core.constraints import (
@@ -499,6 +500,32 @@ def test_a_conforming_document_is_accepted(mongo_url: str, collection: str):
 )
 def test_a_malformed_document_is_rejected(mongo_url: str, collection: str, document: dict[str, Any], why: str):
     assert insert_outcome(mongo_url, collection, document) == "rejected", f"the validator let through {why}"
+
+
+def _confirmed_registration(*, umfang: Any, medien: Any) -> dict[str, Any]:
+    """A registration as the pupil's own press leaves it, through the composer that press writes with."""
+
+    confirmed = compose_confirmation_update(
+        geburtsdatum="2009-05-04", umfang=umfang, medien=medien, text_version="2026-10-x", today="2026-03-17", am="2026-03-17T08:00:00+00:00"
+    )
+
+    return valid_document("registrierungen", **confirmed["$set"])
+
+
+@pytest.mark.parametrize(
+    ("document", "outcome"),
+    [
+        pytest.param(_confirmed_registration(umfang=None, medien=None), "accepted", id="the returning pupil's stamp and label alone"),
+        pytest.param(_confirmed_registration(umfang="intern", medien=False), "accepted", id="the new pupil's whole record"),
+        pytest.param(
+            valid_document("registrierungen", einwilligung={"text_version": "2026-10-x"}), "rejected", id="a record with no stamp key"
+        ),
+    ],
+)
+def test_a_registrations_record_requires_its_stamp_alone(mongo_url: str, document: dict[str, Any], outcome: str):
+    """The returning pupil's record holds no choice, which `_EINWILLIGUNG` on a person's row would refuse; the stamp's key still binds."""
+
+    assert insert_outcome(mongo_url, "registrierungen", document) == outcome
 
 
 def test_an_absent_embedded_object_is_still_accepted(mongo_url: str):

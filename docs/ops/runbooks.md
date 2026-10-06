@@ -535,8 +535,9 @@ section never exercised against a real page load.
 
 ## 5. When somebody asks for their data, or asks us to change it
 
-Access, rectification, objection, restriction, portability and the withdrawal of a consent all
-arrive the same way and are answered by one person by hand. Erasure has its own mechanisms and is
+Access, rectification, objection, restriction and portability all arrive the same way and are
+answered by one person by hand. The withdrawal of a consent is the person's own write on their
+account page, and a request for one by mail is answered by pointing them there (below). Erasure has its own mechanisms and is
 [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 
@@ -663,8 +664,8 @@ address that record holds:
   choice.
 
 **Taking a contact person off their seat is an erasure, unless the seat's own link still takes
-their Widerspruch.** Which of the three you are in is decided by that seat's own link, not by the
-person's role:
+their Widerspruch.** On an application, which of the three cases below you are in is decided by
+that seat's own link, not by the person's role; a seat on a team's season row is the fourth:
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
   page the link opens, empties the seat at once and tells the submitter so the school can name
@@ -685,6 +686,15 @@ person's role:
   each is a refusal the person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
   like any other.
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
+- **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it
+  is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
+  submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
+  again with „Bestätigungslink senden“ on that seat in the team's contacts editor
+  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
+  whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
+  ended or whose team has left it (`REQ-KONTAKT-005`, `docs/backend/spec.md :: I935`), though a link
+  such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
+  already answered, the route is `POST /kontakte/erasure`.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
 `PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it
@@ -697,12 +707,18 @@ by mail instead has two answers, and which one you give is the person's to choos
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
   on their account page, `/bereich/konto`, which they reach by signing in with the address their
   record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
-  the person did not make is not their consent (`docs/backend/spec.md :: I869`). A pupil whose
-  record holds no address cannot sign in, so theirs is the team's link: they register again choosing
-  the narrower publication, and the team's contact person admits the registration onto the stored
-  record the pending list proposes by name, which writes the address and renews the choice from
-  their own answer (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`).
-  Either write drops the cached squad list, and the next read serves the row as a nameless slot
+  the person did not make is not their consent (`docs/backend/spec.md :: I869`). **A pupil whose
+  record holds no address cannot sign in**, and the one route the code leaves to keep their place
+  takes two writes by their team, in this order. A seat holder first takes the pupil's squad row of
+  the season out, since a live row there refuses any admission (`REQ-REGISTRIERUNG-015`); the pupil
+  then registers again through the team's link while the season's registration window is open,
+  choosing the narrower publication, and a seat holder admits that registration onto the stored
+  record the pending list proposes by name (`docs/backend/spec.md :: I952`). The admission writes the address, rewrites the retired
+  squad row rather than writing a second (`docs/backend/spec.md :: I954`) and renews the choice from
+  the pupil's own answer
+  (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`). Where the window is
+  shut, the erasure above is the only route. Either write that withholds the name drops the cached
+  squad list, and the next read serves the row as a nameless slot
   (`docs/backend/spec.md :: READ-PUPIL-003`); check the public squad page before you answer.
 
 Tell them that the first cannot be undone, and that the second is theirs to change back on the same
@@ -1497,7 +1513,7 @@ and every `pnpm run` and `pnpm exec` in that checkout runs it**, whatever Node t
 installed; `pnpm exec node --version` there prints the pinned release. A pull request moving the pin
 needs nothing more on a machine than the next `pnpm install`.
 
-**A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh` and
-`scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
+**A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh`,
+`.claude/hooks/implementer-whole-suite.sh` and `scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
 https://nodejs.org/en/download, and again whenever the pin moves: a machine left on an older release
 of the line keeps every security flaw fixed since.

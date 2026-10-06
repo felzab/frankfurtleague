@@ -14,12 +14,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.services import compose_selbst_einwilligung_move
-from app.api.registrierungen.einwilligung_router import post_bestaetigung
+from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAblehnenPayload,
     FLRegistrierungAufnehmenPayload,
+    FLRegistrierungBestaetigungAnsichtPayload,
     FLRegistrierungBestaetigungPayload,
 )
 from app.api.registrierungen.services import (
@@ -393,6 +394,7 @@ class TestWhatAnAdmissionWrites:
                     text_version=LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
                 ),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+                spieler_collection=database[Collection.SPIELER],
                 sperrliste=ban_list(database),
                 db=client,
                 today=TODAY,
@@ -527,10 +529,10 @@ class TestTheSquadCap:
         assert after == before
 
     def test_a_rival_admission_landing_inside_takes_the_last_place(self, mongo_replica_set_url: str):
-        """The rival commits after this admission counted the squad's free place and before its anchor write.
+        """The rival commits after this admission read the season, before its anchor write and its count.
 
-        Forced, as `fl_backend/tests/api/test_capacity_isolation.py` forces the cap: the anchor conflicts,
-        the retry counts the rival's row, and the cap refuses.
+        The count reads the earlier snapshot, so it misses the rival's row: the anchor conflicts, the retry
+        counts the row, and the cap refuses.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -805,6 +807,87 @@ class TestThePersonAnAdmissionNames:
 
         assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
         assert after == before
+
+
+async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    """The returning pupil's page pressed: a birthdate, its label, and no choice."""
+
+    return await post_bestaetigung(
+        antwort_data=FLRegistrierungBestaetigungPayload(
+            token=TOKEN,
+            geburtsdatum=GEBURTSDATUM,
+            umfang=None,
+            medien=None,
+            text_version=LAUFENDE_FASSUNGEN["bestaetigung_spieler_wiederkehrend"],
+        ),
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        spieler_collection=database[Collection.SPIELER],
+        sperrliste=ban_list(database),
+        db=client,
+        today=TODAY,
+        germany_now=NOW,
+    )
+
+
+class TestAReturningRegistration:
+    """`docs/backend/spec.md :: I867`: a registration confirmed on the returning pupil's page moves nothing on the person's record."""
+
+    # Confirmed under an older label, its media grant standing, so a renewal of either choice or a
+    # restamp of the label would each move a byte.
+    HELD = {**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True}
+
+    def test_the_admission_leaves_the_persons_record_byte_for_byte(self, mongo_replica_set_url: str):
+        stored_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
+            registrierung_id = await seed(database, registrierung_document(confirmed=False))
+            await confirm_as_returning(database, client)
+            answer = await admit(database, client, registrierung_id)
+
+            return answer.spieler_id, (await persons(database))[0]
+
+        admitted, person = on_a_league(mongo_replica_set_url, body)
+
+        assert admitted == person["_id"] == stored_id
+        assert person["einwilligung"] == self.HELD
+        # The rest of the admission still lands on the person: the registration's birthdate and address.
+        assert (person["geburtsdatum"], person["email"]) == (GEBURTSDATUM, FOLDED_EMAIL)
+
+    def test_a_withdrawal_made_while_the_page_stood_open_stands(self, mongo_replica_set_url: str):
+        """The page opened showing media on, the account page withdrew it, the page was pressed, the team admitted.
+
+        A press sending the choices its page showed would stamp that grant after the withdrawal, and the admission carry it.
+        """
+
+        stored_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
+            registrierung_id = await seed(database, registrierung_document(confirmed=False))
+            view = await get_bestaetigung_ansicht(
+                ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=TOKEN),
+                registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+                teams_collection=database[Collection.TEAMS],
+                spieler_collection=database[Collection.SPIELER],
+                sperrliste=ban_list(database),
+                today=TODAY,
+            )
+            held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
+            press = compose_selbst_einwilligung_move(
+                bloecke=[("einwilligung", held)], umfang=None, medien=False, am="2026-04-01T09:00:00+00:00", text_version=KONTO_LABEL
+            )
+            assert press is not None, "the withdrawal moved nothing, so this case proves nothing"
+            await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
+            await confirm_as_returning(database, client)
+            await admit(database, client, registrierung_id)
+
+            return view, (await persons(database))[0]["einwilligung"]
+
+        view, einwilligung = on_a_league(mongo_replica_set_url, body)
+
+        assert (view.seite, view.medien) == ("bestaetigung_spieler_wiederkehrend", True)
+        assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]["text_version"]) == (False, KONTO_LABEL)
 
 
 class TestARetiredPerson:

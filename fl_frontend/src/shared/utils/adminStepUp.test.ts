@@ -7,7 +7,7 @@ import ts from "typescript";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
-import { filesUnder } from "@/core/treeWalk.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -124,21 +124,20 @@ const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolv
 
 const { stepUpRequired } = await import("./adminMutation.ts");
 
-const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
-
 /** The two actions that authorize nobody, which `fl_frontend/src/shared/utils/adminActionSpine.test.ts` exempts for their own reasons. */
 const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", "auth :: signOutAction"]);
 
 /** The account page's slices, whose every write its own spine holds to the window (`docs/frontend/spec.md :: I422`). */
 const ACCOUNT_SLICES: ReadonlySet<string> = new Set(["konto", "passkeys"]);
 
-/** The action named, off its slice's real actions module. */
+/** The action named, off the real server action module of its slice that exports it. */
 async function action(name: string): Promise<(payload?: unknown) => Promise<unknown>> {
   const slice = STEP_UP_WRITES[name] ?? assert.fail(`${name} is no step-up write`);
-  const actions = (await import(pathToFileURL(path.join(SLICES, slice, "actions.ts")).href)) as Record<string, unknown>;
-  const found = actions[name];
-  assert.equal(typeof found, "function", `${slice} exports no ${name}`);
-  return found as (payload?: unknown) => Promise<unknown>;
+  for (const file of serverActionModules(20).filter((module) => path.basename(path.dirname(module)) === slice)) {
+    const found = ((await import(pathToFileURL(file).href)) as Record<string, unknown>)[name];
+    if (typeof found === "function") return found as (payload?: unknown) => Promise<unknown>;
+  }
+  return assert.fail(`${slice} exports no ${name}`);
 }
 
 const refused = stepUpRequired();
@@ -174,7 +173,7 @@ describe("an administrator write the server holds to the step-up window", () => 
     setFresh(false);
     const refusedBeforeTheBody: string[] = [];
 
-    for (const file of filesUnder(SLICES, (name) => name === "actions.ts", 10).sort()) {
+    for (const file of serverActionModules(20)) {
       const slice = path.basename(path.dirname(file));
       if (ACCOUNT_SLICES.has(slice)) continue;
       for (const [name, exported] of Object.entries((await import(pathToFileURL(file).href)) as Record<string, unknown>)) {

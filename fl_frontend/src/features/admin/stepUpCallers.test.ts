@@ -15,7 +15,7 @@ import ts from "typescript";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile, serverActionModules } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
@@ -106,8 +106,11 @@ function importedStepUpWrites(file: string): string[] {
   return found;
 }
 
-/** Every module importing a step-up write, and the writes it imports. */
-const CALLERS = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name) && name !== "actions.ts", 200)
+const ACTION_MODULES: ReadonlySet<string> = new Set(serverActionModules(20));
+
+/** Every module importing a step-up write, and the writes it imports: a server action module is the write, never its caller. */
+const CALLERS = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+  .filter((file) => !ACTION_MODULES.has(file))
   .map((file) => [path.relative(SRC, file).split(path.sep).join("/"), importedStepUpWrites(file).sort()] as const)
   .filter(([, writes]) => writes.length > 0);
 
@@ -272,7 +275,7 @@ const DRIVES: Record<string, Drive[]> = {
     {
       render: () => strip(false),
       reach: async (user) => {
-        await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Clara Meier korrigieren" }));
+        await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Clara Meier" }));
         const box = screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
         await user.clear(box);
         await user.type(box, "clara@neu.example");
@@ -285,7 +288,7 @@ const DRIVES: Record<string, Drive[]> = {
     {
       render: () => strip(true),
       reach: async (user) => {
-        await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+        await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
         await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
         await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
         await user.type(screen.getByRole("textbox", { name: "Telefon" }), "069 7654321");
@@ -326,7 +329,7 @@ const DRIVES: Record<string, Drive[]> = {
           } as never),
           { search: "saison_id=2026" },
         ),
-      press: "Schiedsrichter Anna Körner reaktivieren",
+      press: "Reaktivieren: Schiedsrichter Anna Körner",
       asks: unanswered,
     })),
   ],

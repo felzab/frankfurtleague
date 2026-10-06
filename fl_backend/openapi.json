@@ -367,9 +367,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-STATE-002.REQ-STATE-003.REQ-VAL-001"
           },
@@ -384,6 +381,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3261,9 +3261,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-STATE-002.REQ-STATE-003.REQ-VAL-001"
           },
@@ -3278,6 +3275,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5109,9 +5109,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SWAP-001.REQ-SWAP-002.REQ-SWAP-003.REQ-SWAP-004.REQ-SWAP-005.REQ-SWAP-006"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-SWAP-007.REQ-VAL-001"
           },
@@ -5126,6 +5123,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SWAP-001.REQ-SWAP-002.REQ-SWAP-003.REQ-SWAP-004.REQ-SWAP-005.REQ-SWAP-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7221,7 +7221,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: an address holds one stored person, and matched on the address\nalone a mailbox shared anyway would show a sibling that person's birthdate. All three are null wherever no stored person\nmatches both.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and which of two pages the link opens.\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, so beside it the view\nserves the person's stored birthdate, publication scope and media switch, the birthdate null where none is\nstored. Matched on the address alone, a mailbox shared anyway would show a sibling that person's answers, so on\n`bestaetigung_spieler`, the new pupil's page, all three are null.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7275,7 +7275,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe pupil page's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever\nthe link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor (`-007`), and a media consent from a pupil\nbelow `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the label and the last two judged before anything is\nwritten, so a reloaded page or a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), choices that are not the ones that page\nasks -- both on the new pupil's, none on the returning pupil's (`REQ-REGISTRIERUNG-017`) -- a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7299,7 +7299,7 @@
             }
           },
           "422": {
-            "$ref": "#/components/responses/422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-VAL-001"
+            "$ref": "#/components/responses/422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-REGISTRIERUNG-017.REQ-VAL-001"
           },
           "default": {
             "$ref": "#/components/responses/default"
@@ -7962,9 +7962,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -8018,9 +8015,6 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -8073,9 +8067,6 @@
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -8382,9 +8373,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -8930,9 +8918,6 @@
               }
             }
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-EINWILLIGUNG-002.REQ-VAL-001"
           },
@@ -8947,6 +8932,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
           },
           "429": {
             "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
@@ -9001,9 +8989,6 @@
               }
             }
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
           },
@@ -9018,6 +9003,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -9069,7 +9057,7 @@
     "/api/v0/spieler/selbst/einwilligung": {
       "patch": {
         "summary": "Change a signed-in pupil's own publication and media consent",
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, and nothing else: the confirmation day, the day given, who gave it and the\nwording they confirmed stand, and no other document is written. A PATCH moving neither choice writes\nnothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a\nwithdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's pupil control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where the stored birthdate\ndoes not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's\nceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never refused for\nit. Each refusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's pupil control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where the stored birthdate\ndoes not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's\nceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never refused for\nit. Each refusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "patch_einwilligung_api_v0_spieler_selbst_einwilligung_patch",
         "requestBody": {
           "content": {
@@ -9092,9 +9080,6 @@
               }
             }
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-EINWILLIGUNG-002.REQ-VAL-001"
           },
@@ -9109,6 +9094,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
           },
           "429": {
             "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
@@ -9168,7 +9156,7 @@
     "/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": {
       "patch": {
         "summary": "Change a signed-in referee's own publication and media consent",
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, and nothing else: the confirmation day, the day given, who gave it and\nthe wording they confirmed stand, and no fixture is written. The fixture list does not read the scope yet: it\nserves the name each fixture stores, so a withdrawal here changes no fixture page until its read joins this row. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to\n`true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's referee control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where the stored birthdate does\nnot reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling\nfor the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never refused for it. Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this\nrow; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\nfixture list does not read the scope yet: it serves the name each fixture stores, so a withdrawal here changes no\nfixture page until its read joins this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address, or a grant on a retired one\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since\nthe page was served (`REQ-EINWILLIGUNG-003`); a `text_version` naming no version of the account page's referee control, or a grant naming\nany but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where the stored birthdate does\nnot reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling\nfor the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a withdrawal is never refused for it. Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this\nrow; nothing here can.",
         "operationId": "patch_einwilligung_api_v0_schiedsrichter_selbst__schiedsrichter_id__einwilligung_patch",
         "security": [
           {
@@ -9208,9 +9196,6 @@
               }
             }
           },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
-          },
           "422": {
             "$ref": "#/components/responses/422.REQ-EINWILLIGUNG-002.REQ-VAL-001"
           },
@@ -9225,6 +9210,9 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003"
           },
           "429": {
             "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
@@ -17498,7 +17486,7 @@
           "einwilligung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLEinwilligung"
+                "$ref": "#/components/schemas/FLRegistrierungEinwilligung"
               },
               {
                 "type": "null"
@@ -17873,16 +17861,13 @@
             "minLength": 1,
             "title": "Vorname"
           },
-          "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+          "seite": {
+            "type": "string",
+            "enum": [
+              "bestaetigung_spieler",
+              "bestaetigung_spieler_wiederkehrend"
             ],
-            "title": "Text Version"
+            "title": "Seite"
           },
           "mindestalter": {
             "type": "integer",
@@ -17938,7 +17923,7 @@
           "schule",
           "saison_id",
           "vorname",
-          "text_version",
+          "seite",
           "mindestalter",
           "medien_mindestalter",
           "geburtsdatum",
@@ -17962,15 +17947,29 @@
             "title": "Geburtsdatum"
           },
           "umfang": {
-            "type": "string",
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Umfang"
           },
           "medien": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Medien"
           },
           "text_version": {
@@ -17990,7 +17989,7 @@
           "text_version"
         ],
         "title": "FLRegistrierungBestaetigungPayload",
-        "description": "One pupil's own answer: their date of birth, and the two consents that stand under one record."
+        "description": "One pupil's own answer: their date of birth, and on the new pupil's page the two consents that stand under one record."
       },
       "FLRegistrierungBestaetigungResponse": {
         "properties": {
@@ -18014,15 +18013,29 @@
             "title": "Geburtsdatum"
           },
           "umfang": {
-            "type": "string",
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Umfang"
           },
           "medien": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Medien"
           }
         },
@@ -18035,6 +18048,96 @@
         ],
         "title": "FLRegistrierungBestaetigungResponse",
         "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time."
+      },
+      "FLRegistrierungEinwilligung": {
+        "properties": {
+          "umfang": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kader_oeffentlich",
+                  "intern"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Umfang"
+          },
+          "erteilt_von": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "erziehungsberechtigt",
+                  "volljaehrig",
+                  "bestandsuebernahme"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erteilt Von"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
+          },
+          "text_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Version"
+          },
+          "medien": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medien"
+          },
+          "nachweis": {
+            "$ref": "#/components/schemas/FLEinwilligungNachweise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bestaetigt_am"
+        ],
+        "title": "FLRegistrierungEinwilligung",
+        "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice (`docs/backend/spec.md :: I_NEW_KONTO-B3_1`)."
       },
       "FLRegistrierungEntscheidungZeile": {
         "properties": {
@@ -24751,40 +24854,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BOOKING-001",
-                        "REQ-CLASH-001",
-                        "REQ-DATE-001",
-                        "REQ-ELIGIBILITY-001",
-                        "REQ-ELIGIBILITY-002",
-                        "REQ-RESULT-001",
-                        "REQ-SPIELTAG-001",
-                        "REQ-SPIELTAG-002",
-                        "REQ-WIRING-001",
-                        "REQ-WIRING-002",
-                        "REQ-WIRING-003"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005": {
         "description": "Conflict",
         "content": {
@@ -24834,31 +24903,6 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-EINLADUNG-002"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-EINWILLIGUNG-001",
-                        "REQ-EINWILLIGUNG-003"
                       ]
                     }
                   }
@@ -25054,35 +25098,6 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-SWAP-001.REQ-SWAP-002.REQ-SWAP-003.REQ-SWAP-004.REQ-SWAP-005.REQ-SWAP-006": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-SWAP-001",
-                        "REQ-SWAP-002",
-                        "REQ-SWAP-003",
-                        "REQ-SWAP-004",
-                        "REQ-SWAP-005",
-                        "REQ-SWAP-006"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004": {
         "description": "Conflict",
         "content": {
@@ -25233,6 +25248,39 @@
           }
         }
       },
+      "409.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BOOKING-001",
+                        "REQ-CLASH-001",
+                        "REQ-DATE-001",
+                        "REQ-ELIGIBILITY-001",
+                        "REQ-ELIGIBILITY-002",
+                        "REQ-RESULT-001",
+                        "REQ-SPIELTAG-001",
+                        "REQ-SPIELTAG-002",
+                        "REQ-WIRING-001",
+                        "REQ-WIRING-002",
+                        "REQ-WIRING-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.REQ-DATE-002.REQ-DATE-003.REQ-DATE-008": {
         "description": "Conflict",
         "content": {
@@ -25280,6 +25328,30 @@
                         "REQ-RULES-009",
                         "REQ-RULES-011",
                         "REQ-RULES-012"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-EINWILLIGUNG-001.REQ-EINWILLIGUNG-003": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-EINWILLIGUNG-001",
+                        "REQ-EINWILLIGUNG-003"
                       ]
                     }
                   }
@@ -25625,6 +25697,34 @@
           }
         }
       },
+      "409.REQ-SWAP-001.REQ-SWAP-002.REQ-SWAP-003.REQ-SWAP-004.REQ-SWAP-005.REQ-SWAP-006": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SWAP-001",
+                        "REQ-SWAP-002",
+                        "REQ-SWAP-003",
+                        "REQ-SWAP-004",
+                        "REQ-SWAP-005",
+                        "REQ-SWAP-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "410.REQ-BEWERBUNG-010.REQ-KONTAKT-004.REQ-KONTAKT-006": {
         "description": "Gone",
         "content": {
@@ -25799,7 +25899,7 @@
           }
         }
       },
-      "422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-VAL-001": {
+      "422.REQ-REGISTRIERUNG-007.REQ-REGISTRIERUNG-010.REQ-REGISTRIERUNG-017.REQ-VAL-001": {
         "description": "Unprocessable Content",
         "content": {
           "application/json": {
@@ -25814,6 +25914,7 @@
                       "enum": [
                         "REQ-REGISTRIERUNG-007",
                         "REQ-REGISTRIERUNG-010",
+                        "REQ-REGISTRIERUNG-017",
                         "REQ-VAL-001"
                       ]
                     }
@@ -26100,5 +26201,11 @@
         }
       }
     }
-  }
+  },
+  "x-fl-protocol-families": [
+    "AUTH",
+    "DROSSELUNG",
+    "ROUTE",
+    "VAL"
+  ]
 }

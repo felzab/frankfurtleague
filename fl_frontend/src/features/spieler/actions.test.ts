@@ -166,10 +166,7 @@ describe("the player actions against the codes their endpoints publish", () => {
   it("maps every refusal the erasure endpoint publishes", () => {
     const published = publishedRefusals(ERASURE_OPERATION);
 
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-PURGE-001"],
-    );
+    assert.deepEqual(published, ["REQ-PURGE-001"]);
     for (const code of published) {
       assert.notEqual(answerShown(ERASURE_OPERATION, code, mapErasureRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -603,8 +600,8 @@ const listed = (row: AdminSpielerRow, saisonTeams: SpielerTeamOption[]): string 
     ),
   );
 
-const ROW_RESTORE = "Kadereintrag von Lena Meier reaktivieren";
-const PERSON_RESTORE = "Spieler Lena Meier reaktivieren";
+const ROW_RESTORE = "Kadereintrag reaktivieren: Lena Meier";
+const PERSON_RESTORE = "Spieler reaktivieren: Lena Meier";
 
 describe("the reactivate's gate on the list", () => {
   /* The same endpoint is reached from a row, and the list holds what decides the refusal already: the
@@ -781,10 +778,7 @@ describe("the squad edit's refusals", () => {
   /* `PATCH /spieler/{spieler_id}` is a prefix of it and refuses on no rule, which is why the undo
      route catches nothing around the person half. */
   it("reads the squad patch's own rules", () => {
-    assert.deepEqual(
-      publishedRefusals(SQUAD_PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"],
-    );
+    assert.deepEqual(publishedRefusals(SQUAD_PATCH_OPERATION), ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"]);
   });
 
   for (const code of publishedRefusals(SQUAD_PATCH_OPERATION)) {

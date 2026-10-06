@@ -14,6 +14,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
+import { benannt } from "@/shared/utils/benannt";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -223,7 +224,7 @@ export function AdminBracketWiringView({
                               <IconTooltip label="Spiel bearbeiten">
                                 <Link
                                   href={adminSpielEditHref(spiel.id, saisonId)}
-                                  aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
+                                  aria-label={benannt("Spiel bearbeiten", `Spiel Nr. ${spiel.spiel_nr}`)}
                                   className={BRAND_ICON_BUTTON_CLASSES}>
                                   <PencilToSquare
                                     aria-hidden="true"

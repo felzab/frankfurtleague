@@ -82,7 +82,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
       <RowActionLink
         href={saisonHref(`/bereich/admin/saisons/${saison.id}`)}
         label="Bearbeiten"
-        ariaLabel={`Saison ${saison.id} bearbeiten`}>
+        subject={`Saison ${saison.id}`}>
         <Pencil
           className="size-4.5"
           aria-hidden="true"
@@ -90,7 +90,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
       </RowActionLink>
       {/* Both leave the row for another list, which is what sends them here rather than to an icon
           of their own beside the pencil. */}
-      <RowActionMenu ariaLabel={`Weitere Aktionen für Saison ${saison.id}`}>
+      <RowActionMenu subject={`Saison ${saison.id}`}>
         <RowActionMenuItem
           id="spieltage"
           href={`/bereich/admin/spieltage?saison_id=${encodeURIComponent(saison.id)}`}

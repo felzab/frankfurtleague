@@ -158,6 +158,9 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     // The page offers no media switch below the served age, so only a page older than that rule
     // sends this answer, and its repair is the refused payload's.
     case "REQ-REGISTRIERUNG-010":
+    // Choices the link's page did not ask, or none where it asked both: each page sends its own pair,
+    // so only one older than the backend's answer sends this, and the mail's link reopens it.
+    case "REQ-REGISTRIERUNG-017":
       return { error: ANTWORT_NEU_OEFFNEN };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
@@ -276,8 +279,8 @@ export function mapRegistrierungAnsichtRefusal(error: unknown): "ungueltig" | nu
   // than offering a reload that cannot succeed.
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
 
-  // The season, club or registration the link names gone. The sign-up answers a gone record alike;
-  // the confirmation, writing by the `_id` its transaction read, cannot.
+  // The season or club an invitation names gone, which the invitation's read answers as the sign-up
+  // does; the confirmation's read and write meet no gone record.
   if (isRecordMissing(error)) return "ungueltig";
 
   return isRuleRefusal(error) ? "ungueltig" : null;
