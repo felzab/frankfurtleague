@@ -8428,7 +8428,7 @@
     "/api/v0/registrierungen/{registrierung_id}/aufnehmen": {
       "post": {
         "summary": "Admit a registration into the team's squad",
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name, its confirmed birthdate and\nits freshly confirmed consent record. Where that person's name or birthdate differs, `spieler_id` must name them\n(the team said it is the same person). With no such person, `spieler_id` is null for a new one, or names the\naddressless namesake the read proposed, who then takes the registration's address. A retired person comes back.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban\nlist holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no\nlonger offers (`REQ-REGISTRIERUNG-003`), a `spieler_id` that is not the person this registration may be admitted\ninto (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a\nfull squad (`REQ-SQUAD-003`). Nothing is written on any of them.",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name, its confirmed birthdate and\nits freshly confirmed consent record. Where that person's name or birthdate differs, `spieler_id` must name them\n(the team said it is the same person). With no such person, `spieler_id` is null for a new one, or names the\naddressless namesake the read proposed, who then takes the registration's address. A retired person comes back.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban\nlist holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no\nlonger offers (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds\nno stored person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, a namesake the body names\nincluded, and the pupil registers again), a `spieler_id` that is not the person this registration may be admitted\ninto (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a\nfull squad (`REQ-SQUAD-003`). Nothing is written on any of them.",
         "operationId": "aufnehmen_api_v0_registrierungen__registrierung_id__aufnehmen_post",
         "security": [
           {
@@ -8472,7 +8472,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-013.REQ-REGISTRIERUNG-014.REQ-REGISTRIERUNG-015.REQ-SQUAD-003"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-013.REQ-REGISTRIERUNG-014.REQ-REGISTRIERUNG-015.REQ-REGISTRIERUNG-018.REQ-SQUAD-003"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -24528,7 +24528,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-013.REQ-REGISTRIERUNG-014.REQ-REGISTRIERUNG-015.REQ-SQUAD-003": {
+      "409.DB-COMMON-002.REQ-REGISTRIERUNG-003.REQ-REGISTRIERUNG-013.REQ-REGISTRIERUNG-014.REQ-REGISTRIERUNG-015.REQ-REGISTRIERUNG-018.REQ-SQUAD-003": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -24546,6 +24546,7 @@
                         "REQ-REGISTRIERUNG-013",
                         "REQ-REGISTRIERUNG-014",
                         "REQ-REGISTRIERUNG-015",
+                        "REQ-REGISTRIERUNG-018",
                         "REQ-SQUAD-003"
                       ]
                     }

@@ -366,6 +366,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
       "REQ-REGISTRIERUNG-013",
       "REQ-REGISTRIERUNG-014",
       "REQ-REGISTRIERUNG-015",
+      "REQ-REGISTRIERUNG-018",
       "REQ-SQUAD-003",
     ];
 
