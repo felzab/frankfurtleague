@@ -496,6 +496,13 @@ def test_an_argument_pytest_fills_itself_asks_no_fixture(consumer: str, dead: li
             "patches `test_reads`",
             id="patch-bound-through-a-second-name",
         ),
+        pytest.param(
+            'NAME = "league"\n\n\ndef asked(request):\n    return request.getfixturevalue(NAME)\n\n\n'
+            "def test_reads(request):\n    assert asked(request)\n",
+            # Asked in a helper the test reaches by calling it, where the refusal is raised on the way down.
+            "no string literal",
+            id="computed-request-in-a-reached-helper",
+        ),
     ],
 )
 def test_a_spelling_this_cannot_follow_leaves_the_module_unjudged(body: str, said: str):
