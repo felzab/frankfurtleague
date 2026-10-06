@@ -10,6 +10,7 @@ import { Button } from "@heroui/react/button";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { einladeAdresswechselAction, verwirfAdresswechselAction } from "@/features/schiedsrichter/actions";
+import { KeinTag } from "@/features/spieler/components/ui/Nachweis";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
@@ -28,12 +29,11 @@ import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import { LinkAbgelaufen } from "./FormBestaetigungSection";
+
 import type { FLSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/schemas";
 
-/** The consent link's panel spells these the same way, so one state is one word across the two. */
-const ABGELAUFEN_LABEL = "abgelaufen";
 export const ADRESSWECHSEL_WARTET = "Neue Adresse wartet auf Bestätigung";
-export const ADRESSWECHSEL_ABGELAUFEN = "Die Bestätigungsfrist ist abgelaufen.";
 /**
  * The re-send's accessible name, its link named as the contacts editor names each seat's: the consent
  * panel on the same page holds a „Link erneut senden“ of its own, for another link.
@@ -109,18 +109,19 @@ export function FormAdresswechselSection({
       </div>
 
       <div className={panel.body()}>
-        <p className="muted-hint">{istAbgelaufen ? ADRESSWECHSEL_ABGELAUFEN : ADRESSWECHSEL_WARTET}</p>
+        {/* The lapse is the mark beside the deadline alone, as the consent link's panel says it. */}
+        <p className="muted-hint">{ADRESSWECHSEL_WARTET}</p>
 
         <dl className={FIELD_PAIR_CLASSES}>
           <Angabe label="Neue Adresse">{adresswechsel.email}</Angabe>
           <Angabe label="Link gesendet am">{formatSpielDatum(adresswechsel.verschickt_am)}</Angabe>
           <Angabe label="Gültig bis">
             {formatSpielDatum(adresswechsel.frist)}
-            {istAbgelaufen && <span className={`${labelBadge("warning")} ms-2 h-7 shrink-0`}>{ABGELAUFEN_LABEL}</span>}
+            {istAbgelaufen && <LinkAbgelaufen />}
           </Angabe>
           <Angabe label="Zustellung">
             {zustellung === null ? (
-              <span className="text-foreground-muted italic">Nichts zu melden</span>
+              <KeinTag>Nichts zu melden</KeinTag>
             ) : (
               <span className={`${labelBadge(zustellung.tone)} h-7 shrink-0`}>{zustellung.label}</span>
             )}

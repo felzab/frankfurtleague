@@ -22,7 +22,7 @@ doubleActions({
 });
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { ADRESSWECHSEL_ABGELAUFEN, ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET, FormAdresswechselSection } =
+const { ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET, FormAdresswechselSection } =
   await import("./FormAdresswechselSection.tsx");
 
 const OFFEN: FLSchiedsrichterAdresswechsel = { email: "anna@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
@@ -67,8 +67,9 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
   it("says a lapsed link is lapsed, beside its date", () => {
     const shown = words({ ...OFFEN, frist: "2020-01-01" });
 
-    assert.ok(shown.includes(ADRESSWECHSEL_ABGELAUFEN), "a lapsed link reads as waiting");
-    assert.match(shown, /abgelaufen/);
+    // Once, beside the date, as the consent link's panel marks its own.
+    assert.equal(shown.split("abgelaufen").length - 1, 1, "the lapse is said other than once");
+    assert.match(shown, /01\.01\.2020 abgelaufen/);
   });
 
   it("wears the delivery register's own chip where the link's message was refused", () => {
