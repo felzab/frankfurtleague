@@ -9,6 +9,8 @@ import { FLMedienStandPayloadSchema, FLMedienStandSchema, FLSpielerSelbstEinwill
 import { FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
 import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
+import type { KontaktZeile } from "@/core/kontaktEmail";
+
 /**
  * The address IS the identity: nothing joins one season's Trainer to the next, so the request names
  * a person and not a row. Its own declaration, so no value typed for a write reaches the deletion.
@@ -96,6 +98,9 @@ export const FLKontaktMintSchema = z.object({
   vorname: z.string(),
   schule: z.string(),
   frist: CustomDateStringSchema,
+  // The row's state, read in the mint's own transaction: it fixes what the link's page takes, so the
+  // mail asks for exactly that.
+  zeile: z.enum(["offen", "saison_vorbei", "ausgetreten"] as const satisfies readonly KontaktZeile[]),
 });
 export type FLKontaktMint = z.infer<typeof FLKontaktMintSchema>;
 

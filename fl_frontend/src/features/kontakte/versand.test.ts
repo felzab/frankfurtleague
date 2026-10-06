@@ -29,7 +29,6 @@ type Answer = () => unknown;
 let save: Answer;
 let resend: Answer;
 let memberships: Answer;
-let saisons: Answer;
 const zustellung: Record<string, unknown>[] = [];
 
 function answerFor({ endpoint, body }: ApiCall): unknown {
@@ -39,7 +38,6 @@ function answerFor({ endpoint, body }: ApiCall): unknown {
     return { acknowledged: 1, angewendet: true };
   }
   if (endpoint === "/teams/memberships") return memberships();
-  if (endpoint === "/saisons/list/admin") return saisons();
   return endpoint.endsWith("/bestaetigung/einladen") ? resend() : save();
 }
 
@@ -109,14 +107,15 @@ const GESPEICHERT = {
 };
 const PAYLOAD = { team_id: TEAM_ID, saison_id: "2627", kontakte: BLOCK, kontakte_stand: "9f2c" };
 
-/** A link minted for one person, as each minting write answers it. */
-const minted = (vorname: string, email: string, rollen: string[], token = `token-${vorname}`) => ({
+/** A link minted for one person, as each minting write answers it, on an open row unless `zeile` names a closed one. */
+const minted = (vorname: string, email: string, rollen: string[], token = `token-${vorname}`, zeile = "offen") => ({
   token,
   rollen,
   email,
   vorname,
   schule: "Lessing-Kolleg",
   frist: "2026-10-17",
+  zeile,
 });
 
 /** The save's answer: the block as stored and the links it minted. */
@@ -130,55 +129,24 @@ const saved = (bestaetigungen: unknown[]) => ({
   bestaetigungen,
 });
 
-/** The admin season list, holding the season the payload names in `status`; only the status is read. */
-const listing = (status: "past" | "active" | "future") => () => ({
+/** The club's membership read, holding `kontakte` for the season the payload names. */
+const holding = (kontakte: unknown) => () => ({
   acknowledged: 1,
-  format: "list",
-  saisons: [
+  teams: [
     {
-      id: "2627",
-      start_date: "2026-09-01",
-      end_date: "2027-06-30",
-      status: status,
-      rules: {
-        win_points: 3,
-        draw_points: 1,
-        qualifiers_per_group: 2,
-        number_of_groups: 2,
-        teams_per_group: 4,
-        max_kadergroesse: 18,
-        tiebreak_order: "tordifferenz",
-        forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-        erlaubte_stufen: ["E1", "Q1"],
-      },
-      schedule: [],
-      spielplan: null,
-      bewerbung: null,
-      registrierung: null,
+      id: TEAM_ID,
+      name: "Lessing-Kolleg",
+      shorthand: "LK",
+      full_name: "Lessing-Kolleg Frankfurt",
+      description: "",
+      website_url: null,
+      schulform: null,
+      inactive_since: null,
+      address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+      memberships: [{ saison_id: "2627", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: kontakte, kontakte_stand: "9f2c" }],
     },
   ],
 });
-
-/** The club's membership read, holding `kontakte` for the season the payload names. */
-const holding =
-  (kontakte: unknown, austritt: unknown = null) =>
-  () => ({
-    acknowledged: 1,
-    teams: [
-      {
-        id: TEAM_ID,
-        name: "Lessing-Kolleg",
-        shorthand: "LK",
-        full_name: "Lessing-Kolleg Frankfurt",
-        description: "",
-        website_url: null,
-        schulform: null,
-        inactive_since: null,
-        address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-        memberships: [{ saison_id: "2627", gruppe: "A", austritt: austritt, trikot_farbe: null, kontakte: kontakte, kontakte_stand: "9f2c" }],
-      },
-    ],
-  });
 
 /** Every message the mailer was handed, as its address and the seats its tags name. */
 const mailed = () => mail.sent.map(({ to, tags }) => ({ to, rollen: tags?.rollen, ziel: tags?.ziel, zielId: tags?.ziel_id }));
@@ -195,23 +163,17 @@ beforeEach(() => {
     bestaetigung: minted("Bernd", "bernd@schule.example", ["stellvertretung"]),
   });
   memberships = holding(GESPEICHERT);
-  saisons = listing("active");
 });
 
 describe("the contacts save that seats new people", () => {
   /* A closed row's newcomer is minted a link whose page takes the Widerspruch alone, so the message
-     asks no confirmation. Read at the press, as the backend judges the row at the write. */
-  for (const [zustand, schliesse, grund] of [
-    ["a season that is over", () => (saisons = listing("past")), /Die Saison ist vorbei/],
-    [
-      "a team that has left the season",
-      () => (memberships = holding(GESPEICHERT, { type: "rueckzug", grund: "Kein Kader", datum: "2026-03-12" })),
-      /Das Team spielt in dieser Saison nicht mehr mit/,
-    ],
+     asks no confirmation. The mint names the row's state, read in its own transaction. */
+  for (const [zustand, zeile, grund] of [
+    ["a season that is over", "saison_vorbei", /Die Saison ist vorbei/],
+    ["a team that has left the season", "ausgetreten", /Das Team spielt in dieser Saison nicht mehr mit/],
   ] as const) {
     it(`mails a person seated on ${zustand} the Widerspruch alone, asking no confirmation`, async () => {
-      schliesse();
-      save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"])]);
+      save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"], "token-Anna", zeile)]);
 
       await patchSaisonTeamKontakteAction(PAYLOAD);
 
@@ -229,23 +191,14 @@ describe("the contacts save that seats new people", () => {
     assert.match(mail.sent[0]?.text ?? "", /Bitte bestätige, dass das stimmt:/);
   });
 
-  /* The link is minted before the row is read, so a read that breaks still mails it, in the open row's
-     words, rather than reporting a mint that happened as a failed save. */
-  it("still mails a minted link where the row's state cannot be read, and reports the save", async () => {
-    saisons = () => aRefusal("REQ-AUTH-001", 500);
-    save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"])]);
+  /* The mint carries the row's state, so a save reads nothing after the write to word its mail: a second
+     read could disagree with the mint where the season closed between the two. */
+  it("words a minting save's mail from the mint alone, reading no list after the write", async () => {
+    save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"], "token-Anna", "saison_vorbei")]);
 
-    const res = await patchSaisonTeamKontakteAction(PAYLOAD);
-
-    assert.equal(res.success, true);
-    assert.equal(mail.sent.length, 1);
-    assert.match(mail.sent[0]?.text ?? "", /Bitte bestätige, dass das stimmt:/);
-  });
-
-  /* A save minting nothing has no message to word, so it reads no row for one. */
-  it("reads no row state for a save that minted nothing", async () => {
     await patchSaisonTeamKontakteAction(PAYLOAD);
 
+    assert.match(mail.sent[0]?.text ?? "", /Die Saison ist vorbei/);
     assert.deepEqual(
       client.calls.filter(({ endpoint }) => endpoint === "/saisons/list/admin"),
       [],
