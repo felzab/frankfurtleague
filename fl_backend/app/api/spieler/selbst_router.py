@@ -111,10 +111,10 @@ async def patch_einwilligung(
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
 
-    Writes those two on this one record, and nothing else: the confirmation day, the day given, who gave it and the
-    wording they confirmed stand, and no other document is written. A PATCH moving neither choice writes
-    nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a
-    withdrawal on a retired one too.
+    Writes those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:
+    the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
+    PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is
+    taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an address holding no confirmed pupil record, or a grant on a retired one
     (`REQ-FUNKTION-001`); a `nachweis_stand` other than the record's own, either choice's evidence having moved since

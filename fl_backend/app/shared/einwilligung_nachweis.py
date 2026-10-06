@@ -27,6 +27,13 @@ ERTEILT_ZUVOR: Final = "erteilt_zuvor"
 # either any longer. Who seated a seat's person is `eingetragen_von`, and the evidence names no speaker.
 SPRECHER: Final[tuple[str, ...]] = ("erteilt_von", "erfasst_von")
 
+
+def ohne_sprecher(block: Mapping[str, Any]) -> dict[str, Any]:
+    """A consent block as a write carries it onto another document: every field but a stored speaker."""
+
+    return {field: value for field, value in block.items() if field not in SPRECHER}
+
+
 FLEinwilligungWahl = Literal["umfang", "medien"]
 WAHLEN: Final[tuple[FLEinwilligungWahl, ...]] = ("umfang", "medien")
 
