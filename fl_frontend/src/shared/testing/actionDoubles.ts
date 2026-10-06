@@ -129,8 +129,10 @@ export function doubleActions({
  * Every server action module, for a suite in which no case saves: a real write module loads the
  * sign-in store and its database driver into the render, which is most of such a suite's time.
  */
-export function doubleEveryAction(): ReturnType<typeof doubleActions> {
-  return doubleActions({ modules: serverActionModules(20).map((file) => `/src/${srcPathOf(file)}`) });
+export function doubleEveryAction({ payloadOf }: Pick<Parameters<typeof doubleActions>[0], "payloadOf"> = {}): ReturnType<
+  typeof doubleActions
+> {
+  return doubleActions({ modules: serverActionModules(20).map((file) => `/src/${srcPathOf(file)}`), payloadOf: payloadOf });
 }
 
 /** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */

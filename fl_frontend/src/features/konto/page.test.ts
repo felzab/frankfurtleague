@@ -15,8 +15,9 @@ import type { EinwilligungEintrag } from "./components/forms/EinwilligungForm/Ei
 import type { Anmeldung, Sicherheit } from "./types.ts";
 
 const { setSubject } = doubleActionRequest();
-// The shells hand a sign-out action to the bar, and the section's actions are called nowhere here.
-doubleEveryAction();
+// The shells hand a sign-out action to the bar. Every argument recorded, so a case reads what a control's
+// action was bound to as well as what it sends.
+const { calls: actionCalls } = doubleEveryAction({ payloadOf: (args) => args });
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: KontoPage } = await import("@/app/bereich/(persoenlich)/konto/page.tsx");
@@ -496,6 +497,39 @@ describe("the account page's consent section", () => {
     );
   });
 
+  /* Each record's ids are strings and its payload the same shape, so a control bound to another record's
+     id, or to another kind's action, type-checks and sends its press to a record that refuses it. */
+  it("binds each control to its own record's action and ids", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({
+      spieler: SPIELER,
+      schiedsrichter: [SCHIEDSRICHTER],
+      registrierungen: [REGISTRIERUNG],
+      sitze: [SITZ],
+      bewerbungen: [BEWERBUNG_SITZ],
+    });
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+    const antwort = { umfang: "intern" as const, medien: false, text_version: "2026-10-konto", nachweis_stand: { umfang: null, medien: null } };
+    actionCalls.length = 0;
+
+    for (const { control } of panel.props.eintraege) await control?.props.speichereAction(antwort);
+
+    assert.deepEqual(
+      actionCalls.map(({ action, payload }) => [action, ...(payload as unknown[]).slice(0, -1)]),
+      [
+        ["patchSpielerEinwilligungAction"],
+        ["patchSchiedsrichterEinwilligungAction", SCHIEDSRICHTER.schiedsrichter_id],
+        ["patchRegistrierungEinwilligungAction", REGISTRIERUNG.registrierung_id],
+        ["patchSitzEinwilligungAction", SITZ.team_id, SITZ.saison_id],
+        ["patchBewerbungEinwilligungAction", BEWERBUNG_SITZ.bewerbung_id],
+      ],
+    );
+    assert.ok(
+      actionCalls.every(({ payload }) => (payload as unknown[]).at(-1) === antwort),
+      "a control sent other than its press",
+    );
+  });
+
   /* The floor is the read's, over every seat held on the row: a page reckoning it from the roles itself
      would name another age the day the backend's rule moves. */
   for (const [art, konto] of [
@@ -513,13 +547,12 @@ describe("the account page's consent section", () => {
   }
 
   /* One media floor per entry, served: the control's paragraph and every confirmation's words name it,
-     a floor of the page's own in either reading as a second rule. 21 is no floor served today. A seat
-     confirmed under the running label, whose words name the media floor where the fixture's older
-     label names none. */
+     a floor of the page's own in either reading as a second rule. 21 is no floor served today. */
   for (const [art, konto] of [
     ["a pupil", { spieler: { ...SPIELER, medien_mindestalter: 21 } }],
     ["a referee", { schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 21 }] }],
     ["a pending registration", { registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 21 }] }],
+    // Each seat confirmed under the running label, whose words name the media floor; the fixture's label names none.
     ["a seat", { sitze: [{ ...SITZ, medien_mindestalter: 21, bestaetigt: [{ ...SITZ.bestaetigt[0], text_version: SITZ_LAUFEND }] }] }],
     [
       "a pending application's seat",
