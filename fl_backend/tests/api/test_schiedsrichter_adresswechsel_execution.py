@@ -250,11 +250,15 @@ async def refused_code(call: Awaitable[Any]) -> str:
 class TestTheSaveOnAConfirmedReferee:
     def test_it_holds_the_new_address_apart_and_answers_its_link_with_both_addresses(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await save(database, client, email=NEW_EMAIL), await stored(database)
+            before = await stored(database)
 
-        saved, row = on_a_league(mongo_replica_set_url, body)
+            return before, await save(database, client, email=NEW_EMAIL), await stored(database)
+
+        before, saved, row = on_a_league(mongo_replica_set_url, body)
 
         assert saved.bestaetigung is None
+        # The answered consent link's block stands: the new address is proved by a link of its own.
+        assert row[BESTAETIGUNG_FELD] == before[BESTAETIGUNG_FELD]
         assert saved.adresswechsel is not None
         assert (saved.adresswechsel.email, saved.adresswechsel.bisherige_email) == (NEW_EMAIL, EMAIL)
         assert saved.adresswechsel.frist == bestaetigung_frist_from(today=TODAY)
