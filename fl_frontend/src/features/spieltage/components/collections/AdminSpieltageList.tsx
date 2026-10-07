@@ -174,10 +174,10 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                         and reading "1" before every name is noise. The name is the row's accessible
                         identity, which is what the action labels name too. */}
                     <span className="truncate fluid-sm font-semibold text-foreground">{spieltag.label}</span>
-                    {/* The undated matchday comes FIRST: its two nulls are equal, so the one-day
-                        branch below would render its absence as a single placeholder date. A range
-                        repeating one date twice reads as two facts. */}
-                    {spieltag.beginn === null && spieltag.ende === null ? (
+                    {/* A matchday missing either date comes FIRST: two nulls are equal, so the one-day
+                        branch would render them as one placeholder date, and the en dash joins two dates
+                        alone. One date repeated as a range reads as two facts. */}
+                    {spieltag.beginn === null || spieltag.ende === null ? (
                       <span className="fluid-xs">
                         <Leer>Noch kein Zeitraum</Leer>
                       </span>

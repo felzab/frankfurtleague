@@ -33,4 +33,11 @@ describe("the club editor's description preview", () => {
 
     assertLeerMarkup(renderTree(h(DraftStatusProvider, { status: NO_DRAFT, children: section })), "Nicht hinterlegt");
   });
+
+  /* The trigger of a picker left unanswered shows the clearing row's words where the value would stand. */
+  it("reads an unanswered Schulform in the empty-value grade on its trigger", () => {
+    const section = h(FormVereinSection, { draft: DRAFT, onChange: () => {}, onFieldLeft: () => {}, onValidateSelection: () => {} });
+
+    assertLeerMarkup(renderTree(h(DraftStatusProvider, { status: NO_DRAFT, children: section })), "Keine Angabe");
+  });
 });

@@ -106,7 +106,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   // row says which it is before it is opened.
 
   // One tone for both: a Herkunft is a kind and not a standing, so the word tells the two apart. No
-  // badge where it names neither: the name cell already reads „Kein Team benannt“ there.
+  // badge where it names neither: the name cell already reads „Team nicht hinterlegt“ there.
   const renderHerkunft = (bewerbung: AdminBewerbungRow) => {
     const herkunft = bewerbungHerkunft(bewerbung);
 

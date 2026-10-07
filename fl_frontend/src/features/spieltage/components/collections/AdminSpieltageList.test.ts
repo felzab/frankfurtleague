@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { describeSpieltageCount } from "@/features/saisons/utils.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -26,9 +27,9 @@ const SPIELTAG: AdminSpieltagRow = {
   position: 1,
 };
 
-const list = (phaseProgress?: readonly SpieltagPhaseProgress[]): string =>
+const list = (phaseProgress?: readonly SpieltagPhaseProgress[], spieltag: AdminSpieltagRow = SPIELTAG): string =>
   renderTree(
-    underNext(h(AdminSpieltageList, { filteredSpieltage: [SPIELTAG], emptiness: "none" as const, saisonId: "2627", phaseProgress }), {
+    underNext(h(AdminSpieltageList, { filteredSpieltage: [spieltag], emptiness: "none" as const, saisonId: "2627", phaseProgress }), {
       search: "saison_id=2627",
     }),
   );
@@ -85,4 +86,21 @@ describe("a phase heading's matchday count", () => {
       assert.ok(textOf(html, " ").includes(describeSpieltageCount(1)), `${what}: the heading counts its matchdays some other way`);
     }
   });
+});
+
+describe("a matchday's period", () => {
+  /* The en dash joins two dates and nothing else, so a matchday missing either end reads as one with no
+     period at all, never as a range with an open end. */
+  for (const [what, beginn, ende] of [
+    ["neither date", null, null],
+    ["no end", "2026-09-19", null],
+    ["no start", null, "2026-09-20"],
+  ] as const) {
+    it(`reads a matchday with ${what} as having no period yet`, () => {
+      const html = list(undefined, { ...SPIELTAG, beginn, ende });
+
+      assertLeerMarkup(html, "Noch kein Zeitraum");
+      assert.doesNotMatch(textOf(html, " "), / – /, "a range stands with an open end");
+    });
+  }
 });

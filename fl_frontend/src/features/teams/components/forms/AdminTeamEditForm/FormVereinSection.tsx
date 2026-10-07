@@ -138,9 +138,7 @@ export function FormVereinSection({
             <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
               {/* From the prop, not `Select.Value` — the collection can lag a render behind and would
                   then show HeroUI's English placeholder. */}
-              <span className={draft.schulform ? "" : "text-foreground-muted"}>
-                {draft.schulform ? schulformLabel(draft.schulform) : "Keine Angabe"}
-              </span>
+              <span>{draft.schulform ? schulformLabel(draft.schulform) : <Leer>Keine Angabe</Leer>}</span>
               <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
             </Select.Trigger>
             <FieldError className={FIELD_ERROR_CLASSES} />
