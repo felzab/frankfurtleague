@@ -1057,7 +1057,7 @@ the last cache a passing run left, the cost of keeping a cache write out of ever
 **The aggregate `verify` job writes a wall-clock report** into its run summary on every push to
 main: per-job medians over the completed main runs already on record, against
 [`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which pairs a reference figure
-with a floor for each job its stamped main runs can cut a floor for. A row whose population is too
+with a floor for each job its stamped runs can cut a floor for. A row whose population is too
 short carries `-` in both columns, is held by its budget alone, and is named in the report as
 measured rather than compared: a reference with no floor beside it is a median nothing can judge.
 `scripts/checks/check_gate_budget.py` under `--window` writes it, and how a median is taken is at
@@ -1071,7 +1071,7 @@ so growth against it accumulates in the number rather than in the baseline.
 
 **A row appears only where that job's median has moved past that job's own floor**, and a report with
 nothing past a floor says so in one line. The floors are per job because one figure is wrong for most
-of them: resampled over whole runs of the population each row of `.github/gate-wall-clock.tsv`
+of them: resampled from the spans of the population each row of `.github/gate-wall-clock.tsv`
 stamps, a 12-run median moves by a different amount on every job in that table, so a single global
 figure dismisses a real move on the quiet jobs and cries wolf on
 the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
@@ -1085,13 +1085,15 @@ apart from those it measures at `:: report_window`.
 **Every job has a wall-clock budget, and the aggregate job refuses the run that breaks one.** The
 same table carries two more columns: `budget`, the most a single run of the job may span from its
 first step to its last, and `measured`, the completed runs the row was taken over, as
-`<runs>@<date>`. After the scope verdict, whatever the scope jobs concluded, and on every event, `scripts/checks/check_gate_budget.py` under
+`<runs>@<date>`, ending `/<run id>` where they are the attempts of one pull-request run. After the scope verdict, whatever the scope jobs concluded, and on every event, `scripts/checks/check_gate_budget.py` under
 `--jobs` reads this run's own jobs from the runs API and fails the required check on a job over its budget,
 naming the job and both figures; on a job that ran with no row, so a new job arrives with its
 measured cost or goes red, while a check added inside an existing job is held by review and by that
 job's budget, no step being measured on its own; and on a successful job the API carries no step timestamp for,
 a length nothing measured being no pass. A single run swings far wider than a median,
-which is why a budget is not the reference; the rule each budget is set by is the table's header's.
+which is why a budget is not the reference; the rule each budget is set by is the table's header's,
+and `scripts/checks/check_gate_budget.py` under `--stamp` applies it to saved runs, so a row is
+recomputed from its run ids rather than taken on trust.
 **One exceedance
 fails**: the ceiling sits above every run in the population it was set from, so a run over it is a
 re-run or a regression, and a re-run of all jobs is the repeat measurement at the cost of a click
@@ -1104,9 +1106,11 @@ so the median report is its only
 guard. `format`'s budget is the cold job's — a runner starts without prettier's cache wherever the
 lockfile or a stylesheet moves — so it is cut from the widest cold run on record rather than from
 the stamped main runs alone, most of which restored the cache.
-**Raising a budget or a reference costs a measurement.** In a pull request's `docs` job,
+**Raising a budget, a reference or a floor costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
-figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, or a
+figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, a
+new stamp counting fewer runs than the figures beside it need or naming a pull-request run for a job
+whose cache is keyed on the tree, or a
 budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
 runs. Every mode reads the table through `--reference`, so a copy is judged before it is committed
 and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
@@ -1411,7 +1415,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Reference data stale for up to a day                                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |
 | League table or fixtures stale after a season edit                                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy, and the backend's own season cache expires separately ([`docs/backend/spec.md`](../backend/spec.md) I131); recreation drops every cached page at once                                                   |
 | The `verify` check is red naming a job, its seconds and a budget                                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run all jobs, not the failed ones alone, then take the cost out rather than raise it; a right raise stamps its measuring runs (§1.6)                                                                              |
-| The `docs` job is red naming a row that rose on an unchanged stamp                                | A budget or a reference in `.github/gate-wall-clock.tsv` was raised by editing the number alone (§1.6)                                          | Measure on CI's own runs, never a development machine, and write the count and the newest run's day into the row's `measured` column (§1.6)                                                                          |
+| The `docs` job is red naming a row that rose on an unchanged stamp                                | A figure in `.github/gate-wall-clock.tsv` rose on its old stamp, or a new stamp counts fewer runs than its figures need (§1.6)                  | Cut the row with `scripts/checks/check_gate_budget.py` under `--stamp` from CI's own saved runs, never a development machine (§1.6)                                                                                  |
 
 ## 4. Known-open
 
