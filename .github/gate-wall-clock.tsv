@@ -72,28 +72,21 @@
 # Dockerfile change most worth catching is the one that empties that cache, and the median report
 # is the only guard a row like this has, so it has none while the row carries no reference.
 #
-# `backend`, `db`, `docs`, `format`, `frontend`, `images` and `scripts` are cut from the main push
-# runs their stamps count, every one of them carrying the backend's tier over workers and the db
-# scope's two suites started together. The `frontend-units` shards are cut from the pull-request
-# run their stamp counts, named in the commit that set it: main carries no run of the tree they are
-# cut for. A population as short as theirs
-# cannot be cut into two windows of twelve, and drawn with replacement it reads its own smallness
-# rather than the job -- five runs of `frontend` answered 5 percent that way. A floor cut before
-# these jobs took their present shape measures a gate they are not, as the `ops` paragraph below
-# says of a run from before its merge, and a reference with no floor beside it is a median the
-# report cannot judge. So each of these rows carries `-` for both, is held by its budget alone where
-# it has one, and is listed by the report as measured rather than compared; its reference and floor
-# are cut once twenty-four runs of its population exist.
+# `backend`, `db`, `docs`, `ops`, `scripts` and the `frontend-units` shards are cut from the 24
+# attempts of pull-request run 37627541547, the merge commit their stamps name, the tree that run
+# tests being the one main carries after the merge. `scripts` counts 23: one attempt's job failed
+# fetching the pinned shellcheck, so its population is too short to cut into two windows of twelve
+# and the row carries `-` for reference and floor, held by its budget alone.
 #
-# `ops` answers to the main push runs to 2026-09-07 its own stamp counts, fewer than the 24 that
-# end on that day: `nginx/edge_test.sh` joined that scope partway through those 24, and a run from
-# before that merge measures a gate this one is not. A population that short cannot be cut into two
-# windows of twelve, so its floor is the p95 movement between two 12-run medians drawn with
-# replacement from it. Over those 24 runs, on the three rows computable both ways, that draw landed
-# within a point of the reshuffle -- once narrower -- and on `images` about half again as wide, so
-# it is the method a short population leaves rather than a systematically looser one. The checker
-# refuses a new stamp under twenty-four runs beside a floor, so this one stands while its stamp
-# does.
+# `format`, `frontend` and `images` are cut from the main push runs their stamps count, every one of
+# them carrying the backend's tier over workers and the db scope's two suites started together. Their
+# caches are keyed on the tree, so only a first attempt of a push times them, and a population as
+# short as theirs cannot be cut into two windows of twelve: drawn with replacement it reads its own
+# smallness rather than the job -- five runs of `frontend` answered 5 percent that way -- and a
+# reference with no floor beside it is a median the report cannot judge. So each of these rows
+# carries `-` for both, is held by its budget alone where it has one, and is listed by the report as
+# measured rather than compared; its reference and floor are cut once twenty-four first attempts of
+# pushes to main exist.
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
@@ -499,14 +492,14 @@
 # five interleaved rounds, measured locally on 2026-09-26 on a sixteen-core Windows machine running
 # nothing else, against the 60 s the `scripts` row budgets for the whole job. The first main runs
 # carrying the unit spanned 45, 41 and 40 s first step to last, so this machine, starting a shell,
-# a git or a node in most of the suite's cases, reads it slower than a runner does. The selection
-# moves no row, the rows being cut from pushes to main, which already ran every scope.
+# a git or a node in most of the suite's cases, reads it slower than a runner does. Every scope runs
+# on a pull request and on main alike, so a row cut from either population pays the same work.
 #
 # `docs` gained, on a pull request alone, two steps reading the branch against its base: the
 # budget check, 0.26-0.29 s over five runs, and the line delta, 0.40-0.47 s over five runs of the
 # branch against `main`, measured locally on 2026-09-26 on a sixteen-core Windows machine running
-# nothing else. The row is cut from main runs, where neither step runs, so they move nothing, and a
-# pull request's `docs` job pays both under the row's budget.
+# nothing else. The row is cut from pull-request attempts, which run both steps, so both sit inside
+# its figures.
 #
 # `backend` gained a rule: ruff's `TID251` refuses an import its banned-api list names. `scripts`
 # inherits the selection through `scripts/ruff.toml` and ignores the rule's findings, its tooling
@@ -563,8 +556,7 @@
 # shard 1 took `fl_frontend/src/features/admin/editorWiring.test.ts`, 43 s alone. At a runner's
 # width of three files shard 1 took 103-104 s over two runs against 70 s on the older tree,
 # measured locally on 2026-10-02 on a sixteen-core Windows machine with no other agent running.
-# Of its 305 s, 14 s are files the later tree added; the rest is files moved in by position. On the
-# runner it spanned 151 s, the run the shards' stamp counts.
+# Of its 305 s, 14 s are files the later tree added; the rest is files moved in by position.
 #
 # `format`, `frontend`, the `frontend-units` shards and `db` gained a preflight: `pnpm exec node -e
 # ""` in `fl_frontend` (`scripts/gate/verify.sh :: pnpm_starts`), once in each gate process those
@@ -655,23 +647,21 @@
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, and `--base` refuses a total floor that
 # rose any other way (`scripts/checks/check_gate_budget.py :: check_total_floor`); otherwise it is
-# `-`, as while `ops` is the one row holding a reference: the sum is then that row's own median,
-# which its row already compares against its own floor, so a floor here would only print `ops`
-# moving under the whole gate's name. Move a job's seconds and move the total with it: where the two
+# `-`. Move a job's seconds and move the total with it: where the two
 # disagree `scripts/checks/check_gate_budget.py` refuses the file at parse, in any of its modes, and
 # compares nothing at all.
 #
 # job	seconds	floor	budget	measured
-backend	-	-	70	3@2026-09-26
-db	-	-	135	3@2026-09-26
-docs	-	-	40	3@2026-09-26
+backend	78	21	105	24@2026-10-07/37627541547
+db	113	7	160	24@2026-10-07/37627541547
+docs	42	8	60	24@2026-10-07/37627541547
 format	-	-	70	3@2026-09-26
 frontend	-	-	145	3@2026-09-26
-frontend-units (1)	-	-	190	1@2026-10-02
-frontend-units (2)	-	-	190	1@2026-10-02
-frontend-units (3)	-	-	190	1@2026-10-02
-frontend-units (4)	-	-	190	1@2026-10-02
+frontend-units (1)	156	5	205	24@2026-10-07/37627541547
+frontend-units (2)	132	4	205	24@2026-10-07/37627541547
+frontend-units (3)	139	11	205	24@2026-10-07/37627541547
+frontend-units (4)	96	14	205	24@2026-10-07/37627541547
 images	-	-	-	3@2026-09-26
-ops	17	29	45	13@2026-09-07
-scripts	-	-	60	3@2026-09-26
-total	17	-	-	-
+ops	18	23	45	24@2026-10-07/37627541547
+scripts	-	-	90	23@2026-10-07/37627541547
+total	774	4	-	-
